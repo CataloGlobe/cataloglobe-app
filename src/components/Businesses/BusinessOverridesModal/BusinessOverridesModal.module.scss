@@ -12,8 +12,9 @@
   align-items: center;
   justify-content: center;
 
-  padding: 1.5rem;
-  background: rgba(16, 16, 20, 0.5);
+  padding: clamp(1rem, 4vw, 2rem);
+  background: rgba(16, 16, 20, 0.6);
+  backdrop-filter: blur(6px);
 }
 
 /* ---------------------------------------------
@@ -21,30 +22,52 @@
 --------------------------------------------- */
 .modal {
   width: min(860px, 100%);
-  max-height: 80vh;
+  max-height: 85vh;
 
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 
   background: #ffffff;
-  border-radius: 20px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.25);
+  border-radius: clamp(14px, 3vw, 22px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+
+  animation: fadeInUp 0.25s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ---------------------------------------------
    HEADER
 --------------------------------------------- */
 .header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
 
-  padding: 1.25rem 1.5rem;
-  background: #ffffff;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
 
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+
+  .headerLeft {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .headerRight {
+    display: flex;
+    gap: 10px;
+  }
 }
 
 /* ---------------------------------------------
@@ -54,19 +77,22 @@
   border: none;
   background: transparent;
 
-  font-size: 1.4rem;
-  line-height: 1;
-  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 36px;
+  height: 36px;
 
   cursor: pointer;
-  color: rgba(0, 0, 0, 0.5);
+  color: rgba(0, 0, 0, 0.55);
 
-  border-radius: 8px;
+  border-radius: 10px;
   transition: background 0.15s ease, color 0.15s ease;
 
   &:hover {
     background: rgba(0, 0, 0, 0.06);
-    color: rgba(0, 0, 0, 0.85);
+    color: rgba(0, 0, 0, 0.9);
   }
 
   &:focus-visible {
@@ -79,17 +105,57 @@
    BODY
 --------------------------------------------- */
 .body {
-  padding: 1.5rem;
+  min-height: 360px;
+  padding: clamp(1rem, 3vw, 1.5rem);
   overflow-y: auto;
+
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 /* ---------------------------------------------
-   LIST
+   COLLECTION SELECTOR
+--------------------------------------------- */
+.selectorRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+
+  margin-bottom: 0.5rem;
+}
+
+.select {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fafafc;
+
+  font-size: 0.95rem;
+  color: rgba(0, 0, 0, 0.85);
+
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  &:hover {
+    border-color: rgba(0, 0, 0, 0.18);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: $brand-primary;
+    background: #ffffff;
+  }
+}
+
+/* ---------------------------------------------
+   LIST WRAPPER
 --------------------------------------------- */
 .list {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: clamp(6px, 1.5vw, 10px);
 }
 
 /* ---------------------------------------------
@@ -97,30 +163,37 @@
 --------------------------------------------- */
 .row {
   display: grid;
-  grid-template-columns: 44px 1fr 180px;
+  grid-template-columns: 42px 1fr 160px;
   align-items: center;
-  gap: 14px;
+  gap: clamp(8px, 2vw, 14px);
 
-  padding: 0.85rem 1rem;
-  border-radius: 14px;
+  padding: clamp(0.7rem, 2vw, 1rem);
+  border-radius: 16px;
 
   background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.07);
 
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 
-.row:hover {
-  background: rgba(0, 0, 0, 0.025);
-  border-color: rgba(0, 0, 0, 0.1);
+  &:hover {
+    background: rgba(0, 0, 0, 0.025);
+    border-color: rgba(0, 0, 0, 0.14);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 36px 1fr 110px;
+    padding: 0.7rem;
+  }
 }
 
 /* ---------------------------------------------
    VISIBILITY BUTTON
 --------------------------------------------- */
 .eye {
-  width: 42px;
-  height: 42px;
+  width: clamp(32px, 5vw, 38px);
+  height: clamp(32px, 5vw, 38px);
+
   padding: 0;
 
   display: flex;
@@ -130,14 +203,21 @@
   border: none;
   border-radius: 12px;
 
-  background: rgba(0, 0, 0, 0.04);
+  background: #f4f5f8;
+  color: rgba(0, 0, 0, 0.75);
+
   cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
 
-  transition: background 0.15s ease, color 0.15s ease;
-}
+  &:hover {
+    background: #edeff4;
+    color: $brand-primary;
+  }
 
-.eye:hover {
-  background: rgba(0, 0, 0, 0.08);
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba($brand-primary, 0.2);
+  }
 }
 
 /* ---------------------------------------------
@@ -145,25 +225,60 @@
 --------------------------------------------- */
 .price {
   display: grid;
-  grid-template-columns: 18px 1fr;
+  grid-template-columns: 16px 1fr;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 12px 1fr;
+    gap: 4px;
+  }
 }
 
 .euro {
+  font-size: 0.9rem;
   opacity: 0.6;
+}
+
+.input {
+  width: 100%;
+  padding: 0.7rem;
+
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 /* ---------------------------------------------
    FOOTER
 --------------------------------------------- */
 .footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  border-radius: 0 0 clamp(14px, 3vw, 22px) clamp(14px, 3vw, 22px);
 
-  padding: 1.25rem 1.5rem;
-  background: rgba(0, 0, 0, 0.015);
+  padding: clamp(1rem, 2.5vw, 1.5rem);
 
+  background: #fafafc;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------------------------------------
+   SCROLLBAR MINIMAL
+--------------------------------------------- */
+.body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.body::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
 }

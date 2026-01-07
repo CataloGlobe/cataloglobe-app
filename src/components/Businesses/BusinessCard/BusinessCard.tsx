@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from "react";
 import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 import BusinessOverridesModal from "../BusinessOverridesModal/BusinessOverridesModal";
 import Text from "@components/ui/Text/Text";
-import SelectCollectionModal from "../SelectCollectionModal/SelectCollectionModal";
 import { QRCodeSVG } from "qrcode.react";
 import { MoreVertical } from "lucide-react";
 import type { BusinessCardProps } from "@/types/Businesses";
@@ -19,14 +18,8 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
 
     const [showQrModal, setShowQrModal] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
-    const [showSelectCollection, setShowSelectCollection] = useState(false);
     const [overrideOpen, setOverrideOpen] = useState(false);
     const [showScheduleModal, setShowScheduleModal] = useState(false);
-
-    // ✅ STATO LOCALE SORGENTE DI VERITÀ
-    const [activeCollectionId, setActiveCollectionId] = useState<string | null>(
-        business.active_collection_id
-    );
 
     const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -121,23 +114,8 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                 {/* ACTIONS */}
                 <div className={styles.actions}>
                     <div className={styles.actionsLeft}>
-                        {activeCollectionId && (
-                            <button
-                                className={styles.primary}
-                                onClick={() => setOverrideOpen(true)}
-                            >
-                                Gestisci disponibilità e prezzi
-                            </button>
-                        )}
-
-                        <button
-                            className={styles.secondary}
-                            onClick={() => {
-                                setShowSelectCollection(true);
-                                setShowMenu(false);
-                            }}
-                        >
-                            Seleziona collezione
+                        <button className={styles.primary} onClick={() => setOverrideOpen(true)}>
+                            Gestisci disponibilità e prezzi
                         </button>
 
                         <button
@@ -217,29 +195,14 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
             </ConfirmModal>
 
             {/* OVERRIDES */}
-            {overrideOpen && activeCollectionId && (
-                <BusinessOverridesModal
-                    isOpen={overrideOpen}
-                    onClose={() => setOverrideOpen(false)}
-                    businessId={business.id}
-                    collectionId={activeCollectionId}
-                    title={`Gestisci disponibilità e prezzi — ${business.name}`}
-                />
-            )}
-
-            {/* SELECT COLLECTION */}
-            <SelectCollectionModal
-                isOpen={showSelectCollection}
+            <BusinessOverridesModal
+                isOpen={overrideOpen}
+                onClose={() => setOverrideOpen(false)}
                 businessId={business.id}
-                activeCollectionId={activeCollectionId}
-                onClose={() => setShowSelectCollection(false)}
-                onUpdated={newId => {
-                    // ✅ aggiornamento immediato UI
-                    setActiveCollectionId(newId);
-                    setShowSelectCollection(false);
-                }}
+                title={`Gestisci disponibilità e prezzi — ${business.name}`}
             />
 
+            {/* SELECT COLLECTION */}
             <BusinessCollectionScheduleModal
                 isOpen={showScheduleModal}
                 businessId={business.id}

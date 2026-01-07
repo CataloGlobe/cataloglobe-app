@@ -10,39 +10,54 @@ import {
 } from "@/services/supabase/overrides";
 
 import type { CollectionItemWithItem, OverrideRowForUI } from "@/types/database";
+import { listBusinessSchedules } from "@/services/supabase/schedules";
 import { Eye, EyeOff, X } from "lucide-react";
 import styles from "./BusinessOverridesModal.module.scss";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
 
 type Props = {
     isOpen: boolean;
     onClose: () => void;
     businessId: string;
-    /** la collezione da cui leggere gli item (es: active_collection_id) */
-    collectionId: string;
+    initialCollectionId?: string | null;
     title?: string;
 };
 
 type DraftRow = {
     visible: boolean;
-    price: string; // string per input controllato
+    price: string;
     hasPriceOverride: boolean;
     hasVisibleOverride: boolean;
+};
+
+type AvailableCollection = {
+    id: string;
+    name: string;
+    slot: "primary" | "overlay";
 };
 
 export default function BusinessOverridesModal({
     isOpen,
     onClose,
     businessId,
-    collectionId,
+    initialCollectionId = null,
     title
 }: Props) {
-    const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const [items, setItems] = useState<CollectionItemWithItem[]>([]);
-    const [overridesMap, setOverridesMap] = useState<Record<string, OverrideRowForUI>>({});
     const [drafts, setDrafts] = useState<Record<string, DraftRow>>({});
+
+    const [availableCollections, setAvailableCollections] = useState<AvailableCollection[]>([]);
+    const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(
+        initialCollectionId
+    );
+
+    const [loadingCollections, setLoadingCollections] = useState(false);
+    const [loadingItems, setLoadingItems] = useState(false);
+
+    const hasSchedulableCollections = availableCollections.length > 0;
 
     const buildDrafts = useCallback(
         (rows: CollectionItemWithItem[], ov: Record<string, OverrideRowForUI>) => {
@@ -73,29 +88,69 @@ export default function BusinessOverridesModal({
     );
 
     const load = useCallback(async () => {
-        setLoading(true);
+        if (!selectedCollectionId) {
+            setLoadingItems(false);
+            setItems([]);
+            setDrafts({});
+            return;
+        }
+
+        setLoadingItems(true);
         setError(null);
 
         try {
-            const rows = await getCollectionItemsWithData(collectionId);
+            const rows = await getCollectionItemsWithData(selectedCollectionId);
             setItems(rows);
 
             const ids = rows.map(r => r.item.id);
             const ov = await getBusinessOverridesForItems(businessId, ids);
-            setOverridesMap(ov);
 
             setDrafts(buildDrafts(rows, ov));
-        } catch (e: unknown) {
+        } catch {
             setError("Errore nel caricamento dei contenuti.");
         } finally {
-            setLoading(false);
+            setLoadingItems(false);
         }
-    }, [businessId, collectionId, buildDrafts]);
+    }, [businessId, selectedCollectionId, buildDrafts]);
+
+    const loadCollectionsInUse = useCallback(async () => {
+        setLoadingCollections(true);
+
+        try {
+            const rules = await listBusinessSchedules(businessId);
+
+            const map = new Map<string, AvailableCollection>();
+
+            for (const r of rules) {
+                const id = r.collection.id;
+                if (!map.has(id)) {
+                    map.set(id, {
+                        id,
+                        name: r.collection.name,
+                        slot: r.slot
+                    });
+                }
+            }
+
+            const list = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+            setAvailableCollections(list);
+
+            setSelectedCollectionId(prev => prev ?? list[0]?.id ?? null);
+        } finally {
+            setLoadingCollections(false);
+        }
+    }, [businessId]);
 
     useEffect(() => {
         if (!isOpen) return;
+        if (!selectedCollectionId) return;
         void load();
-    }, [isOpen, load]);
+    }, [isOpen, selectedCollectionId, load]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        void loadCollectionsInUse();
+    }, [isOpen, loadCollectionsInUse]);
 
     const toggleVisible = useCallback((itemId: string) => {
         setDrafts(prev => {
@@ -173,11 +228,31 @@ export default function BusinessOverridesModal({
             await Promise.all(promises);
             onClose();
         } catch (e: unknown) {
+            console.log(e);
             setError("Errore nel salvataggio. Controlla i prezzi inseriti.");
         } finally {
             setSaving(false);
         }
     }, [items, drafts, businessId, onClose]);
+
+    const renderSkeletonRows = (count = 7) => (
+        <div className={styles.list}>
+            {Array.from({ length: count }).map((_, i) => (
+                <div key={i} className={styles.row}>
+                    <Skeleton width={38} height={38} radius="12px" />
+                    <div className={styles.info}>
+                        <Skeleton height={14} width="70%" radius="10px" />
+                        <div style={{ height: 6 }} />
+                        <Skeleton height={12} width="40%" radius="10px" />
+                    </div>
+                    <div className={styles.price}>
+                        <Skeleton height={14} width={16} radius="8px" />
+                        <Skeleton height={38} width="100%" radius="12px" />
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
 
     if (!isOpen) return null;
 
@@ -200,74 +275,121 @@ export default function BusinessOverridesModal({
                 </div>
 
                 <div className={styles.body}>
-                    {loading ? (
-                        <Text variant="body" colorVariant="muted">
-                            Caricamento...
-                        </Text>
-                    ) : error ? (
+                    {error ? (
                         <Text variant="body" colorVariant="warning">
                             {error}
                         </Text>
+                    ) : availableCollections.length === 0 ? (
+                        <Text variant="body" colorVariant="muted">
+                            Nessun contenuto schedulato. Configura prima “Contenuti & Orari”.
+                        </Text>
                     ) : (
-                        <div className={styles.list}>
-                            {items.map(row => {
-                                const it = row.item;
-                                const d = drafts[it.id];
+                        <>
+                            {/* SELECT */}
+                            <div className={styles.selectorRow}>
+                                <Text variant="caption" colorVariant="muted">
+                                    Contenuto da configurare
+                                </Text>
 
-                                if (!d) return null;
+                                <select
+                                    className={styles.select}
+                                    value={selectedCollectionId ?? ""}
+                                    onChange={e => setSelectedCollectionId(e.target.value || null)}
+                                    aria-label="Seleziona contenuto"
+                                >
+                                    {availableCollections.map(c => (
+                                        <option key={c.id} value={c.id}>
+                                            {c.name} {c.slot === "overlay" ? " (In evidenza)" : ""}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
 
-                                return (
-                                    <div key={it.id} className={styles.row}>
-                                        <button
-                                            type="button"
-                                            className={styles.eye}
-                                            onClick={() => toggleVisible(it.id)}
-                                            aria-label={
-                                                d.visible
-                                                    ? "Nascondi contenuto"
-                                                    : "Mostra contenuto"
-                                            }
-                                        >
-                                            {d.visible ? <Eye size={15} /> : <EyeOff size={15} />}
-                                        </button>
+                            {/* LIST / SKELETON */}
+                            {loadingCollections || loadingItems ? (
+                                renderSkeletonRows()
+                            ) : (
+                                <div className={styles.list}>
+                                    {items.map(row => {
+                                        const it = row.item;
+                                        const d = drafts[it.id];
 
-                                        <div className={styles.info}>
-                                            <Text variant="body" className={styles.name}>
-                                                {it.name}
-                                            </Text>
-                                        </div>
+                                        if (!d) return null;
 
-                                        <div className={styles.price}>
-                                            <Text variant="body" className={styles.euro}>
-                                                €
-                                            </Text>
-                                            <Input
-                                                value={d.price}
-                                                onChange={e => changePrice(it.id, e.target.value)}
-                                                inputMode="decimal"
-                                                aria-label={`Prezzo per ${it.name}`}
-                                                label="Prezzo"
-                                            />
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                        return (
+                                            <div key={it.id} className={styles.row}>
+                                                <button
+                                                    type="button"
+                                                    className={styles.eye}
+                                                    onClick={() => toggleVisible(it.id)}
+                                                    aria-label={
+                                                        d.visible
+                                                            ? "Nascondi contenuto"
+                                                            : "Mostra contenuto"
+                                                    }
+                                                >
+                                                    {d.visible ? (
+                                                        <Eye size={15} />
+                                                    ) : (
+                                                        <EyeOff size={15} />
+                                                    )}
+                                                </button>
+
+                                                <div className={styles.info}>
+                                                    <Text variant="body" className={styles.name}>
+                                                        {it.name}
+                                                    </Text>
+                                                </div>
+
+                                                <div className={styles.price}>
+                                                    <Text variant="body" className={styles.euro}>
+                                                        €
+                                                    </Text>
+                                                    <Input
+                                                        value={d.price}
+                                                        onChange={e =>
+                                                            changePrice(it.id, e.target.value)
+                                                        }
+                                                        inputMode="decimal"
+                                                        aria-label={`Prezzo per ${it.name}`}
+                                                        label="Prezzo"
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
 
                 <div className={styles.footer}>
-                    <Button
-                        variant="secondary"
-                        onClick={onClose}
-                        disabled={saving}
-                        label="Annulla"
-                    />
-                    <Button
-                        onClick={saveAll}
-                        disabled={saving || loading}
-                        label={saving ? "Salvataggio..." : "Salva e aggiorna"}
-                    />
+                    {hasSchedulableCollections ? (
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={onClose}
+                                disabled={saving}
+                                label="Annulla"
+                            />
+                            <Button
+                                onClick={saveAll}
+                                disabled={saving || loadingItems}
+                                label={saving ? "Salvataggio..." : "Salva e aggiorna"}
+                            />
+                        </>
+                    ) : (
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={onClose}
+                                disabled={saving}
+                                label="Annulla"
+                            />
+                            <Button variant="primary" onClick={onClose} label="Chiudi" />
+                        </>
+                    )}
                 </div>
             </div>
         </div>

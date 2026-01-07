@@ -55,8 +55,8 @@ export interface Business {
     type: BusinessType;
     cover_image: string | null;
     theme: CatalogTheme | null;
-    active_collection_id: string | null;
-    active_special_collection_id: string | null;
+    // active_collection_id: string | null;
+    // active_special_collection_id: string | null;
     created_at: string;
     updated_at: string;
 }

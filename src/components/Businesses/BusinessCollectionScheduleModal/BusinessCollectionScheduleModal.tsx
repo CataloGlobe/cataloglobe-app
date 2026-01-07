@@ -309,9 +309,6 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
     };
 
     const removeRule = async (ruleId: string) => {
-        const ok = window.confirm("Vuoi eliminare questa regola? Questa azione è definitiva.");
-        if (!ok) return;
-
         try {
             setSaving(true);
             setError(null);
