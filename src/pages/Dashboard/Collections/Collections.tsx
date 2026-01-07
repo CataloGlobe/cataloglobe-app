@@ -5,16 +5,20 @@ import CatalogManagerModal from "@/components/CatalogManagerModal/CatalogManager
 import {
     listCollections,
     createCollection,
-    updateCollection
+    updateCollection,
+    deleteCollection,
+    isCollectionDeletable
 } from "@/services/supabase/collections";
 import type { Collection } from "@/types/database";
 import CollectionBuilderModal from "@/components/CollectionBuilderModal/CollectionBuilderModal";
 import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
+import { useToast } from "@/context/Toast/ToastContext";
 import { businessTypeToCatalogType } from "@/domain/catalog/businessToCatalog";
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import styles from "./Collections.module.scss";
 
 export default function Collections() {
+    const { showToast } = useToast();
     const [collections, setCollections] = useState<Collection[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null);
@@ -22,6 +26,8 @@ export default function Collections() {
 
     const [modalOpen, setModalOpen] = useState(false);
     const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<Collection | null>(null);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
 
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
@@ -79,6 +85,35 @@ export default function Collections() {
         setModalOpen(false);
     };
 
+    const handleDeleteCollection = async () => {
+        if (!deleteTarget) return;
+
+        try {
+            await deleteCollection(deleteTarget.id);
+
+            setCollections(prev => prev.filter(c => c.id !== deleteTarget.id));
+
+            if (activeCollectionId === deleteTarget.id) {
+                setActiveCollectionId(null);
+            }
+
+            showToast({
+                type: "success",
+                message: "Collezione eliminata con successo",
+                duration: 2500
+            });
+        } catch (error) {
+            console.error(error);
+            showToast({
+                type: "error",
+                message: "Errore durante l’eliminazione della collezione",
+                duration: 3000
+            });
+        } finally {
+            setDeleteTarget(null);
+        }
+    };
+
     return (
         <>
             <div className={styles.wrapper}>
@@ -133,13 +168,42 @@ export default function Collections() {
 
                                     <button
                                         className={styles.moreBtn}
-                                        aria-label="Azioni collezione"
+                                        aria-label="Rinomina collezione"
                                         onClick={e => {
                                             e.stopPropagation();
                                             openEditModal(col);
                                         }}
                                     >
                                         <Pencil size={16} />
+                                    </button>
+
+                                    <button
+                                        className={styles.moreBtn}
+                                        aria-label="Elimina collezione"
+                                        onClick={async e => {
+                                            e.stopPropagation();
+
+                                            try {
+                                                const canDelete = await isCollectionDeletable(
+                                                    col.id
+                                                );
+
+                                                if (!canDelete) {
+                                                    setDeleteError(
+                                                        "Questa collezione è utilizzata in uno o più menu attivi. Disattiva prima i menu per poterla eliminare."
+                                                    );
+                                                    return;
+                                                }
+
+                                                setDeleteTarget(col);
+                                            } catch {
+                                                setDeleteError(
+                                                    "Errore nel controllo dell’eliminazione."
+                                                );
+                                            }
+                                        }}
+                                    >
+                                        <Trash2 size={16} />
                                     </button>
                                 </div>
 
@@ -209,6 +273,24 @@ export default function Collections() {
                     />
                 </div>
             </ConfirmModal>
+
+            <ConfirmModal
+                isOpen={Boolean(deleteTarget)}
+                title="Elimina collezione"
+                description={`Sei sicuro di voler eliminare "${deleteTarget?.name}"? Questa azione è irreversibile.`}
+                confirmLabel="Elimina"
+                cancelLabel="Annulla"
+                onConfirm={handleDeleteCollection}
+                onCancel={() => setDeleteTarget(null)}
+            />
+
+            <ConfirmModal
+                isOpen={Boolean(deleteError)}
+                title="Impossibile eliminare"
+                description={deleteError ?? ""}
+                confirmLabel="Ok"
+                onConfirm={() => setDeleteError(null)}
+            />
         </>
     );
 }

@@ -64,6 +64,18 @@ export async function deleteCollection(id: string): Promise<void> {
     if (error) throw error;
 }
 
+export async function isCollectionDeletable(collectionId: string): Promise<boolean> {
+    const { count, error } = await supabase
+        .from("business_collection_schedules")
+        .select("id", { count: "exact", head: true })
+        .eq("collection_id", collectionId)
+        .eq("is_active", true);
+
+    if (error) throw error;
+
+    return (count ?? 0) === 0;
+}
+
 /* ============================
    SECTIONS (DERIVED)
 ============================ */
