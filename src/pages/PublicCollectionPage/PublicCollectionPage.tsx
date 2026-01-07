@@ -9,6 +9,8 @@ import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessC
 
 import type { PublicCollection } from "@/types/collectionPublic";
 import type { Business } from "@/types/database";
+import CollectionView from "@/components/PublicCollectionView/CollectionView/CollectionView";
+import { DEFAULT_PUBLIC_STYLE } from "@/utils/getDefaultPublicStyle";
 
 type PageState =
     | { status: "loading" }
@@ -18,6 +20,10 @@ type PageState =
           business: Business;
           collection: PublicCollection;
           overlayCollection: PublicCollection | null;
+      }
+    | {
+          status: "empty";
+          business: Business;
       };
 
 export default function PublicCollectionPage() {
@@ -55,7 +61,11 @@ export default function PublicCollectionPage() {
                 const resolved = await resolveBusinessCollections(business.id);
 
                 if (!resolved.primary) {
-                    throw new Error("Nessun contenuto disponibile.");
+                    setState({
+                        status: "empty",
+                        business
+                    });
+                    return;
                 }
 
                 /* ============================
@@ -97,6 +107,14 @@ export default function PublicCollectionPage() {
         };
     }, [slug]);
 
+    function getEmptyCopy(business: Business) {
+        console.log(business);
+        return {
+            title: "Stiamo preparando il menu",
+            description: "Torna a trovarci."
+        };
+    }
+
     /* ============================
        RENDER
     ============================ */
@@ -116,6 +134,20 @@ export default function PublicCollectionPage() {
                     {state.message}
                 </Text>
             </main>
+        );
+    }
+
+    if (state.status === "empty") {
+        return (
+            <CollectionView
+                mode="public"
+                businessName={state.business.name}
+                businessImage={state.business.cover_image ?? null}
+                collectionTitle="Menu"
+                sections={[]}
+                style={DEFAULT_PUBLIC_STYLE}
+                emptyState={getEmptyCopy(state.business)}
+            />
         );
     }
 

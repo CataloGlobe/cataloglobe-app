@@ -29,6 +29,10 @@ type Props = {
     style: Required<CollectionStyle>;
     mode: "public" | "preview";
     contentId?: string;
+    emptyState?: {
+        title?: string;
+        description?: string;
+    };
 };
 
 export default function CollectionView({
@@ -38,7 +42,8 @@ export default function CollectionView({
     sections,
     style,
     mode,
-    contentId = "collection-content"
+    contentId = "collection-content",
+    emptyState
 }: Props) {
     const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
     const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -109,105 +114,127 @@ export default function CollectionView({
                     }}
                 />
 
-                <CollectionSectionNav
-                    sections={navItems}
-                    activeSectionId={activeSectionId}
-                    onSelect={scrollToSection}
-                    variant={mode === "public" ? "public" : "preview"}
-                    style={{
-                        color: style.sectionNavColor,
-                        shape: style.sectionNavShape
-                    }}
-                />
+                {emptyState && (
+                    <div className={styles.emptyState}>
+                        {emptyState.title && (
+                            <Text as="h2" variant="title-sm" weight={700}>
+                                {emptyState.title}
+                            </Text>
+                        )}
 
-                <div id={contentId} className={styles.container}>
-                    {sections.map(section => {
-                        if (section.items.length === 0) return null;
+                        {emptyState.description && (
+                            <Text variant="body" colorVariant="muted">
+                                {emptyState.description}
+                            </Text>
+                        )}
+                    </div>
+                )}
 
-                        return (
-                            <section
-                                key={section.id}
-                                data-section-id={section.id}
-                                ref={el => {
-                                    sectionRefs.current[section.id] = el;
-                                }}
-                                className={styles.section}
-                                aria-label={section.name}
-                            >
-                                <Text as="h2" variant="title-sm" weight={700}>
-                                    {section.name}
-                                </Text>
+                {emptyState ? null : (
+                    <>
+                        <CollectionSectionNav
+                            sections={navItems}
+                            activeSectionId={activeSectionId}
+                            onSelect={scrollToSection}
+                            variant={mode === "public" ? "public" : "preview"}
+                            style={{
+                                color: style.sectionNavColor,
+                                shape: style.sectionNavShape
+                            }}
+                        />
 
-                                <div className={styles.grid} role="list">
-                                    {section.items.map(item => (
-                                        <article
-                                            key={item.id}
-                                            role="listitem"
-                                            className={styles.card}
-                                            data-template={style.cardTemplate as CardTemplate}
-                                            style={{
-                                                borderRadius: style.cardRadius,
-                                                backgroundColor: style.cardBackgroundColor
-                                            }}
-                                        >
-                                            {style.cardTemplate !== "no-image" &&
-                                                (item.image ? (
-                                                    <img
-                                                        src={item.image}
-                                                        alt={item.name}
-                                                        className={styles.cardImage}
-                                                        loading="lazy"
-                                                    />
-                                                ) : (
-                                                    <div
-                                                        className={styles.imagePlaceholder}
-                                                        aria-label="Immagine non disponibile"
-                                                    >
-                                                        <Text
-                                                            variant="caption"
-                                                            colorVariant="muted"
-                                                        >
-                                                            Img
-                                                        </Text>
-                                                    </div>
-                                                ))}
+                        <div id={contentId} className={styles.container}>
+                            {sections.map(section => {
+                                if (section.items.length === 0) return null;
 
-                                            <div className={styles.cardBody}>
-                                                <Text
-                                                    variant="body"
-                                                    weight={700}
-                                                    className={styles.title}
+                                return (
+                                    <section
+                                        key={section.id}
+                                        data-section-id={section.id}
+                                        ref={el => {
+                                            sectionRefs.current[section.id] = el;
+                                        }}
+                                        className={styles.section}
+                                        aria-label={section.name}
+                                    >
+                                        <Text as="h2" variant="title-sm" weight={700}>
+                                            {section.name}
+                                        </Text>
+
+                                        <div className={styles.grid} role="list">
+                                            {section.items.map(item => (
+                                                <article
+                                                    key={item.id}
+                                                    role="listitem"
+                                                    className={styles.card}
+                                                    data-template={
+                                                        style.cardTemplate as CardTemplate
+                                                    }
+                                                    style={{
+                                                        borderRadius: style.cardRadius,
+                                                        backgroundColor: style.cardBackgroundColor
+                                                    }}
                                                 >
-                                                    {item.name}
-                                                </Text>
+                                                    {style.cardTemplate !== "no-image" &&
+                                                        (item.image ? (
+                                                            <img
+                                                                src={item.image}
+                                                                alt={item.name}
+                                                                className={styles.cardImage}
+                                                                loading="lazy"
+                                                            />
+                                                        ) : (
+                                                            <div
+                                                                className={styles.imagePlaceholder}
+                                                                aria-label="Immagine non disponibile"
+                                                            >
+                                                                <Text
+                                                                    variant="caption"
+                                                                    colorVariant="muted"
+                                                                >
+                                                                    Img
+                                                                </Text>
+                                                            </div>
+                                                        ))}
 
-                                                {item.price != null && (
-                                                    <Text
-                                                        variant="caption"
-                                                        colorVariant="muted"
-                                                        className={styles.price}
-                                                    >
-                                                        € {item.price.toFixed(2)}
-                                                    </Text>
-                                                )}
+                                                    <div className={styles.cardBody}>
+                                                        <Text
+                                                            variant="body"
+                                                            weight={700}
+                                                            className={styles.title}
+                                                        >
+                                                            {item.name}
+                                                        </Text>
 
-                                                {item.description && (
-                                                    <Text
-                                                        variant="caption"
-                                                        colorVariant="muted"
-                                                        className={styles.description}
-                                                    >
-                                                        {item.description}
-                                                    </Text>
-                                                )}
-                                            </div>
-                                        </article>
-                                    ))}
-                                </div>
-                            </section>
-                        );
-                    })}
-                </div>
+                                                        {item.price != null && (
+                                                            <Text
+                                                                variant="caption"
+                                                                colorVariant="muted"
+                                                                className={styles.price}
+                                                            >
+                                                                € {item.price.toFixed(2)}
+                                                            </Text>
+                                                        )}
+
+                                                        {item.description && (
+                                                            <Text
+                                                                variant="caption"
+                                                                colorVariant="muted"
+                                                                className={styles.description}
+                                                            >
+                                                                {item.description}
+                                                            </Text>
+                                                        )}
+                                                    </div>
+                                                </article>
+                                            ))}
+                                        </div>
+                                    </section>
+                                );
+                            })}
+                        </div>
+                    </>
+                )}
             </div>
         </main>
     );
