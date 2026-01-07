@@ -11,6 +11,7 @@ import type { PublicCollection } from "@/types/collectionPublic";
 import type { Business } from "@/types/database";
 import CollectionView from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import { DEFAULT_PUBLIC_STYLE } from "@/utils/getDefaultPublicStyle";
+import { getEmptyCopy } from "@/utils/getEmptyCopy";
 
 type PageState =
     | { status: "loading" }
@@ -106,14 +107,6 @@ export default function PublicCollectionPage() {
             cancelled = true;
         };
     }, [slug]);
-
-    function getEmptyCopy(business: Business) {
-        console.log(business);
-        return {
-            title: "Stiamo preparando il menu",
-            description: "Torna a trovarci."
-        };
-    }
 
     /* ============================
        RENDER
