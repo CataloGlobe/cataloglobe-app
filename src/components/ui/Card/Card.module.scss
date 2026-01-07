@@ -1,0 +1,55 @@
+@use "@styles/variables" as *;
+
+/* ----------------------------------------------------
+   CARD WRAPPER
+---------------------------------------------------- */
+.card {
+  background: var(--card-bg, #ffffff);
+  border-radius: 12px;
+  border: 1px solid var(--border, #e5e7eb);
+
+  padding: 1.5rem;
+
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+
+  transition: background 0.3s ease, border 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* ----------------------------------------------------
+   TITLE
+---------------------------------------------------- */
+.title {
+  font-size: 1rem;
+  font-weight: 600;
+
+  color: var(--brand-primary, #2563eb);
+
+  margin-bottom: 0.5rem;
+}
+
+/* ----------------------------------------------------
+   CONTENT
+---------------------------------------------------- */
+.content {
+  font-size: 0.95rem;
+  color: var(--text, #0f172a);
+  line-height: 1.4;
+}
+
+/* ----------------------------------------------------
+   DARK MODE — cosmetic tweaks only
+---------------------------------------------------- */
+[data-theme="dark"] {
+  .card {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+
+    &:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
+    }
+  }
+}

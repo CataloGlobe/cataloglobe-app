@@ -1,0 +1,61 @@
+@use "@styles/variables" as *;
+
+/* ----------------------------------------------------
+   SKELETON BASE
+---------------------------------------------------- */
+.skeleton {
+  display: inline-block;
+
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base, #e5e7eb) 25%,
+    var(--skeleton-highlight, #f3f4f6) 50%,
+    var(--skeleton-base, #e5e7eb) 75%
+  );
+
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+
+  border-radius: inherit; /* eredita dal componente */
+  transition: background 0.3s ease, opacity 0.3s ease;
+}
+
+/* ----------------------------------------------------
+   SHIMMER
+---------------------------------------------------- */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* ----------------------------------------------------
+   OPTIONAL: STATE "PULSE" (per skeleton statici)
+---------------------------------------------------- */
+.pulse {
+  animation: pulse 1.3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.65;
+  }
+}
+
+/* ----------------------------------------------------
+   DARK MODE COSMETIC
+   NOTA: non ridefiniamo variabili qui dentro!
+   Devono già essere definite globalmente nel tema.
+---------------------------------------------------- */
+[data-theme="dark"] .skeleton {
+  /* nessun override—il tema globale gestisce la palette */
+}

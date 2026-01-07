@@ -1,0 +1,59 @@
+/* ----------------------------------------------------
+   HERO (editoriale, non card)
+---------------------------------------------------- */
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+
+  padding: 2rem 1rem 1.5rem;
+}
+
+/* ----------------------------------------------------
+   IMAGE
+---------------------------------------------------- */
+
+.imageWrapper {
+  width: 100%;
+  height: 200px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #e5e7eb;
+
+  @media (min-width: 640px) {
+    height: 240px;
+  }
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.placeholder {
+  width: 100%;
+  height: 100%;
+  background: #e5e7eb;
+}
+
+/* ----------------------------------------------------
+   TEXT
+---------------------------------------------------- */
+
+.textWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: center;
+}
+
+/* ----------------------------------------------------
+   VARIANT (PREVIEW)
+---------------------------------------------------- */
+
+.hero[data-variant="preview"] {
+  padding-top: 1.5rem;
+}

@@ -1,0 +1,47 @@
+@use "@styles/variables" as *;
+@use "@styles/typography" as typography;
+
+.text {
+  font-family: "Outfit", sans-serif;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.align-center {
+  text-align: center;
+}
+.align-right {
+  text-align: right;
+}
+
+/* --- Typography Variants Responsive --- */
+@include typography.generate-typography(typography.$typography-scale);
+
+/* --- Color Variants --- */
+.color-default {
+  color: $text-color;
+}
+.color-muted {
+  color: $gray-600;
+}
+.color-success {
+  color: $success;
+}
+.color-error {
+  color: $error;
+}
+.color-warning {
+  color: $warning;
+}
+.color-info {
+  color: $info;
+}
+.color-primary {
+  color: $brand-primary;
+}
+.color-dark {
+  color: $brand-dark;
+}
+.color-white {
+  color: $white;
+}

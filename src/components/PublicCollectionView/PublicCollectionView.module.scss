@@ -1,0 +1,88 @@
+.page {
+  min-height: 100vh;
+}
+
+.skipLink {
+  position: absolute;
+  left: -9999px;
+  top: 8px;
+}
+.skipLink:focus {
+  left: 8px;
+  z-index: 9999;
+  background: white;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+.header {
+  padding: 6px 0 14px;
+}
+
+.section {
+  margin-top: 18px;
+}
+
+.grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+
+  @media (min-width: 720px) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.card {
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  display: flex;
+  gap: 10px;
+}
+
+.card[data-template="left"] {
+  flex-direction: row;
+}
+
+.card[data-template="right"] {
+  flex-direction: row-reverse;
+}
+
+.card[data-template="no-image"] {
+  flex-direction: column;
+
+  .imagePlaceholder {
+    display: none;
+  }
+}
+
+.imagePlaceholder {
+  width: 92px;
+  min-width: 92px;
+  height: 92px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #e6e6e6, #f0f0f0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cardBody {
+  padding: 12px 12px 14px;
+  flex: 1;
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}

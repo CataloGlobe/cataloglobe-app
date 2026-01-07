@@ -1,0 +1,54 @@
+@use "@styles/variables" as *;
+
+/* ----------------------------------------------------
+   LAYOUT WRAPPER
+---------------------------------------------------- */
+.layout {
+  display: flex;
+  min-height: 100vh;
+
+  background: var(--bg, #f9fafb);
+  color: var(--text, #0f172a);
+
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ----------------------------------------------------
+   MAIN WRAPPER
+---------------------------------------------------- */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+
+  background: var(--bg, #f9fafb);
+  color: var(--text, #0f172a);
+}
+
+/* ----------------------------------------------------
+   CONTENT AREA
+---------------------------------------------------- */
+.content {
+  flex: 1;
+  padding: 2rem;
+
+  overflow-y: auto;
+  scroll-behavior: smooth;
+
+  background: var(--bg, #f8fafc);
+
+  @media (max-width: 768px) {
+    padding: 1.25rem;
+  }
+}
+
+/* ----------------------------------------------------
+   DARK MODE (solo micro-cosmetica)
+---------------------------------------------------- */
+[data-theme="dark"] {
+  .layout,
+  .main,
+  .content {
+    background: var(--bg, #0f172a);
+  }
+}

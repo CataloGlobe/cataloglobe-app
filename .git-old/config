@@ -1,0 +1,17 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+	ignorecase = true
+	precomposeunicode = true
+[branch "main"]
+	gk-last-accessed = 2026-01-06T18:34:56.813Z
+	gk-last-modified = 2026-01-06T18:36:16.903Z
+[branch "feature/auth"]
+	vscode-merge-base = origin/main
+[branch "feature/dashboard-ia"]
+	vscode-merge-base = origin/feature/auth
+[remote "origin"]
+	url = https://github.com/CataloGlobe/cataloglobe-app.git
+	fetch = +refs/heads/*:refs/remotes/origin/*

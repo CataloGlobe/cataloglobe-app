@@ -1,0 +1,211 @@
+/* ----------------------------------------------------
+   SECTION ITEMS PANEL
+---------------------------------------------------- */
+
+.items {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px;
+  gap: 16px;
+  overflow: hidden;
+}
+
+/* ----------------------------------------------------
+     HEADER
+  ---------------------------------------------------- */
+
+.itemsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.itemsActions {
+  display: flex;
+  gap: 8px;
+}
+
+.itemsActions button {
+  border: none;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 6px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.itemsActions button:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.itemsActions button:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.25);
+  outline-offset: 2px;
+}
+
+/* ----------------------------------------------------
+     EMPTY STATE
+  ---------------------------------------------------- */
+
+.empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* ----------------------------------------------------
+     LIST
+  ---------------------------------------------------- */
+
+.itemsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  overflow-y: auto;
+}
+
+/* ----------------------------------------------------
+     ROW
+  ---------------------------------------------------- */
+
+.itemRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto; // HANDLE | MAIN | ACTIONS
+  align-items: center;
+  gap: 12px;
+
+  padding: 10px 12px;
+  border-radius: 10px;
+
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.itemRow:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* ----------------------------------------------------
+     MAIN COLUMN
+  ---------------------------------------------------- */
+
+.itemMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* ----------------------------------------------------
+     ACTIONS (VISIBILITY / FUTURE ICONS)
+  ---------------------------------------------------- */
+
+.itemActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.itemActions button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.itemActions button:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.itemActions button:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.25);
+  outline-offset: 2px;
+}
+
+.iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 32px;
+  height: 32px;
+
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+
+  color: rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.iconButton:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.9);
+}
+
+.iconButton:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.25);
+  outline-offset: 2px;
+}
+
+/* Destructive action */
+.danger {
+  color: #b91c1c;
+}
+
+.danger:hover {
+  background: rgba(185, 28, 28, 0.12);
+  color: #991b1b;
+}
+
+/* ----------------------------------------------------
+    DRAG
+  ---------------------------------------------------- */
+
+.dragHandle {
+  border: none;
+  background: transparent;
+  cursor: grab;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 28px;
+  height: 28px;
+
+  color: rgba(0, 0, 0, 0.4);
+  font-size: 16px;
+  border-radius: 6px;
+
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dragHandle:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.dragHandle:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.25);
+  outline-offset: 2px;
+}

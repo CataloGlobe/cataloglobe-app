@@ -1,0 +1,162 @@
+@use "@styles/variables" as *;
+
+/* =========================================================
+   📚 TYPOGRAPHY SYSTEM — CataloGlobe
+   Gestione centralizzata dei testi e delle scale tipografiche
+   ========================================================= */
+
+/* --- Responsive Typography Map --- */
+/* Mobile base + Desktop override */
+$typography-scale: (
+  "display": (
+    "mobile": 2rem,
+    "desktop": 3rem,
+    "weight": 700,
+    "lh": 1.1
+  ),
+  "title-lg": (
+    "mobile": 1.5rem,
+    "desktop": 1.75rem,
+    "weight": 600
+  ),
+  "title-md": (
+    "mobile": 1.25rem,
+    "desktop": 1.5rem,
+    "weight": 600
+  ),
+  "title-sm": (
+    "mobile": 1.125rem,
+    "desktop": 1.25rem,
+    "weight": 500
+  ),
+  "body": (
+    "mobile": 1rem,
+    "desktop": 1rem,
+    "weight": 400
+  ),
+  "caption": (
+    "mobile": 0.875rem,
+    "desktop": 0.875rem,
+    "weight": 400
+  ),
+  "button": (
+    "mobile": 0.95rem,
+    "desktop": 0.95rem,
+    "weight": 600,
+    "transform": uppercase,
+    "tracking": 0.02em
+  )
+);
+
+/* =========================================================
+   🧩 MIXIN — Genera classi per ogni variant
+   ========================================================= */
+
+@mixin generate-typography($map) {
+  @each $variant, $config in $map {
+    .#{$variant} {
+      font-size: map-get($config, "mobile");
+      font-weight: map-get($config, "weight");
+      line-height: if(map-has-key($config, "lh"), map-get($config, "lh"), 1.3);
+      text-transform: if(map-has-key($config, "transform"), map-get($config, "transform"), none);
+      letter-spacing: if(map-has-key($config, "tracking"), map-get($config, "tracking"), normal);
+      margin: 0;
+
+      @media (min-width: 900px) {
+        font-size: map-get($config, "desktop");
+      }
+    }
+  }
+}
+
+/* =========================================================
+   🎨 BASE TYPOGRAPHY RULES
+   ========================================================= */
+
+html {
+  font-family: "Outfit", sans-serif;
+  font-size: 16px;
+  color: $gray-800;
+  line-height: 1.4;
+}
+
+body {
+  font-family: inherit;
+  color: inherit;
+  background-color: #fff;
+  margin: 0;
+  padding: 0;
+}
+
+/* --- Headings default --- */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Outfit", sans-serif;
+  font-weight: 600;
+  color: $brand-dark;
+  line-height: 1.2;
+}
+
+/* --- Paragraphs --- */
+p {
+  margin: 0 0 1em;
+  color: $gray-700;
+}
+
+/* --- Links --- */
+a {
+  color: $brand-primary;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* --- Small text --- */
+small {
+  font-size: 0.875rem;
+  color: $gray-600;
+}
+
+/* --- Alignment helpers --- */
+.text-center {
+  text-align: center;
+}
+.text-right {
+  text-align: right;
+}
+.text-muted {
+  color: $gray-500;
+}
+
+/* =========================================================
+   🧱 RESPONSIVE FONT SCALING
+   ========================================================= */
+
+@media (max-width: 768px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+/* =========================================================
+   ✨ USAGE
+   ---------------------------------------------------------
+   • Include nel componente Text.module.scss:
+     @include typography.generate-typography(typography.$typography-scale);
+   • Tutte le classi .display, .title-md, .body, ecc. verranno
+     generate automaticamente con dimensioni responsive.
+   ========================================================= */

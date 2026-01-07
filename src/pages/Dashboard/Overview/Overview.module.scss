@@ -1,0 +1,203 @@
+@use "sass:color";
+@use "@styles/variables" as *;
+
+/* ----------------------------------------
+   CONTAINER PRINCIPALE
+---------------------------------------- */
+.overview {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
+}
+
+/* ----------------------------------------
+   HEADER
+---------------------------------------- */
+.header {
+  display: flex;
+  flex-direction: column; /* più coerente con mobile */
+  gap: 0.5rem;
+}
+
+/* ----------------------------------------
+   KPI GRID
+---------------------------------------- */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.kpiCard {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.3s ease;
+
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.07);
+  }
+}
+
+/* VARIANTE ALERT */
+.alertCard {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #991b1b;
+
+  /* Dark mode semantic */
+  [data-theme="dark"] & {
+    background: #451414;
+    border-color: #7f1d1d;
+    color: #fca5a5;
+  }
+}
+
+/* ----------------------------------------
+   RECENT ACTIVITY
+---------------------------------------- */
+.recent {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.recentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reviewList {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+}
+
+/* REVIEW ITEM */
+.reviewItem {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+
+  background: var(--hover-bg);
+  border-radius: 10px;
+  padding: 1rem;
+  border: 1px solid var(--border);
+
+  transition: background 0.2s ease, border 0.2s ease;
+}
+
+/* BADGE */
+.badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+}
+
+/* Semantic colors – già ok */
+.good {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.bad {
+  background: #fee2e2;
+  color: #991b1b;
+
+  [data-theme="dark"] & {
+    background: #451414;
+    color: #fca5a5;
+  }
+}
+
+.reviewText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* LINK / BTN */
+.linkBtn {
+  background: none;
+  border: none;
+  color: var(--brand-primary);
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: var(--brand-primary-hover);
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* ----------------------------------------
+   CTA CARD (Analytics)
+---------------------------------------- */
+.analyticsCard {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+  button {
+    background: var(--brand-primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    font-weight: 500;
+
+    transition: background 0.2s ease, transform 0.2s ease;
+
+    &:hover {
+      background: var(--brand-primary-hover);
+      transform: translateY(-1px);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--brand-primary-hover);
+      outline-offset: 2px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    text-align: center;
+  }
+}

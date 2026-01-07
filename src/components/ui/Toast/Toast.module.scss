@@ -1,0 +1,122 @@
+@use "sass:color";
+@use "@styles/variables" as *;
+
+.toastContainer {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  z-index: 9999;
+}
+
+/* Base toast */
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 260px;
+  max-width: 360px;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  color: #fff;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  background: #111827;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Varianti */
+.toastSuccess {
+  background: #047857;
+  border-color: color.scale(#047857, $lightness: -10%);
+}
+
+.toastError {
+  background: #b91c1c;
+  border-color: color.scale(#b91c1c, $lightness: -10%);
+}
+
+.toastInfo {
+  background: #1d4ed8;
+  border-color: color.scale(#1d4ed8, $lightness: -10%);
+}
+
+/* Contenuto */
+.toastContent {
+  flex: 1;
+}
+
+.toastMessage {
+  display: block;
+}
+
+/* Close button */
+.toastClose {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.toastAction {
+  margin-top: 0.25rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.8rem;
+
+  cursor: pointer;
+  text-decoration: underline;
+  opacity: 0.9;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+/* Animazioni */
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-slide-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+
+.toastEntering {
+  animation: toast-slide-in 0.25s ease-out forwards;
+}
+
+.toastLeaving {
+  animation: toast-slide-out 0.25s ease-in forwards;
+}

@@ -1,0 +1,295 @@
+.card {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* TOP ROW ---------------------------------------------------- */
+.top {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1.2rem;
+  align-items: start;
+}
+
+/* Thumbnail */
+.thumbnail {
+  width: 160px;
+  height: 110px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f3f4f6;
+  border: 1px solid var(--border);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.thumbnailPlaceholder {
+  @extend .thumbnail;
+  background: #e5e7eb;
+}
+
+/* Info testuale */
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.publicUrl {
+  width: fit-content;
+  font-size: 0.85rem;
+  color: var(--brand-primary, #6366f1);
+  text-decoration: none;
+  word-break: break-all;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* ---------------------------------------------
+   COLLECTION INFO
+--------------------------------------------- */
+.collectionInfo {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.collectionRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* CTA when active */
+.changeCollection {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+
+  font-size: 0.85rem;
+  color: var(--brand-primary);
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* CTA when empty */
+.selectCollection {
+  align-self: flex-start;
+
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+
+  border: 1px dashed var(--border-color, #e5e7eb);
+  background: transparent;
+
+  font-size: 0.85rem;
+  cursor: pointer;
+
+  transition: border-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+  }
+}
+
+/* QR in alto a destra */
+.qrWrapper {
+  height: 110px;
+  width: 110px;
+  padding: 10px;
+  background: #f8f9fb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.25s ease, border 0.25s ease;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--brand-primary, #6366f1);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* ACTIONS ------------------------------------------------------ */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.actionsLeft {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.actionsRight {
+  position: relative; // serve per il dropdown
+  display: flex;
+  align-items: center;
+  justify-self: end;
+}
+
+.moreButton {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  opacity: 0.7;
+  border-radius: 6px;
+
+  &:hover {
+    opacity: 1;
+    background: var(--hover-bg, #f3f4f6);
+  }
+}
+
+button {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+/* Varianti pulsanti */
+.primary {
+  background: var(--brand-primary);
+  color: white;
+  border: none;
+
+  &:hover {
+    background: #4f46e5;
+  }
+}
+
+.secondary {
+  background: white;
+
+  &:hover {
+    background: var(--hover-bg, #f3f4f6);
+  }
+}
+
+.ghost {
+  background: transparent;
+
+  &:hover {
+    background: var(--hover-bg, #f3f4f6);
+  }
+}
+
+.danger {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fecaca;
+
+  &:hover {
+    background: #fecaca;
+  }
+}
+
+/* RESPONSIVE -------------------------------------------------- */
+@media (max-width: 700px) {
+  .top {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .qr {
+    width: 90px;
+    height: 90px;
+  }
+
+  .thumbnail {
+    width: 100%;
+  }
+}
+
+/* ============================
+   TITLE ROW + MENU ⋮
+============================ */
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative; // serve per posizionare il menu
+}
+
+.moreButton {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  opacity: 0.6;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    opacity: 1;
+    background: var(--hover-bg, #f3f4f6);
+  }
+}
+
+/* Dropdown */
+.dropdownMenu {
+  position: absolute;
+  top: 28px;
+  right: 0;
+  width: 140px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+
+  button {
+    width: 100%;
+    padding: 0.6rem 0.9rem;
+    border: none;
+    background: none;
+    text-align: left;
+    font-size: 0.9rem;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--hover-bg, #f3f4f6);
+    }
+  }
+}
+
+.dangerItem {
+  color: #b91c1c;
+
+  &:hover {
+    background: #fee2e2 !important;
+  }
+}

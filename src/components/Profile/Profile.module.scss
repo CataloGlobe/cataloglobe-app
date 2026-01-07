@@ -1,0 +1,112 @@
+@use "sass:color";
+@use "@styles/variables" as *;
+
+/* ----------------------------------------
+   CONTAINER PRINCIPALE
+---------------------------------------- */
+.profile {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  background: var(--bg, #f8fafc);
+  color: var(--text, #0f172a);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ----------------------------------------
+   GRID INFO
+---------------------------------------- */
+.infoGrid {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  align-items: flex-start;
+  gap: 2rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+}
+
+/* ----------------------------------------
+   AVATAR SECTION
+---------------------------------------- */
+.avatarSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.avatar {
+  width: 160px;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 3px solid var(--border, #e2e8f0);
+  background: var(--card-bg, #fff);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  transition: border 0.3s ease, box-shadow 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+  }
+}
+
+.uploadLabel {
+  background: var(--brand-primary, #2563eb);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s ease, transform 0.2s ease;
+  text-align: center;
+
+  &:hover {
+    background: var(--brand-primary-hover, #1d4ed8);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary-hover, #1d4ed8);
+    outline-offset: 2px;
+  }
+}
+
+/* ----------------------------------------
+   FORM FIELDS
+---------------------------------------- */
+.formFields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+
+  @media (max-width: 768px) {
+    max-width: 420px;
+    margin: 0 auto;
+  }
+}
+
+/* ----------------------------------------
+   MESSAGE (success / error)
+---------------------------------------- */
+.message {
+  margin-top: 1.5rem;
+  font-weight: 500;
+
+  &.success {
+    color: #15803d;
+  }
+
+  &.error {
+    color: #b91c1c;
+  }
+
+  [data-theme="dark"] &.error {
+    color: #f87171;
+  }
+}

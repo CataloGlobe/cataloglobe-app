@@ -1,0 +1,26 @@
+.listWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0;
+}
+
+.emptyState {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+
+  padding: 1.8rem;
+  text-align: center;
+
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+[data-theme="dark"] {
+  .emptyState {
+    background: #1e293b;
+    border-color: #334155;
+  }
+}
