@@ -4,7 +4,7 @@ import Text from "@/components/ui/Text/Text";
 import PublicCollectionView from "@/components/PublicCollectionView/PublicCollectionView";
 
 import { getBusinessBySlug } from "@/services/supabase/businesses";
-import { getPublicCollectionById } from "@/services/supabase/collections";
+import { getPublicBusinessCollection } from "@/services/supabase/collections";
 import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessCollections";
 
 import type { PublicCollection } from "@/types/collectionPublic";
@@ -72,7 +72,7 @@ export default function PublicCollectionPage() {
                 /* ============================
                    3) COLLECTION PRIMARY
                 ============================ */
-                const collection = await getPublicCollectionById(resolved.primary);
+                const collection = await getPublicBusinessCollection(business.id, resolved.primary);
 
                 /* ============================
                    4) OVERLAY (opzionale)
@@ -80,7 +80,10 @@ export default function PublicCollectionPage() {
                 let overlayCollection: PublicCollection | null = null;
 
                 if (resolved.overlay) {
-                    overlayCollection = await getPublicCollectionById(resolved.overlay);
+                    overlayCollection = await getPublicBusinessCollection(
+                        business.id,
+                        resolved.overlay
+                    );
                 }
 
                 if (cancelled) return;

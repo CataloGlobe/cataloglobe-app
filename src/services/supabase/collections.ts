@@ -10,6 +10,7 @@ import type {
 } from "@/types/database";
 import { resolveCollectionStyle, safeCollectionStyle } from "@/types/collectionStyle";
 import { CatalogType } from "@/types/catalog";
+import { getBusinessOverridesForItems } from "./overrides";
 
 /* ============================
    COLLECTIONS (CRUD)
@@ -428,6 +429,72 @@ export async function getPublicCollectionById(collectionId: string): Promise<Pub
         if (!it.visible) continue;
         const arr = itemsBySection.get(it.section_id) ?? [];
         arr.push(it);
+        itemsBySection.set(it.section_id, arr);
+    }
+
+    const publicSections = sections
+        .map(section => {
+            const sectionItems = itemsBySection.get(section.id) ?? [];
+            return {
+                id: section.id,
+                name: section.label,
+                items: sectionItems.map(it => ({
+                    id: it.id,
+                    name: it.item.name,
+                    description: it.item.description ?? null,
+                    image: it.item.metadata?.image ?? null,
+                    price: it.item.base_price ?? null
+                }))
+            };
+        })
+        .filter(s => s.items.length > 0);
+
+    const resolvedStyle = resolveCollectionStyle(safeCollectionStyle(collection.style ?? null), {});
+
+    return {
+        title: collection.name,
+        sections: publicSections,
+        style: resolvedStyle
+    };
+}
+
+export async function getPublicBusinessCollection(
+    businessId: string,
+    collectionId: string
+): Promise<PublicCollection> {
+    const { data: collection } = await supabase
+        .from("collections")
+        .select("id, name, style")
+        .eq("id", collectionId)
+        .single();
+
+    if (!collection) throw new Error("Collection not found");
+
+    const sections = await listSections(collectionId);
+    const items = await getCollectionItemsWithData(collectionId);
+
+    // 🔹 carica override
+    const itemIds = items.map(it => it.item.id);
+    const overrides = await getBusinessOverridesForItems(businessId, itemIds);
+
+    const itemsBySection = new Map<string, typeof items>();
+
+    for (const it of items) {
+        const override = overrides[it.item.id];
+
+        // visibilità finale
+        const visible = override?.visible_override ?? it.visible ?? true;
+
+        if (!visible) continue;
+
+        const arr = itemsBySection.get(it.section_id) ?? [];
+        arr.push({
+            ...it,
+            item: {
+                ...it.item,
+                base_price: override?.price_override ?? it.item.base_price
+            }
+        });
         itemsBySection.set(it.section_id, arr);
     }
 
