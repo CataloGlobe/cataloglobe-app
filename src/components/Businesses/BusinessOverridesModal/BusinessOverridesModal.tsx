@@ -1,19 +1,24 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Text from "@/components/ui/Text/Text";
-import { Button } from "@/components/ui";
-import { Input } from "@/components/ui";
+import { Button, Input } from "@/components/ui";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
+
+import { Eye, EyeOff, AlertTriangle, History } from "lucide-react";
 
 import { getCollectionItemsWithData } from "@/services/supabase/collections";
 import {
     getBusinessOverridesForItems,
     upsertBusinessItemOverride
 } from "@/services/supabase/overrides";
+import { listBusinessSchedules } from "@/services/supabase/schedules";
 
 import type { CollectionItemWithItem, OverrideRowForUI } from "@/types/database";
-import { listBusinessSchedules } from "@/services/supabase/schedules";
-import { Eye, EyeOff, X } from "lucide-react";
 import styles from "./BusinessOverridesModal.module.scss";
-import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import { getActiveWinner, isNowActive } from "@/domain/schedules/scheduleUtils";
+
+/* -------------------------------------------------------------------------- */
+/*                                    TYPES                                   */
+/* -------------------------------------------------------------------------- */
 
 type Props = {
     isOpen: boolean;
@@ -24,17 +29,38 @@ type Props = {
 };
 
 type DraftRow = {
+    // valori mostrati in UI
     visible: boolean;
     price: string;
+
+    // base (senza override)
+    baseVisible: boolean;
+    basePrice: number | null;
+
+    // override attualmente presenti nel DB (prima delle modifiche)
+    originalVisibleOverride: boolean | null;
+    originalPriceOverride: number | null;
+
+    // stato "intenzionale" corrente
     hasPriceOverride: boolean;
     hasVisibleOverride: boolean;
+
+    // azione esplicita
+    removePriceOverride?: boolean;
+
+    initialVisible: boolean;
 };
 
 type AvailableCollection = {
     id: string;
     name: string;
     slot: "primary" | "overlay";
+    isActiveNow: boolean;
 };
+
+/* -------------------------------------------------------------------------- */
+/*                                 COMPONENT                                  */
+/* -------------------------------------------------------------------------- */
 
 export default function BusinessOverridesModal({
     isOpen,
@@ -43,6 +69,8 @@ export default function BusinessOverridesModal({
     initialCollectionId = null,
     title
 }: Props) {
+    /* ---------------------------------- STATE --------------------------------- */
+
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -57,28 +85,70 @@ export default function BusinessOverridesModal({
     const [loadingCollections, setLoadingCollections] = useState(false);
     const [loadingItems, setLoadingItems] = useState(false);
 
+    const [search, setSearch] = useState("");
+    const [categoryFilter, setCategoryFilter] = useState<string>("all");
+
     const hasSchedulableCollections = availableCollections.length > 0;
+    const hasChanges = Object.values(drafts).some(d => {
+        const currentPriceOverride = d.removePriceOverride
+            ? null
+            : d.hasPriceOverride
+            ? d.price.trim() === ""
+                ? null
+                : Number(d.price)
+            : d.originalPriceOverride;
+
+        const currentVisibleOverride = d.hasVisibleOverride ? d.visible : d.originalVisibleOverride;
+
+        const priceChanged = currentPriceOverride !== d.originalPriceOverride;
+        const visibleChanged = currentVisibleOverride !== d.originalVisibleOverride;
+
+        return priceChanged || visibleChanged;
+    });
+
+    /* ------------------------------- BUILD DRAFTS ------------------------------ */
 
     const buildDrafts = useCallback(
-        (rows: CollectionItemWithItem[], ov: Record<string, OverrideRowForUI>) => {
+        (rows: CollectionItemWithItem[], overrides: Record<string, OverrideRowForUI>) => {
             const next: Record<string, DraftRow> = {};
 
             for (const row of rows) {
-                const it = row.item;
-                const o = ov[it.id];
+                const item = row.item;
+                const override = overrides[item.id];
 
-                const visibleBase = true;
-                const priceBase = it.base_price;
+                const baseVisible = row.visible;
+                const basePrice = item.base_price ?? null;
 
-                const visible = o?.visible_override ?? visibleBase;
+                const originalVisibleOverride =
+                    override?.visible_override != null ? override.visible_override : null;
 
-                const priceToShow = o?.price_override ?? priceBase;
+                const originalPriceOverride =
+                    override?.price_override != null ? override.price_override : null;
 
-                next[it.id] = {
-                    visible,
-                    price: priceToShow != null ? String(priceToShow) : "",
-                    hasPriceOverride: o?.price_override != null,
-                    hasVisibleOverride: o?.visible_override != null
+                const visibleShown = originalVisibleOverride ?? baseVisible;
+
+                const priceShown =
+                    originalPriceOverride != null
+                        ? String(originalPriceOverride)
+                        : basePrice != null
+                        ? String(basePrice)
+                        : "";
+
+                next[item.id] = {
+                    visible: visibleShown,
+                    price: priceShown,
+
+                    baseVisible,
+                    basePrice,
+                    initialVisible: visibleShown,
+
+                    originalVisibleOverride,
+                    originalPriceOverride,
+
+                    hasPriceOverride: originalPriceOverride != null,
+                    hasVisibleOverride: originalVisibleOverride != null,
+
+                    removePriceOverride: false
                 };
             }
 
@@ -87,25 +157,21 @@ export default function BusinessOverridesModal({
         []
     );
 
-    const load = useCallback(async () => {
-        if (!selectedCollectionId) {
-            setLoadingItems(false);
-            setItems([]);
-            setDrafts({});
-            return;
-        }
+    /* ------------------------------- LOAD ITEMS -------------------------------- */
+
+    const loadItems = useCallback(async () => {
+        if (!selectedCollectionId) return;
 
         setLoadingItems(true);
         setError(null);
 
         try {
             const rows = await getCollectionItemsWithData(selectedCollectionId);
+            const itemIds = rows.map(r => r.item.id);
+            const overrides = await getBusinessOverridesForItems(businessId, itemIds);
+
             setItems(rows);
-
-            const ids = rows.map(r => r.item.id);
-            const ov = await getBusinessOverridesForItems(businessId, ids);
-
-            setDrafts(buildDrafts(rows, ov));
+            setDrafts(buildDrafts(rows, overrides));
         } catch {
             setError("Errore nel caricamento dei contenuti.");
         } finally {
@@ -113,56 +179,99 @@ export default function BusinessOverridesModal({
         }
     }, [businessId, selectedCollectionId, buildDrafts]);
 
+    /* ---------------------------- LOAD COLLECTIONS ----------------------------- */
+
     const loadCollectionsInUse = useCallback(async () => {
         setLoadingCollections(true);
 
         try {
-            const rules = await listBusinessSchedules(businessId);
+            const schedules = await listBusinessSchedules(businessId);
+
+            const primaryRules = schedules.filter(s => s.slot === "primary");
+            const overlayRules = schedules.filter(s => s.slot === "overlay");
+
+            const primaryWinner = getActiveWinner(primaryRules, isNowActive);
+            const overlayWinner = getActiveWinner(overlayRules, isNowActive);
 
             const map = new Map<string, AvailableCollection>();
 
-            for (const r of rules) {
-                const id = r.collection.id;
-                if (!map.has(id)) {
-                    map.set(id, {
-                        id,
-                        name: r.collection.name,
-                        slot: r.slot
+            for (const s of schedules) {
+                if (!s.collection) continue;
+
+                const isActiveNow =
+                    (s.slot === "primary" && primaryWinner?.collection?.id === s.collection.id) ||
+                    (s.slot === "overlay" && overlayWinner?.collection?.id === s.collection.id);
+
+                if (!map.has(s.collection.id)) {
+                    map.set(s.collection.id, {
+                        id: s.collection.id,
+                        name: s.collection.name,
+                        slot: s.slot,
+                        isActiveNow
                     });
+                } else if (isActiveNow) {
+                    // se la stessa collection compare più volte, basta che una sia vincente
+                    map.get(s.collection.id)!.isActiveNow = true;
                 }
             }
 
             const list = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+
             setAvailableCollections(list);
 
-            setSelectedCollectionId(prev => prev ?? list[0]?.id ?? null);
+            setSelectedCollectionId(prev => {
+                if (prev) return prev;
+
+                const active = list.find(c => c.isActiveNow);
+                if (active) return active.id;
+
+                const primary = list.find(c => c.slot === "primary");
+                return primary?.id ?? list[0]?.id ?? null;
+            });
         } finally {
             setLoadingCollections(false);
         }
     }, [businessId]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        if (!selectedCollectionId) return;
-        void load();
-    }, [isOpen, selectedCollectionId, load]);
+    /* --------------------------------- EFFECTS --------------------------------- */
 
     useEffect(() => {
         if (!isOpen) return;
         void loadCollectionsInUse();
     }, [isOpen, loadCollectionsInUse]);
 
+    useEffect(() => {
+        if (!isOpen || !selectedCollectionId) return;
+        void loadItems();
+    }, [isOpen, selectedCollectionId, loadItems]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onClose();
+        };
+
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [isOpen, onClose]);
+
+    /* ------------------------------- USER ACTIONS ------------------------------- */
+
     const toggleVisible = useCallback((itemId: string) => {
         setDrafts(prev => {
             const cur = prev[itemId];
             if (!cur) return prev;
+
+            const nextVisible = !cur.visible;
+            const hasVisibleOverride = nextVisible !== cur.initialVisible;
+
             return {
                 ...prev,
                 [itemId]: {
                     ...cur,
-                    visible: !cur.visible,
-                    // vuol dire: sto impostando un override esplicito
-                    hasVisibleOverride: true
+                    visible: nextVisible,
+                    hasVisibleOverride
                 }
             };
         });
@@ -172,198 +281,334 @@ export default function BusinessOverridesModal({
         setDrafts(prev => {
             const cur = prev[itemId];
             if (!cur) return prev;
+
+            const trimmed = value.trim();
+            const baseStr = cur.basePrice != null ? String(cur.basePrice) : "";
+
+            const isSameAsBase = trimmed === baseStr;
+
             return {
                 ...prev,
                 [itemId]: {
                     ...cur,
                     price: value,
-                    hasPriceOverride: true
+                    hasPriceOverride: !isSameAsBase,
+                    // se avevi un override DB e torni uguale al base, al salvataggio va rimosso
+                    removePriceOverride: isSameAsBase && cur.originalPriceOverride != null
                 }
             };
         });
     }, []);
+
+    const resetPrice = useCallback((itemId: string) => {
+        setDrafts(prev => {
+            const cur = prev[itemId];
+            if (!cur) return prev;
+
+            const baseStr = cur.basePrice != null ? String(cur.basePrice) : "";
+
+            return {
+                ...prev,
+                [itemId]: {
+                    ...cur,
+                    price: baseStr, // ✅ mostra subito il prezzo originale
+                    hasPriceOverride: false,
+                    removePriceOverride: cur.originalPriceOverride != null // ✅ rimuovi override solo se c’era
+                }
+            };
+        });
+    }, []);
+
+    /* -------------------------------- SAVE ALL --------------------------------- */
 
     const saveAll = useCallback(async () => {
         setSaving(true);
         setError(null);
 
         try {
-            // Salviamo solo quelli che hanno override “toccati”
-            const promises: Promise<void>[] = [];
+            const ops: Promise<void>[] = [];
 
             for (const row of items) {
-                const id = row.item.id;
-                const d = drafts[id];
+                const d = drafts[row.item.id];
                 if (!d) continue;
 
-                // price override
-                let priceOverride: number | null = null;
-                if (d.hasPriceOverride) {
-                    const normalized = d.price.trim();
-                    priceOverride = normalized === "" ? null : Number(normalized);
-                    if (normalized !== "" && Number.isNaN(priceOverride)) {
-                        throw new Error("Prezzo non valido.");
+                // --- calcola prezzo da inviare ---
+                let priceOverrideToSend: number | null = d.originalPriceOverride;
+
+                if (d.removePriceOverride) {
+                    priceOverrideToSend = null;
+                } else if (d.hasPriceOverride) {
+                    const trimmed = d.price.trim();
+                    const parsed = trimmed !== "" ? Number(trimmed) : null;
+
+                    if (parsed !== null && Number.isNaN(parsed)) {
+                        throw new Error("Prezzo non valido");
                     }
+
+                    priceOverrideToSend = parsed;
                 }
 
-                // visible override
-                let visibleOverride: boolean | null = null;
+                // --- calcola visibilità da inviare ---
+                let visibleOverrideToSend: boolean | null = d.originalVisibleOverride;
+
                 if (d.hasVisibleOverride) {
-                    visibleOverride = d.visible;
+                    visibleOverrideToSend = d.visible;
                 }
 
-                // Se non ho override su nulla, skip
-                if (!d.hasPriceOverride && !d.hasVisibleOverride) continue;
+                // --- capire se serve davvero salvare ---
+                const priceChanged = priceOverrideToSend !== d.originalPriceOverride;
+                const visibleChanged = visibleOverrideToSend !== d.originalVisibleOverride;
 
-                promises.push(
+                if (!priceChanged && !visibleChanged) continue;
+
+                ops.push(
                     upsertBusinessItemOverride({
                         businessId,
-                        itemId: id,
-                        priceOverride,
-                        visibleOverride
+                        itemId: row.item.id,
+                        priceOverride: priceOverrideToSend,
+                        visibleOverride: visibleOverrideToSend
                     })
                 );
             }
 
-            await Promise.all(promises);
+            await Promise.all(ops);
+
+            await loadItems();
+
             onClose();
-        } catch (e: unknown) {
-            console.log(e);
+        } catch {
             setError("Errore nel salvataggio. Controlla i prezzi inseriti.");
         } finally {
             setSaving(false);
         }
-    }, [items, drafts, businessId, onClose]);
+    }, [items, drafts, businessId, onClose, loadItems]);
+
+    /* ------------------------------- RENDER HELPERS ----------------------------- */
 
     const renderSkeletonRows = (count = 7) => (
         <div className={styles.list}>
             {Array.from({ length: count }).map((_, i) => (
                 <div key={i} className={styles.row}>
-                    <Skeleton width={38} height={38} radius="12px" />
-                    <div className={styles.info}>
-                        <Skeleton height={14} width="70%" radius="10px" />
-                        <div style={{ height: 6 }} />
-                        <Skeleton height={12} width="40%" radius="10px" />
-                    </div>
-                    <div className={styles.price}>
-                        <Skeleton height={14} width={16} radius="8px" />
-                        <Skeleton height={38} width="100%" radius="12px" />
-                    </div>
+                    <Skeleton width={36} height={36} radius="12px" />
+                    <Skeleton height={14} width="60%" radius="8px" />
+                    <Skeleton height={36} width="100%" radius="12px" />
                 </div>
             ))}
         </div>
     );
 
+    const categories = useMemo(() => {
+        const set = new Set<string>();
+
+        for (const row of items) {
+            set.add(row.item.category?.name ?? "Senza categoria");
+        }
+
+        return Array.from(set).sort();
+    }, [items]);
+
+    const groupedItems = useMemo(() => {
+        const map = new Map<string, typeof items>();
+        const q = search.trim().toLowerCase();
+
+        for (const row of items) {
+            const categoryName = row.item.category?.name ?? "Senza categoria";
+
+            // filtro categoria
+            if (categoryFilter !== "all" && categoryName !== categoryFilter) continue;
+
+            // filtro search
+            if (q && !row.item.name.toLowerCase().includes(q)) continue;
+
+            if (!map.has(categoryName)) {
+                map.set(categoryName, []);
+            }
+
+            map.get(categoryName)!.push(row);
+        }
+
+        return Array.from(map.entries()).filter(([, rows]) => rows.length > 0);
+    }, [items, search, categoryFilter]);
+
     if (!isOpen) return null;
+
+    /* ----------------------------------- JSX ----------------------------------- */
 
     return (
         <div
             className={styles.overlay}
             role="dialog"
             aria-modal="true"
-            aria-label="Override contenuti"
+            onMouseDown={e => {
+                // click overlay to close (only if clicking the backdrop)
+                if (e.target === e.currentTarget) onClose();
+            }}
         >
             <div className={styles.modal}>
+                {/* HEADER */}
                 <div className={styles.header}>
-                    <Text as="h2" variant="title-md">
-                        {title ?? "Gestisci disponibilità e prezzi"}
-                    </Text>
+                    <div className={styles.headerLeft}>
+                        <Text variant="title-md">{title}</Text>
+                    </div>
 
-                    <button className={styles.close} onClick={onClose} aria-label="Chiudi">
-                        <X />
-                    </button>
+                    {availableCollections.length > 0 && (
+                        <div className={styles.headerRight}>
+                            <select
+                                className={styles.collectionSelect}
+                                value={selectedCollectionId ?? ""}
+                                onChange={e => setSelectedCollectionId(e.target.value)}
+                            >
+                                {availableCollections.map(c => {
+                                    const label = c.isActiveNow
+                                        ? `${c.name} · Attiva ${
+                                              c.slot === "overlay" ? "in Evidenza" : ""
+                                          }`
+                                        : c.name;
+
+                                    return (
+                                        <option key={c.id} value={c.id}>
+                                            {label}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                        </div>
+                    )}
                 </div>
 
+                {/* BODY */}
                 <div className={styles.body}>
                     {error ? (
                         <Text variant="body" colorVariant="warning">
                             {error}
                         </Text>
-                    ) : availableCollections.length === 0 ? (
+                    ) : !hasSchedulableCollections ? (
                         <Text variant="body" colorVariant="muted">
                             Nessun contenuto schedulato. Configura prima “Contenuti & Orari”.
                         </Text>
                     ) : (
                         <>
-                            {/* SELECT */}
-                            <div className={styles.selectorRow}>
-                                <Text variant="caption" colorVariant="muted">
-                                    Contenuto da configurare
-                                </Text>
+                            <div className={styles.filtersBlock}>
+                                <input
+                                    type="text"
+                                    placeholder="Cerca elemento…"
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                    className={styles.searchInput}
+                                />
 
                                 <select
                                     className={styles.select}
-                                    value={selectedCollectionId ?? ""}
-                                    onChange={e => setSelectedCollectionId(e.target.value || null)}
-                                    aria-label="Seleziona contenuto"
+                                    value={categoryFilter}
+                                    onChange={e => setCategoryFilter(e.target.value)}
                                 >
-                                    {availableCollections.map(c => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.name} {c.slot === "overlay" ? " (In evidenza)" : ""}
+                                    <option value="all">Tutte le categorie</option>
+                                    {categories.map(cat => (
+                                        <option key={cat} value={cat}>
+                                            {cat}
                                         </option>
                                     ))}
                                 </select>
                             </div>
 
-                            {/* LIST / SKELETON */}
+                            {hasChanges && (
+                                <div className={styles.changesHint}>
+                                    <AlertTriangle size={14} />
+                                    <Text variant="caption" colorVariant="muted">
+                                        Modifiche non ancora salvate
+                                    </Text>
+                                </div>
+                            )}
+
+                            {/* LIST */}
                             {loadingCollections || loadingItems ? (
                                 renderSkeletonRows()
                             ) : (
                                 <div className={styles.list}>
-                                    {items.map(row => {
-                                        const it = row.item;
-                                        const d = drafts[it.id];
+                                    {groupedItems.map(([category, rows]) => (
+                                        <div key={category} className={styles.categoryGroup}>
+                                            {categoryFilter === "all" && (
+                                                <Text variant="caption">{category}</Text>
+                                            )}
 
-                                        if (!d) return null;
+                                            {rows.map(row => {
+                                                const d = drafts[row.item.id];
+                                                if (!d) return null;
 
-                                        return (
-                                            <div key={it.id} className={styles.row}>
-                                                <button
-                                                    type="button"
-                                                    className={styles.eye}
-                                                    onClick={() => toggleVisible(it.id)}
-                                                    aria-label={
-                                                        d.visible
-                                                            ? "Nascondi contenuto"
-                                                            : "Mostra contenuto"
-                                                    }
-                                                >
-                                                    {d.visible ? (
-                                                        <Eye size={15} />
-                                                    ) : (
-                                                        <EyeOff size={15} />
-                                                    )}
-                                                </button>
+                                                return (
+                                                    <div
+                                                        key={row.item.id}
+                                                        className={styles.row}
+                                                        data-hidden={!d.visible}
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            className={styles.eye}
+                                                            onClick={() =>
+                                                                toggleVisible(row.item.id)
+                                                            }
+                                                        >
+                                                            {d.visible ? (
+                                                                <Eye size={15} />
+                                                            ) : (
+                                                                <EyeOff size={15} />
+                                                            )}
+                                                        </button>
 
-                                                <div className={styles.info}>
-                                                    <Text variant="body" className={styles.name}>
-                                                        {it.name}
-                                                    </Text>
-                                                </div>
+                                                        <Text variant="body">{row.item.name}</Text>
 
-                                                <div className={styles.price}>
-                                                    <Text variant="body" className={styles.euro}>
-                                                        €
-                                                    </Text>
-                                                    <Input
-                                                        value={d.price}
-                                                        onChange={e =>
-                                                            changePrice(it.id, e.target.value)
-                                                        }
-                                                        inputMode="decimal"
-                                                        aria-label={`Prezzo per ${it.name}`}
-                                                        label="Prezzo"
-                                                    />
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                                        <div className={styles.price}>
+                                                            <span className={styles.euro}>€</span>
+
+                                                            <div className={styles.priceField}>
+                                                                <Input
+                                                                    className={styles.priceInput}
+                                                                    value={d.price}
+                                                                    onChange={e =>
+                                                                        changePrice(
+                                                                            row.item.id,
+                                                                            e.target.value
+                                                                        )
+                                                                    }
+                                                                    inputMode="decimal"
+                                                                />
+
+                                                                {d.hasPriceOverride && (
+                                                                    <div
+                                                                        className={
+                                                                            styles.priceActions
+                                                                        }
+                                                                    >
+                                                                        <button
+                                                                            type="button"
+                                                                            className={
+                                                                                styles.resetPrice
+                                                                            }
+                                                                            onClick={() =>
+                                                                                resetPrice(
+                                                                                    row.item.id
+                                                                                )
+                                                                            }
+                                                                            title="Ripristina prezzo originale"
+                                                                        >
+                                                                            <History size={16} />
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </>
                     )}
                 </div>
 
+                {/* FOOTER */}
                 <div className={styles.footer}>
                     {hasSchedulableCollections ? (
                         <>
@@ -375,20 +620,12 @@ export default function BusinessOverridesModal({
                             />
                             <Button
                                 onClick={saveAll}
-                                disabled={saving || loadingItems}
+                                disabled={saving || loadingItems || !hasChanges}
                                 label={saving ? "Salvataggio..." : "Salva e aggiorna"}
                             />
                         </>
                     ) : (
-                        <>
-                            <Button
-                                variant="secondary"
-                                onClick={onClose}
-                                disabled={saving}
-                                label="Annulla"
-                            />
-                            <Button variant="primary" onClick={onClose} label="Chiudi" />
-                        </>
+                        <Button variant="primary" onClick={onClose} label="Chiudi" />
                     )}
                 </div>
             </div>

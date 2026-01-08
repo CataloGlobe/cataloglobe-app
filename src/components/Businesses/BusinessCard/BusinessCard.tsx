@@ -199,7 +199,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                 isOpen={overrideOpen}
                 onClose={() => setOverrideOpen(false)}
                 businessId={business.id}
-                title={`Gestisci disponibilità e prezzi — ${business.name}`}
+                title={`${business.name} - Disponibilità e prezzi`}
             />
 
             {/* SELECT COLLECTION */}

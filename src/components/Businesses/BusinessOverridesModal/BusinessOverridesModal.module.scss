@@ -55,49 +55,45 @@
   gap: 1rem;
 
   padding: clamp(1rem, 2.5vw, 1.5rem);
-
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-
-  .headerLeft {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .headerRight {
-    display: flex;
-    gap: 10px;
-  }
 }
 
-/* ---------------------------------------------
-   CLOSE BUTTON
---------------------------------------------- */
-.close {
-  border: none;
-  background: transparent;
-
+.headerLeft {
   display: flex;
   align-items: center;
-  justify-content: center;
+  min-width: 0;
+}
 
-  width: 36px;
-  height: 36px;
+.headerRight {
+  display: flex;
+  align-items: center;
+}
 
+.collectionSelect {
+  width: fit-content;
+  appearance: none;
   cursor: pointer;
-  color: rgba(0, 0, 0, 0.55);
 
-  border-radius: 10px;
-  transition: background 0.15s ease, color 0.15s ease;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+
+  border: 1px solid rgba($brand-primary, 0.35);
+  background: linear-gradient(0deg, rgba($brand-primary, 0.06), rgba($brand-primary, 0.06)), #ffffff;
+
+  color: $brand-primary;
+
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.06);
-    color: rgba(0, 0, 0, 0.9);
+    background: linear-gradient(0deg, rgba($brand-primary, 0.1), rgba($brand-primary, 0.1)), #ffffff;
+    border-color: $brand-primary;
   }
 
-  &:focus-visible {
+  &:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba($brand-primary, 0.25);
+    box-shadow: 0 0 0 3px rgba($brand-primary, 0.25), 0 1px 0 rgba(0, 0, 0, 0.04);
   }
 }
 
@@ -115,28 +111,52 @@
 }
 
 /* ---------------------------------------------
-   COLLECTION SELECTOR
+   FILTERS BLOCK (SEARCH + CATEGORY)
 --------------------------------------------- */
-.selectorRow {
+.filtersBlock {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 6px;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
 
-  margin-bottom: 0.5rem;
+  padding: 0.6rem;
+  border-radius: 14px;
+
+  background: #fafafc;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
 }
 
-.select {
+.searchInput {
   width: 100%;
-  padding: 0.75rem 0.9rem;
+  padding: 0.7rem 0.9rem;
 
   border-radius: 12px;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  background: #fafafc;
+  background: #ffffff;
 
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+
+  &:focus {
+    outline: none;
+    border-color: $brand-primary;
+  }
+}
+
+.select {
+  appearance: none;
+  padding: 0.7rem 0.9rem;
+  border-radius: 12px;
+
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+
+  font-size: 0.9rem;
   color: rgba(0, 0, 0, 0.85);
 
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 0.15s ease;
 
   &:hover {
     border-color: rgba(0, 0, 0, 0.18);
@@ -145,8 +165,22 @@
   &:focus {
     outline: none;
     border-color: $brand-primary;
-    background: #ffffff;
   }
+}
+
+/* ---------------------------------------------
+   CHANGES HINT
+--------------------------------------------- */
+.changesHint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 0.45rem 0.65rem;
+  border-radius: 999px;
+
+  background: rgba($brand-primary, 0.08);
+  border: 1px solid rgba($brand-primary, 0.18);
 }
 
 /* ---------------------------------------------
@@ -155,7 +189,20 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: clamp(6px, 1.5vw, 10px);
+  gap: clamp(4px, 1vw, 8px);
+}
+
+/* ---------------------------------------------
+   CATEGORY GROUP
+--------------------------------------------- */
+.categoryGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &:not(:first-child) {
+    margin-top: 1rem;
+  }
 }
 
 /* ---------------------------------------------
@@ -163,28 +210,24 @@
 --------------------------------------------- */
 .row {
   display: grid;
-  grid-template-columns: 42px 1fr 160px;
+  grid-template-columns: 32px 1fr 130px;
   align-items: center;
   gap: clamp(8px, 2vw, 14px);
 
-  padding: clamp(0.7rem, 2vw, 1rem);
-  border-radius: 16px;
+  padding: 0.45rem 0.7rem;
+  border-radius: 1rem;
 
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.07);
-
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-
-  &:hover {
-    background: rgba(0, 0, 0, 0.025);
-    border-color: rgba(0, 0, 0, 0.14);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-  }
 
   @media (max-width: 640px) {
     grid-template-columns: 36px 1fr 110px;
     padding: 0.7rem;
   }
+}
+
+.row[data-hidden="false"] .eye {
+  color: $brand-primary;
 }
 
 /* ---------------------------------------------
@@ -193,7 +236,6 @@
 .eye {
   width: clamp(32px, 5vw, 38px);
   height: clamp(32px, 5vw, 38px);
-
   padding: 0;
 
   display: flex;
@@ -240,12 +282,33 @@
   opacity: 0.6;
 }
 
-.input {
-  width: 100%;
-  padding: 0.7rem;
+.priceField {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
 
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+.priceInput[data-overridden="true"] {
+  border-color: $brand-primary;
+  background: rgba($brand-primary, 0.08);
+}
+
+.priceActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.resetPrice {
+  padding: 0 0 0 0.45rem;
+  border: none;
+  background: transparent;
+  color: $brand-primary;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
 }
 
 /* ---------------------------------------------
@@ -255,12 +318,12 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  border-radius: 0 0 clamp(14px, 3vw, 22px) clamp(14px, 3vw, 22px);
 
   padding: clamp(1rem, 2.5vw, 1.5rem);
 
   background: #fafafc;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 0 0 clamp(14px, 3vw, 22px) clamp(14px, 3vw, 22px);
 
   @media (max-width: 640px) {
     grid-template-columns: 1fr;

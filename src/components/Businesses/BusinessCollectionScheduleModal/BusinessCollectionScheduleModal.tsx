@@ -14,6 +14,7 @@ import {
 import { supabase } from "@/services/supabase/client";
 import Tooltip from "@/components/ui/Tooltip/Tooltip";
 import { TriangleAlert } from "lucide-react";
+import { getActiveWinner, isNowActive } from "@/domain/schedules/scheduleUtils";
 
 type Props = {
     isOpen: boolean;
@@ -54,22 +55,6 @@ function formatTimeRange(start: string, end: string) {
     return `${start.slice(0, 5)}–${end.slice(0, 5)}`;
 }
 
-function nowPartsLocal() {
-    const d = new Date();
-    const dow = d.getDay(); // 0..6
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    const ss = String(d.getSeconds()).padStart(2, "0");
-    return { dow, time: `${hh}:${mm}:${ss}` };
-}
-
-function isNowActive(rule: BusinessScheduleRow) {
-    const { dow, time } = nowPartsLocal();
-    if (!rule.days_of_week.includes(dow)) return false;
-    // confronto lessicografico ok con HH:MM:SS
-    return time >= rule.start_time && time < rule.end_time;
-}
-
 function toggleDay(days: number[], day: number) {
     return days.includes(day) ? days.filter(d => d !== day) : [...days, day];
 }
@@ -105,24 +90,6 @@ function hasOverlap(rule: BusinessScheduleRow, all: BusinessScheduleRow[]) {
             timesOverlap(rule.start_time, rule.end_time, other.start_time, other.end_time)
         );
     });
-}
-
-function getActiveWinner(
-    rules: BusinessScheduleRow[],
-    isNowActiveFn: (r: BusinessScheduleRow) => boolean
-): BusinessScheduleRow | null {
-    const active = rules.filter(isNowActiveFn);
-
-    if (active.length <= 1) return active[0] ?? null;
-
-    return active.slice().sort((a, b) => {
-        // 1️⃣ vince chi inizia più tardi
-        if (a.start_time !== b.start_time) {
-            return a.start_time > b.start_time ? -1 : 1;
-        }
-        // 2️⃣ a parità, vince la più recente
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    })[0];
 }
 
 export default function BusinessCollectionScheduleModal({ isOpen, businessId, onClose }: Props) {
