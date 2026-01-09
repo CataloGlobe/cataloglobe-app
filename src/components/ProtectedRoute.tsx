@@ -1,11 +1,12 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@context/useAuth";
+import { AppLoader } from "./ui/AppLoader/AppLoader";
 
-export const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+export const ProtectedRoute = ({ children }: { children: Element }) => {
     const { user, loading } = useAuth();
 
     // ⏳ 1) Se sta caricando la sessione, aspetta
-    if (loading) return <p>Caricamento...</p>;
+    if (loading) return <AppLoader />;
 
     // ❌ 2) Se NON c’è utente → login
     if (!user) return <Navigate to="/login" replace />;

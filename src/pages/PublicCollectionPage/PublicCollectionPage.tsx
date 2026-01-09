@@ -12,6 +12,7 @@ import type { Business } from "@/types/database";
 import CollectionView from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import { DEFAULT_PUBLIC_STYLE } from "@/utils/getDefaultPublicStyle";
 import { getEmptyCopy } from "@/utils/getEmptyCopy";
+import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 
 type PageState =
     | { status: "loading" }
@@ -116,11 +117,7 @@ export default function PublicCollectionPage() {
     ============================ */
 
     if (state.status === "loading") {
-        return (
-            <main>
-                <Text variant="body">Caricamento…</Text>
-            </main>
-        );
+        return <AppLoader message="Stiamo caricando il catalogo" />;
     }
 
     if (state.status === "error") {

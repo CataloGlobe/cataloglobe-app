@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import styles from "./PublicReview.module.scss";
 import { createClient } from "@supabase/supabase-js";
+import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
+import styles from "./PublicReview.module.scss";
 
 const publicClient = createClient(
     import.meta.env.VITE_SUPABASE_URL!,
@@ -102,11 +103,7 @@ export default function PublicReview() {
     }
 
     if (!restaurant) {
-        return (
-            <div className={styles.container}>
-                <p className={styles.loading}>Caricamento...</p>
-            </div>
-        );
+        return <AppLoader message="Stiamo caricando il form" />;
     }
 
     if (submitted) {
