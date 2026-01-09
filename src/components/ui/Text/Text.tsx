@@ -25,6 +25,7 @@ interface TextProps {
     color?: string;
     className?: string;
     children: React.ReactNode;
+    id?: string;
 }
 
 /**
@@ -39,6 +40,7 @@ export default function Text({
     color,
     className,
     children,
+    id,
     ...props
 }: TextProps) {
     const classes = [
@@ -59,7 +61,7 @@ export default function Text({
     const Component = Tag as React.ElementType;
 
     return (
-        <Component className={classes} style={style} {...props}>
+        <Component className={classes} style={style} {...props} id={id}>
             {children}
         </Component>
     );
