@@ -4,9 +4,9 @@ import { useNavigate } from "react-router-dom";
 import {
     getUserBusinesses,
     addBusiness,
-    deleteBusiness,
-    updateBusiness
-    // uploadBusinessCover
+    updateBusiness,
+    uploadBusinessCover,
+    deleteBusinessAtomic
 } from "@services/supabase/businesses";
 
 import Text from "@components/ui/Text/Text";
@@ -14,8 +14,6 @@ import { useToast } from "@/context/Toast/ToastContext";
 import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 
-import { BusinessCreateCard } from "@/components/Businesses/BusinessCreateCard/BusinessCreateCard";
-import { BusinessEditModal } from "@/components/Businesses/BusinessEditModal/BusinessEditModal";
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
 
 import { useDebounce } from "@/hooks/useDebounce";
@@ -27,6 +25,7 @@ import type { Business } from "@/types/database";
 import type { BusinessFormValues } from "@/types/Businesses";
 
 import styles from "./Businesses.module.scss";
+import { BusinessUpsertModal } from "@/components/Businesses/BusinessUpsertModal/BusinessUpsertModal";
 
 // valore statico → performance migliore
 const previewBaseUrl = window.location.origin;
@@ -38,7 +37,7 @@ export default function Businesses() {
     const { user } = useAuth();
     const navigate = useNavigate();
     const { showToast } = useToast();
-    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
@@ -85,6 +84,7 @@ export default function Businesses() {
     const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
     const [showSlugWarning, setShowSlugWarning] = useState(false);
     const [pendingEditSubmit, setPendingEditSubmit] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // ======================================
     // FETCH BUSINESS
@@ -183,6 +183,13 @@ export default function Businesses() {
     // CALLBACK: cover create
     // ======================================
     const handleCreateCoverChange = useCallback((file: File | null) => {
+        setCreateForm(prev => {
+            if (prev.coverPreview?.startsWith("blob:")) {
+                URL.revokeObjectURL(prev.coverPreview);
+            }
+            return prev;
+        });
+
         if (!file) {
             setCreateCoverFile(null);
             setCreateForm(prev => ({ ...prev, coverPreview: null }));
@@ -240,9 +247,12 @@ export default function Businesses() {
                     createForm.type
                 );
 
-                // if (createCoverFile) {
-                //     await uploadBusinessCover(newBusiness.id, createCoverFile);
-                // }
+                if (createCoverFile) {
+                    await uploadBusinessCover(
+                        { id: newBusiness.id, slug: newBusiness.slug },
+                        createCoverFile
+                    );
+                }
 
                 // reset
                 setCreateForm({
@@ -266,10 +276,10 @@ export default function Businesses() {
                 });
             } finally {
                 setIsCreating(false);
-                setIsFormOpen(false);
+                setIsCreateOpen(false);
             }
         },
-        [businesses, user, createForm, createCoverFile, refreshBusinesses, showToast]
+        [user, createForm, createCoverFile, refreshBusinesses, showToast]
     );
 
     // ======================================
@@ -282,9 +292,11 @@ export default function Businesses() {
 
     const confirmDelete = useCallback(async () => {
         if (!deleteTargetId) return;
+        setIsDeleting(true);
 
         try {
-            await deleteBusiness(deleteTargetId);
+            await deleteBusinessAtomic(deleteTargetId);
+
             await refreshBusinesses();
             showToast({
                 message: "Attività eliminata con successo.",
@@ -292,13 +304,14 @@ export default function Businesses() {
                 duration: 2500
             });
         } catch (e) {
-            console.error("Errore eliminazione business:", e);
+            console.error("Errore durante l'eliminazione dell'attività:", e);
             showToast({
-                message: "Errore durante l'eliminazione del business.",
+                message: "Errore durante l'eliminazione dell'attività.",
                 type: "error",
                 duration: 2500
             });
         } finally {
+            setIsDeleting(false);
             setShowDeleteModal(false);
             setDeleteTargetId(null);
         }
@@ -314,7 +327,7 @@ export default function Businesses() {
     );
 
     // ======================================
-    // CALLBACK: edit business (da spostare in modale)
+    // CALLBACK: edit business
     // ======================================
     const handleEditClick = useCallback((business: Business) => {
         setEditingBusiness(business);
@@ -431,9 +444,12 @@ export default function Businesses() {
                     type: editForm.type
                 });
 
-                // if (editCoverFile) {
-                //     await uploadBusinessCover(editingId, editCoverFile);
-                // }
+                if (editCoverFile) {
+                    await uploadBusinessCover(
+                        { id: editingId, slug: editForm.slug },
+                        editCoverFile
+                    );
+                }
 
                 // RESET
                 setIsEditOpen(false);
@@ -466,6 +482,20 @@ export default function Businesses() {
             showToast
         ]
     );
+
+    const resetCreateState = useCallback(() => {
+        setCreateErrors({});
+        setCreateForm({
+            name: "",
+            city: "",
+            address: "",
+            slug: "",
+            type: "restaurant",
+            coverPreview: null
+        });
+        setCreateCoverFile(null);
+        setCreateSlugTouched(false);
+    }, []);
 
     async function getSlugSuggestions(base: string, uniqueSlug?: string): Promise<string[]> {
         const baseSlug = sanitizeSlugForSave(base);
@@ -525,50 +555,36 @@ export default function Businesses() {
                     </Text>
                 </div>
 
-                {!isFormOpen && (
-                    <div className={styles.headerRight}>
-                        <button
-                            type="button"
-                            className={styles.addButton}
-                            onClick={() => setIsFormOpen(prev => !prev)}
-                        >
-                            Aggiungi attività
-                        </button>
-                    </div>
-                )}
+                <div className={styles.headerRight}>
+                    <button
+                        type="button"
+                        className={styles.addButton}
+                        onClick={() => setIsCreateOpen(true)}
+                    >
+                        Aggiungi attività
+                    </button>
+                </div>
             </header>
 
-            {/* Form inline aperto solo quando serve */}
-            {isFormOpen && (
-                <div className={styles.formWrapper}>
-                    <BusinessCreateCard
-                        values={createForm}
-                        errors={createErrors}
-                        onFieldChange={handleCreateFieldChange}
-                        onCoverChange={handleCreateCoverChange}
-                        onSubmit={handleAdd}
-                        onCancel={() => {
-                            setIsFormOpen(false);
-                            setCreateErrors({});
-                            setCreateForm({
-                                name: "",
-                                city: "",
-                                address: "",
-                                slug: "",
-                                type: "restaurant",
-                                coverPreview: null
-                            });
-                            setCreateCoverFile(null);
-                            setCreateSlugTouched(false);
-                        }}
-                        loading={isCreating}
-                        previewBaseUrl={previewBaseUrl}
-                    />
-                </div>
-            )}
+            <BusinessUpsertModal
+                open={isCreateOpen}
+                mode="create"
+                values={createForm}
+                errors={createErrors}
+                loading={isCreating}
+                previewBaseUrl={previewBaseUrl}
+                onFieldChange={handleCreateFieldChange}
+                onCoverChange={handleCreateCoverChange}
+                onSubmit={handleAdd}
+                onClose={() => {
+                    setIsCreateOpen(false);
+                    resetCreateState();
+                }}
+            />
 
-            <BusinessEditModal
+            <BusinessUpsertModal
                 open={isEditOpen}
+                mode="edit"
                 values={editForm}
                 errors={editErrors}
                 loading={isEditing}
@@ -579,6 +595,7 @@ export default function Businesses() {
                 onClose={() => {
                     setIsEditOpen(false);
                     setEditingId(null);
+                    setEditingBusiness(null);
                     setEditForm(null);
                     setEditCoverFile(null);
                     setEditErrors({});
@@ -664,7 +681,7 @@ export default function Businesses() {
                 isOpen={showDeleteModal}
                 title="Elimina attività"
                 description="Sei sicuro di voler eliminare questa attività? L'operazione non è reversibile."
-                confirmLabel="Elimina"
+                confirmLabel={isDeleting ? "Eliminazione in corso..." : "Elimina"}
                 cancelLabel="Annulla"
                 onConfirm={confirmDelete}
                 onCancel={() => {

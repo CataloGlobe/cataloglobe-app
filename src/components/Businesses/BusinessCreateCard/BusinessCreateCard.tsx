@@ -22,6 +22,7 @@ interface BusinessCreateCardProps {
     title?: string;
     description?: string;
     primaryLabel?: string;
+    formId?: string;
 }
 
 export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
@@ -35,7 +36,8 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
     previewBaseUrl,
     title = "Aggiungi attività",
     description = "Compila i campi per creare una nuova attività.",
-    primaryLabel = "Crea attività"
+    primaryLabel = "Crea attività",
+    formId
 }) => {
     const finalUrl = `${previewBaseUrl}/business/${values.slug || "<slug>"}`;
 
@@ -51,7 +53,7 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                 </Text>
             </div>
 
-            <form onSubmit={onSubmit} className={styles.formContainer}>
+            <form id={formId} onSubmit={onSubmit} className={styles.formContainer}>
                 {/* Nome */}
                 <Input
                     label="Nome dell'attività"
