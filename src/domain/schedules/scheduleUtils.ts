@@ -17,12 +17,45 @@ export const nowPartsLocal = () => {
 /**
  * Dice se una singola rule è attiva ORA
  */
-export const isNowActive = (rule: BusinessScheduleRow) => {
-    const { dow, time } = nowPartsLocal();
-    if (!rule.days_of_week.includes(dow)) return false;
-    // confronto lessicografico ok con HH:MM:SS
-    return time >= rule.start_time && time < rule.end_time;
-};
+function toMinutes(hhmm: string) {
+    const [h, m] = hhmm.slice(0, 5).split(":").map(Number);
+    return h * 60 + m;
+}
+
+function prevDay(d: number) {
+    return (d + 6) % 7;
+}
+
+export function isNowActive(rule: BusinessScheduleRow, now: Date | string | number = new Date()) {
+    const date = now instanceof Date ? now : new Date(now);
+
+    if (isNaN(date.getTime())) return false;
+    if (!rule.is_active) return false;
+
+    const day = date.getDay(); // 0..6
+    const nowMin = toMinutes(date.toTimeString());
+
+    const start = toMinutes(rule.start_time);
+    const end = toMinutes(rule.end_time);
+
+    // ALL DAY
+    if (start === end) {
+        return rule.days_of_week.includes(day);
+    }
+
+    // SAME DAY
+    if (start < end) {
+        if (!rule.days_of_week.includes(day)) return false;
+        return start <= nowMin && nowMin < end;
+    }
+
+    // OVERNIGHT
+    const todayActive = rule.days_of_week.includes(day) && nowMin >= start;
+
+    const yesterdayActive = rule.days_of_week.includes(prevDay(day)) && nowMin < end;
+
+    return todayActive || yesterdayActive;
+}
 
 /**
  * Se più rule sono attive, decide quale vince

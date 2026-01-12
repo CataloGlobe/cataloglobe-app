@@ -15,6 +15,7 @@ import { supabase } from "@/services/supabase/client";
 import Tooltip from "@/components/ui/Tooltip/Tooltip";
 import { TriangleAlert } from "lucide-react";
 import { getActiveWinner, isNowActive } from "@/domain/schedules/scheduleUtils";
+import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessCollections";
 
 type Props = {
     isOpen: boolean;
@@ -32,7 +33,8 @@ type DraftRule = {
     collectionId: string | null;
     start: string; // HH:MM
     end: string; // HH:MM
-    days: number[]; // 0..6
+    days: number[];
+    allDay: boolean;
 };
 
 type EditDraft = {
@@ -40,15 +42,18 @@ type EditDraft = {
     start: string; // HH:MM
     end: string; // HH:MM
     days: number[];
+    allDay: boolean;
 };
 
 const DAY_LABELS = ["D", "L", "M", "M", "G", "V", "S"];
 const DAY_FULL = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
+const DAY_UI_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 function formatDays(days: number[]) {
     if (days.length === 7) return "Tutti i giorni";
-    const sorted = [...days].sort((a, b) => a - b);
-    return sorted.map(d => DAY_FULL[d]).join(", ");
+    return DAY_UI_ORDER.filter(d => days.includes(d))
+        .map(d => DAY_FULL[d])
+        .join(", ");
 }
 
 function formatTimeRange(start: string, end: string) {
@@ -72,8 +77,33 @@ function sortByActiveNow<T extends BusinessScheduleRow>(
     });
 }
 
+function toMinutes(t: string) {
+    const [h, m] = t.slice(0, 5).split(":").map(Number);
+    return h * 60 + m;
+}
+
 function timesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string) {
-    return aStart < bEnd && bStart < aEnd;
+    const aS = toMinutes(aStart);
+    const aE = toMinutes(aEnd);
+    const bS = toMinutes(bStart);
+    const bE = toMinutes(bEnd);
+
+    // all-day overlaps with everything
+    if (aS === aE || bS === bE) return true;
+
+    const aWrap = aS > aE;
+    const bWrap = bS > bE;
+
+    const overlaps = (s1: number, e1: number, s2: number, e2: number) => s1 < e2 && s2 < e1;
+
+    if (!aWrap && !bWrap) return overlaps(aS, aE, bS, bE);
+
+    if (aWrap && !bWrap) return overlaps(aS, 1440, bS, bE) || overlaps(0, aE, bS, bE);
+
+    if (!aWrap && bWrap) return overlaps(aS, aE, bS, 1440) || overlaps(aS, aE, 0, bE);
+
+    // both wrap
+    return true;
 }
 
 function daysOverlap(a: number[], b: number[]) {
@@ -106,19 +136,27 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
         collectionId: null,
         start: "09:00",
         end: "18:00",
-        days: [1, 2, 3, 4, 5]
+        days: [1, 2, 3, 4, 5],
+        allDay: false
     });
 
     const [draftOverlay, setDraftOverlay] = useState<DraftRule>({
         collectionId: null,
         start: "09:00",
         end: "18:00",
-        days: [1, 2, 3, 4, 5]
+        days: [1, 2, 3, 4, 5],
+        allDay: false
     });
 
     // Edit
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
+
+    const [activeNow, setActiveNow] = useState<{
+        primaryId: string | null;
+        overlayId: string | null;
+        isFallback: boolean;
+    } | null>(null);
 
     const primaryRules = useMemo(() => {
         const rules = schedules.filter(s => s.slot === "primary");
@@ -130,6 +168,11 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
         return sortByActiveNow(rules, isNowActive);
     }, [schedules]);
 
+    const primaryWinner = useMemo(() => getActiveWinner(primaryRules, isNowActive), [primaryRules]);
+
+    const overlayWinner = useMemo(() => getActiveWinner(overlayRules, isNowActive), [overlayRules]);
+
+    const [showPrimaryAdd, setShowPrimaryAdd] = useState(false);
     const [showOverlaySection, setShowOverlaySection] = useState(overlayRules.length > 0);
 
     const standardCollections = useMemo(
@@ -142,15 +185,9 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
         [collections]
     );
 
-    const canAddPrimary =
-        !!draftPrimary.collectionId &&
-        draftPrimary.days.length > 0 &&
-        draftPrimary.start < draftPrimary.end;
+    const canAddPrimary = !!draftPrimary.collectionId && draftPrimary.days.length > 0;
 
-    const canAddOverlay =
-        !!draftOverlay.collectionId &&
-        draftOverlay.days.length > 0 &&
-        draftOverlay.start < draftOverlay.end;
+    const canAddOverlay = !!draftOverlay.collectionId && draftOverlay.days.length > 0;
 
     async function refresh() {
         const data = await listBusinessSchedules(businessId);
@@ -198,6 +235,38 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
         };
     }, [isOpen, businessId]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+
+        let cancelled = false;
+
+        async function resolveNow() {
+            try {
+                const resolved = await resolveBusinessCollections(businessId, new Date());
+                if (cancelled) return;
+
+                const hasActivePrimaryRule = schedules.some(
+                    s => s.slot === "primary" && isNowActive(s)
+                );
+
+                setActiveNow({
+                    primaryId: resolved.primary,
+                    overlayId: resolved.overlay,
+                    isFallback: !!resolved.primary && !hasActivePrimaryRule
+                });
+            } catch {
+                // non blocchiamo la UI se il resolver fallisce
+                if (!cancelled) setActiveNow(null);
+            }
+        }
+
+        resolveNow();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, businessId, schedules]);
+
     /* ============================
        ESC to close
     ============================ */
@@ -218,6 +287,23 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
         setEditingId(null);
         setEditDraft(null);
         setError(null);
+        setDraftPrimary({
+            collectionId: null,
+            start: "09:00",
+            end: "18:00",
+            days: [1, 2, 3, 4, 5],
+            allDay: false
+        });
+        setDraftOverlay({
+            collectionId: null,
+            start: "09:00",
+            end: "18:00",
+            days: [1, 2, 3, 4, 5],
+            allDay: false
+        });
+        setShowPrimaryAdd(false);
+        setShowOverlaySection(false);
+        setActiveNow(null);
     }, [isOpen]);
 
     useEffect(() => {
@@ -226,15 +312,23 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
         }
     }, [overlayRules.length]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+        if (primaryRules.length === 0) setShowPrimaryAdd(true);
+    }, [isOpen, primaryRules.length]);
+
     if (!isOpen) return null;
 
     const openEdit = (rule: BusinessScheduleRow) => {
+        const isAllDay = rule.start_time.slice(0, 5) === rule.end_time.slice(0, 5);
+
         setEditingId(rule.id);
         setEditDraft({
             collectionId: rule.collection.id,
             start: rule.start_time.slice(0, 5),
             end: rule.end_time.slice(0, 5),
-            days: rule.days_of_week
+            days: rule.days_of_week,
+            allDay: isAllDay
         });
     };
 
@@ -246,11 +340,7 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
     const saveEdit = async (ruleId: string) => {
         if (!editDraft) return;
 
-        if (
-            !editDraft.collectionId ||
-            editDraft.days.length === 0 ||
-            editDraft.start >= editDraft.end
-        ) {
+        if (!editDraft.collectionId || editDraft.days.length === 0) {
             setError("Controlla contenuto, giorni e orario.");
             return;
         }
@@ -259,11 +349,14 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
             setSaving(true);
             setError(null);
 
+            const start = editDraft.allDay ? "00:00" : editDraft.start.slice(0, 5);
+            const end = editDraft.allDay ? "00:00" : editDraft.end.slice(0, 5);
+
             await updateBusinessSchedule(ruleId, {
                 collectionId: editDraft.collectionId,
                 days: editDraft.days,
-                start: editDraft.start,
-                end: editDraft.end
+                start,
+                end
             });
 
             cancelEdit();
@@ -291,6 +384,8 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
     };
 
     const addRule = async (slot: "primary" | "overlay") => {
+        if (saving) return;
+
         const draft = slot === "primary" ? draftPrimary : draftOverlay;
         if (!draft.collectionId) return;
 
@@ -298,13 +393,21 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
             setSaving(true);
             setError(null);
 
+            const startToSend = draft.allDay ? "00:00" : draft.start;
+            const endToSend = draft.allDay ? "00:00" : draft.end;
+
+            const normalize = (t: string) => t.slice(0, 5);
+
+            const start = normalize(startToSend);
+            const end = normalize(endToSend);
+
             await createBusinessSchedule({
                 businessId,
                 collectionId: draft.collectionId,
                 slot,
                 days: draft.days,
-                start: draft.start,
-                end: draft.end
+                start,
+                end
             });
 
             if (slot === "primary") {
@@ -312,18 +415,21 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                     collectionId: null,
                     start: "09:00",
                     end: "18:00",
-                    days: [1, 2, 3, 4, 5]
+                    days: [1, 2, 3, 4, 5],
+                    allDay: false
                 });
             } else {
                 setDraftOverlay({
                     collectionId: null,
                     start: "09:00",
                     end: "18:00",
-                    days: [1, 2, 3, 4, 5]
+                    days: [1, 2, 3, 4, 5],
+                    allDay: false
                 });
             }
 
             await refresh();
+            if (slot === "primary") setShowPrimaryAdd(false);
         } catch {
             setError("Errore durante la creazione della regola.");
         } finally {
@@ -356,6 +462,28 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                     </div>
                 </header>
 
+                {activeNow && (
+                    <div className={styles.activeNowBanner}>
+                        <Text variant="caption" weight={600}>
+                            Attivo ora:
+                        </Text>
+
+                        {activeNow.primaryId ? (
+                            <Text variant="caption">
+                                {collections.find(c => c.id === activeNow.primaryId)?.name ??
+                                    "Contenuto"}
+                                {activeNow.isFallback && (
+                                    <span className={styles.fallbackBadge}>Fallback</span>
+                                )}
+                            </Text>
+                        ) : (
+                            <Text variant="caption" colorVariant="muted">
+                                Nessun contenuto attivo
+                            </Text>
+                        )}
+                    </div>
+                )}
+
                 {/* Content */}
                 <div className={styles.content}>
                     {error && (
@@ -386,126 +514,164 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                         </Text>
                                     </div>
 
-                                    <div className={styles.sectionMeta}>
-                                        <Text variant="caption" colorVariant="muted">
-                                            {primaryRules.length} regole
+                                    <button
+                                        type="button"
+                                        className={styles.toggleBtn}
+                                        onClick={() => setShowPrimaryAdd(v => !v)}
+                                        aria-expanded={showPrimaryAdd}
+                                    >
+                                        <Text variant="caption" weight={600}>
+                                            {showPrimaryAdd ? "Nascondi" : "Aggiungi schedulazione"}
                                         </Text>
-                                    </div>
+                                    </button>
                                 </div>
 
                                 {/* Add Primary */}
-                                <div
-                                    className={styles.addPanel}
-                                    aria-label="Aggiungi regola contenuto principale"
-                                >
-                                    <div className={styles.addRow}>
-                                        <div className={styles.field}>
-                                            <Text variant="caption" colorVariant="muted">
-                                                Contenuto
-                                            </Text>
-                                            <select
-                                                className={styles.select}
-                                                value={draftPrimary.collectionId ?? ""}
-                                                onChange={e =>
-                                                    setDraftPrimary(p => ({
-                                                        ...p,
-                                                        collectionId: e.target.value || null
-                                                    }))
-                                                }
-                                            >
-                                                <option value="">Seleziona…</option>
-                                                {standardCollections.map(c => (
-                                                    <option key={c.id} value={c.id}>
-                                                        {c.name}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        <div className={styles.field}>
-                                            <Text variant="caption" colorVariant="muted">
-                                                Orario
-                                            </Text>
-                                            <div className={styles.timeRow}>
-                                                <input
-                                                    className={styles.time}
-                                                    type="time"
-                                                    value={draftPrimary.start}
-                                                    onChange={e =>
-                                                        setDraftPrimary(p => ({
-                                                            ...p,
-                                                            start: e.target.value
-                                                        }))
-                                                    }
-                                                    aria-label="Orario inizio"
-                                                />
+                                {showPrimaryAdd && (
+                                    <div
+                                        className={styles.addPanel}
+                                        aria-label="Aggiungi regola contenuto principale"
+                                    >
+                                        <div className={styles.addRow}>
+                                            <div className={styles.field}>
                                                 <Text variant="caption" colorVariant="muted">
-                                                    –
+                                                    Contenuto
                                                 </Text>
-                                                <input
-                                                    className={styles.time}
-                                                    type="time"
-                                                    value={draftPrimary.end}
+                                                <select
+                                                    className={styles.select}
+                                                    value={draftPrimary.collectionId ?? ""}
                                                     onChange={e =>
                                                         setDraftPrimary(p => ({
                                                             ...p,
-                                                            end: e.target.value
+                                                            collectionId: e.target.value || null
                                                         }))
                                                     }
-                                                    aria-label="Orario fine"
-                                                />
+                                                >
+                                                    <option value="">Seleziona…</option>
+                                                    {standardCollections.map(c => (
+                                                        <option key={c.id} value={c.id}>
+                                                            {c.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            <div className={styles.field}>
+                                                <label className={styles.allDayToggle}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={draftPrimary.allDay}
+                                                        onChange={e =>
+                                                            setDraftPrimary(p => ({
+                                                                ...p,
+                                                                allDay: e.target.checked,
+                                                                start: e.target.checked
+                                                                    ? "00:00"
+                                                                    : p.start,
+                                                                end: e.target.checked
+                                                                    ? "00:00"
+                                                                    : p.end
+                                                            }))
+                                                        }
+                                                    />
+                                                    <Text variant="caption" weight={600}>
+                                                        Tutto il giorno
+                                                    </Text>
+                                                </label>
+                                            </div>
+
+                                            <div className={styles.field}>
+                                                <Text variant="caption" colorVariant="muted">
+                                                    Orario
+                                                </Text>
+                                                <div className={styles.timeRow}>
+                                                    <input
+                                                        className={styles.time}
+                                                        type="time"
+                                                        disabled={draftPrimary.allDay}
+                                                        value={draftPrimary.start}
+                                                        onChange={e =>
+                                                            setDraftPrimary(p => ({
+                                                                ...p,
+                                                                start: e.target.value
+                                                            }))
+                                                        }
+                                                        aria-label="Orario inizio"
+                                                    />
+                                                    <Text variant="caption" colorVariant="muted">
+                                                        –
+                                                    </Text>
+                                                    <input
+                                                        className={styles.time}
+                                                        type="time"
+                                                        disabled={draftPrimary.allDay}
+                                                        value={draftPrimary.end}
+                                                        onChange={e =>
+                                                            setDraftPrimary(p => ({
+                                                                ...p,
+                                                                end: e.target.value
+                                                            }))
+                                                        }
+                                                        aria-label="Orario fine"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className={styles.field}>
+                                                <Text variant="caption" colorVariant="muted">
+                                                    Giorni
+                                                </Text>
+                                                <div className={styles.days}>
+                                                    {DAY_UI_ORDER.map(day => {
+                                                        const label = DAY_LABELS[day];
+                                                        const active =
+                                                            draftPrimary.days.includes(day);
+                                                        return (
+                                                            <button
+                                                                key={day}
+                                                                type="button"
+                                                                className={
+                                                                    active
+                                                                        ? styles.dayChipActive
+                                                                        : styles.dayChip
+                                                                }
+                                                                aria-pressed={active}
+                                                                aria-label={DAY_FULL[day]}
+                                                                onClick={() =>
+                                                                    setDraftPrimary(p => ({
+                                                                        ...p,
+                                                                        days: toggleDay(p.days, day)
+                                                                    }))
+                                                                }
+                                                            >
+                                                                <Text
+                                                                    variant="caption"
+                                                                    weight={600}
+                                                                >
+                                                                    {label}
+                                                                </Text>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div className={styles.field}>
+                                        <div className={styles.addActions}>
+                                            <Button
+                                                variant="primary"
+                                                label="Aggiungi"
+                                                disabled={!canAddPrimary || saving}
+                                                onClick={() => addRule("primary")}
+                                            />
                                             <Text variant="caption" colorVariant="muted">
-                                                Giorni
+                                                {canAddPrimary
+                                                    ? " "
+                                                    : "Seleziona contenuto, giorni e un intervallo orario valido."}
                                             </Text>
-                                            <div className={styles.days}>
-                                                {DAY_LABELS.map((label, day) => {
-                                                    const active = draftPrimary.days.includes(day);
-                                                    return (
-                                                        <button
-                                                            key={day}
-                                                            type="button"
-                                                            className={
-                                                                active
-                                                                    ? styles.dayChipActive
-                                                                    : styles.dayChip
-                                                            }
-                                                            aria-pressed={active}
-                                                            aria-label={DAY_FULL[day]}
-                                                            onClick={() =>
-                                                                setDraftPrimary(p => ({
-                                                                    ...p,
-                                                                    days: toggleDay(p.days, day)
-                                                                }))
-                                                            }
-                                                        >
-                                                            <Text variant="caption" weight={600}>
-                                                                {label}
-                                                            </Text>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
                                         </div>
                                     </div>
-
-                                    <div className={styles.addActions}>
-                                        <Button
-                                            variant="primary"
-                                            label="Aggiungi"
-                                            disabled={!canAddPrimary || saving}
-                                            onClick={() => addRule("primary")}
-                                        />
-                                        <Text variant="caption" colorVariant="muted">
-                                            {canAddPrimary
-                                                ? " "
-                                                : "Seleziona contenuto, giorni e un intervallo orario valido."}
-                                        </Text>
-                                    </div>
-                                </div>
+                                )}
 
                                 {/* List Primary */}
                                 <div
@@ -521,17 +687,16 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                         </div>
                                     ) : (
                                         primaryRules.map(rule => {
-                                            const primaryWinner = getActiveWinner(
-                                                primaryRules,
-                                                isNowActive
-                                            );
+                                            const isActiveNow = isNowActive(rule);
+                                            const isResolvedPrimary =
+                                                activeNow?.primaryId === rule.collection.id &&
+                                                isActiveNow;
 
-                                            const activeNow = isNowActive(rule);
                                             const isEditing = editingId === rule.id;
                                             const overlap = hasOverlap(rule, schedules);
                                             const showOverlapAlert =
                                                 overlap &&
-                                                activeNow &&
+                                                isActiveNow &&
                                                 primaryWinner !== null &&
                                                 primaryWinner.id !== rule.id;
 
@@ -543,14 +708,14 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                 >
                                                     <div
                                                         className={styles.rule}
-                                                        data-active={activeNow}
+                                                        data-active={isActiveNow}
                                                     >
                                                         <div className={styles.ruleMain}>
                                                             <div className={styles.ruleTopLine}>
                                                                 <Text weight={600}>
                                                                     {rule.collection.name}
                                                                 </Text>
-                                                                {activeNow && (
+                                                                {isActiveNow && (
                                                                     <span
                                                                         className={styles.badge}
                                                                         aria-label="Attivo ora"
@@ -563,6 +728,17 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                         </Text>
                                                                     </span>
                                                                 )}
+                                                                {isResolvedPrimary && (
+                                                                    <span className={styles.badge}>
+                                                                        <Text
+                                                                            variant="caption"
+                                                                            weight={700}
+                                                                        >
+                                                                            In uso ora
+                                                                        </Text>
+                                                                    </span>
+                                                                )}
+
                                                                 {showOverlapAlert && (
                                                                     <Tooltip
                                                                         content="Questo contenuto è sovrascritto da un altro attivo nello stesso orario."
@@ -646,6 +822,49 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                 </div>
 
                                                                 <div className={styles.field}>
+                                                                    <label
+                                                                        className={
+                                                                            styles.allDayToggle
+                                                                        }
+                                                                    >
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={
+                                                                                editDraft.allDay
+                                                                            }
+                                                                            onChange={e =>
+                                                                                setEditDraft(p =>
+                                                                                    p
+                                                                                        ? {
+                                                                                              ...p,
+                                                                                              allDay: e
+                                                                                                  .target
+                                                                                                  .checked,
+                                                                                              start: e
+                                                                                                  .target
+                                                                                                  .checked
+                                                                                                  ? "00:00"
+                                                                                                  : p.start,
+                                                                                              end: e
+                                                                                                  .target
+                                                                                                  .checked
+                                                                                                  ? "00:00"
+                                                                                                  : p.end
+                                                                                          }
+                                                                                        : p
+                                                                                )
+                                                                            }
+                                                                        />
+                                                                        <Text
+                                                                            variant="caption"
+                                                                            weight={600}
+                                                                        >
+                                                                            Tutto il giorno
+                                                                        </Text>
+                                                                    </label>
+                                                                </div>
+
+                                                                <div className={styles.field}>
                                                                     <Text
                                                                         variant="caption"
                                                                         colorVariant="muted"
@@ -656,6 +875,9 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                         <input
                                                                             className={styles.time}
                                                                             type="time"
+                                                                            disabled={
+                                                                                editDraft.allDay
+                                                                            }
                                                                             value={editDraft.start}
                                                                             onChange={e =>
                                                                                 setEditDraft(p =>
@@ -680,6 +902,9 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                         <input
                                                                             className={styles.time}
                                                                             type="time"
+                                                                            disabled={
+                                                                                editDraft.allDay
+                                                                            }
                                                                             value={editDraft.end}
                                                                             onChange={e =>
                                                                                 setEditDraft(p =>
@@ -706,56 +931,54 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                         Giorni
                                                                     </Text>
                                                                     <div className={styles.days}>
-                                                                        {DAY_LABELS.map(
-                                                                            (label, day) => {
-                                                                                const on =
-                                                                                    editDraft.days.includes(
-                                                                                        day
-                                                                                    );
-                                                                                return (
-                                                                                    <button
-                                                                                        key={day}
-                                                                                        type="button"
-                                                                                        className={
-                                                                                            on
-                                                                                                ? styles.dayChipActive
-                                                                                                : styles.dayChip
-                                                                                        }
-                                                                                        aria-pressed={
-                                                                                            on
-                                                                                        }
-                                                                                        aria-label={
-                                                                                            DAY_FULL[
-                                                                                                day
-                                                                                            ]
-                                                                                        }
-                                                                                        onClick={() =>
-                                                                                            setEditDraft(
-                                                                                                p =>
-                                                                                                    p
-                                                                                                        ? {
-                                                                                                              ...p,
-                                                                                                              days: toggleDay(
-                                                                                                                  p.days,
-                                                                                                                  day
-                                                                                                              )
-                                                                                                          }
-                                                                                                        : p
-                                                                                            )
-                                                                                        }
-                                                                                    >
-                                                                                        <Text
-                                                                                            variant="caption"
-                                                                                            weight={
-                                                                                                600
-                                                                                            }
-                                                                                        >
-                                                                                            {label}
-                                                                                        </Text>
-                                                                                    </button>
+                                                                        {DAY_UI_ORDER.map(day => {
+                                                                            const label =
+                                                                                DAY_LABELS[day];
+                                                                            const on =
+                                                                                editDraft.days.includes(
+                                                                                    day
                                                                                 );
-                                                                            }
-                                                                        )}
+                                                                            return (
+                                                                                <button
+                                                                                    key={day}
+                                                                                    type="button"
+                                                                                    className={
+                                                                                        on
+                                                                                            ? styles.dayChipActive
+                                                                                            : styles.dayChip
+                                                                                    }
+                                                                                    aria-pressed={
+                                                                                        on
+                                                                                    }
+                                                                                    aria-label={
+                                                                                        DAY_FULL[
+                                                                                            day
+                                                                                        ]
+                                                                                    }
+                                                                                    onClick={() =>
+                                                                                        setEditDraft(
+                                                                                            p =>
+                                                                                                p
+                                                                                                    ? {
+                                                                                                          ...p,
+                                                                                                          days: toggleDay(
+                                                                                                              p.days,
+                                                                                                              day
+                                                                                                          )
+                                                                                                      }
+                                                                                                    : p
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    <Text
+                                                                                        variant="caption"
+                                                                                        weight={600}
+                                                                                    >
+                                                                                        {label}
+                                                                                    </Text>
+                                                                                </button>
+                                                                            );
+                                                                        })}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -767,10 +990,7 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                     disabled={
                                                                         saving ||
                                                                         !editDraft.collectionId ||
-                                                                        editDraft.days.length ===
-                                                                            0 ||
-                                                                        editDraft.start >=
-                                                                            editDraft.end
+                                                                        editDraft.days.length === 0
                                                                     }
                                                                     onClick={() =>
                                                                         saveEdit(rule.id)
@@ -858,6 +1078,30 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                 </div>
 
                                                 <div className={styles.field}>
+                                                    <label className={styles.allDayToggle}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={draftOverlay.allDay}
+                                                            onChange={e =>
+                                                                setDraftOverlay(p => ({
+                                                                    ...p,
+                                                                    allDay: e.target.checked,
+                                                                    start: e.target.checked
+                                                                        ? "00:00"
+                                                                        : p.start,
+                                                                    end: e.target.checked
+                                                                        ? "00:00"
+                                                                        : p.end
+                                                                }))
+                                                            }
+                                                        />
+                                                        <Text variant="caption" weight={600}>
+                                                            Tutto il giorno
+                                                        </Text>
+                                                    </label>
+                                                </div>
+
+                                                <div className={styles.field}>
                                                     <Text variant="caption" colorVariant="muted">
                                                         Orario
                                                     </Text>
@@ -865,6 +1109,7 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                         <input
                                                             className={styles.time}
                                                             type="time"
+                                                            disabled={draftOverlay.allDay}
                                                             value={draftOverlay.start}
                                                             onChange={e =>
                                                                 setDraftOverlay(p => ({
@@ -883,6 +1128,7 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                         <input
                                                             className={styles.time}
                                                             type="time"
+                                                            disabled={draftOverlay.allDay}
                                                             value={draftOverlay.end}
                                                             onChange={e =>
                                                                 setDraftOverlay(p => ({
@@ -900,13 +1146,15 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                         Giorni
                                                     </Text>
                                                     <div className={styles.days}>
-                                                        {DAY_LABELS.map((label, day) => {
+                                                        {DAY_UI_ORDER.map(day => {
+                                                            const label = DAY_LABELS[day];
                                                             const active =
                                                                 draftOverlay.days.includes(day);
                                                             return (
                                                                 <button
                                                                     key={day}
                                                                     type="button"
+                                                                    disabled={draftOverlay.allDay}
                                                                     className={
                                                                         active
                                                                             ? styles.dayChipActive
@@ -966,18 +1214,14 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                 </div>
                                             ) : (
                                                 overlayRules.map(rule => {
-                                                    const primaryWinner = getActiveWinner(
-                                                        primaryRules,
-                                                        isNowActive
-                                                    );
-                                                    const activeNow = isNowActive(rule);
+                                                    const isActiveNow = isNowActive(rule);
                                                     const isEditing = editingId === rule.id;
                                                     const overlap = hasOverlap(rule, schedules);
                                                     const showOverlapAlert =
                                                         overlap &&
-                                                        activeNow &&
-                                                        primaryWinner !== null &&
-                                                        primaryWinner.id !== rule.id;
+                                                        isActiveNow &&
+                                                        overlayWinner !== null &&
+                                                        overlayWinner.id !== rule.id;
 
                                                     return (
                                                         <div
@@ -987,7 +1231,7 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                         >
                                                             <div
                                                                 className={styles.rule}
-                                                                data-active={activeNow}
+                                                                data-active={isActiveNow}
                                                             >
                                                                 <div className={styles.ruleMain}>
                                                                     <div
@@ -998,7 +1242,7 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                         <Text weight={600}>
                                                                             {rule.collection.name}
                                                                         </Text>
-                                                                        {activeNow && (
+                                                                        {isActiveNow && (
                                                                             <span
                                                                                 className={
                                                                                     styles.badge
@@ -1117,6 +1361,52 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                         <div
                                                                             className={styles.field}
                                                                         >
+                                                                            <label
+                                                                                className={
+                                                                                    styles.allDayToggle
+                                                                                }
+                                                                            >
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={
+                                                                                        editDraft.allDay
+                                                                                    }
+                                                                                    onChange={e =>
+                                                                                        setEditDraft(
+                                                                                            p =>
+                                                                                                p
+                                                                                                    ? {
+                                                                                                          ...p,
+                                                                                                          allDay: e
+                                                                                                              .target
+                                                                                                              .checked,
+                                                                                                          start: e
+                                                                                                              .target
+                                                                                                              .checked
+                                                                                                              ? "00:00"
+                                                                                                              : p.start,
+                                                                                                          end: e
+                                                                                                              .target
+                                                                                                              .checked
+                                                                                                              ? "00:00"
+                                                                                                              : p.end
+                                                                                                      }
+                                                                                                    : p
+                                                                                        )
+                                                                                    }
+                                                                                />
+                                                                                <Text
+                                                                                    variant="caption"
+                                                                                    weight={600}
+                                                                                >
+                                                                                    Tutto il giorno
+                                                                                </Text>
+                                                                            </label>
+                                                                        </div>
+
+                                                                        <div
+                                                                            className={styles.field}
+                                                                        >
                                                                             <Text
                                                                                 variant="caption"
                                                                                 colorVariant="muted"
@@ -1133,6 +1423,9 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                                         styles.time
                                                                                     }
                                                                                     type="time"
+                                                                                    disabled={
+                                                                                        editDraft.allDay
+                                                                                    }
                                                                                     value={
                                                                                         editDraft.start
                                                                                     }
@@ -1162,6 +1455,9 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                                         styles.time
                                                                                     }
                                                                                     type="time"
+                                                                                    disabled={
+                                                                                        editDraft.allDay
+                                                                                    }
                                                                                     value={
                                                                                         editDraft.end
                                                                                     }
@@ -1197,11 +1493,12 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                                     styles.days
                                                                                 }
                                                                             >
-                                                                                {DAY_LABELS.map(
-                                                                                    (
-                                                                                        label,
-                                                                                        day
-                                                                                    ) => {
+                                                                                {DAY_UI_ORDER.map(
+                                                                                    day => {
+                                                                                        const label =
+                                                                                            DAY_LABELS[
+                                                                                                day
+                                                                                            ];
                                                                                         const on =
                                                                                             editDraft.days.includes(
                                                                                                 day
@@ -1212,6 +1509,9 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                                                     day
                                                                                                 }
                                                                                                 type="button"
+                                                                                                disabled={
+                                                                                                    editDraft.allDay
+                                                                                                }
                                                                                                 className={
                                                                                                     on
                                                                                                         ? styles.dayChipActive
@@ -1270,9 +1570,7 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                                 saving ||
                                                                                 !editDraft.collectionId ||
                                                                                 editDraft.days
-                                                                                    .length === 0 ||
-                                                                                editDraft.start >=
-                                                                                    editDraft.end
+                                                                                    .length === 0
                                                                             }
                                                                             onClick={() =>
                                                                                 saveEdit(rule.id)

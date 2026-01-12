@@ -14,7 +14,8 @@ import { listBusinessSchedules } from "@/services/supabase/schedules";
 
 import type { CollectionItemWithItem, OverrideRowForUI } from "@/types/database";
 import styles from "./BusinessOverridesModal.module.scss";
-import { getActiveWinner, isNowActive } from "@/domain/schedules/scheduleUtils";
+import { isNowActive } from "@/domain/schedules/scheduleUtils";
+import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessCollections";
 
 /* -------------------------------------------------------------------------- */
 /*                                    TYPES                                   */
@@ -54,7 +55,7 @@ type DraftRow = {
 type AvailableCollection = {
     id: string;
     name: string;
-    slot: "primary" | "overlay";
+    slot: "primary" | "overlay" | "mixed";
     isActiveNow: boolean;
 };
 
@@ -87,6 +88,12 @@ export default function BusinessOverridesModal({
 
     const [search, setSearch] = useState("");
     const [categoryFilter, setCategoryFilter] = useState<string>("all");
+
+    const [activeNow, setActiveNow] = useState<{
+        primaryId: string | null;
+        overlayId: string | null;
+        isFallback: boolean;
+    } | null>(null);
 
     const hasSchedulableCollections = availableCollections.length > 0;
     const hasChanges = Object.values(drafts).some(d => {
@@ -187,11 +194,17 @@ export default function BusinessOverridesModal({
         try {
             const schedules = await listBusinessSchedules(businessId);
 
-            const primaryRules = schedules.filter(s => s.slot === "primary");
-            const overlayRules = schedules.filter(s => s.slot === "overlay");
+            const resolved = await resolveBusinessCollections(businessId, new Date());
 
-            const primaryWinner = getActiveWinner(primaryRules, isNowActive);
-            const overlayWinner = getActiveWinner(overlayRules, isNowActive);
+            const hasActivePrimaryRule = schedules.some(
+                s => s.slot === "primary" && isNowActive(s)
+            );
+
+            setActiveNow({
+                primaryId: resolved.primary,
+                overlayId: resolved.overlay,
+                isFallback: !!resolved.primary && !hasActivePrimaryRule
+            });
 
             const map = new Map<string, AvailableCollection>();
 
@@ -199,8 +212,8 @@ export default function BusinessOverridesModal({
                 if (!s.collection) continue;
 
                 const isActiveNow =
-                    (s.slot === "primary" && primaryWinner?.collection?.id === s.collection.id) ||
-                    (s.slot === "overlay" && overlayWinner?.collection?.id === s.collection.id);
+                    (s.slot === "primary" && resolved.primary === s.collection.id) ||
+                    (s.slot === "overlay" && resolved.overlay === s.collection.id);
 
                 if (!map.has(s.collection.id)) {
                     map.set(s.collection.id, {
@@ -212,6 +225,11 @@ export default function BusinessOverridesModal({
                 } else if (isActiveNow) {
                     // se la stessa collection compare più volte, basta che una sia vincente
                     map.get(s.collection.id)!.isActiveNow = true;
+                } else {
+                    const entry = map.get(s.collection.id)!;
+                    if (entry.slot !== s.slot) {
+                        entry.slot = "mixed";
+                    }
                 }
             }
 
@@ -459,11 +477,12 @@ export default function BusinessOverridesModal({
                                 onChange={e => setSelectedCollectionId(e.target.value)}
                             >
                                 {availableCollections.map(c => {
-                                    const label = c.isActiveNow
-                                        ? `${c.name} · Attiva ${
-                                              c.slot === "overlay" ? "in Evidenza" : ""
-                                          }`
-                                        : c.name;
+                                    const label =
+                                        c.id === activeNow?.primaryId
+                                            ? `${c.name} · In uso ora${
+                                                  activeNow.isFallback ? " (Fallback)" : ""
+                                              }`
+                                            : c.name;
 
                                     return (
                                         <option key={c.id} value={c.id}>
@@ -472,6 +491,43 @@ export default function BusinessOverridesModal({
                                     );
                                 })}
                             </select>
+                        </div>
+                    )}
+
+                    {activeNow && (
+                        <div className={styles.activeNowBanner}>
+                            <Text variant="caption" weight={600}>
+                                Attivo ora:
+                            </Text>
+
+                            {activeNow.primaryId ? (
+                                <Text variant="caption">
+                                    {availableCollections.find(c => c.id === activeNow.primaryId)
+                                        ?.name ?? "Contenuto"}
+                                    {activeNow.isFallback && (
+                                        <span className={styles.fallbackBadge}>Fallback</span>
+                                    )}
+                                </Text>
+                            ) : (
+                                <Text variant="caption" colorVariant="muted">
+                                    Nessun contenuto attivo
+                                </Text>
+                            )}
+
+                            {activeNow?.overlayId && (
+                                <div className={styles.activeNowBanner}>
+                                    <Text variant="caption" weight={600}>
+                                        Contenuto in evidenza:
+                                    </Text>
+                                    <Text variant="caption" colorVariant="muted">
+                                        {
+                                            availableCollections.find(
+                                                c => c.id === activeNow.overlayId
+                                            )?.name
+                                        }
+                                    </Text>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
