@@ -1,0 +1,61 @@
+@use "@styles/variables" as *;
+
+/* ---------------------------------------------
+   OVERLAY
+--------------------------------------------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: clamp(1rem, 4vw, 2rem);
+
+  background: rgba(16, 16, 20, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+/* ---------------------------------------------
+   MODAL
+--------------------------------------------- */
+.modal {
+  height: min(900px, 94vh);
+
+  display: flex;
+  flex-direction: column;
+
+  background: #ffffff;
+  border-radius: clamp(14px, 3vw, 22px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+
+  overflow: hidden;
+  outline: none;
+}
+
+/* ---------------------------------------------
+   SIZES
+--------------------------------------------- */
+// .sm {
+//   max-width: 420px;
+// }
+
+// .md {
+//   max-width: 640px;
+// }
+
+.lg {
+  width: min(1440px, 98vw);
+}
+
+/* ---------------------------------------------
+   RESPONSIVE
+--------------------------------------------- */
+@media (max-width: 640px) {
+  .modal {
+    max-height: 100vh;
+    border-radius: 0;
+  }
+}
