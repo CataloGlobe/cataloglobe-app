@@ -75,6 +75,7 @@
 .card {
   width: 100%;
   text-align: left;
+  position: relative;
 
   display: flex;
   flex-direction: column;
@@ -94,12 +95,41 @@
     transform: translateY(-3px);
     border-color: rgba($brand-primary, 0.35);
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+
+    .specialBadge {
+      border-color: #d97706;
+    }
   }
 
   &:focus-visible {
     outline: none;
     box-shadow: 0 0 0 3px rgba($brand-primary, 0.25);
   }
+}
+
+/* ---------------------------------------------
+   BADGE
+--------------------------------------------- */
+.specialBadge {
+  position: absolute;
+  top: -7.5px;
+  right: -7.5px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1;
+
+  background: rgba(255, 165, 0, 0.12);
+  border: 1px solid rgba(255, 165, 0, 0.12);
+  color: #d97706;
+  white-space: nowrap;
 }
 
 /* ---------------------------------------------

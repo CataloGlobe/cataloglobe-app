@@ -1,4 +1,5 @@
 import type { CatalogTheme } from "@/types/theme";
+import { CatalogType } from "./catalog";
 
 /* ============================
    GENERIC TYPES
@@ -81,6 +82,7 @@ export interface ItemCategory {
     id: string;
     name: string;
     slug: string;
+    type: CatalogType;
     created_at: string;
 }
 
@@ -92,10 +94,11 @@ export interface Collection {
     id: string;
     name: string;
     description: string | null;
-    collection_type: string;
+    collection_type: CatalogType;
     style: Record<string, unknown> | null;
     created_at: string;
     updated_at: string;
+    kind: "standard" | "special";
 }
 
 export interface CollectionSection {

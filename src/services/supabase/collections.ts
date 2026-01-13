@@ -29,14 +29,16 @@ export async function listCollections(): Promise<Collection[]> {
 export async function createCollection(data: {
     name: string;
     description?: string;
-    collection_type?: string;
+    collection_type: CatalogType;
+    kind?: "standard" | "special";
 }): Promise<Collection> {
     const { data: collection, error } = await supabase
         .from("collections")
         .insert({
             name: data.name,
             description: data.description ?? null,
-            collection_type: data.collection_type ?? "generic"
+            collection_type: data.collection_type,
+            kind: data.kind ?? "standard"
         })
         .select()
         .single();
@@ -47,7 +49,7 @@ export async function createCollection(data: {
 
 export async function updateCollection(
     id: string,
-    fields: Partial<Pick<Collection, "name" | "description" | "style">>
+    fields: Partial<Pick<Collection, "name" | "description" | "style" | "kind">>
 ): Promise<Collection> {
     const { data, error } = await supabase
         .from("collections")
@@ -365,7 +367,7 @@ export async function getCollectionItemsWithData(
               created_at,
               updated_at,
               category_id,
-              category:item_categories ( id, name, slug, created_at )
+              category:item_categories ( id, name, slug, type, created_at )
             )
             `
         )
@@ -402,6 +404,7 @@ export async function getCollectionItemsWithData(
                     id: rawCategory.id,
                     name: rawCategory.name,
                     slug: rawCategory.slug,
+                    type: rawCategory.type,
                     created_at: rawCategory.created_at
                 },
                 created_at: rawItem.created_at,

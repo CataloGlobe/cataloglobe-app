@@ -9,17 +9,31 @@ import {
     deleteCollection,
     isCollectionDeletable
 } from "@/services/supabase/collections";
-import type { Collection } from "@/types/database";
+import type { BusinessType, Collection } from "@/types/database";
 import CollectionBuilderModal from "@/components/CollectionBuilderModal/CollectionBuilderModal";
 import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 import { useToast } from "@/context/Toast/ToastContext";
 import { businessTypeToCatalogType } from "@/domain/catalog/businessToCatalog";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Star, Trash2 } from "lucide-react";
 import styles from "./Collections.module.scss";
+import { CatalogType } from "@/types/catalog";
+import { Select } from "@/components/ui/Select/Select";
+import { CATALOG_TYPE_LABELS } from "@/domain/catalog/catalogTypeLabels";
+import { getUserBusinesses } from "@/services/supabase/businesses";
+import { getAllowedCatalogTypesForBusinesses } from "@/domain/catalog/catalogTypeRules";
+import { useAuth } from "@/context/useAuth";
+
+const ALL_CATALOG_TYPE_OPTIONS = (Object.keys(CATALOG_TYPE_LABELS) as CatalogType[]).map(value => ({
+    value,
+    label: CATALOG_TYPE_LABELS[value]
+}));
 
 export default function Collections() {
+    const { user } = useAuth();
+    const userId = user?.id;
     const { showToast } = useToast();
     const [collections, setCollections] = useState<Collection[]>([]);
+    const [userBusinessTypes, setUserBusinessTypes] = useState<BusinessType[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null);
     const [catalogOpen, setCatalogOpen] = useState(false);
@@ -31,6 +45,14 @@ export default function Collections() {
 
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
+    const [kind, setKind] = useState<"standard" | "special">("standard");
+    const [collectionType, setCollectionType] = useState<CatalogType>("menu");
+
+    const allowedCatalogTypes = getAllowedCatalogTypesForBusinesses(userBusinessTypes);
+
+    const catalogTypeOptions = ALL_CATALOG_TYPE_OPTIONS.filter(opt =>
+        allowedCatalogTypes.includes(opt.value as CatalogType)
+    );
 
     const loadCollections = useCallback(async () => {
         try {
@@ -48,10 +70,30 @@ export default function Collections() {
         loadCollections();
     }, [loadCollections]);
 
+    useEffect(() => {
+        if (!userId) return;
+
+        const id = userId; // <- ora è sicuramente string per TS
+
+        async function loadBusinesses() {
+            try {
+                const businesses = await getUserBusinesses(id);
+                setUserBusinessTypes(businesses.map(b => b.type));
+            } catch (error) {
+                console.error("Errore caricamento business", error);
+                setUserBusinessTypes([]);
+            }
+        }
+
+        loadBusinesses();
+    }, [userId]);
+
     const openCreateModal = () => {
         setEditingCollection(null);
         setName("");
         setDescription("");
+        setKind("standard");
+        setCollectionType(catalogTypeOptions[0]?.value ?? "generic");
         setModalOpen(true);
     };
 
@@ -59,6 +101,8 @@ export default function Collections() {
         setEditingCollection(collection);
         setName(collection.name);
         setDescription(collection.description ?? "");
+        setKind(collection.kind ?? "standard");
+        setCollectionType(collection.collection_type);
         setModalOpen(true);
     };
 
@@ -68,14 +112,17 @@ export default function Collections() {
         if (editingCollection) {
             const updated = await updateCollection(editingCollection.id, {
                 name: name.trim(),
-                description: description.trim() || undefined
+                description: description.trim() || undefined,
+                kind
             });
 
             setCollections(prev => prev.map(c => (c.id === updated.id ? updated : c)));
         } else {
             const created = await createCollection({
                 name: name.trim(),
-                description: description.trim() || undefined
+                description: description.trim() || undefined,
+                collection_type: collectionType,
+                kind
             });
 
             setCollections(prev => [...prev, created]);
@@ -221,6 +268,12 @@ export default function Collections() {
                                         year: "numeric"
                                     })}
                                 </Text>
+
+                                {col.kind === "special" && (
+                                    <div className={styles.specialBadge}>
+                                        <Star fill={"#d97706"} />
+                                    </div>
+                                )}
                             </div>
                         </li>
                     ))}
@@ -271,6 +324,31 @@ export default function Collections() {
                         value={description}
                         onChange={e => setDescription(e.target.value)}
                     />
+
+                    {!editingCollection ? (
+                        <Select
+                            label="Tipo di contenuto"
+                            value={collectionType}
+                            onChange={e => setCollectionType(e.target.value as CatalogType)}
+                            options={catalogTypeOptions}
+                        />
+                    ) : (
+                        <Text variant="caption" colorVariant="muted">
+                            Tipo: {catalogTypeOptions.find(o => o.value === collectionType)?.label}
+                        </Text>
+                    )}
+
+                    <div>
+                        <Text as="label" variant="body" weight={600}>
+                            Collezione in evidenza
+                        </Text>
+
+                        <input
+                            type="checkbox"
+                            checked={kind === "special"}
+                            onChange={e => setKind(e.target.checked ? "special" : "standard")}
+                        />
+                    </div>
                 </div>
             </ConfirmModal>
 
