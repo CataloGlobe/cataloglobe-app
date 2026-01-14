@@ -65,7 +65,7 @@ export const InputBase: React.FC<InputBaseProps> = ({
                     variant="caption"
                     weight={600}
                     className={styles.label}
-                    htmlFor={"test"}
+                    htmlFor={inputId}
                 >
                     {label}
                     {required && (
