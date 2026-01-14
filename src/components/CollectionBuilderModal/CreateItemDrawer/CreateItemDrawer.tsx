@@ -6,6 +6,7 @@ import { listItemCategories } from "@/services/supabase/collections";
 import { ITEM_FORM_CONFIG, ItemFormField } from "@/domain/catalog/itemFormConfig";
 import { Button } from "@/components/ui";
 import { TextInput } from "@/components/ui/Input/TextInput";
+import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { createItemCategory } from "@/services/supabase/categories";
 import styles from "./CreateItemDrawer.module.scss";
 
@@ -202,26 +203,21 @@ export const CreateItemDrawer = forwardRef<CreateItemDrawerRef, CreateItemDrawer
 
                     {hasField("price") && (
                         <div className={styles.field}>
-                            <Text variant="caption" weight={600}>
-                                Prezzo {isRequired("price") ? "*" : ""}
-                            </Text>
-                            <input
-                                type="number"
+                            <NumberInput
+                                label="Prezzo"
                                 step="0.01"
                                 value={basePrice}
                                 onChange={e => setBasePrice(e.target.value)}
                                 required={isRequired("price")}
+                                endAdornment="€"
                             />
                         </div>
                     )}
 
                     {hasField("duration") && (
                         <div className={styles.field}>
-                            <Text variant="caption" weight={600}>
-                                Durata (minuti) {isRequired("duration") ? "*" : ""}
-                            </Text>
-                            <input
-                                type="number"
+                            <NumberInput
+                                label="Durata (minuti)"
                                 value={duration}
                                 onChange={e => setDuration(e.target.value)}
                                 required={isRequired("duration")}

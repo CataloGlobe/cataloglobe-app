@@ -62,7 +62,7 @@ export const InputBase: React.FC<InputBaseProps> = ({
             {label && (
                 <Text
                     as="label"
-                    variant="body"
+                    variant="caption"
                     weight={600}
                     className={styles.label}
                     htmlFor={"test"}
@@ -71,7 +71,7 @@ export const InputBase: React.FC<InputBaseProps> = ({
                     {required && (
                         <Text
                             as="span"
-                            variant="body"
+                            variant="caption"
                             className={styles.required}
                             aria-hidden="true"
                         >

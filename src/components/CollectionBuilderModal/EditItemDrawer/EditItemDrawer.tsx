@@ -4,6 +4,7 @@ import { Item } from "@/types/database";
 import { CatalogType } from "@/types/catalog";
 import styles from "./EditItemDrawer.module.scss";
 import { TextInput } from "@/components/ui/Input/TextInput";
+import { NumberInput } from "@/components/ui/Input/NumberInput";
 
 export interface EditItemDrawerRef {
     submit: () => Promise<void>;
@@ -81,24 +82,19 @@ export const EditItemDrawer = forwardRef<EditItemDrawerRef, EditItemDrawerProps>
                     </div>
 
                     <div className={styles.field}>
-                        <Text variant="caption" weight={600}>
-                            Prezzo
-                        </Text>
-                        <input
-                            type="number"
+                        <NumberInput
+                            label="Prezzo"
                             step="0.01"
                             value={basePrice}
                             onChange={e => setBasePrice(e.target.value)}
+                            endAdornment="€"
                         />
                     </div>
 
                     {collectionType === "services" && (
                         <div className={styles.field}>
-                            <Text variant="caption" weight={600}>
-                                Durata (minuti)
-                            </Text>
-                            <input
-                                type="number"
+                            <NumberInput
+                                label="Durata (minuti)"
                                 value={duration}
                                 onChange={e => setDuration(e.target.value)}
                             />
