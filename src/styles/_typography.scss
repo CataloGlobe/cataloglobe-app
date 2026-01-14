@@ -8,43 +8,73 @@
 /* --- Responsive Typography Map --- */
 /* Mobile base + Desktop override */
 $typography-scale: (
-  "display": (
-    "mobile": 2rem,
-    "desktop": 3rem,
-    "weight": 700,
-    "lh": 1.1
+  display: (
+    mobile: 2rem,
+    desktop: 3rem,
+    weight: 700,
+    lh: 1.1
   ),
-  "title-lg": (
-    "mobile": 1.5rem,
-    "desktop": 1.75rem,
-    "weight": 600
+
+  title-lg: (
+    mobile: 1.5rem,
+    desktop: 1.75rem,
+    weight: 600
   ),
-  "title-md": (
-    "mobile": 1.25rem,
-    "desktop": 1.5rem,
-    "weight": 600
+
+  title-md: (
+    mobile: 1.25rem,
+    desktop: 1.5rem,
+    weight: 600
   ),
-  "title-sm": (
-    "mobile": 1.125rem,
-    "desktop": 1.25rem,
-    "weight": 500
+
+  title-sm: (
+    mobile: 1.125rem,
+    desktop: 1.25rem,
+    weight: 500
   ),
-  "body": (
-    "mobile": 1rem,
-    "desktop": 1rem,
-    "weight": 400
+
+  body-lg: (
+    mobile: 1.125rem,
+    desktop: 1.125rem,
+    weight: 400,
+    lh: 1.6
   ),
-  "caption": (
-    "mobile": 0.875rem,
-    "desktop": 0.875rem,
-    "weight": 400
+
+  body: (
+    mobile: 1rem,
+    desktop: 1rem,
+    weight: 400,
+    lh: 1.6
   ),
-  "button": (
-    "mobile": 0.95rem,
-    "desktop": 0.95rem,
-    "weight": 600,
-    "transform": uppercase,
-    "tracking": 0.02em
+
+  body-sm: (
+    mobile: 0.875rem,
+    desktop: 0.875rem,
+    weight: 400,
+    lh: 1.5
+  ),
+
+  caption: (
+    mobile: 0.825rem,
+    desktop: 0.825rem,
+    weight: 400,
+    lh: 1.4
+  ),
+
+  caption-xs: (
+    mobile: 0.75rem,
+    desktop: 0.75rem,
+    weight: 400,
+    lh: 1.4
+  ),
+
+  button: (
+    mobile: 0.95rem,
+    desktop: 0.95rem,
+    weight: 600,
+    transform: uppercase,
+    tracking: 0.02em,
+    lh: 1.2
   )
 );
 
@@ -117,12 +147,6 @@ a {
   &:hover {
     text-decoration: underline;
   }
-}
-
-/* --- Small text --- */
-small {
-  font-size: 0.875rem;
-  color: $gray-600;
 }
 
 /* --- Alignment helpers --- */

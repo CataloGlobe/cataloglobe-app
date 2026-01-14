@@ -1,7 +1,17 @@
 import React from "react";
 import styles from "./Text.module.scss";
 
-type Variant = "display" | "title-lg" | "title-md" | "title-sm" | "body" | "caption" | "button";
+type Variant =
+    | "display"
+    | "title-lg"
+    | "title-md"
+    | "title-sm"
+    | "body-lg"
+    | "body"
+    | "body-sm"
+    | "caption"
+    | "caption-xs"
+    | "button";
 
 type Weight = 400 | 500 | 600 | 700;
 
@@ -16,23 +26,32 @@ type ColorVariant =
     | "dark"
     | "white";
 
-interface TextProps {
-    as?: React.ElementType;
+type Align = "left" | "center" | "right";
+
+/* ---------------------------------------------
+ * Polymorphic typing 
+--------------------------------------------- */
+type PropsOf<T extends React.ElementType> = React.ComponentPropsWithoutRef<T>;
+
+type TextOwnProps<T extends React.ElementType> = {
+    as?: T;
     variant?: Variant;
     weight?: Weight;
-    align?: "left" | "center" | "right";
+    align?: Align;
     colorVariant?: ColorVariant;
     color?: string;
     className?: string;
     children: React.ReactNode;
-    id?: string;
-}
+};
 
-/**
- * Componente Text – tipografia centralizzata e color system
- */
-export default function Text({
-    as: Tag = "p",
+type TextProps<T extends React.ElementType = "p"> = TextOwnProps<T> &
+    Omit<PropsOf<T>, keyof TextOwnProps<T> | "color">;
+
+/* ---------------------------------------------
+ * Component
+--------------------------------------------- */
+export default function Text<T extends React.ElementType = "p">({
+    as,
     variant = "body",
     weight,
     align = "left",
@@ -40,9 +59,10 @@ export default function Text({
     color,
     className,
     children,
-    id,
     ...props
-}: TextProps) {
+}: TextProps<T>) {
+    const Component = (as ?? "p") as React.ElementType;
+
     const classes = [
         styles.text,
         styles[variant],
@@ -58,10 +78,8 @@ export default function Text({
         ...(color && { color })
     };
 
-    const Component = Tag as React.ElementType;
-
     return (
-        <Component className={classes} style={style} {...props} id={id}>
+        <Component className={classes} style={style} {...props}>
             {children}
         </Component>
     );
