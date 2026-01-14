@@ -1,9 +1,9 @@
 import { memo } from "react";
 import Text from "@/components/ui/Text/Text";
-import { TextInput } from "@/components/ui/Input/TextInput";
 import type { CollectionStyle, CardTemplate, SectionNavShape } from "@/types/collectionStyle";
 import styles from "./CollectionStylePanel.module.scss";
 import { RangeInput } from "@/components/ui/Input/RangeInput";
+import { ColorInput } from "@/components/ui/Input/ColorInput";
 
 type Props = {
     styleDraft: CollectionStyle;
@@ -25,25 +25,11 @@ function CollectionStylePanel({ styleDraft, resolvedStyle, onChange }: Props) {
                     Aspetto generale
                 </Text>
 
-                <div className={styles.controlGroup}>
-                    <Text variant="caption" colorVariant="muted">
-                        Sfondo pagina
-                    </Text>
-
-                    <div className={styles.colorRow}>
-                        <input
-                            type="color"
-                            className={styles.colorInput}
-                            value={value("backgroundColor")}
-                            onChange={e => onChange({ backgroundColor: e.target.value })}
-                        />
-                        <TextInput
-                            value={value("backgroundColor")}
-                            onChange={e => onChange({ backgroundColor: e.target.value })}
-                            placeholder="#ffffff"
-                        />
-                    </div>
-                </div>
+                <ColorInput
+                    label="Sfondo pagina"
+                    value={value("backgroundColor")}
+                    onChange={color => onChange({ backgroundColor: color })}
+                />
             </div>
 
             {/* =====================
@@ -54,37 +40,21 @@ function CollectionStylePanel({ styleDraft, resolvedStyle, onChange }: Props) {
                     Header
                 </Text>
 
-                <div className={styles.controlGroup}>
-                    <Text variant="caption" colorVariant="muted">
-                        Colore header
-                    </Text>
+                <ColorInput
+                    label="Colore header"
+                    value={value("headerBackgroundColor")}
+                    onChange={color => onChange({ headerBackgroundColor: color })}
+                />
 
-                    <div className={styles.colorRow}>
-                        <input
-                            type="color"
-                            className={styles.colorInput}
-                            value={value("headerBackgroundColor")}
-                            onChange={e => onChange({ headerBackgroundColor: e.target.value })}
-                        />
-                        <TextInput
-                            value={value("headerBackgroundColor")}
-                            onChange={e => onChange({ headerBackgroundColor: e.target.value })}
-                            placeholder="#ffffff"
-                        />
-                    </div>
-                </div>
-
-                <div className={styles.controlGroup}>
-                    <RangeInput
-                        label="Bordo immagine"
-                        showValue={false}
-                        min={0}
-                        max={32}
-                        step={2}
-                        value={value("heroImageRadius")}
-                        onChange={e => onChange({ heroImageRadius: Number(e.target.value) })}
-                    />
-                </div>
+                <RangeInput
+                    label="Bordo immagine"
+                    showValue={false}
+                    min={0}
+                    max={32}
+                    step={2}
+                    value={value("heroImageRadius")}
+                    onChange={e => onChange({ heroImageRadius: Number(e.target.value) })}
+                />
             </div>
 
             {/* =====================
@@ -95,25 +65,11 @@ function CollectionStylePanel({ styleDraft, resolvedStyle, onChange }: Props) {
                     Navigazione sezioni
                 </Text>
 
-                <div className={styles.controlGroup}>
-                    <Text variant="caption" colorVariant="muted">
-                        Colore
-                    </Text>
-
-                    <div className={styles.colorRow}>
-                        <input
-                            type="color"
-                            className={styles.colorInput}
-                            value={value("sectionNavColor")}
-                            onChange={e => onChange({ sectionNavColor: e.target.value })}
-                        />
-                        <TextInput
-                            value={value("sectionNavColor")}
-                            onChange={e => onChange({ sectionNavColor: e.target.value })}
-                            placeholder="#6366f1"
-                        />
-                    </div>
-                </div>
+                <ColorInput
+                    label="Colore"
+                    value={value("sectionNavColor")}
+                    onChange={color => onChange({ sectionNavColor: color })}
+                />
 
                 <div className={styles.controlGroup}>
                     <Text variant="caption" colorVariant="muted">
@@ -170,25 +126,11 @@ function CollectionStylePanel({ styleDraft, resolvedStyle, onChange }: Props) {
                     </div>
                 </div>
 
-                <div className={styles.controlGroup}>
-                    <Text variant="caption" colorVariant="muted">
-                        Colore
-                    </Text>
-
-                    <div className={styles.colorRow}>
-                        <input
-                            type="color"
-                            className={styles.colorInput}
-                            value={value("cardBackgroundColor")}
-                            onChange={e => onChange({ cardBackgroundColor: e.target.value })}
-                        />
-                        <TextInput
-                            value={value("cardBackgroundColor")}
-                            onChange={e => onChange({ cardBackgroundColor: e.target.value })}
-                            placeholder="#ffffff"
-                        />
-                    </div>
-                </div>
+                <ColorInput
+                    label="Colore"
+                    value={value("cardBackgroundColor")}
+                    onChange={color => onChange({ cardBackgroundColor: color })}
+                />
 
                 <div className={styles.controlGroup}>
                     <RangeInput

@@ -30,42 +30,6 @@
 }
 
 /* ----------------------------------------------------
-   COLOR ROW
----------------------------------------------------- */
-.colorRow {
-  display: grid;
-  grid-template-columns: 44px 1fr;
-  gap: 12px;
-  align-items: center;
-  width: 100%;
-}
-
-/* ----------------------------------------------------
-   COLOR INPUT (picker)
----------------------------------------------------- */
-.colorInput {
-  width: 44px;
-  height: 44px;
-  padding: 0.15rem;
-
-  border-radius: 10px;
-  border: none;
-  background: rgb(241, 241, 241);
-  cursor: pointer;
-
-  transition: border-color 0.15s ease;
-
-  &:hover {
-    border-color: rgba(0, 0, 0, 0.25);
-  }
-
-  &:focus-visible {
-    outline: 2px solid rgba(99, 102, 241, 0.6);
-    outline-offset: 2px;
-  }
-}
-
-/* ----------------------------------------------------
    TEMPLATE SELECT (CARD TEMPLATE)
 ---------------------------------------------------- */
 .templateRow {
