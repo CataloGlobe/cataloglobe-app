@@ -3,6 +3,7 @@ import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import type { CollectionStyle, CardTemplate, SectionNavShape } from "@/types/collectionStyle";
 import styles from "./CollectionStylePanel.module.scss";
+import { RangeInput } from "@/components/ui/Input/RangeInput";
 
 type Props = {
     styleDraft: CollectionStyle;
@@ -74,23 +75,15 @@ function CollectionStylePanel({ styleDraft, resolvedStyle, onChange }: Props) {
                 </div>
 
                 <div className={styles.controlGroup}>
-                    <Text variant="caption" colorVariant="muted">
-                        Bordo immagine
-                    </Text>
-
-                    <div className={styles.sliderRow}>
-                        <input
-                            type="range"
-                            min={0}
-                            max={32}
-                            step={2}
-                            value={value("heroImageRadius")}
-                            onChange={e => onChange({ heroImageRadius: Number(e.target.value) })}
-                        />
-                        <Text variant="caption" colorVariant="muted">
-                            {value("heroImageRadius")} px
-                        </Text>
-                    </div>
+                    <RangeInput
+                        label="Bordo immagine"
+                        showValue={false}
+                        min={0}
+                        max={32}
+                        step={2}
+                        value={value("heroImageRadius")}
+                        onChange={e => onChange({ heroImageRadius: Number(e.target.value) })}
+                    />
                 </div>
             </div>
 
@@ -198,23 +191,15 @@ function CollectionStylePanel({ styleDraft, resolvedStyle, onChange }: Props) {
                 </div>
 
                 <div className={styles.controlGroup}>
-                    <Text variant="caption" colorVariant="muted">
-                        Bordo
-                    </Text>
-
-                    <div className={styles.sliderRow}>
-                        <input
-                            type="range"
-                            min={0}
-                            max={32}
-                            step={2}
-                            value={value("cardRadius")}
-                            onChange={e => onChange({ cardRadius: Number(e.target.value) })}
-                        />
-                        <Text variant="caption" colorVariant="muted">
-                            {value("cardRadius")} px
-                        </Text>
-                    </div>
+                    <RangeInput
+                        label="Bordo Card"
+                        showValue={false}
+                        min={0}
+                        max={32}
+                        step={2}
+                        value={value("cardRadius")}
+                        onChange={e => onChange({ cardRadius: Number(e.target.value) })}
+                    />
                 </div>
             </div>
         </div>
