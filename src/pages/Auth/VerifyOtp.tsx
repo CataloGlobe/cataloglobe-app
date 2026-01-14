@@ -10,6 +10,7 @@ import { supabase } from "@services/supabase/client";
 import { Button } from "@components/ui";
 import { useNavigate } from "react-router-dom";
 import styles from "./Auth.module.scss";
+import { TextInput } from "@/components/ui/Input/TextInput";
 
 interface OtpRow {
     code: string; // contiene l'hash
@@ -235,12 +236,11 @@ export default function VerifyOtp() {
             <form onSubmit={handleVerify}>
                 <div className={styles.otpInputs}>
                     {digits.map((digit, index) => (
-                        <input
+                        <TextInput
                             key={index}
                             ref={el => {
                                 inputsRef.current[index] = el;
                             }}
-                            type="text"
                             inputMode="numeric"
                             maxLength={1}
                             className={styles.otpInput}

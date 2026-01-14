@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Text from "@/components/ui/Text/Text";
-import { Button, Input } from "@/components/ui";
+import { Button } from "@/components/ui";
+import { TextInput } from "@/components/ui/Input/TextInput";
 import CatalogManagerModal from "@/components/CatalogManagerModal/CatalogManagerModal";
 import {
     listCollections,
@@ -194,7 +195,6 @@ export default function Collections() {
                         </Text>
                     </div>
                 )}
-
                 <ul className={styles.list} role="list">
                     {collections.map(col => (
                         <li key={col.id} role="listitem">
@@ -255,12 +255,12 @@ export default function Collections() {
                                 </div>
 
                                 {col.description && (
-                                    <Text variant="body" colorVariant="muted">
+                                    <Text variant="caption" colorVariant="muted">
                                         {col.description}
                                     </Text>
                                 )}
 
-                                <Text variant="caption" colorVariant="muted">
+                                <Text variant="caption-xs" colorVariant="muted">
                                     Creata il{" "}
                                     {new Date(col.created_at).toLocaleDateString("it-IT", {
                                         day: "2-digit",
@@ -313,13 +313,13 @@ export default function Collections() {
                         marginBottom: "1rem"
                     }}
                 >
-                    <Input
+                    <TextInput
                         label="Nome collezione"
                         value={name}
                         onChange={e => setName(e.target.value)}
                     />
 
-                    <Input
+                    <TextInput
                         label="Descrizione"
                         value={description}
                         onChange={e => setDescription(e.target.value)}

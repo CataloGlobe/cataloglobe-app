@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Text from "@/components/ui/Text/Text";
-import { Button, Input } from "@/components/ui";
+import { Button } from "@/components/ui";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 
 import { Eye, EyeOff, AlertTriangle, History } from "lucide-react";
@@ -16,6 +16,7 @@ import type { CollectionItemWithItem, OverrideRowForUI } from "@/types/database"
 import styles from "./BusinessOverridesModal.module.scss";
 import { isNowActive } from "@/domain/schedules/scheduleUtils";
 import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessCollections";
+import { TextInput } from "@/components/ui/Input/TextInput";
 
 /* -------------------------------------------------------------------------- */
 /*                                    TYPES                                   */
@@ -545,12 +546,11 @@ export default function BusinessOverridesModal({
                     ) : (
                         <>
                             <div className={styles.filtersBlock}>
-                                <input
-                                    type="text"
+                                <TextInput
+                                    className={styles.searchInput}
                                     placeholder="Cerca elemento…"
                                     value={search}
                                     onChange={e => setSearch(e.target.value)}
-                                    className={styles.searchInput}
                                 />
 
                                 <select
@@ -617,8 +617,8 @@ export default function BusinessOverridesModal({
                                                             <span className={styles.euro}>€</span>
 
                                                             <div className={styles.priceField}>
-                                                                <Input
-                                                                    className={styles.priceInput}
+                                                                <TextInput
+                                                                    placeholder="es. 10"
                                                                     value={d.price}
                                                                     onChange={e =>
                                                                         changePrice(
@@ -626,7 +626,6 @@ export default function BusinessOverridesModal({
                                                                             e.target.value
                                                                         )
                                                                     }
-                                                                    inputMode="decimal"
                                                                 />
 
                                                                 {d.hasPriceOverride && (

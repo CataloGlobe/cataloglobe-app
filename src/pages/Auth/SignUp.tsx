@@ -3,6 +3,7 @@ import { signUp } from "@services/supabase/auth";
 import { Input, Button } from "@components/ui";
 import { useNavigate, Link } from "react-router-dom";
 import styles from "./Auth.module.scss";
+import { TextInput } from "@/components/ui/Input/TextInput";
 
 export default function SignUp() {
     const [email, setEmail] = useState("");
@@ -32,7 +33,7 @@ export default function SignUp() {
         <div className={styles.auth}>
             <h1>Registrati</h1>
             <form onSubmit={handleSubmit}>
-                <Input label="Nome" value={name} onChange={e => setName(e.target.value)} />
+                <TextInput label="Nome" value={name} onChange={e => setName(e.target.value)} />
                 <Input
                     label="Email"
                     type="email"

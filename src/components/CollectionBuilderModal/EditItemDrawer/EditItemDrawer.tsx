@@ -3,6 +3,7 @@ import Text from "@/components/ui/Text/Text";
 import { Item } from "@/types/database";
 import { CatalogType } from "@/types/catalog";
 import styles from "./EditItemDrawer.module.scss";
+import { TextInput } from "@/components/ui/Input/TextInput";
 
 export interface EditItemDrawerRef {
     submit: () => Promise<void>;
@@ -59,8 +60,8 @@ export const EditItemDrawer = forwardRef<EditItemDrawerRef, EditItemDrawerProps>
                         <Text variant="caption" weight={600}>
                             Nome *
                         </Text>
-                        <input
-                            type="text"
+
+                        <TextInput
                             value={name}
                             onChange={e => setName(e.target.value)}
                             autoFocus

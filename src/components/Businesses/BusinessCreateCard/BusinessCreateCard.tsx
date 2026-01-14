@@ -1,7 +1,7 @@
 // BusinessCreateCard.tsx
 import React from "react";
 import Text from "@components/ui/Text/Text";
-import { Input } from "@components/ui/Input/Input";
+import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
 import { CoverUploader } from "@/components/ui/CoverUploader/CoverUploader";
 import type { BusinessFormValues } from "@/types/Businesses";
@@ -55,30 +55,30 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
 
             <form id={formId} onSubmit={onSubmit} className={styles.formContainer}>
                 {/* Nome */}
-                <Input
+                <TextInput
                     label="Nome dell'attività"
                     placeholder="Es. Snoopy Bar"
                     value={values.name}
-                    error={errors?.name}
                     onChange={e => onFieldChange("name", e.target.value)}
+                    error={errors?.name}
                 />
 
                 {/* Città */}
-                <Input
+                <TextInput
                     label="Città"
                     placeholder="Es. Milano"
                     value={values.city}
-                    error={errors?.city}
                     onChange={e => onFieldChange("city", e.target.value)}
+                    error={errors?.city}
                 />
 
                 {/* Indirizzo */}
-                <Input
+                <TextInput
                     label="Indirizzo"
                     placeholder="Es. Via Roma 10"
                     value={values.address}
-                    error={errors?.address}
                     onChange={e => onFieldChange("address", e.target.value)}
+                    error={errors?.address}
                 />
 
                 {/* Tipo di attività */}
@@ -102,12 +102,12 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
 
                 {/* Slug */}
                 <div className={styles.fullWidth}>
-                    <Input
+                    <TextInput
                         label="Slug"
                         placeholder="es. snoopy-bar"
                         value={values.slug}
-                        error={errors?.slug}
                         onChange={e => onFieldChange("slug", e.target.value)}
+                        error={errors?.slug}
                     />
                     <Text variant="caption" colorVariant="muted">
                         URL finale: <code>{finalUrl}</code>

@@ -23,23 +23,3 @@
   flex-direction: column;
   gap: 6px;
 }
-
-/* ----------------------------------------------------
-     INPUTS
-  ---------------------------------------------------- */
-
-input,
-textarea {
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  font-size: 14px;
-  font-family: inherit;
-}
-
-input:focus,
-textarea:focus {
-  outline: none;
-  border-color: rgba(0, 0, 0, 0.4);
-}

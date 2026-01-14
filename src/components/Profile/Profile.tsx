@@ -5,6 +5,7 @@ import type { Profile } from "@/types/database";
 import Text from "@components/ui/Text/Text";
 import { Input, Button } from "@components/ui";
 import styles from "./Profile.module.scss";
+import { TextInput } from "../ui/Input/TextInput";
 
 export default function Profile() {
     const { user } = useAuth();
@@ -92,9 +93,8 @@ export default function Profile() {
 
                     {/* Dati utente */}
                     <div className={styles.formFields}>
-                        <Input
+                        <TextInput
                             label="Nome"
-                            type="text"
                             value={profile?.name || ""}
                             onChange={e => setProfile({ ...profile!, name: e.target.value })}
                         />

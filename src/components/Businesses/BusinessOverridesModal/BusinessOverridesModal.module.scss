@@ -129,22 +129,6 @@
   }
 }
 
-.searchInput {
-  width: 100%;
-  padding: 0.7rem 0.9rem;
-
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: #ffffff;
-
-  font-size: 0.9rem;
-
-  &:focus {
-    outline: none;
-    border-color: $brand-primary;
-  }
-}
-
 .select {
   appearance: none;
   padding: 0.7rem 0.9rem;
@@ -287,11 +271,6 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
-}
-
-.priceInput[data-overridden="true"] {
-  border-color: $brand-primary;
-  background: rgba($brand-primary, 0.08);
 }
 
 .priceActions {

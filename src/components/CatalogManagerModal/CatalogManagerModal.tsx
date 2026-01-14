@@ -3,7 +3,6 @@ import styles from "./CatalogManagerModal.module.scss";
 
 import Text from "../ui/Text/Text";
 import { Button } from "../ui";
-import { Input } from "../ui";
 
 import type { Item } from "@/types/database";
 import type { CatalogType, ServiceSubtype } from "@/types/catalog";
@@ -17,6 +16,7 @@ import {
 } from "@/services/supabase/collections";
 
 import { getFieldsForCollection } from "@/domain/catalog/getCatalogConfig";
+import { TextInput } from "../ui/Input/TextInput";
 
 type Props = {
     isOpen: boolean;
@@ -285,11 +285,11 @@ export default function CatalogManagerModal({ isOpen, onClose, catalogType }: Pr
 
                 <div className={styles.toolbar}>
                     <div className={styles.search}>
-                        <input
+                        <TextInput
                             ref={firstFocusRef}
+                            placeholder="Cerca contenuto…"
                             value={query}
                             onChange={e => setQuery(e.target.value)}
-                            placeholder="Cerca contenuto…"
                         />
                     </div>
 
@@ -317,13 +317,11 @@ export default function CatalogManagerModal({ isOpen, onClose, catalogType }: Pr
                     </div>
 
                     <div className={styles.createRow}>
-                        <Input
-                            label="Nuovo contenuto"
-                            value={createName}
-                            onChange={e => setCreateName(e.target.value)}
-                            error={createError ?? undefined}
+                        <Button
+                            label="Aggiungi"
+                            loading={savingId === "create"}
+                            onClick={onCreate}
                         />
-                        <Button label="Crea" loading={savingId === "create"} onClick={onCreate} />
                     </div>
                 </div>
 
@@ -370,10 +368,11 @@ export default function CatalogManagerModal({ isOpen, onClose, catalogType }: Pr
                                                         : "";
 
                                                 return (
-                                                    <Input
+                                                    <TextInput
                                                         key={field.key}
                                                         label={field.label}
                                                         value={inputValue}
+                                                        placeholder=""
                                                         onChange={e => {
                                                             const v = e.target.value;
 

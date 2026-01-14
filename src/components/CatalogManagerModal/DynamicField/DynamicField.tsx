@@ -1,7 +1,7 @@
 import Text from "@/components/ui/Text/Text";
-import { Input } from "@/components/ui/Input/Input";
 import styles from "./DynamicField.module.scss";
 import type { FieldDef } from "@/domain/catalog/fields";
+import { TextInput } from "@/components/ui/Input/TextInput";
 
 type Props = {
     field: FieldDef;
@@ -16,7 +16,7 @@ export default function DynamicField({ field, value, onChange }: Props) {
         case "text":
         case "number":
             return (
-                <Input
+                <TextInput
                     label={label}
                     value={value ?? ""}
                     required={required}
@@ -126,9 +126,8 @@ export default function DynamicField({ field, value, onChange }: Props) {
                 <div className={styles.field}>
                     <Text weight={600}>{label}</Text>
 
-                    <input
+                    <TextInput
                         className={styles.input}
-                        type="text"
                         value={Array.isArray(value) ? value.join(", ") : ""}
                         placeholder="Separati da virgola"
                         onChange={e =>
@@ -151,13 +150,8 @@ export default function DynamicField({ field, value, onChange }: Props) {
 
         case "datetime":
             return (
-                <Input
-                    label={label}
-                    type="datetime-local"
-                    value={value ?? ""}
-                    required={required}
-                    onChange={e => onChange(e.target.value)}
-                />
+                // TODO
+                <></>
             );
 
         default:

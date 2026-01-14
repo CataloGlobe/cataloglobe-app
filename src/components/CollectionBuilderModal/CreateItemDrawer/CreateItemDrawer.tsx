@@ -3,10 +3,11 @@ import Text from "@/components/ui/Text/Text";
 import { CatalogType } from "@/types/catalog";
 import { ItemCategory } from "@/types/database";
 import { listItemCategories } from "@/services/supabase/collections";
-import styles from "./CreateItemDrawer.module.scss";
 import { ITEM_FORM_CONFIG, ItemFormField } from "@/domain/catalog/itemFormConfig";
-import { Button, Input } from "@/components/ui";
+import { Button } from "@/components/ui";
+import { TextInput } from "@/components/ui/Input/TextInput";
 import { createItemCategory } from "@/services/supabase/categories";
+import styles from "./CreateItemDrawer.module.scss";
 
 export interface CreateItemDrawerRef {
     submit: () => Promise<void>;
@@ -115,8 +116,8 @@ export const CreateItemDrawer = forwardRef<CreateItemDrawerRef, CreateItemDrawer
                             <Text variant="caption" weight={600}>
                                 Nome {isRequired("name") ? "*" : ""}
                             </Text>
-                            <input
-                                type="text"
+
+                            <TextInput
                                 value={name}
                                 onChange={e => setName(e.target.value)}
                                 autoFocus
@@ -158,7 +159,7 @@ export const CreateItemDrawer = forwardRef<CreateItemDrawerRef, CreateItemDrawer
 
                             {isCreatingCategory && (
                                 <div className={styles.inlineCategory}>
-                                    <Input
+                                    <TextInput
                                         label="Nome nuova categoria"
                                         value={newCategoryName}
                                         onChange={e => setNewCategoryName(e.target.value)}

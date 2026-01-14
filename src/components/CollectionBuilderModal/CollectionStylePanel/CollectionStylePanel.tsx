@@ -1,6 +1,6 @@
 import { memo } from "react";
 import Text from "@/components/ui/Text/Text";
-import { Input } from "@/components/ui";
+import { TextInput } from "@/components/ui/Input/TextInput";
 import type { CollectionStyle, CardTemplate, SectionNavShape } from "@/types/collectionStyle";
 import styles from "./CollectionStylePanel.module.scss";
 
@@ -36,7 +36,7 @@ function CollectionStylePanel({ styleDraft, resolvedStyle, onChange }: Props) {
                             value={value("backgroundColor")}
                             onChange={e => onChange({ backgroundColor: e.target.value })}
                         />
-                        <Input
+                        <TextInput
                             value={value("backgroundColor")}
                             onChange={e => onChange({ backgroundColor: e.target.value })}
                             placeholder="#ffffff"
@@ -65,7 +65,7 @@ function CollectionStylePanel({ styleDraft, resolvedStyle, onChange }: Props) {
                             value={value("headerBackgroundColor")}
                             onChange={e => onChange({ headerBackgroundColor: e.target.value })}
                         />
-                        <Input
+                        <TextInput
                             value={value("headerBackgroundColor")}
                             onChange={e => onChange({ headerBackgroundColor: e.target.value })}
                             placeholder="#ffffff"
@@ -114,7 +114,7 @@ function CollectionStylePanel({ styleDraft, resolvedStyle, onChange }: Props) {
                             value={value("sectionNavColor")}
                             onChange={e => onChange({ sectionNavColor: e.target.value })}
                         />
-                        <Input
+                        <TextInput
                             value={value("sectionNavColor")}
                             onChange={e => onChange({ sectionNavColor: e.target.value })}
                             placeholder="#6366f1"
@@ -189,7 +189,7 @@ function CollectionStylePanel({ styleDraft, resolvedStyle, onChange }: Props) {
                             value={value("cardBackgroundColor")}
                             onChange={e => onChange({ cardBackgroundColor: e.target.value })}
                         />
-                        <Input
+                        <TextInput
                             value={value("cardBackgroundColor")}
                             onChange={e => onChange({ cardBackgroundColor: e.target.value })}
                             placeholder="#ffffff"
