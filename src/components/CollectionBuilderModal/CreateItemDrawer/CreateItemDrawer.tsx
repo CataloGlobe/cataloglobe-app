@@ -114,11 +114,8 @@ export const CreateItemDrawer = forwardRef<CreateItemDrawerRef, CreateItemDrawer
                 <div className={styles.fields}>
                     {hasField("name") && (
                         <div className={styles.field}>
-                            <Text variant="caption" weight={600}>
-                                Nome {isRequired("name") ? "*" : ""}
-                            </Text>
-
                             <TextInput
+                                label="Nome"
                                 value={name}
                                 onChange={e => setName(e.target.value)}
                                 autoFocus

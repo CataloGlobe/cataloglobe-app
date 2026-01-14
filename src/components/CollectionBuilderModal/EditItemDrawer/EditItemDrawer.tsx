@@ -58,11 +58,8 @@ export const EditItemDrawer = forwardRef<EditItemDrawerRef, EditItemDrawerProps>
             <div className={styles.form} aria-label="Modifica elemento">
                 <div className={styles.fields}>
                     <div className={styles.field}>
-                        <Text variant="caption" weight={600}>
-                            Nome *
-                        </Text>
-
                         <TextInput
+                            label="Nome"
                             value={name}
                             onChange={e => setName(e.target.value)}
                             autoFocus
