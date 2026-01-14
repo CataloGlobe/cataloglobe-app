@@ -17,6 +17,7 @@ import { TriangleAlert } from "lucide-react";
 import { getActiveWinner, isNowActive } from "@/domain/schedules/scheduleUtils";
 import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessCollections";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
+import { TimeInput } from "@/components/ui/Input/TimeInput";
 
 type Props = {
     isOpen: boolean;
@@ -576,13 +577,10 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                             </div>
 
                                             <div className={styles.field}>
-                                                <Text variant="caption" colorVariant="muted">
-                                                    Orario
-                                                </Text>
                                                 <div className={styles.timeRow}>
-                                                    <input
-                                                        className={styles.time}
-                                                        type="time"
+                                                    <TimeInput
+                                                        label="Orario inizio"
+                                                        step={60}
                                                         disabled={draftPrimary.allDay}
                                                         value={draftPrimary.start}
                                                         onChange={e =>
@@ -593,12 +591,9 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                         }
                                                         aria-label="Orario inizio"
                                                     />
-                                                    <Text variant="caption" colorVariant="muted">
-                                                        –
-                                                    </Text>
-                                                    <input
-                                                        className={styles.time}
-                                                        type="time"
+                                                    <TimeInput
+                                                        label="Orario fine"
+                                                        step={60}
                                                         disabled={draftPrimary.allDay}
                                                         value={draftPrimary.end}
                                                         onChange={e =>
@@ -847,16 +842,10 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                 </div>
 
                                                                 <div className={styles.field}>
-                                                                    <Text
-                                                                        variant="caption"
-                                                                        colorVariant="muted"
-                                                                    >
-                                                                        Orario
-                                                                    </Text>
                                                                     <div className={styles.timeRow}>
-                                                                        <input
-                                                                            className={styles.time}
-                                                                            type="time"
+                                                                        <TimeInput
+                                                                            label="Orario inizio"
+                                                                            step={60}
                                                                             disabled={
                                                                                 editDraft.allDay
                                                                             }
@@ -875,15 +864,9 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                             }
                                                                             aria-label="Orario inizio"
                                                                         />
-                                                                        <Text
-                                                                            variant="caption"
-                                                                            colorVariant="muted"
-                                                                        >
-                                                                            –
-                                                                        </Text>
-                                                                        <input
-                                                                            className={styles.time}
-                                                                            type="time"
+                                                                        <TimeInput
+                                                                            label="Orario fine"
+                                                                            step={60}
                                                                             disabled={
                                                                                 editDraft.allDay
                                                                             }
@@ -1080,13 +1063,10 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                 </div>
 
                                                 <div className={styles.field}>
-                                                    <Text variant="caption" colorVariant="muted">
-                                                        Orario
-                                                    </Text>
                                                     <div className={styles.timeRow}>
-                                                        <input
-                                                            className={styles.time}
-                                                            type="time"
+                                                        <TimeInput
+                                                            label="Orario inizio"
+                                                            step={60}
                                                             disabled={draftOverlay.allDay}
                                                             value={draftOverlay.start}
                                                             onChange={e =>
@@ -1097,15 +1077,9 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                             }
                                                             aria-label="Orario inizio"
                                                         />
-                                                        <Text
-                                                            variant="caption"
-                                                            colorVariant="muted"
-                                                        >
-                                                            –
-                                                        </Text>
-                                                        <input
-                                                            className={styles.time}
-                                                            type="time"
+                                                        <TimeInput
+                                                            label="Orario fine"
+                                                            step={60}
                                                             disabled={draftOverlay.allDay}
                                                             value={draftOverlay.end}
                                                             onChange={e =>
@@ -1374,22 +1348,14 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                         <div
                                                                             className={styles.field}
                                                                         >
-                                                                            <Text
-                                                                                variant="caption"
-                                                                                colorVariant="muted"
-                                                                            >
-                                                                                Orario
-                                                                            </Text>
                                                                             <div
                                                                                 className={
                                                                                     styles.timeRow
                                                                                 }
                                                                             >
-                                                                                <input
-                                                                                    className={
-                                                                                        styles.time
-                                                                                    }
-                                                                                    type="time"
+                                                                                <TimeInput
+                                                                                    label="Orario inizio"
+                                                                                    step={60}
                                                                                     disabled={
                                                                                         editDraft.allDay
                                                                                     }
@@ -1411,17 +1377,9 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                                     }
                                                                                     aria-label="Orario inizio"
                                                                                 />
-                                                                                <Text
-                                                                                    variant="caption"
-                                                                                    colorVariant="muted"
-                                                                                >
-                                                                                    –
-                                                                                </Text>
-                                                                                <input
-                                                                                    className={
-                                                                                        styles.time
-                                                                                    }
-                                                                                    type="time"
+                                                                                <TimeInput
+                                                                                    label="Orario fine"
+                                                                                    step={60}
                                                                                     disabled={
                                                                                         editDraft.allDay
                                                                                     }

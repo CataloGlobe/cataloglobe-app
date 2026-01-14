@@ -5,6 +5,7 @@ import { getUserBusinesses } from "@services/supabase/businesses";
 import { getBusinessReviews, deleteReview } from "@services/supabase/reviews";
 import type { Review, Business } from "@/types/database";
 import Text from "@components/ui/Text/Text";
+import { DateInput } from "@/components/ui/Input/DateInput";
 import { Globe, ShieldCheck, Trash2, Star } from "lucide-react";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
 
@@ -362,9 +363,8 @@ export default function Reviews() {
 
                     {filterPeriod === "custom" && (
                         <div className={styles.filterGroup}>
-                            <Text as="label">Data:</Text>
-                            <input
-                                type="date"
+                            <DateInput
+                                label="Data:"
                                 onChange={e =>
                                     setFilterDate(
                                         e.target.value
