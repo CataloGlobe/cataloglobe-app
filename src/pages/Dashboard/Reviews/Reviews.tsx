@@ -6,6 +6,7 @@ import { getBusinessReviews, deleteReview } from "@services/supabase/reviews";
 import type { Review, Business } from "@/types/database";
 import Text from "@components/ui/Text/Text";
 import { Globe, ShieldCheck, Trash2, Star } from "lucide-react";
+import { SearchInput } from "@/components/ui/Input/SearchInput";
 
 import styles from "./Reviews.module.scss";
 
@@ -316,9 +317,7 @@ export default function Reviews() {
             {/* FILTRI */}
             <section className={styles.filters}>
                 <div className={styles.filterGroup}>
-                    <Text as="label">Cerca:</Text>
-                    <input
-                        type="search"
+                    <SearchInput
                         placeholder="Cerca per testo o tag…"
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}

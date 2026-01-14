@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Text from "@/components/ui/Text/Text";
+import { SearchInput } from "@/components/ui/Input/SearchInput";
 import { ItemWithCategory } from "@/types/database";
 import { CatalogType } from "@/types/catalog";
 import { listItems } from "@/services/supabase/collections";
@@ -105,8 +106,7 @@ export function PickItemDrawer({ collectionType, existingItemIds, onChange }: Pr
     return (
         <div className={styles.wrapper}>
             <div className={styles.search}>
-                <input
-                    type="search"
+                <SearchInput
                     placeholder="Cerca elemento…"
                     value={search}
                     onChange={e => setSearch(e.target.value)}

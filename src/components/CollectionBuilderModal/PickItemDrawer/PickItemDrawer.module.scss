@@ -10,19 +10,6 @@
 
 .search {
   margin-bottom: 1rem;
-
-  input {
-    width: 100%;
-    font-size: 14px;
-    padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px solid rgba(0, 0, 0, 0.15);
-
-    &:focus {
-      outline: none;
-      border-color: rgba(0, 0, 0, 0.3);
-    }
-  }
 }
 
 /* ---------------------------
