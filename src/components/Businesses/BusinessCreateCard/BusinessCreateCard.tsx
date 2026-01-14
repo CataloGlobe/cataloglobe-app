@@ -3,9 +3,9 @@ import React from "react";
 import Text from "@components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
-import { CoverUploader } from "@/components/ui/CoverUploader/CoverUploader";
 import type { BusinessFormValues } from "@/types/Businesses";
 import styles from "./BusinessCreateCard.module.scss";
+import { FileInput } from "@/components/ui/Input/FileInput";
 
 interface BusinessCreateCardProps {
     values: BusinessFormValues;
@@ -101,28 +101,22 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                 />
 
                 {/* Slug */}
-                <div className={styles.fullWidth}>
-                    <TextInput
-                        label="Slug"
-                        placeholder="es. snoopy-bar"
-                        value={values.slug}
-                        onChange={e => onFieldChange("slug", e.target.value)}
-                        error={errors?.slug}
-                    />
-                    <Text variant="caption" colorVariant="muted">
-                        URL finale: <code>{finalUrl}</code>
-                    </Text>
-                </div>
+                <TextInput
+                    label="Slug"
+                    placeholder="es. snoopy-bar"
+                    value={values.slug}
+                    onChange={e => onFieldChange("slug", e.target.value)}
+                    error={errors?.slug}
+                    helperText={`URL finale: ${finalUrl}`}
+                />
 
                 {/* Cover */}
-                <div className={styles.fullWidth}>
-                    <CoverUploader
-                        label="Foto copertina"
-                        previewUrl={values.coverPreview}
-                        onFileChange={file => onCoverChange(file)}
-                        onRemove={() => onCoverChange(null)}
-                    />
-                </div>
+                <FileInput
+                    label="Foto copertina"
+                    accept="image/*"
+                    helperText="PNG o JPG, max 5MB"
+                    onChange={onCoverChange}
+                />
 
                 {/* Submit */}
                 <div className={styles.actions}>

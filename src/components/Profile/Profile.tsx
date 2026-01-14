@@ -3,9 +3,10 @@ import { useAuth } from "@context/useAuth";
 import { getProfile, updateProfile, uploadAvatar } from "@services/supabase/profile";
 import type { Profile } from "@/types/database";
 import Text from "@components/ui/Text/Text";
-import { Input, Button } from "@components/ui";
+import { Button } from "@components/ui";
 import styles from "./Profile.module.scss";
 import { TextInput } from "../ui/Input/TextInput";
+import { FileInput } from "../ui/Input/FileInput";
 
 export default function Profile() {
     const { user } = useAuth();
@@ -49,7 +50,7 @@ export default function Profile() {
 
             setProfile({ ...profile, avatar_url: avatarUrl });
             setAvatarPreview(avatarUrl);
-            setMessage("Profilo aggiornato con successo! ✅");
+            setMessage("Profilo aggiornato con successo!");
         } catch (err) {
             console.error(err);
             setMessage("Errore durante l'aggiornamento del profilo.");
@@ -58,11 +59,13 @@ export default function Profile() {
         }
     }
 
-    function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0];
+    function handleAvatarFileChange(file: File | null) {
+        setAvatarFile(file);
+
         if (file) {
-            setAvatarFile(file);
             setAvatarPreview(URL.createObjectURL(file));
+        } else {
+            setAvatarPreview(profile?.avatar_url || null);
         }
     }
 
@@ -79,16 +82,6 @@ export default function Profile() {
                             alt={`Avatar di ${profile?.name || "utente"}`}
                             className={styles.avatar}
                         />
-                        <label htmlFor="avatarUpload" className={styles.uploadLabel}>
-                            Cambia foto
-                            <input
-                                id="avatarUpload"
-                                type="file"
-                                accept="image/*"
-                                onChange={handleFileChange}
-                                hidden
-                            />
-                        </label>
                     </div>
 
                     {/* Dati utente */}
@@ -99,7 +92,14 @@ export default function Profile() {
                             onChange={e => setProfile({ ...profile!, name: e.target.value })}
                         />
 
-                        <Input label="Email" type="email" value={user.email ?? ""} disabled />
+                        <TextInput label="Email" type={"email"} value={user.email ?? ""} disabled />
+
+                        <FileInput
+                            label="Foto copertina"
+                            accept="image/*"
+                            helperText="PNG o JPG, max 5MB"
+                            onChange={handleAvatarFileChange}
+                        />
 
                         <Button
                             label={loading ? "Salvataggio..." : "Salva modifiche"}
@@ -113,7 +113,7 @@ export default function Profile() {
 
                 {message && (
                     <Text
-                        variant="body"
+                        variant="caption"
                         colorVariant={message.includes("Errore") ? "error" : "success"}
                         align="center"
                         className={styles.message}
