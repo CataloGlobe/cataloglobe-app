@@ -1,0 +1,41 @@
+@use "@styles/variables" as *;
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text, #0f172a);
+}
+
+.required {
+  color: var(--text-muted, #94a3b8);
+  font-weight: 600;
+}
+
+.control {
+  width: 100%;
+}
+
+.helper {
+  font-size: 0.8rem;
+  color: var(--text-muted, #94a3b8);
+
+  [data-theme="dark"] & {
+    color: #64748b;
+  }
+}
+
+.error {
+  font-size: 0.8rem;
+  margin-top: 0.1rem;
+
+  [data-theme="dark"] & {
+    color: #f87171;
+  }
+}
