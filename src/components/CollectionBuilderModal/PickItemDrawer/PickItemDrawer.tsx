@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Text from "@/components/ui/Text/Text";
+import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
 import { ItemWithCategory } from "@/types/database";
 import { CatalogType } from "@/types/catalog";
@@ -141,15 +142,14 @@ export function PickItemDrawer({ collectionType, existingItemIds, onChange }: Pr
                                 return (
                                     <li key={item.id}>
                                         <label className={styles.row}>
-                                            <input
-                                                type="checkbox"
+                                            <CheckboxInput
+                                                description={item.name}
                                                 checked={checked}
                                                 onChange={() => toggleItem(item.id)}
                                             />
-                                            <Text className={styles.itemName}>{item.name}</Text>
 
                                             {alreadyInCollection && (
-                                                <Text variant="caption" colorVariant="muted">
+                                                <Text variant="caption-xs" colorVariant="muted">
                                                     Presente
                                                 </Text>
                                             )}

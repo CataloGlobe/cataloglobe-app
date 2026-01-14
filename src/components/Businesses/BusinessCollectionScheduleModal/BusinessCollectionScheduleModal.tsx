@@ -16,6 +16,7 @@ import Tooltip from "@/components/ui/Tooltip/Tooltip";
 import { TriangleAlert } from "lucide-react";
 import { getActiveWinner, isNowActive } from "@/domain/schedules/scheduleUtils";
 import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessCollections";
+import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 
 type Props = {
     isOpen: boolean;
@@ -557,27 +558,21 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                             </div>
 
                                             <div className={styles.field}>
-                                                <label className={styles.allDayToggle}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={draftPrimary.allDay}
-                                                        onChange={e =>
-                                                            setDraftPrimary(p => ({
-                                                                ...p,
-                                                                allDay: e.target.checked,
-                                                                start: e.target.checked
-                                                                    ? "00:00"
-                                                                    : p.start,
-                                                                end: e.target.checked
-                                                                    ? "00:00"
-                                                                    : p.end
-                                                            }))
-                                                        }
-                                                    />
-                                                    <Text variant="caption" weight={600}>
-                                                        Tutto il giorno
-                                                    </Text>
-                                                </label>
+                                                <CheckboxInput
+                                                    label="Tutto il giorno"
+                                                    description="Impostalo per tutto il giorno"
+                                                    checked={draftPrimary.allDay}
+                                                    onChange={e =>
+                                                        setDraftPrimary(p => ({
+                                                            ...p,
+                                                            allDay: e.target.checked,
+                                                            start: e.target.checked
+                                                                ? "00:00"
+                                                                : p.start,
+                                                            end: e.target.checked ? "00:00" : p.end
+                                                        }))
+                                                    }
+                                                />
                                             </div>
 
                                             <div className={styles.field}>
@@ -822,46 +817,33 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                 </div>
 
                                                                 <div className={styles.field}>
-                                                                    <label
-                                                                        className={
-                                                                            styles.allDayToggle
+                                                                    <CheckboxInput
+                                                                        label="Tutto il giorno"
+                                                                        description="Impostalo per tutto il giorno"
+                                                                        checked={editDraft.allDay}
+                                                                        onChange={e =>
+                                                                            setEditDraft(p =>
+                                                                                p
+                                                                                    ? {
+                                                                                          ...p,
+                                                                                          allDay: e
+                                                                                              .target
+                                                                                              .checked,
+                                                                                          start: e
+                                                                                              .target
+                                                                                              .checked
+                                                                                              ? "00:00"
+                                                                                              : p.start,
+                                                                                          end: e
+                                                                                              .target
+                                                                                              .checked
+                                                                                              ? "00:00"
+                                                                                              : p.end
+                                                                                      }
+                                                                                    : p
+                                                                            )
                                                                         }
-                                                                    >
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={
-                                                                                editDraft.allDay
-                                                                            }
-                                                                            onChange={e =>
-                                                                                setEditDraft(p =>
-                                                                                    p
-                                                                                        ? {
-                                                                                              ...p,
-                                                                                              allDay: e
-                                                                                                  .target
-                                                                                                  .checked,
-                                                                                              start: e
-                                                                                                  .target
-                                                                                                  .checked
-                                                                                                  ? "00:00"
-                                                                                                  : p.start,
-                                                                                              end: e
-                                                                                                  .target
-                                                                                                  .checked
-                                                                                                  ? "00:00"
-                                                                                                  : p.end
-                                                                                          }
-                                                                                        : p
-                                                                                )
-                                                                            }
-                                                                        />
-                                                                        <Text
-                                                                            variant="caption"
-                                                                            weight={600}
-                                                                        >
-                                                                            Tutto il giorno
-                                                                        </Text>
-                                                                    </label>
+                                                                    />
                                                                 </div>
 
                                                                 <div className={styles.field}>
@@ -1078,27 +1060,23 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                 </div>
 
                                                 <div className={styles.field}>
-                                                    <label className={styles.allDayToggle}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={draftOverlay.allDay}
-                                                            onChange={e =>
-                                                                setDraftOverlay(p => ({
-                                                                    ...p,
-                                                                    allDay: e.target.checked,
-                                                                    start: e.target.checked
-                                                                        ? "00:00"
-                                                                        : p.start,
-                                                                    end: e.target.checked
-                                                                        ? "00:00"
-                                                                        : p.end
-                                                                }))
-                                                            }
-                                                        />
-                                                        <Text variant="caption" weight={600}>
-                                                            Tutto il giorno
-                                                        </Text>
-                                                    </label>
+                                                    <CheckboxInput
+                                                        label="Tutto il giorno"
+                                                        description="Impostalo per tutto il giorno"
+                                                        checked={draftOverlay.allDay}
+                                                        onChange={e =>
+                                                            setDraftOverlay(p => ({
+                                                                ...p,
+                                                                allDay: e.target.checked,
+                                                                start: e.target.checked
+                                                                    ? "00:00"
+                                                                    : p.start,
+                                                                end: e.target.checked
+                                                                    ? "00:00"
+                                                                    : p.end
+                                                            }))
+                                                        }
+                                                    />
                                                 </div>
 
                                                 <div className={styles.field}>
@@ -1361,47 +1339,36 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                         <div
                                                                             className={styles.field}
                                                                         >
-                                                                            <label
-                                                                                className={
-                                                                                    styles.allDayToggle
+                                                                            <CheckboxInput
+                                                                                label="Tutto il giorno"
+                                                                                description="Impostalo per tutto il giorno"
+                                                                                checked={
+                                                                                    editDraft.allDay
                                                                                 }
-                                                                            >
-                                                                                <input
-                                                                                    type="checkbox"
-                                                                                    checked={
-                                                                                        editDraft.allDay
-                                                                                    }
-                                                                                    onChange={e =>
-                                                                                        setEditDraft(
-                                                                                            p =>
-                                                                                                p
-                                                                                                    ? {
-                                                                                                          ...p,
-                                                                                                          allDay: e
-                                                                                                              .target
-                                                                                                              .checked,
-                                                                                                          start: e
-                                                                                                              .target
-                                                                                                              .checked
-                                                                                                              ? "00:00"
-                                                                                                              : p.start,
-                                                                                                          end: e
-                                                                                                              .target
-                                                                                                              .checked
-                                                                                                              ? "00:00"
-                                                                                                              : p.end
-                                                                                                      }
-                                                                                                    : p
-                                                                                        )
-                                                                                    }
-                                                                                />
-                                                                                <Text
-                                                                                    variant="caption"
-                                                                                    weight={600}
-                                                                                >
-                                                                                    Tutto il giorno
-                                                                                </Text>
-                                                                            </label>
+                                                                                onChange={e =>
+                                                                                    setEditDraft(
+                                                                                        p =>
+                                                                                            p
+                                                                                                ? {
+                                                                                                      ...p,
+                                                                                                      allDay: e
+                                                                                                          .target
+                                                                                                          .checked,
+                                                                                                      start: e
+                                                                                                          .target
+                                                                                                          .checked
+                                                                                                          ? "00:00"
+                                                                                                          : p.start,
+                                                                                                      end: e
+                                                                                                          .target
+                                                                                                          .checked
+                                                                                                          ? "00:00"
+                                                                                                          : p.end
+                                                                                                  }
+                                                                                                : p
+                                                                                    )
+                                                                                }
+                                                                            />
                                                                         </div>
 
                                                                         <div

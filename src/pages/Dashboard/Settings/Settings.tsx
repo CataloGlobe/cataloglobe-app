@@ -3,6 +3,7 @@ import { useAuth } from "@context/useAuth";
 import { useTheme } from "@/context/Theme/useTheme";
 import Profile from "@/components/Profile/Profile";
 import Text from "@components/ui/Text/Text";
+import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import styles from "./Settings.module.scss";
 
 export default function Settings() {
@@ -17,19 +18,13 @@ export default function Settings() {
 
             <div className={styles.section}>
                 <Text variant="title-sm">Aspetto</Text>
-                <div className={styles.row}>
-                    <label htmlFor="darkMode">
-                        <Text as="span" variant="body">
-                            Tema scuro
-                        </Text>
-                    </label>
-                    <input
-                        id="darkMode"
-                        type="checkbox"
-                        checked={theme === "dark"}
-                        onChange={() => toggleTheme()}
-                    />
-                </div>
+                <CheckboxInput
+                    id="darkMode"
+                    label="Tema scuro"
+                    description="Imposta il tema scuro"
+                    checked={theme === "dark"}
+                    onChange={() => toggleTheme()}
+                />
             </div>
 
             <div className={styles.section}>
@@ -46,19 +41,14 @@ export default function Settings() {
 
             <div className={styles.section}>
                 <Text variant="title-sm">Notifiche</Text>
-                <div className={styles.row}>
-                    <label htmlFor="notifications">
-                        <Text as="span" variant="body">
-                            Ricevi avvisi via email
-                        </Text>
-                    </label>
-                    <input
-                        id="notifications"
-                        type="checkbox"
-                        checked={notifications}
-                        onChange={() => setNotifications(!notifications)}
-                    />
-                </div>
+
+                <CheckboxInput
+                    id="notifications"
+                    checked={notifications}
+                    onChange={() => setNotifications(!notifications)}
+                    label="Avvisi"
+                    description="Ricevi avvisi via email"
+                />
             </div>
 
             <div className={styles.section}>

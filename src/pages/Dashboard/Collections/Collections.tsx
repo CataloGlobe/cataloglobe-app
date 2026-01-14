@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui";
 import { TextInput } from "@/components/ui/Input/TextInput";
+import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import CatalogManagerModal from "@/components/CatalogManagerModal/CatalogManagerModal";
 import {
     listCollections,
@@ -16,13 +17,13 @@ import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 import { useToast } from "@/context/Toast/ToastContext";
 import { businessTypeToCatalogType } from "@/domain/catalog/businessToCatalog";
 import { Pencil, Star, Trash2 } from "lucide-react";
-import styles from "./Collections.module.scss";
 import { CatalogType } from "@/types/catalog";
 import { Select } from "@/components/ui/Select/Select";
 import { CATALOG_TYPE_LABELS } from "@/domain/catalog/catalogTypeLabels";
 import { getUserBusinesses } from "@/services/supabase/businesses";
 import { getAllowedCatalogTypesForBusinesses } from "@/domain/catalog/catalogTypeRules";
 import { useAuth } from "@/context/useAuth";
+import styles from "./Collections.module.scss";
 
 const ALL_CATALOG_TYPE_OPTIONS = (Object.keys(CATALOG_TYPE_LABELS) as CatalogType[]).map(value => ({
     value,
@@ -338,17 +339,12 @@ export default function Collections() {
                         </Text>
                     )}
 
-                    <div>
-                        <Text as="label" variant="body" weight={600}>
-                            Collezione in evidenza
-                        </Text>
-
-                        <input
-                            type="checkbox"
-                            checked={kind === "special"}
-                            onChange={e => setKind(e.target.checked ? "special" : "standard")}
-                        />
-                    </div>
+                    <CheckboxInput
+                        label="Collezione in evidenza"
+                        description="Mostra in evidenza sopra il resto dei contenuti"
+                        checked={kind === "special"}
+                        onChange={e => setKind(e.target.checked ? "special" : "standard")}
+                    />
                 </div>
             </ConfirmModal>
 

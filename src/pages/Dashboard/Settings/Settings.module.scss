@@ -34,27 +34,6 @@
 }
 
 /* ----------------------------------------------------
-   RIGHE INTERNE
----------------------------------------------------- */
-.row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-
-  label {
-    cursor: pointer;
-  }
-
-  input[type="checkbox"] {
-    cursor: pointer;
-    width: 20px;
-    height: 20px;
-  }
-}
-
-/* ----------------------------------------------------
    SELECT
 ---------------------------------------------------- */
 select {

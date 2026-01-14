@@ -2,6 +2,7 @@ import Text from "@/components/ui/Text/Text";
 import styles from "./DynamicField.module.scss";
 import type { FieldDef } from "@/domain/catalog/fields";
 import { TextInput } from "@/components/ui/Input/TextInput";
+import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 
 type Props = {
     field: FieldDef;
@@ -89,20 +90,19 @@ export default function DynamicField({ field, value, onChange }: Props) {
                                 : false;
 
                             return (
-                                <label key={opt.value} className={styles.checkbox}>
-                                    <input
-                                        type="checkbox"
-                                        checked={checked}
-                                        onChange={e => {
-                                            const current = Array.isArray(value) ? value : [];
-                                            const next = e.target.checked
-                                                ? [...current, opt.value]
-                                                : current.filter(v => v !== opt.value);
-                                            onChange(next);
-                                        }}
-                                    />
-                                    <Text variant="caption">{opt.label}</Text>
-                                </label>
+                                <CheckboxInput
+                                    key={opt.value}
+                                    label={opt.value}
+                                    description={opt.label}
+                                    checked={checked}
+                                    onChange={e => {
+                                        const current = Array.isArray(value) ? value : [];
+                                        const next = e.target.checked
+                                            ? [...current, opt.value]
+                                            : current.filter(v => v !== opt.value);
+                                        onChange(next);
+                                    }}
+                                />
                             );
                         })}
                     </div>
@@ -111,14 +111,11 @@ export default function DynamicField({ field, value, onChange }: Props) {
 
         case "switch":
             return (
-                <label className={styles.switch}>
-                    <input
-                        type="checkbox"
-                        checked={Boolean(value)}
-                        onChange={e => onChange(e.target.checked)}
-                    />
-                    <Text>{label}</Text>
-                </label>
+                <CheckboxInput
+                    label={label}
+                    checked={Boolean(value)}
+                    onChange={e => onChange(e.target.checked)}
+                />
             );
 
         case "chips":

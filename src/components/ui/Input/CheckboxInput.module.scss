@@ -1,0 +1,73 @@
+@use "@styles/variables" as *;
+
+.wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.box {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+
+  border-radius: 5px;
+  border: 1.5px solid var(--border, #cbd5e1);
+  background: var(--card-bg, #ffffff);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* check */
+.input:checked + .box {
+  background: var(--brand-primary, #6366f1);
+  border-color: var(--brand-primary, #6366f1);
+}
+
+.input:checked + .box::after {
+  content: "";
+  width: 2px;
+  height: 6px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* focus */
+.input:focus-visible + .box {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+/* error */
+[data-disabled] .input:checked + .box {
+  background: var(--border, #cbd5e1);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* dark */
+[data-theme="dark"] .box {
+  background: #1e293b;
+  border-color: #334155;
+}
