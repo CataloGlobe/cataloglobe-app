@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { signUp } from "@services/supabase/auth";
-import { Input, Button } from "@components/ui";
+import { Button } from "@components/ui";
+import Text from "@/components/ui/Text/Text";
 import { useNavigate, Link } from "react-router-dom";
 import styles from "./Auth.module.scss";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -31,29 +32,41 @@ export default function SignUp() {
 
     return (
         <div className={styles.auth}>
-            <h1>Registrati</h1>
+            <Text as="h1" variant="title-md">
+                Registrati
+            </Text>
             <form onSubmit={handleSubmit}>
                 <TextInput label="Nome" value={name} onChange={e => setName(e.target.value)} />
-                <Input
+
+                <TextInput
                     label="Email"
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                 />
-                <Input
+                <TextInput
                     label="Password"
                     type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                 />
-                {error && <p className={styles.error}>{error}</p>}
-                {success && <p className={styles.success}>{success}</p>}
+
+                {error && (
+                    <Text as="p" colorVariant="error" variant="caption">
+                        {error}
+                    </Text>
+                )}
+                {success && (
+                    <Text as="p" colorVariant="success" variant="caption">
+                        {success}
+                    </Text>
+                )}
                 <Button label="Crea account" variant="primary" fullWidth />
             </form>
 
-            <p className={styles.switch}>
+            <Text as="p" variant="body-sm">
                 Hai già un account? <Link to="/login">Accedi</Link>
-            </p>
+            </Text>
         </div>
     );
 }

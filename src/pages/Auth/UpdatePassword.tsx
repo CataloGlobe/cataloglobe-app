@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { supabase } from "@services/supabase/client";
-import { Input, Button } from "@components/ui";
+import { Button } from "@components/ui";
+import Text from "@/components/ui/Text/Text";
 import { useNavigate } from "react-router-dom";
 import styles from "./Auth.module.scss";
+import { TextInput } from "@/components/ui/Input/TextInput";
 
 export default function UpdatePassword() {
     const [password, setPassword] = useState("");
@@ -32,9 +34,11 @@ export default function UpdatePassword() {
 
     return (
         <div className={styles.auth}>
-            <h1>Imposta una nuova password</h1>
+            <Text as="h1" variant="title-md">
+                Imposta una nuova password
+            </Text>
             <form onSubmit={handleSubmit}>
-                <Input
+                <TextInput
                     label="Nuova password"
                     type="password"
                     value={password}
@@ -42,8 +46,16 @@ export default function UpdatePassword() {
                     required
                 />
 
-                {error && <p className={styles.error}>{error}</p>}
-                {message && <p className={styles.success}>{message}</p>}
+                {error && (
+                    <Text as="p" colorVariant="error" variant="caption">
+                        {error}
+                    </Text>
+                )}
+                {message && (
+                    <Text as="p" colorVariant="info" variant="caption">
+                        {message}
+                    </Text>
+                )}
 
                 <Button
                     label={loading ? "Aggiornamento..." : "Aggiorna password"}

@@ -3,7 +3,7 @@ import { InputBase } from "./InputBase";
 import styles from "./TextInput.module.scss";
 
 /* 👇 DEVE stare sopra */
-export type TextInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type" | "size"> & {
+export type TextInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> & {
     label?: string;
     helperText?: string;
     error?: string;
@@ -34,6 +34,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
             containerClassName,
             inputClassName,
             className,
+            type = "text",
             ...props
         },
         ref
@@ -63,7 +64,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
                         <input
                             ref={ref}
                             id={inputId}
-                            type="text"
+                            type={type}
                             disabled={isDisabled}
                             aria-invalid={hasError}
                             aria-describedby={describedById}

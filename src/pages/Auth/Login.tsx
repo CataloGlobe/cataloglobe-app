@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { signIn } from "@services/supabase/auth";
-import { Button, Input } from "@components/ui";
+import { Button } from "@components/ui";
+import { Link, useNavigate } from "react-router-dom";
+import { TextInput } from "@/components/ui/Input/TextInput";
+import Text from "@/components/ui/Text/Text";
 import styles from "./Auth.module.scss";
-import { useNavigate } from "react-router-dom";
 
 export default function Login() {
     const [email, setEmail] = useState("");
@@ -63,17 +65,19 @@ export default function Login() {
 
     return (
         <div className={styles.auth}>
-            <h1>Accedi</h1>
+            <Text as="h1" variant="title-md">
+                Accedi
+            </Text>
 
             <form onSubmit={handleLogin}>
-                <Input
+                <TextInput
                     label="Email"
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                 />
 
-                <Input
+                <TextInput
                     label="Password"
                     type="password"
                     value={password}
@@ -89,6 +93,10 @@ export default function Login() {
                     disabled={loading}
                 />
             </form>
+
+            <Text as="p" variant="body-sm">
+                Hai dimenticato la password? <Link to="/reset-password">Recuperala</Link>
+            </Text>
         </div>
     );
 }

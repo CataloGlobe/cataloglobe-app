@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { resetPassword } from "@services/supabase/auth";
-import { Input, Button } from "@components/ui";
+import { Button } from "@components/ui";
+import Text from "@/components/ui/Text/Text";
 import { Link } from "react-router-dom";
+import { TextInput } from "@/components/ui/Input/TextInput";
 import styles from "./Auth.module.scss";
 
 export default function ResetPassword() {
@@ -24,22 +26,34 @@ export default function ResetPassword() {
 
     return (
         <div className={styles.auth}>
-            <h1>Recupera Password</h1>
+            <Text as="h1" variant="title-md">
+                Recupera Password
+            </Text>
             <form onSubmit={handleSubmit}>
-                <Input
+                <TextInput
                     label="Email"
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                 />
-                {error && <p className={styles.error}>{error}</p>}
-                {message && <p className={styles.success}>{message}</p>}
+
+                {error && (
+                    <Text as="p" colorVariant="error" variant="caption">
+                        {error}
+                    </Text>
+                )}
+
+                {message && (
+                    <Text as="p" colorVariant="info" variant="caption">
+                        {message}
+                    </Text>
+                )}
                 <Button label="Invia email di reset" variant="primary" fullWidth />
             </form>
 
-            <p className={styles.switch}>
-                Torna al <Link to="/login">Login</Link>
-            </p>
+            <Text as="p" variant="body-sm">
+                Torna alla <Link to="/login">Login</Link>
+            </Text>
         </div>
     );
 }

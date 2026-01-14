@@ -103,14 +103,13 @@
   }
 }
 
-/* padding dinamico se ci sono adornments (semplice e robusto) */
 .startAdornment + .input {
   padding-left: 2.2rem;
 }
 
 .input + .endAdornment,
 .input + .endAction {
-  /* quando c’è end slot, aumentiamo padding a destra */
+  padding-right: 0.5rem;
 }
 
 .inputShell:has(.endAdornment) .input,

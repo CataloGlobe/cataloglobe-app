@@ -9,8 +9,9 @@ import {
 import { supabase } from "@services/supabase/client";
 import { Button } from "@components/ui";
 import { useNavigate } from "react-router-dom";
-import styles from "./Auth.module.scss";
+import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
+import styles from "./Auth.module.scss";
 
 interface OtpRow {
     code: string; // contiene l'hash
@@ -231,7 +232,9 @@ export default function VerifyOtp() {
 
     return (
         <div className={styles.auth}>
-            <h1>Verifica codice OTP</h1>
+            <Text as="h1" variant="title-md">
+                Verifica codice OTP
+            </Text>
 
             <form onSubmit={handleVerify}>
                 <div className={styles.otpInputs}>
@@ -243,7 +246,7 @@ export default function VerifyOtp() {
                             }}
                             inputMode="numeric"
                             maxLength={1}
-                            className={styles.otpInput}
+                            style={{ textAlign: "center" }}
                             value={digit}
                             onChange={e => handleChangeDigit(index, e.target.value)}
                             onKeyDown={e => handleKeyDown(index, e)}
@@ -252,7 +255,11 @@ export default function VerifyOtp() {
                     ))}
                 </div>
 
-                {error && <p className={styles.error}>{error}</p>}
+                {error && (
+                    <Text as="p" colorVariant="error" variant="caption">
+                        {error}
+                    </Text>
+                )}
 
                 <Button
                     label={loading ? "Verifica..." : "Verifica"}
@@ -262,20 +269,16 @@ export default function VerifyOtp() {
                 />
             </form>
 
-            <div className={styles.otpFooter}>
-                <Button
-                    label={
-                        resendSeconds > 0 ? `Reinvia codice (${resendSeconds}s)` : "Reinvia codice"
-                    }
-                    variant="secondary"
-                    fullWidth
-                    disabled={resendSeconds > 0 || loading}
-                    onClick={handleResend}
-                />
-                <p className={styles.helperText}>
-                    Hai ancora {MAX_ATTEMPTS - attempts} tentativi disponibili.
-                </p>
-            </div>
+            <Button
+                label={resendSeconds > 0 ? `Reinvia codice (${resendSeconds}s)` : "Reinvia codice"}
+                variant="secondary"
+                fullWidth
+                disabled={resendSeconds > 0 || loading}
+                onClick={handleResend}
+            />
+            <Text as="p" variant="caption">
+                Hai ancora {MAX_ATTEMPTS - attempts} tentativi disponibili.
+            </Text>
         </div>
     );
 }

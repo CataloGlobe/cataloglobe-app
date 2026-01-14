@@ -12,9 +12,10 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Save, Trash2 } from "lucide-react";
 import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 import styles from "./CollectionSectionsPanel.module.scss";
+import { TextInput } from "@/components/ui/Input/TextInput";
 
 interface CollectionSectionsPanelProps {
     sections: CollectionSection[];
@@ -113,10 +114,9 @@ export function CollectionSectionsPanel({
                                         </span>
 
                                         {editingId === section.id ? (
-                                            <input
+                                            <TextInput
                                                 ref={renameInputRef}
                                                 value={draftName}
-                                                className={styles.renameInput}
                                                 onChange={e => setDraftName(e.target.value)}
                                                 onKeyDown={e => {
                                                     if (e.key === "Enter") {
@@ -134,6 +134,10 @@ export function CollectionSectionsPanel({
                                                 onBlur={() =>
                                                     void commitRename(section.id, section.label)
                                                 }
+                                                endAdornment={<Save size={16} />}
+                                                onEndAdornmentClick={() => {
+                                                    void commitRename(section.id, section.label);
+                                                }}
                                             />
                                         ) : (
                                             <div className={styles.sectionLabel}>
