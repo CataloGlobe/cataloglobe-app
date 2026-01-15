@@ -69,12 +69,11 @@ $typography-scale: (
   ),
 
   button: (
-    mobile: 0.95rem,
-    desktop: 0.95rem,
-    weight: 600,
-    transform: uppercase,
-    tracking: 0.02em,
-    lh: 1.2
+    mobile: 0.85rem,
+    desktop: 0.85rem,
+    weight: 400,
+    tracking: 0.05em,
+    lh: 1.1
   )
 );
 
