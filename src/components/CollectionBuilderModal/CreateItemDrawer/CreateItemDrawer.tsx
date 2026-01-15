@@ -10,6 +10,7 @@ import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { createItemCategory } from "@/services/supabase/categories";
 import styles from "./CreateItemDrawer.module.scss";
 import { Select } from "@/components/ui/Select/Select";
+import { Textarea } from "@/components/ui/Textarea/Textarea";
 
 export interface CreateItemDrawerRef {
     submit: () => Promise<void>;
@@ -185,13 +186,12 @@ export const CreateItemDrawer = forwardRef<CreateItemDrawerRef, CreateItemDrawer
 
                     {hasField("description") && (
                         <div className={styles.field}>
-                            <Text variant="caption" weight={600}>
-                                Descrizione
-                            </Text>
-                            <textarea
-                                rows={3}
+                            <Textarea
+                                label="Descrizione"
+                                placeholder="Inserisci una descrizione..."
                                 value={description}
                                 onChange={e => setDescription(e.target.value)}
+                                rows={4}
                             />
                         </div>
                     )}

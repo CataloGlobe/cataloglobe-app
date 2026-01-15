@@ -5,6 +5,7 @@ import { CatalogType } from "@/types/catalog";
 import styles from "./EditItemDrawer.module.scss";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
+import { Textarea } from "@/components/ui/Textarea/Textarea";
 
 export interface EditItemDrawerRef {
     submit: () => Promise<void>;
@@ -68,11 +69,9 @@ export const EditItemDrawer = forwardRef<EditItemDrawerRef, EditItemDrawerProps>
                     </div>
 
                     <div className={styles.field}>
-                        <Text variant="caption" weight={600}>
-                            Descrizione
-                        </Text>
-                        <textarea
-                            rows={3}
+                        <Textarea
+                            label="Descrizione"
+                            placeholder="Inserisci una descrizione..."
                             value={description}
                             onChange={e => setDescription(e.target.value)}
                         />

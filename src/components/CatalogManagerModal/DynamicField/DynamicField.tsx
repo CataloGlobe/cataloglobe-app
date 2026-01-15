@@ -4,6 +4,7 @@ import type { FieldDef } from "@/domain/catalog/fields";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import { Select } from "@/components/ui/Select/Select";
+import { Textarea } from "@/components/ui/Textarea/Textarea";
 
 type Props = {
     field: FieldDef;
@@ -31,39 +32,20 @@ export default function DynamicField({ field, value, onChange }: Props) {
         case "textarea":
             return (
                 <div className={styles.field}>
-                    <label className={styles.label}>
-                        <Text weight={600}>
-                            {label}
-                            {required && " *"}
-                        </Text>
-                    </label>
-
-                    <textarea
-                        className={styles.textarea}
+                    <Textarea
+                        label={label}
+                        required={required}
                         value={value ?? ""}
                         placeholder={placeholder}
-                        rows={3}
                         onChange={e => onChange(e.target.value)}
+                        helperText={helpText}
                     />
-
-                    {helpText && (
-                        <Text variant="caption" colorVariant="muted">
-                            {helpText}
-                        </Text>
-                    )}
                 </div>
             );
 
         case "select":
             return (
                 <div className={styles.field}>
-                    <label className={styles.label}>
-                        <Text weight={600}>
-                            {label}
-                            {required && " *"}
-                        </Text>
-                    </label>
-
                     <Select
                         label="Contenuto"
                         value={value ?? ""}

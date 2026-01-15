@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { createClient } from "@supabase/supabase-js";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import styles from "./PublicReview.module.scss";
+import { Textarea } from "@/components/ui/Textarea/Textarea";
 
 const publicClient = createClient(
     import.meta.env.VITE_SUPABASE_URL!,
@@ -158,8 +159,8 @@ export default function PublicReview() {
                     </div>
                 </div>
 
-                {/* Commento */}
-                <textarea
+                <Textarea
+                    label="Commento"
                     placeholder="Lascia un commento (facoltativo)..."
                     value={comment}
                     onChange={e => setComment(e.target.value)}

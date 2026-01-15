@@ -1,0 +1,54 @@
+@use "@styles/variables" as *;
+
+.textarea {
+  width: 100%;
+  padding: 0.62rem 0.85rem;
+
+  font-size: 0.95rem;
+  line-height: 1.5;
+
+  border-radius: 8px;
+  border: 1.5px solid var(--border, #cbd5e1);
+
+  background: var(--card-bg, #ffffff);
+  color: var(--text, #0f172a);
+
+  resize: vertical;
+  min-height: 96px;
+
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &::placeholder {
+    color: var(--text-muted, #94a3b8);
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: var(--brand-primary, #6366f1);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    background: var(--hover-bg, #f1f5f9);
+    cursor: not-allowed;
+  }
+
+  [data-theme="dark"] & {
+    background: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+
+    &::placeholder {
+      color: #64748b;
+    }
+  }
+}
+
+.hasError {
+  border-color: #dc2626;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+  }
+}
