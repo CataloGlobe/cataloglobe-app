@@ -37,30 +37,6 @@
   min-width: min(260px, 100%);
 }
 
-.businessLabel {
-  display: inline-flex;
-}
-
-.businessSelect {
-  width: 100%;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.7);
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  background: rgba(255, 255, 255, 0.9);
-  color: inherit;
-  outline: none;
-  appearance: none;
-  line-height: 1.4;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-
-  &:focus-visible {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 1px #2563eb33;
-    background: #ffffff;
-  }
-}
-
 /* ===== RANGE SELECTOR ===== */
 .rangeSelector {
   display: inline-flex;

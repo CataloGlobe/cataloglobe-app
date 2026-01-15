@@ -5,6 +5,7 @@ import Profile from "@/components/Profile/Profile";
 import Text from "@components/ui/Text/Text";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import styles from "./Settings.module.scss";
+import { Select } from "@/components/ui/Select/Select";
 
 export default function Settings() {
     const { user } = useAuth();
@@ -28,15 +29,16 @@ export default function Settings() {
             </div>
 
             <div className={styles.section}>
-                <Text variant="title-sm">Lingua</Text>
-                <select
+                <Select
+                    label="Lingua"
                     value={language}
                     onChange={e => setLanguage(e.target.value)}
                     aria-label="Seleziona lingua interfaccia"
                 >
                     <option value="it">Italiano</option>
                     <option value="en">English</option>
-                </select>
+                </Select>
+                <Text variant="title-sm">Lingua</Text>
             </div>
 
             <div className={styles.section}>

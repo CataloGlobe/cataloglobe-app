@@ -18,6 +18,7 @@ import { getActiveWinner, isNowActive } from "@/domain/schedules/scheduleUtils";
 import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessCollections";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import { TimeInput } from "@/components/ui/Input/TimeInput";
+import { Select } from "@/components/ui/Select/Select";
 
 type Props = {
     isOpen: boolean;
@@ -536,11 +537,8 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                     >
                                         <div className={styles.addRow}>
                                             <div className={styles.field}>
-                                                <Text variant="caption" colorVariant="muted">
-                                                    Contenuto
-                                                </Text>
-                                                <select
-                                                    className={styles.select}
+                                                <Select
+                                                    label="Contenuto"
                                                     value={draftPrimary.collectionId ?? ""}
                                                     onChange={e =>
                                                         setDraftPrimary(p => ({
@@ -548,14 +546,14 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                             collectionId: e.target.value || null
                                                         }))
                                                     }
-                                                >
-                                                    <option value="">Seleziona…</option>
-                                                    {standardCollections.map(c => (
-                                                        <option key={c.id} value={c.id}>
-                                                            {c.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                    options={[
+                                                        { value: "", label: "Seleziona…" },
+                                                        ...standardCollections.map(c => ({
+                                                            value: c.id,
+                                                            label: c.name
+                                                        }))
+                                                    ]}
+                                                />
                                             </div>
 
                                             <div className={styles.field}>
@@ -773,14 +771,8 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                         >
                                                             <div className={styles.editorGrid}>
                                                                 <div className={styles.field}>
-                                                                    <Text
-                                                                        variant="caption"
-                                                                        colorVariant="muted"
-                                                                    >
-                                                                        Contenuto
-                                                                    </Text>
-                                                                    <select
-                                                                        className={styles.select}
+                                                                    <Select
+                                                                        label="Contenuto"
                                                                         value={
                                                                             editDraft.collectionId
                                                                         }
@@ -797,18 +789,19 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                                     : p
                                                                             )
                                                                         }
-                                                                    >
-                                                                        {standardCollections.map(
-                                                                            c => (
-                                                                                <option
-                                                                                    key={c.id}
-                                                                                    value={c.id}
-                                                                                >
-                                                                                    {c.name}
-                                                                                </option>
+                                                                        options={[
+                                                                            {
+                                                                                value: "",
+                                                                                label: "Seleziona..."
+                                                                            },
+                                                                            ...standardCollections.map(
+                                                                                c => ({
+                                                                                    value: c.id,
+                                                                                    label: c.name
+                                                                                })
                                                                             )
-                                                                        )}
-                                                                    </select>
+                                                                        ]}
+                                                                    />
                                                                 </div>
 
                                                                 <div className={styles.field}>
@@ -1020,11 +1013,8 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                         >
                                             <div className={styles.addRow}>
                                                 <div className={styles.field}>
-                                                    <Text variant="caption" colorVariant="muted">
-                                                        Contenuto
-                                                    </Text>
-                                                    <select
-                                                        className={styles.select}
+                                                    <Select
+                                                        label="Contenuto"
                                                         value={draftOverlay.collectionId ?? ""}
                                                         onChange={e =>
                                                             setDraftOverlay(p => ({
@@ -1032,14 +1022,17 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                 collectionId: e.target.value || null
                                                             }))
                                                         }
-                                                    >
-                                                        <option value="">Seleziona…</option>
-                                                        {specialCollections.map(c => (
-                                                            <option key={c.id} value={c.id}>
-                                                                {c.name}
-                                                            </option>
-                                                        ))}
-                                                    </select>
+                                                        options={[
+                                                            {
+                                                                value: "",
+                                                                label: "Seleziona..."
+                                                            },
+                                                            ...specialCollections.map(c => ({
+                                                                value: c.id,
+                                                                label: c.name
+                                                            }))
+                                                        ]}
+                                                    />
                                                 </div>
 
                                                 <div className={styles.field}>
@@ -1265,16 +1258,8 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                         <div
                                                                             className={styles.field}
                                                                         >
-                                                                            <Text
-                                                                                variant="caption"
-                                                                                colorVariant="muted"
-                                                                            >
-                                                                                Contenuto
-                                                                            </Text>
-                                                                            <select
-                                                                                className={
-                                                                                    styles.select
-                                                                                }
+                                                                            <Select
+                                                                                label="Contenuto"
                                                                                 value={
                                                                                     editDraft.collectionId
                                                                                 }
@@ -1292,22 +1277,19 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                                                 : p
                                                                                     )
                                                                                 }
-                                                                            >
-                                                                                {specialCollections.map(
-                                                                                    c => (
-                                                                                        <option
-                                                                                            key={
-                                                                                                c.id
-                                                                                            }
-                                                                                            value={
-                                                                                                c.id
-                                                                                            }
-                                                                                        >
-                                                                                            {c.name}
-                                                                                        </option>
+                                                                                options={[
+                                                                                    {
+                                                                                        value: "",
+                                                                                        label: "Seleziona..."
+                                                                                    },
+                                                                                    ...specialCollections.map(
+                                                                                        c => ({
+                                                                                            value: c.id,
+                                                                                            label: c.name
+                                                                                        })
                                                                                     )
-                                                                                )}
-                                                                            </select>
+                                                                                ]}
+                                                                            />
                                                                         </div>
 
                                                                         <div

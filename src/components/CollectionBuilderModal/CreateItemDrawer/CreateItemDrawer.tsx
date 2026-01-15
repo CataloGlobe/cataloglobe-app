@@ -9,6 +9,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { createItemCategory } from "@/services/supabase/categories";
 import styles from "./CreateItemDrawer.module.scss";
+import { Select } from "@/components/ui/Select/Select";
 
 export interface CreateItemDrawerRef {
     submit: () => Promise<void>;
@@ -126,22 +127,19 @@ export const CreateItemDrawer = forwardRef<CreateItemDrawerRef, CreateItemDrawer
 
                     {hasField("category") && (
                         <div className={styles.field}>
-                            <Text variant="caption" weight={600}>
-                                Categoria {isRequired("category") ? "*" : ""}
-                            </Text>
-
-                            <select
+                            <Select
+                                label="Contenuto"
                                 value={categoryId}
                                 onChange={e => setCategoryId(e.target.value)}
-                                required={isRequired("category")}
-                            >
-                                <option value="">Seleziona una categoria</option>
-                                {filteredCategories.map(cat => (
-                                    <option key={cat.id} value={cat.id}>
-                                        {cat.name}
-                                    </option>
-                                ))}
-                            </select>
+                                required
+                                options={[
+                                    { value: "", label: "Seleziona una categoria" },
+                                    ...filteredCategories.map(cat => ({
+                                        value: cat.id,
+                                        label: cat.name
+                                    }))
+                                ]}
+                            />
 
                             {filteredCategories.length === 0 && (
                                 <Text variant="caption" colorVariant="muted">

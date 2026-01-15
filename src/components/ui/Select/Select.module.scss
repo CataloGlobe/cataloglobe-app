@@ -1,45 +1,23 @@
 @use "@styles/variables" as *;
 
-/* WRAPPER ------------------------------------------ */
-.wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  width: 100%;
-}
-
-/* LABEL -------------------------------------------- */
-.label {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text, #0f172a);
-}
-
-/* SELECT WRAPPER (per caret/icon) ------------------ */
 .selectWrapper {
   position: relative;
   width: 100%;
 }
 
-/* SELECT ------------------------------------------- */
 .select {
   width: 100%;
-  padding: 0.62rem 2.5rem 0.62rem 0.85rem; /* spazio per caret */
+  padding: 0.62rem 2rem 0.62rem 0.85rem;
 
+  appearance: none;
   background: var(--card-bg, #ffffff);
   color: var(--text, #0f172a);
 
   font-size: 0.95rem;
   border-radius: 8px;
-
   border: 1.5px solid var(--border, #cbd5e1);
-  transition: border-color 0.2s, box-shadow 0.2s;
 
-  appearance: none; /* rimuove caret default */
-
-  &::placeholder {
-    color: var(--text-muted, #94a3b8);
-  }
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
   &:focus-visible {
     outline: none;
@@ -53,44 +31,30 @@
     cursor: not-allowed;
   }
 
-  /* DARK MODE */
   [data-theme="dark"] & {
     background: #1e293b;
     border-color: #334155;
     color: #f1f5f9;
-
-    &::placeholder {
-      color: #64748b;
-    }
-
-    &:focus-visible {
-      border-color: var(--brand-primary, #6366f1);
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.4);
-    }
   }
 }
 
-/* CARET (frecetta) -------------------------------- */
 .caret {
   position: absolute;
-  right: 0.8rem;
+  right: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 0.8rem;
-  color: var(--text-muted, #94a3b8);
   pointer-events: none;
+  color: var(--text-muted, #94a3b8);
+}
 
-  [data-theme="dark"] & {
-    color: #94a3b8;
+.hasError .select {
+  border-color: #dc2626;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
   }
 }
 
-/* ERROR MESSAGE ----------------------------------- */
-.error {
-  font-size: 0.8rem;
-  color: #dc2626;
-
-  [data-theme="dark"] & {
-    color: #f87171;
-  }
+.disabled {
+  opacity: 0.6;
 }

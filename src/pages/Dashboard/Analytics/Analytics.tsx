@@ -22,6 +22,7 @@ import Skeleton from "@components/ui/Skeleton/Skeleton";
 import type { AnalyticsReview } from "@services/supabase/reviews";
 import { getUserBusinesses } from "@services/supabase/businesses";
 import styles from "./Analytics.module.scss";
+import { Select } from "@/components/ui/Select/Select";
 
 type Range = 7 | 30 | 90;
 
@@ -258,26 +259,18 @@ export default function Analytics() {
             <header className={styles.header}>
                 <div className={styles.filtersRow}>
                     <div className={styles.businessSelector}>
-                        <label htmlFor="restaurant-select" className={styles.restaurantLabel}>
-                            <Text variant="caption" colorVariant="muted">
-                                Attività:
-                            </Text>
-                        </label>
-
-                        <select
-                            id="restaurant-select"
-                            className={styles.bSelect}
+                        <Select
+                            label="Attività"
                             value={selectedBusinessId}
                             onChange={e => setSelectedBusinessId(e.target.value)}
-                        >
-                            <option value="all">Tutti i locali</option>
-
-                            {businesses.map(r => (
-                                <option key={r.id} value={r.id}>
-                                    {r.name}
-                                </option>
-                            ))}
-                        </select>
+                            options={[
+                                { value: "", label: "Seleziona una categoria" },
+                                ...businesses.map(b => ({
+                                    value: b.id,
+                                    label: b.name
+                                }))
+                            ]}
+                        />
                     </div>
 
                     <div className={styles.rangeSelector}>

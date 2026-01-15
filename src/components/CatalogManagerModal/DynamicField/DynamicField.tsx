@@ -3,6 +3,7 @@ import styles from "./DynamicField.module.scss";
 import type { FieldDef } from "@/domain/catalog/fields";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
+import { Select } from "@/components/ui/Select/Select";
 
 type Props = {
     field: FieldDef;
@@ -63,18 +64,28 @@ export default function DynamicField({ field, value, onChange }: Props) {
                         </Text>
                     </label>
 
-                    <select
-                        className={styles.select}
+                    <Select
+                        label="Contenuto"
                         value={value ?? ""}
                         onChange={e => onChange(e.target.value)}
-                    >
-                        <option value="">—</option>
-                        {options?.map(opt => (
-                            <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                            </option>
-                        ))}
-                    </select>
+                        required={required}
+                        options={
+                            options
+                                ? [
+                                      { value: "", label: "Seleziona una categoria" },
+                                      ...options.map(opt => ({
+                                          value: opt.value,
+                                          label: opt.label
+                                      }))
+                                  ]
+                                : [
+                                      {
+                                          value: "Valore",
+                                          label: "Label"
+                                      }
+                                  ]
+                        }
+                    />
                 </div>
             );
 

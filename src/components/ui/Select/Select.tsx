@@ -1,52 +1,83 @@
-import React from "react";
-import Text from "@components/ui/Text/Text";
+import React, { forwardRef } from "react";
+import { InputBase } from "../Input/InputBase";
 import styles from "./Select.module.scss";
 
-interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+export interface SelectOption {
+    value: string;
     label: string;
-    error?: string;
-    options: { value: string; label: string }[];
 }
 
-export const Select: React.FC<SelectProps> = ({
-    label,
-    error,
-    id,
-    options,
-    className,
-    ...props
-}) => {
-    const selectId = id || `select-${label.toLowerCase().replace(/\s+/g, "-")}`;
+export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "size"> {
+    label?: string;
+    helperText?: string;
+    error?: string;
+    options?: SelectOption[];
+    children?: React.ReactNode;
 
-    return (
-        <div className={`${styles.wrapper} ${className || ""}`}>
-            {/* LABEL */}
-            <Text as="label" variant="body" weight={600} className={styles.label}>
-                {label}
-            </Text>
+    containerClassName?: string;
+    selectClassName?: string;
+}
 
-            {/* SELECT */}
-            <div className={styles.selectWrapper}>
-                <select id={selectId} className={styles.select} aria-invalid={!!error} {...props}>
-                    {options.map(opt => (
-                        <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                        </option>
-                    ))}
-                </select>
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(
+    (
+        {
+            id,
+            label,
+            helperText,
+            error,
+            required,
+            disabled,
+            options,
+            children,
+            containerClassName,
+            selectClassName,
+            className,
+            ...props
+        },
+        ref
+    ) => {
+        return (
+            <InputBase
+                id={id}
+                label={label}
+                helperText={helperText}
+                error={error}
+                required={required}
+                disabled={disabled}
+                className={containerClassName}
+            >
+                {({ inputId, describedById, hasError, isDisabled }) => (
+                    <div
+                        className={`${styles.selectWrapper} ${hasError ? styles.hasError : ""} ${
+                            isDisabled ? styles.disabled : ""
+                        }`}
+                    >
+                        <select
+                            ref={ref}
+                            id={inputId}
+                            disabled={isDisabled}
+                            aria-invalid={hasError}
+                            aria-describedby={describedById}
+                            className={`${styles.select} ${selectClassName ?? className ?? ""}`}
+                            {...props}
+                        >
+                            {options
+                                ? options.map(opt => (
+                                      <option key={opt.value} value={opt.value}>
+                                          {opt.label}
+                                      </option>
+                                  ))
+                                : children}
+                        </select>
 
-                {/* caret ↓ */}
-                <span className={styles.caret} aria-hidden="true">
-                    ▾
-                </span>
-            </div>
+                        <div className={styles.caret} aria-hidden="true">
+                            ▾
+                        </div>
+                    </div>
+                )}
+            </InputBase>
+        );
+    }
+);
 
-            {/* ERROR */}
-            {error && (
-                <Text as="span" variant="caption" colorVariant="error" className={styles.error}>
-                    {error}
-                </Text>
-            )}
-        </div>
-    );
-};
+Select.displayName = "Select";

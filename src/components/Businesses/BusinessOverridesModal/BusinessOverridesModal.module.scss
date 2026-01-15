@@ -129,29 +129,6 @@
   }
 }
 
-.select {
-  appearance: none;
-  padding: 0.7rem 0.9rem;
-  border-radius: 12px;
-
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: #ffffff;
-
-  font-size: 0.9rem;
-  color: rgba(0, 0, 0, 0.85);
-
-  transition: border-color 0.15s ease;
-
-  &:hover {
-    border-color: rgba(0, 0, 0, 0.18);
-  }
-
-  &:focus {
-    outline: none;
-    border-color: $brand-primary;
-  }
-}
-
 /* ---------------------------------------------
    CHANGES HINT
 --------------------------------------------- */

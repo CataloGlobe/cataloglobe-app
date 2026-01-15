@@ -10,6 +10,7 @@ import { Globe, ShieldCheck, Trash2, Star } from "lucide-react";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
 
 import styles from "./Reviews.module.scss";
+import { Select } from "@/components/ui/Select/Select";
 
 const TAG_OPTIONS = [
     "Qualità del cibo",
@@ -272,11 +273,8 @@ export default function Reviews() {
             {/* HEADER */}
             <header className={styles.header}>
                 <div className={styles.selectBusiness}>
-                    <Text as="label" variant="body">
-                        Attività:
-                    </Text>
-
-                    <select
+                    <Select
+                        label="Attività"
                         value={selectedBusiness ?? ""}
                         disabled={loading}
                         onChange={async e => {
@@ -286,14 +284,14 @@ export default function Reviews() {
                             await fetchReviews(id);
                             setLoading(false);
                         }}
-                    >
-                        <option value="">Tutti i locali</option>
-                        {businesses.map(r => (
-                            <option key={r.id} value={r.id}>
-                                {r.name}
-                            </option>
-                        ))}
-                    </select>
+                        options={[
+                            { value: "", label: "Tutte le attività" },
+                            ...businesses.map(b => ({
+                                value: b.id,
+                                label: b.name
+                            }))
+                        ]}
+                    />
                 </div>
 
                 <div className={styles.stats}>
@@ -328,25 +326,25 @@ export default function Reviews() {
 
                 <div className={styles.selects}>
                     <div className={styles.filterGroup}>
-                        <Text as="label">Voto:</Text>
-                        <select
+                        <Select
+                            label="Voto"
                             value={filterRating ?? ""}
                             onChange={e =>
                                 setFilterRating(e.target.value ? Number(e.target.value) : null)
                             }
-                        >
-                            <option value="">Tutti</option>
-                            {[5, 4, 3, 2, 1].map(r => (
-                                <option key={r} value={r}>
-                                    {r} ★
-                                </option>
-                            ))}
-                        </select>
+                            options={[
+                                { value: "", label: "Tutti" },
+                                ...["5", "4", "3", "2", "1"].map(v => ({
+                                    value: v,
+                                    label: `${v} ★`
+                                }))
+                            ]}
+                        />
                     </div>
 
                     <div className={styles.filterGroup}>
-                        <Text as="label">Periodo:</Text>
-                        <select
+                        <Select
+                            label="Periodo"
                             value={filterPeriod}
                             onChange={e => {
                                 const val = e.target.value as "all" | "7d" | "30d" | "custom";
@@ -358,7 +356,7 @@ export default function Reviews() {
                             <option value="7d">Ultimi 7 giorni</option>
                             <option value="30d">Ultimi 30 giorni</option>
                             <option value="custom">Data specifica</option>
-                        </select>
+                        </Select>
                     </div>
 
                     {filterPeriod === "custom" && (
@@ -377,20 +375,23 @@ export default function Reviews() {
                     )}
 
                     <div className={styles.filterGroup}>
-                        <Text as="label">Tag:</Text>
-                        <select value={filterTag} onChange={e => setFilterTag(e.target.value)}>
-                            <option value="">Tutti</option>
-                            {TAG_OPTIONS.map(t => (
-                                <option value={t} key={t}>
-                                    {t}
-                                </option>
-                            ))}
-                        </select>
+                        <Select
+                            label="Tag"
+                            value={filterTag}
+                            onChange={e => setFilterTag(e.target.value)}
+                            options={[
+                                { value: "", label: "Tutti" },
+                                ...TAG_OPTIONS.map(t => ({
+                                    value: t,
+                                    label: t
+                                }))
+                            ]}
+                        />
                     </div>
 
                     <div className={styles.filterGroup}>
-                        <Text as="label">Ordina:</Text>
-                        <select
+                        <Select
+                            label="Ordina"
                             value={sortBy}
                             onChange={e =>
                                 setSortBy(
@@ -402,7 +403,7 @@ export default function Reviews() {
                             <option value="oldest">Più vecchie</option>
                             <option value="highest">Voto più alto</option>
                             <option value="lowest">Voto più basso</option>
-                        </select>
+                        </Select>
                     </div>
                 </div>
             </section>

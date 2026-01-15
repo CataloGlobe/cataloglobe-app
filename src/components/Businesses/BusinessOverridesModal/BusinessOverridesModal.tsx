@@ -17,6 +17,7 @@ import styles from "./BusinessOverridesModal.module.scss";
 import { isNowActive } from "@/domain/schedules/scheduleUtils";
 import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessCollections";
 import { TextInput } from "@/components/ui/Input/TextInput";
+import { Select } from "@/components/ui/Select/Select";
 
 /* -------------------------------------------------------------------------- */
 /*                                    TYPES                                   */
@@ -472,26 +473,22 @@ export default function BusinessOverridesModal({
 
                     {availableCollections.length > 0 && (
                         <div className={styles.headerRight}>
-                            <select
-                                className={styles.collectionSelect}
+                            <Select
                                 value={selectedCollectionId ?? ""}
                                 onChange={e => setSelectedCollectionId(e.target.value)}
-                            >
-                                {availableCollections.map(c => {
-                                    const label =
-                                        c.id === activeNow?.primaryId
-                                            ? `${c.name} · In uso ora${
-                                                  activeNow.isFallback ? " (Fallback)" : ""
-                                              }`
-                                            : c.name;
-
-                                    return (
-                                        <option key={c.id} value={c.id}>
-                                            {label}
-                                        </option>
-                                    );
-                                })}
-                            </select>
+                                options={[
+                                    { value: "", label: "Seleziona una categoria" },
+                                    ...availableCollections.map(c => ({
+                                        value: c.id,
+                                        label:
+                                            c.id === activeNow?.primaryId
+                                                ? `${c.name} · In uso ora${
+                                                      activeNow.isFallback ? " (Fallback)" : ""
+                                                  }`
+                                                : c.name
+                                    }))
+                                ]}
+                            />
                         </div>
                     )}
 
@@ -553,18 +550,17 @@ export default function BusinessOverridesModal({
                                     onChange={e => setSearch(e.target.value)}
                                 />
 
-                                <select
-                                    className={styles.select}
+                                <Select
                                     value={categoryFilter}
                                     onChange={e => setCategoryFilter(e.target.value)}
-                                >
-                                    <option value="all">Tutte le categorie</option>
-                                    {categories.map(cat => (
-                                        <option key={cat} value={cat}>
-                                            {cat}
-                                        </option>
-                                    ))}
-                                </select>
+                                    options={[
+                                        { value: "all", label: "Tutte le categorie" },
+                                        ...categories.map(cat => ({
+                                            value: cat,
+                                            label: cat
+                                        }))
+                                    ]}
+                                />
                             </div>
 
                             {hasChanges && (

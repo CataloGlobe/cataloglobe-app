@@ -17,6 +17,7 @@ import {
 
 import { getFieldsForCollection } from "@/domain/catalog/getCatalogConfig";
 import { TextInput } from "../ui/Input/TextInput";
+import { Select } from "../ui/Select/Select";
 
 type Props = {
     isOpen: boolean;
@@ -294,10 +295,7 @@ export default function CatalogManagerModal({ isOpen, onClose, catalogType }: Pr
                     </div>
 
                     <div className={styles.typeFilter}>
-                        <Text variant="caption" weight={600}>
-                            Tipo
-                        </Text>
-                        <select
+                        <Select
                             value={activeCatalogType}
                             onChange={e => {
                                 const next = e.target.value as CatalogType;
@@ -313,7 +311,7 @@ export default function CatalogManagerModal({ isOpen, onClose, catalogType }: Pr
                             <option value="menu">Menu</option>
                             <option value="services">Servizi</option>
                             <option value="products">Prodotti</option>
-                        </select>
+                        </Select>
                     </div>
 
                     <div className={styles.createRow}>
