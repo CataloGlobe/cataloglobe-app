@@ -1,0 +1,51 @@
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+
+.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input {
+  position: absolute;
+  opacity: 0;
+}
+
+.circle {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border, #cbd5e1);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.input:checked + .circle {
+  border-color: var(--brand-primary, #6366f1);
+}
+
+.input:checked + .circle::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: var(--brand-primary, #6366f1);
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+}
