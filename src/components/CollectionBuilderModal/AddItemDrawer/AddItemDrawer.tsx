@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Text from "@/components/ui/Text/Text";
 import { CatalogType } from "@/types/catalog";
 import { CreateItemDrawer, CreateItemDrawerRef } from "../CreateItemDrawer/CreateItemDrawer";
 import { PickItemDrawer } from "../PickItemDrawer/PickItemDrawer";
 import styles from "./AddItemDrawer.module.scss";
+import { Tabs } from "@/components/ui/Tabs/Tabs";
 
 type Tab = "pick" | "create";
 
@@ -48,14 +49,6 @@ export function AddItemDrawer({
         remove: []
     });
 
-    const tabs = useMemo(
-        () => [
-            { id: "pick" as const, label: "Dal catalogo" },
-            { id: "create" as const, label: "Nuovo" }
-        ],
-        []
-    );
-
     useEffect(() => {
         setTab(defaultTab);
         onTabChange(defaultTab);
@@ -67,41 +60,45 @@ export function AddItemDrawer({
 
     return (
         <div className={styles.wrapper} aria-label="Aggiungi elemento">
-            <div className={styles.tabs} role="tablist">
-                {tabs.map(t => (
-                    <button
-                        key={t.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={tab === t.id}
-                        className={tab === t.id ? styles.tabActive : styles.tab}
-                        onClick={() => {
-                            setTab(t.id);
-                            onTabChange(t.id);
-                        }}
-                    >
+            <Tabs<Tab>
+                value={tab}
+                onChange={nextTab => {
+                    setTab(nextTab);
+                    onTabChange(nextTab);
+                }}
+            >
+                <Tabs.List>
+                    <Tabs.Tab value="pick">
                         <Text weight={600} variant="caption">
-                            {t.label}
+                            Dal catalogo
                         </Text>
-                    </button>
-                ))}
-            </div>
+                    </Tabs.Tab>
 
-            <div className={styles.body}>
-                {tab === "pick" ? (
-                    <PickItemDrawer
-                        collectionType={collectionType}
-                        existingItemIds={existingItemIds}
-                        onChange={setPickDiff}
-                    />
-                ) : (
-                    <CreateItemDrawer
-                        ref={createRef}
-                        collectionType={collectionType}
-                        onSubmit={onCreate}
-                    />
-                )}
-            </div>
+                    <Tabs.Tab value="create">
+                        <Text weight={600} variant="caption">
+                            Nuovo
+                        </Text>
+                    </Tabs.Tab>
+                </Tabs.List>
+
+                <div className={styles.body}>
+                    <Tabs.Panel value="pick">
+                        <PickItemDrawer
+                            collectionType={collectionType}
+                            existingItemIds={existingItemIds}
+                            onChange={setPickDiff}
+                        />
+                    </Tabs.Panel>
+
+                    <Tabs.Panel value="create" lazy>
+                        <CreateItemDrawer
+                            ref={createRef}
+                            collectionType={collectionType}
+                            onSubmit={onCreate}
+                        />
+                    </Tabs.Panel>
+                </div>
+            </Tabs>
         </div>
     );
 }
