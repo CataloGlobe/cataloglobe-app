@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { CollectionSection } from "@/types/database";
 import Text from "@/components/ui/Text/Text";
 import {
@@ -12,11 +12,9 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Pencil, Save, Trash2 } from "lucide-react";
 import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 import styles from "./CollectionSectionsPanel.module.scss";
-import { TextInput } from "@/components/ui/Input/TextInput";
-import { IconButton } from "@/components/ui/Button/IconButton";
+import { CollectionSectionItem } from "./CollectionSectionItem/CollectionSectionItem";
 
 interface CollectionSectionsPanelProps {
     sections: CollectionSection[];
@@ -36,37 +34,6 @@ export function CollectionSectionsPanel({
     onDeleteSection
 }: CollectionSectionsPanelProps) {
     /* ----------------------------
-     * RENAME
-     * -------------------------- */
-    const [editingId, setEditingId] = useState<string | null>(null);
-    const [draftName, setDraftName] = useState("");
-    const renameInputRef = useRef<HTMLInputElement | null>(null);
-
-    const startRename = (id: string, label: string) => {
-        setEditingId(id);
-        setDraftName(label);
-        setTimeout(() => {
-            renameInputRef.current?.focus();
-            renameInputRef.current?.select();
-        }, 0);
-    };
-
-    const cancelRename = () => {
-        setEditingId(null);
-        setDraftName("");
-    };
-
-    const commitRename = async (id: string, originalName: string) => {
-        const next = draftName.trim();
-        if (!next || next === originalName.trim()) {
-            cancelRename();
-            return;
-        }
-        await onRenameSection(id, next);
-        cancelRename();
-    };
-
-    /* ----------------------------
      * DELETE
      * -------------------------- */
     const [sectionToDelete, setSectionToDelete] = useState<CollectionSection | null>(null);
@@ -80,7 +47,7 @@ export function CollectionSectionsPanel({
         <aside className={styles.sections} aria-label="Categorie">
             {/* HEADER */}
             <div className={styles.header}>
-                <Text variant="caption" weight={600}>
+                <Text variant="body" weight={600}>
                     Categorie
                 </Text>
             </div>
@@ -101,77 +68,14 @@ export function CollectionSectionsPanel({
                         {sections.map(section => (
                             <SortableSection key={section.id} id={section.id}>
                                 {({ listeners }) => (
-                                    <button
-                                        type="button"
-                                        className={
-                                            section.id === activeSectionId
-                                                ? styles.sectionActive
-                                                : styles.section
-                                        }
-                                        onClick={() => onSelectSection(section.id)}
-                                    >
-                                        <GripVertical
-                                            size={16}
-                                            {...listeners}
-                                            className={styles.dragHandle}
-                                        />
-
-                                        {editingId === section.id ? (
-                                            <TextInput
-                                                ref={renameInputRef}
-                                                value={draftName}
-                                                onChange={e => setDraftName(e.target.value)}
-                                                onKeyDown={e => {
-                                                    if (e.key === "Enter") {
-                                                        e.preventDefault();
-                                                        void commitRename(
-                                                            section.id,
-                                                            section.label
-                                                        );
-                                                    }
-                                                    if (e.key === "Escape") {
-                                                        e.preventDefault();
-                                                        cancelRename();
-                                                    }
-                                                }}
-                                                onBlur={() =>
-                                                    void commitRename(section.id, section.label)
-                                                }
-                                                endAdornment={<Save size={16} />}
-                                                onEndAdornmentClick={() => {
-                                                    void commitRename(section.id, section.label);
-                                                }}
-                                            />
-                                        ) : (
-                                            <div className={styles.sectionLabel}>
-                                                <Text>{section.label}</Text>
-
-                                                <div className={styles.actions}>
-                                                    <IconButton
-                                                        className={styles.iconBtn}
-                                                        variant="ghost"
-                                                        icon={<Pencil size={14} />}
-                                                        aria-label="Modifica"
-                                                        onClick={e => {
-                                                            e.stopPropagation();
-                                                            startRename(section.id, section.label);
-                                                        }}
-                                                    />
-
-                                                    <IconButton
-                                                        className={styles.iconBtn}
-                                                        variant="ghost"
-                                                        icon={<Trash2 size={14} />}
-                                                        aria-label="Elimina"
-                                                        onClick={e => {
-                                                            e.stopPropagation();
-                                                            setSectionToDelete(section);
-                                                        }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-                                    </button>
+                                    <CollectionSectionItem
+                                        section={section}
+                                        isActive={section.id === activeSectionId}
+                                        listeners={listeners}
+                                        onSelect={onSelectSection}
+                                        onRename={onRenameSection}
+                                        onDelete={setSectionToDelete}
+                                    />
                                 )}
                             </SortableSection>
                         ))}

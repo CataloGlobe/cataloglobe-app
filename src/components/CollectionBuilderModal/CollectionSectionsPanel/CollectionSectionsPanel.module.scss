@@ -1,136 +1,124 @@
 .sections {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 1rem;
+  height: 100%;
 }
-
-/* HEADER */
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.addIcon {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  border: none;
-  background: rgba(124, 58, 237, 0.12);
-  color: #7c3aed;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.addIcon:hover {
-  background: rgba(124, 58, 237, 0.2);
-}
-
-/* ADD */
-
-.addRow {
-  margin-top: 6px;
-}
-
-.addInput {
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(124, 58, 237, 0.3);
-  outline: none;
-  font: inherit;
-}
-
-.addInput:focus {
-  border-color: #7c3aed;
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.15);
-}
-
-/* LIST */
 
 .sectionList {
   list-style: none;
-  padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.5rem;
 }
 
-/* ITEM */
+/* =========================
+ * ROW
+ * ======================= */
 
-.section,
-.sectionActive {
-  width: 100%;
-  text-align: left;
+.row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: transparent;
+  gap: 0.25rem;
+}
+
+/* =========================
+ * SELECT AREA
+ * ======================= */
+
+.select,
+.active {
+  flex: 1;
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
   border: none;
+  background: transparent;
+
+  text-align: left;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+
+  color: var(--gray-900);
+
+  background: rgba(209, 209, 235, 0.12);
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+  }
 }
 
-.section:hover {
-  background: rgba(124, 58, 237, 0.08);
+.select:hover {
+  background: rgba(99, 102, 241, 0.25);
 }
 
-.sectionActive {
-  background: rgba(124, 58, 237, 0.12);
-  color: #4c1d95;
+.active {
+  background: rgba(99, 101, 241, 0.25);
+  color: #6366f1;
 }
+
+/* =========================
+ * DRAG HANDLE
+ * ======================= */
 
 .dragHandle {
-  opacity: 0.4;
+  flex-shrink: 0;
+  color: var(--gray-400);
   cursor: grab;
 }
 
-.sectionLabel {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+.row:active .dragHandle {
+  cursor: grabbing;
+}
+
+/* =========================
+ * LABEL / INPUT
+ * ======================= */
+
+.select :global(input) {
   width: 100%;
 }
+
+/* =========================
+ * ACTIONS
+ * ======================= */
 
 .actions {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 0.125rem;
+  flex-shrink: 0;
 }
 
 .iconBtn {
-  opacity: 0;
-  transition: opacity 0.15s ease;
+  opacity: 0.7;
 }
 
-.section:hover .iconBtn,
-.sectionActive:hover .iconBtn {
+.iconBtn:hover {
   opacity: 1;
 }
 
-.danger {
-  color: #d32f2f;
-}
+/* =========================
+ * RESPONSIVE
+ * ======================= */
 
-/* RENAME */
+@media (max-width: 768px) {
+  .row {
+    gap: 0.125rem;
+  }
 
-.renameInput {
-  width: 100%;
-  padding: 6px 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(124, 58, 237, 0.3);
-  outline: none;
-  font: inherit;
-}
+  .select,
+  .active {
+    padding: 0.5rem;
+  }
 
-.renameInput:focus {
-  border-color: #7c3aed;
+  .actions {
+    gap: 0;
+  }
 }

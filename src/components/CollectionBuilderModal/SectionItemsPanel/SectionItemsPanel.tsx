@@ -75,7 +75,7 @@ export function SectionItemsPanel({
                     >
                         <ul className={styles.itemsList} role="list">
                             {items.map(row => (
-                                <SortableRow id={row.id}>
+                                <SortableRow key={row.id} id={row.id}>
                                     {({ listeners }) => (
                                         <li role="listitem" className={styles.itemRow}>
                                             <IconButton
