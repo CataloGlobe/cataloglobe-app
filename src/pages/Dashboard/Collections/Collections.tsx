@@ -24,6 +24,7 @@ import { getUserBusinesses } from "@/services/supabase/businesses";
 import { getAllowedCatalogTypesForBusinesses } from "@/domain/catalog/catalogTypeRules";
 import { useAuth } from "@/context/useAuth";
 import styles from "./Collections.module.scss";
+import { IconButton } from "@/components/ui/Button/IconButton";
 
 const ALL_CATALOG_TYPE_OPTIONS = (Object.keys(CATALOG_TYPE_LABELS) as CatalogType[]).map(value => ({
     value,
@@ -174,13 +175,13 @@ export default function Collections() {
                     </div>
 
                     <div className={styles.headerActions}>
-                        <Button label="Crea catalogo" onClick={openCreateModal} />
+                        <Button variant="primary" onClick={openCreateModal}>
+                            Crea catalogo
+                        </Button>
 
-                        <Button
-                            label="I tuoi prodotti"
-                            variant="secondary"
-                            onClick={() => setCatalogOpen(true)}
-                        />
+                        <Button variant="outline" onClick={() => setCatalogOpen(true)}>
+                            I tuoi prodotti
+                        </Button>
                     </div>
                 </header>
 
@@ -214,45 +215,45 @@ export default function Collections() {
                                         {col.name}
                                     </Text>
 
-                                    <button
-                                        className={styles.moreBtn}
-                                        aria-label="Rinomina collezione"
-                                        onClick={e => {
-                                            e.stopPropagation();
-                                            openEditModal(col);
-                                        }}
-                                    >
-                                        <Pencil size={16} />
-                                    </button>
+                                    <div className={styles.actions}>
+                                        <IconButton
+                                            variant="ghost"
+                                            icon={<Pencil size={16} />}
+                                            aria-label="Rinomina collezione"
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                openEditModal(col);
+                                            }}
+                                        />
 
-                                    <button
-                                        className={styles.moreBtn}
-                                        aria-label="Elimina collezione"
-                                        onClick={async e => {
-                                            e.stopPropagation();
+                                        <IconButton
+                                            variant="ghost"
+                                            icon={<Trash2 size={16} />}
+                                            aria-label="Elimina collezione"
+                                            onClick={async e => {
+                                                e.stopPropagation();
 
-                                            try {
-                                                const canDelete = await isCollectionDeletable(
-                                                    col.id
-                                                );
-
-                                                if (!canDelete) {
-                                                    setDeleteError(
-                                                        "Questa collezione è utilizzata in uno o più menu attivi. Disattiva prima i menu per poterla eliminare."
+                                                try {
+                                                    const canDelete = await isCollectionDeletable(
+                                                        col.id
                                                     );
-                                                    return;
-                                                }
 
-                                                setDeleteTarget(col);
-                                            } catch {
-                                                setDeleteError(
-                                                    "Errore nel controllo dell’eliminazione."
-                                                );
-                                            }
-                                        }}
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                                    if (!canDelete) {
+                                                        setDeleteError(
+                                                            "Questa collezione è utilizzata in uno o più menu attivi. Disattiva prima i menu per poterla eliminare."
+                                                        );
+                                                        return;
+                                                    }
+
+                                                    setDeleteTarget(col);
+                                                } catch {
+                                                    setDeleteError(
+                                                        "Errore nel controllo dell’eliminazione."
+                                                    );
+                                                }
+                                            }}
+                                        />
+                                    </div>
                                 </div>
 
                                 {col.description && (

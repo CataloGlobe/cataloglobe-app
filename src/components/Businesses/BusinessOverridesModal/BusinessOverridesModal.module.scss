@@ -150,7 +150,7 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: clamp(4px, 1vw, 8px);
+  gap: clamp(8px, 2vw, 14px);
 }
 
 /* ---------------------------------------------
@@ -159,20 +159,16 @@
 .categoryGroup {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-
-  &:not(:first-child) {
-    margin-top: 1rem;
-  }
+  gap: 0.25rem;
 }
 
 /* ---------------------------------------------
    ROW
 --------------------------------------------- */
 .row {
-  display: grid;
-  grid-template-columns: 32px 1fr 130px;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: clamp(8px, 2vw, 14px);
 
   padding: 0.45rem 0.7rem;
@@ -180,11 +176,6 @@
 
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.07);
-
-  @media (max-width: 640px) {
-    grid-template-columns: 36px 1fr 110px;
-    padding: 0.7rem;
-  }
 }
 
 .row[data-hidden="false"] .eye {
@@ -192,79 +183,13 @@
 }
 
 /* ---------------------------------------------
-   VISIBILITY BUTTON
+   ROW CONTENT
 --------------------------------------------- */
-.eye {
-  width: clamp(32px, 5vw, 38px);
-  height: clamp(32px, 5vw, 38px);
-  padding: 0;
-
+.left,
+.right {
   display: flex;
   align-items: center;
-  justify-content: center;
-
-  border: none;
-  border-radius: 12px;
-
-  background: #f4f5f8;
-  color: rgba(0, 0, 0, 0.75);
-
-  cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
-
-  &:hover {
-    background: #edeff4;
-    color: $brand-primary;
-  }
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba($brand-primary, 0.2);
-  }
-}
-
-/* ---------------------------------------------
-   PRICE
---------------------------------------------- */
-.price {
-  display: grid;
-  grid-template-columns: 16px 1fr;
-  align-items: center;
-  gap: 6px;
-
-  @media (max-width: 640px) {
-    grid-template-columns: 12px 1fr;
-    gap: 4px;
-  }
-}
-
-.euro {
-  font-size: 0.9rem;
-  opacity: 0.6;
-}
-
-.priceField {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.priceActions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.resetPrice {
-  padding: 0 0 0 0.45rem;
-  border: none;
-  background: transparent;
-  color: $brand-primary;
-  cursor: pointer;
-
-  display: flex;
-  align-items: center;
+  gap: 1rem;
 }
 
 /* ---------------------------------------------

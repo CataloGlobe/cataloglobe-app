@@ -18,6 +18,8 @@ import { isNowActive } from "@/domain/schedules/scheduleUtils";
 import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessCollections";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { NumberInput } from "@/components/ui/Input/NumberInput";
 
 /* -------------------------------------------------------------------------- */
 /*                                    TYPES                                   */
@@ -593,60 +595,59 @@ export default function BusinessOverridesModal({
                                                         className={styles.row}
                                                         data-hidden={!d.visible}
                                                     >
-                                                        <button
-                                                            type="button"
-                                                            className={styles.eye}
-                                                            onClick={() =>
-                                                                toggleVisible(row.item.id)
-                                                            }
-                                                        >
-                                                            {d.visible ? (
-                                                                <Eye size={15} />
-                                                            ) : (
-                                                                <EyeOff size={15} />
-                                                            )}
-                                                        </button>
+                                                        <div className={styles.left}>
+                                                            <IconButton
+                                                                variant="secondary"
+                                                                icon={
+                                                                    d.visible ? (
+                                                                        <Eye
+                                                                            size={15}
+                                                                            color="#6366f1"
+                                                                        />
+                                                                    ) : (
+                                                                        <EyeOff size={15} />
+                                                                    )
+                                                                }
+                                                                aria-label="Cambia visibilità"
+                                                                onClick={() =>
+                                                                    toggleVisible(row.item.id)
+                                                                }
+                                                            />
 
-                                                        <Text variant="body">{row.item.name}</Text>
+                                                            <Text variant="body">
+                                                                {row.item.name}
+                                                            </Text>
+                                                        </div>
 
-                                                        <div className={styles.price}>
-                                                            <span className={styles.euro}>€</span>
-
-                                                            <div className={styles.priceField}>
-                                                                <TextInput
-                                                                    placeholder="es. 10"
-                                                                    value={d.price}
-                                                                    onChange={e =>
-                                                                        changePrice(
-                                                                            row.item.id,
-                                                                            e.target.value
-                                                                        )
+                                                        <div className={styles.right}>
+                                                            {d.hasPriceOverride && (
+                                                                <IconButton
+                                                                    variant="secondary"
+                                                                    icon={
+                                                                        <History
+                                                                            size={16}
+                                                                            color="#6366f1"
+                                                                        />
+                                                                    }
+                                                                    aria-label="Ripristina prezzo originale"
+                                                                    onClick={() =>
+                                                                        resetPrice(row.item.id)
                                                                     }
                                                                 />
+                                                            )}
 
-                                                                {d.hasPriceOverride && (
-                                                                    <div
-                                                                        className={
-                                                                            styles.priceActions
-                                                                        }
-                                                                    >
-                                                                        <button
-                                                                            type="button"
-                                                                            className={
-                                                                                styles.resetPrice
-                                                                            }
-                                                                            onClick={() =>
-                                                                                resetPrice(
-                                                                                    row.item.id
-                                                                                )
-                                                                            }
-                                                                            title="Ripristina prezzo originale"
-                                                                        >
-                                                                            <History size={16} />
-                                                                        </button>
-                                                                    </div>
-                                                                )}
-                                                            </div>
+                                                            <NumberInput
+                                                                min={0}
+                                                                placeholder="0"
+                                                                value={d.price}
+                                                                onChange={e =>
+                                                                    changePrice(
+                                                                        row.item.id,
+                                                                        e.target.value
+                                                                    )
+                                                                }
+                                                                endAdornment="€"
+                                                            />
                                                         </div>
                                                     </div>
                                                 );
@@ -663,20 +664,21 @@ export default function BusinessOverridesModal({
                 <div className={styles.footer}>
                     {hasSchedulableCollections ? (
                         <>
+                            <Button variant="secondary" onClick={onClose} disabled={saving}>
+                                Annulla
+                            </Button>
                             <Button
-                                variant="secondary"
-                                onClick={onClose}
-                                disabled={saving}
-                                label="Annulla"
-                            />
-                            <Button
+                                loading={saving}
                                 onClick={saveAll}
                                 disabled={saving || loadingItems || !hasChanges}
-                                label={saving ? "Salvataggio..." : "Salva e aggiorna"}
-                            />
+                            >
+                                {saving ? "Salvataggio..." : "Salva e aggiorna"}
+                            </Button>
                         </>
                     ) : (
-                        <Button variant="primary" onClick={onClose} label="Chiudi" />
+                        <Button variant="secondary" onClick={onClose}>
+                            Chiudi
+                        </Button>
                     )}
                 </div>
             </div>

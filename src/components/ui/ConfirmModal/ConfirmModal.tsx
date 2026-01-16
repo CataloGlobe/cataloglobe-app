@@ -1,6 +1,7 @@
 import { ReactElement, useEffect } from "react";
 import Text from "@components/ui/Text/Text";
 import styles from "./ConfirmModal.module.scss";
+import { Button } from "../Button/Button";
 
 type ConfirmModalProps = {
     isOpen: boolean;
@@ -69,17 +70,15 @@ export default function ConfirmModal({
 
                 <div className={styles.actions}>
                     {cancelLabel && onCancel && (
-                        <button className={styles.cancel} onClick={onCancel} type="button">
-                            <Text variant="body">{cancelLabel}</Text>
-                        </button>
+                        <Button variant="secondary" onClick={onCancel}>
+                            {cancelLabel}
+                        </Button>
                     )}
 
                     {confirmLabel && onConfirm && (
-                        <button className={styles.confirm} onClick={onConfirm} type="button">
-                            <Text variant="body" colorVariant="white">
-                                {confirmLabel}
-                            </Text>
-                        </button>
+                        <Button variant="primary" onClick={onConfirm}>
+                            {confirmLabel}
+                        </Button>
                     )}
                 </div>
             </div>

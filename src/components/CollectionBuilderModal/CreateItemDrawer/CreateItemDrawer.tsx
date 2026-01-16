@@ -148,11 +148,9 @@ export const CreateItemDrawer = forwardRef<CreateItemDrawerRef, CreateItemDrawer
                                 </Text>
                             )}
 
-                            <Button
-                                variant="ghost"
-                                label={" + Crea nuova categoria"}
-                                onClick={() => setIsCreatingCategory(true)}
-                            ></Button>
+                            <Button variant="primary" onClick={() => setIsCreatingCategory(true)}>
+                                Crea nuova categoria
+                            </Button>
 
                             {isCreatingCategory && (
                                 <div className={styles.inlineCategory}>
@@ -165,19 +163,22 @@ export const CreateItemDrawer = forwardRef<CreateItemDrawerRef, CreateItemDrawer
 
                                     <div className={styles.actions}>
                                         <Button
-                                            label={"Crea"}
+                                            variant="primary"
                                             disabled={!newCategoryName || isSavingCategory}
                                             onClick={handleCreateCategory}
-                                        ></Button>
+                                        >
+                                            Crea
+                                        </Button>
 
                                         <Button
-                                            label="Annulla"
-                                            variant="ghost"
+                                            variant="secondary"
                                             onClick={() => {
                                                 setIsCreatingCategory(false);
                                                 setNewCategoryName("");
                                             }}
-                                        ></Button>
+                                        >
+                                            Annulla
+                                        </Button>
                                     </div>
                                 </div>
                             )}

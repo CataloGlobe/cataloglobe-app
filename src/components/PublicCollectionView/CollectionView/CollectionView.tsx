@@ -86,11 +86,15 @@ export default function CollectionView({
         [sections]
     );
 
-    function scrollToSection(sectionId: string) {
+    const scrollToSection = (sectionId: string) => {
+        setActiveSectionId(sectionId); // 👈 subito attivo
+
         const el = sectionRefs.current[sectionId];
-        if (!el) return;
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+        el?.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+    };
 
     return (
         <main className={styles.page} style={{ background: style.backgroundColor }}>

@@ -102,12 +102,14 @@ export default function Profile() {
                         />
 
                         <Button
-                            label={loading ? "Salvataggio..." : "Salva modifiche"}
                             variant="primary"
                             fullWidth
+                            loading={loading}
                             disabled={loading}
                             aria-busy={loading}
-                        />
+                        >
+                            {loading ? "Salvataggio..." : "Salva modifiche"}
+                        </Button>
                     </div>
                 </div>
 

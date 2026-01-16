@@ -57,12 +57,9 @@ export default function UpdatePassword() {
                     </Text>
                 )}
 
-                <Button
-                    label={loading ? "Aggiornamento..." : "Aggiorna password"}
-                    variant="primary"
-                    fullWidth
-                    disabled={loading}
-                />
+                <Button variant="primary" fullWidth loading={loading} disabled={loading}>
+                    {loading ? "Aggiornamento..." : "Aggiorna password"}
+                </Button>
             </form>
         </div>
     );

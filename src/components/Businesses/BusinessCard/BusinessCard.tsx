@@ -7,6 +7,8 @@ import { MoreVertical } from "lucide-react";
 import type { BusinessCardProps } from "@/types/Businesses";
 import styles from "./BusinessCard.module.scss";
 import BusinessCollectionScheduleModal from "../BusinessCollectionScheduleModal/BusinessCollectionScheduleModal";
+import { Button } from "@/components/ui";
+import { IconButton } from "@/components/ui/Button/IconButton";
 
 export const BusinessCard: React.FC<BusinessCardProps> = ({
     business,
@@ -95,14 +97,16 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                             {business.address}, {business.city}
                         </Text>
 
-                        <a
-                            className={styles.publicUrl}
+                        <Text
+                            as="a"
+                            variant="body-sm"
                             href={publicUrl}
                             target="_blank"
                             rel="noopener noreferrer"
+                            color="#6366f1"
                         >
                             {publicUrl}
-                        </a>
+                        </Text>
                     </div>
 
                     {/* QR */}
@@ -114,53 +118,54 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                 {/* ACTIONS */}
                 <div className={styles.actions}>
                     <div className={styles.actionsLeft}>
-                        <button className={styles.primary} onClick={() => setOverrideOpen(true)}>
+                        <Button variant="primary" onClick={() => setOverrideOpen(true)}>
                             Gestisci disponibilità e prezzi
-                        </button>
+                        </Button>
 
-                        <button
-                            className={styles.secondary}
+                        <Button
+                            variant="primary"
                             onClick={() => {
                                 setShowScheduleModal(true);
                                 setShowMenu(false);
                             }}
                         >
                             Contenuti & Orari
-                        </button>
+                        </Button>
 
-                        <button
-                            className={styles.secondary}
-                            onClick={() => onOpenReviews(business.id)}
-                        >
+                        <Button variant="outline" onClick={() => onOpenReviews(business.id)}>
                             Recensioni
-                        </button>
+                        </Button>
                     </div>
 
                     <div className={styles.actionsRight} ref={menuRef}>
-                        <button className={styles.moreButton} onClick={() => setShowMenu(v => !v)}>
-                            <MoreVertical size={18} />
-                        </button>
+                        <IconButton
+                            icon={<MoreVertical size={18} />}
+                            onClick={() => setShowMenu(v => !v)}
+                            aria-label="Elimina elemento"
+                            variant="ghost"
+                        />
 
                         {showMenu && (
                             <div className={styles.dropdownMenu}>
-                                <button
+                                <Button
+                                    variant="primary"
                                     onClick={() => {
                                         onEdit(business);
                                         setShowMenu(false);
                                     }}
                                 >
                                     Modifica
-                                </button>
+                                </Button>
 
-                                <button
-                                    className={styles.dangerItem}
+                                <Button
+                                    variant="danger"
                                     onClick={() => {
                                         onDelete(business.id);
                                         setShowMenu(false);
                                     }}
                                 >
                                     Elimina
-                                </button>
+                                </Button>
                             </div>
                         )}
                     </div>
@@ -175,22 +180,22 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                 confirmLabel="Chiudi"
                 onConfirm={() => setShowQrModal(false)}
             >
-                <div style={{ textAlign: "center", marginBottom: "1rem" }}>
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        gap: "1rem",
+                        textAlign: "center",
+                        marginBottom: "1rem"
+                    }}
+                >
                     <QRCodeSVG id="qr-download" value={publicUrl} size={240} />
-                    <button
-                        style={{
-                            marginTop: "1rem",
-                            padding: "10px 16px",
-                            borderRadius: 8,
-                            background: "#000",
-                            color: "white",
-                            border: "none",
-                            cursor: "pointer"
-                        }}
-                        onClick={downloadQrAsPng}
-                    >
-                        Scarica QR code
-                    </button>
+
+                    <Button variant="primary" onClick={downloadQrAsPng}>
+                        Scarica QR Code
+                    </Button>
                 </div>
             </ConfirmModal>
 

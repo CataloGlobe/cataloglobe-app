@@ -247,29 +247,6 @@
   font-style: italic;
 }
 
-/* SHOW MORE / LESS */
-
-.collapseToggle {
-  font-size: 0.85rem;
-  background: none;
-  border: none;
-  color: var(--brand-primary);
-  padding: 0;
-  align-self: flex-start;
-  cursor: pointer;
-}
-
-/* DELETE BUTTON */
-
-.deleteReviewBtn {
-  background: none;
-  border: none;
-  color: #ef4444;
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
 /* ------------------------------------------------------
    EMPTY STATE
 ------------------------------------------------------ */
@@ -280,53 +257,6 @@
   border-radius: 14px;
   border: 1px solid var(--border);
   text-align: center;
-}
-
-/* ------------------------------------------------------
-   MODALE
------------------------------------------------------- */
-
-.modalOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 999;
-}
-
-.modal {
-  background: var(--card-bg);
-  padding: 2rem 1.5rem;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  max-width: 360px;
-  width: 90%;
-}
-
-.modalActions {
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  margin-top: 1.25rem;
-}
-
-.confirm {
-  background: #ef4444;
-  color: #fff;
-  padding: 0.6rem 1rem;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-}
-
-.cancel {
-  background: #f1f5f9;
-  padding: 0.6rem 1rem;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
 }
 
 /* ------------------------------------------------------

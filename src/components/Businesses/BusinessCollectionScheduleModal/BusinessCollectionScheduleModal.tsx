@@ -19,6 +19,7 @@ import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessC
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import { TimeInput } from "@/components/ui/Input/TimeInput";
 import { Select } from "@/components/ui/Select/Select";
+import { Pill } from "@/components/ui/Pill/Pill";
 
 type Props = {
     isOpen: boolean;
@@ -517,16 +518,13 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                         </Text>
                                     </div>
 
-                                    <button
-                                        type="button"
-                                        className={styles.toggleBtn}
+                                    <Button
+                                        variant="ghost"
                                         onClick={() => setShowPrimaryAdd(v => !v)}
                                         aria-expanded={showPrimaryAdd}
                                     >
-                                        <Text variant="caption" weight={600}>
-                                            {showPrimaryAdd ? "Nascondi" : "Aggiungi schedulazione"}
-                                        </Text>
-                                    </button>
+                                        {showPrimaryAdd ? "Nascondi" : "Aggiungi schedulazione"}
+                                    </Button>
                                 </div>
 
                                 {/* Add Primary */}
@@ -614,31 +612,22 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                         const label = DAY_LABELS[day];
                                                         const active =
                                                             draftPrimary.days.includes(day);
+
                                                         return (
-                                                            <button
+                                                            <Pill
                                                                 key={day}
-                                                                type="button"
-                                                                className={
-                                                                    active
-                                                                        ? styles.dayChipActive
-                                                                        : styles.dayChip
-                                                                }
+                                                                label={label}
+                                                                active={active}
+                                                                shape="circle"
+                                                                ariaLabel={DAY_FULL[day]}
                                                                 aria-pressed={active}
-                                                                aria-label={DAY_FULL[day]}
                                                                 onClick={() =>
                                                                     setDraftPrimary(p => ({
                                                                         ...p,
                                                                         days: toggleDay(p.days, day)
                                                                     }))
                                                                 }
-                                                            >
-                                                                <Text
-                                                                    variant="caption"
-                                                                    weight={600}
-                                                                >
-                                                                    {label}
-                                                                </Text>
-                                                            </button>
+                                                            />
                                                         );
                                                     })}
                                                 </div>
@@ -648,10 +637,11 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                         <div className={styles.addActions}>
                                             <Button
                                                 variant="primary"
-                                                label="Aggiungi"
                                                 disabled={!canAddPrimary || saving}
                                                 onClick={() => addRule("primary")}
-                                            />
+                                            >
+                                                Aggiungi
+                                            </Button>
                                             <Text variant="caption" colorVariant="muted">
                                                 {canAddPrimary
                                                     ? " "
@@ -752,16 +742,13 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                             </Text>
                                                         </div>
 
-                                                        <button
-                                                            type="button"
-                                                            className={styles.iconBtn}
+                                                        <Button
+                                                            variant="primary"
                                                             onClick={() => openEdit(rule)}
                                                             aria-label="Modifica regola"
                                                         >
-                                                            <Text variant="caption" weight={700}>
-                                                                Modifica
-                                                            </Text>
-                                                        </button>
+                                                            Modifica
+                                                        </Button>
                                                     </div>
 
                                                     {isEditing && editDraft && (
@@ -892,26 +879,24 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                         {DAY_UI_ORDER.map(day => {
                                                                             const label =
                                                                                 DAY_LABELS[day];
-                                                                            const on =
+                                                                            const active =
                                                                                 editDraft.days.includes(
                                                                                     day
                                                                                 );
+
                                                                             return (
-                                                                                <button
+                                                                                <Pill
                                                                                     key={day}
-                                                                                    type="button"
-                                                                                    className={
-                                                                                        on
-                                                                                            ? styles.dayChipActive
-                                                                                            : styles.dayChip
-                                                                                    }
-                                                                                    aria-pressed={
-                                                                                        on
-                                                                                    }
-                                                                                    aria-label={
+                                                                                    label={label}
+                                                                                    active={active}
+                                                                                    shape="circle"
+                                                                                    ariaLabel={
                                                                                         DAY_FULL[
                                                                                             day
                                                                                         ]
+                                                                                    }
+                                                                                    aria-pressed={
+                                                                                        active
                                                                                     }
                                                                                     onClick={() =>
                                                                                         setEditDraft(
@@ -927,14 +912,7 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                                                     : p
                                                                                         )
                                                                                     }
-                                                                                >
-                                                                                    <Text
-                                                                                        variant="caption"
-                                                                                        weight={600}
-                                                                                    >
-                                                                                        {label}
-                                                                                    </Text>
-                                                                                </button>
+                                                                                />
                                                                             );
                                                                         })}
                                                                     </div>
@@ -944,7 +922,6 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                             <div className={styles.editorActions}>
                                                                 <Button
                                                                     variant="primary"
-                                                                    label="Salva"
                                                                     disabled={
                                                                         saving ||
                                                                         !editDraft.collectionId ||
@@ -953,21 +930,25 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                     onClick={() =>
                                                                         saveEdit(rule.id)
                                                                     }
-                                                                />
+                                                                >
+                                                                    Salva
+                                                                </Button>
                                                                 <Button
-                                                                    variant="secondary"
-                                                                    label="Elimina"
+                                                                    variant="danger"
                                                                     disabled={saving}
                                                                     onClick={() =>
                                                                         removeRule(rule.id)
                                                                     }
-                                                                />
+                                                                >
+                                                                    Elimina
+                                                                </Button>
                                                                 <Button
-                                                                    variant="ghost"
-                                                                    label="Annulla"
+                                                                    variant="secondary"
                                                                     disabled={saving}
                                                                     onClick={cancelEdit}
-                                                                />
+                                                                >
+                                                                    Annulla
+                                                                </Button>
                                                             </div>
                                                         </div>
                                                     )}
@@ -990,18 +971,15 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                         </Text>
                                     </div>
 
-                                    <button
-                                        type="button"
-                                        className={styles.toggleBtn}
+                                    <Button
+                                        variant="ghost"
                                         onClick={() => setShowOverlaySection(v => !v)}
                                         aria-expanded={showOverlaySection}
                                     >
-                                        <Text variant="caption" weight={600}>
-                                            {showOverlaySection
-                                                ? "Nascondi"
-                                                : "Aggiungi contenuto in evidenza"}
-                                        </Text>
-                                    </button>
+                                        {showOverlaySection
+                                            ? "Nascondi"
+                                            : "Aggiungi contenuto in evidenza"}
+                                    </Button>
                                 </div>
 
                                 {showOverlaySection && (
@@ -1095,18 +1073,16 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                             const label = DAY_LABELS[day];
                                                             const active =
                                                                 draftOverlay.days.includes(day);
+
                                                             return (
-                                                                <button
+                                                                <Pill
                                                                     key={day}
-                                                                    type="button"
+                                                                    label={label}
+                                                                    active={active}
                                                                     disabled={draftOverlay.allDay}
-                                                                    className={
-                                                                        active
-                                                                            ? styles.dayChipActive
-                                                                            : styles.dayChip
-                                                                    }
+                                                                    shape="circle"
+                                                                    ariaLabel={DAY_FULL[day]}
                                                                     aria-pressed={active}
-                                                                    aria-label={DAY_FULL[day]}
                                                                     onClick={() =>
                                                                         setDraftOverlay(p => ({
                                                                             ...p,
@@ -1116,14 +1092,7 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                             )
                                                                         }))
                                                                     }
-                                                                >
-                                                                    <Text
-                                                                        variant="caption"
-                                                                        weight={600}
-                                                                    >
-                                                                        {label}
-                                                                    </Text>
-                                                                </button>
+                                                                />
                                                             );
                                                         })}
                                                     </div>
@@ -1132,11 +1101,12 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
 
                                             <div className={styles.addActions}>
                                                 <Button
-                                                    variant="secondary"
-                                                    label="Aggiungi"
+                                                    variant="primary"
                                                     disabled={!canAddOverlay || saving}
                                                     onClick={() => addRule("overlay")}
-                                                />
+                                                >
+                                                    Aggiungi
+                                                </Button>
                                                 <Text variant="caption" colorVariant="muted">
                                                     {canAddOverlay
                                                         ? " "
@@ -1230,19 +1200,13 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                     </Text>
                                                                 </div>
 
-                                                                <button
-                                                                    type="button"
-                                                                    className={styles.iconBtn}
+                                                                <Button
+                                                                    variant="primary"
                                                                     onClick={() => openEdit(rule)}
                                                                     aria-label="Modifica regola"
                                                                 >
-                                                                    <Text
-                                                                        variant="caption"
-                                                                        weight={700}
-                                                                    >
-                                                                        Modifica
-                                                                    </Text>
-                                                                </button>
+                                                                    Modifica
+                                                                </Button>
                                                             </div>
 
                                                             {isEditing && editDraft && (
@@ -1406,26 +1370,30 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                                             DAY_LABELS[
                                                                                                 day
                                                                                             ];
-                                                                                        const on =
+                                                                                        const active =
                                                                                             editDraft.days.includes(
                                                                                                 day
                                                                                             );
+
                                                                                         return (
-                                                                                            <button
+                                                                                            <Pill
                                                                                                 key={
                                                                                                     day
                                                                                                 }
-                                                                                                type="button"
+                                                                                                label={
+                                                                                                    label
+                                                                                                }
+                                                                                                active={
+                                                                                                    active
+                                                                                                }
                                                                                                 disabled={
                                                                                                     editDraft.allDay
                                                                                                 }
-                                                                                                className={
-                                                                                                    on
-                                                                                                        ? styles.dayChipActive
-                                                                                                        : styles.dayChip
-                                                                                                }
-                                                                                                aria-pressed={
-                                                                                                    on
+                                                                                                shape="circle"
+                                                                                                ariaLabel={
+                                                                                                    DAY_FULL[
+                                                                                                        day
+                                                                                                    ]
                                                                                                 }
                                                                                                 aria-label={
                                                                                                     DAY_FULL[
@@ -1446,18 +1414,7 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                                                                 : p
                                                                                                     )
                                                                                                 }
-                                                                                            >
-                                                                                                <Text
-                                                                                                    variant="caption"
-                                                                                                    weight={
-                                                                                                        600
-                                                                                                    }
-                                                                                                >
-                                                                                                    {
-                                                                                                        label
-                                                                                                    }
-                                                                                                </Text>
-                                                                                            </button>
+                                                                                            />
                                                                                         );
                                                                                     }
                                                                                 )}
@@ -1472,7 +1429,6 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                     >
                                                                         <Button
                                                                             variant="primary"
-                                                                            label="Salva"
                                                                             disabled={
                                                                                 saving ||
                                                                                 !editDraft.collectionId ||
@@ -1482,21 +1438,25 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                                                                             onClick={() =>
                                                                                 saveEdit(rule.id)
                                                                             }
-                                                                        />
+                                                                        >
+                                                                            Salva
+                                                                        </Button>
                                                                         <Button
-                                                                            variant="secondary"
-                                                                            label="Elimina"
+                                                                            variant="danger"
                                                                             disabled={saving}
                                                                             onClick={() =>
                                                                                 removeRule(rule.id)
                                                                             }
-                                                                        />
+                                                                        >
+                                                                            Elimina
+                                                                        </Button>
                                                                         <Button
-                                                                            variant="ghost"
-                                                                            label="Annulla"
+                                                                            variant="secondary"
                                                                             disabled={saving}
                                                                             onClick={cancelEdit}
-                                                                        />
+                                                                        >
+                                                                            Annulla
+                                                                        </Button>
                                                                     </div>
                                                                 </div>
                                                             )}
@@ -1517,7 +1477,9 @@ export default function BusinessCollectionScheduleModal({ isOpen, businessId, on
                     <Text variant="caption" colorVariant="muted">
                         Le modifiche sono salvate per singola regola.
                     </Text>
-                    <Button variant="ghost" label="Chiudi" onClick={onClose} />
+                    <Button variant="secondary" onClick={onClose}>
+                        Chiudi
+                    </Button>
                 </footer>
             </div>
         </div>

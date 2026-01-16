@@ -76,30 +76,6 @@
 }
 
 /* ===========================
-   COVER PREVIEW / PLACEHOLDER
-=========================== */
-.imagePreview,
-.imagePlaceholder {
-  width: 100%;
-  max-width: 260px;
-  aspect-ratio: 16/9;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: #f7f7f8;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-}
-
-/* ===========================
    FOOTER (sticky actions)
 =========================== */
 .actions {
@@ -108,8 +84,6 @@
   padding: 1.25rem 0;
   margin-top: 1rem;
 
-  background: linear-gradient(to top, var(--card-bg, #fff) 75%, rgba(255, 255, 255, 0) 100%);
-
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
@@ -117,43 +91,4 @@
   border-top: 1px solid var(--border);
   backdrop-filter: blur(6px);
   z-index: 20;
-}
-
-/* ===========================
-   BUTTONS
-=========================== */
-.primary {
-  background: var(--brand-primary);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 0.65rem 1.4rem;
-  font-weight: 600;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: 0.2s ease;
-
-  &:hover {
-    background: color-mix(in srgb, var(--brand-primary), #000 8%);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
-.cancel {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0.65rem 1.1rem;
-  font-weight: 500;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: 0.2s ease;
-
-  &:hover {
-    background: var(--hover-bg, #f3f4f6);
-  }
 }

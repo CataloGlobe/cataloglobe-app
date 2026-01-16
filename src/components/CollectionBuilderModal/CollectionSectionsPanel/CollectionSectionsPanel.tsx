@@ -12,10 +12,11 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Pencil, Save, Trash2 } from "lucide-react";
+import { GripVertical, Pencil, Save, Trash2 } from "lucide-react";
 import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 import styles from "./CollectionSectionsPanel.module.scss";
 import { TextInput } from "@/components/ui/Input/TextInput";
+import { IconButton } from "@/components/ui/Button/IconButton";
 
 interface CollectionSectionsPanelProps {
     sections: CollectionSection[];
@@ -109,9 +110,11 @@ export function CollectionSectionsPanel({
                                         }
                                         onClick={() => onSelectSection(section.id)}
                                     >
-                                        <span {...listeners} className={styles.dragHandle}>
-                                            ☰
-                                        </span>
+                                        <GripVertical
+                                            size={16}
+                                            {...listeners}
+                                            className={styles.dragHandle}
+                                        />
 
                                         {editingId === section.id ? (
                                             <TextInput
@@ -144,27 +147,27 @@ export function CollectionSectionsPanel({
                                                 <Text>{section.label}</Text>
 
                                                 <div className={styles.actions}>
-                                                    <button
-                                                        type="button"
+                                                    <IconButton
                                                         className={styles.iconBtn}
+                                                        variant="ghost"
+                                                        icon={<Pencil size={14} />}
+                                                        aria-label="Modifica"
                                                         onClick={e => {
                                                             e.stopPropagation();
                                                             startRename(section.id, section.label);
                                                         }}
-                                                    >
-                                                        <Pencil size={14} />
-                                                    </button>
+                                                    />
 
-                                                    <button
-                                                        type="button"
-                                                        className={`${styles.iconBtn} ${styles.danger}`}
+                                                    <IconButton
+                                                        className={styles.iconBtn}
+                                                        variant="ghost"
+                                                        icon={<Trash2 size={14} />}
+                                                        aria-label="Elimina"
                                                         onClick={e => {
                                                             e.stopPropagation();
                                                             setSectionToDelete(section);
                                                         }}
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
+                                                    />
                                                 </div>
                                             </div>
                                         )}

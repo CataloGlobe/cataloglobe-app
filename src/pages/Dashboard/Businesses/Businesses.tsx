@@ -26,6 +26,7 @@ import type { BusinessFormValues } from "@/types/Businesses";
 
 import styles from "./Businesses.module.scss";
 import { BusinessUpsertModal } from "@/components/Businesses/BusinessUpsertModal/BusinessUpsertModal";
+import { Button } from "@/components/ui";
 
 // valore statico → performance migliore
 const previewBaseUrl = window.location.origin;
@@ -556,13 +557,9 @@ export default function Businesses() {
                 </div>
 
                 <div className={styles.headerRight}>
-                    <button
-                        type="button"
-                        className={styles.addButton}
-                        onClick={() => setIsCreateOpen(true)}
-                    >
+                    <Button variant="primary" onClick={() => setIsCreateOpen(true)}>
                         Aggiungi attività
-                    </button>
+                    </Button>
                 </div>
             </header>
 
@@ -644,19 +641,18 @@ export default function Businesses() {
                 confirmLabel="Chiudi"
                 onConfirm={() => setShowSlugAlreadyUsedModal(false)}
             >
-                <div style={{ marginBottom: "1.3rem" }}>
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.5rem",
+                        marginBottom: "1.3rem"
+                    }}
+                >
                     {slugSuggestions.map(s => (
-                        <button
+                        <Button
                             key={s}
-                            style={{
-                                display: "block",
-                                width: "100%",
-                                textAlign: "left",
-                                padding: "8px 12px",
-                                borderRadius: 6,
-                                border: "1px solid #ddd",
-                                marginBottom: 8
-                            }}
+                            variant="outline"
                             onClick={() => {
                                 // se siamo in edit:
                                 if (editForm) {
@@ -672,7 +668,7 @@ export default function Businesses() {
                             }}
                         >
                             {s}
-                        </button>
+                        </Button>
                     ))}
                 </div>
             </ConfirmModal>

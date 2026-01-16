@@ -1,5 +1,5 @@
 export type CardTemplate = "left" | "right" | "no-image";
-export type SectionNavShape = "rounded" | "pill" | "square";
+export type SectionNavShape = "pill" | "rounded" | "square";
 
 export type CollectionStyle = {
     /* =========================

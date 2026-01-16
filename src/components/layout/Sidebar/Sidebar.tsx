@@ -3,6 +3,7 @@ import Text from "@/components/ui/Text/Text";
 import { NavLink } from "react-router-dom";
 import { LayoutDashboard, Store, Settings, X, LibraryBig, Star, ChartPie } from "lucide-react";
 import styles from "./Sidebar.module.scss";
+import { IconButton } from "@/components/ui/Button/IconButton";
 
 const links = [
     { to: "/dashboard", label: "Panoramica", icon: <LayoutDashboard /> },
@@ -25,15 +26,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             aria-label="Menu dashboard"
         >
             <div className={styles.logo}>
+                {/* <IconButton
+                    className={styles.closeBtn}
+                    variant="ghost"
+                    icon={<X size={22} />}
+                    aria-label="Chiudi menu"
+                    onClick={onClose}
+                /> */}
                 <a href="/">
                     <Text variant="title-md" as={"h1"} colorVariant="primary" align="center">
                         CataloGlobe
                     </Text>
                 </a>
-
-                <button className={styles.closeBtn} aria-label="Chiudi menu" onClick={onClose}>
-                    <X size={20} />
-                </button>
             </div>
 
             <nav>

@@ -39,6 +39,8 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { AddItemDrawer } from "./AddItemDrawer/AddItemDrawer";
 import { CreateItemDrawerRef } from "./CreateItemDrawer/CreateItemDrawer";
 import { EditItemDrawer, EditItemDrawerRef } from "./EditItemDrawer/EditItemDrawer";
+import { IconButton } from "../ui/Button/IconButton";
+import { SegmentedControl } from "../ui/SegmentedControl/SegmentedControl";
 
 type Props = {
     isOpen: boolean;
@@ -456,91 +458,67 @@ export default function CollectionBuilderModal({ isOpen, collectionId, onClose }
                             {data?.collection.name ?? "Collezione"}
                         </Text>
 
-                        <div className={styles.tabs} role="tablist">
-                            <button
-                                type="button"
-                                role="tab"
-                                aria-selected={tab === "content"}
-                                className={tab === "content" ? styles.tabActive : styles.tab}
-                                onClick={() => setTab("content")}
-                            >
-                                <Text weight={600}>Contenuto</Text>
-                            </button>
-
-                            <button
-                                type="button"
-                                role="tab"
-                                aria-selected={tab === "style"}
-                                className={tab === "style" ? styles.tabActive : styles.tab}
-                                onClick={() => setTab("style")}
-                            >
-                                <Text weight={600}>Stile</Text>
-                            </button>
-                        </div>
+                        <SegmentedControl
+                            value={tab}
+                            onChange={setTab}
+                            options={[
+                                { value: "content", label: "Contenuto" },
+                                { value: "style", label: "Stile" }
+                            ]}
+                        />
                     </div>
 
                     <div className={styles.headerRight}>
                         {tab === "content" ? (
-                            <Button onClick={() => setTab("style")} label="Anteprima" />
+                            <Button variant="primary" onClick={() => setTab("style")}>
+                                Anteprima
+                            </Button>
                         ) : (
-                            <div className={styles.deviceGroup} role="radiogroup">
-                                <button
-                                    type="button"
-                                    role="radio"
-                                    aria-checked={mode === "mobile"}
-                                    className={
-                                        mode === "mobile" ? styles.deviceActive : styles.device
+                            <SegmentedControl
+                                value={mode}
+                                onChange={setMode}
+                                iconsOnly
+                                options={[
+                                    {
+                                        value: "mobile",
+                                        label: "Mobile",
+                                        icon: <Smartphone size={19} />
+                                    },
+                                    {
+                                        value: "tablet",
+                                        label: "Tablet",
+                                        icon: <Tablet size={19} />
+                                    },
+                                    {
+                                        value: "desktop",
+                                        label: "Desktop",
+                                        icon: <Laptop size={21} />
                                     }
-                                    onClick={() => setMode("mobile")}
-                                >
-                                    <Smartphone size={20} />
-                                </button>
-
-                                <button
-                                    type="button"
-                                    role="radio"
-                                    aria-checked={mode === "tablet"}
-                                    className={
-                                        mode === "tablet" ? styles.deviceActive : styles.device
-                                    }
-                                    onClick={() => setMode("tablet")}
-                                >
-                                    <Tablet size={20} />
-                                </button>
-
-                                <button
-                                    type="button"
-                                    role="radio"
-                                    aria-checked={mode === "desktop"}
-                                    className={
-                                        mode === "desktop" ? styles.deviceActive : styles.device
-                                    }
-                                    onClick={() => setMode("desktop")}
-                                >
-                                    <Laptop />
-                                </button>
-                            </div>
+                                ]}
+                            />
                         )}
 
                         {tab === "style" && (
-                            <Button variant="primary" onClick={handleSaveStyle} label="Salva" />
+                            <Button variant="primary" onClick={handleSaveStyle}>
+                                Salva
+                            </Button>
                         )}
 
-                        <Button variant="secondary" onClick={handleCloseModal} label="Chiudi" />
+                        <Button variant="secondary" onClick={handleCloseModal}>
+                            Chiudi
+                        </Button>
                     </div>
                 </header>
 
                 {/* BODY */}
                 <div className={`${styles.body} ${!isSidebarOpen ? styles.bodyCollapsed : ""}`}>
-                    <button
-                        type="button"
+                    <IconButton
                         className={styles.collapseToggle}
+                        icon={isSidebarOpen ? <ChevronLeft /> : <ChevronRight />}
                         aria-label={isSidebarOpen ? "Nascondi pannello" : "Mostra pannello"}
                         onClick={() => setIsSidebarOpen(v => !v)}
-                    >
-                        {isSidebarOpen ? <ChevronLeft /> : <ChevronRight />}
-                    </button>
-
+                        variant="ghost"
+                    />
                     {/* LEFT */}
                     <aside className={styles.left}>
                         {tab === "content" ? (
@@ -555,12 +533,13 @@ export default function CollectionBuilderModal({ isOpen, collectionId, onClose }
                                     </Text>
                                     <Button
                                         variant="primary"
-                                        label="Aggiungi elementi"
                                         onClick={() => {
                                             setAddDrawerTab("pick");
                                             setDrawer({ type: "add", defaultTab: "pick" });
                                         }}
-                                    />
+                                    >
+                                        Aggiungi elementi
+                                    </Button>
                                 </div>
                             ) : (
                                 <CollectionSectionsPanel
@@ -580,7 +559,6 @@ export default function CollectionBuilderModal({ isOpen, collectionId, onClose }
                             />
                         )}
                     </aside>
-
                     {/* RIGHT */}
                     <section className={styles.right}>
                         {tab === "content" && (
@@ -664,31 +642,32 @@ export default function CollectionBuilderModal({ isOpen, collectionId, onClose }
                                         drawer.type === "add" && addDrawerTab === "pick" ? (
                                             <Button
                                                 variant="primary"
-                                                label="Applica modifiche"
                                                 disabled={
                                                     pickDiff.add.length === 0 &&
                                                     pickDiff.remove.length === 0
                                                 }
                                                 onClick={applyPickDiff}
-                                            />
+                                            >
+                                                Applica modifiche
+                                            </Button>
                                         ) : drawer.type === "add" && addDrawerTab === "create" ? (
                                             <Button
                                                 variant="primary"
-                                                label="Crea elemento"
                                                 onClick={() => createItemRef.current?.submit()}
-                                            />
+                                            >
+                                                Crea elemento
+                                            </Button>
                                         ) : drawer.type === "edit" ? (
                                             <>
-                                                <Button
-                                                    variant="ghost"
-                                                    label="Annulla"
-                                                    onClick={closeDrawer}
-                                                />
+                                                <Button variant="secondary" onClick={closeDrawer}>
+                                                    Annulla
+                                                </Button>
                                                 <Button
                                                     variant="primary"
-                                                    label="Salva modifiche"
                                                     onClick={() => editItemRef.current?.submit()}
-                                                />
+                                                >
+                                                    Salva modifiche
+                                                </Button>
                                             </>
                                         ) : null
                                     }

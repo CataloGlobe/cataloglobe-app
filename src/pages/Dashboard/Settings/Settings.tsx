@@ -6,6 +6,7 @@ import Text from "@components/ui/Text/Text";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import styles from "./Settings.module.scss";
 import { Select } from "@/components/ui/Select/Select";
+import { Button } from "@/components/ui";
 
 export default function Settings() {
     const { user } = useAuth();
@@ -59,7 +60,9 @@ export default function Settings() {
                     <Text variant="body">
                         <strong>Email:</strong> {user?.email || "—"}
                     </Text>
-                    <button className={styles.logoutBtn}>Esci dall’account</button>
+                    <Button variant="danger" onClick={() => {}}>
+                        Esci dall’account
+                    </Button>
                 </div>
             </div>
         </div>

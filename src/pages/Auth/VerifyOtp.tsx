@@ -261,21 +261,19 @@ export default function VerifyOtp() {
                     </Text>
                 )}
 
-                <Button
+                <Button variant="primary" fullWidth loading={loading} disabled={loading}>
                     label={loading ? "Verifica..." : "Verifica"}
-                    variant="primary"
-                    fullWidth
-                    disabled={loading}
-                />
+                </Button>
             </form>
 
             <Button
-                label={resendSeconds > 0 ? `Reinvia codice (${resendSeconds}s)` : "Reinvia codice"}
-                variant="secondary"
+                variant="ghost"
                 fullWidth
                 disabled={resendSeconds > 0 || loading}
                 onClick={handleResend}
-            />
+            >
+                {resendSeconds > 0 ? `Reinvia codice (${resendSeconds}s)` : "Reinvia codice"}
+            </Button>
             <Text as="p" variant="caption">
                 Hai ancora {MAX_ATTEMPTS - attempts} tentativi disponibili.
             </Text>

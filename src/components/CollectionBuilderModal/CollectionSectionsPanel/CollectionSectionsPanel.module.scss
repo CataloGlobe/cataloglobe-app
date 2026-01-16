@@ -107,16 +107,8 @@
 }
 
 .iconBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   opacity: 0;
   transition: opacity 0.15s ease;
-  background: rgba(255, 255, 255, 0.3);
-
-  &:hover {
-    background-color: white;
-  }
 }
 
 .section:hover .iconBtn,

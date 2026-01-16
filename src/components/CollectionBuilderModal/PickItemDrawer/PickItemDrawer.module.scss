@@ -23,26 +23,12 @@
 .categoryHeader {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
 
   padding-bottom: 4px;
   margin-bottom: 6px;
 
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.toggleAll {
-  background: none;
-  border: none;
-  font-size: 12px;
-  cursor: pointer;
-  opacity: 0.6;
-  padding: 0;
-
-  &:hover {
-    opacity: 1;
-    text-decoration: underline;
-  }
 }
 
 /* ---------------------------
@@ -62,15 +48,4 @@
 
   padding: 4px 0;
   cursor: pointer;
-
-  input {
-    width: auto;
-    margin: 0;
-    flex-shrink: 0;
-  }
-}
-
-.itemName {
-  font-size: 14px;
-  line-height: 1.3;
 }

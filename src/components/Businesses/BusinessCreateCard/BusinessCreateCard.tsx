@@ -6,6 +6,7 @@ import { Select } from "@/components/ui/Select/Select";
 import type { BusinessFormValues } from "@/types/Businesses";
 import styles from "./BusinessCreateCard.module.scss";
 import { FileInput } from "@/components/ui/Input/FileInput";
+import { Button } from "@/components/ui";
 
 interface BusinessCreateCardProps {
     values: BusinessFormValues;
@@ -120,13 +121,13 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
 
                 {/* Submit */}
                 <div className={styles.actions}>
-                    <button type="button" className={styles.cancel} onClick={onCancel}>
+                    <Button variant="secondary" onClick={onCancel}>
                         Annulla
-                    </button>
+                    </Button>
 
-                    <button type="submit" disabled={loading} className={styles.primary}>
+                    <Button type="submit" variant="primary" disabled={loading} loading={loading}>
                         {loading ? "Attendi…" : primaryLabel}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </section>

@@ -113,12 +113,13 @@ export default function Overview() {
                 <div className={styles.recentHeader}>
                     <Text variant="title-sm">Attività recenti</Text>
                     {recentReviews.length > 0 && (
-                        <button
-                            onClick={() => navigate("/dashboard/reviews")}
+                        <Text
+                            as="a"
                             className={styles.linkBtn}
+                            onClick={() => navigate("/dashboard/reviews")}
                         >
-                            Vedi tutte →
-                        </button>
+                            Vedi tutte
+                        </Text>
                     )}
                 </div>
 
@@ -166,12 +167,13 @@ export default function Overview() {
                         Esplora grafici, trend e confronti nella sezione Analytics.
                     </Text>
                 </div>
-                <button
+                <Text
+                    as="a"
+                    className={styles.linkBtn}
                     onClick={() => navigate("/dashboard/analytics")}
-                    className={styles.ctaButton}
                 >
                     Vai a Analytics
-                </button>
+                </Text>
             </section>
         </main>
     );

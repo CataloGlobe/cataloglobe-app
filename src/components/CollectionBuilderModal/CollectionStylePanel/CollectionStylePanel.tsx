@@ -1,15 +1,30 @@
 import { memo } from "react";
 import Text from "@/components/ui/Text/Text";
-import type { CollectionStyle, CardTemplate, SectionNavShape } from "@/types/collectionStyle";
+import type { CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionStylePanel.module.scss";
 import { RangeInput } from "@/components/ui/Input/RangeInput";
 import { ColorInput } from "@/components/ui/Input/ColorInput";
+import { PillGroupSingle } from "@/components/ui/PillGroup/PillGroupSingle";
+
+type OnStyleChange = <K extends keyof CollectionStyle>(next: Pick<CollectionStyle, K>) => void;
 
 type Props = {
     styleDraft: CollectionStyle;
     resolvedStyle: Required<CollectionStyle>;
-    onChange: (next: Partial<CollectionStyle>) => void;
+    onChange: OnStyleChange;
 };
+
+const SECTION_NAV_OPTIONS = [
+    { value: "pill", label: "pill" },
+    { value: "rounded", label: "rounded" },
+    { value: "square", label: "square" }
+] as const;
+
+const CARD_TEMPLATE = [
+    { value: "left", label: "left" },
+    { value: "right", label: "right" },
+    { value: "no-image", label: "no-image" }
+] as const;
 
 function CollectionStylePanel({ styleDraft, resolvedStyle, onChange }: Props) {
     const value = <K extends keyof CollectionStyle>(key: K) =>
@@ -72,26 +87,14 @@ function CollectionStylePanel({ styleDraft, resolvedStyle, onChange }: Props) {
                 />
 
                 <div className={styles.controlGroup}>
-                    <Text variant="caption" colorVariant="muted">
-                        Forma
-                    </Text>
-
-                    <div role="radiogroup" className={styles.segmentedRow}>
-                        {(["rounded", "pill", "square"] as SectionNavShape[]).map(shape => (
-                            <button
-                                key={shape}
-                                type="button"
-                                role="radio"
-                                aria-checked={value("sectionNavShape") === shape}
-                                className={styles.segmentedBtn}
-                                onClick={() => onChange({ sectionNavShape: shape })}
-                            >
-                                <Text variant="caption" weight={600}>
-                                    {shape}
-                                </Text>
-                            </button>
-                        ))}
-                    </div>
+                    <PillGroupSingle
+                        options={SECTION_NAV_OPTIONS}
+                        value={value("sectionNavShape")}
+                        label="Forma"
+                        ariaLabel="Forma navigazione sezione"
+                        layout="equal"
+                        onChange={shape => onChange({ sectionNavShape: shape })}
+                    />
                 </div>
             </div>
 
@@ -104,26 +107,14 @@ function CollectionStylePanel({ styleDraft, resolvedStyle, onChange }: Props) {
                 </Text>
 
                 <div className={styles.controlGroup}>
-                    <Text variant="caption" colorVariant="muted">
-                        Layout
-                    </Text>
-
-                    <div role="radiogroup" className={styles.templateRow}>
-                        {(["left", "right", "no-image"] as CardTemplate[]).map(tpl => (
-                            <button
-                                key={tpl}
-                                type="button"
-                                role="radio"
-                                aria-checked={value("cardTemplate") === tpl}
-                                className={styles.templateBtn}
-                                onClick={() => onChange({ cardTemplate: tpl })}
-                            >
-                                <Text variant="caption" weight={600}>
-                                    {tpl}
-                                </Text>
-                            </button>
-                        ))}
-                    </div>
+                    <PillGroupSingle
+                        options={CARD_TEMPLATE}
+                        value={value("cardTemplate")}
+                        label="Layout"
+                        ariaLabel="Layout delle card"
+                        layout="equal"
+                        onChange={shape => onChange({ cardTemplate: shape })}
+                    />
                 </div>
 
                 <ColorInput

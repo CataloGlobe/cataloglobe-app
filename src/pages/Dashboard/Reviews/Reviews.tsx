@@ -11,6 +11,9 @@ import { SearchInput } from "@/components/ui/Input/SearchInput";
 
 import styles from "./Reviews.module.scss";
 import { Select } from "@/components/ui/Select/Select";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { Button } from "@/components/ui";
+import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 
 const TAG_OPTIONS = [
     "Qualità del cibo",
@@ -240,26 +243,23 @@ export default function Reviews() {
                         </div>
 
                         {isLong && (
-                            <button
-                                type="button"
-                                onClick={() => setExpanded(prev => !prev)}
-                                className={styles.collapseToggle}
-                            >
+                            <Button variant="ghost" onClick={() => setExpanded(prev => !prev)}>
                                 {expanded ? "Mostra meno" : "Mostra tutto"}
-                            </button>
+                            </Button>
                         )}
                     </div>
 
                     {/* DELETE BUTTON */}
-                    <button
-                        className={styles.deleteReviewBtn}
+
+                    <IconButton
+                        icon={<Trash2 size={16} />}
                         onClick={() => {
                             setShowModal(true);
                             setReviewToDelete(review.id);
                         }}
-                    >
-                        <Trash2 />
-                    </button>
+                        aria-label="Elimina recensione"
+                        variant="danger"
+                    />
                 </div>
             </article>
         );
@@ -438,23 +438,15 @@ export default function Reviews() {
                 </section>
             )}
 
-            {/* MODALE ELIMINAZIONE */}
-            {showModal && (
-                <div className={styles.modalOverlay} role="dialog" aria-modal="true">
-                    <div className={styles.modal}>
-                        <Text variant="body">Sei sicuro di voler eliminare questa recensione?</Text>
-
-                        <div className={styles.modalActions}>
-                            <button onClick={handleDelete} className={styles.confirm}>
-                                Elimina
-                            </button>
-                            <button onClick={() => setShowModal(false)} className={styles.cancel}>
-                                Annulla
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ConfirmModal
+                isOpen={showModal}
+                title="Elimina recensione"
+                confirmLabel="Elimina"
+                description="Sei sicuro di voler eliminare questa recensione?"
+                cancelLabel="Annulla"
+                onConfirm={handleDelete}
+                onCancel={() => setShowModal(false)}
+            />
         </div>
     );
 }

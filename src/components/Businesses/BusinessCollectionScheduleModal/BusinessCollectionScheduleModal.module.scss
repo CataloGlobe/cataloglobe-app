@@ -81,7 +81,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  padding: 15px 20px 0;
   background: var(--gray-50);
   border-radius: 8px;
 }
@@ -204,50 +204,6 @@
   flex-wrap: wrap;
 }
 
-.dayChip,
-.dayChipActive {
-  appearance: none;
-  cursor: pointer;
-
-  padding: 6px 10px;
-  border-radius: 999px;
-
-  font-size: 12px;
-  line-height: 1;
-
-  background: $white;
-  border: 1px solid $gray-300;
-  color: $gray-700;
-}
-
-.dayChipActive {
-  background: rgba($brand-primary, 0.12);
-  border-color: rgba($brand-primary, 0.45);
-  color: $brand-dark;
-}
-
-/* =====================================================
-     Toggle
-  ===================================================== */
-
-.toggleBtn {
-  appearance: none;
-  background: transparent;
-  border: 0;
-  padding: 6px 10px;
-  border-radius: 8px;
-
-  cursor: pointer;
-  color: $brand-primary;
-
-  opacity: 0.8;
-}
-
-.toggleBtn:hover {
-  background: rgba($brand-primary, 0.08);
-  opacity: 1;
-}
-
 /* =====================================================
      List
   ===================================================== */
@@ -321,29 +277,6 @@
   color: $brand-dark;
 
   flex-shrink: 0;
-}
-
-/* =====================================================
-     Icon button (Modifica)
-  ===================================================== */
-
-.iconBtn {
-  appearance: none;
-  cursor: pointer;
-
-  padding: 6px 10px;
-  border-radius: 10px;
-
-  background: transparent;
-  border: 0;
-
-  color: $brand-primary;
-  opacity: 0.75;
-}
-
-.iconBtn:hover {
-  background: rgba($brand-primary, 0.08);
-  opacity: 1;
 }
 
 /* =====================================================

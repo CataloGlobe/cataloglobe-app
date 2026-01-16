@@ -23,6 +23,7 @@ import type { AnalyticsReview } from "@services/supabase/reviews";
 import { getUserBusinesses } from "@services/supabase/businesses";
 import styles from "./Analytics.module.scss";
 import { Select } from "@/components/ui/Select/Select";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 
 type Range = 7 | 30 | 90;
 
@@ -273,27 +274,15 @@ export default function Analytics() {
                         />
                     </div>
 
-                    <div className={styles.rangeSelector}>
-                        {[7, 30, 90].map(days => (
-                            <button
-                                key={days}
-                                className={`${styles.rangeBtn} ${
-                                    range === days ? styles.active : ""
-                                }`}
-                                onClick={() => setRange(days as Range)}
-                                aria-pressed={range === days}
-                                type="button"
-                            >
-                                <Text
-                                    as="span"
-                                    variant="caption"
-                                    colorVariant={range === days ? "white" : "default"}
-                                >
-                                    Ultimi {days} giorni
-                                </Text>
-                            </button>
-                        ))}
-                    </div>
+                    <SegmentedControl<Range>
+                        value={range}
+                        onChange={setRange}
+                        options={[
+                            { value: 7, label: "7 giorni" },
+                            { value: 30, label: "30 giorni" },
+                            { value: 90, label: "90 giorni" }
+                        ]}
+                    />
                 </div>
             </header>
 

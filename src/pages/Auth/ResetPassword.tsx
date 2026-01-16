@@ -48,7 +48,9 @@ export default function ResetPassword() {
                         {message}
                     </Text>
                 )}
-                <Button label="Invia email di reset" variant="primary" fullWidth />
+                <Button variant="primary" fullWidth>
+                    Invia email di reset
+                </Button>
             </form>
 
             <Text as="p" variant="body-sm">

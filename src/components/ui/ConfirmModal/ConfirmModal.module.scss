@@ -38,35 +38,6 @@
   gap: 10px;
 }
 
-.cancel {
-  background: transparent;
-  border: 1px solid #ccc;
-  padding: 8px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.2s;
-  font-size: 14px;
-
-  &:hover {
-    background: #f1f1f1;
-  }
-}
-
-.confirm {
-  background: #ff4757; // colore "danger" moderno
-  color: white;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.2s;
-  font-size: 14px;
-
-  &:hover {
-    background: #e84141;
-  }
-}
-
 /* Animazioni */
 @keyframes fadeIn {
   from {

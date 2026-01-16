@@ -8,6 +8,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  gap: 1rem;
 
   padding: 1.5rem 2rem;
 
@@ -24,44 +25,6 @@
 
   @media (max-width: 768px) {
     padding: 0.75rem 1rem;
-  }
-}
-
-/* ----------------------------------------------------
-   HAMBURGER BUTTON
----------------------------------------------------- */
-.menuBtn {
-  display: none;
-  background: none;
-  border: none;
-
-  color: var(--brand-primary, #2563eb);
-  cursor: pointer;
-
-  padding: 0.4rem;
-  border-radius: 6px;
-
-  transition: background 0.2s ease, transform 0.2s ease;
-
-  svg {
-    stroke-width: 2;
-  }
-
-  /* Mobile only */
-  @media (max-width: 900px) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  &:hover {
-    background: var(--hover-bg, #f1f5f9);
-    transform: scale(1.05);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--brand-primary, #2563eb);
-    outline-offset: 3px;
   }
 }
 

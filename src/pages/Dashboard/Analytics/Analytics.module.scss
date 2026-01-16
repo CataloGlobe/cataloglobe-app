@@ -29,50 +29,6 @@
   flex-wrap: wrap;
 }
 
-/* ===== FILTRO RISTORANTE ===== */
-.businessSelector {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: min(260px, 100%);
-}
-
-/* ===== RANGE SELECTOR ===== */
-.rangeSelector {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.1);
-}
-
-.rangeBtn {
-  border: none;
-  background: transparent;
-  border-radius: 999px;
-  padding: 0.35rem 0.9rem;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s ease, transform 0.05s ease;
-  white-space: nowrap;
-
-  &:hover {
-    background: rgba(148, 163, 184, 0.15);
-  }
-
-  &:active {
-    transform: scale(0.97);
-  }
-}
-
-.active {
-  background: #2563eb;
-  color: #ffffff;
-}
-
 /* ===== KPI GRID ===== */
 .kpiGrid {
   display: grid;

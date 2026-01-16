@@ -2,7 +2,7 @@ import { useState } from "react";
 import { CollectionItemWithItem } from "@/types/database";
 import Text from "@/components/ui/Text/Text";
 import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
-import { Eye, EyeOff, Pencil, X } from "lucide-react";
+import { Eye, EyeOff, GripVertical, Pencil, Plus, X } from "lucide-react";
 import {
     DndContext,
     closestCenter,
@@ -15,6 +15,7 @@ import {
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import styles from "./SectionItemsPanel.module.scss";
+import { IconButton } from "@/components/ui/Button/IconButton";
 
 interface SectionItemsPanelProps {
     sectionLabel: string;
@@ -46,13 +47,12 @@ export function SectionItemsPanel({
                     {sectionLabel ?? "Seleziona una categoria"}
                 </Text>
 
-                <div className={styles.itemsActions}>
-                    <button type="button" onClick={onAddItem} className={styles.primaryAction}>
-                        <Text variant="caption" weight={600}>
-                            + Aggiungi elemento
-                        </Text>
-                    </button>
-                </div>
+                <IconButton
+                    variant="primary"
+                    icon={<Plus size="18" />}
+                    aria-label="Chiudi"
+                    onClick={onAddItem}
+                />
             </header>
 
             {items.length === 0 ? (
@@ -78,14 +78,12 @@ export function SectionItemsPanel({
                                 <SortableRow id={row.id}>
                                     {({ listeners }) => (
                                         <li role="listitem" className={styles.itemRow}>
-                                            <button
-                                                type="button"
+                                            <IconButton
                                                 className={styles.dragHandle}
+                                                icon={<GripVertical size={16} />}
                                                 {...listeners}
                                                 aria-label="Riordina elemento"
-                                            >
-                                                ☰
-                                            </button>
+                                            />
 
                                             {/* MAIN */}
                                             <div className={styles.itemMain}>
@@ -100,8 +98,15 @@ export function SectionItemsPanel({
 
                                             {/* ACTIONS */}
                                             <div className={styles.itemActions}>
-                                                <button
-                                                    type="button"
+                                                <IconButton
+                                                    variant="secondary"
+                                                    icon={
+                                                        row.visible ? (
+                                                            <Eye size={16} color="#6366f1" />
+                                                        ) : (
+                                                            <EyeOff size={16} />
+                                                        )
+                                                    }
                                                     aria-label={
                                                         row.visible
                                                             ? "Nascondi elemento"
@@ -110,32 +115,21 @@ export function SectionItemsPanel({
                                                     onClick={() =>
                                                         onToggleVisibility(row.id, !row.visible)
                                                     }
-                                                    className={styles.iconButton}
-                                                >
-                                                    {row.visible ? (
-                                                        <Eye size={16} />
-                                                    ) : (
-                                                        <EyeOff size={16} />
-                                                    )}
-                                                </button>
+                                                />
 
-                                                <button
-                                                    type="button"
+                                                <IconButton
+                                                    variant="secondary"
+                                                    icon={<Pencil size={16} />}
                                                     aria-label="Modifica elemento"
                                                     onClick={() => onEditItem(row)}
-                                                    className={styles.iconButton}
-                                                >
-                                                    <Pencil size={16} />
-                                                </button>
+                                                />
 
-                                                <button
-                                                    type="button"
+                                                <IconButton
+                                                    variant="secondary"
+                                                    icon={<X size={16} />}
                                                     aria-label="Rimuovi elemento dalla collezione"
                                                     onClick={() => setItemToRemove(row)}
-                                                    className={`${styles.iconButton} ${styles.danger}`}
-                                                >
-                                                    <X size={16} />
-                                                </button>
+                                                />
                                             </div>
                                         </li>
                                     )}

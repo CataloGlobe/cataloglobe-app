@@ -1,6 +1,8 @@
 import { ReactNode, useEffect, useRef } from "react";
 import Text from "@/components/ui/Text/Text";
 import styles from "./Drawer.module.scss";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { X } from "lucide-react";
 
 interface DrawerProps {
     title: string;
@@ -49,9 +51,13 @@ export function Drawer({ title, isOpen, onClose, children, footer }: DrawerProps
                     {title}
                 </Text>
 
-                <button type="button" onClick={onClose} aria-label="Chiudi pannello">
-                    ✕
-                </button>
+                <IconButton
+                    className={styles.iconBtn}
+                    variant="secondary"
+                    icon={<X size={14} />}
+                    aria-label="Chiudi pannello"
+                    onClick={onClose}
+                />
             </header>
 
             <div className={styles.drawerBody}>{children}</div>

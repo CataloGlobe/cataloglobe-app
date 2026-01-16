@@ -6,6 +6,8 @@ import { ItemWithCategory } from "@/types/database";
 import { CatalogType } from "@/types/catalog";
 import { listItems } from "@/services/supabase/collections";
 import styles from "./PickItemDrawer.module.scss";
+import { Button } from "@/components/ui";
+import { ListCheck } from "lucide-react";
 
 type Diff = {
     add: string[];
@@ -121,17 +123,13 @@ export function PickItemDrawer({ collectionType, existingItemIds, onChange }: Pr
                 return (
                     <section key={category} className={styles.category}>
                         <div className={styles.categoryHeader}>
-                            <Text variant="caption" weight={600}>
+                            <Text variant="body-sm" weight={600}>
                                 {category}
                             </Text>
 
-                            <button
-                                type="button"
-                                className={styles.toggleAll}
-                                onClick={() => toggleAllInCategory(items)}
-                            >
+                            <Button variant="outline" onClick={() => toggleAllInCategory(items)}>
                                 {allSelected ? "Deseleziona tutti" : "Seleziona tutti"}
-                            </button>
+                            </Button>
                         </div>
 
                         <ul className={styles.list}>
@@ -148,11 +146,7 @@ export function PickItemDrawer({ collectionType, existingItemIds, onChange }: Pr
                                                 onChange={() => toggleItem(item.id)}
                                             />
 
-                                            {alreadyInCollection && (
-                                                <Text variant="caption-xs" colorVariant="muted">
-                                                    Presente
-                                                </Text>
-                                            )}
+                                            {alreadyInCollection && <ListCheck size={14} />}
                                         </label>
                                     </li>
                                 );

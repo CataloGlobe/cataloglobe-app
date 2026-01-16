@@ -2,6 +2,7 @@ import Text from "@/components/ui/Text/Text";
 import { useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import styles from "./Navbar.module.scss";
+import { IconButton } from "@/components/ui/Button/IconButton";
 
 interface NavbarProps {
     onMenuClick?: () => void;
@@ -23,9 +24,12 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
 
     return (
         <header className={styles.navbar}>
-            <button className={styles.menuBtn} aria-label="Apri menu" onClick={onMenuClick}>
-                <Menu size={22} />
-            </button>
+            {/* <IconButton
+                variant="ghost"
+                icon={<Menu size={22} />}
+                aria-label="Apri menu"
+                onClick={onMenuClick}
+            /> */}
 
             <Text variant="title-md" as={"h1"} colorVariant="dark" className={styles.title}>
                 {currentTitle}

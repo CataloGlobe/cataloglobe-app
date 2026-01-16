@@ -44,18 +44,6 @@
   gap: 0.3rem;
 }
 
-.publicUrl {
-  width: fit-content;
-  font-size: 0.85rem;
-  color: var(--brand-primary, #6366f1);
-  text-decoration: none;
-  word-break: break-all;
-
-  &:hover {
-    text-decoration: underline;
-  }
-}
-
 /* ---------------------------------------------
    COLLECTION INFO
 --------------------------------------------- */
@@ -70,42 +58,6 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-
-/* CTA when active */
-.changeCollection {
-  background: transparent;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-
-  font-size: 0.85rem;
-  color: var(--brand-primary);
-
-  &:hover {
-    text-decoration: underline;
-  }
-}
-
-/* CTA when empty */
-.selectCollection {
-  align-self: flex-start;
-
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-
-  border: 1px dashed var(--border-color, #e5e7eb);
-  background: transparent;
-
-  font-size: 0.85rem;
-  cursor: pointer;
-
-  transition: border-color 0.15s ease, color 0.15s ease;
-
-  &:hover {
-    border-color: var(--brand-primary);
-    color: var(--brand-primary);
-  }
 }
 
 /* QR in alto a destra */
@@ -148,67 +100,6 @@
   display: flex;
   align-items: center;
   justify-self: end;
-}
-
-.moreButton {
-  background: transparent;
-  border: none;
-  padding: 6px;
-  cursor: pointer;
-  opacity: 0.7;
-  border-radius: 6px;
-
-  &:hover {
-    opacity: 1;
-    background: var(--hover-bg, #f3f4f6);
-  }
-}
-
-button {
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  border: 1px solid var(--border);
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-/* Varianti pulsanti */
-.primary {
-  background: var(--brand-primary);
-  color: white;
-  border: none;
-
-  &:hover {
-    background: #4f46e5;
-  }
-}
-
-.secondary {
-  background: white;
-
-  &:hover {
-    background: var(--hover-bg, #f3f4f6);
-  }
-}
-
-.ghost {
-  background: transparent;
-
-  &:hover {
-    background: var(--hover-bg, #f3f4f6);
-  }
-}
-
-.danger {
-  background: #fee2e2;
-  color: #b91c1c;
-  border-color: #fecaca;
-
-  &:hover {
-    background: #fecaca;
-  }
 }
 
 /* RESPONSIVE -------------------------------------------------- */
@@ -266,30 +157,9 @@ button {
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  padding: 0.25rem;
+  padding: 0.5rem;
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
   z-index: 50;
-
-  button {
-    width: 100%;
-    padding: 0.6rem 0.9rem;
-    border: none;
-    background: none;
-    text-align: left;
-    font-size: 0.9rem;
-    cursor: pointer;
-
-    &:hover {
-      background: var(--hover-bg, #f3f4f6);
-    }
-  }
-}
-
-.dangerItem {
-  color: #b91c1c;
-
-  &:hover {
-    background: #fee2e2 !important;
-  }
 }

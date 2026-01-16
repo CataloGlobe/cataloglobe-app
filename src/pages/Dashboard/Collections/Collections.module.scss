@@ -176,27 +176,8 @@
 /* ---------------------------------------------
    MORE BUTTON
 --------------------------------------------- */
-.moreBtn {
-  background: transparent;
-  border: none;
-
-  font-size: 1.25rem;
-  line-height: 1;
-  padding: 2px 4px;
-
-  cursor: pointer;
-  color: rgba(0, 0, 0, 0.45);
-
-  border-radius: 6px;
-  transition: color 0.15s ease, background 0.15s ease;
-
-  &:hover {
-    color: rgba(0, 0, 0, 0.85);
-    background: rgba(0, 0, 0, 0.04);
-  }
-
-  &:focus-visible {
-    outline: none;
-    background: rgba($brand-primary, 0.12);
-  }
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

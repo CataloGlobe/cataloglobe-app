@@ -281,7 +281,9 @@ export default function CatalogManagerModal({ isOpen, onClose, catalogType }: Pr
                             Gestisci i contenuti globali
                         </Text>
                     </div>
-                    <Button label="Chiudi" variant="ghost" onClick={onClose} />
+                    <Button variant="secondary" onClick={onClose}>
+                        Chiudi
+                    </Button>
                 </header>
 
                 <div className={styles.toolbar}>
@@ -316,10 +318,12 @@ export default function CatalogManagerModal({ isOpen, onClose, catalogType }: Pr
 
                     <div className={styles.createRow}>
                         <Button
-                            label="Aggiungi"
+                            variant="primary"
                             loading={savingId === "create"}
                             onClick={onCreate}
-                        />
+                        >
+                            Aggiungi
+                        </Button>
                     </div>
                 </div>
 
@@ -347,7 +351,6 @@ export default function CatalogManagerModal({ isOpen, onClose, catalogType }: Pr
                                     <button onClick={() => onToggle(it)}>
                                         <Text weight={700}>{it.name}</Text>
                                     </button>
-
                                     {isOpenRow && d && (
                                         <div>
                                             {fields.map(field => {
@@ -403,16 +406,18 @@ export default function CatalogManagerModal({ isOpen, onClose, catalogType }: Pr
 
                                             <div className={styles.actions}>
                                                 <Button
-                                                    label="Salva"
                                                     loading={savingId === it.id}
                                                     onClick={() => onSave(it)}
-                                                />
+                                                >
+                                                    Salva
+                                                </Button>
                                                 <Button
-                                                    label="Elimina"
-                                                    variant="secondary"
+                                                    variant="danger"
                                                     loading={savingId === it.id}
                                                     onClick={() => onRemove(it.id)}
-                                                />
+                                                >
+                                                    Elimina
+                                                </Button>
                                             </div>
                                         </div>
                                     )}
