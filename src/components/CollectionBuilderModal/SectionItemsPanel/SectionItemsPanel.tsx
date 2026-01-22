@@ -2,7 +2,7 @@ import { useState } from "react";
 import { CollectionItemWithItem } from "@/types/database";
 import Text from "@/components/ui/Text/Text";
 import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
-import { Eye, EyeOff, GripVertical, Pencil, Plus, X } from "lucide-react";
+import { Eye, EyeOff, Pencil, Plus, X } from "lucide-react";
 import {
     DndContext,
     closestCenter,
@@ -16,6 +16,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import styles from "./SectionItemsPanel.module.scss";
 import { IconButton } from "@/components/ui/Button/IconButton";
+import { ItemRow } from "../ItemRow/ItemRow";
 
 interface SectionItemsPanelProps {
     sectionLabel: string;
@@ -49,8 +50,8 @@ export function SectionItemsPanel({
 
                 <IconButton
                     variant="primary"
-                    icon={<Plus size="18" />}
-                    aria-label="Chiudi"
+                    icon={<Plus size="15" />}
+                    aria-label="Aggiungi"
                     onClick={onAddItem}
                 />
             </header>
@@ -77,61 +78,35 @@ export function SectionItemsPanel({
                             {items.map(row => (
                                 <SortableRow key={row.id} id={row.id}>
                                     {({ listeners }) => (
-                                        <li role="listitem" className={styles.itemRow}>
-                                            <IconButton
-                                                className={styles.dragHandle}
-                                                icon={<GripVertical size={16} />}
-                                                {...listeners}
-                                                aria-label="Riordina elemento"
-                                            />
-
-                                            {/* MAIN */}
-                                            <div className={styles.itemMain}>
-                                                <Text weight={600}>{row.item.name}</Text>
-
-                                                {row.item.base_price != null && (
-                                                    <Text variant="caption" colorVariant="muted">
-                                                        € {row.item.base_price}
-                                                    </Text>
-                                                )}
-                                            </div>
-
-                                            {/* ACTIONS */}
-                                            <div className={styles.itemActions}>
-                                                <IconButton
-                                                    variant="secondary"
-                                                    icon={
-                                                        row.visible ? (
-                                                            <Eye size={16} color="#6366f1" />
-                                                        ) : (
-                                                            <EyeOff size={16} />
-                                                        )
-                                                    }
-                                                    aria-label={
-                                                        row.visible
-                                                            ? "Nascondi elemento"
-                                                            : "Mostra elemento"
-                                                    }
-                                                    onClick={() =>
+                                        <ItemRow
+                                            name={row.item.name}
+                                            price={row.item.base_price}
+                                            dragHandleProps={{ listeners }}
+                                            actions={[
+                                                {
+                                                    icon: row.visible ? (
+                                                        <Eye size={16} color="#6366f1" />
+                                                    ) : (
+                                                        <EyeOff size={16} />
+                                                    ),
+                                                    ariaLabel: row.visible
+                                                        ? "Nascondi elemento"
+                                                        : "Mostra elemento",
+                                                    onClick: () =>
                                                         onToggleVisibility(row.id, !row.visible)
-                                                    }
-                                                />
-
-                                                <IconButton
-                                                    variant="secondary"
-                                                    icon={<Pencil size={16} />}
-                                                    aria-label="Modifica elemento"
-                                                    onClick={() => onEditItem(row)}
-                                                />
-
-                                                <IconButton
-                                                    variant="secondary"
-                                                    icon={<X size={16} />}
-                                                    aria-label="Rimuovi elemento dalla collezione"
-                                                    onClick={() => setItemToRemove(row)}
-                                                />
-                                            </div>
-                                        </li>
+                                                },
+                                                {
+                                                    icon: <Pencil size={16} />,
+                                                    ariaLabel: "Modifica elemento",
+                                                    onClick: () => onEditItem(row)
+                                                },
+                                                {
+                                                    icon: <X size={16} />,
+                                                    ariaLabel: "Rimuovi elemento dalla collezione",
+                                                    onClick: () => setItemToRemove(row)
+                                                }
+                                            ]}
+                                        />
                                     )}
                                 </SortableRow>
                             ))}
