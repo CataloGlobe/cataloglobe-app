@@ -1,0 +1,171 @@
+@use "sass:color";
+@use "@styles/variables" as *;
+
+/* =====================================================
+     Sections
+  ===================================================== */
+
+.sections {
+  flex: 1;
+  overflow: auto;
+
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* =====================================================
+     List
+  ===================================================== */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* =====================================================
+     Rule row (read mode)
+  ===================================================== */
+
+.ruleWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  background: $white;
+  padding: 10px 12px;
+  border-radius: 10px;
+
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.rule[data-active="true"] {
+  // background: rgba($brand-primary, 0.06);
+  border-color: rgba($brand-primary, 0.25);
+}
+
+.ruleMain {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ruleTopLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ruleActions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* =====================================================
+     Editor (edit mode)
+  ===================================================== */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.timeRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+
+  @media (max-width: 420px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.days {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.daysGroup {
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--gray-50);
+}
+
+.allDay {
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--gray-100);
+}
+
+.timeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* =====================================================
+     Responsive
+  ===================================================== */
+
+@media (max-width: 820px) {
+  .addRow,
+  .editorGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .addActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 520px) {
+  .overlay {
+    padding: 10px;
+  }
+
+  .header,
+  .content,
+  .footer {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .content {
+    padding-bottom: 72px;
+  }
+  .footer {
+    position: sticky;
+    bottom: 0;
+
+    background: $white;
+    box-shadow: 0 -6px 12px rgba(0, 0, 0, 0.06);
+  }
+}

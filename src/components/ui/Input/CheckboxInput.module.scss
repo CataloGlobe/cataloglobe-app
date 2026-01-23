@@ -2,7 +2,7 @@
 
 .wrapper {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.6rem;
   cursor: pointer;
   user-select: none;
@@ -33,6 +33,10 @@
   justify-content: center;
 
   transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.description {
+  line-height: 1;
 }
 
 /* check */

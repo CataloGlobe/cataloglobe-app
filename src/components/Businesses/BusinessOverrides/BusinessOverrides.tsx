@@ -13,13 +13,18 @@ import {
 import { listBusinessSchedules } from "@/services/supabase/schedules";
 
 import type { CollectionItemWithItem, OverrideRowForUI } from "@/types/database";
-import styles from "./BusinessOverridesModal.module.scss";
-import { isNowActive } from "@/domain/schedules/scheduleUtils";
 import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessCollections";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
+import ModalLayout, {
+    ModalLayoutContent,
+    ModalLayoutHeader,
+    ModalLayoutSidebar
+} from "@/components/ui/ModalLayout/ModalLayout";
+import { CollectionItemsPanel } from "../CollectionItemsPanel/CollectionItemsPanel";
+import styles from "./BusinessOverrides.module.scss";
 
 /* -------------------------------------------------------------------------- */
 /*                                    TYPES                                   */
@@ -67,7 +72,7 @@ type AvailableCollection = {
 /*                                 COMPONENT                                  */
 /* -------------------------------------------------------------------------- */
 
-export default function BusinessOverridesModal({
+export default function BusinessOverrides({
     isOpen,
     onClose,
     businessId,
@@ -92,12 +97,6 @@ export default function BusinessOverridesModal({
 
     const [search, setSearch] = useState("");
     const [categoryFilter, setCategoryFilter] = useState<string>("all");
-
-    const [activeNow, setActiveNow] = useState<{
-        primaryId: string | null;
-        overlayId: string | null;
-        isFallback: boolean;
-    } | null>(null);
 
     const hasSchedulableCollections = availableCollections.length > 0;
     const hasChanges = Object.values(drafts).some(d => {
@@ -200,16 +199,6 @@ export default function BusinessOverridesModal({
 
             const resolved = await resolveBusinessCollections(businessId, new Date());
 
-            const hasActivePrimaryRule = schedules.some(
-                s => s.slot === "primary" && isNowActive(s)
-            );
-
-            setActiveNow({
-                primaryId: resolved.primary,
-                overlayId: resolved.overlay,
-                isFallback: !!resolved.primary && !hasActivePrimaryRule
-            });
-
             const map = new Map<string, AvailableCollection>();
 
             for (const s of schedules) {
@@ -244,11 +233,13 @@ export default function BusinessOverridesModal({
             setSelectedCollectionId(prev => {
                 if (prev) return prev;
 
-                const active = list.find(c => c.isActiveNow);
-                if (active) return active.id;
+                const activePrimary = list.find(c => c.slot === "primary" && c.isActiveNow);
+                if (activePrimary) return activePrimary.id;
 
-                const primary = list.find(c => c.slot === "primary");
-                return primary?.id ?? list[0]?.id ?? null;
+                const firstPrimary = list.find(c => c.slot === "primary");
+                if (firstPrimary) return firstPrimary.id;
+
+                return list[0]?.id ?? null;
             });
         } finally {
             setLoadingCollections(false);
@@ -256,6 +247,12 @@ export default function BusinessOverridesModal({
     }, [businessId]);
 
     /* --------------------------------- EFFECTS --------------------------------- */
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        setSelectedCollectionId(null);
+    }, [isOpen]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -452,236 +449,162 @@ export default function BusinessOverridesModal({
         return Array.from(map.entries()).filter(([, rows]) => rows.length > 0);
     }, [items, search, categoryFilter]);
 
-    if (!isOpen) return null;
-
     /* ----------------------------------- JSX ----------------------------------- */
 
     return (
-        <div
-            className={styles.overlay}
-            role="dialog"
-            aria-modal="true"
-            onMouseDown={e => {
-                // click overlay to close (only if clicking the backdrop)
-                if (e.target === e.currentTarget) onClose();
-            }}
-        >
-            <div className={styles.modal}>
-                {/* HEADER */}
-                <div className={styles.header}>
-                    <div className={styles.headerLeft}>
-                        <Text variant="title-md">{title}</Text>
-                    </div>
+        <ModalLayout isOpen={isOpen} onClose={onClose}>
+            <ModalLayoutHeader>
+                <div className={styles.headerLeft}>
+                    <Text as="h2" variant="title-md" weight={600}>
+                        {title}
+                    </Text>
+                </div>
+                <div className={styles.headerRight}>
+                    <Button
+                        loading={saving}
+                        onClick={saveAll}
+                        disabled={saving || loadingItems || !hasChanges}
+                    >
+                        {saving ? "Salvataggio..." : "Salva e aggiorna"}
+                    </Button>
+                    <Button variant="secondary" onClick={onClose} disabled={saving}>
+                        Chiudi
+                    </Button>
+                </div>
+            </ModalLayoutHeader>
 
-                    {availableCollections.length > 0 && (
-                        <div className={styles.headerRight}>
+            <ModalLayoutSidebar>
+                <CollectionItemsPanel
+                    collections={availableCollections}
+                    selectedCollectionId={selectedCollectionId}
+                    onSelectCollection={setSelectedCollectionId}
+                />
+            </ModalLayoutSidebar>
+
+            <ModalLayoutContent>
+                {error ? (
+                    <Text variant="body" colorVariant="warning">
+                        {error}
+                    </Text>
+                ) : !hasSchedulableCollections ? (
+                    <Text variant="body" colorVariant="muted">
+                        Nessun contenuto schedulato. Configura prima “Contenuti & Orari”.
+                    </Text>
+                ) : (
+                    <>
+                        <div className={styles.filtersBlock}>
+                            <TextInput
+                                className={styles.searchInput}
+                                placeholder="Cerca elemento…"
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                            />
+
                             <Select
-                                value={selectedCollectionId ?? ""}
-                                onChange={e => setSelectedCollectionId(e.target.value)}
+                                value={categoryFilter}
+                                onChange={e => setCategoryFilter(e.target.value)}
                                 options={[
-                                    { value: "", label: "Seleziona una categoria" },
-                                    ...availableCollections.map(c => ({
-                                        value: c.id,
-                                        label:
-                                            c.id === activeNow?.primaryId
-                                                ? `${c.name} · In uso ora${
-                                                      activeNow.isFallback ? " (Fallback)" : ""
-                                                  }`
-                                                : c.name
+                                    { value: "all", label: "Tutte le categorie" },
+                                    ...categories.map(cat => ({
+                                        value: cat,
+                                        label: cat
                                     }))
                                 ]}
                             />
                         </div>
-                    )}
 
-                    {activeNow && (
-                        <div className={styles.activeNowBanner}>
-                            <Text variant="caption" weight={600}>
-                                Attivo ora:
-                            </Text>
-
-                            {activeNow.primaryId ? (
-                                <Text variant="caption">
-                                    {availableCollections.find(c => c.id === activeNow.primaryId)
-                                        ?.name ?? "Contenuto"}
-                                    {activeNow.isFallback && (
-                                        <span className={styles.fallbackBadge}>Fallback</span>
-                                    )}
-                                </Text>
-                            ) : (
+                        {hasChanges && (
+                            <div className={styles.changesHint}>
+                                <AlertTriangle size={14} />
                                 <Text variant="caption" colorVariant="muted">
-                                    Nessun contenuto attivo
+                                    Modifiche non ancora salvate
                                 </Text>
-                            )}
-
-                            {activeNow?.overlayId && (
-                                <div className={styles.activeNowBanner}>
-                                    <Text variant="caption" weight={600}>
-                                        Contenuto in evidenza:
-                                    </Text>
-                                    <Text variant="caption" colorVariant="muted">
-                                        {
-                                            availableCollections.find(
-                                                c => c.id === activeNow.overlayId
-                                            )?.name
-                                        }
-                                    </Text>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* BODY */}
-                <div className={styles.body}>
-                    {error ? (
-                        <Text variant="body" colorVariant="warning">
-                            {error}
-                        </Text>
-                    ) : !hasSchedulableCollections ? (
-                        <Text variant="body" colorVariant="muted">
-                            Nessun contenuto schedulato. Configura prima “Contenuti & Orari”.
-                        </Text>
-                    ) : (
-                        <>
-                            <div className={styles.filtersBlock}>
-                                <TextInput
-                                    className={styles.searchInput}
-                                    placeholder="Cerca elemento…"
-                                    value={search}
-                                    onChange={e => setSearch(e.target.value)}
-                                />
-
-                                <Select
-                                    value={categoryFilter}
-                                    onChange={e => setCategoryFilter(e.target.value)}
-                                    options={[
-                                        { value: "all", label: "Tutte le categorie" },
-                                        ...categories.map(cat => ({
-                                            value: cat,
-                                            label: cat
-                                        }))
-                                    ]}
-                                />
                             </div>
+                        )}
 
-                            {hasChanges && (
-                                <div className={styles.changesHint}>
-                                    <AlertTriangle size={14} />
-                                    <Text variant="caption" colorVariant="muted">
-                                        Modifiche non ancora salvate
-                                    </Text>
-                                </div>
-                            )}
+                        {/* LIST */}
+                        {loadingCollections || loadingItems ? (
+                            renderSkeletonRows()
+                        ) : (
+                            <div className={styles.list}>
+                                {groupedItems.map(([category, rows]) => (
+                                    <div key={category} className={styles.categoryGroup}>
+                                        {categoryFilter === "all" && (
+                                            <Text variant="caption">{category}</Text>
+                                        )}
 
-                            {/* LIST */}
-                            {loadingCollections || loadingItems ? (
-                                renderSkeletonRows()
-                            ) : (
-                                <div className={styles.list}>
-                                    {groupedItems.map(([category, rows]) => (
-                                        <div key={category} className={styles.categoryGroup}>
-                                            {categoryFilter === "all" && (
-                                                <Text variant="caption">{category}</Text>
-                                            )}
+                                        {rows.map(row => {
+                                            const d = drafts[row.item.id];
+                                            if (!d) return null;
 
-                                            {rows.map(row => {
-                                                const d = drafts[row.item.id];
-                                                if (!d) return null;
+                                            return (
+                                                <div
+                                                    key={row.item.id}
+                                                    className={styles.row}
+                                                    data-hidden={!d.visible}
+                                                >
+                                                    <div className={styles.left}>
+                                                        <IconButton
+                                                            variant="secondary"
+                                                            icon={
+                                                                d.visible ? (
+                                                                    <Eye
+                                                                        size={15}
+                                                                        color="#6366f1"
+                                                                    />
+                                                                ) : (
+                                                                    <EyeOff size={15} />
+                                                                )
+                                                            }
+                                                            aria-label="Cambia visibilità"
+                                                            onClick={() =>
+                                                                toggleVisible(row.item.id)
+                                                            }
+                                                        />
 
-                                                return (
-                                                    <div
-                                                        key={row.item.id}
-                                                        className={styles.row}
-                                                        data-hidden={!d.visible}
-                                                    >
-                                                        <div className={styles.left}>
+                                                        <Text variant="body">{row.item.name}</Text>
+                                                    </div>
+
+                                                    <div className={styles.right}>
+                                                        {d.hasPriceOverride && (
                                                             <IconButton
                                                                 variant="secondary"
                                                                 icon={
-                                                                    d.visible ? (
-                                                                        <Eye
-                                                                            size={15}
-                                                                            color="#6366f1"
-                                                                        />
-                                                                    ) : (
-                                                                        <EyeOff size={15} />
-                                                                    )
+                                                                    <History
+                                                                        size={16}
+                                                                        color="#6366f1"
+                                                                    />
                                                                 }
-                                                                aria-label="Cambia visibilità"
+                                                                aria-label="Ripristina prezzo originale"
                                                                 onClick={() =>
-                                                                    toggleVisible(row.item.id)
+                                                                    resetPrice(row.item.id)
                                                                 }
                                                             />
+                                                        )}
 
-                                                            <Text variant="body">
-                                                                {row.item.name}
-                                                            </Text>
-                                                        </div>
-
-                                                        <div className={styles.right}>
-                                                            {d.hasPriceOverride && (
-                                                                <IconButton
-                                                                    variant="secondary"
-                                                                    icon={
-                                                                        <History
-                                                                            size={16}
-                                                                            color="#6366f1"
-                                                                        />
-                                                                    }
-                                                                    aria-label="Ripristina prezzo originale"
-                                                                    onClick={() =>
-                                                                        resetPrice(row.item.id)
-                                                                    }
-                                                                />
-                                                            )}
-
-                                                            <NumberInput
-                                                                min={0}
-                                                                placeholder="0"
-                                                                value={d.price}
-                                                                onChange={e =>
-                                                                    changePrice(
-                                                                        row.item.id,
-                                                                        e.target.value
-                                                                    )
-                                                                }
-                                                                endAdornment="€"
-                                                            />
-                                                        </div>
+                                                        <NumberInput
+                                                            min={0}
+                                                            placeholder="0"
+                                                            value={d.price}
+                                                            onChange={e =>
+                                                                changePrice(
+                                                                    row.item.id,
+                                                                    e.target.value
+                                                                )
+                                                            }
+                                                            endAdornment="€"
+                                                        />
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </>
-                    )}
-                </div>
-
-                {/* FOOTER */}
-                <div className={styles.footer}>
-                    {hasSchedulableCollections ? (
-                        <>
-                            <Button variant="secondary" onClick={onClose} disabled={saving}>
-                                Annulla
-                            </Button>
-                            <Button
-                                loading={saving}
-                                onClick={saveAll}
-                                disabled={saving || loadingItems || !hasChanges}
-                            >
-                                {saving ? "Salvataggio..." : "Salva e aggiorna"}
-                            </Button>
-                        </>
-                    ) : (
-                        <Button variant="secondary" onClick={onClose}>
-                            Chiudi
-                        </Button>
-                    )}
-                </div>
-            </div>
-        </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
+            </ModalLayoutContent>
+        </ModalLayout>
     );
 }

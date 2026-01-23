@@ -74,15 +74,19 @@
 }
 
 .variant-outline {
-  background: transparent;
-  border: 2px dashed #e6ebf0;
-
-  &:hover {
-    background: #e2e9f0;
-  }
+  background-color: transparent;
+  border: 2px solid var(--brand-primary);
 
   span {
-    color: var(--text);
+    color: var(--brand-primary);
+  }
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+  }
+
+  &:active {
+    background-color: rgba(0, 0, 0, 0.08);
   }
 }
 

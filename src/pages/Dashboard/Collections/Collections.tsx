@@ -3,7 +3,7 @@ import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
-import CatalogManagerModal from "@/components/CatalogManagerModal/CatalogManagerModal";
+import CatalogManager from "@/components/CatalogManager/CatalogManager";
 import {
     listCollections,
     createCollection,
@@ -12,7 +12,7 @@ import {
     isCollectionDeletable
 } from "@/services/supabase/collections";
 import type { BusinessType, Collection } from "@/types/database";
-import CollectionBuilderModal from "@/components/CollectionBuilderModal/CollectionBuilderModal";
+import CollectionBuilder from "@/components/CollectionBuilder/CollectionBuilder";
 import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 import { useToast } from "@/context/Toast/ToastContext";
 import { businessTypeToCatalogType } from "@/domain/catalog/businessToCatalog";
@@ -282,13 +282,13 @@ export default function Collections() {
                 </ul>
             </div>
 
-            <CollectionBuilderModal
+            <CollectionBuilder
                 isOpen={Boolean(activeCollectionId)}
                 collectionId={activeCollectionId}
                 onClose={() => setActiveCollectionId(null)}
             />
 
-            <CatalogManagerModal
+            <CatalogManager
                 isOpen={catalogOpen}
                 onClose={() => setCatalogOpen(false)}
                 catalogType={catalogType}

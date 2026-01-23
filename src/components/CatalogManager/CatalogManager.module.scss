@@ -1,0 +1,58 @@
+@use "@styles/variables" as *;
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* =============================================
+   TOOLBAR
+============================================= */
+.toolbar {
+  background: linear-gradient(180deg, #f6f7fb 0%, #f3f4f8 100%);
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.75rem;
+  align-items: end;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =============================================
+   CONTENT
+============================================= */
+.content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 16px;
+  overflow: hidden;
+  margin-top: 1rem;
+  background: linear-gradient(180deg, #f6f7fb 0%, #f3f4f8 100%);
+}
+
+/* =============================================
+   LIST (MINIMAL)
+============================================= */
+
+.itemsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  overflow-y: auto;
+}

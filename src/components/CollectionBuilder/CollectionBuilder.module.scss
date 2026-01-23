@@ -1,54 +1,3 @@
-/* ----------------------------------------------------
-   OVERLAY
----------------------------------------------------- */
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  padding: 16px;
-  background: rgba(16, 16, 20, 0.45);
-  backdrop-filter: blur(2px);
-}
-
-/* ----------------------------------------------------
-   MODAL
----------------------------------------------------- */
-.modal {
-  position: relative;
-  width: min(1440px, 98vw);
-  height: min(900px, 94vh);
-
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-
-  background: #ffffff;
-  border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.05);
-
-  outline: none;
-}
-
-/* ----------------------------------------------------
-   HEADER
----------------------------------------------------- */
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-
-  padding: 14px 20px;
-  background: #ffffff;
-
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
 .headerLeft {
   display: flex;
   align-items: center;
@@ -59,7 +8,7 @@
 .headerRight {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
 }
 
 /* ----------------------------------------------------
@@ -187,12 +136,6 @@
    RESPONSIVE
 ---------------------------------------------------- */
 @media (max-width: 980px) {
-  .modal {
-    width: 98vw;
-    height: 94vh;
-    border-radius: 16px;
-  }
-
   .body {
     grid-template-columns: 1fr;
   }

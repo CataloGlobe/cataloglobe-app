@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
-import BusinessOverridesModal from "../BusinessOverridesModal/BusinessOverridesModal";
+import BusinessOverrides from "../BusinessOverrides/BusinessOverrides";
 import Text from "@components/ui/Text/Text";
 import { QRCodeSVG } from "qrcode.react";
 import { MoreVertical } from "lucide-react";
 import type { BusinessCardProps } from "@/types/Businesses";
 import styles from "./BusinessCard.module.scss";
-import BusinessCollectionScheduleModal from "../BusinessCollectionScheduleModal/BusinessCollectionScheduleModal";
+import BusinessCollectionSchedule from "../BusinessCollectionSchedule/BusinessCollectionSchedule";
 import { Button } from "@/components/ui";
 import { IconButton } from "@/components/ui/Button/IconButton";
 
@@ -200,7 +200,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
             </ConfirmModal>
 
             {/* OVERRIDES */}
-            <BusinessOverridesModal
+            <BusinessOverrides
                 isOpen={overrideOpen}
                 onClose={() => setOverrideOpen(false)}
                 businessId={business.id}
@@ -208,7 +208,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
             />
 
             {/* SELECT COLLECTION */}
-            <BusinessCollectionScheduleModal
+            <BusinessCollectionSchedule
                 isOpen={showScheduleModal}
                 businessId={business.id}
                 onClose={() => setShowScheduleModal(false)}

@@ -6,7 +6,6 @@ import { ItemWithCategory } from "@/types/database";
 import { CatalogType } from "@/types/catalog";
 import { listItems } from "@/services/supabase/collections";
 import styles from "./PickItemDrawer.module.scss";
-import { Button } from "@/components/ui";
 import { ListCheck } from "lucide-react";
 
 type Diff = {
@@ -127,9 +126,12 @@ export function PickItemDrawer({ collectionType, existingItemIds, onChange }: Pr
                                 {category}
                             </Text>
 
-                            <Button variant="outline" onClick={() => toggleAllInCategory(items)}>
-                                {allSelected ? "Deseleziona tutti" : "Seleziona tutti"}
-                            </Button>
+                            <CheckboxInput
+                                checked={allSelected}
+                                onClick={() => toggleAllInCategory(items)}
+                                description={allSelected ? "Deseleziona tutti" : "Seleziona tutti"}
+                                className={styles.checkAll}
+                            />
                         </div>
 
                         <ul className={styles.list}>
