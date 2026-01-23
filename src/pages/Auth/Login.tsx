@@ -86,7 +86,13 @@ export default function Login() {
 
                 {error && <p className={styles.error}>{error}</p>}
 
-                <Button variant="primary" fullWidth loading={loading} disabled={loading}>
+                <Button
+                    type="submit"
+                    variant="primary"
+                    fullWidth
+                    loading={loading}
+                    disabled={loading}
+                >
                     {loading ? "Caricamento..." : "Accedi"}
                 </Button>
             </form>

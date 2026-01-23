@@ -261,8 +261,14 @@ export default function VerifyOtp() {
                     </Text>
                 )}
 
-                <Button variant="primary" fullWidth loading={loading} disabled={loading}>
-                    label={loading ? "Verifica..." : "Verifica"}
+                <Button
+                    type="submit"
+                    variant="primary"
+                    fullWidth
+                    loading={loading}
+                    disabled={loading}
+                >
+                    {loading ? "Verifica..." : "Verifica"}
                 </Button>
             </form>
 
