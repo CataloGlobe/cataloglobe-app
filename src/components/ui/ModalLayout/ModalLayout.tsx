@@ -6,6 +6,10 @@ import { ChevronLeft } from "lucide-react";
 
 import { ReactNode } from "react";
 
+export type ModalWidth = "sm" | "md" | "lg" | "xl";
+
+export type ModalHeight = "sm" | "md" | "lg" | "fit";
+
 /* ------------------------------------------------------------------
  * SLOT COMPONENTS (MARKERS)
  * ------------------------------------------------------------------ */
@@ -30,6 +34,10 @@ export function ModalLayoutDrawer({ children }: SlotProps) {
     return <>{children}</>;
 }
 
+export function ModalLayoutFooter({ children }: SlotProps) {
+    return <>{children}</>;
+}
+
 /* ------------------------------------------------------------------
  * SLOT EXTRACTION
  * ------------------------------------------------------------------ */
@@ -51,6 +59,8 @@ type Props = {
     children: ReactNode;
     isDrawerOpen?: boolean;
     onCloseDrawer?: () => void;
+    width?: ModalWidth;
+    height?: ModalHeight;
 };
 
 export default function ModalLayout({
@@ -58,7 +68,9 @@ export default function ModalLayout({
     onClose,
     children,
     isDrawerOpen,
-    onCloseDrawer
+    onCloseDrawer,
+    width = "xl",
+    height = "lg"
 }: Props) {
     const modalRef = useRef<HTMLDivElement | null>(null);
     const previouslyFocusedRef = useRef<HTMLElement | null>(null);
@@ -69,6 +81,7 @@ export default function ModalLayout({
     const sidebar = getSlot(children, ModalLayoutSidebar);
     const content = getSlot(children, ModalLayoutContent);
     const drawer = getSlot(children, ModalLayoutDrawer);
+    const footer = getSlot(children, ModalLayoutFooter);
 
     const hasDrawer = Boolean(drawer);
 
@@ -101,6 +114,17 @@ export default function ModalLayout({
         }
     }, [isOpen]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const original = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+
+        return () => {
+            document.body.style.overflow = original;
+        };
+    }, [isOpen]);
+
     const sidebarWidth = 360;
 
     return (
@@ -124,6 +148,8 @@ export default function ModalLayout({
                 >
                     <motion.div
                         className={styles.modal}
+                        data-width={width}
+                        data-height={height}
                         ref={modalRef}
                         tabIndex={-1}
                         onClick={e => e.stopPropagation()}
@@ -205,8 +231,8 @@ export default function ModalLayout({
                                             exit={{ x: 24, opacity: 0 }}
                                             transition={{
                                                 type: "spring",
-                                                stiffness: 420,
-                                                damping: 36
+                                                stiffness: 300,
+                                                damping: 30
                                             }}
                                         >
                                             {drawer}
@@ -228,6 +254,9 @@ export default function ModalLayout({
                                 )}
                             </AnimatePresence>
                         </motion.div>
+
+                        {/* FOOTER */}
+                        {footer && <footer className={styles.footer}>{footer}</footer>}
                     </motion.div>
                 </motion.div>
             )}

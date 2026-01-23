@@ -25,11 +25,16 @@ import type { Business } from "@/types/database";
 import type { BusinessFormValues } from "@/types/Businesses";
 
 import styles from "./Businesses.module.scss";
-import { BusinessUpsertModal } from "@/components/Businesses/BusinessUpsertModal/BusinessUpsertModal";
+import { BusinessUpsert } from "@/components/Businesses/BusinessUpsert/BusinessUpsert";
 import { Button } from "@/components/ui";
 
 // valore statico → performance migliore
 const previewBaseUrl = window.location.origin;
+
+type SlugInlineState =
+    | { type: "idle" }
+    | { type: "warning" } // solo edit: slug diverso dall’originale
+    | { type: "conflict"; suggestions: string[] }; // slug già usato
 
 // ==========================================
 // COMPONENT
@@ -68,12 +73,7 @@ export default function Businesses() {
     const [isCreating, setIsCreating] = useState(false);
     const [createSlugTouched, setCreateSlugTouched] = useState(false);
     const debouncedName = useDebounce(createForm.name, 500);
-    const [slugSuggestions, setSlugSuggestions] = useState<string[]>([]);
-    const [showSlugAlreadyUsedModal, setShowSlugAlreadyUsedModal] = useState(false);
 
-    // ======================================
-    // STATE: edit
-    // ======================================
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<BusinessFormValues | null>(null);
@@ -83,9 +83,13 @@ export default function Businesses() {
     const [editCoverFile, setEditCoverFile] = useState<File | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
-    const [showSlugWarning, setShowSlugWarning] = useState(false);
-    const [pendingEditSubmit, setPendingEditSubmit] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // ======================================
+    // SLUGS
+    // ======================================
+    const [createSlugState, setCreateSlugState] = useState<SlugInlineState>({ type: "idle" });
+    const [editSlugState, setEditSlugState] = useState<SlugInlineState>({ type: "idle" });
 
     // ======================================
     // FETCH BUSINESS
@@ -155,6 +159,7 @@ export default function Businesses() {
                 // cambio dello SLUG (campo editabile)
                 // dopo — NIENTE slugify live!
                 if (field === "slug") {
+                    setCreateSlugState({ type: "idle" });
                     return { ...prev, slug: value as string };
                 }
 
@@ -232,9 +237,8 @@ export default function Businesses() {
             // 3. Se è diverso → significa che lo slug scelto ESISTE GIÀ
             if (uniqueSlug !== baseSlug) {
                 const suggestions = await getSlugSuggestions(baseSlug, uniqueSlug);
-                setSlugSuggestions(suggestions);
-                setShowSlugAlreadyUsedModal(true);
-                return; // BLOCCA la creazione
+                setCreateSlugState({ type: "conflict", suggestions });
+                return;
             }
 
             setIsCreating(true);
@@ -278,6 +282,7 @@ export default function Businesses() {
             } finally {
                 setIsCreating(false);
                 setIsCreateOpen(false);
+                setCreateSlugState({ type: "idle" });
             }
         },
         [user, createForm, createCoverFile, refreshBusinesses, showToast]
@@ -343,6 +348,7 @@ export default function Businesses() {
         });
         setEditCoverFile(null);
         setIsEditOpen(true);
+        setEditSlugState({ type: "idle" });
     }, []);
 
     const handleEditFieldChange = useCallback(
@@ -350,12 +356,21 @@ export default function Businesses() {
             setEditForm(prev => {
                 if (!prev) return prev;
                 if (field === "slug") {
-                    return { ...prev, slug: value as string };
+                    const next = value as string;
+
+                    if (editingBusiness && sanitizeSlugForSave(next) !== editingBusiness.slug) {
+                        setEditSlugState({ type: "warning" });
+                    } else {
+                        setEditSlugState({ type: "idle" });
+                    }
+
+                    return { ...prev, slug: next };
                 }
+
                 return { ...prev, [field]: value };
             });
         },
-        []
+        [editingBusiness]
     );
 
     function validateEditForm(values: BusinessFormValues) {
@@ -413,15 +428,6 @@ export default function Businesses() {
                 return;
             }
 
-            // Se slug diverso → avviso QR
-            if (cleanedSlug !== editingBusiness.slug && !pendingEditSubmit) {
-                setShowSlugWarning(true);
-                return;
-            }
-
-            // Reset flag
-            setPendingEditSubmit(false);
-
             // Controllo unicità slug
             const slugAlreadyUsed = businesses.some(
                 b => b.id !== editingId && b.slug === cleanedSlug
@@ -429,8 +435,7 @@ export default function Businesses() {
 
             if (slugAlreadyUsed) {
                 const suggestions = await getSlugSuggestions(cleanedSlug);
-                setSlugSuggestions(suggestions);
-                setShowSlugAlreadyUsedModal(true);
+                setEditSlugState({ type: "conflict", suggestions });
                 return;
             }
 
@@ -470,6 +475,7 @@ export default function Businesses() {
                 });
             } finally {
                 setIsEditing(false);
+                setEditSlugState({ type: "idle" });
             }
         },
         [
@@ -478,7 +484,6 @@ export default function Businesses() {
             editCoverFile,
             editingBusiness,
             businesses,
-            pendingEditSubmit,
             refreshBusinesses,
             showToast
         ]
@@ -557,13 +562,19 @@ export default function Businesses() {
                 </div>
 
                 <div className={styles.headerRight}>
-                    <Button variant="primary" onClick={() => setIsCreateOpen(true)}>
+                    <Button
+                        variant="primary"
+                        onClick={() => {
+                            setIsCreateOpen(true);
+                            setCreateSlugState({ type: "idle" });
+                        }}
+                    >
                         Aggiungi attività
                     </Button>
                 </div>
             </header>
 
-            <BusinessUpsertModal
+            <BusinessUpsert
                 open={isCreateOpen}
                 mode="create"
                 values={createForm}
@@ -572,14 +583,20 @@ export default function Businesses() {
                 previewBaseUrl={previewBaseUrl}
                 onFieldChange={handleCreateFieldChange}
                 onCoverChange={handleCreateCoverChange}
+                slugState={createSlugState}
+                onPickSlugSuggestion={slug => {
+                    setCreateForm(prev => ({ ...prev, slug }));
+                    setCreateSlugState({ type: "idle" });
+                }}
                 onSubmit={handleAdd}
                 onClose={() => {
                     setIsCreateOpen(false);
+                    setCreateSlugState({ type: "idle" });
                     resetCreateState();
                 }}
             />
 
-            <BusinessUpsertModal
+            <BusinessUpsert
                 open={isEditOpen}
                 mode="edit"
                 values={editForm}
@@ -588,6 +605,16 @@ export default function Businesses() {
                 previewBaseUrl={previewBaseUrl}
                 onFieldChange={handleEditFieldChange}
                 onCoverChange={handleEditCoverChange}
+                slugState={editSlugState}
+                onPickSlugSuggestion={slug => {
+                    setEditForm(prev => (prev ? { ...prev, slug } : prev));
+                    // aggiorna warning: se slug scelto è diverso dall’originale, warning rimane (ci sta)
+                    if (editingBusiness && slug !== editingBusiness.slug) {
+                        setEditSlugState({ type: "warning" });
+                    } else {
+                        setEditSlugState({ type: "idle" });
+                    }
+                }}
                 onSubmit={handleSaveEdit}
                 onClose={() => {
                     setIsEditOpen(false);
@@ -595,6 +622,7 @@ export default function Businesses() {
                     setEditingBusiness(null);
                     setEditForm(null);
                     setEditCoverFile(null);
+                    setEditSlugState({ type: "idle" });
                     setEditErrors({});
                 }}
             />
@@ -614,64 +642,6 @@ export default function Businesses() {
                     onOpenReviews={handleOpenReviews}
                 />
             )}
-
-            <ConfirmModal
-                isOpen={showSlugWarning}
-                title="Modifica dello slug"
-                description="Modificando lo slug, i QR code già stampati e i link condivisi smetteranno di funzionare. Vuoi procedere?"
-                confirmLabel="Ho capito"
-                onConfirm={() => {
-                    setShowSlugWarning(false);
-                    setPendingEditSubmit(true);
-
-                    // RILANCIA IL SUBMIT DELLA MODALE
-                    const form = document.getElementById("edit-business-form");
-                    if (form) {
-                        form.dispatchEvent(
-                            new Event("submit", { cancelable: true, bubbles: true })
-                        );
-                    }
-                }}
-            />
-
-            <ConfirmModal
-                isOpen={showSlugAlreadyUsedModal}
-                title="Slug già esistente"
-                description="Questo slug è già in uso. Ecco alcune alternative che puoi usare:"
-                confirmLabel="Chiudi"
-                onConfirm={() => setShowSlugAlreadyUsedModal(false)}
-            >
-                <div
-                    style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "0.5rem",
-                        marginBottom: "1.3rem"
-                    }}
-                >
-                    {slugSuggestions.map(s => (
-                        <Button
-                            key={s}
-                            variant="outline"
-                            onClick={() => {
-                                // se siamo in edit:
-                                if (editForm) {
-                                    setEditForm(prev => (prev ? { ...prev, slug: s } : prev));
-                                }
-
-                                // se siamo in creazione:
-                                if (!editForm) {
-                                    setCreateForm(prev => ({ ...prev, slug: s }));
-                                }
-
-                                setShowSlugAlreadyUsedModal(false);
-                            }}
-                        >
-                            {s}
-                        </Button>
-                    ))}
-                </div>
-            </ConfirmModal>
 
             <ConfirmModal
                 isOpen={showDeleteModal}

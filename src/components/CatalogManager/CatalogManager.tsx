@@ -251,6 +251,7 @@ export default function CatalogManager({ isOpen, onClose, catalogType }: Props) 
             onClose={onClose}
             isDrawerOpen={drawer.type !== "none"}
             onCloseDrawer={closeDrawer}
+            width="md"
         >
             <ModalLayoutHeader>
                 <div className={styles.headerLeft}>

@@ -1,36 +1,23 @@
-/* ===========================
-   CARD CONTAINER
-=========================== */
+/* =====================================================
+   ROOT / LAYOUT
+   ===================================================== */
 .createCard {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--card-bg, #fff);
-  border-radius: 16px;
 }
 
-/* ===========================
-   HEADER
-=========================== */
-.header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  margin-bottom: 1rem;
-}
-
-/* ===========================
-   FORM CONTAINER (scroll + footer sticky)
-=========================== */
 .formContainer {
   display: flex;
   flex-direction: column;
-  flex: 1; /* permette lo scroll */
-  min-height: 0; /* necessario per overflow */
+  flex: 1;
+  min-height: 0;
   gap: 1rem;
 }
 
-/* Contenuto scrollabile */
+/* =====================================================
+   CONTENT
+   ===================================================== */
 .content {
   flex: 1;
   overflow-y: auto;
@@ -75,20 +62,24 @@
   gap: 0.4rem;
 }
 
-/* ===========================
-   FOOTER (sticky actions)
-=========================== */
-.actions {
-  position: sticky;
-  bottom: 0;
-  padding: 1.25rem 0;
-  margin-top: 1rem;
-
+/* =====================================================
+   SLUG
+   ===================================================== */
+.slugContainer {
   display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.5rem;
+}
 
-  border-top: 1px solid var(--border);
-  backdrop-filter: blur(6px);
-  z-index: 20;
+.slugConflict {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.slugSuggestions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
 }

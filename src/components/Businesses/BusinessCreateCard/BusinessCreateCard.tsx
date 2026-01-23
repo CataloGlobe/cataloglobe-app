@@ -1,6 +1,6 @@
 // BusinessCreateCard.tsx
 import React from "react";
-import Text from "@components/ui/Text/Text";
+import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
 import type { BusinessFormValues } from "@/types/Businesses";
@@ -17,14 +17,16 @@ interface BusinessCreateCardProps {
     ) => void;
     onCoverChange: (file: File | null) => void;
     onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-    onCancel: () => void;
-    loading: boolean;
     previewBaseUrl: string;
-    title?: string;
-    description?: string;
-    primaryLabel?: string;
     formId?: string;
+    slugState: SlugInlineState;
+    onPickSlugSuggestion: (slug: string) => void;
 }
+
+type SlugInlineState =
+    | { type: "idle" }
+    | { type: "warning" }
+    | { type: "conflict"; suggestions: string[] };
 
 export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
     values,
@@ -32,28 +34,15 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
     onFieldChange,
     onCoverChange,
     onSubmit,
-    onCancel,
-    loading,
     previewBaseUrl,
-    title = "Aggiungi attività",
-    description = "Compila i campi per creare una nuova attività.",
-    primaryLabel = "Crea attività",
-    formId
+    formId,
+    slugState,
+    onPickSlugSuggestion
 }) => {
     const finalUrl = `${previewBaseUrl}/business/${values.slug || "<slug>"}`;
 
     return (
         <section className={styles.createCard} aria-label="Aggiungi nuova attività">
-            <div className={styles.header}>
-                <Text as="h2" variant="title-sm" weight={600}>
-                    {title}
-                </Text>
-
-                <Text variant="body" colorVariant="muted">
-                    {description}
-                </Text>
-            </div>
-
             <form id={formId} onSubmit={onSubmit} className={styles.formContainer}>
                 {/* Nome */}
                 <TextInput
@@ -102,14 +91,45 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                 />
 
                 {/* Slug */}
-                <TextInput
-                    label="Slug"
-                    placeholder="es. snoopy-bar"
-                    value={values.slug}
-                    onChange={e => onFieldChange("slug", e.target.value)}
-                    error={errors?.slug}
-                    helperText={`URL finale: ${finalUrl}`}
-                />
+
+                <div className={styles.slugContainer}>
+                    <TextInput
+                        label="Slug"
+                        placeholder="es. snoopy-bar"
+                        value={values.slug}
+                        onChange={e => onFieldChange("slug", e.target.value)}
+                        error={errors?.slug}
+                        helperText={`URL finale: ${finalUrl}`}
+                    />
+
+                    {slugState.type === "warning" && (
+                        <Text variant="caption" colorVariant="warning">
+                            Attenzione: cambiando lo slug, i QR code già stampati e i link condivisi
+                            potrebbero non funzionare più.
+                        </Text>
+                    )}
+
+                    {slugState.type === "conflict" && (
+                        <div className={styles.slugConflict} role="alert" aria-live="polite">
+                            <Text variant="caption" colorVariant="warning">
+                                Questo slug è già in uso. Scegli un’alternativa:
+                            </Text>
+
+                            <div className={styles.slugSuggestions}>
+                                {slugState.suggestions.map(s => (
+                                    <Button
+                                        key={s}
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => onPickSlugSuggestion(s)}
+                                    >
+                                        {s}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
 
                 {/* Cover */}
                 <FileInput
@@ -118,17 +138,6 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                     helperText="PNG o JPG, max 5MB"
                     onChange={onCoverChange}
                 />
-
-                {/* Submit */}
-                <div className={styles.actions}>
-                    <Button variant="secondary" onClick={onCancel}>
-                        Annulla
-                    </Button>
-
-                    <Button type="submit" variant="primary" disabled={loading} loading={loading}>
-                        {loading ? "Attendi…" : primaryLabel}
-                    </Button>
-                </div>
             </form>
         </section>
     );

@@ -18,9 +18,19 @@
      MODAL
   ---------------------------------------------------- */
 .modal {
+  --modal-width: 720px;
+  --modal-height: 80vh;
+
+  // width: min(1440px, 98vw);
+  // height: min(900px, 94vh);
+
+  width: var(--modal-width);
+  height: var(--modal-height);
+
+  max-width: calc(100vw - 4rem);
+  max-height: calc(100vh - 4rem);
+
   position: relative;
-  width: min(1440px, 98vw);
-  height: min(900px, 94vh);
 
   display: flex;
   flex-direction: column;
@@ -31,6 +41,41 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.05);
 
   outline: none;
+
+  /* ---------- WIDTH VARIANTS ---------- */
+  &[data-width="sm"] {
+    --modal-width: 480px;
+  }
+
+  &[data-width="md"] {
+    --modal-width: 720px;
+  }
+
+  &[data-width="lg"] {
+    --modal-width: 960px;
+  }
+
+  &[data-width="xl"] {
+    --modal-width: 1200px;
+  }
+
+  /* ---------- HEIGHT VARIANTS ---------- */
+  &[data-height="sm"] {
+    --modal-height: 60vh;
+  }
+
+  &[data-height="md"] {
+    --modal-height: 80vh;
+  }
+
+  &[data-height="lg"] {
+    --modal-height: 90vh;
+  }
+
+  &[data-height="fit"] {
+    height: auto;
+    max-height: calc(100vh - 32px);
+  }
 }
 
 /* ----------------------------------------------------
@@ -69,6 +114,7 @@
   display: grid;
   min-height: 0;
   position: relative;
+  overflow: hidden;
 }
 
 /* ----------------------------------------------------
@@ -113,6 +159,11 @@
   overflow: hidden;
   padding: 20px;
   background: linear-gradient(180deg, #f6f7fb 0%, #f3f4f8 100%);
+}
+
+.contentWrapper {
+  flex: 1;
+  overflow-y: auto;
 }
 
 .contentWrapper[aria-hidden="true"] {
@@ -217,6 +268,16 @@
 .bodyCollapsed .collapseToggle {
   left: 0;
   border-radius: 0 999px 999px 0;
+}
+
+.footer {
+  flex-shrink: 0;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: #ffffff;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 /* ----------------------------------------------------

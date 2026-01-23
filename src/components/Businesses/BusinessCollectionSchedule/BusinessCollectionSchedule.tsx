@@ -273,6 +273,7 @@ export default function BusinessCollectionSchedule({ isOpen, businessId, onClose
             onClose={onClose}
             isDrawerOpen={drawer.type !== "closed"}
             onCloseDrawer={closeDrawer}
+            width="md"
         >
             <ModalLayoutHeader>
                 <div className={styles.headerLeft}>
