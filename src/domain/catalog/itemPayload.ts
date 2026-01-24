@@ -1,5 +1,6 @@
 import type { CatalogType } from "@/types/catalog";
 import { getCatalogConfig, getFieldsForCollection } from "./getCatalogConfig";
+import { CatalogSubtype } from "./config";
 
 type FormValues = Record<string, unknown>;
 
@@ -12,7 +13,10 @@ export function buildItemUpdatePayload(args: {
     const { catalogType, subtype, values } = args;
 
     const cfg = getCatalogConfig(catalogType);
-    const fields = getFieldsForCollection(catalogType, subtype);
+    const fields = getFieldsForCollection(
+        catalogType,
+        subtype as CatalogSubtype | null | undefined
+    );
 
     const base: Record<string, unknown> = {};
     const meta: Record<string, unknown> = { ...(args.existingMetadata ?? {}) };

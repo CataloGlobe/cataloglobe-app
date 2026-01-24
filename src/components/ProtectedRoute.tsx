@@ -1,22 +1,27 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@context/useAuth";
 import { AppLoader } from "./ui/AppLoader/AppLoader";
+import type { ReactNode } from "react";
 
-export const ProtectedRoute = ({ children }: { children: Element }) => {
+type ProtectedRouteProps = {
+    children: ReactNode;
+};
+
+export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     const { user, loading } = useAuth();
 
-    // ⏳ 1) Se sta caricando la sessione, aspetta
+    // ⏳ loading
     if (loading) return <AppLoader />;
 
-    // ❌ 2) Se NON c’è utente → login
+    // ❌ non loggato
     if (!user) return <Navigate to="/login" replace />;
 
-    // ❌ 3) SE l’utente è loggato MA NON ha verificato OTP → verify-otp
+    // ❌ OTP non validato
     const otpValidated = localStorage.getItem("otpValidated");
     if (otpValidated !== "true") {
         return <Navigate to="/verify-otp" replace />;
     }
 
-    // ✔️ 4) TUTTO OK → accesso consentito
-    return children;
+    // ✅ accesso consentito
+    return <>{children}</>;
 };

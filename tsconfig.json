@@ -29,6 +29,6 @@
     },
     "typeRoots": ["./src/types", "./node_modules/@types"]
   },
-  "include": ["src", "supabase/functions"],
+  "include": ["src"],
   "references": []
 }

@@ -112,9 +112,13 @@ export async function getAnalyticsReviews() {
     }
 
     // Normalizzazione
-    return data.map(r => ({
-        ...r,
-        restaurant_name: r.businesses?.name ?? null,
-        restaurant_owner_id: r.businesses?.user_id ?? null
-    }));
+    return data.map(r => {
+        const business = r.businesses?.[0];
+
+        return {
+            ...r,
+            restaurant_name: business?.name ?? null,
+            restaurant_owner_id: business?.user_id ?? null
+        };
+    });
 }
