@@ -1,0 +1,52 @@
+.root {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+
+.image,.placeholderImage  {
+    width: 100%;
+    aspect-ratio: 16/9;
+    border-radius: 12px;
+    height: auto;
+    display: block;
+    object-fit: cover;
+}
+
+.placeholderImage {
+    background-color: lightgray;
+
+    
+}
+
+/* CONTENUTO */
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.price {
+    margin-top: 0.25rem;
+}
+
+.description {
+    margin-top: 0.5rem;
+}
+
+/* DESKTOP */
+@media (min-width: 768px) {
+    .root {
+        grid-template-columns: 1fr 1.2fr;
+        gap: 1.5rem;
+    }
+
+    .imageWrapper {
+        max-height: 320px;
+    }
+
+    .image {
+        height: 100%;
+    }
+}

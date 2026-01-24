@@ -418,12 +418,20 @@ export default function BusinessCollectionSchedule({ isOpen, businessId, onClose
 
                                     return (
                                         <div className={styles.ruleWrap}>
-                                            <div key={rule.id} className={styles.rule}>
+                                            <div
+                                                key={rule.id}
+                                                className={styles.rule}
+                                                data-active={isActiveNow}
+                                            >
                                                 <div className={styles.ruleMain}>
                                                     <div className={styles.ruleTopLine}>
                                                         <Text weight={600}>
                                                             {rule.collection?.name}
                                                         </Text>
+
+                                                        {isActiveNow && (
+                                                            <Badge variant="primary">In uso</Badge>
+                                                        )}
 
                                                         {isOverlapped && (
                                                             <Tooltip

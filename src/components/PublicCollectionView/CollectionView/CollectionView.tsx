@@ -4,6 +4,7 @@ import CollectionHero from "../CollectionHero/CollectionHero";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
 import type { CardTemplate, CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
+import ItemDetail from "../ItemDetail/ItemDetail";
 
 type SectionNavItem = { id: string; name: string };
 
@@ -47,6 +48,7 @@ export default function CollectionView({
 }: Props) {
     const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
     const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+    const [selectedItem, setSelectedItem] = useState<CollectionViewSectionItem | null>(null);
 
     useEffect(() => {
         if (!activeSectionId && sections.length > 0) {
@@ -178,6 +180,7 @@ export default function CollectionView({
                                                         borderRadius: style.cardRadius,
                                                         backgroundColor: style.cardBackgroundColor
                                                     }}
+                                                    onClick={() => setSelectedItem(item)}
                                                 >
                                                     {style.cardTemplate !== "no-image" &&
                                                         (item.image ? (
@@ -237,6 +240,12 @@ export default function CollectionView({
                                 );
                             })}
                         </div>
+
+                        <ItemDetail
+                            item={selectedItem}
+                            isOpen={!!selectedItem}
+                            onClose={() => setSelectedItem(null)}
+                        />
                     </>
                 )}
             </div>
