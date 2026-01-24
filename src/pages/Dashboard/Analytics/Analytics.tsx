@@ -317,7 +317,7 @@ export default function Analytics() {
                                 innerRadius={70}
                                 outerRadius={110}
                                 label={({ name, percent }) =>
-                                    `${name} (${(percent * 100).toFixed(0)}%)`
+                                    `${name} (${(Number(percent) * 100).toFixed(0)}%)`
                                 }
                                 paddingAngle={2}
                             >
@@ -340,7 +340,7 @@ export default function Analytics() {
                                 nameKey="name"
                                 outerRadius={110}
                                 label={({ name, percent }) =>
-                                    `${name} (${(percent * 100 || 0).toFixed(0)}%)`
+                                    `${name} (${(Number(percent) * 100 || 0).toFixed(0)}%)`
                                 }
                                 paddingAngle={4}
                             >
