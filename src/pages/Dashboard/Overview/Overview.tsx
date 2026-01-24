@@ -18,6 +18,9 @@ export default function Overview() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    console.log("ENV", import.meta.env.VITE_ENV);
+    console.log("SITE", import.meta.env.VITE_SITE_URL);
+
     useEffect(() => {
         if (!user?.id) return;
         loadOverview();
