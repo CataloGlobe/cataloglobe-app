@@ -28,6 +28,9 @@ import { Drawer } from "@/components/ui/Drawer/Drawer";
 
 import ScheduleRuleDrawer, { DraftRule, ScheduleRuleDrawerRef } from "./ScheduleRuleDrawer";
 import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
+import { BusinessType } from "@/types/database";
+import { BUSINESS_TO_CATALOG_TYPES } from "@/domain/catalog/catalogTypeRules";
+import { CatalogType } from "@/types/catalog";
 
 /* ============================
    Types
@@ -36,6 +39,7 @@ import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 type Props = {
     isOpen: boolean;
     businessId: string;
+    businessType: BusinessType;
     onClose: () => void;
 };
 
@@ -84,7 +88,12 @@ function sortByActiveNow<T extends BusinessScheduleRow>(
    Component
 ============================ */
 
-export default function BusinessCollectionSchedule({ isOpen, businessId, onClose }: Props) {
+export default function BusinessCollectionSchedule({
+    isOpen,
+    businessId,
+    businessType,
+    onClose
+}: Props) {
     const [loading, setLoading] = useState(false);
     const [schedules, setSchedules] = useState<BusinessScheduleRow[]>([]);
     const [collections, setCollections] = useState<CollectionOption[]>([]);
@@ -148,11 +157,16 @@ export default function BusinessCollectionSchedule({ isOpen, businessId, onClose
             try {
                 setLoading(true);
 
+                const allowedCatalogTypes: CatalogType[] = BUSINESS_TO_CATALOG_TYPES[
+                    businessType
+                ] ?? ["generic"];
+
                 const [schedRes, collRes] = await Promise.all([
                     listBusinessSchedules(businessId),
                     supabase
                         .from("collections")
-                        .select("id, name, kind")
+                        .select("id, name, kind, collection_type")
+                        .in("collection_type", allowedCatalogTypes)
                         .order("name", { ascending: true })
                 ]);
 
@@ -169,7 +183,7 @@ export default function BusinessCollectionSchedule({ isOpen, businessId, onClose
         return () => {
             cancelled = true;
         };
-    }, [isOpen, businessId]);
+    }, [isOpen, businessId, businessType]);
 
     useEffect(() => {
         if (!isOpen) return;

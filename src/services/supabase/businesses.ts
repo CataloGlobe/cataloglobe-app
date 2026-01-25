@@ -1,3 +1,4 @@
+import { BusinessWithCapabilities } from "@/types/Businesses";
 import { supabase } from "./client";
 import type { Business } from "@/types/database";
 import type { CatalogTheme } from "@/types/theme";
@@ -36,10 +37,9 @@ function buildCoverPath(slug: string, businessId: string, extension: string) {
 /* =====================================================
    QUERY (READ)
 ===================================================== */
-
-export async function getUserBusinesses(userId: string): Promise<Business[]> {
+export async function getUserBusinesses(userId: string): Promise<BusinessWithCapabilities[]> {
     const { data, error } = await supabase
-        .from("businesses")
+        .from("businesses_with_capabilities")
         .select("*")
         .eq("user_id", userId)
         .order("created_at", { ascending: true });

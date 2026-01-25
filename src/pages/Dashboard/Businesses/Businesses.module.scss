@@ -34,22 +34,6 @@
   align-items: center;
 }
 
-.addButton {
-  background: var(--brand-primary, #6366f1);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 0.5rem 1rem;
-  font-weight: 600;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: background 0.2s;
-
-  &:hover {
-    background: #4f46e5;
-  }
-}
-
 .formWrapper {
   background: var(--card-bg, #fff);
   border: 1px solid var(--border, #e5e7eb);
@@ -67,26 +51,6 @@
 .formActions {
   display: flex;
   justify-content: flex-end;
-}
-
-.cancelButton {
-  background: transparent;
-  border: 1px solid var(--border);
-  padding: 0.45rem 1rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  cursor: pointer;
-
-  &:hover {
-    background: var(--hover-bg, #f3f4f6);
-  }
-}
-
-/* Divider */
-.divider {
-  border: 0;
-  border-top: 1px solid var(--border);
-  margin: 0.5rem 0;
 }
 
 /* ----------------------------------------------------
@@ -149,86 +113,10 @@
   gap: 0.35rem;
 }
 
-.label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-muted, #6b7280);
-}
-
-/* Select */
-.select {
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 8px;
-  font-size: 0.9rem;
-  background: var(--card-bg, #ffffff);
-  color: var(--text, #111827);
-
-  &:focus-visible {
-    outline: 2px solid var(--brand-primary, #2563eb);
-    outline-offset: 2px;
-  }
-}
-
-/* File input */
-.fileInput {
-  padding: 0.55rem 0.75rem;
-  background: var(--card-bg, #ffffff);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 8px;
-  font-size: 0.9rem;
-}
-
-/* Immagine */
-.imagePreview {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid var(--border, #e5e7eb);
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-}
-
-.imagePlaceholder {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: #f1f5f9;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 /* Actions */
 .actionsRow {
   display: flex;
   justify-content: flex-start;
-}
-
-.primaryButton {
-  background: var(--brand-primary, #2563eb);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 0.6rem 1.2rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease;
-
-  &:hover:not(:disabled) {
-    background: color.scale(#2563eb, $lightness: -10%);
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
 }
 
 /* ----------------------------------------------------
@@ -276,25 +164,5 @@
   .createCard {
     background: #1e293b;
     border-color: #334155;
-  }
-
-  .imagePlaceholder {
-    background: #334155;
-  }
-
-  .select {
-    background: #1e293b;
-    border-color: #334155;
-    color: #f8fafc;
-  }
-
-  .fileInput {
-    background: #1e293b;
-    border-color: #334155;
-    color: #f8fafc;
-  }
-
-  .primaryButton {
-    background: color.scale(#2563eb, $lightness: -5%);
   }
 }

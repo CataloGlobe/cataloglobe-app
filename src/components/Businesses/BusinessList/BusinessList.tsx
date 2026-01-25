@@ -29,6 +29,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 <BusinessCard
                     key={business.id}
                     business={business}
+                    totalBusinesses={businesses.length}
                     onEdit={onEdit}
                     onDelete={onDelete}
                     onOpenReviews={onOpenReviews}

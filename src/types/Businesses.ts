@@ -12,15 +12,21 @@ export interface BusinessFormValues {
 }
 
 export interface BusinessCardProps {
-    business: Business;
-    onEdit: (business: Business) => void;
+    business: BusinessWithCapabilities;
+    totalBusinesses: number;
+    onEdit: (business: BusinessWithCapabilities) => void;
     onDelete: (id: string) => void;
     onOpenReviews: (businessId: string) => void;
 }
 
 export interface BusinessListProps {
-    businesses: Business[];
-    onEdit: (business: Business) => void;
+    businesses: BusinessWithCapabilities[];
+    onEdit: (business: BusinessWithCapabilities) => void;
     onDelete: (id: string) => void;
     onOpenReviews: (id: string) => void;
 }
+
+export type BusinessWithCapabilities = Business & {
+    compatible_collection_count: number;
+    scheduled_compatible_collection_count: number;
+};

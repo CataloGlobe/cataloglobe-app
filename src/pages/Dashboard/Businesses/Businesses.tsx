@@ -21,8 +21,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { ensureUniqueBusinessSlug } from "@/utils/businessSlug";
 import { generateRandomSuffix, sanitizeSlugForSave } from "@/utils/slugify";
 
-import type { Business } from "@/types/database";
-import type { BusinessFormValues } from "@/types/Businesses";
+import type { BusinessFormValues, BusinessWithCapabilities } from "@/types/Businesses";
 
 import styles from "./Businesses.module.scss";
 import { BusinessUpsert } from "@/components/Businesses/BusinessUpsert/BusinessUpsert";
@@ -50,7 +49,7 @@ export default function Businesses() {
     // ======================================
     // STATE: lista dei business
     // ======================================
-    const [businesses, setBusinesses] = useState<Business[]>([]);
+    const [businesses, setBusinesses] = useState<BusinessWithCapabilities[]>([]);
     const [isLoadingBusinesses, setIsLoadingBusinesses] = useState(true);
 
     // ======================================
@@ -82,7 +81,7 @@ export default function Businesses() {
     );
     const [editCoverFile, setEditCoverFile] = useState<File | null>(null);
     const [isEditing, setIsEditing] = useState(false);
-    const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
+    const [editingBusiness, setEditingBusiness] = useState<BusinessWithCapabilities | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
     // ======================================
@@ -335,7 +334,7 @@ export default function Businesses() {
     // ======================================
     // CALLBACK: edit business
     // ======================================
-    const handleEditClick = useCallback((business: Business) => {
+    const handleEditClick = useCallback((business: BusinessWithCapabilities) => {
         setEditingBusiness(business);
         setEditingId(business.id);
         setEditForm({
