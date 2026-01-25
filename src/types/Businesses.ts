@@ -29,4 +29,7 @@ export interface BusinessListProps {
 export type BusinessWithCapabilities = Business & {
     compatible_collection_count: number;
     scheduled_compatible_collection_count: number;
+    active_primary_collection_name: string | null;
+    fallback_primary_collection_name: string | null;
+    active_special_collection_name: string | null;
 };
