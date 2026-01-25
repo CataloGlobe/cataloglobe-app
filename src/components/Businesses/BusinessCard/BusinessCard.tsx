@@ -10,6 +10,7 @@ import BusinessCollectionSchedule from "../BusinessCollectionSchedule/BusinessCo
 import { Button } from "@/components/ui";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/Badge/Badge";
 
 export const BusinessCard: React.FC<BusinessCardProps> = ({
     business,
@@ -115,6 +116,26 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                         >
                             {publicUrl}
                         </Text>
+
+                        <div className={styles.badges}>
+                            {/* Primary attiva ora */}
+                            {business.active_primary_collection_name && (
+                                <Badge>{business.active_primary_collection_name}</Badge>
+                            )}
+
+                            {/* Backup primary (solo se NON c'è una primary attiva) */}
+                            {!business.active_primary_collection_name &&
+                                business.fallback_primary_collection_name && (
+                                    <Badge variant="warning">
+                                        {business.fallback_primary_collection_name}
+                                    </Badge>
+                                )}
+
+                            {/* Special attiva */}
+                            {business.active_special_collection_name && (
+                                <Badge>{business.active_special_collection_name}</Badge>
+                            )}
+                        </div>
                     </div>
 
                     {/* QR */}
