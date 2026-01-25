@@ -102,6 +102,7 @@ export default function Profile() {
                         />
 
                         <Button
+                            type="submit"
                             variant="primary"
                             fullWidth
                             loading={loading}
