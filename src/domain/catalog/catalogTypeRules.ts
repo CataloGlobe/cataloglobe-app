@@ -11,6 +11,10 @@ export const BUSINESS_TO_CATALOG_TYPES: Record<BusinessType, CatalogType[]> = {
     other: ["generic"]
 };
 
+export function getAllowedCatalogTypesForBusiness(businessType: BusinessType): CatalogType[] {
+    return BUSINESS_TO_CATALOG_TYPES[businessType] ?? ["generic"];
+}
+
 export function getAllowedCatalogTypesForBusinesses(businessTypes: BusinessType[]): CatalogType[] {
     const set = new Set<CatalogType>();
 

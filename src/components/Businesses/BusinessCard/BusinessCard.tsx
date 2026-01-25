@@ -9,9 +9,11 @@ import styles from "./BusinessCard.module.scss";
 import BusinessCollectionSchedule from "../BusinessCollectionSchedule/BusinessCollectionSchedule";
 import { Button } from "@/components/ui";
 import { IconButton } from "@/components/ui/Button/IconButton";
+import { useNavigate } from "react-router-dom";
 
 export const BusinessCard: React.FC<BusinessCardProps> = ({
     business,
+    totalBusinesses,
     onEdit,
     onDelete,
     onOpenReviews
@@ -24,6 +26,12 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
     const [showScheduleModal, setShowScheduleModal] = useState(false);
 
     const menuRef = useRef<HTMLDivElement | null>(null);
+
+    const navigate = useNavigate();
+
+    const canSchedule = business.compatible_collection_count > 0;
+    const hasScheduled = business.scheduled_compatible_collection_count > 0;
+    const canOverride = totalBusinesses > 1 && hasScheduled;
 
     /* ==============================
        CLICK OUTSIDE PER CHIUDERE MENU
@@ -118,19 +126,36 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                 {/* ACTIONS */}
                 <div className={styles.actions}>
                     <div className={styles.actionsLeft}>
-                        <Button variant="primary" onClick={() => setOverrideOpen(true)}>
-                            Gestisci disponibilità e prezzi
-                        </Button>
+                        {/* Override */}
+                        {canOverride && (
+                            <Button variant="primary" onClick={() => setOverrideOpen(true)}>
+                                Gestisci disponibilità e prezzi
+                            </Button>
+                        )}
 
-                        <Button
-                            variant="primary"
-                            onClick={() => {
-                                setShowScheduleModal(true);
-                                setShowMenu(false);
-                            }}
-                        >
-                            Contenuti & Orari
-                        </Button>
+                        {/* Schedule */}
+                        {canSchedule && (
+                            <Button
+                                variant="primary"
+                                onClick={() => {
+                                    setShowScheduleModal(true);
+                                    setShowMenu(false);
+                                }}
+                            >
+                                Contenuti & Orari
+                            </Button>
+                        )}
+
+                        {/* CTA solo se NON può schedulare */}
+                        {!canSchedule && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => navigate("/dashboard/collections")}
+                            >
+                                Crea catalogo
+                            </Button>
+                        )}
 
                         <Button variant="outline" onClick={() => onOpenReviews(business.id)}>
                             Recensioni
@@ -211,6 +236,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
             <BusinessCollectionSchedule
                 isOpen={showScheduleModal}
                 businessId={business.id}
+                businessType={business.type}
                 onClose={() => setShowScheduleModal(false)}
             />
         </>
