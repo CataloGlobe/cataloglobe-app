@@ -61,7 +61,7 @@ export default function SignUp() {
                         {success}
                     </Text>
                 )}
-                <Button variant="primary" fullWidth>
+                <Button type="submit" variant="primary" fullWidth>
                     Crea account
                 </Button>
             </form>
