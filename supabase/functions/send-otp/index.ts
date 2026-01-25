@@ -67,39 +67,39 @@ serve(async req => {
             from: "Cataloglobe <updates@cataloglobe.com>",
             to: email,
             subject: "Il tuo codice di accesso Cataloglobe",
-            html = `
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background:#f9fafb; padding:40px;">
+            html: `
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background:#f9fafb; padding:40px;">
                 <div style="max-width:520px; margin:0 auto; background:#ffffff; border-radius:12px; padding:32px; box-shadow:0 10px 30px rgba(0,0,0,0.05);">
-                    
-                    <h1 style="margin:0 0 16px; font-size:22px; color:#111827;">
+                  
+                  <h1 style="margin:0 0 16px; font-size:22px; color:#111827;">
                     Codice di accesso
-                    </h1>
-
-                    <p style="margin:0 0 24px; font-size:15px; color:#374151;">
+                  </h1>
+          
+                  <p style="margin:0 0 24px; font-size:15px; color:#374151;">
                     Usa questo codice per completare l’accesso a <strong>Cataloglobe</strong>.
-                    </p>
-
-                    <div style="text-align:center; margin:32px 0;">
+                  </p>
+          
+                  <div style="text-align:center; margin:32px 0;">
                     <div style="display:inline-block; padding:16px 24px; font-size:28px; letter-spacing:4px; font-weight:700; background:#111827; color:#ffffff; border-radius:10px;">
-                        ${otp}
+                      ${code}
                     </div>
-                    </div>
-
-                    <p style="margin:24px 0 0; font-size:14px; color:#6b7280;">
+                  </div>
+          
+                  <p style="margin:24px 0 0; font-size:14px; color:#6b7280;">
                     Il codice è valido per pochi minuti.
                     <br />
                     Se non hai richiesto tu l’accesso, puoi ignorare questa email.
-                    </p>
-
-                    <hr style="border:none; border-top:1px solid #e5e7eb; margin:32px 0;" />
-
-                    <p style="margin:0; font-size:12px; color:#9ca3af;">
+                  </p>
+          
+                  <hr style="border:none; border-top:1px solid #e5e7eb; margin:32px 0;" />
+          
+                  <p style="margin:0; font-size:12px; color:#9ca3af;">
                     © ${new Date().getFullYear()} Cataloglobe
-                    </p>
-
+                  </p>
+          
                 </div>
-                </div>
-                `
+              </div>
+            `
         });
 
         return new Response(JSON.stringify({ success: true }), { headers });
