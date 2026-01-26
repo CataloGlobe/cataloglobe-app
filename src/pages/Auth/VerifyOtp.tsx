@@ -6,29 +6,15 @@ import {
     type KeyboardEvent,
     type ClipboardEvent
 } from "react";
-import { supabase } from "@services/supabase/client";
 import { Button } from "@components/ui";
 import { useNavigate } from "react-router-dom";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import styles from "./Auth.module.scss";
 
-interface OtpRow {
-    code: string; // contiene l'hash
-    created_at: string;
-}
-
 const OTP_LENGTH = 6;
 const MAX_ATTEMPTS = 3;
 const RESEND_COOLDOWN = 60; // sec
-
-async function hashOtp(code: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(code);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-}
 
 export default function VerifyOtp() {
     const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
@@ -123,59 +109,53 @@ export default function VerifyOtp() {
             return;
         }
 
-        // 1️⃣ Recupero l'ultimo OTP per l'utente
-        const { data, error: fetchErr } = await supabase
-            .from("otps")
-            .select("code, created_at")
-            .eq("user_id", userId)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .single<OtpRow>();
+        // 🔐 Verifica OTP via Edge Function
+        const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-otp`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+                    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+                },
+                body: JSON.stringify({
+                    userId,
+                    code: codePlain
+                })
+            }
+        );
 
-        if (fetchErr || !data) {
-            setError("Codice non trovato. Richiedi un nuovo OTP.");
-            setLoading(false);
-            return;
-        }
+        const result = await response.json();
 
-        // 2️⃣ Scadenza 5 minuti
-        const createdAt = new Date(data.created_at);
-        const expired = Date.now() - createdAt.getTime() > 5 * 60 * 1000;
+        if (!response.ok) {
+            if (result?.error === "expired") {
+                setError("Codice scaduto. Effettua di nuovo il login.");
+            } else {
+                setAttempts(prev => {
+                    const next = prev + 1;
 
-        if (expired) {
-            setError("Codice scaduto. Effettua di nuovo il login.");
-            setLoading(false);
-            return;
-        }
+                    if (next >= MAX_ATTEMPTS) {
+                        localStorage.removeItem("pendingUserId");
+                        localStorage.removeItem("pendingUserEmail");
+                        localStorage.removeItem("otpValidated");
+                        setError(
+                            "Hai raggiunto il numero massimo di tentativi. Effettua nuovamente il login."
+                        );
+                        navigate("/login");
+                        return next;
+                    }
 
-        // 3️⃣ Confronto hash
-        const codeHash = await hashOtp(codePlain);
-
-        if (data.code !== codeHash) {
-            setAttempts(prev => {
-                const next = prev + 1;
-
-                if (next >= MAX_ATTEMPTS) {
-                    // Troppi tentativi → reset totale
-                    localStorage.removeItem("pendingUserId");
-                    localStorage.removeItem("pendingUserEmail");
-                    localStorage.removeItem("otpValidated");
-                    setError(
-                        "Hai raggiunto il numero massimo di tentativi. Effettua nuovamente il login."
-                    );
-                    setLoading(false);
-                    navigate("/login");
+                    setError(`Codice errato. Tentativi rimasti: ${MAX_ATTEMPTS - next}`);
                     return next;
-                }
+                });
+            }
 
-                setError(`Codice errato. Tentativi rimasti: ${MAX_ATTEMPTS - next}`);
-                return next;
-            });
             setLoading(false);
             return;
         }
 
-        // 4️⃣ OTP corretto: segno che è verificato e redirect
+        // OTP corretto: segno che è verificato e redirect
         localStorage.setItem("otpValidated", "true");
         localStorage.removeItem("pendingUserId");
         localStorage.removeItem("pendingUserEmail");
