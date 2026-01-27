@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import MainLayout from "@layouts/MainLayout/MainLayout";
 import { ProtectedRoute } from "@components/ProtectedRoute";
 
@@ -20,13 +20,13 @@ import Settings from "@/pages/Dashboard/Settings/Settings";
 // Public pages
 import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
 import Home from "./pages/Home/Home";
+import NotFound from "./pages/NotFound/NotFound";
 
 export default function App() {
     return (
         <Routes>
             {/* Public routes */}
             <Route path="/" element={<Home />} />
-            <Route path="/business/:slug" element={<PublicCollectionPage />} />
 
             {/* Auth routes */}
             <Route path="/login" element={<Login />} />
@@ -57,14 +57,11 @@ export default function App() {
                 <Route path="settings" element={<Settings />} />
             </Route>
 
-            {/* Redirect for legacy route */}
-            <Route
-                path="/dashboard/businesses/:id"
-                element={<Navigate to="/dashboard/reviews" replace />}
-            />
+            {/* PUBLIC BUSINESS */}
+            <Route path="/:slug" element={<PublicCollectionPage />} />
 
             {/* Global 404 → dashboard */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<NotFound />} />
         </Routes>
     );
 }

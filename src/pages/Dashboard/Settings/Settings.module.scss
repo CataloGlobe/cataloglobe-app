@@ -34,27 +34,6 @@
 }
 
 /* ----------------------------------------------------
-   SELECT
----------------------------------------------------- */
-select {
-  width: fit-content;
-  padding: 0.45rem 0.75rem;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 8px;
-  font-size: 0.9rem;
-  background: var(--card-bg, #fff);
-  color: var(--text, #0f172a);
-  transition: border-color 0.2s ease;
-
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-
-  &:focus-visible {
-    outline: 2px solid var(--brand-primary, #2563eb);
-    outline-offset: 2px;
-  }
-}
-
-/* ----------------------------------------------------
    ACCOUNT / LOGOUT
 ---------------------------------------------------- */
 .accountInfo {
@@ -65,44 +44,16 @@ select {
   gap: 0.75rem;
 }
 
-/* Pulsante logout */
-.logoutBtn {
-  background: $error;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 0.55rem 1rem;
-  font-size: 0.9rem;
-  cursor: pointer;
-  font-weight: 500;
-
-  transition: background 0.2s ease, transform 0.15s ease;
-
-  &:hover {
-    background: color.adjust($error, $lightness: -6%);
-    transform: translateY(-1px);
-  }
-
-  &:focus-visible {
-    outline: 2px solid color.adjust($error, $lightness: -6%);
-    outline-offset: 3px;
-  }
+.emailField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
-
 /* ----------------------------------------------------
    DARK MODE TWEAKS (SOLO MICRO-COSMETICA)
 ---------------------------------------------------- */
 [data-theme="dark"] {
   .section {
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-  }
-
-  select {
-    background: var(--card-bg, #1e293b);
-    color: var(--text, #f9fafb);
-  }
-
-  .logoutBtn:hover {
-    background: color.adjust($error, $lightness: -10%);
   }
 }

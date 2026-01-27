@@ -7,12 +7,26 @@ import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import styles from "./Settings.module.scss";
 import { Select } from "@/components/ui/Select/Select";
 import { Button } from "@/components/ui";
+import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
+import { signOut } from "@/services/supabase/auth";
 
 export default function Settings() {
     const { user } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const [language, setLanguage] = useState("it");
     const [notifications, setNotifications] = useState(true);
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    const handleLogout = async () => {
+        try {
+            setIsLoggingOut(true);
+            await signOut();
+        } finally {
+            setIsLoggingOut(false);
+            setShowLogoutModal(false);
+        }
+    };
 
     return (
         <div className={styles.settings}>
@@ -39,7 +53,6 @@ export default function Settings() {
                     <option value="it">Italiano</option>
                     <option value="en">English</option>
                 </Select>
-                <Text variant="title-sm">Lingua</Text>
             </div>
 
             <div className={styles.section}>
@@ -57,14 +70,30 @@ export default function Settings() {
             <div className={styles.section}>
                 <Text variant="title-sm">Account</Text>
                 <div className={styles.accountInfo}>
-                    <Text variant="body">
-                        <strong>Email:</strong> {user?.email || "—"}
-                    </Text>
-                    <Button variant="danger" onClick={() => {}}>
+                    <div className={styles.emailField}>
+                        <Text as="label" variant="caption" weight={600}>
+                            Email
+                        </Text>
+                        <Text as="span" variant="caption">
+                            {user?.email || "—"}
+                        </Text>
+                    </div>
+
+                    <Button variant="danger" onClick={() => setShowLogoutModal(true)}>
                         Esci dall’account
                     </Button>
                 </div>
             </div>
+
+            <ConfirmModal
+                isOpen={showLogoutModal}
+                title="Esci dall’account"
+                description="Sei sicuro di voler uscire? Dovrai effettuare nuovamente l’accesso per rientrare."
+                confirmLabel={isLoggingOut ? "Uscita in corso..." : "Esci"}
+                cancelLabel="Annulla"
+                onConfirm={handleLogout}
+                onCancel={() => setShowLogoutModal(false)}
+            />
         </div>
     );
 }
