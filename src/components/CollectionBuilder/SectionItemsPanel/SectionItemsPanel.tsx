@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { CollectionItemWithItem } from "@/types/database";
 import Text from "@/components/ui/Text/Text";
-import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 import { Eye, EyeOff, Pencil, Plus, X } from "lucide-react";
 import {
     DndContext,
@@ -17,6 +16,12 @@ import { CSS } from "@dnd-kit/utilities";
 import styles from "./SectionItemsPanel.module.scss";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { ItemRow } from "../ItemRow/ItemRow";
+import ModalLayout, {
+    ModalLayoutContent,
+    ModalLayoutFooter,
+    ModalLayoutHeader
+} from "@/components/ui/ModalLayout/ModalLayout";
+import { Button } from "@/components/ui";
 
 interface SectionItemsPanelProps {
     sectionLabel: string;
@@ -115,24 +120,46 @@ export function SectionItemsPanel({
                 </DndContext>
             )}
 
-            <ConfirmModal
+            <ModalLayout
                 isOpen={!!itemToRemove}
-                title="Rimuovere elemento"
-                description={
-                    itemToRemove
-                        ? `Vuoi rimuovere "${itemToRemove.item.name}" da questa categoria?`
-                        : ""
-                }
-                confirmLabel="Rimuovi"
-                cancelLabel="Annulla"
-                onCancel={() => setItemToRemove(null)}
-                onConfirm={() => {
-                    if (!itemToRemove) return;
+                onClose={() => setItemToRemove(null)}
+                width="xs"
+                height="fit"
+            >
+                <ModalLayoutHeader>
+                    <div className={styles.headerLeft}>
+                        <Text as="h2" variant="title-sm" weight={700}>
+                            Rimuovi elemento
+                        </Text>
+                    </div>
+                </ModalLayoutHeader>
 
-                    onRemoveItem(itemToRemove.id);
-                    setItemToRemove(null);
-                }}
-            />
+                <ModalLayoutContent>
+                    <Text variant="body">
+                        {itemToRemove
+                            ? `Vuoi rimuovere "${itemToRemove.item.name}" da questa categoria?`
+                            : ""}
+                    </Text>
+                </ModalLayoutContent>
+
+                <ModalLayoutFooter>
+                    <Button variant="secondary" onClick={() => setItemToRemove(null)}>
+                        Annulla
+                    </Button>
+
+                    <Button
+                        variant="primary"
+                        onClick={() => {
+                            if (!itemToRemove) return;
+
+                            onRemoveItem(itemToRemove.id);
+                            setItemToRemove(null);
+                        }}
+                    >
+                        Rimuovi
+                    </Button>
+                </ModalLayoutFooter>
+            </ModalLayout>
         </main>
     );
 }

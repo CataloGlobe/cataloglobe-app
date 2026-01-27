@@ -7,8 +7,12 @@ import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import styles from "./Settings.module.scss";
 import { Select } from "@/components/ui/Select/Select";
 import { Button } from "@/components/ui";
-import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 import { signOut } from "@/services/supabase/auth";
+import ModalLayout, {
+    ModalLayoutContent,
+    ModalLayoutFooter,
+    ModalLayoutHeader
+} from "@/components/ui/ModalLayout/ModalLayout";
 
 export default function Settings() {
     const { user } = useAuth();
@@ -85,15 +89,37 @@ export default function Settings() {
                 </div>
             </div>
 
-            <ConfirmModal
+            <ModalLayout
                 isOpen={showLogoutModal}
-                title="Esci dall’account"
-                description="Sei sicuro di voler uscire? Dovrai effettuare nuovamente l’accesso per rientrare."
-                confirmLabel={isLoggingOut ? "Uscita in corso..." : "Esci"}
-                cancelLabel="Annulla"
-                onConfirm={handleLogout}
-                onCancel={() => setShowLogoutModal(false)}
-            />
+                onClose={() => setShowLogoutModal(false)}
+                width="xs"
+                height="fit"
+            >
+                <ModalLayoutHeader>
+                    <div className={styles.headerLeft}>
+                        <Text as="h2" variant="title-sm" weight={700}>
+                            Esci dall’account
+                        </Text>
+                    </div>
+                </ModalLayoutHeader>
+
+                <ModalLayoutContent>
+                    <Text variant="body">
+                        Sei sicuro di voler uscire? Dovrai effettuare nuovamente l’accesso per
+                        rientrare.
+                    </Text>
+                </ModalLayoutContent>
+
+                <ModalLayoutFooter>
+                    <Button variant="secondary" onClick={() => setShowLogoutModal(false)}>
+                        Annulla
+                    </Button>
+
+                    <Button variant="primary" onClick={handleLogout}>
+                        {isLoggingOut ? "Uscita in corso..." : "Esci"}
+                    </Button>
+                </ModalLayoutFooter>
+            </ModalLayout>
         </div>
     );
 }

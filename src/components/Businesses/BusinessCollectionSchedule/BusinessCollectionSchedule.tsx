@@ -20,6 +20,7 @@ import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessC
 import ModalLayout, {
     ModalLayoutContent,
     ModalLayoutDrawer,
+    ModalLayoutFooter,
     ModalLayoutHeader
 } from "@/components/ui/ModalLayout/ModalLayout";
 import { IconButton } from "@/components/ui/Button/IconButton";
@@ -27,7 +28,6 @@ import { Badge } from "@/components/ui/Badge/Badge";
 import { Drawer } from "@/components/ui/Drawer/Drawer";
 
 import ScheduleRuleDrawer, { DraftRule, ScheduleRuleDrawerRef } from "./ScheduleRuleDrawer";
-import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 import { BusinessType } from "@/types/database";
 import { BUSINESS_TO_CATALOG_TYPES } from "@/domain/catalog/catalogTypeRules";
 import { CatalogType } from "@/types/catalog";
@@ -494,18 +494,46 @@ export default function BusinessCollectionSchedule({
                     </section>
                 </div>
 
-                <ConfirmModal
+                <ModalLayout
                     isOpen={showDeleteModal}
-                    title="Elimina schedulazione"
-                    description="Sei sicuro di voler eliminare questa schedulazione? L'operazione non è reversibile."
-                    confirmLabel={isDeleting ? "Eliminazione..." : "Elimina"}
-                    cancelLabel="Annulla"
-                    onConfirm={confirmDelete}
-                    onCancel={() => {
+                    onClose={() => {
                         setShowDeleteModal(false);
                         setDeleteTargetId(null);
                     }}
-                />
+                    width="xs"
+                    height="fit"
+                >
+                    <ModalLayoutHeader>
+                        <div className={styles.headerLeft}>
+                            <Text as="h2" variant="title-sm" weight={700}>
+                                Elimina schedulazione
+                            </Text>
+                        </div>
+                    </ModalLayoutHeader>
+
+                    <ModalLayoutContent>
+                        <Text variant="body">
+                            Sei sicuro di voler eliminare questa schedulazione? L'operazione non è
+                            reversibile.
+                        </Text>
+                    </ModalLayoutContent>
+
+                    <ModalLayoutFooter>
+                        <Button
+                            variant="secondary"
+                            onClick={() => {
+                                setShowDeleteModal(false);
+                                setDeleteTargetId(null);
+                            }}
+                        >
+                            Annulla
+                        </Button>
+
+                        <Button variant="primary" onClick={confirmDelete}>
+                            {isDeleting ? "Eliminazione..." : "Elimina"}
+                        </Button>
+                    </ModalLayoutFooter>
+                </ModalLayout>
             </ModalLayoutContent>
             <ModalLayoutDrawer>
                 <Drawer

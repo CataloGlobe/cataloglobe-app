@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from "react";
-import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 import BusinessOverrides from "../BusinessOverrides/BusinessOverrides";
 import Text from "@components/ui/Text/Text";
 import { QRCodeSVG } from "qrcode.react";
@@ -11,6 +10,10 @@ import { Button } from "@/components/ui";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/Badge/Badge";
+import ModalLayout, {
+    ModalLayoutContent,
+    ModalLayoutHeader
+} from "@/components/ui/ModalLayout/ModalLayout";
 
 export const BusinessCard: React.FC<BusinessCardProps> = ({
     business,
@@ -219,31 +222,39 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
             </article>
 
             {/* MODALE QR */}
-            <ConfirmModal
+            <ModalLayout
                 isOpen={showQrModal}
-                title="QR code dell’attività"
-                description="Scansiona o scarica il QR code."
-                confirmLabel="Chiudi"
-                onConfirm={() => setShowQrModal(false)}
+                onClose={() => setShowQrModal(false)}
+                width="sm"
+                height="fit"
             >
-                <div
-                    style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        gap: "1rem",
-                        textAlign: "center",
-                        marginBottom: "1rem"
-                    }}
-                >
-                    <QRCodeSVG id="qr-download" value={publicUrl} size={240} />
+                <ModalLayoutHeader>
+                    <div className={styles.headerLeft}>
+                        <Text as="h2" variant="title-md" weight={700}>
+                            QR code dell’attività
+                        </Text>
+                        <Text variant="caption" colorVariant="muted">
+                            Scansiona o scarica il QR code.
+                        </Text>
+                    </div>
 
-                    <Button variant="primary" onClick={downloadQrAsPng}>
-                        Scarica QR Code
-                    </Button>
-                </div>
-            </ConfirmModal>
+                    <div className={styles.headerRight}>
+                        <Button variant="secondary" onClick={() => setShowQrModal(false)}>
+                            Chiudi
+                        </Button>
+                    </div>
+                </ModalLayoutHeader>
+
+                <ModalLayoutContent>
+                    <div className={styles.modalContent}>
+                        <QRCodeSVG id="qr-download" value={publicUrl} size={240} />
+
+                        <Button variant="primary" size="lg" onClick={downloadQrAsPng}>
+                            Scarica QR Code
+                        </Button>
+                    </div>
+                </ModalLayoutContent>
+            </ModalLayout>
 
             {/* OVERRIDES */}
             <BusinessOverrides

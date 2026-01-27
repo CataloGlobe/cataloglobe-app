@@ -66,6 +66,14 @@
   gap: 0.5rem;
 }
 
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
 /* QR in alto a destra */
 .qrWrapper {
   height: 110px;

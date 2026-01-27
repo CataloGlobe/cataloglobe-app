@@ -181,3 +181,12 @@
   align-items: center;
   justify-content: center;
 }
+
+/* ---------------------------------------------
+   MODAL
+--------------------------------------------- */
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}

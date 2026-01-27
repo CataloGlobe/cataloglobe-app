@@ -43,6 +43,10 @@
   outline: none;
 
   /* ---------- WIDTH VARIANTS ---------- */
+  &[data-width="xs"] {
+    --modal-width: 360px;
+  }
+
   &[data-width="sm"] {
     --modal-width: 480px;
   }
