@@ -12,6 +12,7 @@ type ConfirmModalProps = {
     cancelLabel?: string;
     onConfirm?: () => void;
     onCancel?: () => void;
+    disableConfirm?: boolean;
 };
 
 export default function ConfirmModal({
@@ -22,7 +23,8 @@ export default function ConfirmModal({
     confirmLabel,
     cancelLabel,
     onConfirm,
-    onCancel
+    onCancel,
+    disableConfirm = false
 }: ConfirmModalProps) {
     // Questa modale è chiudibile?
     const isClosable =
@@ -76,7 +78,7 @@ export default function ConfirmModal({
                     )}
 
                     {confirmLabel && onConfirm && (
-                        <Button variant="primary" onClick={onConfirm}>
+                        <Button variant="primary" onClick={onConfirm} disabled={disableConfirm}>
                             {confirmLabel}
                         </Button>
                     )}

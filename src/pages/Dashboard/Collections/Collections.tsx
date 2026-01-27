@@ -9,14 +9,15 @@ import {
     createCollection,
     updateCollection,
     deleteCollection,
-    isCollectionDeletable
+    isCollectionDeletable,
+    duplicateCollection
 } from "@/services/supabase/collections";
 import type { BusinessType, Collection } from "@/types/database";
 import CollectionBuilder from "@/components/CollectionBuilder/CollectionBuilder";
 import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 import { useToast } from "@/context/Toast/ToastContext";
 import { businessTypeToCatalogType } from "@/domain/catalog/businessToCatalog";
-import { Pencil, Star, Trash2 } from "lucide-react";
+import { CopyPlus, Pencil, Star, Trash2 } from "lucide-react";
 import { CatalogType } from "@/types/catalog";
 import { Select } from "@/components/ui/Select/Select";
 import { CATALOG_TYPE_LABELS } from "@/domain/catalog/catalogTypeLabels";
@@ -45,6 +46,12 @@ export default function Collections() {
     const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<Collection | null>(null);
     const [deleteError, setDeleteError] = useState<string | null>(null);
+
+    const [duplicateTarget, setDuplicateTarget] = useState<Collection | null>(null);
+    const [duplicateName, setDuplicateName] = useState("");
+    const [isDuplicating, setIsDuplicating] = useState(false);
+    const [duplicateDescription, setDuplicateDescription] = useState("");
+    const [duplicateItems, setDuplicateItems] = useState(true);
 
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
@@ -164,6 +171,48 @@ export default function Collections() {
         }
     };
 
+    const handleConfirmDuplicate = async () => {
+        if (!duplicateTarget || !duplicateName.trim()) return;
+
+        try {
+            setIsDuplicating(true);
+
+            const newId = await duplicateCollection(
+                duplicateTarget.id,
+                duplicateName.trim(),
+                duplicateItems
+            );
+
+            if (duplicateDescription.trim()) {
+                await updateCollection(newId, {
+                    description: duplicateDescription.trim()
+                });
+            }
+
+            showToast({
+                type: "success",
+                message: "Collezione duplicata con successo",
+                duration: 2500
+            });
+
+            await loadCollections();
+            setActiveCollectionId(newId);
+        } catch (error) {
+            console.error(error);
+            showToast({
+                type: "error",
+                message: "Errore durante la duplicazione della collezione",
+                duration: 3000
+            });
+        } finally {
+            setIsDuplicating(false);
+            setDuplicateTarget(null);
+            setDuplicateName("");
+            setDuplicateDescription("");
+            setDuplicateItems(true);
+        }
+    };
+
     return (
         <>
             <div className={styles.wrapper}>
@@ -216,6 +265,18 @@ export default function Collections() {
                                     </Text>
 
                                     <div className={styles.actions}>
+                                        <IconButton
+                                            variant="ghost"
+                                            icon={<CopyPlus size={16} />}
+                                            aria-label="Duplica collezione"
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                setDuplicateTarget(col);
+                                                setDuplicateName(`${col.name} (copia)`);
+                                                setDuplicateDescription(col.description ?? "");
+                                            }}
+                                        />
+
                                         <IconButton
                                             variant="ghost"
                                             icon={<Pencil size={16} />}
@@ -295,6 +356,53 @@ export default function Collections() {
             />
 
             <ConfirmModal
+                isOpen={Boolean(duplicateTarget)}
+                title="Duplica collezione"
+                description={
+                    duplicateTarget ? `Vuoi duplicare la collezione "${duplicateTarget.name}"?` : ""
+                }
+                confirmLabel={isDuplicating ? "Duplicazione..." : "Duplica"}
+                cancelLabel="Annulla"
+                onConfirm={handleConfirmDuplicate}
+                onCancel={() => setDuplicateTarget(null)}
+                disableConfirm={!duplicateName.trim() || isDuplicating}
+            >
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "1rem",
+                        marginBottom: "1rem"
+                    }}
+                >
+                    <TextInput
+                        label="Nome nuova collezione"
+                        value={duplicateName}
+                        onChange={e => setDuplicateName(e.target.value)}
+                        autoFocus
+                    />
+
+                    <TextInput
+                        label="Descrizione"
+                        value={duplicateDescription}
+                        onChange={e => setDuplicateDescription(e.target.value)}
+                        placeholder="Descrizione opzionale"
+                    />
+
+                    <CheckboxInput
+                        label="Duplica anche gli item"
+                        description={
+                            duplicateItems
+                                ? "Voglio duplicare anche gli item"
+                                : "Voglio duplicare solo la struttura"
+                        }
+                        checked={duplicateItems}
+                        onChange={e => setDuplicateItems(e.target.checked)}
+                    />
+                </div>
+            </ConfirmModal>
+
+            <ConfirmModal
                 isOpen={modalOpen}
                 title={editingCollection ? "Modifica collezione" : "Crea nuova collezione"}
                 description={
@@ -306,6 +414,7 @@ export default function Collections() {
                 cancelLabel="Annulla"
                 onConfirm={handleConfirm}
                 onCancel={() => setModalOpen(false)}
+                disableConfirm={!name.trim()}
             >
                 <div
                     style={{

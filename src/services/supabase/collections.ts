@@ -79,6 +79,21 @@ export async function isCollectionDeletable(collectionId: string): Promise<boole
     return (count ?? 0) === 0;
 }
 
+export async function duplicateCollection(
+    sourceCollectionId: string,
+    newName: string,
+    duplicateItems: boolean
+): Promise<string> {
+    const { data, error } = await supabase.rpc("duplicate_collection", {
+        p_source_collection_id: sourceCollectionId,
+        p_new_name: newName,
+        p_duplicate_items: duplicateItems
+    });
+
+    if (error) throw error;
+    return data as string;
+}
+
 /* ============================
    SECTIONS (DERIVED)
 ============================ */
