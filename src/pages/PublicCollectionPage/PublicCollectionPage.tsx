@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import Text from "@/components/ui/Text/Text";
 import PublicCollectionView from "@/components/PublicCollectionView/PublicCollectionView";
 
 import { getBusinessBySlug } from "@/services/supabase/businesses";
@@ -13,6 +12,7 @@ import CollectionView from "@/components/PublicCollectionView/CollectionView/Col
 import { DEFAULT_PUBLIC_STYLE } from "@/utils/getDefaultPublicStyle";
 import { getEmptyCopy } from "@/utils/getEmptyCopy";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
+import NotFound from "../NotFound/NotFound";
 
 type PageState =
     | { status: "loading" }
@@ -112,6 +112,12 @@ export default function PublicCollectionPage() {
         };
     }, [slug]);
 
+    useEffect(() => {
+        if (state.status === "ready") {
+            document.title = `${state.business.name} | CataloGlobe`;
+        }
+    }, [state]);
+
     /* ============================
        RENDER
     ============================ */
@@ -121,13 +127,7 @@ export default function PublicCollectionPage() {
     }
 
     if (state.status === "error") {
-        return (
-            <main>
-                <Text variant="body" colorVariant="warning">
-                    {state.message}
-                </Text>
-            </main>
-        );
+        return <NotFound variant="business" />;
     }
 
     if (state.status === "empty") {

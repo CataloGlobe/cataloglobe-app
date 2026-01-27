@@ -26,6 +26,7 @@ import type { BusinessFormValues, BusinessWithCapabilities } from "@/types/Busin
 import styles from "./Businesses.module.scss";
 import { BusinessUpsert } from "@/components/Businesses/BusinessUpsert/BusinessUpsert";
 import { Button } from "@/components/ui";
+import { RESERVED_SLUGS } from "@/constants/reservedSlugs";
 
 // valore statico → performance migliore
 const previewBaseUrl = window.location.origin;
@@ -34,6 +35,10 @@ type SlugInlineState =
     | { type: "idle" }
     | { type: "warning" } // solo edit: slug diverso dall’originale
     | { type: "conflict"; suggestions: string[] }; // slug già usato
+
+function isReservedSlug(slug: string) {
+    return RESERVED_SLUGS.has(slug);
+}
 
 // ==========================================
 // COMPONENT
@@ -118,6 +123,7 @@ export default function Businesses() {
 
         async function compute() {
             const unique = await ensureUniqueBusinessSlug(debouncedName);
+            if (isReservedSlug(unique)) return;
             setCreateForm(prev => ({ ...prev, slug: unique }));
         }
 
@@ -229,6 +235,19 @@ export default function Businesses() {
 
             // 1. Sanitizziamo lo slug manuale dell’utente
             const baseSlug = sanitizeSlugForSave(createForm.slug || createForm.name);
+
+            if (isReservedSlug(baseSlug)) {
+                setCreateErrors(prev => ({
+                    ...prev,
+                    slug: "Questo slug è riservato. Scegline un altro."
+                }));
+                showToast({
+                    message: "Slug riservato: scegli un altro valore.",
+                    type: "error",
+                    duration: 2500
+                });
+                return;
+            }
 
             // 2. Calcoliamo lo slug univoco
             const uniqueSlug = await ensureUniqueBusinessSlug(baseSlug);
@@ -417,6 +436,19 @@ export default function Businesses() {
 
             // Slug pulizia
             const cleanedSlug = sanitizeSlugForSave(editForm.slug);
+
+            if (isReservedSlug(cleanedSlug)) {
+                setEditErrors(prev => ({
+                    ...prev,
+                    slug: "Questo slug è riservato. Scegline un altro."
+                }));
+                showToast({
+                    message: "Slug riservato: scegli un altro valore.",
+                    type: "error",
+                    duration: 2500
+                });
+                return;
+            }
 
             if (!cleanedSlug) {
                 showToast({

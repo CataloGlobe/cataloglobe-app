@@ -39,7 +39,7 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
     slugState,
     onPickSlugSuggestion
 }) => {
-    const finalUrl = `${previewBaseUrl}/business/${values.slug || "<slug>"}`;
+    const finalUrl = `${previewBaseUrl}/${values.slug || "<slug>"}`;
 
     return (
         <section className={styles.createCard} aria-label="Aggiungi nuova attività">

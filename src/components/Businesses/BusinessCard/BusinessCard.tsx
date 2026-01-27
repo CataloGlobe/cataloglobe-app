@@ -19,7 +19,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
     onDelete,
     onOpenReviews
 }) => {
-    const publicUrl = `${window.location.origin}/business/${business.slug}`;
+    const publicUrl = `${window.location.origin}/${business.slug}`;
 
     const [showQrModal, setShowQrModal] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
