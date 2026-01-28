@@ -1,0 +1,68 @@
+@use "@/styles/variables" as *;
+
+.wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+/* =====================
+   MENU CONTAINER
+===================== */
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: absolute;
+  min-width: 180px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem;
+  z-index: 100;
+
+  /* shadow coerente col resto UI */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+  color: var(--text);
+}
+
+/* =====================
+   PLACEMENTS
+===================== */
+.bottom-start {
+  top: calc(100% + 6px);
+  left: 0;
+}
+
+.bottom-end {
+  top: calc(100% + 6px);
+  right: 0;
+}
+
+.top-start {
+  bottom: calc(100% + 6px);
+  left: 0;
+}
+
+.top-end {
+  bottom: calc(100% + 6px);
+  right: 0;
+}
+
+/* =====================
+   ITEM
+===================== */
+.item {
+  width: 100%;
+}
+
+/* =====================
+   VARIANTI
+===================== */
+.danger {
+  background: rgba($error, 0.1);
+
+  &:hover {
+    background: rgba($error, 0.3);
+  }
+}

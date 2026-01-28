@@ -61,7 +61,6 @@ export const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonPr
                 <Text as="span" variant="button" weight={600} className={styles.label}>
                     {children}
                 </Text>
-                {/* <span className={styles.label}>{children}</span> */}
                 {!loading && rightIcon && <span className={styles.icon}>{rightIcon}</span>}
             </>
         );

@@ -14,6 +14,8 @@ import ModalLayout, {
     ModalLayoutContent,
     ModalLayoutHeader
 } from "@/components/ui/ModalLayout/ModalLayout";
+import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
+import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
 
 export const BusinessCard: React.FC<BusinessCardProps> = ({
     business,
@@ -186,37 +188,34 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                         </Button>
                     </div>
 
-                    <div className={styles.actionsRight} ref={menuRef}>
-                        <IconButton
-                            icon={<MoreVertical size={18} />}
-                            onClick={() => setShowMenu(v => !v)}
-                            aria-label="Elimina elemento"
-                            variant="ghost"
-                        />
+                    <div className={styles.actionsRight}>
+                        <DropdownMenu
+                            placement="bottom-end"
+                            trigger={
+                                <IconButton
+                                    icon={<MoreVertical size={18} />}
+                                    aria-label="Azioni attività"
+                                    variant="ghost"
+                                />
+                            }
+                        >
+                            <DropdownItem
+                                onClick={() => {
+                                    onEdit(business);
+                                }}
+                            >
+                                Modifica
+                            </DropdownItem>
 
-                        {showMenu && (
-                            <div className={styles.dropdownMenu}>
-                                <Button
-                                    variant="primary"
-                                    onClick={() => {
-                                        onEdit(business);
-                                        setShowMenu(false);
-                                    }}
-                                >
-                                    Modifica
-                                </Button>
-
-                                <Button
-                                    variant="danger"
-                                    onClick={() => {
-                                        onDelete(business.id);
-                                        setShowMenu(false);
-                                    }}
-                                >
-                                    Elimina
-                                </Button>
-                            </div>
-                        )}
+                            <DropdownItem
+                                danger
+                                onClick={() => {
+                                    onDelete(business.id);
+                                }}
+                            >
+                                Elimina
+                            </DropdownItem>
+                        </DropdownMenu>
                     </div>
                 </div>
             </article>
