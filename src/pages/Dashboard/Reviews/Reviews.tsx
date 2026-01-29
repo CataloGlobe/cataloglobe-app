@@ -274,8 +274,17 @@ export default function Reviews() {
      -------------------------------------------------- */
     return (
         <div className={styles.reviews}>
+            <div className={styles.header}>
+                <Text variant="title-lg" as={"h1"}>
+                    Recensioni
+                </Text>
+                <Text variant="body" colorVariant="muted">
+                    Gestisci le tue recensioni e anallizza il parere dei tuoi clienti.
+                </Text>
+            </div>
+
             {/* HEADER */}
-            <header className={styles.header}>
+            <header className={styles.selectRow}>
                 <div className={styles.selectBusiness}>
                     <Select
                         label="Attività"

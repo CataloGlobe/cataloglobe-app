@@ -591,6 +591,9 @@ export default function Businesses() {
         <section className={styles.businesses} aria-labelledby="businesses-title">
             <header className={styles.header}>
                 <div className={styles.headerLeft}>
+                    <Text variant="title-lg" as={"h1"}>
+                        Le tue Attività
+                    </Text>
                     <Text variant="body" colorVariant="muted">
                         Gestisci le tue attività e genera il QR del sito pubblico.
                     </Text>

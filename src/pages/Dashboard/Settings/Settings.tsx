@@ -34,6 +34,15 @@ export default function Settings() {
 
     return (
         <div className={styles.settings}>
+            <div className={styles.header}>
+                <Text variant="title-lg" as={"h1"}>
+                    Impostazioni
+                </Text>
+                <Text variant="body" colorVariant="muted">
+                    Gestisci il tuo account e imposta il sito secondo le tue preferenze.
+                </Text>
+            </div>
+
             <Profile />
 
             <div className={styles.section}>

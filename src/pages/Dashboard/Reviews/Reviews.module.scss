@@ -72,8 +72,13 @@
 /* ------------------------------------------------------
    HEADER
 ------------------------------------------------------ */
-
 .header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.selectRow {
   background: var(--card-bg, #fff);
   padding: 1.25rem;
   border-radius: 16px;

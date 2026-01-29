@@ -222,6 +222,9 @@ export default function Collections() {
             <div className={styles.wrapper}>
                 <header className={styles.header}>
                     <div className={styles.headerText}>
+                        <Text variant="title-lg" as={"h1"}>
+                            I tuoi Cataloghi
+                        </Text>
                         <Text variant="body" colorVariant="muted">
                             Gestisci i tuo cataloghi (listini prezzi, menu, etc...)
                         </Text>

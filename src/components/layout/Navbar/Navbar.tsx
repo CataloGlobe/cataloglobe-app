@@ -1,39 +1,48 @@
 import Text from "@/components/ui/Text/Text";
-import { useLocation } from "react-router-dom";
-import { Menu } from "lucide-react";
-import styles from "./Navbar.module.scss";
 import { IconButton } from "@/components/ui/Button/IconButton";
+import { Bell, Menu, UserCircle } from "lucide-react";
+import styles from "./Navbar.module.scss";
 
 interface NavbarProps {
-    onMenuClick?: () => void;
+    isMobile: boolean;
+
+    // Mobile: apre/chiude overlay sidebar
+    onMobileMenuClick: () => void;
+    mobileMenuOpen: boolean;
+
+    // Desktop: collapse/expand rail
 }
 
-export default function Navbar({ onMenuClick }: NavbarProps) {
-    const location = useLocation();
-
-    const pageTitles: Record<string, string> = {
-        "/dashboard": "Panoramica",
-        "/dashboard/businesses": "Le tue attività",
-        "/dashboard/collections": "Collezioni",
-        "/dashboard/reviews": "Recensioni",
-        "/dashboard/analytics": "Analytics",
-        "/dashboard/settings": "Impostazioni"
-    };
-
-    const currentTitle = pageTitles[location.pathname] || "Dashboard";
-
+export default function Navbar({ isMobile, onMobileMenuClick, mobileMenuOpen }: NavbarProps) {
     return (
         <header className={styles.navbar}>
-            {/* <IconButton
-                variant="ghost"
-                icon={<Menu size={22} />}
-                aria-label="Apri menu"
-                onClick={onMenuClick}
-            /> */}
+            <div className={styles.left}>
+                {isMobile && (
+                    <IconButton
+                        variant="ghost"
+                        icon={<Menu size={22} />}
+                        aria-label={mobileMenuOpen ? "Chiudi menu" : "Apri menu"}
+                        aria-expanded={mobileMenuOpen}
+                        aria-controls="dashboard-sidebar"
+                        onClick={onMobileMenuClick}
+                    />
+                )}
 
-            <Text variant="title-md" as={"h1"} colorVariant="dark" className={styles.title}>
-                {currentTitle}
-            </Text>
+                <Text
+                    variant="title-md"
+                    as="a"
+                    href={"/"}
+                    colorVariant="primary"
+                    aria-label="Vai alla home"
+                >
+                    CataloGlobe
+                </Text>
+            </div>
+
+            <div className={styles.right}>
+                <IconButton variant="ghost" icon={<Bell size={20} />} aria-label="Notifiche" />
+                <IconButton variant="ghost" icon={<UserCircle size={22} />} aria-label="Account" />
+            </div>
         </header>
     );
 }

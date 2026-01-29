@@ -258,6 +258,14 @@ export default function Analytics() {
     return (
         <main className={styles.analytics} aria-label="Sezione analytics recensioni e scansioni QR">
             <header className={styles.header}>
+                <div className={styles.headerTop}>
+                    <Text variant="title-lg" as={"h1"}>
+                        Analytics
+                    </Text>
+                    <Text variant="body" colorVariant="muted">
+                        Gestisci le tue statistiche e analizza l'andamento delle tue attività.
+                    </Text>
+                </div>
                 <div className={styles.filtersRow}>
                     <div className={styles.businessSelector}>
                         <Select
