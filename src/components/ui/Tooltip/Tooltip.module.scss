@@ -1,96 +1,15 @@
-@use "sass:color";
-@use "@styles/variables" as *;
-
-.wrapper {
-  position: relative;
-  display: inline-flex;
-}
-
-.trigger {
-  display: inline-flex;
-  align-items: center;
-  cursor: help;
-  outline: none;
-}
-
-/* Tooltip box */
 .tooltip {
-  position: absolute;
-  z-index: 10;
-  max-width: 220px;
-
+  background: black;
+  color: white;
   padding: 6px 10px;
-  border-radius: 8px;
-
-  background: $gray-800;
-  color: $white;
-
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
-
-  pointer-events: none;
-  white-space: normal;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  user-select: none;
+  z-index: 1000;
 }
 
-/* Placement */
-.top {
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.bottom {
-  top: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.left {
-  right: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.right {
-  left: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-/* Small arrow */
-.top::after,
-.bottom::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 6px solid transparent;
-}
-
-.top::after {
-  top: 100%;
-  border-top-color: $gray-800;
-}
-
-.bottom::after {
-  bottom: 100%;
-  border-bottom-color: $gray-800;
-}
-
-.left::after,
-.right::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  border: 6px solid transparent;
-}
-
-.left::after {
-  left: 100%;
-  border-left-color: $gray-800;
-}
-
-.right::after {
-  right: 100%;
-  border-right-color: $gray-800;
+.arrow {
+  fill: black;
 }

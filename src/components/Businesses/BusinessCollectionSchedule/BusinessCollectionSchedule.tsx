@@ -12,7 +12,7 @@ import {
 } from "@/services/supabase/schedules";
 
 import { supabase } from "@/services/supabase/client";
-import Tooltip from "@/components/ui/Tooltip/Tooltip";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { Pencil, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { getActiveWinner, isNowActive } from "@/domain/schedules/scheduleUtils";
 import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessCollections";
@@ -358,10 +358,7 @@ export default function BusinessCollectionSchedule({
                                                             </Badge>
                                                         )}
                                                         {overlap && (
-                                                            <Tooltip
-                                                                content="Sovrascritta da un'altra regola attiva"
-                                                                placement="right"
-                                                            >
+                                                            <Tooltip content="Sovrascritta da un'altra regola attiva">
                                                                 <TriangleAlert
                                                                     size={18}
                                                                     fill="#edb20e"
@@ -448,10 +445,7 @@ export default function BusinessCollectionSchedule({
                                                         )}
 
                                                         {isOverlapped && (
-                                                            <Tooltip
-                                                                content="Questa regola è sovrascritta da un'altra overlay attiva"
-                                                                placement="right"
-                                                            >
+                                                            <Tooltip content="Questa regola è sovrascritta da un'altra overlay attiva">
                                                                 <TriangleAlert
                                                                     size={18}
                                                                     fill="#edb20e"

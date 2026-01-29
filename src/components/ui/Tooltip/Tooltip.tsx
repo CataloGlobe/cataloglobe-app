@@ -1,36 +1,27 @@
-import { useId, useState } from "react";
+import * as RadixTooltip from "@radix-ui/react-tooltip";
 import Text from "@/components/ui/Text/Text";
 import styles from "./Tooltip.module.scss";
 
 type TooltipProps = {
     content: string;
     children: React.ReactNode;
-    placement?: "top" | "bottom" | "left" | "right";
+    side?: "top" | "right" | "bottom" | "left";
 };
 
-export default function Tooltip({ content, children, placement = "top" }: TooltipProps) {
-    const id = useId();
-    const [open, setOpen] = useState(false);
-
+export function Tooltip({ content, children, side = "right" }: TooltipProps) {
     return (
-        <div
-            className={styles.wrapper}
-            onMouseEnter={() => setOpen(true)}
-            onMouseLeave={() => setOpen(false)}
-            onFocus={() => setOpen(true)}
-            onBlur={() => setOpen(false)}
-        >
-            <div aria-describedby={id} tabIndex={0} className={styles.trigger}>
-                {children}
-            </div>
+        <RadixTooltip.Root>
+            <RadixTooltip.Trigger asChild>{children}</RadixTooltip.Trigger>
 
-            {open && (
-                <div id={id} role="tooltip" className={`${styles.tooltip} ${styles[placement]}`}>
+            <RadixTooltip.Portal>
+                <RadixTooltip.Content side={side} sideOffset={12} className={styles.tooltip}>
                     <Text variant="caption" color="white">
                         {content}
                     </Text>
-                </div>
-            )}
-        </div>
+
+                    <RadixTooltip.Arrow className={styles.arrow} />
+                </RadixTooltip.Content>
+            </RadixTooltip.Portal>
+        </RadixTooltip.Root>
     );
 }
