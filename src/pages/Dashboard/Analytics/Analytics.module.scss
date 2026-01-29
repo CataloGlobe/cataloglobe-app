@@ -21,12 +21,24 @@
   gap: 1rem;
 }
 
+.headerTop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .filtersRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1.25rem;
   flex-wrap: wrap;
+
+  background: var(--card-bg, #fff);
+  padding: 1.25rem;
+  border-radius: 16px;
+  border: 1px solid var(--border, #e2e8f0);
+  animation: fadeIn 0.3s ease forwards;
 }
 
 /* ===== KPI GRID ===== */

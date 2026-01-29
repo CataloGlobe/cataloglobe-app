@@ -1,54 +1,45 @@
-@use "@styles/variables" as *;
-
-/* ----------------------------------------------------
-   LAYOUT WRAPPER
----------------------------------------------------- */
-.layout {
-  display: flex;
-  min-height: 100vh;
-
-  background: var(--bg, #f9fafb);
-  color: var(--text, #0f172a);
-
-  transition: background 0.3s ease, color 0.3s ease;
-}
-
-/* ----------------------------------------------------
-   MAIN WRAPPER
----------------------------------------------------- */
-.main {
-  flex: 1;
+.appLayout {
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
-
-  background: var(--bg, #f9fafb);
-  color: var(--text, #0f172a);
 }
 
-/* ----------------------------------------------------
-   CONTENT AREA
----------------------------------------------------- */
+/* NAVBAR */
+.appLayout > header {
+  height: 64px; /* o quello che usi */
+  flex-shrink: 0;
+}
+
+/* CORPO SOTTO LA NAVBAR */
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* MAIN CONTENT */
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
 .content {
   flex: 1;
-  padding: 2rem;
+  min-height: 0;
+  padding: 24px;
+}
 
-  overflow-y: auto;
-  scroll-behavior: smooth;
-
-  background: var(--bg, #f8fafc);
-
-  @media (max-width: 768px) {
-    padding: 1.25rem;
+/* DESKTOP */
+@media (min-width: 1024px) {
+  .content {
+    padding: 24px;
   }
 }
 
-/* ----------------------------------------------------
-   DARK MODE (solo micro-cosmetica)
----------------------------------------------------- */
-[data-theme="dark"] {
-  .layout,
-  .main,
+/* MOBILE */
+@media (max-width: 1023px) {
   .content {
-    background: var(--bg, #0f172a);
+    padding: 16px;
   }
 }
