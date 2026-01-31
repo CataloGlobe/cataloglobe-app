@@ -28,3 +28,13 @@
     margin-top: 1rem;
   }
 }
+
+.formRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.signupHint {
+  text-align: center;
+}
