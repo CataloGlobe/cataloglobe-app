@@ -66,6 +66,14 @@
   gap: 0.5rem;
 }
 
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
 /* QR in alto a destra */
 .qrWrapper {
   height: 110px;
@@ -151,21 +159,4 @@
     opacity: 1;
     background: var(--hover-bg, #f3f4f6);
   }
-}
-
-/* Dropdown */
-.dropdownMenu {
-  position: absolute;
-  top: 28px;
-  right: 0;
-  width: 140px;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  padding: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  z-index: 50;
 }

@@ -6,7 +6,7 @@ import { ChevronLeft } from "lucide-react";
 
 import { ReactNode } from "react";
 
-export type ModalWidth = "sm" | "md" | "lg" | "xl";
+export type ModalWidth = "xs" | "sm" | "md" | "lg" | "xl";
 
 export type ModalHeight = "sm" | "md" | "lg" | "fit";
 

@@ -1,165 +1,176 @@
-@use "@styles/variables" as *;
-@use "sass:color";
-
-/* ----------------------------------------------------
-   SIDEBAR WRAPPER
----------------------------------------------------- */
 .sidebar {
-  width: 240px;
-  height: 100vh;
-
-  background: var(--card-bg, #ffffff);
-  color: var(--text, #0f172a);
-  border-right: 1px solid var(--border, #e5e7eb);
-
+  position: relative;
+  background: var(--card-bg, #fff);
+  border-right: 1px solid var(--border, #e2e8f0);
   display: flex;
   flex-direction: column;
+  overflow: visible; /* IMPORTANTISSIMO */
+}
+
+.desktop {
   position: sticky;
-  top: 0;
-  left: 0;
-  z-index: 999;
-
-  transition: transform 0.35s ease, box-shadow 0.25s ease;
-
-  /* Mobile drawer */
-  @media (max-width: 900px) {
-    position: fixed;
-    transform: translateX(-100%);
-
-    &.open {
-      transform: translateX(0);
-      box-shadow: 4px 0 12px rgba(0, 0, 0, 0.15);
-    }
-  }
+  top: 64px;
+  height: calc(100vh - 64px);
 }
 
-/* ----------------------------------------------------
-   LOGO AREA
----------------------------------------------------- */
-.logo {
-  padding: 1.5rem 1rem;
-  background: var(--bg, #f8fafc);
-  border-bottom: 1px solid var(--border, #e2e8f0);
+.mobile {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
+
+/* ===== Overlay ===== */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.35);
+  border: 0;
+}
+
+/* ===== Header ===== */
+.sidebarHeader {
   position: relative;
-  text-align: left;
+  padding: 14px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Close button (only mobile) */
-.closeBtn {
-  display: none;
+.userRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0px 10px;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.avatarImage {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.avatarInitial {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.avatarSkeleton {
+  width: 36px;
+  height: 36px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 37%, #e5e7eb 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+.userName {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ===== Toggle ===== */
+.collapseToggle {
   position: absolute;
-  top: 0rem;
-  right: 0rem;
-
-  background: none;
-  border: none;
+  top: 50%;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  z-index: 2;
+}
 
-  color: var(--text-muted, #64748b);
-  font-size: 1.1rem;
+/* ===== Divider ===== */
+.divider {
+  height: 1px;
+  margin: 0 12px 8px;
+  background: var(--border);
+}
 
-  transition: color 0.2s ease, transform 0.2s ease;
+/* ===== Scroll ===== */
+.sidebarScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ===== Nav ===== */
+.nav {
+  padding: 10px;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--text, #0f172a);
 
   &:hover {
-    transform: scale(1.15);
-    color: var(--brand-primary, #2563eb);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--brand-primary, #2563eb);
-    outline-offset: 2px;
-    border-radius: 4px;
-  }
-
-  @media (max-width: 900px) {
-    display: block;
-  }
-}
-
-/* ----------------------------------------------------
-   NAVIGATION LIST
----------------------------------------------------- */
-nav {
-  flex: 1;
-  padding: 1.25rem 0;
-
-  ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  a {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-
-    padding: 0.75rem 1.25rem;
     text-decoration: none;
-
-    font-weight: 500;
-    color: var(--text, #0f172a);
-
-    border-left: 3px solid transparent;
-
-    transition: background 0.2s ease, color 0.2s ease, border-left-color 0.2s ease;
-
-    svg {
-      width: 1.15rem;
-      height: 1.15rem;
-    }
-
-    &:hover {
-      background: var(--hover-bg, #f1f5f9);
-      color: var(--brand-primary, #2563eb);
-      text-decoration: none;
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--brand-primary, #2563eb);
-      outline-offset: 2px;
-      border-radius: 6px;
-    }
-
-    &.active {
-      background: var(--hover-bg, #f1f5f9);
-      color: var(--brand-primary, #2563eb);
-      border-left-color: var(--brand-primary, #2563eb);
-    }
   }
 }
 
-/* ----------------------------------------------------
-   MOBILE MENU BTN (if used inside navbar)
----------------------------------------------------- */
-.menuBtn {
-  display: none;
-  background: none;
-  border: none;
-  cursor: pointer;
+.icon {
+  display: inline-flex;
+}
 
-  color: var(--text, #0f172a);
-  padding: 0.4rem;
+.label {
+  margin-left: 12px;
+  white-space: nowrap;
+}
 
-  @media (max-width: 900px) {
-    display: inline-flex;
-    align-items: center;
+.sidebar[data-collapsed="true"] .label {
+  margin-left: 0;
+}
+
+.link:hover {
+  background: rgba(209, 209, 235, 0.12);
+}
+
+.active {
+  background: rgba(99, 101, 241, 0.25);
+
+  &:hover {
+    background: rgba(99, 101, 241, 0.25);
   }
 }
 
-/* ----------------------------------------------------
-   DARK MODE – Cosmetic adjustments only
----------------------------------------------------- */
-[data-theme="dark"] {
-  .sidebar {
-    box-shadow: none; /* cleaned */
+/* ===== Anim ===== */
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
   }
-
-  .logo {
-    background: var(--bg, #0f172a);
-  }
-
-  nav a.active {
-    background: rgba(37, 99, 235, 0.15); // blue highlight lightened
+  100% {
+    background-position: 0 0;
   }
 }

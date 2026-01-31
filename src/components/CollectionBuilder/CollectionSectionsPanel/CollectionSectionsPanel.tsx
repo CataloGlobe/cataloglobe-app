@@ -12,9 +12,14 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 import styles from "./CollectionSectionsPanel.module.scss";
 import { CollectionSectionItem } from "./CollectionSectionItem/CollectionSectionItem";
+import ModalLayout, {
+    ModalLayoutContent,
+    ModalLayoutFooter,
+    ModalLayoutHeader
+} from "@/components/ui/ModalLayout/ModalLayout";
+import { Button } from "@/components/ui";
 
 interface CollectionSectionsPanelProps {
     sections: CollectionSection[];
@@ -83,26 +88,46 @@ export function CollectionSectionsPanel({
                 </SortableContext>
             </DndContext>
 
-            {/* LIST */}
-
             {/* CONFIRM DELETE */}
-            <ConfirmModal
+            <ModalLayout
                 isOpen={!!sectionToDelete}
-                title="Eliminare categoria"
-                description={
-                    sectionToDelete
-                        ? `Vuoi eliminare la categoria "${sectionToDelete.label}"? Gli elementi non verranno eliminati.`
-                        : ""
-                }
-                confirmLabel="Elimina"
-                cancelLabel="Annulla"
-                onCancel={() => setSectionToDelete(null)}
-                onConfirm={async () => {
-                    if (!sectionToDelete) return;
-                    await onDeleteSection(sectionToDelete.id);
-                    setSectionToDelete(null);
-                }}
-            />
+                onClose={() => setSectionToDelete(null)}
+                width="xs"
+                height="fit"
+            >
+                <ModalLayoutHeader>
+                    <div className={styles.headerLeft}>
+                        <Text as="h2" variant="title-sm" weight={700}>
+                            Elimina categoria
+                        </Text>
+                    </div>
+                </ModalLayoutHeader>
+
+                <ModalLayoutContent>
+                    <Text variant="body">
+                        {sectionToDelete
+                            ? `Vuoi eliminare la categoria "${sectionToDelete.label}"? Gli elementi non verranno eliminati.`
+                            : ""}
+                    </Text>
+                </ModalLayoutContent>
+
+                <ModalLayoutFooter>
+                    <Button variant="secondary" onClick={() => setSectionToDelete(null)}>
+                        Annulla
+                    </Button>
+
+                    <Button
+                        variant="primary"
+                        onClick={async () => {
+                            if (!sectionToDelete) return;
+                            await onDeleteSection(sectionToDelete.id);
+                            setSectionToDelete(null);
+                        }}
+                    >
+                        Elimina
+                    </Button>
+                </ModalLayoutFooter>
+            </ModalLayout>
         </aside>
     );
 }

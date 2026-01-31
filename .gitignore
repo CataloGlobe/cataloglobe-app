@@ -22,6 +22,12 @@ dist
 dist-ssr
 *.local
 
+# Supabase CLI temp files
+supabase/.temp/
+
+# TypeScript build info
+tsconfig.tsbuildinfo
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

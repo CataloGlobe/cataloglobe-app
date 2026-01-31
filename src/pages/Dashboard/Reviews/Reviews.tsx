@@ -13,7 +13,11 @@ import styles from "./Reviews.module.scss";
 import { Select } from "@/components/ui/Select/Select";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Button } from "@/components/ui";
-import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
+import ModalLayout, {
+    ModalLayoutContent,
+    ModalLayoutFooter,
+    ModalLayoutHeader
+} from "@/components/ui/ModalLayout/ModalLayout";
 
 const TAG_OPTIONS = [
     "Qualità del cibo",
@@ -270,8 +274,17 @@ export default function Reviews() {
      -------------------------------------------------- */
     return (
         <div className={styles.reviews}>
+            <div className={styles.header}>
+                <Text variant="title-lg" as={"h1"}>
+                    Recensioni
+                </Text>
+                <Text variant="body" colorVariant="muted">
+                    Gestisci le tue recensioni e anallizza il parere dei tuoi clienti.
+                </Text>
+            </div>
+
             {/* HEADER */}
-            <header className={styles.header}>
+            <header className={styles.selectRow}>
                 <div className={styles.selectBusiness}>
                     <Select
                         label="Attività"
@@ -438,15 +451,34 @@ export default function Reviews() {
                 </section>
             )}
 
-            <ConfirmModal
+            <ModalLayout
                 isOpen={showModal}
-                title="Elimina recensione"
-                confirmLabel="Elimina"
-                description="Sei sicuro di voler eliminare questa recensione?"
-                cancelLabel="Annulla"
-                onConfirm={handleDelete}
-                onCancel={() => setShowModal(false)}
-            />
+                onClose={() => setShowModal(false)}
+                width="xs"
+                height="fit"
+            >
+                <ModalLayoutHeader>
+                    <div className={styles.headerLeft}>
+                        <Text as="h2" variant="title-sm" weight={700}>
+                            Elimina recensione
+                        </Text>
+                    </div>
+                </ModalLayoutHeader>
+
+                <ModalLayoutContent>
+                    <Text variant="body">Sei sicuro di voler eliminare questa recensione?</Text>
+                </ModalLayoutContent>
+
+                <ModalLayoutFooter>
+                    <Button variant="secondary" onClick={() => setShowModal(false)}>
+                        Annulla
+                    </Button>
+
+                    <Button variant="primary" onClick={handleDelete}>
+                        Elimina
+                    </Button>
+                </ModalLayoutFooter>
+            </ModalLayout>
         </div>
     );
 }

@@ -93,8 +93,8 @@ export default function Overview() {
         <main className={styles.overview} aria-label="Panoramica utente">
             {/* Header */}
             <header className={styles.header}>
-                <Text variant="title-lg" weight={600}>
-                    Ciao {user?.email?.split("@")[0]} 👋
+                <Text variant="title-lg" as={"h1"}>
+                    Panoramica
                 </Text>
                 <Text variant="body" colorVariant="muted">
                     Ecco una panoramica aggiornata dei tuoi locali.

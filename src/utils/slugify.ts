@@ -1,12 +1,18 @@
 export function generateSlug(input: string): string {
-    return input
-        .toLowerCase()
-        .trim()
-        .replace(/[\s_]+/g, "-") // spazi e underscore -> trattino
-        .replace(/[^a-z0-9-]/g, "") // mantiene solo lettere, numeri e trattini
-        .replace(/--+/g, "-") // comprime doppie lineette
-        .replace(/^-+/, "") // rimuove trattini iniziali
-        .replace(/-+$/, ""); // rimuove trattini finali
+    return (
+        input
+            .toLowerCase()
+            .trim()
+            // 🔑 separa lettere e accenti
+            .normalize("NFD")
+            // 🔑 rimuove SOLO gli accenti
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[\s_]+/g, "-")
+            .replace(/[^a-z0-9-]/g, "")
+            .replace(/--+/g, "-")
+            .replace(/^-+/, "")
+            .replace(/-+$/, "")
+    );
 }
 
 export function generateRandomSuffix(length = 4): string {
@@ -25,9 +31,11 @@ export function sanitizeSlugForSave(input: string): string {
     return input
         .toLowerCase()
         .trim()
-        .replace(/\s+/g, "-") // spazi → trattini
-        .replace(/[^a-z0-9-]/g, "") // rimuove caratteri speciali
-        .replace(/-+/g, "-") // comprime trattini multipli
-        .replace(/^-+/, "") // rimuove trattini iniziali
-        .replace(/-+$/, ""); // rimuove trattini finali
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "")
+        .replace(/-+/g, "-")
+        .replace(/^-+/, "")
+        .replace(/-+$/, "");
 }

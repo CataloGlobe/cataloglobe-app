@@ -11,7 +11,6 @@ import {
 
 import Text from "@components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
-import ConfirmModal from "@/components/ui/ConfirmModal/ConfirmModal";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
@@ -27,6 +26,11 @@ import styles from "./Businesses.module.scss";
 import { BusinessUpsert } from "@/components/Businesses/BusinessUpsert/BusinessUpsert";
 import { Button } from "@/components/ui";
 import { RESERVED_SLUGS } from "@/constants/reservedSlugs";
+import ModalLayout, {
+    ModalLayoutContent,
+    ModalLayoutFooter,
+    ModalLayoutHeader
+} from "@/components/ui/ModalLayout/ModalLayout";
 
 // valore statico → performance migliore
 const previewBaseUrl = window.location.origin;
@@ -587,6 +591,9 @@ export default function Businesses() {
         <section className={styles.businesses} aria-labelledby="businesses-title">
             <header className={styles.header}>
                 <div className={styles.headerLeft}>
+                    <Text variant="title-lg" as={"h1"}>
+                        Le tue Attività
+                    </Text>
                     <Text variant="body" colorVariant="muted">
                         Gestisci le tue attività e genera il QR del sito pubblico.
                     </Text>
@@ -674,18 +681,46 @@ export default function Businesses() {
                 />
             )}
 
-            <ConfirmModal
+            <ModalLayout
                 isOpen={showDeleteModal}
-                title="Elimina attività"
-                description="Sei sicuro di voler eliminare questa attività? L'operazione non è reversibile."
-                confirmLabel={isDeleting ? "Eliminazione in corso..." : "Elimina"}
-                cancelLabel="Annulla"
-                onConfirm={confirmDelete}
-                onCancel={() => {
+                onClose={() => {
                     setShowDeleteModal(false);
                     setDeleteTargetId(null);
                 }}
-            />
+                width="xs"
+                height="fit"
+            >
+                <ModalLayoutHeader>
+                    <div className={styles.headerLeft}>
+                        <Text as="h2" variant="title-sm" weight={700}>
+                            Elimina attività
+                        </Text>
+                    </div>
+                </ModalLayoutHeader>
+
+                <ModalLayoutContent>
+                    <Text variant="body">
+                        Sei sicuro di voler eliminare questa attività? L'operazione non è
+                        reversibile.
+                    </Text>
+                </ModalLayoutContent>
+
+                <ModalLayoutFooter>
+                    <Button
+                        variant="secondary"
+                        onClick={() => {
+                            setShowDeleteModal(false);
+                            setDeleteTargetId(null);
+                        }}
+                    >
+                        Annulla
+                    </Button>
+
+                    <Button variant="primary" onClick={confirmDelete}>
+                        {isDeleting ? "Eliminazione in corso..." : "Elimina"}
+                    </Button>
+                </ModalLayoutFooter>
+            </ModalLayout>
         </section>
     );
 }
