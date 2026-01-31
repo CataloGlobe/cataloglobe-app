@@ -31,7 +31,7 @@ export default function App() {
             {/* Auth routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/verify-otp" element={<VerifyOtp />} />
-            <Route path="/signup" element={<SignUp />} />
+            <Route path="/sign-up" element={<SignUp />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/update-password" element={<UpdatePassword />} />
 

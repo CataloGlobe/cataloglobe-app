@@ -5,10 +5,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
 import styles from "./Auth.module.scss";
+import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 
 export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [rememberMe, setRememberMe] = useState(true);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
@@ -76,16 +78,28 @@ export default function Login() {
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                 />
-
                 <TextInput
                     label="Password"
                     type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                 />
+                {/* // TODO: implementare il pulsante Ricordami */}
+                <div className={styles.formRow}>
+                    <CheckboxInput
+                        label="Ricordami"
+                        description="Accedi in automatico"
+                        checked={rememberMe}
+                        onChange={e => setRememberMe(e.target.checked)}
+                    />
 
+                    <Text as="p" variant="body-sm">
+                        <Link to="/reset-password" className={styles.forgot}>
+                            Password dimenticata?
+                        </Link>
+                    </Text>
+                </div>
                 {error && <p className={styles.error}>{error}</p>}
-
                 <Button
                     type="submit"
                     variant="primary"
@@ -97,8 +111,8 @@ export default function Login() {
                 </Button>
             </form>
 
-            <Text as="p" variant="body-sm">
-                Hai dimenticato la password? <Link to="/reset-password">Recuperala</Link>
+            <Text as="p" variant="body-sm" className={styles.signupHint}>
+                Non hai un account? <Link to="/sign-up">Registrati</Link>
             </Text>
         </div>
     );
