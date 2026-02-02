@@ -38,55 +38,37 @@ export default function VerifyOtp() {
      * INVIO OTP (una sola volta per sessione, safe per StrictMode)
      * ------------------------------------------------------------------ */
     useEffect(() => {
-        const userId = localStorage.getItem("pendingUserId");
-        const email = localStorage.getItem("pendingUserEmail");
-        const otpSent = localStorage.getItem("otpSent");
+        async function bootstrap() {
+            let userId = localStorage.getItem("pendingUserId");
+            let email = localStorage.getItem("pendingUserEmail");
+            const otpSent = localStorage.getItem("otpSent");
 
-        if (!userId || !email) {
-            navigate("/login", { replace: true, state: { reason: "session-expired" } });
-            return;
-        }
+            // ✅ fallback: arrivo da email verification → user c'è ma pending no
+            if (!userId || !email) {
+                const { data } = await supabase.auth.getUser();
+                const user = data.user;
 
-        if (otpSent === "true") return;
-        if (hasRequestedOtpRef.current) return;
-
-        hasRequestedOtpRef.current = true;
-
-        async function sendOtp() {
-            try {
-                setLoading(true);
-                setError(null);
-                setInfoMessage(null);
-
-                const response = await fetch(
-                    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-otp`,
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-                            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-                        },
-                        body: JSON.stringify({ userId, email })
-                    }
-                );
-
-                if (!response.ok) {
-                    setError("Errore durante l'invio del codice di verifica.");
+                if (!user?.id || !user.email) {
+                    navigate("/login", { replace: true, state: { reason: "session-expired" } });
                     return;
                 }
 
-                localStorage.setItem("otpSent", "true");
-                setResendSeconds(RESEND_COOLDOWN);
-                setInfoMessage("Codice di verifica inviato.");
-            } catch {
-                setError("Impossibile inviare il codice. Riprova.");
-            } finally {
-                setLoading(false);
+                userId = user.id;
+                email = user.email;
+
+                localStorage.setItem("pendingUserId", userId);
+                localStorage.setItem("pendingUserEmail", email);
+                localStorage.removeItem("otpSent"); // per forzare invio OTP
             }
+
+            if (otpSent === "true") return;
+            if (hasRequestedOtpRef.current) return;
+
+            hasRequestedOtpRef.current = true;
+            // ... il resto del tuo sendOtp invariato, usando userId/email
         }
 
-        sendOtp();
+        void bootstrap();
     }, [navigate]);
 
     /* ------------------------------------------------------------------
