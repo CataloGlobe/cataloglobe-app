@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/services/supabase/client";
 import Text from "@/components/ui/Text/Text";
@@ -7,43 +7,18 @@ import { Button } from "@/components/ui";
 import styles from "./Auth.module.scss";
 
 export default function ResetPassword() {
-    const navigate = useNavigate();
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
-    const [sessionValid, setSessionValid] = useState<boolean | null>(null);
 
-    /* ------------------------------------------------------------------
-     * VERIFICA SESSIONE RECOVERY
-     * ------------------------------------------------------------------ */
-    useEffect(() => {
-        let cancelled = false;
-
-        async function checkSession() {
-            const { data } = await supabase.auth.getSession();
-
-            if (cancelled) return;
-
-            if (!data.session) {
-                setSessionValid(false);
-            } else {
-                setSessionValid(true);
-            }
-        }
-
-        checkSession();
-        return () => {
-            cancelled = true;
-        };
-    }, []);
+    const navigate = useNavigate();
 
     /* ------------------------------------------------------------------
      * SUBMIT
      * ------------------------------------------------------------------ */
-    const handleSubmit: React.FormEventHandler = async e => {
+    async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
         if (loading) return;
 
@@ -70,21 +45,21 @@ export default function ResetPassword() {
                 throw updateError;
             }
 
-            // Pulizia stato locale
+            // Chiude il recovery flow
+            sessionStorage.removeItem("passwordRecoveryFlow");
+
+            // Pulizia stato OTP (se presente)
             localStorage.removeItem("otpValidated");
             localStorage.removeItem("otpSent");
             localStorage.removeItem("pendingUserId");
             localStorage.removeItem("pendingUserEmail");
 
-            setSuccess(true);
-
-            // Chiude il recovery flow
-            sessionStorage.removeItem("passwordRecoveryFlow");
-
-            // Forza logout pulito (best practice)
+            // Logout forzato (best practice)
             await supabase.auth.signOut();
 
-            // Redirect al login
+            setSuccess(true);
+
+            // Redirect pulito al login
             navigate("/login", { replace: true });
         } catch {
             setError(
@@ -93,43 +68,9 @@ export default function ResetPassword() {
         } finally {
             setLoading(false);
         }
-    };
+    }
 
     /* ------------------------------------------------------------------ */
-
-    if (sessionValid === null) {
-        return (
-            <div className={styles.auth}>
-                <Text as="p" variant="body-sm">
-                    Verifica del link in corso…
-                </Text>
-            </div>
-        );
-    }
-
-    if (sessionValid === false) {
-        return (
-            <div className={styles.auth}>
-                <Text as="h1" variant="title-md">
-                    Link non valido
-                </Text>
-
-                <Text as="p" variant="body-sm" className={styles.subtitle}>
-                    Questo link per il reset della password non è valido o è scaduto.
-                </Text>
-
-                <Text as="p" variant="body-sm">
-                    Puoi richiedere un nuovo link di recupero dalla pagina dedicata.
-                </Text>
-
-                <div className={styles.actions}>
-                    <Button as={"a"} href="/forgot-password" variant="primary" fullWidth>
-                        Recupera password
-                    </Button>
-                </div>
-            </div>
-        );
-    }
 
     if (success) {
         return (
@@ -144,7 +85,7 @@ export default function ResetPassword() {
                 </Text>
 
                 <div className={styles.actions}>
-                    <Button as={"a"} href="/login" variant="primary" fullWidth>
+                    <Button as="a" href="/login" variant="primary" fullWidth>
                         Vai alla pagina di accesso
                     </Button>
                 </div>
