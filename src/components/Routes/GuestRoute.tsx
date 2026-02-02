@@ -9,7 +9,12 @@ type GuestRouteProps = {
 };
 
 export const GuestRoute = ({ children }: GuestRouteProps) => {
+    const isRecovery = sessionStorage.getItem("passwordRecoveryFlow") === "true";
     const { user, loading } = useAuth();
+
+    if (isRecovery) {
+        return <>{children}</>;
+    }
 
     if (loading) return <AppLoader />;
 

@@ -9,8 +9,13 @@ type OtpRouteProps = {
 };
 
 export const OtpRoute = ({ children }: OtpRouteProps) => {
+    const isRecovery = sessionStorage.getItem("passwordRecoveryFlow") === "true";
     const { user, loading } = useAuth();
     const location = useLocation();
+
+    if (isRecovery) {
+        return <>{children}</>;
+    }
 
     if (loading) return <AppLoader />;
 
