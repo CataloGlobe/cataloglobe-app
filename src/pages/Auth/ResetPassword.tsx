@@ -14,8 +14,6 @@ export default function ResetPassword() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
 
-    const navigate = useNavigate();
-
     /* ------------------------------------------------------------------
      * SUBMIT
      * ------------------------------------------------------------------ */
