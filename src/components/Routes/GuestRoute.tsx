@@ -20,7 +20,12 @@ export const GuestRoute = ({ children }: GuestRouteProps) => {
 
     // Se già loggato, non deve stare in login/signup/reset
     if (user) {
-        return <Navigate to={isOtpValidated() === true ? "/dashboard" : "/verify-otp"} replace />;
+        return (
+            <Navigate
+                to={isOtpValidated(user.id) === true ? "/dashboard" : "/verify-otp"}
+                replace
+            />
+        );
     }
 
     return <>{children}</>;

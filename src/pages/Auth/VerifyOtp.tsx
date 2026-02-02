@@ -12,6 +12,7 @@ import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { supabase } from "@/services/supabase/client";
 import styles from "./Auth.module.scss";
+import { setOtpValidatedForUser } from "@/services/supabase/auth";
 
 const OTP_LENGTH = 6;
 const MAX_ATTEMPTS = 3;
@@ -207,7 +208,7 @@ export default function VerifyOtp() {
                     if (next >= MAX_ATTEMPTS) {
                         localStorage.removeItem("pendingUserId");
                         localStorage.removeItem("pendingUserEmail");
-                        localStorage.removeItem("otpValidated");
+                        localStorage.removeItem("otpValidatedUserId");
                         localStorage.removeItem("otpSent");
                         navigate("/login", { replace: true, state: { reason: "session-expired" } });
                         return next;
@@ -224,7 +225,9 @@ export default function VerifyOtp() {
                 return;
             }
 
-            localStorage.setItem("otpValidated", "true");
+            const userIdFromSession = session.user.id;
+
+            setOtpValidatedForUser(userIdFromSession);
             localStorage.removeItem("pendingUserId");
             localStorage.removeItem("pendingUserEmail");
             localStorage.removeItem("otpSent");

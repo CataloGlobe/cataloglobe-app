@@ -23,7 +23,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     }
 
     // ❌ OTP non validato
-    if (!isOtpValidated()) {
+    if (!isOtpValidated(user.id)) {
         return (
             <Navigate to="/verify-otp" replace state={{ from: location, reason: "otp-required" }} />
         );
