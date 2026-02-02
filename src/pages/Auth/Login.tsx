@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { signIn } from "@services/supabase/auth";
 import { Button } from "@components/ui";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
 import styles from "./Auth.module.scss";
@@ -11,52 +11,35 @@ export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [rememberMe, setRememberMe] = useState(true);
-    const [error, setError] = useState("");
+    const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+
     const navigate = useNavigate();
+    const location = useLocation();
+    const from = location.state?.from?.pathname || "/dashboard";
 
     async function handleLogin(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
-        setError("");
+        setError(null);
         setLoading(true);
 
         try {
-            const session = await signIn(email, password);
+            const { user } = await signIn(email.trim(), password, { rememberMe });
 
-            if (!session?.user) {
+            if (!user) {
                 setError("Credenziali non valide.");
-                setLoading(false);
                 return;
             }
 
             // Salvo info per OTP
-            localStorage.setItem("pendingUserId", session.user.id);
-            localStorage.setItem("pendingUserEmail", session.user.email ?? email);
+            localStorage.setItem("pendingUserId", user.id);
+            localStorage.setItem("pendingUserEmail", user.email ?? email.trim());
             localStorage.removeItem("otpValidated");
+            localStorage.removeItem("otpSent");
 
-            const response = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-otp`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-                        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({
-                        userId: session.user.id,
-                        email: session.user.email ?? email
-                    })
-                }
-            );
-
-            if (!response.ok) {
-                setError("Errore durante l'invio del codice OTP.");
-                setLoading(false);
-                return;
-            }
-
-            navigate("/verify-otp");
+            navigate("/verify-otp", {
+                state: { from }
+            });
         } catch (err) {
             if (err instanceof Error) setError(err.message);
             else setError("Errore sconosciuto durante il login.");
@@ -71,20 +54,25 @@ export default function Login() {
                 Accedi
             </Text>
 
-            <form onSubmit={handleLogin}>
+            <form onSubmit={handleLogin} aria-busy={loading}>
                 <TextInput
                     label="Email"
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
                 />
+
                 <TextInput
                     label="Password"
                     type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
                 />
-                {/* // TODO: implementare il pulsante Ricordami */}
+
                 <div className={styles.formRow}>
                     <CheckboxInput
                         label="Ricordami"
@@ -94,12 +82,18 @@ export default function Login() {
                     />
 
                     <Text as="p" variant="body-sm">
-                        <Link to="/reset-password" className={styles.forgot}>
+                        <Link to="/forgot-password" className={styles.forgot}>
                             Password dimenticata?
                         </Link>
                     </Text>
                 </div>
-                {error && <p className={styles.error}>{error}</p>}
+
+                {error && (
+                    <Text as="p" colorVariant="error" variant="caption" className={styles.feedback}>
+                        {error}
+                    </Text>
+                )}
+
                 <Button
                     type="submit"
                     variant="primary"
@@ -107,11 +101,11 @@ export default function Login() {
                     loading={loading}
                     disabled={loading}
                 >
-                    {loading ? "Caricamento..." : "Accedi"}
+                    Accedi
                 </Button>
             </form>
 
-            <Text as="p" variant="body-sm" className={styles.signupHint}>
+            <Text as="p" variant="body-sm" className={styles.hint}>
                 Non hai un account? <Link to="/sign-up">Registrati</Link>
             </Text>
         </div>

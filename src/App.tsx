@@ -1,11 +1,16 @@
 import { Routes, Route } from "react-router-dom";
 import MainLayout from "@layouts/MainLayout/MainLayout";
-import { ProtectedRoute } from "@components/ProtectedRoute";
+import { ProtectedRoute } from "@/components/Routes/ProtectedRoute";
+import { GuestRoute } from "./components/Routes/GuestRoute";
+import { OtpRoute } from "./components/Routes/OtpRoute";
+import { RecoveryRoute } from "./components/Routes/RecoveryRoute";
 
 // Auth pages
 import Login from "./pages/Auth/Login";
 import VerifyOtp from "./pages/Auth/VerifyOtp";
 import SignUp from "./pages/Auth/SignUp";
+import CheckEmail from "./pages/Auth/CheckEmail";
+import ForgotPassword from "./pages/Auth/ForgotPassword";
 import ResetPassword from "./pages/Auth/ResetPassword";
 import UpdatePassword from "./pages/Auth/UpdatePassword";
 
@@ -29,11 +34,54 @@ export default function App() {
             <Route path="/" element={<Home />} />
 
             {/* Auth routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/verify-otp" element={<VerifyOtp />} />
-            <Route path="/sign-up" element={<SignUp />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/update-password" element={<UpdatePassword />} />
+            <Route
+                path="/login"
+                element={
+                    <GuestRoute>
+                        <Login />
+                    </GuestRoute>
+                }
+            />
+            <Route
+                path="/verify-otp"
+                element={
+                    <OtpRoute>
+                        <VerifyOtp />
+                    </OtpRoute>
+                }
+            />
+            <Route
+                path="/sign-up"
+                element={
+                    <GuestRoute>
+                        <SignUp />
+                    </GuestRoute>
+                }
+            />
+            <Route
+                path="/check-email"
+                element={
+                    <GuestRoute>
+                        <CheckEmail />
+                    </GuestRoute>
+                }
+            />
+            <Route
+                path="/forgot-password"
+                element={
+                    <GuestRoute>
+                        <ForgotPassword />
+                    </GuestRoute>
+                }
+            />
+            <Route
+                path="/reset-password"
+                element={
+                    <RecoveryRoute>
+                        <ResetPassword />
+                    </RecoveryRoute>
+                }
+            />
 
             {/* Private dashboard area */}
             <Route
@@ -55,6 +103,8 @@ export default function App() {
                 <Route path="analytics" element={<Analytics />} />
 
                 <Route path="settings" element={<Settings />} />
+
+                <Route path="settings/security" element={<UpdatePassword />} />
             </Route>
 
             {/* PUBLIC BUSINESS */}
