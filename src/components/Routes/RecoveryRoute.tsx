@@ -1,40 +1,61 @@
-import type { ReactNode } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import { Navigate } from "react-router-dom";
+import { supabase } from "@/services/supabase/client";
 
 type RecoveryRouteProps = {
     children: ReactNode;
 };
 
-const RECOVERY_FLAG_KEY = "passwordRecoveryFlow";
-
-function hasRecoveryParams(search: string): boolean {
-    const params = new URLSearchParams(search);
-
-    // Supabase può usare diversi parametri a seconda del flow/versione
-    const hasCode = params.has("code");
-    const hasTokenHash = params.has("token_hash");
-    const isRecoveryType = params.get("type") === "recovery";
-
-    return hasCode || hasTokenHash || isRecoveryType;
-}
-
+/**
+ * RecoveryRoute
+ *
+ * Consente l’accesso SOLO se:
+ * - Supabase ha creato una sessione valida
+ * - ed è stato attivato un password recovery flow
+ *
+ * NON si basa sui parametri URL perché Supabase li consuma
+ * prima del redirect (comportamento standard).
+ */
 export const RecoveryRoute = ({ children }: RecoveryRouteProps) => {
-    const location = useLocation();
+    const [checking, setChecking] = useState(true);
+    const [allowed, setAllowed] = useState(false);
 
-    const fromEmailLink = hasRecoveryParams(location.search);
-    const recoveryFlag = sessionStorage.getItem(RECOVERY_FLAG_KEY) === "true";
+    useEffect(() => {
+        let cancelled = false;
 
-    // Se arrivo dal link, imposto il flag per permettere i re-render / navigazioni nello stesso tab
-    if (fromEmailLink && !recoveryFlag) {
-        sessionStorage.setItem(RECOVERY_FLAG_KEY, "true");
+        async function checkRecoveryAccess() {
+            // Flag impostato dal listener PASSWORD_RECOVERY
+            const isRecovery = sessionStorage.getItem("passwordRecoveryFlow") === "true";
+
+            // Sessione creata/aggiornata da Supabase dopo il click sul link
+            const { data } = await supabase.auth.getSession();
+
+            if (cancelled) return;
+
+            if (isRecovery && data.session) {
+                setAllowed(true);
+            }
+
+            setChecking(false);
+        }
+
+        checkRecoveryAccess();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    // Stato di attesa: evita redirect prematuri
+    if (checking) {
+        return null;
     }
 
-    // Se non ho né parametri né flag, non devo poter entrare
-    if (!fromEmailLink && !recoveryFlag) {
-        return (
-            <Navigate to="/forgot-password" replace state={{ reason: "recovery-link-required" }} />
-        );
+    // Accesso NON consentito → forgot password
+    if (!allowed) {
+        return <Navigate to="/forgot-password" replace />;
     }
 
+    // Accesso consentito
     return <>{children}</>;
 };
