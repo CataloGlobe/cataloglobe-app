@@ -1,15 +1,19 @@
-import { supabase } from "./client";
+import { supabase, setRememberMe } from "./client";
+
+type SignInOptions = {
+    rememberMe?: boolean;
+};
 
 // Sign-up (registrazione)
 export async function signUp(email: string, password: string, name?: string) {
-    const redirectUrl = `${window.location.origin}/dashboard`;
+    const redirectUrl = `${window.location.origin}/login`;
 
     const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
             data: { name },
-            emailRedirectTo: redirectUrl // 🔹 reindirizza automaticamente
+            emailRedirectTo: redirectUrl
         }
     });
 
@@ -18,11 +22,17 @@ export async function signUp(email: string, password: string, name?: string) {
 }
 
 // Login
-export async function signIn(email: string, password: string) {
+export async function signIn(email: string, password: string, options?: SignInOptions) {
+    // ✅ setta la preferenza PRIMA di fare login (così il client usa lo storage giusto)
+    if (typeof options?.rememberMe === "boolean") {
+        setRememberMe(options.rememberMe);
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
     });
+
     if (error) throw error;
     return data;
 }
@@ -43,10 +53,15 @@ export async function getCurrentUser() {
 
 // Reset password (invia email)
 export async function resetPassword(email: string) {
-    const redirectUrl = `${window.location.origin}/update-password`;
+    const redirectUrl = `${window.location.origin}/reset-password`;
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl
     });
     if (error) throw error;
     return data;
+}
+
+// authStatus.ts
+export function isOtpValidated(): boolean {
+    return localStorage.getItem("otpValidated") === "true";
 }

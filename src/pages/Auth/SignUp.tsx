@@ -1,73 +1,126 @@
 import { useState } from "react";
-import { signUp } from "@services/supabase/auth";
-import { Button } from "@components/ui";
-import Text from "@/components/ui/Text/Text";
-import { useNavigate, Link } from "react-router-dom";
-import styles from "./Auth.module.scss";
+import { useNavigate } from "react-router-dom";
+import { signUp } from "@/services/supabase/auth";
+import { Button } from "@/components/ui";
 import { TextInput } from "@/components/ui/Input/TextInput";
+import Text from "@/components/ui/Text/Text";
+import styles from "./Auth.module.scss";
+
+function getReadableSignUpError(message: string): string {
+    const normalized = message.toLowerCase();
+
+    if (normalized.includes("already registered") || normalized.includes("already exists")) {
+        return "Esiste già un account con questa email.";
+    }
+
+    if (normalized.includes("invalid email")) {
+        return "Inserisci un indirizzo email valido.";
+    }
+
+    if (normalized.includes("password")) {
+        return "La password deve essere più sicura (almeno 8 caratteri).";
+    }
+
+    if (normalized.includes("too many")) {
+        return "Hai effettuato troppe richieste. Riprova più tardi.";
+    }
+
+    return "Errore durante la registrazione. Riprova.";
+}
 
 export default function SignUp() {
+    const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [name, setName] = useState("");
-    const [error, setError] = useState("");
-    const [success, setSuccess] = useState("");
+
+    const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+
     const navigate = useNavigate();
 
-    async function handleSubmit(e: React.FormEvent) {
+    const handleSubmit: React.FormEventHandler = async e => {
         e.preventDefault();
-        setError("");
-        setSuccess("");
+        if (loading) return;
+
+        setError(null);
+        setLoading(true);
 
         try {
-            await signUp(email, password, name);
-            setSuccess(
-                "Registrazione completata! Controlla la tua email per confermare l'account."
-            );
-            setTimeout(() => navigate("/login"), 3000);
+            await signUp(email.trim(), password, name.trim() || undefined);
+
+            // Registrazione riuscita → email di conferma
+            navigate("/check-email", {
+                state: { email: email.trim() }
+            });
         } catch (err) {
-            if (err instanceof Error) setError(err.message);
+            if (err instanceof Error) {
+                setError(getReadableSignUpError(err.message));
+            } else {
+                setError("Errore durante la registrazione. Riprova.");
+            }
+        } finally {
+            setLoading(false);
         }
-    }
+    };
 
     return (
         <div className={styles.auth}>
             <Text as="h1" variant="title-md">
-                Registrati
+                Crea il tuo account
             </Text>
-            <form onSubmit={handleSubmit}>
-                <TextInput label="Nome" value={name} onChange={e => setName(e.target.value)} />
+
+            <Text as="p" variant="body-sm" className={styles.subtitle}>
+                Inserisci i tuoi dati per creare un nuovo account.
+            </Text>
+
+            <form onSubmit={handleSubmit} aria-busy={loading}>
+                <TextInput
+                    label="Nome"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    autoComplete="name"
+                    disabled={loading}
+                />
 
                 <TextInput
                     label="Email"
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    disabled={loading}
                 />
+
                 <TextInput
                     label="Password"
                     type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                    disabled={loading}
                 />
 
                 {error && (
-                    <Text as="p" colorVariant="error" variant="caption">
+                    <Text as="p" colorVariant="error" variant="caption" className={styles.feedback}>
                         {error}
                     </Text>
                 )}
-                {success && (
-                    <Text as="p" colorVariant="success" variant="caption">
-                        {success}
-                    </Text>
-                )}
-                <Button type="submit" variant="primary" fullWidth>
-                    Crea account
+
+                <Button
+                    type="submit"
+                    variant="primary"
+                    fullWidth
+                    loading={loading}
+                    disabled={loading}
+                >
+                    Registrati
                 </Button>
             </form>
 
-            <Text as="p" variant="body-sm">
-                Hai già un account? <Link to="/login">Accedi</Link>
+            <Text as="p" variant="body-sm" className={styles.hint}>
+                Hai già un account? <a href="/login">Accedi</a>
             </Text>
         </div>
     );
