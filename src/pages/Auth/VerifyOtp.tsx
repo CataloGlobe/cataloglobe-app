@@ -65,7 +65,42 @@ export default function VerifyOtp() {
             if (hasRequestedOtpRef.current) return;
 
             hasRequestedOtpRef.current = true;
-            // ... il resto del tuo sendOtp invariato, usando userId/email
+
+            async function sendOtp() {
+                try {
+                    setLoading(true);
+                    setError(null);
+                    setInfoMessage(null);
+
+                    const response = await fetch(
+                        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-otp`,
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+                                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+                            },
+                            body: JSON.stringify({ userId, email })
+                        }
+                    );
+
+                    if (!response.ok) {
+                        setError("Errore durante l'invio del codice di verifica.");
+                        return;
+                    }
+
+                    localStorage.setItem("otpSent", "true");
+                    setResendSeconds(RESEND_COOLDOWN);
+                    setInfoMessage("Codice di verifica inviato.");
+                } catch {
+                    setError("Impossibile inviare il codice. Riprova.");
+                } finally {
+                    setLoading(false);
+                }
+            }
+
+            sendOtp();
         }
 
         void bootstrap();
