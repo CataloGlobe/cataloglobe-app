@@ -30,9 +30,25 @@ function createSupabaseClient(): SupabaseClient {
         }
     });
 
-    client.auth.onAuthStateChange(event => {
+    client.auth.onAuthStateChange((event, session) => {
         if (event === "PASSWORD_RECOVERY") {
             sessionStorage.setItem("passwordRecoveryFlow", "true");
+        }
+
+        // ✅ Se arriva una nuova sessione, assicurati che otpValidated sia coerente con l'utente
+        if (event === "SIGNED_IN" && session?.user?.id) {
+            const currentUserId = session.user.id;
+            const otpValidatedUserId = localStorage.getItem("otpValidatedUserId");
+
+            // Se il flag OTP era di un altro utente, lo resettiamo
+            if (otpValidatedUserId && otpValidatedUserId !== currentUserId) {
+                localStorage.removeItem("otpValidatedUserId");
+            }
+        }
+
+        // ✅ Pulizia su logout
+        if (event === "SIGNED_OUT") {
+            localStorage.removeItem("otpValidatedUserId");
         }
     });
 

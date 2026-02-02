@@ -62,6 +62,17 @@ export async function resetPassword(email: string) {
 }
 
 // authStatus.ts
-export function isOtpValidated(): boolean {
-    return localStorage.getItem("otpValidated") === "true";
+const OTP_VALIDATED_USER_ID_KEY = "otpValidatedUserId";
+
+export function isOtpValidated(userId?: string | null): boolean {
+    if (!userId) return false;
+    return localStorage.getItem(OTP_VALIDATED_USER_ID_KEY) === userId;
+}
+
+export function setOtpValidatedForUser(userId: string) {
+    localStorage.setItem(OTP_VALIDATED_USER_ID_KEY, userId);
+}
+
+export function clearOtpValidated() {
+    localStorage.removeItem(OTP_VALIDATED_USER_ID_KEY);
 }

@@ -25,7 +25,7 @@ export const OtpRoute = ({ children }: OtpRouteProps) => {
     }
 
     // OTP già verificato → dashboard
-    if (isOtpValidated()) {
+    if (isOtpValidated(user.id)) {
         return <Navigate to="/dashboard" replace />;
     }
 

@@ -1,40 +1,63 @@
-import type { ReactNode } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import { Navigate } from "react-router-dom";
+import { supabase } from "@/services/supabase/client";
 
-type RecoveryRouteProps = {
-    children: ReactNode;
-};
-
-const RECOVERY_FLAG_KEY = "passwordRecoveryFlow";
-
-function hasRecoveryParams(search: string): boolean {
-    const params = new URLSearchParams(search);
-
-    // Supabase può usare diversi parametri a seconda del flow/versione
-    const hasCode = params.has("code");
-    const hasTokenHash = params.has("token_hash");
-    const isRecoveryType = params.get("type") === "recovery";
-
-    return hasCode || hasTokenHash || isRecoveryType;
-}
+type RecoveryRouteProps = { children: ReactNode };
 
 export const RecoveryRoute = ({ children }: RecoveryRouteProps) => {
-    const location = useLocation();
+    const [checking, setChecking] = useState(true);
+    const [allowed, setAllowed] = useState(false);
 
-    const fromEmailLink = hasRecoveryParams(location.search);
-    const recoveryFlag = sessionStorage.getItem(RECOVERY_FLAG_KEY) === "true";
+    useEffect(() => {
+        let cancelled = false;
 
-    // Se arrivo dal link, imposto il flag per permettere i re-render / navigazioni nello stesso tab
-    if (fromEmailLink && !recoveryFlag) {
-        sessionStorage.setItem(RECOVERY_FLAG_KEY, "true");
-    }
+        async function run() {
+            // 1) prima prova: flag già settato + session già pronta
+            const isRecovery = sessionStorage.getItem("passwordRecoveryFlow") === "true";
+            const { data } = await supabase.auth.getSession();
+            if (cancelled) return;
 
-    // Se non ho né parametri né flag, non devo poter entrare
-    if (!fromEmailLink && !recoveryFlag) {
-        return (
-            <Navigate to="/forgot-password" replace state={{ reason: "recovery-link-required" }} />
-        );
-    }
+            if (isRecovery && data.session) {
+                setAllowed(true);
+                setChecking(false);
+                return;
+            }
 
+            // 2) seconda prova: ascolta l'evento PASSWORD_RECOVERY (race condition)
+            const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+                if (cancelled) return;
+
+                if (event === "PASSWORD_RECOVERY" && session) {
+                    sessionStorage.setItem("passwordRecoveryFlow", "true");
+                    setAllowed(true);
+                    setChecking(false);
+                }
+            });
+
+            // 3) fallback: se dopo un attimo non arriva nulla, chiudi e nega
+            window.setTimeout(async () => {
+                if (cancelled) return;
+
+                const isRecoveryNow = sessionStorage.getItem("passwordRecoveryFlow") === "true";
+                const { data: s2 } = await supabase.auth.getSession();
+
+                sub.subscription.unsubscribe();
+
+                if (isRecoveryNow && s2.session) {
+                    setAllowed(true);
+                }
+                setChecking(false);
+            }, 400);
+        }
+
+        run();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    if (checking) return null;
+    if (!allowed) return <Navigate to="/forgot-password" replace />;
     return <>{children}</>;
 };
