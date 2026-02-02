@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/services/supabase/client";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui";
 import styles from "./Auth.module.scss";
 
 export default function ResetPassword() {
+    const navigate = useNavigate();
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -75,6 +77,15 @@ export default function ResetPassword() {
             localStorage.removeItem("pendingUserEmail");
 
             setSuccess(true);
+
+            // Chiude il recovery flow
+            sessionStorage.removeItem("passwordRecoveryFlow");
+
+            // Forza logout pulito (best practice)
+            await supabase.auth.signOut();
+
+            // Redirect al login
+            navigate("/login", { replace: true });
         } catch {
             setError(
                 "Non è stato possibile aggiornare la password. Il link potrebbe essere scaduto."

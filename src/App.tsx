@@ -3,6 +3,7 @@ import MainLayout from "@layouts/MainLayout/MainLayout";
 import { ProtectedRoute } from "@/components/Routes/ProtectedRoute";
 import { GuestRoute } from "./components/Routes/GuestRoute";
 import { OtpRoute } from "./components/Routes/OtpRoute";
+import { RecoveryRoute } from "./components/Routes/RecoveryRoute";
 
 // Auth pages
 import Login from "./pages/Auth/Login";
@@ -76,9 +77,9 @@ export default function App() {
             <Route
                 path="/reset-password"
                 element={
-                    <GuestRoute>
+                    <RecoveryRoute>
                         <ResetPassword />
-                    </GuestRoute>
+                    </RecoveryRoute>
                 }
             />
 
