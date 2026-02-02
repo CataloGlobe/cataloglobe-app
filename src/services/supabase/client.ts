@@ -30,8 +30,9 @@ function createSupabaseClient(): SupabaseClient {
         }
     });
 
-    client.auth.onAuthStateChange(event => {
+    client.auth.onAuthStateChange((event, session) => {
         if (event === "PASSWORD_RECOVERY") {
+            console.log("[RECOVERY] event PASSWORD_RECOVERY", !!session);
             sessionStorage.setItem("passwordRecoveryFlow", "true");
         }
     });
