@@ -7,6 +7,7 @@ import { Button } from "@/components/ui";
 import styles from "./Auth.module.scss";
 
 export default function ResetPassword() {
+    const navigate = useNavigate();
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [loading, setLoading] = useState(false);
