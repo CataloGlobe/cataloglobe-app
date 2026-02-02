@@ -72,6 +72,14 @@ export default function VerifyOtp() {
                     setError(null);
                     setInfoMessage(null);
 
+                    const { data } = await supabase.auth.getSession();
+                    const session = data.session;
+
+                    if (!session?.access_token) {
+                        navigate("/login", { replace: true, state: { reason: "session-expired" } });
+                        return;
+                    }
+
                     const response = await fetch(
                         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-otp`,
                         {
@@ -79,9 +87,9 @@ export default function VerifyOtp() {
                             headers: {
                                 "Content-Type": "application/json",
                                 apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-                                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+                                Authorization: `Bearer ${session.access_token}`
                             },
-                            body: JSON.stringify({ userId, email })
+                            body: JSON.stringify({ userId }) // 👈 email NON va più passata
                         }
                     );
 
@@ -276,6 +284,14 @@ export default function VerifyOtp() {
             setError(null);
             setInfoMessage(null);
 
+            const { data } = await supabase.auth.getSession();
+            const session = data.session;
+
+            if (!session?.access_token) {
+                navigate("/login", { replace: true, state: { reason: "session-expired" } });
+                return;
+            }
+
             const response = await fetch(
                 `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-otp`,
                 {
@@ -283,9 +299,9 @@ export default function VerifyOtp() {
                     headers: {
                         "Content-Type": "application/json",
                         apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-                        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+                        Authorization: `Bearer ${session.access_token}`
                     },
-                    body: JSON.stringify({ userId, email })
+                    body: JSON.stringify({ userId }) // 👈 email NON va più passata
                 }
             );
 
