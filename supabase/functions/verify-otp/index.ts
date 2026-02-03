@@ -2,11 +2,16 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+type JwtPayload = {
+    sub?: string;
+    sid?: string;
+    exp?: number;
+};
+
 /* ================= CONFIG ================= */
 const LOCK_MINUTES = 15;
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OTP_PEPPER = Deno.env.get("OTP_PEPPER")!;
 
@@ -30,6 +35,8 @@ async function sha256(value: string): Promise<string> {
 }
 
 serve(async req => {
+    console.log("HEADERS", Object.fromEntries(req.headers.entries()));
+
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
@@ -50,14 +57,21 @@ serve(async req => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json(401, { error: "unauthorized" });
 
-    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: authHeader } }
-    });
+    const jwt = authHeader.replace("Bearer ", "");
 
-    const { data: authData, error: authError } = await supabaseAuth.auth.getUser();
-    const user = authData?.user;
+    let payload: JwtPayload;
+    try {
+        payload = JSON.parse(atob(jwt.split(".")[1]));
+    } catch {
+        return json(401, { error: "unauthorized" });
+    }
 
-    if (authError || !user?.id) return json(401, { error: "unauthorized" });
+    const userId = payload.sub;
+    const sessionId = payload.session_id;
+
+    if (!userId || !sessionId) {
+        return json(401, { error: "unauthorized" });
+    }
 
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
@@ -67,7 +81,7 @@ serve(async req => {
     const { data: challenge } = await supabaseAdmin
         .from("otp_challenges")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .is("consumed_at", null)
         .maybeSingle();
 
@@ -84,23 +98,35 @@ serve(async req => {
 
     // lock
     if (challenge.locked_until && new Date(challenge.locked_until).getTime() > nowMs) {
-        return json(429, { error: "locked" });
+        return json(429, {
+            error: "locked",
+            attempts_left: 0,
+            max_attempts: maxAttempts
+        });
     }
 
+    const maxAttempts = challenge.max_attempts ?? 5;
     const hash = await sha256(code + OTP_PEPPER);
 
     // mismatch -> attempts++ e forse lock
     if (hash !== challenge.code_hash) {
         const attempts = (challenge.attempts ?? 0) + 1;
 
-        const update: Record<string, unknown> = { attempts };
-        if (attempts >= (challenge.max_attempts ?? 5)) {
-            update.locked_until = new Date(nowMs + LOCK_MINUTES * 60 * 1000);
-        }
+        const locked = attempts >= maxAttempts ? new Date(nowMs + LOCK_MINUTES * 60 * 1000) : null;
 
-        await supabaseAdmin.from("otp_challenges").update(update).eq("id", challenge.id);
+        await supabaseAdmin
+            .from("otp_challenges")
+            .update({
+                attempts,
+                ...(locked ? { locked_until: locked } : {})
+            })
+            .eq("id", challenge.id);
 
-        return json(400, { error: "invalid_or_expired" });
+        return json(400, {
+            error: "invalid_or_expired",
+            attempts_left: Math.max(0, maxAttempts - attempts),
+            max_attempts: maxAttempts
+        });
     }
 
     // success -> consumo (e attempts++ per audit)
@@ -108,6 +134,25 @@ serve(async req => {
         .from("otp_challenges")
         .update({ consumed_at: now, attempts: (challenge.attempts ?? 0) + 1 })
         .eq("id", challenge.id);
+
+    if (!sessionId) {
+        console.error("verify-otp: missing session_id");
+        return json(500, { error: "session_error" });
+    }
+
+    const { error: insertErr } = await supabaseAdmin.from("otp_session_verifications").upsert(
+        {
+            session_id: sessionId,
+            user_id: userId,
+            verified_at: new Date()
+        },
+        { onConflict: "session_id" }
+    );
+
+    if (insertErr) {
+        console.error("verify-otp: otp_session_verifications insert failed", insertErr);
+        return json(500, { error: "db_error" });
+    }
 
     return json(200, { ok: true });
 });
