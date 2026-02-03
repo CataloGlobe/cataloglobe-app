@@ -1,7 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@context/useAuth";
 import { AppLoader } from "../ui/AppLoader/AppLoader";
-import { isOtpValidated } from "@/services/supabase/auth";
 import type { ReactNode } from "react";
 
 type ProtectedRouteProps = {
@@ -23,10 +22,10 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     }
 
     // ❌ OTP non validato
-    if (!isOtpValidated(user.id)) {
-        return (
-            <Navigate to="/verify-otp" replace state={{ from: location, reason: "otp-required" }} />
-        );
+    const isOtpVerified = !!user?.app_metadata?.otp_verified;
+
+    if (!isOtpVerified) {
+        return <Navigate to="/verify-otp" replace />;
     }
 
     // ✅ accesso consentito

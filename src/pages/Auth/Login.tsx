@@ -31,12 +31,6 @@ export default function Login() {
                 return;
             }
 
-            // Salvo info per OTP
-            localStorage.setItem("pendingUserId", user.id);
-            localStorage.setItem("pendingUserEmail", user.email ?? email.trim());
-            localStorage.removeItem("otpValidatedUserId");
-            localStorage.removeItem("otpSent");
-
             navigate("/verify-otp", {
                 state: { from }
             });

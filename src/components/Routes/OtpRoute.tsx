@@ -1,7 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@context/useAuth";
 import { AppLoader } from "../ui/AppLoader/AppLoader";
-import { isOtpValidated } from "@/services/supabase/auth";
 import type { ReactNode } from "react";
 
 type OtpRouteProps = {
@@ -25,7 +24,9 @@ export const OtpRoute = ({ children }: OtpRouteProps) => {
     }
 
     // OTP già verificato → dashboard
-    if (isOtpValidated(user.id)) {
+    const isOtpVerified = !!user?.app_metadata?.otp_verified;
+
+    if (isOtpVerified) {
         return <Navigate to="/dashboard" replace />;
     }
 
