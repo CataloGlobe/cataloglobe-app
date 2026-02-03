@@ -98,23 +98,35 @@ serve(async req => {
 
     // lock
     if (challenge.locked_until && new Date(challenge.locked_until).getTime() > nowMs) {
-        return json(429, { error: "locked" });
+        return json(429, {
+            error: "locked",
+            attempts_left: 0,
+            max_attempts: maxAttempts
+        });
     }
 
+    const maxAttempts = challenge.max_attempts ?? 5;
     const hash = await sha256(code + OTP_PEPPER);
 
     // mismatch -> attempts++ e forse lock
     if (hash !== challenge.code_hash) {
         const attempts = (challenge.attempts ?? 0) + 1;
 
-        const update: Record<string, unknown> = { attempts };
-        if (attempts >= (challenge.max_attempts ?? 5)) {
-            update.locked_until = new Date(nowMs + LOCK_MINUTES * 60 * 1000);
-        }
+        const locked = attempts >= maxAttempts ? new Date(nowMs + LOCK_MINUTES * 60 * 1000) : null;
 
-        await supabaseAdmin.from("otp_challenges").update(update).eq("id", challenge.id);
+        await supabaseAdmin
+            .from("otp_challenges")
+            .update({
+                attempts,
+                ...(locked ? { locked_until: locked } : {})
+            })
+            .eq("id", challenge.id);
 
-        return json(400, { error: "invalid_or_expired" });
+        return json(400, {
+            error: "invalid_or_expired",
+            attempts_left: Math.max(0, maxAttempts - attempts),
+            max_attempts: maxAttempts
+        });
     }
 
     // success -> consumo (e attempts++ per audit)

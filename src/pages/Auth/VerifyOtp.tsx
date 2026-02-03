@@ -14,7 +14,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { Button } from "@/components/ui";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import type { OtpErrorCode, OtpStatus } from "@/types/otp";
+import type { OtpErrorCode, OtpStatus, VerifyOtpResponse } from "@/types/otp";
 import styles from "./Auth.module.scss";
 
 const OTP_LENGTH = 6;
@@ -42,8 +42,11 @@ export default function VerifyOtp() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [info, setInfo] = useState<string | null>(null);
-    const [resendSeconds, setResendSeconds] = useState(RESEND_COOLDOWN);
+    const [resendSeconds, setResendSeconds] = useState<number | null>(null);
     const [status, setStatus] = useState<OtpStatus>("idle");
+    const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+    const [maxAttempts, setMaxAttempts] = useState<number | null>(null);
+    const [locked, setLocked] = useState(false);
 
     const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
     const hasRequestedOtpRef = useRef(false);
@@ -109,24 +112,68 @@ export default function VerifyOtp() {
         }
     }, [navigate, showToast]);
 
+    const loadOtpStatus = useCallback(async () => {
+        const { data } = await supabase.auth.getSession();
+        const jwt = data.session?.access_token;
+        if (!jwt) return;
+
+        const { data: status, error } = await supabase.functions.invoke("status-otp", {
+            headers: { Authorization: `Bearer ${jwt}` }
+        });
+
+        if (error || !status) return;
+
+        if (typeof status.resend_available_in === "number") {
+            setResendSeconds(status.resend_available_in);
+        }
+        if (typeof status.attempts_left === "number") {
+            setAttemptsLeft(status.attempts_left);
+        }
+        if (typeof status.locked === "boolean") {
+            setLocked(status.locked);
+        }
+        if (typeof status.max_attempts === "number") {
+            setMaxAttempts(status.max_attempts);
+        }
+    }, []);
+
+    /* ------------------------------------------------------------------
+     * OTP STATUS
+     * ------------------------------------------------------------------ */
+    useEffect(() => {
+        void loadOtpStatus();
+    }, [loadOtpStatus]);
+
     /* ------------------------------------------------------------------
      * INVIO OTP AUTOMATICO (UNA SOLA VOLTA)
      * ------------------------------------------------------------------ */
     useEffect(() => {
+        // aspettiamo lo stato reale dal backend
+        if (resendSeconds === null) return;
+
+        // esegui una sola volta
         if (hasRequestedOtpRef.current) return;
         hasRequestedOtpRef.current = true;
 
-        void sendOtp();
-    }, [sendOtp]);
+        // se non siamo in cooldown, inviamo OTP
+        if (resendSeconds === 0) {
+            (async () => {
+                await sendOtp();
+                await loadOtpStatus();
+            })();
+        }
+    }, [resendSeconds, sendOtp, loadOtpStatus]);
 
     /* ------------------------------------------------------------------
      * COUNTDOWN REINVIO
      * ------------------------------------------------------------------ */
     useEffect(() => {
-        if (resendSeconds <= 0) return;
+        if (resendSeconds === null || resendSeconds <= 0) return;
+
         const id = setInterval(() => {
-            setResendSeconds(sec => sec - 1);
+            setResendSeconds(sec => (sec !== null ? sec - 1 : sec));
         }, 1000);
+
         return () => clearInterval(id);
     }, [resendSeconds]);
 
@@ -204,15 +251,15 @@ export default function VerifyOtp() {
             });
             setInfo("Verifica in corso...");
 
-            const { data } = await supabase.auth.getSession();
-            const jwt = data.session?.access_token;
+            const { data: sessionData } = await supabase.auth.getSession();
+            const jwt = sessionData.session?.access_token;
 
             if (!jwt) {
                 navigate("/login", { replace: true });
                 return;
             }
 
-            const { error } = await supabase.functions.invoke("verify-otp", {
+            const { data, error } = await supabase.functions.invoke("verify-otp", {
                 body: { code },
                 headers: { Authorization: `Bearer ${jwt}` }
             });
@@ -221,14 +268,35 @@ export default function VerifyOtp() {
                 const code = mapOtpError(error);
 
                 switch (code) {
-                    case "invalid_or_expired":
+                    case "invalid_or_expired": {
+                        const response = data as VerifyOtpResponse;
+                        if (typeof response.max_attempts === "number") {
+                            setMaxAttempts(response.max_attempts);
+                        }
+                        const attemptsLeftFromServer =
+                            typeof response?.attempts_left === "number"
+                                ? response.attempts_left
+                                : null;
+
+                        if (attemptsLeftFromServer !== null) {
+                            setAttemptsLeft(attemptsLeftFromServer);
+                        }
+
+                        const message =
+                            attemptsLeftFromServer !== null
+                                ? `Codice non valido. Tentativi rimasti: ${attemptsLeftFromServer}.`
+                                : "Codice non valido o scaduto.";
+
                         showToast({
                             type: "error",
-                            message: "Codice non valido o scaduto.",
+                            message,
                             duration: 2500
                         });
-                        setError("Codice non valido o scaduto.");
+
+                        setError(message);
                         break;
+                    }
+
                     case "cooldown":
                         showToast({
                             type: "error",
@@ -264,6 +332,7 @@ export default function VerifyOtp() {
                         });
                         setError("Errore durante la verifica del codice.");
                 }
+                await loadOtpStatus();
                 return;
             }
 
@@ -279,16 +348,26 @@ export default function VerifyOtp() {
      * REINVIO OTP
      * ------------------------------------------------------------------ */
     async function handleResend() {
-        if (loading || resendSeconds > 0) return;
+        // non fare nulla se:
+        // - stiamo caricando
+        // - OTP lockato
+        // - countdown non ancora inizializzato
+        // - countdown ancora attivo
+        if (loading || locked || resendSeconds === null || resendSeconds > 0) {
+            return;
+        }
+
+        hasRequestedOtpRef.current = false;
 
         setDigits(Array(OTP_LENGTH).fill(""));
-        setResendSeconds(RESEND_COOLDOWN);
         setInfo(null);
         setError(null);
+        setAttemptsLeft(null);
 
         inputsRef.current[0]?.focus();
 
         await sendOtp();
+        await loadOtpStatus();
     }
 
     /* ------------------------------------------------------------------ */
@@ -298,11 +377,9 @@ export default function VerifyOtp() {
             <Text as="h1" variant="title-md">
                 Verifica il codice
             </Text>
-
             <Text as="p" variant="body-sm" className={styles.subtitle}>
                 Inserisci il codice a 6 cifre che ti abbiamo inviato via email.
             </Text>
-
             <form
                 onSubmit={(e: FormEvent) => {
                     e.preventDefault();
@@ -327,7 +404,6 @@ export default function VerifyOtp() {
                         />
                     ))}
                 </div>
-
                 {error && (
                     <Text variant="caption" colorVariant="error" className={styles.feedback}>
                         {error}
@@ -339,27 +415,35 @@ export default function VerifyOtp() {
                         {info}
                     </Text>
                 )}
-
                 <Button
                     type="submit"
                     fullWidth
                     loading={loading}
-                    disabled={status === "sending" || status === "verifying"}
+                    disabled={locked || status === "sending" || status === "verifying"}
                 >
                     {status === "sending" ? "Invio in corso…" : "Verifica"}
                 </Button>
             </form>
-
             <div className={styles.otpFooter}>
                 <Button
                     variant="ghost"
                     fullWidth
                     onClick={handleResend}
-                    disabled={loading || resendSeconds > 0}
+                    disabled={loading || locked || resendSeconds === null || resendSeconds > 0}
                 >
-                    {resendSeconds > 0 ? `Reinvia codice (${resendSeconds}s)` : "Reinvia codice"}
+                    {resendSeconds === null
+                        ? "Reinvia codice"
+                        : resendSeconds > 0
+                        ? `Reinvia codice (${resendSeconds}s)`
+                        : "Reinvia codice"}
                 </Button>
             </div>
+
+            {attemptsLeft !== null && maxAttempts !== null && attemptsLeft < maxAttempts && (
+                <Text variant="caption" colorVariant="error">
+                    Tentativi disponibili: {attemptsLeft}
+                </Text>
+            )}
         </div>
     );
 }
