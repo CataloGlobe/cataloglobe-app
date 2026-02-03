@@ -2,11 +2,16 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+type JwtPayload = {
+    sub?: string;
+    sid?: string;
+    exp?: number;
+};
+
 /* ================= CONFIG ================= */
 const LOCK_MINUTES = 15;
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OTP_PEPPER = Deno.env.get("OTP_PEPPER")!;
 
@@ -50,16 +55,19 @@ serve(async req => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json(401, { error: "unauthorized" });
 
-    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: authHeader } }
-    });
+    const jwt = authHeader.replace("Bearer ", "");
 
-    const { data: sessionData, error: sessionError } = await supabaseAuth.auth.getSession();
+    let payload: JwtPayload;
+    try {
+        payload = JSON.parse(atob(jwt.split(".")[1]));
+    } catch {
+        return json(401, { error: "unauthorized" });
+    }
 
-    const session = sessionData?.session;
-    const user = session?.user;
+    const userId = payload.sub;
+    const sessionId = payload.sid;
 
-    if (sessionError || !session || !user?.id) {
+    if (!userId || !sessionId) {
         return json(401, { error: "unauthorized" });
     }
 
@@ -71,7 +79,7 @@ serve(async req => {
     const { data: challenge } = await supabaseAdmin
         .from("otp_challenges")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .is("consumed_at", null)
         .maybeSingle();
 
@@ -113,8 +121,6 @@ serve(async req => {
         .update({ consumed_at: now, attempts: (challenge.attempts ?? 0) + 1 })
         .eq("id", challenge.id);
 
-    const sessionId = session.session_id;
-
     if (!sessionId) {
         console.error("verify-otp: missing session_id");
         return json(500, { error: "session_error" });
@@ -123,7 +129,7 @@ serve(async req => {
     const { error: insertErr } = await supabaseAdmin.from("otp_session_verifications").upsert(
         {
             session_id: sessionId,
-            user_id: user.id,
+            user_id: userId,
             verified_at: new Date()
         },
         { onConflict: "session_id" }
