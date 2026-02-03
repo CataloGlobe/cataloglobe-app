@@ -1,123 +1,205 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std/http/server.ts";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "https://esm.sh/resend@2.1.0";
+import { Resend } from "npm:resend@4";
 
-async function hashOtp(code: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(code);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+/* ================= CONFIG ================= */
+const OTP_LENGTH = 6;
+const OTP_TTL_MS = 5 * 60 * 1000; // 5 min
+const COOLDOWN_MS = 60 * 1000; // 60 sec tra invii
+const WINDOW_MS = 15 * 60 * 1000; // finestra rate limit
+const MAX_SENDS_PER_WINDOW = 5;
+const LOCK_MINUTES = 15;
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const OTP_PEPPER = Deno.env.get("OTP_PEPPER")!;
+const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
+
+const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json"
+};
+
+/* ================= UTILS ================= */
+function json(status: number, body: Record<string, unknown>) {
+    return new Response(JSON.stringify(body), { status, headers: corsHeaders });
 }
 
+function generateOtp(): string {
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return (arr[0] % 10 ** OTP_LENGTH).toString().padStart(OTP_LENGTH, "0");
+}
+
+async function sha256(value: string): Promise<string> {
+    const data = new TextEncoder().encode(value);
+    const hash = await crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(hash))
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join("");
+}
+
+function firstForwardedFor(header: string | null) {
+    if (!header) return null;
+    // prende il primo IP della lista "client, proxy1, proxy2"
+    return header.split(",")[0]?.trim() || null;
+}
+
+/* ================= HANDLER ================= */
 serve(async req => {
-    console.log("🚀 send-otp called");
+    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+    if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
-    const headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Content-Type": "application/json"
-    };
+    // Hard fail se manca un secret fondamentale (così lo scopri subito)
+    if (!OTP_PEPPER) return json(500, { error: "server_misconfigured" });
 
-    if (req.method === "OPTIONS") {
-        console.log("⚙️ OPTIONS preflight");
-        return new Response("ok", { headers });
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return json(401, { error: "unauthorized" });
+
+    // Client autenticato con JWT utente
+    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: authData, error: authError } = await supabaseAuth.auth.getUser();
+    const user = authData?.user;
+
+    if (authError || !user?.id || !user.email) return json(401, { error: "unauthorized" });
+
+    // Admin client (bypass RLS) per leggere/scrivere otp_challenges
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+    const now = new Date();
+    const nowMs = now.getTime();
+
+    // Prendi challenge attiva (se esiste)
+    const { data: challenge } = await supabaseAdmin
+        .from("otp_challenges")
+        .select("*")
+        .eq("user_id", user.id)
+        .is("consumed_at", null)
+        .maybeSingle();
+
+    // LOCK
+    if (challenge?.locked_until && new Date(challenge.locked_until).getTime() > nowMs) {
+        return json(429, { error: "locked" });
     }
 
-    try {
-        console.log("🔑 RESEND_API_KEY exists:", !!Deno.env.get("RESEND_API_KEY"));
-        console.log("🔑 SUPABASE_URL exists:", !!Deno.env.get("SUPABASE_URL"));
-        console.log("🔑 SERVICE_ROLE_KEY exists:", !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
+    // COOLDOWN
+    if (challenge?.last_sent_at) {
+        const last = new Date(challenge.last_sent_at).getTime();
+        if (nowMs - last < COOLDOWN_MS) return json(429, { error: "cooldown" });
+    }
 
-        const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+    // RATE LIMIT WINDOW (usa window_start_at, non created_at)
+    let windowStart = challenge?.window_start_at ? new Date(challenge.window_start_at) : now;
+    let sendCount = challenge?.send_count ?? 0;
 
-        const body = await req.json();
-        console.log("📩 Request body:", body);
+    if (nowMs - windowStart.getTime() > WINDOW_MS) {
+        windowStart = now;
+        sendCount = 0;
+    }
 
-        const { userId, email } = body;
+    sendCount += 1;
 
-        if (!userId || !email) {
-            console.error("❌ Missing parameters", { userId, email });
-            return new Response(JSON.stringify({ error: "Missing parameters" }), {
-                status: 400,
-                headers
+    if (sendCount > MAX_SENDS_PER_WINDOW) {
+        const lockedUntil = new Date(nowMs + LOCK_MINUTES * 60 * 1000);
+
+        // se esiste una challenge attiva la aggiorno, altrimenti ne creo una “vuota” lockata
+        if (challenge?.id) {
+            await supabaseAdmin
+                .from("otp_challenges")
+                .update({ locked_until: lockedUntil })
+                .eq("id", challenge.id);
+        } else {
+            await supabaseAdmin.from("otp_challenges").insert({
+                user_id: user.id,
+                code_hash: await sha256("000000" + OTP_PEPPER), // valore placeholder (non usato)
+                created_at: now,
+                expires_at: new Date(nowMs + OTP_TTL_MS),
+                locked_until: lockedUntil,
+                window_start_at: windowStart,
+                send_count: sendCount,
+                last_sent_at: now
             });
         }
 
-        console.log("👤 userId:", userId);
-        console.log("📧 email:", email);
-
-        const supabase = createClient(
-            Deno.env.get("SUPABASE_URL")!,
-            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-        );
-
-        console.log("🧹 Deleting previous OTPs");
-        await supabase.from("otps").delete().eq("user_id", userId);
-
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
-        console.log("🔢 Generated OTP:", code);
-
-        const codeHash = await hashOtp(code);
-        console.log("🔐 OTP hash generated");
-
-        const { error: insertError } = await supabase
-            .from("otps")
-            .insert({ user_id: userId, code: codeHash });
-
-        if (insertError) {
-            console.error("❌ DB insert error:", insertError);
-            return new Response(JSON.stringify({ error: "DB Error" }), {
-                status: 500,
-                headers
-            });
-        }
-
-        console.log("📨 Sending email via Resend");
-        console.log("FROM: Cataloglobe <updates@cataloglobe.com>");
-        console.log("TO:", email);
-
-        const { data, error } = await resend.emails.send({
-            from: "Cataloglobe <updates@cataloglobe.com>",
-            to: email,
-            subject: "Il tuo codice di accesso Cataloglobe",
-            html: `
-              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background:#f9fafb; padding:40px;">
-                <div style="max-width:520px; margin:0 auto; background:#ffffff; border-radius:12px; padding:32px; box-shadow:0 10px 30px rgba(0,0,0,0.05);">
-                  <h1 style="margin:0 0 16px; font-size:22px; color:#111827;">
-                    Codice di accesso
-                  </h1>
-                  <p style="margin:0 0 24px; font-size:15px; color:#374151;">
-                    Usa questo codice per completare l’accesso a <strong>Cataloglobe</strong>.
-                  </p>
-                  <div style="text-align:center; margin:32px 0;">
-                    <div style="display:inline-block; padding:16px 24px; font-size:28px; letter-spacing:4px; font-weight:700; background:#111827; color:#ffffff; border-radius:10px;">
-                      ${code}
-                    </div>
-                  </div>
-                  <p style="margin:24px 0 0; font-size:14px; color:#6b7280;">
-                    Il codice è valido per pochi minuti.
-                  </p>
-                  <hr style="border:none; border-top:1px solid #e5e7eb; margin:32px 0;" />
-                  <p style="margin:0; font-size:12px; color:#9ca3af;">
-                    © ${new Date().getFullYear()} Cataloglobe
-                  </p>
-                </div>
-              </div>
-            `
-        });
-
-        console.log("📨 Resend data:", data);
-        console.error("❌ Resend error:", error);
-
-        return new Response(JSON.stringify({ success: true }), { headers });
-    } catch (err) {
-        console.error("🔥 send-otp fatal error:", err);
-        return new Response(JSON.stringify({ error: String(err) }), {
-            status: 500,
-            headers
-        });
+        return json(429, { error: "rate_limited" });
     }
+
+    // Genera OTP e hash
+    const otp = generateOtp();
+    const codeHash = await sha256(otp + OTP_PEPPER);
+    const expiresAt = new Date(nowMs + OTP_TTL_MS);
+
+    const requestIp = firstForwardedFor(req.headers.get("x-forwarded-for"));
+    const userAgent = req.headers.get("user-agent");
+
+    // Se esiste challenge attiva, la aggiorno (NO delete)
+    if (challenge?.id) {
+        const { error: updErr } = await supabaseAdmin
+            .from("otp_challenges")
+            .update({
+                code_hash: codeHash,
+                expires_at: expiresAt,
+                attempts: 0,
+                max_attempts: challenge.max_attempts ?? 5,
+                last_sent_at: now,
+                send_count: sendCount,
+                window_start_at: windowStart,
+                request_ip: requestIp,
+                user_agent: userAgent,
+                locked_until: null,
+                consumed_at: null
+            })
+            .eq("id", challenge.id);
+
+        if (updErr) return json(500, { error: "db_error" });
+    } else {
+        const { error: insErr } = await supabaseAdmin.from("otp_challenges").insert({
+            user_id: user.id,
+            code_hash: codeHash,
+            expires_at: expiresAt,
+            attempts: 0,
+            max_attempts: 5,
+            last_sent_at: now,
+            send_count: sendCount,
+            window_start_at: windowStart,
+            request_ip: requestIp,
+            user_agent: userAgent
+        });
+
+        if (insErr) return json(500, { error: "db_error" });
+    }
+
+    // Invia email
+    await resend.emails.send({
+        from: "Cataloglobe <noreply@cataloglobe.com>",
+        to: user.email,
+        subject: "Il tuo codice di verifica",
+        html: `
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
+        <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
+          <h1 style="margin:0 0 16px;font-size:22px;color:#111827">Codice di accesso</h1>
+          <p style="margin:0 0 24px;font-size:15px;color:#374151">
+            Usa questo codice per completare l’accesso a <strong>Cataloglobe</strong>.
+          </p>
+          <div style="text-align:center;margin:32px 0">
+            <div style="display:inline-block;padding:16px 24px;font-size:28px;letter-spacing:4px;font-weight:700;background:#111827;color:#ffffff;border-radius:10px">
+              ${otp}
+            </div>
+          </div>
+          <p style="margin:24px 0 0;font-size:14px;color:#6b7280">
+            Il codice scade tra 5 minuti.
+          </p>
+        </div>
+      </div>
+    `
+    });
+
+    return json(200, { ok: true });
 });

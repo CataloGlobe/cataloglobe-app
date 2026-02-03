@@ -1,91 +1,158 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+type JwtPayload = {
+    sub?: string;
+    sid?: string;
+    exp?: number;
+};
+
+/* ================= CONFIG ================= */
+const LOCK_MINUTES = 15;
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const OTP_PEPPER = Deno.env.get("OTP_PEPPER")!;
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS"
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json"
 };
 
-async function hashOtp(code: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(code);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+function json(status: number, body: Record<string, unknown>) {
+    return new Response(JSON.stringify(body), { status, headers: corsHeaders });
+}
+
+async function sha256(value: string): Promise<string> {
+    const data = new TextEncoder().encode(value);
+    const hash = await crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(hash))
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join("");
 }
 
 serve(async req => {
-    // Preflight CORS
-    if (req.method === "OPTIONS") {
-        return new Response(null, { status: 204, headers: corsHeaders });
-    }
+    console.log("HEADERS", Object.fromEntries(req.headers.entries()));
 
+    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+    if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
+
+    if (!OTP_PEPPER) return json(500, { error: "server_misconfigured" });
+
+    let body: { code?: string };
     try {
-        const { userId, code } = await req.json();
+        body = await req.json();
+    } catch {
+        return json(400, { error: "invalid_request" });
+    }
 
-        if (!userId || !code) {
-            return new Response(JSON.stringify({ error: "invalid_request" }), {
-                status: 400,
-                headers: corsHeaders
-            });
-        }
+    const rawCode = body.code ?? "";
+    const code = rawCode.replace(/\D/g, ""); // solo cifre
 
-        const supabase = createClient(
-            Deno.env.get("SUPABASE_URL")!,
-            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-            {
-                auth: { persistSession: false }
-            }
-        );
+    if (code.length !== 6) return json(400, { error: "invalid_code" });
 
-        // Recupero ultimo OTP
-        const { data: otp, error } = await supabase
-            .from("otps")
-            .select("id, code, created_at")
-            .eq("user_id", userId)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .single();
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return json(401, { error: "unauthorized" });
 
-        if (error || !otp) {
-            return new Response(JSON.stringify({ error: "not_found" }), {
-                status: 401,
-                headers: corsHeaders
-            });
-        }
+    const jwt = authHeader.replace("Bearer ", "");
 
-        // Scadenza (5 minuti)
-        const expired = Date.now() - new Date(otp.created_at).getTime() > 5 * 60 * 1000;
+    let payload: JwtPayload;
+    try {
+        payload = JSON.parse(atob(jwt.split(".")[1]));
+    } catch {
+        return json(401, { error: "unauthorized" });
+    }
 
-        if (expired) {
-            return new Response(JSON.stringify({ error: "expired" }), {
-                status: 401,
-                headers: corsHeaders
-            });
-        }
+    const userId = payload.sub;
+    const sessionId = payload.session_id;
 
-        // Verifica hash
-        const codeHash = await hashOtp(code);
-        if (codeHash !== otp.code) {
-            return new Response(JSON.stringify({ error: "invalid" }), {
-                status: 401,
-                headers: corsHeaders
-            });
-        }
+    if (!userId || !sessionId) {
+        return json(401, { error: "unauthorized" });
+    }
 
-        // Cleanup OTP (monouso)
-        await supabase.from("otps").delete().eq("user_id", userId);
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-        return new Response(JSON.stringify({ success: true }), {
-            status: 200,
-            headers: corsHeaders
-        });
-    } catch (err) {
-        return new Response(JSON.stringify({ error: "server_error", err }), {
-            status: 500,
-            headers: corsHeaders
+    const now = new Date();
+    const nowMs = now.getTime();
+
+    const { data: challenge } = await supabaseAdmin
+        .from("otp_challenges")
+        .select("*")
+        .eq("user_id", userId)
+        .is("consumed_at", null)
+        .maybeSingle();
+
+    if (!challenge) return json(400, { error: "invalid_or_expired" });
+
+    // scaduto -> consumo e stop
+    if (new Date(challenge.expires_at).getTime() < nowMs) {
+        await supabaseAdmin
+            .from("otp_challenges")
+            .update({ consumed_at: now })
+            .eq("id", challenge.id);
+        return json(400, { error: "invalid_or_expired" });
+    }
+
+    // lock
+    if (challenge.locked_until && new Date(challenge.locked_until).getTime() > nowMs) {
+        return json(429, {
+            error: "locked",
+            attempts_left: 0,
+            max_attempts: maxAttempts
         });
     }
+
+    const maxAttempts = challenge.max_attempts ?? 5;
+    const hash = await sha256(code + OTP_PEPPER);
+
+    // mismatch -> attempts++ e forse lock
+    if (hash !== challenge.code_hash) {
+        const attempts = (challenge.attempts ?? 0) + 1;
+
+        const locked = attempts >= maxAttempts ? new Date(nowMs + LOCK_MINUTES * 60 * 1000) : null;
+
+        await supabaseAdmin
+            .from("otp_challenges")
+            .update({
+                attempts,
+                ...(locked ? { locked_until: locked } : {})
+            })
+            .eq("id", challenge.id);
+
+        return json(400, {
+            error: "invalid_or_expired",
+            attempts_left: Math.max(0, maxAttempts - attempts),
+            max_attempts: maxAttempts
+        });
+    }
+
+    // success -> consumo (e attempts++ per audit)
+    await supabaseAdmin
+        .from("otp_challenges")
+        .update({ consumed_at: now, attempts: (challenge.attempts ?? 0) + 1 })
+        .eq("id", challenge.id);
+
+    if (!sessionId) {
+        console.error("verify-otp: missing session_id");
+        return json(500, { error: "session_error" });
+    }
+
+    const { error: insertErr } = await supabaseAdmin.from("otp_session_verifications").upsert(
+        {
+            session_id: sessionId,
+            user_id: userId,
+            verified_at: new Date()
+        },
+        { onConflict: "session_id" }
+    );
+
+    if (insertErr) {
+        console.error("verify-otp: otp_session_verifications insert failed", insertErr);
+        return json(500, { error: "db_error" });
+    }
+
+    return json(200, { ok: true });
 });

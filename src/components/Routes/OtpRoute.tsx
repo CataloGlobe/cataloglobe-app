@@ -1,7 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@context/useAuth";
 import { AppLoader } from "../ui/AppLoader/AppLoader";
-import { isOtpValidated } from "@/services/supabase/auth";
 import type { ReactNode } from "react";
 
 type OtpRouteProps = {
@@ -10,7 +9,7 @@ type OtpRouteProps = {
 
 export const OtpRoute = ({ children }: OtpRouteProps) => {
     const isRecovery = sessionStorage.getItem("passwordRecoveryFlow") === "true";
-    const { user, loading } = useAuth();
+    const { user, loading, otpVerified, otpLoading } = useAuth();
     const location = useLocation();
 
     if (isRecovery) {
@@ -19,13 +18,16 @@ export const OtpRoute = ({ children }: OtpRouteProps) => {
 
     if (loading) return <AppLoader />;
 
+    // otpLoading ha senso SOLO se l'utente è loggato
+    if (user && otpLoading) return <AppLoader />;
+
     // Non loggato → login
     if (!user) {
         return <Navigate to="/login" replace state={{ from: location }} />;
     }
 
     // OTP già verificato → dashboard
-    if (isOtpValidated(user.id)) {
+    if (otpVerified) {
         return <Navigate to="/dashboard" replace />;
     }
 

@@ -1,7 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@context/useAuth";
 import { AppLoader } from "../ui/AppLoader/AppLoader";
-import { isOtpValidated } from "@/services/supabase/auth";
 import type { ReactNode } from "react";
 
 type GuestRouteProps = {
@@ -10,7 +9,7 @@ type GuestRouteProps = {
 
 export const GuestRoute = ({ children }: GuestRouteProps) => {
     const isRecovery = sessionStorage.getItem("passwordRecoveryFlow") === "true";
-    const { user, loading } = useAuth();
+    const { user, loading, otpVerified, otpLoading } = useAuth();
 
     if (isRecovery) {
         return <>{children}</>;
@@ -18,14 +17,10 @@ export const GuestRoute = ({ children }: GuestRouteProps) => {
 
     if (loading) return <AppLoader />;
 
-    // Se già loggato, non deve stare in login/signup/reset
+    if (user && otpLoading) return <AppLoader />;
+
     if (user) {
-        return (
-            <Navigate
-                to={isOtpValidated(user.id) === true ? "/dashboard" : "/verify-otp"}
-                replace
-            />
-        );
+        return <Navigate to={otpVerified ? "/dashboard" : "/verify-otp"} replace />;
     }
 
     return <>{children}</>;

@@ -23,7 +23,6 @@ export async function signUp(email: string, password: string, name?: string) {
 
 // Login
 export async function signIn(email: string, password: string, options?: SignInOptions) {
-    // ✅ setta la preferenza PRIMA di fare login (così il client usa lo storage giusto)
     if (typeof options?.rememberMe === "boolean") {
         setRememberMe(options.rememberMe);
     }
@@ -59,20 +58,4 @@ export async function resetPassword(email: string) {
     });
     if (error) throw error;
     return data;
-}
-
-// authStatus.ts
-const OTP_VALIDATED_USER_ID_KEY = "otpValidatedUserId";
-
-export function isOtpValidated(userId?: string | null): boolean {
-    if (!userId) return false;
-    return localStorage.getItem(OTP_VALIDATED_USER_ID_KEY) === userId;
-}
-
-export function setOtpValidatedForUser(userId: string) {
-    localStorage.setItem(OTP_VALIDATED_USER_ID_KEY, userId);
-}
-
-export function clearOtpValidated() {
-    localStorage.removeItem(OTP_VALIDATED_USER_ID_KEY);
 }

@@ -2,118 +2,178 @@ import {
     useState,
     useEffect,
     useRef,
-    type FormEvent,
     type KeyboardEvent,
-    type ClipboardEvent
+    type ClipboardEvent,
+    type FormEvent,
+    useCallback
 } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/services/supabase/client";
+import { useAuth } from "@/context/useAuth";
+import { useToast } from "@/context/Toast/ToastContext";
 import { Button } from "@/components/ui";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { supabase } from "@/services/supabase/client";
+import type { OtpErrorCode, OtpStatus, VerifyOtpResponse } from "@/types/otp";
 import styles from "./Auth.module.scss";
-import { setOtpValidatedForUser } from "@/services/supabase/auth";
 
 const OTP_LENGTH = 6;
-const MAX_ATTEMPTS = 3;
 const RESEND_COOLDOWN = 60;
 
+function mapOtpError(error: unknown): OtpErrorCode {
+    if (!error || typeof error !== "object") return "unknown";
+
+    const message = "message" in error && typeof error.message === "string" ? error.message : "";
+
+    if (message.includes("invalid")) return "invalid_or_expired";
+    if (message.includes("cooldown")) return "cooldown";
+    if (message.includes("locked")) return "locked";
+    if (message.includes("rate")) return "rate_limited";
+    if (message.includes("unauthorized")) return "unauthorized";
+
+    return "unknown";
+}
+
 export default function VerifyOtp() {
+    const { refreshOtp } = useAuth();
+    const navigate = useNavigate();
+
     const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [attempts, setAttempts] = useState(0);
-    const [resendSeconds, setResendSeconds] = useState(RESEND_COOLDOWN);
-    const [infoMessage, setInfoMessage] = useState<string | null>(null);
+    const [info, setInfo] = useState<string | null>(null);
+    const [resendSeconds, setResendSeconds] = useState<number | null>(null);
+    const [status, setStatus] = useState<OtpStatus>("idle");
+    const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+    const [maxAttempts, setMaxAttempts] = useState<number | null>(null);
+    const [locked, setLocked] = useState(false);
 
     const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
     const hasRequestedOtpRef = useRef(false);
 
-    const navigate = useNavigate();
-    const location = useLocation();
-    const from = location.state?.from?.pathname || "/dashboard";
-    const reason = location.state?.reason;
+    const { showToast } = useToast();
+
+    const sendOtp = useCallback(async () => {
+        try {
+            setLoading(true);
+            setStatus("sending");
+            setError(null);
+            setInfo(null);
+
+            const { data } = await supabase.auth.getSession();
+            const jwt = data.session?.access_token;
+
+            if (!jwt) {
+                navigate("/login", { replace: true });
+                return;
+            }
+
+            const { error } = await supabase.functions.invoke("send-otp", {
+                headers: { Authorization: `Bearer ${jwt}` }
+            });
+
+            if (error) {
+                const code = mapOtpError(error);
+
+                // ❗ NON bloccare il flusso: il codice potrebbe arrivare comunque
+                if (code === "cooldown") {
+                    showToast({
+                        type: "error",
+                        message: "Attendi qualche secondo prima di richiedere un nuovo codice.",
+                        duration: 2500
+                    });
+                    setError("Attendi qualche secondo prima di richiedere un nuovo codice.");
+                } else if (code === "rate_limited" || code === "locked") {
+                    showToast({
+                        type: "error",
+                        message: "Hai fatto troppe richieste. Riprova più tardi.",
+                        duration: 2500
+                    });
+                    setError("Hai fatto troppe richieste. Riprova più tardi.");
+                } else {
+                    showToast({
+                        type: "info",
+                        message: "Se non ricevi il codice entro pochi secondi, riprova.",
+                        duration: 2500
+                    });
+                    setInfo("Se non ricevi il codice entro pochi secondi, riprova.");
+                }
+
+                return; // ✅ IMPORTANT: evita toast “Codice inviato”
+            }
+
+            // ✅ solo se OK
+            showToast({ type: "info", message: "Codice inviato.", duration: 2500 });
+            setInfo("Codice inviato.");
+            setResendSeconds(RESEND_COOLDOWN);
+        } finally {
+            setLoading(false);
+            setStatus("idle");
+        }
+    }, [navigate, showToast]);
+
+    const loadOtpStatus = useCallback(async () => {
+        const { data } = await supabase.auth.getSession();
+        const jwt = data.session?.access_token;
+        if (!jwt) return;
+
+        const { data: status, error } = await supabase.functions.invoke("status-otp", {
+            headers: { Authorization: `Bearer ${jwt}` }
+        });
+
+        if (error || !status) return;
+
+        if (typeof status.resend_available_in === "number") {
+            setResendSeconds(status.resend_available_in);
+        }
+        if (typeof status.attempts_left === "number") {
+            setAttemptsLeft(status.attempts_left);
+        }
+        if (typeof status.locked === "boolean") {
+            setLocked(status.locked);
+        }
+        if (typeof status.max_attempts === "number") {
+            setMaxAttempts(status.max_attempts);
+        }
+    }, []);
 
     /* ------------------------------------------------------------------
-     * INVIO OTP (una sola volta per sessione, safe per StrictMode)
+     * OTP STATUS
      * ------------------------------------------------------------------ */
     useEffect(() => {
-        async function bootstrap() {
-            let userId = localStorage.getItem("pendingUserId");
-            let email = localStorage.getItem("pendingUserEmail");
-            const otpSent = localStorage.getItem("otpSent");
+        void loadOtpStatus();
+    }, [loadOtpStatus]);
 
-            // ✅ fallback: arrivo da email verification → user c'è ma pending no
-            if (!userId || !email) {
-                const { data } = await supabase.auth.getUser();
-                const user = data.user;
+    /* ------------------------------------------------------------------
+     * INVIO OTP AUTOMATICO (UNA SOLA VOLTA)
+     * ------------------------------------------------------------------ */
+    useEffect(() => {
+        // aspettiamo lo stato reale dal backend
+        if (resendSeconds === null) return;
 
-                if (!user?.id || !user.email) {
-                    navigate("/login", { replace: true, state: { reason: "session-expired" } });
-                    return;
-                }
+        // esegui una sola volta
+        if (hasRequestedOtpRef.current) return;
+        hasRequestedOtpRef.current = true;
 
-                userId = user.id;
-                email = user.email;
-
-                localStorage.setItem("pendingUserId", userId);
-                localStorage.setItem("pendingUserEmail", email);
-                localStorage.removeItem("otpSent"); // per forzare invio OTP
-            }
-
-            if (otpSent === "true") return;
-            if (hasRequestedOtpRef.current) return;
-
-            hasRequestedOtpRef.current = true;
-
-            async function sendOtp() {
-                try {
-                    setLoading(true);
-                    setError(null);
-                    setInfoMessage(null);
-
-                    const response = await fetch(
-                        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-otp`,
-                        {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-                                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-                            },
-                            body: JSON.stringify({ userId, email })
-                        }
-                    );
-
-                    if (!response.ok) {
-                        setError("Errore durante l'invio del codice di verifica.");
-                        return;
-                    }
-
-                    localStorage.setItem("otpSent", "true");
-                    setResendSeconds(RESEND_COOLDOWN);
-                    setInfoMessage("Codice di verifica inviato.");
-                } catch {
-                    setError("Impossibile inviare il codice. Riprova.");
-                } finally {
-                    setLoading(false);
-                }
-            }
-
-            sendOtp();
+        // se non siamo in cooldown, inviamo OTP
+        if (resendSeconds === 0) {
+            (async () => {
+                await sendOtp();
+                await loadOtpStatus();
+            })();
         }
-
-        void bootstrap();
-    }, [navigate]);
+    }, [resendSeconds, sendOtp, loadOtpStatus]);
 
     /* ------------------------------------------------------------------
      * COUNTDOWN REINVIO
      * ------------------------------------------------------------------ */
     useEffect(() => {
-        if (resendSeconds <= 0) return;
+        if (resendSeconds === null || resendSeconds <= 0) return;
+
         const id = setInterval(() => {
-            setResendSeconds(sec => sec - 1);
+            setResendSeconds(sec => (sec !== null ? sec - 1 : sec));
         }, 1000);
+
         return () => clearInterval(id);
     }, [resendSeconds]);
 
@@ -138,9 +198,8 @@ export default function VerifyOtp() {
             inputsRef.current[index + 1]?.focus();
         }
 
-        // Auto-submit quando completo
         if (next.join("").length === OTP_LENGTH) {
-            void handleVerify();
+            void handleVerify(next.join(""));
         }
     };
 
@@ -154,9 +213,6 @@ export default function VerifyOtp() {
             }
             if (index > 0) inputsRef.current[index - 1]?.focus();
         }
-
-        if (e.key === "ArrowLeft" && index > 0) inputsRef.current[index - 1]?.focus();
-        if (e.key === "ArrowRight" && index < OTP_LENGTH - 1) inputsRef.current[index + 1]?.focus();
     };
 
     const handlePaste = (e: ClipboardEvent<HTMLInputElement>) => {
@@ -165,15 +221,13 @@ export default function VerifyOtp() {
         if (!paste) return;
 
         const next = Array(OTP_LENGTH).fill("");
-        for (let i = 0; i < paste.length; i++) {
-            next[i] = paste[i];
-        }
+        for (let i = 0; i < paste.length; i++) next[i] = paste[i];
 
         setDigits(next);
         inputsRef.current[Math.min(paste.length, OTP_LENGTH) - 1]?.focus();
 
         if (paste.length === OTP_LENGTH) {
-            void handleVerify(next.join(""));
+            void handleVerify(paste);
         }
     };
 
@@ -183,77 +237,110 @@ export default function VerifyOtp() {
     async function handleVerify(codeOverride?: string) {
         if (loading) return;
 
-        const userId = localStorage.getItem("pendingUserId");
-        if (!userId) {
-            navigate("/login", { replace: true, state: { reason: "session-expired" } });
-            return;
-        }
-
         const code = codeOverride ?? digits.join("");
         if (code.length !== OTP_LENGTH) return;
 
         try {
             setLoading(true);
+            setStatus("verifying");
             setError(null);
-            setInfoMessage("Verifica del codice in corso…");
+            showToast({
+                type: "info",
+                message: "Verifica in corso...",
+                duration: 2500
+            });
+            setInfo("Verifica in corso...");
 
-            const { data } = await supabase.auth.getSession();
-            const session = data.session;
+            const { data: sessionData } = await supabase.auth.getSession();
+            const jwt = sessionData.session?.access_token;
 
-            if (!session?.access_token) {
-                navigate("/login", { replace: true, state: { reason: "session-expired" } });
+            if (!jwt) {
+                navigate("/login", { replace: true });
                 return;
             }
 
-            const response = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-otp`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-                        Authorization: `Bearer ${session.access_token}`
-                    },
-                    body: JSON.stringify({ userId, code })
-                }
-            );
+            const { data, error } = await supabase.functions.invoke("verify-otp", {
+                body: { code },
+                headers: { Authorization: `Bearer ${jwt}` }
+            });
 
-            if (!response.ok) {
-                setAttempts(prev => {
-                    const next = prev + 1;
+            if (error) {
+                const code = mapOtpError(error);
 
-                    if (next >= MAX_ATTEMPTS) {
-                        localStorage.removeItem("pendingUserId");
-                        localStorage.removeItem("pendingUserEmail");
-                        localStorage.removeItem("otpValidatedUserId");
-                        localStorage.removeItem("otpSent");
-                        navigate("/login", { replace: true, state: { reason: "session-expired" } });
-                        return next;
+                switch (code) {
+                    case "invalid_or_expired": {
+                        const response = data as VerifyOtpResponse;
+                        if (typeof response.max_attempts === "number") {
+                            setMaxAttempts(response.max_attempts);
+                        }
+                        const attemptsLeftFromServer =
+                            typeof response?.attempts_left === "number"
+                                ? response.attempts_left
+                                : null;
+
+                        if (attemptsLeftFromServer !== null) {
+                            setAttemptsLeft(attemptsLeftFromServer);
+                        }
+
+                        const message =
+                            attemptsLeftFromServer !== null
+                                ? `Codice non valido. Tentativi rimasti: ${attemptsLeftFromServer}.`
+                                : "Codice non valido o scaduto.";
+
+                        showToast({
+                            type: "error",
+                            message,
+                            duration: 2500
+                        });
+
+                        setError(message);
+                        break;
                     }
 
-                    setError(
-                        next === MAX_ATTEMPTS - 1
-                            ? "Ultimo tentativo disponibile."
-                            : "Codice non valido. Riprova."
-                    );
-
-                    return next;
-                });
+                    case "cooldown":
+                        showToast({
+                            type: "error",
+                            message: "Attendi qualche secondo prima di riprovare.",
+                            duration: 2500
+                        });
+                        setError("Attendi qualche secondo prima di riprovare.");
+                        break;
+                    case "locked":
+                        showToast({
+                            type: "error",
+                            message: "Troppi tentativi. Riprova più tardi.",
+                            duration: 2500
+                        });
+                        setError("Troppi tentativi. Riprova più tardi.");
+                        break;
+                    case "rate_limited":
+                        showToast({
+                            type: "error",
+                            message: "Hai fatto troppe richieste. Attendi.",
+                            duration: 2500
+                        });
+                        setError("Hai fatto troppe richieste. Attendi.");
+                        break;
+                    case "unauthorized":
+                        navigate("/login", { replace: true });
+                        return;
+                    default:
+                        showToast({
+                            type: "error",
+                            message: "Errore durante la verifica del codice.",
+                            duration: 2500
+                        });
+                        setError("Errore durante la verifica del codice.");
+                }
+                await loadOtpStatus();
                 return;
             }
 
-            const userIdFromSession = session.user.id;
-
-            setOtpValidatedForUser(userIdFromSession);
-            localStorage.removeItem("pendingUserId");
-            localStorage.removeItem("pendingUserEmail");
-            localStorage.removeItem("otpSent");
-
-            navigate(from, { replace: true });
-        } catch {
-            setError("Errore durante la verifica del codice.");
+            await refreshOtp();
+            navigate("/dashboard", { replace: true });
         } finally {
             setLoading(false);
+            setStatus("idle");
         }
     }
 
@@ -261,49 +348,26 @@ export default function VerifyOtp() {
      * REINVIO OTP
      * ------------------------------------------------------------------ */
     async function handleResend() {
-        if (loading || resendSeconds > 0) return;
-
-        const userId = localStorage.getItem("pendingUserId");
-        const email = localStorage.getItem("pendingUserEmail");
-
-        if (!userId || !email) {
-            navigate("/login", { replace: true, state: { reason: "session-expired" } });
+        // non fare nulla se:
+        // - stiamo caricando
+        // - OTP lockato
+        // - countdown non ancora inizializzato
+        // - countdown ancora attivo
+        if (loading || locked || resendSeconds === null || resendSeconds > 0) {
             return;
         }
 
-        try {
-            setLoading(true);
-            setError(null);
-            setInfoMessage(null);
+        hasRequestedOtpRef.current = false;
 
-            const response = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-otp`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-                        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({ userId, email })
-                }
-            );
+        setDigits(Array(OTP_LENGTH).fill(""));
+        setInfo(null);
+        setError(null);
+        setAttemptsLeft(null);
 
-            if (!response.ok) {
-                setError("Errore durante il reinvio del codice.");
-                return;
-            }
+        inputsRef.current[0]?.focus();
 
-            setDigits(Array(OTP_LENGTH).fill(""));
-            setAttempts(0);
-            setResendSeconds(RESEND_COOLDOWN);
-            setInfoMessage("Nuovo codice inviato.");
-            inputsRef.current[0]?.focus();
-        } catch {
-            setError("Impossibile reinviare il codice.");
-        } finally {
-            setLoading(false);
-        }
+        await sendOtp();
+        await loadOtpStatus();
     }
 
     /* ------------------------------------------------------------------ */
@@ -313,23 +377,14 @@ export default function VerifyOtp() {
             <Text as="h1" variant="title-md">
                 Verifica il codice
             </Text>
-
             <Text as="p" variant="body-sm" className={styles.subtitle}>
                 Inserisci il codice a 6 cifre che ti abbiamo inviato via email.
             </Text>
-
-            {reason === "otp-required" && (
-                <Text variant="caption" colorVariant="info">
-                    Completa la verifica per accedere al tuo account.
-                </Text>
-            )}
-
             <form
                 onSubmit={(e: FormEvent) => {
                     e.preventDefault();
                     void handleVerify();
                 }}
-                aria-busy={loading}
             >
                 <div className={styles.otpInputs}>
                     {digits.map((digit, index) => (
@@ -346,48 +401,49 @@ export default function VerifyOtp() {
                             onChange={e => handleChangeDigit(index, e.target.value)}
                             onKeyDown={e => handleKeyDown(index, e)}
                             onPaste={index === 0 ? handlePaste : undefined}
-                            aria-label={`Cifra ${index + 1} del codice di verifica`}
                         />
                     ))}
                 </div>
-
                 {error && (
-                    <Text as="p" colorVariant="error" variant="caption" className={styles.feedback}>
+                    <Text variant="caption" colorVariant="error" className={styles.feedback}>
                         {error}
                     </Text>
                 )}
 
-                {infoMessage && !error && (
-                    <Text as="p" colorVariant="info" variant="caption" className={styles.feedback}>
-                        {infoMessage}
+                {info && !error && (
+                    <Text variant="caption" colorVariant="info" className={styles.feedback}>
+                        {info}
                     </Text>
                 )}
-
                 <Button
                     type="submit"
-                    variant="primary"
                     fullWidth
                     loading={loading}
-                    disabled={loading}
+                    disabled={locked || status === "sending" || status === "verifying"}
                 >
-                    Verifica
+                    {status === "sending" ? "Invio in corso…" : "Verifica"}
                 </Button>
             </form>
-
             <div className={styles.otpFooter}>
                 <Button
                     variant="ghost"
                     fullWidth
                     onClick={handleResend}
-                    disabled={loading || resendSeconds > 0}
+                    disabled={loading || locked || resendSeconds === null || resendSeconds > 0}
                 >
-                    {resendSeconds > 0 ? `Reinvia codice (${resendSeconds}s)` : "Reinvia codice"}
+                    {resendSeconds === null
+                        ? "Reinvia codice"
+                        : resendSeconds > 0
+                        ? `Reinvia codice (${resendSeconds}s)`
+                        : "Reinvia codice"}
                 </Button>
-
-                <Text as="p" variant="caption">
-                    Tentativi rimasti: {Math.max(0, MAX_ATTEMPTS - attempts)}
-                </Text>
             </div>
+
+            {attemptsLeft !== null && maxAttempts !== null && attemptsLeft < maxAttempts && (
+                <Text variant="caption" colorVariant="error">
+                    Tentativi disponibili: {attemptsLeft}
+                </Text>
+            )}
         </div>
     );
 }
