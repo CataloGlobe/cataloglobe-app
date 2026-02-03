@@ -9,19 +9,17 @@ type GuestRouteProps = {
 
 export const GuestRoute = ({ children }: GuestRouteProps) => {
     const isRecovery = sessionStorage.getItem("passwordRecoveryFlow") === "true";
-    const { user, loading } = useAuth();
+    const { user, loading, otpVerified, otpLoading } = useAuth();
 
     if (isRecovery) {
         return <>{children}</>;
     }
 
-    if (loading) return <AppLoader />;
+    if (loading || otpLoading) return <AppLoader />;
 
     // Se già loggato, non deve stare in login/signup/reset
     if (user) {
-        const isOtpVerified = !!user.app_metadata?.otp_verified;
-
-        return <Navigate to={isOtpVerified ? "/dashboard" : "/verify-otp"} replace />;
+        return <Navigate to={otpVerified ? "/dashboard" : "/verify-otp"} replace />;
     }
 
     return <>{children}</>;

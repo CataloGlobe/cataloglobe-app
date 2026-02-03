@@ -9,14 +9,14 @@ type OtpRouteProps = {
 
 export const OtpRoute = ({ children }: OtpRouteProps) => {
     const isRecovery = sessionStorage.getItem("passwordRecoveryFlow") === "true";
-    const { user, loading } = useAuth();
+    const { user, loading, otpVerified, otpLoading } = useAuth();
     const location = useLocation();
 
     if (isRecovery) {
         return <>{children}</>;
     }
 
-    if (loading) return <AppLoader />;
+    if (loading || otpLoading) return <AppLoader />;
 
     // Non loggato → login
     if (!user) {
@@ -24,9 +24,7 @@ export const OtpRoute = ({ children }: OtpRouteProps) => {
     }
 
     // OTP già verificato → dashboard
-    const isOtpVerified = !!user?.app_metadata?.otp_verified;
-
-    if (isOtpVerified) {
+    if (otpVerified) {
         return <Navigate to="/dashboard" replace />;
     }
 

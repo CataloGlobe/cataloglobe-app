@@ -54,10 +54,14 @@ serve(async req => {
         global: { headers: { Authorization: authHeader } }
     });
 
-    const { data: authData, error: authError } = await supabaseAuth.auth.getUser();
-    const user = authData?.user;
+    const { data: sessionData, error: sessionError } = await supabaseAuth.auth.getSession();
 
-    if (authError || !user?.id) return json(401, { error: "unauthorized" });
+    const session = sessionData?.session;
+    const user = session?.user;
+
+    if (sessionError || !session || !user?.id) {
+        return json(401, { error: "unauthorized" });
+    }
 
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
@@ -108,6 +112,27 @@ serve(async req => {
         .from("otp_challenges")
         .update({ consumed_at: now, attempts: (challenge.attempts ?? 0) + 1 })
         .eq("id", challenge.id);
+
+    const sessionId = session.session_id;
+
+    if (!sessionId) {
+        console.error("verify-otp: missing session_id");
+        return json(500, { error: "session_error" });
+    }
+
+    const { error: insertErr } = await supabaseAdmin.from("otp_session_verifications").upsert(
+        {
+            session_id: sessionId,
+            user_id: user.id,
+            verified_at: new Date()
+        },
+        { onConflict: "session_id" }
+    );
+
+    if (insertErr) {
+        console.error("verify-otp: otp_session_verifications insert failed", insertErr);
+        return json(500, { error: "db_error" });
+    }
 
     return json(200, { ok: true });
 });
