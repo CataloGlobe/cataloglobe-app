@@ -109,7 +109,7 @@ alter table "public"."collections" enable row level security;
 alter table "public"."item_categories" enable row level security;
 
 
-  create table "public"."item_tags" (
+  create table if not exists "public"."item_tags" (
     "item_id" uuid not null,
     "tag_id" uuid not null
       );
