@@ -35,6 +35,8 @@ async function sha256(value: string): Promise<string> {
 }
 
 serve(async req => {
+    console.log("HEADERS", Object.fromEntries(req.headers.entries()));
+
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
@@ -65,7 +67,7 @@ serve(async req => {
     }
 
     const userId = payload.sub;
-    const sessionId = payload.sid;
+    const sessionId = payload.session_id;
 
     if (!userId || !sessionId) {
         return json(401, { error: "unauthorized" });
