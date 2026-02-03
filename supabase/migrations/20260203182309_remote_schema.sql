@@ -3,7 +3,7 @@ create extension if not exists "pg_cron" with schema "pg_catalog";
 drop extension if exists "pg_net";
 
 
-  create table "public"."business_collection_schedules" (
+  create table if not exists "public"."business_collection_schedules" (
     "id" uuid not null default gen_random_uuid(),
     "business_id" uuid not null,
     "collection_id" uuid not null,
@@ -21,7 +21,7 @@ drop extension if exists "pg_net";
 alter table "public"."business_collection_schedules" enable row level security;
 
 
-  create table "public"."business_item_overrides" (
+  create table if not exists "public"."business_item_overrides" (
     "id" uuid not null default gen_random_uuid(),
     "business_id" uuid not null,
     "item_id" uuid not null,
@@ -35,7 +35,7 @@ alter table "public"."business_collection_schedules" enable row level security;
 alter table "public"."business_item_overrides" enable row level security;
 
 
-  create table "public"."businesses" (
+  create table if not exists "public"."businesses" (
     "id" uuid not null default gen_random_uuid(),
     "user_id" uuid,
     "name" text not null,
@@ -55,7 +55,7 @@ alter table "public"."business_item_overrides" enable row level security;
 alter table "public"."businesses" enable row level security;
 
 
-  create table "public"."collection_items" (
+  create table if not exists "public"."collection_items" (
     "id" uuid not null default gen_random_uuid(),
     "collection_id" uuid not null,
     "section_id" uuid not null,
@@ -68,7 +68,7 @@ alter table "public"."businesses" enable row level security;
 alter table "public"."collection_items" enable row level security;
 
 
-  create table "public"."collection_sections" (
+  create table if not exists "public"."collection_sections" (
     "id" uuid not null default gen_random_uuid(),
     "collection_id" uuid not null,
     "order_index" integer not null default 0,
@@ -80,7 +80,7 @@ alter table "public"."collection_items" enable row level security;
 alter table "public"."collection_sections" enable row level security;
 
 
-  create table "public"."collections" (
+  create table if not exists "public"."collections" (
     "id" uuid not null default gen_random_uuid(),
     "name" text not null,
     "description" text,
@@ -96,7 +96,7 @@ alter table "public"."collection_sections" enable row level security;
 alter table "public"."collections" enable row level security;
 
 
-  create table "public"."item_categories" (
+  create table if not exists "public"."item_categories" (
     "id" uuid not null default gen_random_uuid(),
     "name" text not null,
     "slug" text not null,
@@ -118,7 +118,7 @@ alter table "public"."item_categories" enable row level security;
 alter table "public"."item_tags" enable row level security;
 
 
-  create table "public"."items" (
+  create table if not exists "public"."items" (
     "id" uuid not null default gen_random_uuid(),
     "type" text not null default 'generic'::text,
     "name" text not null,
@@ -165,7 +165,7 @@ alter table "public"."otp_challenges" enable row level security;
 
 
 
-  create table "public"."profiles" (
+  create table if not exists "public"."profiles" (
     "id" uuid not null,
     "name" text,
     "avatar_url" text,
@@ -176,7 +176,7 @@ alter table "public"."otp_challenges" enable row level security;
 alter table "public"."profiles" enable row level security;
 
 
-  create table "public"."qr_scans" (
+  create table if not exists "public"."qr_scans" (
     "id" uuid not null default extensions.uuid_generate_v4(),
     "business_id" uuid,
     "created_at" timestamp with time zone default now()
@@ -186,7 +186,7 @@ alter table "public"."profiles" enable row level security;
 alter table "public"."qr_scans" enable row level security;
 
 
-  create table "public"."reviews" (
+  create table if not exists "public"."reviews" (
     "id" uuid not null default gen_random_uuid(),
     "user_id" uuid,
     "rating" integer,
@@ -204,7 +204,7 @@ alter table "public"."qr_scans" enable row level security;
 alter table "public"."reviews" enable row level security;
 
 
-  create table "public"."tags" (
+  create table if not exists "public"."tags" (
     "id" uuid not null default gen_random_uuid(),
     "name" text not null,
     "slug" text not null,
