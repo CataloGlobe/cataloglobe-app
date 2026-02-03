@@ -15,9 +15,10 @@ export const GuestRoute = ({ children }: GuestRouteProps) => {
         return <>{children}</>;
     }
 
-    if (loading || otpLoading) return <AppLoader />;
+    if (loading) return <AppLoader />;
 
-    // Se già loggato, non deve stare in login/signup/reset
+    if (user && otpLoading) return <AppLoader />;
+
     if (user) {
         return <Navigate to={otpVerified ? "/dashboard" : "/verify-otp"} replace />;
     }

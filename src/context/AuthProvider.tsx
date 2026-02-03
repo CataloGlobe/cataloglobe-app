@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@services/supabase/client";
 import { AuthContext } from "./AuthContextBase";
 import type { User } from "@supabase/supabase-js";
@@ -6,40 +6,118 @@ import type { User } from "@supabase/supabase-js";
 function getSessionIdFromJwt(token: string): string | null {
     try {
         const payload = JSON.parse(atob(token.split(".")[1]));
-        return payload.sid ?? null;
+        return payload.session_id ?? payload.sessionid ?? null;
     } catch {
         return null;
     }
 }
 
+async function withTimeout<T>(p: Promise<T>, ms = 4000): Promise<T> {
+    return await Promise.race([
+        p,
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))
+    ]);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+
     const [otpVerified, setOtpVerified] = useState(false);
     const [otpLoading, setOtpLoading] = useState(true);
 
-    useEffect(() => {
-        const initAuth = async () => {
-            const { data } = await supabase.auth.getUser();
-            setUser(data.user ?? null);
+    // evita race condition tra chiamate multiple
+    const otpReqIdRef = useRef(0);
 
-            if (data.user) {
-                await checkOtpForSession(); // ✅
-            } else {
-                setOtpVerified(false);
-                setOtpLoading(false);
+    async function checkOtpForSession() {
+        const reqId = ++otpReqIdRef.current;
+        setOtpLoading(true);
+
+        try {
+            const { data: sessionData } = await withTimeout(supabase.auth.getSession(), 4000);
+            const session = sessionData.session;
+
+            if (!session?.access_token) {
+                if (reqId === otpReqIdRef.current) setOtpVerified(false);
+                return;
             }
 
-            setLoading(false);
-        };
+            const sessionId = getSessionIdFromJwt(session.access_token);
+            if (!sessionId) {
+                if (reqId === otpReqIdRef.current) setOtpVerified(false);
+                return;
+            }
 
-        initAuth();
+            const { data, error } = await withTimeout(
+                (async () =>
+                    await supabase
+                        .from("otp_session_verifications")
+                        .select("session_id")
+                        .eq("session_id", sessionId)
+                        .maybeSingle())(),
+                4000
+            );
 
-        const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            if (session) {
-                const { data } = await supabase.auth.getUser();
+            if (reqId !== otpReqIdRef.current) return; // risposta vecchia → ignora
+
+            if (error) {
+                console.error("[otp] check failed:", error);
+                setOtpVerified(false);
+                return;
+            }
+
+            setOtpVerified(!!data);
+        } catch (e) {
+            // timeout o crash: NON bloccare l'app
+            console.error("[otp] check crashed:", e);
+            if (reqId === otpReqIdRef.current) setOtpVerified(false);
+        } finally {
+            if (reqId === otpReqIdRef.current) setOtpLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function init() {
+            try {
+                const { data } = await withTimeout(supabase.auth.getUser(), 4000);
+                if (cancelled) return;
+
                 setUser(data.user ?? null);
-                await checkOtpForSession(); // ✅
+
+                // IMPORTANTISSIMO:
+                // non bloccare l'app aspettando OTP check
+                if (data.user) void checkOtpForSession();
+                else {
+                    setOtpVerified(false);
+                    setOtpLoading(false);
+                }
+            } catch (e) {
+                console.error("[auth] init failed:", e);
+                if (!cancelled) {
+                    setUser(null);
+                    setOtpVerified(false);
+                    setOtpLoading(false);
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        }
+
+        init();
+
+        const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (cancelled) return;
+
+            if (session) {
+                // aggiorna user in background
+                void (async () => {
+                    const { data } = await supabase.auth.getUser();
+                    if (cancelled) return;
+                    setUser(data.user ?? null);
+                    void checkOtpForSession();
+                })();
             } else {
                 setUser(null);
                 setOtpVerified(false);
@@ -47,38 +125,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         });
 
-        return () => listener.subscription.unsubscribe();
+        return () => {
+            cancelled = true;
+            listener.subscription.unsubscribe();
+        };
     }, []);
-
-    async function checkOtpForSession() {
-        setOtpLoading(true);
-
-        const { data: sessionData } = await supabase.auth.getSession();
-        const session = sessionData.session;
-
-        if (!session) {
-            setOtpVerified(false);
-            setOtpLoading(false);
-            return;
-        }
-
-        const sessionId = getSessionIdFromJwt(session.access_token);
-
-        if (!sessionId) {
-            setOtpVerified(false);
-            setOtpLoading(false);
-            return;
-        }
-
-        const { data, error } = await supabase
-            .from("otp_session_verifications")
-            .select("session_id")
-            .eq("session_id", sessionId)
-            .maybeSingle();
-
-        setOtpVerified(!error && !!data);
-        setOtpLoading(false);
-    }
 
     async function handleSignOut() {
         await supabase.auth.signOut();
@@ -89,7 +140,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return (
         <AuthContext.Provider
-            value={{ user, loading, otpVerified, otpLoading, signOut: handleSignOut }}
+            value={{
+                user,
+                loading,
+                otpVerified,
+                otpLoading,
+                signOut: handleSignOut,
+                refreshOtp: checkOtpForSession
+            }}
         >
             {children}
         </AuthContext.Provider>

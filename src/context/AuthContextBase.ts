@@ -6,6 +6,7 @@ export interface AuthContextType {
     loading: boolean;
     otpVerified: boolean;
     otpLoading: boolean;
+    refreshOtp: () => Promise<void>;
     signOut: () => Promise<void>;
 }
 
@@ -14,5 +15,6 @@ export const AuthContext = createContext<AuthContextType>({
     loading: true,
     otpVerified: false,
     otpLoading: true,
+    refreshOtp: async () => {},
     signOut: async () => {}
 });

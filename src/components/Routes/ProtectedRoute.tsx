@@ -11,21 +11,16 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     const { user, loading, otpVerified, otpLoading } = useAuth();
     const location = useLocation();
 
-    // ⏳ loading
-    if (loading || otpLoading) return <AppLoader />;
+    if (loading) return <AppLoader />;
 
-    // ❌ non loggato
-    if (!user) {
+    if (!user)
         return (
             <Navigate to="/login" replace state={{ from: location, reason: "login-required" }} />
         );
-    }
 
-    // ❌ OTP non validato
-    if (!otpVerified) {
-        return <Navigate to="/verify-otp" replace />;
-    }
+    if (otpLoading) return <AppLoader message="Verifica accesso in corso..." />;
 
-    // ✅ accesso consentito
+    if (!otpVerified) return <Navigate to="/verify-otp" replace />;
+
     return <>{children}</>;
 };

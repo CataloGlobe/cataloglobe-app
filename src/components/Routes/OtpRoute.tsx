@@ -16,7 +16,10 @@ export const OtpRoute = ({ children }: OtpRouteProps) => {
         return <>{children}</>;
     }
 
-    if (loading || otpLoading) return <AppLoader />;
+    if (loading) return <AppLoader />;
+
+    // otpLoading ha senso SOLO se l'utente è loggato
+    if (user && otpLoading) return <AppLoader />;
 
     // Non loggato → login
     if (!user) {
