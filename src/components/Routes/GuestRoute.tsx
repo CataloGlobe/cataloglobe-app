@@ -15,9 +15,15 @@ export const GuestRoute = ({ children }: GuestRouteProps) => {
         return <>{children}</>;
     }
 
-    if (loading) return <AppLoader />;
+    // Bootstrap auth (sessione, utente, token, ecc.)
+    if (loading) {
+        return <AppLoader intent="auth" />;
+    }
 
-    if (user && otpLoading) return <AppLoader />;
+    // Verifica OTP in corso
+    if (user && otpLoading) {
+        return <AppLoader intent="otp" />;
+    }
 
     if (user) {
         return <Navigate to={otpVerified ? "/dashboard" : "/verify-otp"} replace />;

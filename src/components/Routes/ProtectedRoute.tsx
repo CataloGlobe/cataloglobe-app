@@ -11,16 +11,25 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     const { user, loading, otpVerified, otpLoading } = useAuth();
     const location = useLocation();
 
-    if (loading) return <AppLoader />;
+    // Bootstrap auth
+    if (loading) {
+        return <AppLoader intent="auth" />;
+    }
 
-    if (!user)
+    if (!user) {
         return (
             <Navigate to="/login" replace state={{ from: location, reason: "login-required" }} />
         );
+    }
 
-    if (otpLoading) return <AppLoader message="Verifica accesso in corso..." />;
+    // Verifica OTP
+    if (otpLoading) {
+        return <AppLoader intent="otp" />;
+    }
 
-    if (!otpVerified) return <Navigate to="/verify-otp" replace />;
+    if (!otpVerified) {
+        return <Navigate to="/verify-otp" replace />;
+    }
 
     return <>{children}</>;
 };

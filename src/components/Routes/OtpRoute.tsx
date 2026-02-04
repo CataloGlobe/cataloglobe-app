@@ -16,10 +16,15 @@ export const OtpRoute = ({ children }: OtpRouteProps) => {
         return <>{children}</>;
     }
 
-    if (loading) return <AppLoader />;
+    // Bootstrap auth
+    if (loading) {
+        return <AppLoader intent="auth" />;
+    }
 
-    // otpLoading ha senso SOLO se l'utente è loggato
-    if (user && otpLoading) return <AppLoader />;
+    // Verifica OTP in corso (solo se loggato)
+    if (user && otpLoading) {
+        return <AppLoader intent="otp" />;
+    }
 
     // Non loggato → login
     if (!user) {
