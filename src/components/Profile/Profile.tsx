@@ -16,14 +16,16 @@ export default function Profile() {
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
+    const userId = user?.id;
+
     useEffect(() => {
-        if (user) {
-            getProfile(user.id).then(data => {
-                setProfile(data);
-                setAvatarPreview(data?.avatar_url || null);
-            });
-        }
-    }, [user]);
+        if (!userId) return;
+
+        getProfile(userId).then(data => {
+            setProfile(data);
+            setAvatarPreview(data?.avatar_url || null);
+        });
+    }, [userId]);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();

@@ -102,16 +102,16 @@ export default function Businesses() {
     // ======================================
     // FETCH BUSINESS
     // ======================================
+    const userId = user?.id;
+
     const refreshBusinesses = useCallback(async () => {
-        if (!user) return;
+        if (!userId) return;
 
         setIsLoadingBusinesses(true);
-
-        const data = await getUserBusinesses(user.id);
-
+        const data = await getUserBusinesses(userId);
         setBusinesses(data);
         setIsLoadingBusinesses(false);
-    }, [user]);
+    }, [userId]);
 
     useEffect(() => {
         refreshBusinesses();
@@ -666,7 +666,7 @@ export default function Businesses() {
             />
 
             {/* Lista attività */}
-            {isLoadingBusinesses ? (
+            {isLoadingBusinesses && businesses.length === 0 ? (
                 <>
                     <BusinessCardSkeleton />
                     <BusinessCardSkeleton />

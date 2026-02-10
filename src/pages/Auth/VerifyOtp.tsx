@@ -35,7 +35,7 @@ function mapOtpError(error: unknown): OtpErrorCode {
 }
 
 export default function VerifyOtp() {
-    const { refreshOtp } = useAuth();
+    const { forceOtpCheck } = useAuth();
     const navigate = useNavigate();
 
     const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
@@ -336,7 +336,7 @@ export default function VerifyOtp() {
                 return;
             }
 
-            await refreshOtp();
+            await forceOtpCheck();
             navigate("/dashboard", { replace: true });
         } finally {
             setLoading(false);
