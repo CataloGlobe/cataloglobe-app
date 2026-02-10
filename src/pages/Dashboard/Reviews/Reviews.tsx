@@ -64,12 +64,14 @@ export default function Reviews() {
     }, []);
 
     /** ------------------------ FETCH INITIAL ------------------------ */
+    const userId = user?.id;
+
     useEffect(() => {
         async function init() {
-            if (!user) return;
+            if (!userId) return;
             setLoading(true);
 
-            const userBusinesses = await getUserBusinesses(user.id);
+            const userBusinesses = await getUserBusinesses(userId);
             setBusinesses(userBusinesses);
 
             const first = preselectedBusinessId ?? userBusinesses[0]?.id ?? null;
@@ -79,9 +81,8 @@ export default function Reviews() {
 
             setLoading(false);
         }
-
         void init();
-    }, [user, preselectedBusinessId, fetchReviews]);
+    }, [userId, preselectedBusinessId, fetchReviews]);
 
     /** ------------------------ STATISTICHE ------------------------ */
     const stats = useMemo(() => {

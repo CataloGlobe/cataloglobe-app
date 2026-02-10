@@ -19,32 +19,44 @@ async function withTimeout<T>(p: Promise<T>, ms = 4000): Promise<T> {
     ]);
 }
 
+type OtpCheckReason = "bootstrap" | "refresh" | "force";
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
     const [otpVerified, setOtpVerified] = useState(false);
-    const [otpLoading, setOtpLoading] = useState(true);
+    const [otpLoading, setOtpLoading] = useState(true); // bootstrap
+    const [otpRefreshing, setOtpRefreshing] = useState(false); // refresh background
 
     // evita race condition tra chiamate multiple
     const otpReqIdRef = useRef(0);
 
-    async function checkOtpForSession() {
+    async function checkOtpForSession(reason: OtpCheckReason = "bootstrap") {
         const reqId = ++otpReqIdRef.current;
-        setOtpLoading(true);
+
+        if (reason === "bootstrap") {
+            setOtpLoading(true);
+        } else {
+            setOtpRefreshing(true);
+        }
 
         try {
             const { data: sessionData } = await withTimeout(supabase.auth.getSession(), 4000);
             const session = sessionData.session;
 
             if (!session?.access_token) {
-                if (reqId === otpReqIdRef.current) setOtpVerified(false);
+                if (reqId === otpReqIdRef.current && reason === "bootstrap") {
+                    setOtpVerified(false);
+                }
                 return;
             }
 
             const sessionId = getSessionIdFromJwt(session.access_token);
             if (!sessionId) {
-                if (reqId === otpReqIdRef.current) setOtpVerified(false);
+                if (reqId === otpReqIdRef.current && reason === "bootstrap") {
+                    setOtpVerified(false);
+                }
                 return;
             }
 
@@ -62,17 +74,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (error) {
                 console.error("[otp] check failed:", error);
-                setOtpVerified(false);
+                if (reason === "bootstrap") {
+                    setOtpVerified(false);
+                }
                 return;
             }
 
-            setOtpVerified(!!data);
+            if (reason === "bootstrap" || reason === "force") {
+                setOtpVerified(!!data);
+            } else if (data) {
+                setOtpVerified(true);
+            }
         } catch (e) {
-            // timeout o crash: NON bloccare l'app
             console.error("[otp] check crashed:", e);
-            if (reqId === otpReqIdRef.current) setOtpVerified(false);
+            if (reqId === otpReqIdRef.current && reason === "bootstrap") {
+                setOtpVerified(false);
+            }
         } finally {
-            if (reqId === otpReqIdRef.current) setOtpLoading(false);
+            if (reason === "bootstrap") setOtpLoading(false);
+            else setOtpRefreshing(false);
         }
     }
 
@@ -88,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                 // IMPORTANTISSIMO:
                 // non bloccare l'app aspettando OTP check
-                if (data.user) void checkOtpForSession();
+                if (data.user) void checkOtpForSession("bootstrap");
                 else {
                     setOtpVerified(false);
                     setOtpLoading(false);
@@ -107,21 +127,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         init();
 
-        const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
             if (cancelled) return;
 
-            if (session) {
-                // aggiorna user in background
-                void (async () => {
-                    const { data } = await supabase.auth.getUser();
-                    if (cancelled) return;
-                    setUser(data.user ?? null);
-                    void checkOtpForSession();
-                })();
-            } else {
+            if (event === "SIGNED_OUT") {
                 setUser(null);
                 setOtpVerified(false);
                 setOtpLoading(false);
+                setOtpRefreshing(false);
+                return;
+            }
+
+            if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") {
+                return;
+            }
+
+            if (session?.user) {
+                setUser(prev => (prev?.id === session.user.id ? prev : session.user));
+                void checkOtpForSession("refresh");
             }
         });
 
@@ -136,6 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setOtpVerified(false);
         setOtpLoading(false);
+        setOtpRefreshing(false);
     }
 
     return (
@@ -145,8 +169,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 loading,
                 otpVerified,
                 otpLoading,
+                otpRefreshing,
                 signOut: handleSignOut,
-                refreshOtp: checkOtpForSession
+                refreshOtp: () => checkOtpForSession("refresh"),
+                forceOtpCheck: () => checkOtpForSession("force")
             }}
         >
             {children}

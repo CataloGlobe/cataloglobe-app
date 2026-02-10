@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, Children, isValidElement } from "react";
+import FocusLock from "react-focus-lock";
 import { motion, AnimatePresence } from "framer-motion";
 import styles from "./ModalLayout.module.scss";
 
@@ -74,6 +75,7 @@ export default function ModalLayout({
 }: Props) {
     const modalRef = useRef<HTMLDivElement | null>(null);
     const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+    const mouseDownOnOverlay = useRef(false);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -125,6 +127,15 @@ export default function ModalLayout({
         };
     }, [isOpen]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+
+        previouslyFocusedRef.current = document.activeElement as HTMLElement;
+
+        // focus "neutro"
+        modalRef.current?.focus();
+    }, [isOpen]);
+
     const sidebarWidth = 360;
 
     return (
@@ -134,130 +145,150 @@ export default function ModalLayout({
                     className={styles.overlay}
                     role="dialog"
                     aria-modal="true"
-                    onClick={() => {
-                        if (hasDrawer && isDrawerOpen && onCloseDrawer) {
-                            onCloseDrawer();
-                            return;
+                    onMouseDown={e => {
+                        mouseDownOnOverlay.current = e.target === e.currentTarget;
+                    }}
+                    onMouseUp={e => {
+                        if (mouseDownOnOverlay.current && e.target === e.currentTarget) {
+                            if (hasDrawer && isDrawerOpen && onCloseDrawer) {
+                                onCloseDrawer();
+                            } else {
+                                onClose();
+                            }
                         }
-                        onClose();
+                        mouseDownOnOverlay.current = false;
                     }}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
                 >
-                    <motion.div
-                        className={styles.modal}
-                        data-width={width}
-                        data-height={height}
-                        ref={modalRef}
-                        tabIndex={-1}
-                        onClick={e => e.stopPropagation()}
-                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        transition={{ type: "spring", duration: 0.4, bounce: 0.3 }}
-                    >
-                        {/* HEADER */}
-                        <header className={styles.header}>{header}</header>
-
-                        {/* BODY */}
+                    <FocusLock autoFocus={false} returnFocus>
                         <motion.div
-                            className={styles.body}
-                            initial={false}
-                            animate={{
-                                gridTemplateColumns: sidebar
-                                    ? isSidebarOpen
-                                        ? `${sidebarWidth}px 1fr`
-                                        : `0px 1fr`
-                                    : `1fr`
-                            }}
-                            transition={{
-                                type: "spring",
-                                stiffness: 300,
-                                damping: 30,
-                                restDelta: 0.5
-                            }}
+                            className={styles.modal}
+                            data-width={width}
+                            data-height={height}
+                            ref={modalRef}
+                            tabIndex={-1}
+                            onClick={e => e.stopPropagation()}
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            transition={{ type: "spring", duration: 0.4, bounce: 0.3 }}
                         >
-                            {sidebar && (
-                                <>
-                                    <motion.aside
-                                        className={styles.left}
-                                        initial={false}
-                                        animate={{
-                                            x: isSidebarOpen ? 0 : -sidebarWidth,
-                                            opacity: isSidebarOpen ? 1 : 0
-                                        }}
-                                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                    >
-                                        {/* Wrapper extra per bloccare la larghezza del contenuto */}
-                                        <div style={{ width: sidebarWidth - 40 }}>{sidebar}</div>
-                                    </motion.aside>
+                            {/* HEADER */}
+                            <header className={styles.header}>{header}</header>
 
-                                    <motion.button
-                                        className={styles.collapseToggle}
-                                        onClick={() => setIsSidebarOpen(v => !v)}
-                                        initial={false}
-                                        animate={{
-                                            left: isSidebarOpen ? 360 - 16 : 0,
-                                            borderTopLeftRadius: "50%",
-                                            borderBottomLeftRadius: "50%",
-                                            borderTopRightRadius: isSidebarOpen ? "50%" : "0%",
-                                            borderBottomRightRadius: isSidebarOpen ? "50%" : "0%",
-                                            rotate: isSidebarOpen ? 0 : 180,
-                                            x: isSidebarOpen ? 0 : 0
-                                        }}
-                                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                    >
-                                        <ChevronLeft />
-                                    </motion.button>
-                                </>
-                            )}
-
-                            <section className={styles.right}>
-                                <div
-                                    className={styles.contentWrapper}
-                                    aria-hidden={hasDrawer && isDrawerOpen}
-                                >
-                                    {content}
-                                </div>
-
-                                <AnimatePresence>
-                                    {hasDrawer && isDrawerOpen && (
-                                        <motion.div
-                                            className={styles.drawerSlot}
-                                            initial={{ x: 24, opacity: 0 }}
-                                            animate={{ x: 0, opacity: 1 }}
-                                            exit={{ x: 24, opacity: 0 }}
+                            {/* BODY */}
+                            <motion.div
+                                className={styles.body}
+                                initial={false}
+                                animate={{
+                                    gridTemplateColumns: sidebar
+                                        ? isSidebarOpen
+                                            ? `${sidebarWidth}px 1fr`
+                                            : `0px 1fr`
+                                        : `1fr`
+                                }}
+                                transition={{
+                                    type: "spring",
+                                    stiffness: 300,
+                                    damping: 30,
+                                    restDelta: 0.5
+                                }}
+                            >
+                                {sidebar && (
+                                    <>
+                                        <motion.aside
+                                            className={styles.left}
+                                            initial={false}
+                                            animate={{
+                                                x: isSidebarOpen ? 0 : -sidebarWidth,
+                                                opacity: isSidebarOpen ? 1 : 0
+                                            }}
                                             transition={{
                                                 type: "spring",
                                                 stiffness: 300,
                                                 damping: 30
                                             }}
                                         >
-                                            {drawer}
-                                        </motion.div>
+                                            {/* Wrapper extra per bloccare la larghezza del contenuto */}
+                                            <div style={{ width: sidebarWidth - 40 }}>
+                                                {sidebar}
+                                            </div>
+                                        </motion.aside>
+
+                                        <motion.button
+                                            className={styles.collapseToggle}
+                                            onClick={() => setIsSidebarOpen(v => !v)}
+                                            initial={false}
+                                            animate={{
+                                                left: isSidebarOpen ? 360 - 16 : 0,
+                                                borderTopLeftRadius: "50%",
+                                                borderBottomLeftRadius: "50%",
+                                                borderTopRightRadius: isSidebarOpen ? "50%" : "0%",
+                                                borderBottomRightRadius: isSidebarOpen
+                                                    ? "50%"
+                                                    : "0%",
+                                                rotate: isSidebarOpen ? 0 : 180,
+                                                x: isSidebarOpen ? 0 : 0
+                                            }}
+                                            transition={{
+                                                type: "spring",
+                                                stiffness: 300,
+                                                damping: 30
+                                            }}
+                                        >
+                                            <ChevronLeft />
+                                        </motion.button>
+                                    </>
+                                )}
+
+                                <section className={styles.right}>
+                                    <div
+                                        className={styles.contentWrapper}
+                                        aria-hidden={hasDrawer && isDrawerOpen}
+                                    >
+                                        {content}
+                                    </div>
+
+                                    <AnimatePresence>
+                                        {hasDrawer && isDrawerOpen && (
+                                            <motion.div
+                                                className={styles.drawerSlot}
+                                                initial={{ x: 24, opacity: 0 }}
+                                                animate={{ x: 0, opacity: 1 }}
+                                                exit={{ x: 24, opacity: 0 }}
+                                                transition={{
+                                                    type: "spring",
+                                                    stiffness: 300,
+                                                    damping: 30
+                                                }}
+                                            >
+                                                {drawer}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </section>
+
+                                <AnimatePresence>
+                                    {hasDrawer && isDrawerOpen && (
+                                        <motion.div
+                                            className={styles.contentScrim}
+                                            onClick={() => onCloseDrawer?.()}
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            transition={{ duration: 0.18 }}
+                                        />
                                     )}
                                 </AnimatePresence>
-                            </section>
+                            </motion.div>
 
-                            <AnimatePresence>
-                                {hasDrawer && isDrawerOpen && (
-                                    <motion.div
-                                        className={styles.contentScrim}
-                                        onClick={() => onCloseDrawer?.()}
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.18 }}
-                                    />
-                                )}
-                            </AnimatePresence>
+                            {/* FOOTER */}
+                            {footer && <footer className={styles.footer}>{footer}</footer>}
                         </motion.div>
-
-                        {/* FOOTER */}
-                        {footer && <footer className={styles.footer}>{footer}</footer>}
-                    </motion.div>
+                    </FocusLock>
                 </motion.div>
             )}
         </AnimatePresence>

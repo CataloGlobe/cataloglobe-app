@@ -8,17 +8,19 @@ export function useProfile() {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(false);
 
+    const userId = user?.id;
+
     useEffect(() => {
-        if (!user) {
+        if (!userId) {
             setProfile(null);
             return;
         }
 
         setLoading(true);
-        getProfile(user.id)
+        getProfile(userId)
             .then(data => setProfile(data))
             .finally(() => setLoading(false));
-    }, [user]);
+    }, [userId]);
 
     return { profile, loading };
 }
