@@ -9,7 +9,12 @@ export function getSupabaseAdminClient(): SupabaseClient {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!url || !serviceRoleKey) {
-        throw new Error("Supabase env vars mancanti.");
+        const missing: string[] = [];
+        if (!url) missing.push("SUPABASE_URL");
+        if (!serviceRoleKey) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+
+        const envLabel = process.env.VERCEL_ENV ?? "unknown";
+        throw new Error(`Supabase env vars mancanti: ${missing.join(", ")} (env: ${envLabel}).`);
     }
 
     cachedClient = createClient(url, serviceRoleKey, {
