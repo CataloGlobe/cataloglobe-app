@@ -105,12 +105,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             });
 
+            const pdfBuffer = Buffer.isBuffer(pdf) ? pdf : Buffer.from(pdf);
             const fileName = buildFileName(data.business.slug, data.collection.name);
 
             res.setHeader("Content-Type", "application/pdf");
-            res.setHeader("Content-Disposition", `attachment; filename=\"${fileName}\"`);
+            res.setHeader(
+                "Content-Disposition",
+                `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(
+                    fileName
+                )}`
+            );
+            res.setHeader("Content-Length", String(pdfBuffer.length));
             res.setHeader("Cache-Control", "private, no-store, max-age=0");
-            res.status(200).send(pdf);
+            res.status(200).send(pdfBuffer);
         } finally {
             await browser.close();
         }

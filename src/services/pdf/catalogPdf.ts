@@ -72,6 +72,17 @@ export async function downloadBusinessCatalogPdf(params: {
         throw new Error(message);
     }
 
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/pdf")) {
+        const text = await response.text();
+        const snippet = text.slice(0, 120).replace(/\s+/g, " ").trim();
+        throw new Error(
+            `Risposta non PDF ricevuta. Controlla la route API. ${
+                snippet ? `Dettagli: ${snippet}` : ""
+            }`.trim()
+        );
+    }
+
     const blob = await response.blob();
     const fileName = buildFileName(businessSlug, catalogName);
     downloadBlob(blob, fileName);
