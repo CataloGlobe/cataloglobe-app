@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
-import { getSupabaseAdminClient } from "../../_lib/supabaseAdmin";
-import { fetchCatalogPdfData } from "../../_lib/catalogPdfData";
-import { renderCatalogPdfHtml } from "../../_lib/catalogPdfTemplate";
+import { getSupabaseAdminClient } from "../_lib/supabaseAdmin";
+import { fetchCatalogPdfData } from "../_lib/catalogPdfData";
+import { renderCatalogPdfHtml } from "../_lib/catalogPdfTemplate";
 
 type VercelRequest = {
     method?: string;

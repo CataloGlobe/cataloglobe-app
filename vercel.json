@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/catalogs/:catalogId/pdf",
+      "destination": "/api/catalogs/pdf?catalogId=:catalogId"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     },
