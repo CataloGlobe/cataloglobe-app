@@ -1,4 +1,4 @@
-import type { CatalogPdfData, PdfSection } from "./catalogPdfData";
+import type { CatalogPdfData, PdfSection } from "./catalogPdfData.js";
 
 function escapeHtml(input: string): string {
     return input

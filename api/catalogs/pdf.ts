@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
-import { getSupabaseAdminClient } from "../_lib/supabaseAdmin";
-import { fetchCatalogPdfData } from "../_lib/catalogPdfData";
-import { renderCatalogPdfHtml } from "../_lib/catalogPdfTemplate";
+import { getSupabaseAdminClient } from "../_lib/supabaseAdmin.js";
+import { fetchCatalogPdfData } from "../_lib/catalogPdfData.js";
+import { renderCatalogPdfHtml } from "../_lib/catalogPdfTemplate.js";
 
 type VercelRequest = {
     method?: string;
@@ -39,43 +39,43 @@ function buildFileName(businessSlug: string, catalogName: string) {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (req.method !== "GET") {
-        res.status(405).json({ error: "Metodo non consentito." });
-        return;
-    }
-
-    const catalogIdParam = req.query.catalogId;
-    const catalogId = Array.isArray(catalogIdParam) ? catalogIdParam[0] : catalogIdParam;
-
-    const businessIdParam = req.query.businessId;
-    const businessId = Array.isArray(businessIdParam) ? businessIdParam[0] : businessIdParam;
-
-    if (!catalogId || !businessId) {
-        res.status(400).json({ error: "catalogId o businessId mancante." });
-        return;
-    }
-
-    const authHeader = getHeader(req, "authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        res.status(401).json({ error: "Token mancante." });
-        return;
-    }
-
-    const token = authHeader.slice("Bearer ".length).trim();
-    if (!token) {
-        res.status(401).json({ error: "Token non valido." });
-        return;
-    }
-
-    const supabase = getSupabaseAdminClient();
-
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !userData.user) {
-        res.status(401).json({ error: "Sessione non valida." });
-        return;
-    }
-
     try {
+        if (req.method !== "GET") {
+            res.status(405).json({ error: "Metodo non consentito." });
+            return;
+        }
+
+        const catalogIdParam = req.query.catalogId;
+        const catalogId = Array.isArray(catalogIdParam) ? catalogIdParam[0] : catalogIdParam;
+
+        const businessIdParam = req.query.businessId;
+        const businessId = Array.isArray(businessIdParam) ? businessIdParam[0] : businessIdParam;
+
+        if (!catalogId || !businessId) {
+            res.status(400).json({ error: "catalogId o businessId mancante." });
+            return;
+        }
+
+        const authHeader = getHeader(req, "authorization");
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            res.status(401).json({ error: "Token mancante." });
+            return;
+        }
+
+        const token = authHeader.slice("Bearer ".length).trim();
+        if (!token) {
+            res.status(401).json({ error: "Token non valido." });
+            return;
+        }
+
+        const supabase = getSupabaseAdminClient();
+
+        const { data: userData, error: userError } = await supabase.auth.getUser(token);
+        if (userError || !userData.user) {
+            res.status(401).json({ error: "Sessione non valida." });
+            return;
+        }
+
         const data = await fetchCatalogPdfData({
             supabase,
             userId: userData.user.id,
@@ -122,6 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await browser.close();
         }
     } catch (error) {
+        console.error("[catalog-pdf] error:", error);
         const message = error instanceof Error ? error.message : "Errore interno.";
         res.status(500).json({ error: message });
     }

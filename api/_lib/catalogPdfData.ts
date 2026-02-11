@@ -3,7 +3,7 @@ import {
     resolveCollectionStyle,
     safeCollectionStyle,
     type CollectionStyle
-} from "../../src/types/collectionStyle";
+} from "../../src/types/collectionStyle.js";
 
 type PdfItem = {
     id: string;
