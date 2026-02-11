@@ -1,4 +1,5 @@
-import { chromium } from "playwright";
+import chromium from "@sparticuz/chromium";
+import { chromium as playwrightChromium } from "playwright-core";
 import { getSupabaseAdminClient } from "../_lib/supabaseAdmin.js";
 import { fetchCatalogPdfData } from "../_lib/catalogPdfData.js";
 import { renderCatalogPdfHtml } from "../_lib/catalogPdfTemplate.js";
@@ -85,13 +86,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const html = renderCatalogPdfHtml(data);
 
-        if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
-            process.env.PLAYWRIGHT_BROWSERS_PATH = "0";
-        }
-
-        const browser = await chromium.launch({
-            args: ["--no-sandbox", "--disable-setuid-sandbox"]
-        });
+        const executablePath = process.env.CHROMIUM_PATH ?? (await chromium.executablePath());
+        const browser = await playwrightChromium.launch(
+            executablePath
+                ? {
+                      args: chromium.args,
+                      defaultViewport: chromium.defaultViewport,
+                      executablePath,
+                      headless: chromium.headless
+                  }
+                : {
+                      channel: "chrome",
+                      headless: true,
+                      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+                  }
+        );
 
         try {
             const page = await browser.newPage();
