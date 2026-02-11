@@ -85,6 +85,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const html = renderCatalogPdfHtml(data);
 
+        if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
+            process.env.PLAYWRIGHT_BROWSERS_PATH = "0";
+        }
+
         const browser = await chromium.launch({
             args: ["--no-sandbox", "--disable-setuid-sandbox"]
         });
