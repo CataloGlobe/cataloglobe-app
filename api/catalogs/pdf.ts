@@ -91,7 +91,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             executablePath
                 ? {
                       args: chromium.args,
-                      defaultViewport: chromium.defaultViewport,
                       executablePath,
                       headless: true
                   }
@@ -103,7 +102,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         );
 
         try {
-            const page = await browser.newPage();
+            const context = await browser.newContext({
+                viewport: {
+                    width: 1280,
+                    height: 720,
+                    deviceScaleFactor: 1
+                }
+            });
+            const page = await context.newPage();
             await page.setContent(html, { waitUntil: "networkidle" });
 
             const pdf = await page.pdf({
