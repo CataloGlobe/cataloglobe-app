@@ -93,7 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                       args: chromium.args,
                       defaultViewport: chromium.defaultViewport,
                       executablePath,
-                      headless: chromium.headless
+                      headless: true
                   }
                 : {
                       channel: "chrome",
