@@ -16,6 +16,8 @@ import ModalLayout, {
 } from "@/components/ui/ModalLayout/ModalLayout";
 import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
 import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
+import { useToast } from "@/context/Toast/ToastContext";
+import { downloadBusinessCatalogPdf } from "@/services/pdf/catalogPdf";
 
 export const BusinessCard: React.FC<BusinessCardProps> = ({
     business,
@@ -30,14 +32,17 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
     const [showMenu, setShowMenu] = useState(false);
     const [overrideOpen, setOverrideOpen] = useState(false);
     const [showScheduleModal, setShowScheduleModal] = useState(false);
+    const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
     const menuRef = useRef<HTMLDivElement | null>(null);
 
     const navigate = useNavigate();
+    const { showToast } = useToast();
 
     const canSchedule = business.compatible_collection_count > 0;
     const hasScheduled = business.scheduled_compatible_collection_count > 0;
     const canOverride = totalBusinesses > 1 && hasScheduled;
+    const canDownloadPdf = business.scheduled_compatible_collection_count > 0;
 
     /* ==============================
        CLICK OUTSIDE PER CHIUDERE MENU
@@ -86,6 +91,30 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
             link.download = `qr-${business.slug}.png`;
             link.click();
         };
+    }
+
+    async function handleDownloadPdf() {
+        if (!canDownloadPdf || isDownloadingPdf) return;
+
+        try {
+            setIsDownloadingPdf(true);
+            await downloadBusinessCatalogPdf({
+                businessId: business.id,
+                businessSlug: business.slug
+            });
+            showToast({
+                type: "success",
+                message: "PDF generato con successo."
+            });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Errore durante il download.";
+            showToast({
+                type: "error",
+                message
+            });
+        } finally {
+            setIsDownloadingPdf(false);
+        }
     }
 
     return (
@@ -185,6 +214,15 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
 
                         <Button variant="outline" onClick={() => onOpenReviews(business.id)}>
                             Recensioni
+                        </Button>
+
+                        <Button
+                            variant="secondary"
+                            loading={isDownloadingPdf}
+                            disabled={!canDownloadPdf}
+                            onClick={handleDownloadPdf}
+                        >
+                            Scarica PDF
                         </Button>
                     </div>
 
