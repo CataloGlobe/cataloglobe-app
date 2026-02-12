@@ -42,8 +42,10 @@ function getFilenameFromContentDisposition(header: string | null): string | null
 
 function toBlob(data: unknown): Blob {
     if (data instanceof Blob) return data;
-    if (data instanceof ArrayBuffer) return new Blob([data], { type: "application/pdf" });
-    if (data instanceof Uint8Array) return new Blob([data], { type: "application/pdf" });
+
+    if (data instanceof ArrayBuffer) {
+        return new Blob([data], { type: "application/pdf" });
+    }
 
     throw new DownloadMenuPdfError("unknown", "Risposta PDF non valida.");
 }
@@ -101,7 +103,8 @@ export async function downloadMenuPdf(businessId: string): Promise<void> {
 
     const blob = toBlob(data);
     const filename =
-        getFilenameFromContentDisposition(response.headers.get("Content-Disposition")) ?? "menu.pdf";
+        getFilenameFromContentDisposition(response.headers.get("Content-Disposition")) ??
+        "menu.pdf";
 
     triggerDownload(blob, filename);
 }
