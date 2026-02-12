@@ -8,6 +8,7 @@ import styles from "./BusinessCard.module.scss";
 import BusinessCollectionSchedule from "../BusinessCollectionSchedule/BusinessCollectionSchedule";
 import { Button } from "@/components/ui";
 import { IconButton } from "@/components/ui/Button/IconButton";
+import { DownloadMenuButton } from "@/components/DownloadMenuButton";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/Badge/Badge";
 import ModalLayout, {
@@ -217,6 +218,10 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                             </DropdownItem>
                         </DropdownMenu>
                     </div>
+                </div>
+
+                <div className={styles.actionsLeft}>
+                    <DownloadMenuButton businessId={business.id} />
                 </div>
             </article>
 
