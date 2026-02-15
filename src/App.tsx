@@ -27,6 +27,14 @@ import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionP
 import Home from "./pages/Home/Home";
 import NotFound from "./pages/NotFound/NotFound";
 
+// Placeholder for missing pages
+const Placeholder = ({ title }: { title: string }) => (
+    <div style={{ padding: "20px" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: "bold", marginBottom: "10px" }}>{title}</h1>
+        <p>In arrivo...</p>
+    </div>
+);
+
 export default function App() {
     return (
         <Routes>
@@ -94,17 +102,24 @@ export default function App() {
             >
                 <Route index element={<Overview />} />
 
-                <Route path="businesses" element={<Businesses />} />
+                <Route path="attivita" element={<Businesses />} />
+                <Route path="programmazione" element={<Placeholder title="Programmazione" />} />
 
-                <Route path="collections" element={<Collections />} />
+                <Route path="cataloghi" element={<Collections />} />
+                <Route path="prodotti" element={<Placeholder title="Prodotti" />} />
+                <Route
+                    path="contenuti-in-evidenza"
+                    element={<Placeholder title="Contenuti in evidenza" />}
+                />
+                <Route path="stili" element={<Placeholder title="Stili & design" />} />
 
-                <Route path="reviews" element={<Reviews />} />
+                <Route path="recensioni" element={<Reviews />} />
 
-                <Route path="analytics" element={<Analytics />} />
+                <Route path="analitiche" element={<Analytics />} />
 
-                <Route path="settings" element={<Settings />} />
+                <Route path="impostazioni" element={<Settings />} />
 
-                <Route path="settings/security" element={<UpdatePassword />} />
+                <Route path="impostazioni/sicurezza" element={<UpdatePassword />} />
             </Route>
 
             {/* PUBLIC BUSINESS */}

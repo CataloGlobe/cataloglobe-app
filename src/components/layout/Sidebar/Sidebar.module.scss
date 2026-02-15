@@ -1,6 +1,6 @@
 .sidebar {
   position: relative;
-  background: var(--card-bg, #fff);
+  background: #f8fafc;
   border-right: 1px solid var(--border, #e2e8f0);
   display: flex;
   flex-direction: column;
@@ -9,8 +9,8 @@
 
 .desktop {
   position: sticky;
-  top: 64px;
-  height: calc(100vh - 64px);
+  top: 0;
+  height: 100vh;
 }
 
 .mobile {
@@ -112,11 +112,22 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  padding: 12px; /* Added padding for spacing around cards */
 }
 
 /* ===== Nav ===== */
 .nav {
-  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px; /* Space between groups */
+}
+
+.groupCard {
+  background: #fff;
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .list {
@@ -124,44 +135,93 @@
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 6px;
+  gap: 2px;
 }
 
 .link {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 10px 12px;
-  border-radius: 10px;
-  color: var(--text, #0f172a);
+  padding: 12px;
+  height: 35px; /* Enforce fixed height for consistency */
+  box-sizing: border-box; /* Ensure padding doesn't add to height */
+  border-radius: 8px;
+  color: #64748b;
+  font-weight: 500;
+  font-size: 14px;
+  transition: all 0.2s;
 
   &:hover {
     text-decoration: none;
+    background: #f8fafc;
+    color: #0f172a;
   }
+}
+
+.sidebar[data-collapsed="true"] .groupCard {
+  background: #fff; /* Restore white background */
+  border: 1px solid #f1f5f9; /* Restore border */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02); /* Restore shadow */
+  padding: 8px; /* Adjust padding for narrow width */
+  border-radius: 12px;
+  overflow: hidden; /* Prevent horizontal overflow */
+  width: 100%; /* Ensure it fills the collapsed sidebar */
+  box-sizing: border-box; /* Include padding in width */
+}
+
+.sidebar[data-collapsed="true"] .link {
+  justify-content: center;
+  padding: 0; /* Removing padding, relying on flex + fixed height */
+}
+
+.sidebar[data-collapsed="true"] .nav {
+  gap: 16px; /* Keep consistent gap with expanded state */
+  padding: 0 4px; /* Slight padding on nav container to prevent edge collision */
+}
+
+.groupTitle {
+  padding: 0 12px;
+  margin: 8px 0 8px; /* Adjusted margin inside card */
+  height: 20px; /* Fixed height to match text line-height usually */
+  display: flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #6365f1; /* Brand color for titles as seen in image */
+}
+
+.sidebar[data-collapsed="true"] .groupTitle {
+  display: flex; /* Enable flex for centering */
+  justify-content: center; /* Center icon horizontally */
+  align-items: center; /* Center icon vertically */
+  padding: 0; /* Remove padding to center perfectly */
+  opacity: 1; /* Make visible */
+  pointer-events: auto; /* Re-enable pointer events if needed */
 }
 
 .icon {
   display: inline-flex;
+  min-width: 20px;
 }
 
 .label {
-  margin-left: 12px;
+  margin-left: 10px;
   white-space: nowrap;
 }
 
 .sidebar[data-collapsed="true"] .label {
-  margin-left: 0;
-}
-
-.link:hover {
-  background: rgba(209, 209, 235, 0.12);
+  display: none;
 }
 
 .active {
-  background: rgba(99, 101, 241, 0.25);
+  background: rgba(99, 102, 241, 0.1); /* Light purple bg */
+  color: #6366f1; /* Brand purple text */
 
   &:hover {
-    background: rgba(99, 101, 241, 0.25);
+    background: rgba(99, 102, 241, 0.15);
+    color: #6366f1;
   }
 }
 

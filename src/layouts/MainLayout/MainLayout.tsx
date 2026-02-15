@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "@components/layout/Sidebar/Sidebar";
-import Navbar from "@components/layout/Navbar/Navbar";
+import { Menu } from "lucide-react";
+import { IconButton } from "@/components/ui/Button/IconButton";
+
 import styles from "./MainLayout.module.scss";
 
 function useMediaQuery(query: string) {
@@ -52,13 +54,6 @@ export default function MainLayout() {
 
     return (
         <div className={styles.appLayout}>
-            {/* 🔝 NAVBAR SEMPRE IN CIMA */}
-            <Navbar
-                isMobile={isMobile}
-                onMobileMenuClick={() => setMobileSidebarOpen(v => !v)}
-                mobileMenuOpen={mobileSidebarOpen}
-            />
-
             {/* ⬇️ AREA SOTTO LA NAVBAR */}
             <div className={styles.body}>
                 <Sidebar
@@ -70,6 +65,17 @@ export default function MainLayout() {
                 />
 
                 <main className={styles.main}>
+                    {isMobile && (
+                        <div className={styles.mobileHeader}>
+                            <IconButton
+                                variant="ghost"
+                                icon={<Menu size={24} />}
+                                onClick={() => setMobileSidebarOpen(true)}
+                                aria-label="Apri menu"
+                            />
+                            <div className={styles.mobileTitle}>Cataloglobe</div>
+                        </div>
+                    )}
                     <div className={styles.content}>
                         <Outlet />
                     </div>
