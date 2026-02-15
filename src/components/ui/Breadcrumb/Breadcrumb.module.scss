@@ -1,0 +1,65 @@
+.nav {
+  display: flex;
+  align-items: center;
+  font-size: 14px; /* text-sm/body */
+  color: var(--color-text-muted, #64748b);
+}
+
+.list {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 8px;
+  flex-wrap: wrap; /* Responsive: wrapping on small screens */
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  color: inherit;
+  transition: color 0.2s ease-in-out;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--color-primary, #0f172a);
+    outline: none; // focus managed by global styles usually, or add focus ring here
+  }
+}
+
+.current {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-primary, #0f172a);
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.iconWrapper {
+  display: flex;
+  align-items: center;
+  font-size: 16px; /* slightly larger icon */
+
+  /* Ensure icon scales correctly */
+  svg {
+    width: 1em;
+    height: 1em;
+  }
+}
+
+.separator {
+  color: var(--color-border, #e2e8f0);
+  display: flex;
+  align-items: center;
+}
