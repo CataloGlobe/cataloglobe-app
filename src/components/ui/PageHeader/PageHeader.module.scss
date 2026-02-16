@@ -1,0 +1,29 @@
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+  }
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  // Mobile: full width actions if needed, or just auto
+  @media (min-width: 768px) {
+    flex-shrink: 0;
+  }
+}

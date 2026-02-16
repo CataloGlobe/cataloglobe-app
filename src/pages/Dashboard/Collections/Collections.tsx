@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Text from "@/components/ui/Text/Text";
+import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { Button } from "@/components/ui";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
@@ -220,26 +221,21 @@ export default function Collections() {
     return (
         <>
             <div className={styles.wrapper}>
-                <header className={styles.header}>
-                    <div className={styles.headerText}>
-                        <Text variant="title-lg" as={"h1"}>
-                            I tuoi Cataloghi
-                        </Text>
-                        <Text variant="body" colorVariant="muted">
-                            Gestisci i tuo cataloghi (listini prezzi, menu, etc...)
-                        </Text>
-                    </div>
+                <PageHeader
+                    title="I tuoi Cataloghi"
+                    subtitle="Gestisci i tuoi cataloghi digitali."
+                    actions={
+                        <div className={styles.headerActions}>
+                            <Button variant="primary" onClick={openCreateModal}>
+                                Crea catalogo
+                            </Button>
 
-                    <div className={styles.headerActions}>
-                        <Button variant="primary" onClick={openCreateModal}>
-                            Crea catalogo
-                        </Button>
-
-                        <Button variant="outline" onClick={() => setCatalogOpen(true)}>
-                            I tuoi prodotti
-                        </Button>
-                    </div>
-                </header>
+                            <Button variant="outline" onClick={() => setCatalogOpen(true)}>
+                                I tuoi prodotti
+                            </Button>
+                        </div>
+                    }
+                />
 
                 {loading && <Text colorVariant="muted">Caricamento…</Text>}
 
