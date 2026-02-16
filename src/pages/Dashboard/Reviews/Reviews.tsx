@@ -13,6 +13,7 @@ import styles from "./Reviews.module.scss";
 import { Select } from "@/components/ui/Select/Select";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Button } from "@/components/ui";
+import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import ModalLayout, {
     ModalLayoutContent,
     ModalLayoutFooter,
@@ -274,14 +275,10 @@ export default function Reviews() {
      -------------------------------------------------- */
     return (
         <div className={styles.reviews}>
-            <div className={styles.header}>
-                <Text variant="title-lg" as={"h1"}>
-                    Recensioni
-                </Text>
-                <Text variant="body" colorVariant="muted">
-                    Gestisci le tue recensioni e anallizza il parere dei tuoi clienti.
-                </Text>
-            </div>
+            <PageHeader
+                title="Recensioni"
+                subtitle="Visualizza e rispondi alle recensioni dei clienti."
+            />
 
             {/* HEADER */}
             <header className={styles.selectRow}>

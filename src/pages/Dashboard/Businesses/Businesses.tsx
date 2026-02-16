@@ -12,6 +12,7 @@ import {
 import Text from "@components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import PageHeader from "@/components/ui/PageHeader/PageHeader";
 
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
 
@@ -589,17 +590,10 @@ export default function Businesses() {
     // ======================================
     return (
         <section className={styles.businesses} aria-labelledby="businesses-title">
-            <header className={styles.header}>
-                <div className={styles.headerLeft}>
-                    <Text variant="title-lg" as={"h1"}>
-                        Le tue Attività
-                    </Text>
-                    <Text variant="body" colorVariant="muted">
-                        Gestisci le tue attività e genera il QR del sito pubblico.
-                    </Text>
-                </div>
-
-                <div className={styles.headerRight}>
+            <PageHeader
+                title="Le tue Attività"
+                subtitle="Gestisci le tue attività e genera il QR del sito pubblico."
+                actions={
                     <Button
                         variant="primary"
                         onClick={() => {
@@ -609,8 +603,8 @@ export default function Businesses() {
                     >
                         Aggiungi attività
                     </Button>
-                </div>
-            </header>
+                }
+            />
 
             <BusinessUpsert
                 open={isCreateOpen}

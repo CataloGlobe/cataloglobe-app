@@ -21,19 +21,15 @@ import Collections from "./pages/Dashboard/Collections/Collections";
 import Reviews from "@pages/Dashboard/Reviews/Reviews";
 import Analytics from "@pages/Dashboard/Analytics/Analytics";
 import Settings from "@/pages/Dashboard/Settings/Settings";
+import Programming from "./pages/Dashboard/Programming/Programming";
+import Products from "./pages/Dashboard/Products/Products";
+import Highlights from "./pages/Dashboard/Highlights/Highlights";
+import Styles from "./pages/Dashboard/Styles/Styles";
 
 // Public pages
 import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
 import Home from "./pages/Home/Home";
 import NotFound from "./pages/NotFound/NotFound";
-
-// Placeholder for missing pages
-const Placeholder = ({ title }: { title: string }) => (
-    <div style={{ padding: "20px" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: "bold", marginBottom: "10px" }}>{title}</h1>
-        <p>In arrivo...</p>
-    </div>
-);
 
 export default function App() {
     return (
@@ -103,15 +99,12 @@ export default function App() {
                 <Route index element={<Overview />} />
 
                 <Route path="attivita" element={<Businesses />} />
-                <Route path="programmazione" element={<Placeholder title="Programmazione" />} />
+                <Route path="programmazione" element={<Programming />} />
 
                 <Route path="cataloghi" element={<Collections />} />
-                <Route path="prodotti" element={<Placeholder title="Prodotti" />} />
-                <Route
-                    path="contenuti-in-evidenza"
-                    element={<Placeholder title="Contenuti in evidenza" />}
-                />
-                <Route path="stili" element={<Placeholder title="Stili & design" />} />
+                <Route path="prodotti" element={<Products />} />
+                <Route path="contenuti-in-evidenza" element={<Highlights />} />
+                <Route path="stili" element={<Styles />} />
 
                 <Route path="recensioni" element={<Reviews />} />
 

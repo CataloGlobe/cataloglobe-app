@@ -19,6 +19,7 @@ import { getAnalyticsQrScans } from "@services/supabase/qrScans";
 import { useAuth } from "@context/useAuth";
 import Text from "@components/ui/Text/Text";
 import Skeleton from "@components/ui/Skeleton/Skeleton";
+import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import type { AnalyticsReview } from "@services/supabase/reviews";
 import { getUserBusinesses } from "@services/supabase/businesses";
 import styles from "./Analytics.module.scss";
@@ -257,42 +258,33 @@ export default function Analytics() {
 
     return (
         <main className={styles.analytics} aria-label="Sezione analytics recensioni e scansioni QR">
-            <header className={styles.header}>
-                <div className={styles.headerTop}>
-                    <Text variant="title-lg" as={"h1"}>
-                        Analytics
-                    </Text>
-                    <Text variant="body" colorVariant="muted">
-                        Gestisci le tue statistiche e analizza l'andamento delle tue attività.
-                    </Text>
-                </div>
-                <div className={styles.filtersRow}>
-                    <div className={styles.businessSelector}>
-                        <Select
-                            label="Attività"
-                            value={selectedBusinessId}
-                            onChange={e => setSelectedBusinessId(e.target.value)}
-                            options={[
-                                { value: "", label: "Seleziona una categoria" },
-                                ...businesses.map(b => ({
-                                    value: b.id,
-                                    label: b.name
-                                }))
-                            ]}
-                        />
-                    </div>
-
-                    <SegmentedControl<Range>
-                        value={range}
-                        onChange={setRange}
+            <PageHeader title="Analitiche" subtitle="Monitora le performance delle tue attività." />
+            <div className={styles.filtersRow}>
+                <div className={styles.businessSelector}>
+                    <Select
+                        label="Attività"
+                        value={selectedBusinessId}
+                        onChange={e => setSelectedBusinessId(e.target.value)}
                         options={[
-                            { value: 7, label: "7 giorni" },
-                            { value: 30, label: "30 giorni" },
-                            { value: 90, label: "90 giorni" }
+                            { value: "", label: "Seleziona una categoria" },
+                            ...businesses.map(b => ({
+                                value: b.id,
+                                label: b.name
+                            }))
                         ]}
                     />
                 </div>
-            </header>
+
+                <SegmentedControl<Range>
+                    value={range}
+                    onChange={setRange}
+                    options={[
+                        { value: 7, label: "7 giorni" },
+                        { value: 30, label: "30 giorni" },
+                        { value: 90, label: "90 giorni" }
+                    ]}
+                />
+            </div>
 
             {/* KPI */}
             <section className={styles.kpiGrid} role="group" aria-label="Statistiche principali">

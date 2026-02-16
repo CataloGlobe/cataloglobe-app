@@ -5,6 +5,7 @@ import { supabase } from "@services/supabase/client";
 import type { Review, Business } from "@/types/database";
 import Text from "@components/ui/Text/Text";
 import Skeleton from "@components/ui/Skeleton/Skeleton";
+import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { useNavigate } from "react-router-dom";
 import styles from "./Overview.module.scss";
 
@@ -91,15 +92,7 @@ export default function Overview() {
 
     return (
         <main className={styles.overview} aria-label="Panoramica utente">
-            {/* Header */}
-            <header className={styles.header}>
-                <Text variant="title-lg" as={"h1"}>
-                    Panoramica
-                </Text>
-                <Text variant="body" colorVariant="muted">
-                    Ecco una panoramica aggiornata dei tuoi locali.
-                </Text>
-            </header>
+            <PageHeader title="Panoramica" subtitle="Benvenuto nella tua dashboard." />
 
             {/* KPI principali */}
             <section className={styles.kpiGrid} aria-label="Statistiche principali" role="group">

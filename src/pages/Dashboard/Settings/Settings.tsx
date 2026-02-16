@@ -4,6 +4,7 @@ import { useTheme } from "@/context/Theme/useTheme";
 import Profile from "@/components/Profile/Profile";
 import Text from "@components/ui/Text/Text";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
+import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import styles from "./Settings.module.scss";
 import { Select } from "@/components/ui/Select/Select";
 import { Button } from "@/components/ui";
@@ -34,14 +35,7 @@ export default function Settings() {
 
     return (
         <div className={styles.settings}>
-            <div className={styles.header}>
-                <Text variant="title-lg" as={"h1"}>
-                    Impostazioni
-                </Text>
-                <Text variant="body" colorVariant="muted">
-                    Gestisci il tuo account e imposta il sito secondo le tue preferenze.
-                </Text>
-            </div>
+            <PageHeader title="Impostazioni" subtitle="Configura il tuo account e le preferenze." />
 
             <Profile />
 
