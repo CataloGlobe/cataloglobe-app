@@ -26,6 +26,7 @@ import type { BusinessFormValues, BusinessWithCapabilities } from "@/types/Busin
 import styles from "./Businesses.module.scss";
 import { BusinessUpsert } from "@/components/Businesses/BusinessUpsert/BusinessUpsert";
 import { Button } from "@/components/ui";
+import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { RESERVED_SLUGS } from "@/constants/reservedSlugs";
 import ModalLayout, {
     ModalLayoutContent,
@@ -99,6 +100,12 @@ export default function Businesses() {
     // ======================================
     const [createSlugState, setCreateSlugState] = useState<SlugInlineState>({ type: "idle" });
     const [editSlugState, setEditSlugState] = useState<SlugInlineState>({ type: "idle" });
+
+    // ======================================
+    // STATE: Filtri e Vista (MOCK)
+    // ======================================
+    const [searchTerm, setSearchTerm] = useState("");
+    const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
 
     // ======================================
     // FETCH BUSINESS
@@ -604,6 +611,18 @@ export default function Businesses() {
                         Aggiungi attività
                     </Button>
                 }
+            />
+
+            <FilterBar
+                search={{
+                    value: searchTerm,
+                    onChange: setSearchTerm,
+                    placeholder: "Cerca attività..."
+                }}
+                view={{
+                    value: viewMode,
+                    onChange: setViewMode
+                }}
             />
 
             <BusinessUpsert

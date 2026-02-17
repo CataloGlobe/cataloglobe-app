@@ -70,7 +70,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
                         <input
                             ref={ref}
                             id={inputId}
-                            type="search"
+                            type="text"
                             disabled={isDisabled}
                             value={value}
                             aria-invalid={hasError}

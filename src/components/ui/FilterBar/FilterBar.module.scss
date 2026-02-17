@@ -1,0 +1,181 @@
+@use "@/styles/variables" as *;
+
+.filterBar {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+
+  // Card style
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border);
+  position: relative;
+  z-index: 10;
+
+  &.open {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem;
+  width: 100%;
+}
+
+.activeFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+
+  // Specific constraints
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
+  padding: 0.75rem 0.5rem 0.75rem 0.5rem;
+}
+
+.searchContainer {
+  flex: 1;
+  min-width: 0;
+}
+
+.searchInputContainer {
+  :global(.inputShell) {
+    background-color: #f8fafc;
+    border-color: transparent;
+    border-radius: 8px;
+    padding-left: 0.75rem;
+    transition:
+      background 0.2s,
+      box-shadow 0.2s;
+
+    &:focus-within {
+      background-color: #fff;
+      box-shadow: 0 0 0 2px var(--brand-primary);
+    }
+  }
+}
+
+.searchInput {
+  background-color: transparent !important;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  padding-right: 0.25rem;
+}
+
+.filterBtn {
+  height: 2.5rem;
+  border-color: var(--border);
+  color: var(--text);
+  font-weight: 500;
+
+  &:hover {
+    background-color: #f8fafc;
+  }
+
+  &.active {
+    background-color: #f1f5f9;
+    border-color: #cbd5e1;
+  }
+}
+
+.chevron {
+  transition: transform 0.2s ease;
+}
+
+.rotate {
+  transform: rotate(180deg);
+}
+
+.divider {
+  width: 1px;
+  height: 1.5rem;
+  background-color: var(--border);
+  margin: 0 0.25rem;
+}
+
+.viewToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.toggleBtn {
+  color: #94a3b8;
+  border-radius: 8px; // Slightly more rounded
+  width: 2.25rem;
+  height: 2.25rem;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: var(--text);
+    background-color: #f8fafc;
+  }
+
+  &.active {
+    background-color: #e0e7ff;
+    color: var(--brand-primary);
+  }
+}
+
+.expandedArea {
+  // Removed hack: margin-top: -12px; padding-top: 12px;
+  // User requested:
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 12px 12px;
+
+  // Assuming it fills width
+  background-color: #fff;
+
+  // Animation
+  animation: slideDown 0.2s ease-out forwards;
+}
+
+.expandedContent {
+  padding: 1.5rem;
+  color: var(--text-muted, #64748b);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .topRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .actions {
+    justify-content: space-between;
+    padding-right: 0;
+  }
+
+  .divider {
+    display: none;
+  }
+
+  .viewToggle {
+    margin-left: auto;
+  }
+}
