@@ -52,6 +52,7 @@ function isReservedSlug(slug: string) {
 // ==========================================
 export default function Businesses() {
     const { user } = useAuth();
+    const userId = user?.id ?? null;
     const navigate = useNavigate();
     const { showToast } = useToast();
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -113,15 +114,15 @@ export default function Businesses() {
     // FETCH BUSINESS
     // ======================================
     const refreshBusinesses = useCallback(async () => {
-        if (!user) return;
+        if (!userId) return;
 
         setIsLoadingBusinesses(true);
 
-        const data = await getUserBusinesses(user.id);
+        const data = await getUserBusinesses(userId);
 
         setBusinesses(data);
         setIsLoadingBusinesses(false);
-    }, [user]);
+    }, [userId]);
 
     useEffect(() => {
         refreshBusinesses();
@@ -597,6 +598,8 @@ export default function Businesses() {
     // ======================================
     // RENDER
     // ======================================
+    const showInitialSkeleton = isLoadingBusinesses && businesses.length === 0;
+
     return (
         <section className={styles.businesses} aria-labelledby="businesses-title">
             <PageHeader
@@ -681,7 +684,7 @@ export default function Businesses() {
             />
 
             {/* Lista attività */}
-            {isLoadingBusinesses ? (
+            {showInitialSkeleton ? (
                 <>
                     <BusinessCardSkeleton />
                     <BusinessCardSkeleton />

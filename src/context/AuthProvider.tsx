@@ -28,6 +28,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // evita race condition tra chiamate multiple
     const otpReqIdRef = useRef(0);
+    // distingue un vero login da eventi auth "di mantenimento" (es. ritorno focus tab)
+    const hasSessionRef = useRef(false);
 
     async function checkOtpForSession() {
         const reqId = ++otpReqIdRef.current;
@@ -85,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 if (cancelled) return;
 
                 setUser(data.user ?? null);
+                hasSessionRef.current = !!data.user;
 
                 // IMPORTANTISSIMO:
                 // non bloccare l'app aspettando OTP check
@@ -97,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 console.error("[auth] init failed:", e);
                 if (!cancelled) {
                     setUser(null);
+                    hasSessionRef.current = false;
                     setOtpVerified(false);
                     setOtpLoading(false);
                 }
@@ -111,14 +115,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (cancelled) return;
 
             if (session) {
-                // aggiorna user in background
-                void (async () => {
-                    const { data } = await supabase.auth.getUser();
-                    if (cancelled) return;
-                    setUser(data.user ?? null);
+                const hadSession = hasSessionRef.current;
+                hasSessionRef.current = true;
+                const nextUser = session.user ?? null;
+
+                // Evita update inutili su TOKEN_REFRESHED/focus tab quando l'utente non cambia.
+                setUser(prev => (prev?.id === nextUser?.id ? prev : nextUser));
+
+                // Recheck OTP solo quando passiamo da "nessuna sessione" a "sessione attiva".
+                // In questo modo un refocus tab non resetta la UI (modali/drawer inclusi).
+                if (!hadSession) {
                     void checkOtpForSession();
-                })();
+                }
             } else {
+                hasSessionRef.current = false;
                 setUser(null);
                 setOtpVerified(false);
                 setOtpLoading(false);
@@ -133,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function handleSignOut() {
         await supabase.auth.signOut();
+        hasSessionRef.current = false;
         setUser(null);
         setOtpVerified(false);
         setOtpLoading(false);
