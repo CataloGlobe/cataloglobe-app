@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "@components/layout/Sidebar/Sidebar";
 import { Menu } from "lucide-react";
 import { IconButton } from "@/components/ui/Button/IconButton";
+import { DrawerProvider } from "@/context/Drawer/DrawerProvider";
 
 import styles from "./MainLayout.module.scss";
 
@@ -56,30 +57,32 @@ export default function MainLayout() {
         <div className={styles.appLayout}>
             {/* ⬇️ AREA SOTTO LA NAVBAR */}
             <div className={styles.body}>
-                <Sidebar
-                    isMobile={isMobile}
-                    mobileOpen={mobileSidebarOpen}
-                    collapsed={!isMobile && sidebarCollapsed}
-                    onRequestClose={() => setMobileSidebarOpen(false)}
-                    onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-                />
+                <DrawerProvider>
+                    <Sidebar
+                        isMobile={isMobile}
+                        mobileOpen={mobileSidebarOpen}
+                        collapsed={!isMobile && sidebarCollapsed}
+                        onRequestClose={() => setMobileSidebarOpen(false)}
+                        onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                    />
 
-                <main className={styles.main}>
-                    {isMobile && (
-                        <div className={styles.mobileHeader}>
-                            <IconButton
-                                variant="ghost"
-                                icon={<Menu size={24} />}
-                                onClick={() => setMobileSidebarOpen(true)}
-                                aria-label="Apri menu"
-                            />
-                            <div className={styles.mobileTitle}>Cataloglobe</div>
+                    <main className={styles.main}>
+                        {isMobile && (
+                            <div className={styles.mobileHeader}>
+                                <IconButton
+                                    variant="ghost"
+                                    icon={<Menu size={24} />}
+                                    onClick={() => setMobileSidebarOpen(true)}
+                                    aria-label="Apri menu"
+                                />
+                                <div className={styles.mobileTitle}>Cataloglobe</div>
+                            </div>
+                        )}
+                        <div className={styles.content}>
+                            <Outlet />
                         </div>
-                    )}
-                    <div className={styles.content}>
-                        <Outlet />
-                    </div>
-                </main>
+                    </main>
+                </DrawerProvider>
             </div>
         </div>
     );
