@@ -3,55 +3,126 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1?target=deno";
 
+type V2CatalogItem = {
+    id: string;
+    visible: boolean;
+    effective_visible?: boolean;
+    product_id: string | null;
+    effective_price: number | null;
+    original_price?: number | null;
+};
+
+type V2CatalogSection = {
+    id: string;
+    items: V2CatalogItem[];
+};
+
+type V2Catalog = {
+    id: string;
+    sections: V2CatalogSection[];
+};
+
 type ScheduleSlot = "primary" | "overlay";
 
-type BusinessScheduleRow = {
+type V2ActivityScheduleRow = {
     id: string;
-    business_id: string;
-    collection_id: string;
-    slot: ScheduleSlot;
-    days_of_week: number[];
-    start_time: string; // HH:MM:SS
-    end_time: string; // HH:MM:SS
+    activity_id: string;
+    catalog_id: string;
+    slot: ScheduleSlot | null;
+    days_of_week: number[] | null;
+    start_time: string | null;
+    end_time: string | null;
+    priority: number;
     is_active: boolean;
     created_at: string;
+    catalog: V2Catalog | null;
+};
+
+type RawProductRow = {
+    id: string;
+    base_price: number | null;
+    name: string | null;
+};
+
+type RawCatalogItemRow = {
+    id: string;
+    order_index: number | null;
+    visible: boolean | null;
+    product: RawProductRow | RawProductRow[] | null;
+};
+
+type RawCatalogSectionRow = {
+    id: string;
+    label: string | null;
+    order_index: number | null;
+    items: RawCatalogItemRow[] | RawCatalogItemRow | null;
+};
+
+type RawCatalogRow = {
+    id: string;
+    name: string | null;
+    sections: RawCatalogSectionRow[] | RawCatalogSectionRow | null;
+};
+
+type RawScheduleLayoutRow = {
+    catalog_id: string | null;
+};
+
+type RawLayoutRuleRow = {
+    id: string;
+    priority: number;
+    created_at: string;
+    time_mode: "always" | "window";
+    days_of_week: number[] | null;
+    time_from: string | null;
+    time_to: string | null;
+    layout: RawScheduleLayoutRow[] | RawScheduleLayoutRow | null;
+};
+
+type RawActivityGroupMemberRow = {
+    group_id: string;
+};
+
+type RawPriceRuleRow = {
+    id: string;
+    priority: number;
+    created_at: string;
+    time_mode: "always" | "window";
+    days_of_week: number[] | null;
+    time_from: string | null;
+    time_to: string | null;
+};
+
+type RawVisibilityRuleRow = {
+    id: string;
+    priority: number;
+    created_at: string;
+    time_mode: "always" | "window";
+    days_of_week: number[] | null;
+    time_from: string | null;
+    time_to: string | null;
+};
+
+type PriceOverrideRow = {
+    product_id: string;
+    override_price: number;
+    show_original_price: boolean;
+};
+
+type VisibilityOverrideRow = {
+    product_id: string;
+    visible: boolean;
+};
+
+type OverrideRow = {
+    product_id: string;
+    visible_override: boolean | null;
 };
 
 type BusinessRow = {
     id: string;
     name: string;
     user_id: string;
-};
-
-type CollectionRow = {
-    id: string;
-    name: string;
-};
-
-type CollectionSectionRow = {
-    id: string;
-    label: string;
-    order_index: number;
-};
-
-type ItemRow = {
-    id: string;
-    name: string;
-    base_price: number | null;
-};
-
-type CollectionItemRow = {
-    id: string;
-    section_id: string;
-    order_index: number;
-    visible: boolean | null;
-    item: ItemRow | ItemRow[] | null;
-};
-
-type BusinessItemOverrideRow = {
-    item_id: string;
-    price_override: number | null;
-    visible_override: boolean | null;
 };
 
 const corsHeaders = {
@@ -67,8 +138,20 @@ function json(status: number, body: Record<string, unknown>) {
     });
 }
 
-function toMinutes(hhmm: string) {
+function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
+    if (!value) return null;
+    return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+function normalizeMany<T>(value: T[] | T | null | undefined): T[] {
+    if (!value) return [];
+    return Array.isArray(value) ? value : [value];
+}
+
+function toMinutes(hhmm: string | null): number | null {
+    if (!hhmm) return null;
     const [h, m] = hhmm.slice(0, 5).split(":").map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
     return h * 60 + m;
 }
 
@@ -76,116 +159,156 @@ function prevDay(d: number) {
     return (d + 6) % 7;
 }
 
-function isScheduleActive(schedule: BusinessScheduleRow, now: Date) {
+function scheduleIncludesDay(days: number[] | null, day: number) {
+    if (days == null) return true;
+    return days.includes(day);
+}
+
+function isScheduleActive(schedule: V2ActivityScheduleRow, now: Date) {
     if (!schedule.is_active) return false;
 
-    const day = now.getDay(); // 0..6
+    const day = now.getDay();
     const time = toMinutes(now.toTimeString().slice(0, 5));
+    if (time === null) return false;
 
     const start = toMinutes(schedule.start_time);
     const end = toMinutes(schedule.end_time);
 
-    // all-day
-    if (start === end) {
-        return schedule.days_of_week.includes(day);
+    if (start === null || end === null) {
+        return scheduleIncludesDay(schedule.days_of_week, day);
     }
 
-    // normal same-day interval
+    if (start === end) {
+        return scheduleIncludesDay(schedule.days_of_week, day);
+    }
+
     if (start < end) {
-        if (!schedule.days_of_week.includes(day)) return false;
+        if (!scheduleIncludesDay(schedule.days_of_week, day)) return false;
         return start <= time && time < end;
     }
 
-    // overnight (spans midnight)
-    const isStartDayActive = schedule.days_of_week.includes(day) && time >= start;
-    const isNextDayActive = schedule.days_of_week.includes(prevDay(day)) && time < end;
+    const isStartDayActive = scheduleIncludesDay(schedule.days_of_week, day) && time >= start;
+    const isNextDayActive = scheduleIncludesDay(schedule.days_of_week, prevDay(day)) && time < end;
 
     return isStartDayActive || isNextDayActive;
 }
 
-function pickWinner(schedules: BusinessScheduleRow[]): BusinessScheduleRow | null {
+function isTimeRuleActiveNow(
+    rule: Pick<RawLayoutRuleRow, "time_mode" | "days_of_week" | "time_from" | "time_to">,
+    now: Date
+): boolean {
+    if (rule.time_mode === "always") return true;
+
+    const day = now.getDay();
+    const nowMinutes = toMinutes(now.toTimeString().slice(0, 5));
+    if (nowMinutes === null) return false;
+
+    if (rule.days_of_week !== null && !rule.days_of_week.includes(day)) {
+        return false;
+    }
+
+    if (!rule.time_from || !rule.time_to) {
+        return true;
+    }
+
+    const from = toMinutes(rule.time_from);
+    const to = toMinutes(rule.time_to);
+    if (from === null || to === null) return false;
+
+    return from <= nowMinutes && nowMinutes < to;
+}
+
+function compareScheduleWinner(a: V2ActivityScheduleRow, b: V2ActivityScheduleRow) {
+    if (a.priority !== b.priority) return b.priority - a.priority;
+
+    const aStart = toMinutes(a.start_time) ?? -1;
+    const bStart = toMinutes(b.start_time) ?? -1;
+    if (aStart !== bStart) return bStart - aStart;
+
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+}
+
+function pickWinner(schedules: V2ActivityScheduleRow[]): V2ActivityScheduleRow | null {
     if (schedules.length === 0) return null;
     if (schedules.length === 1) return schedules[0];
-
-    return schedules.slice().sort((a, b) => {
-        // 1) latest start_time
-        if (a.start_time !== b.start_time) {
-            return a.start_time > b.start_time ? -1 : 1;
-        }
-        // 2) most recent
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    })[0];
+    return schedules.slice().sort(compareScheduleWinner)[0];
 }
 
 function pickFallbackPrimary(
-    schedules: BusinessScheduleRow[],
+    schedules: V2ActivityScheduleRow[],
     now: Date
-): BusinessScheduleRow | null {
+): V2ActivityScheduleRow | null {
     const day = now.getDay();
     const time = toMinutes(now.toTimeString().slice(0, 5));
+    if (time === null) return null;
 
     const primary = schedules.filter(s => s.is_active && s.slot === "primary");
     if (primary.length === 0) return null;
 
-    const affectsDay = (s: BusinessScheduleRow, d: number) => {
+    const affectsDay = (s: V2ActivityScheduleRow, d: number) => {
         const start = toMinutes(s.start_time);
         const end = toMinutes(s.end_time);
 
-        if (start === end) return s.days_of_week.includes(d);
-        if (start < end) return s.days_of_week.includes(d);
+        if (start === null || end === null) return scheduleIncludesDay(s.days_of_week, d);
+        if (start === end) return scheduleIncludesDay(s.days_of_week, d);
+        if (start < end) return scheduleIncludesDay(s.days_of_week, d);
 
-        return s.days_of_week.includes(d) || s.days_of_week.includes(prevDay(d));
+        return (
+            scheduleIncludesDay(s.days_of_week, d) ||
+            scheduleIncludesDay(s.days_of_week, prevDay(d))
+        );
     };
 
     const todayCandidates = primary.filter(s => affectsDay(s, day));
 
-    // 1) prefer "just ended" today
     const pastEndedToday = todayCandidates.filter(s => {
         const start = toMinutes(s.start_time);
         const end = toMinutes(s.end_time);
 
-        if (start === end) return false; // all-day
+        if (start === null || end === null) return false;
+        if (start === end) return false;
         if (start < end) return end <= time;
         return false;
     });
 
     if (pastEndedToday.length > 0) {
         return pastEndedToday.slice().sort((a, b) => {
-            const aEnd = toMinutes(a.end_time);
-            const bEnd = toMinutes(b.end_time);
-
+            const aEnd = toMinutes(a.end_time) ?? -1;
+            const bEnd = toMinutes(b.end_time) ?? -1;
             if (aEnd !== bEnd) return bEnd - aEnd;
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            return compareScheduleWinner(a, b);
         })[0];
     }
 
-    // 2) next starting today
     const nextStartingToday = todayCandidates
         .filter(s => {
             const start = toMinutes(s.start_time);
             const end = toMinutes(s.end_time);
 
+            if (start === null || end === null) return false;
             if (start === end) return false;
-            if (start < end) return start >= time;
             return start >= time;
         })
-        .sort((a, b) => toMinutes(a.start_time) - toMinutes(b.start_time));
+        .sort((a, b) => {
+            const aStart = toMinutes(a.start_time) ?? 24 * 60;
+            const bStart = toMinutes(b.start_time) ?? 24 * 60;
+            if (aStart !== bStart) return aStart - bStart;
+            return compareScheduleWinner(a, b);
+        });
 
     if (nextStartingToday.length > 0) return nextStartingToday[0];
 
-    // 3) next available in week
     const ranked = primary
         .map(s => {
-            const start = toMinutes(s.start_time);
-            const days = s.days_of_week;
+            const start = toMinutes(s.start_time) ?? 24 * 60;
+            const days = s.days_of_week ?? [];
+            const overnight =
+                (toMinutes(s.start_time) ?? 0) > (toMinutes(s.end_time) ?? Number.MAX_SAFE_INTEGER);
 
             let bestDeltaDays = 7;
             for (let delta = 0; delta < 7; delta++) {
                 const d = (day + delta) % 7;
-                const ok =
-                    days.includes(d) ||
-                    (toMinutes(s.start_time) > toMinutes(s.end_time) && days.includes(prevDay(d)));
-
+                const ok = days.includes(d) || (overnight && days.includes(prevDay(d)));
                 if (ok) {
                     bestDeltaDays = delta;
                     break;
@@ -196,27 +319,125 @@ function pickFallbackPrimary(
         })
         .sort((a, b) => {
             if (a.bestDeltaDays !== b.bestDeltaDays) return a.bestDeltaDays - b.bestDeltaDays;
-            return a.start - b.start;
+            if (a.start !== b.start) return a.start - b.start;
+            return compareScheduleWinner(a.s, b.s);
         });
 
     return ranked[0]?.s ?? null;
 }
 
-function resolveActivePrimaryCollectionId(
-    schedules: BusinessScheduleRow[],
-    now: Date = new Date()
-): string | null {
-    if (!schedules.length) return null;
+function applyVisibilityOverridesToCatalog(
+    catalog: V2Catalog | null,
+    overridesByProductId: Record<string, VisibilityOverrideRow>
+): V2Catalog | null {
+    if (!catalog) return null;
 
-    // 1) active now
-    const activeNow = schedules.filter(s => isScheduleActive(s, now));
-    const activePrimary = pickWinner(activeNow.filter(s => s.slot === "primary"));
+    return {
+        ...catalog,
+        sections: catalog.sections
+            .map(section => ({
+                ...section,
+                items: section.items
+                    .map(item => {
+                        if (!item.product_id) {
+                            const effectiveVisible = item.visible;
+                            return {
+                                ...item,
+                                effective_visible: effectiveVisible
+                            };
+                        }
 
-    // 2) fallback primary if none active
-    const fallbackPrimary = activePrimary ? null : pickFallbackPrimary(schedules, now);
-    const finalPrimary = activePrimary ?? fallbackPrimary;
+                        const override = overridesByProductId[item.product_id];
+                        const effectiveVisible = override?.visible ?? item.visible;
 
-    return finalPrimary?.collection_id ?? null;
+                        return {
+                            ...item,
+                            effective_visible: effectiveVisible
+                        };
+                    })
+                    .filter(item => (item.effective_visible ?? item.visible) === true)
+            }))
+            .filter(section => section.items.length > 0)
+    };
+}
+
+function applyPriceOverridesToCatalog(
+    catalog: V2Catalog | null,
+    overridesByProductId: Record<string, PriceOverrideRow>
+): V2Catalog | null {
+    if (!catalog) return null;
+
+    return {
+        ...catalog,
+        sections: catalog.sections.map(section => ({
+            ...section,
+            items: section.items.map(item => {
+                if (!item.product_id) return item;
+
+                const override = overridesByProductId[item.product_id];
+                if (!override) return item;
+
+                return {
+                    ...item,
+                    effective_price: override.override_price,
+                    ...(override.show_original_price
+                        ? { original_price: item.effective_price }
+                        : {})
+                };
+            })
+        }))
+    };
+}
+
+function hasRenderableItems(
+    schedule: V2ActivityScheduleRow,
+    overridesByProductId: Record<string, OverrideRow>
+) {
+    const sections = schedule.catalog?.sections ?? [];
+
+    for (const section of sections) {
+        for (const item of section.items) {
+            if (!item.product_id) continue;
+            const override = overridesByProductId[item.product_id];
+            const visible = override?.visible_override ?? item.effective_visible ?? item.visible;
+            if (visible) return true;
+        }
+    }
+
+    return false;
+}
+
+function normalizeCatalog(raw: RawCatalogRow | RawCatalogRow[] | null): V2Catalog | null {
+    const catalog = normalizeOne(raw);
+    if (!catalog) return null;
+
+    const sections = normalizeMany(catalog.sections)
+        .slice()
+        .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+        .map(section => {
+            const items = normalizeMany(section.items)
+                .slice()
+                .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+                .map(item => {
+                    const product = normalizeOne(item.product);
+                    return {
+                        id: item.id,
+                        visible: item.visible ?? true,
+                        product_id: product?.id ?? null,
+                        effective_price: product?.base_price ?? null
+                    };
+                });
+
+            return {
+                id: section.id,
+                items
+            };
+        });
+
+    return {
+        id: catalog.id,
+        sections
+    };
 }
 
 function getNowInTimeZone(timeZone: string) {
@@ -275,7 +496,6 @@ function wrapText(
             continue;
         }
 
-        // break very long word
         let chunk = "";
         for (const ch of word) {
             const next = chunk + ch;
@@ -294,6 +514,10 @@ function wrapText(
     return lines.length ? lines : [""];
 }
 
+// -------------------------------------------------------------------------------------------------
+// Request Handler
+// -------------------------------------------------------------------------------------------------
+
 serve(async req => {
     // CORS preflight
     if (req.method === "OPTIONS") {
@@ -304,311 +528,586 @@ serve(async req => {
         return json(405, { error: "method_not_allowed" });
     }
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
-
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-        return json(500, { error: "server_misconfigured" });
-    }
-
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-        return json(401, { error: "unauthorized" });
-    }
-
-    let body: { businessId?: string; business_id?: string } | null = null;
     try {
-        body = await req.json();
-    } catch {
-        return json(400, { error: "invalid_json" });
-    }
+        const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+        const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 
-    const businessId = body?.businessId ?? body?.business_id;
-    if (!businessId) {
-        return json(400, { error: "missing_business_id" });
-    }
+        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+            return json(500, { error: "server_misconfigured" });
+        }
 
-    // 1) Create Supabase client using user JWT (no service role)
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: authHeader } }
-    });
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader) {
+            return json(401, { error: "unauthorized" });
+        }
 
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    if (authError || !authData?.user?.id) {
-        return json(401, { error: "unauthorized" });
-    }
+        let body: { businessId?: string; business_id?: string } | null = null;
+        try {
+            body = await req.json();
+        } catch {
+            return json(400, { error: "invalid_json" });
+        }
 
-    // 2) Fetch business and verify ownership
-    const { data: business, error: businessError } = await supabase
-        .from("businesses")
-        .select("id, name, user_id")
-        .eq("id", businessId)
-        .single();
+        // businessId maps directly to V2 Activity ID
+        const activityId = body?.businessId ?? body?.business_id;
+        if (!activityId) {
+            return json(400, { error: "missing_business_id" });
+        }
 
-    if (businessError || !business) {
-        return json(404, { error: "business_not_found" });
-    }
+        // 1) Create Supabase client using user JWT
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            global: { headers: { Authorization: authHeader } }
+        });
 
-    const businessRow = business as BusinessRow;
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (authError || !authData?.user?.id) {
+            return json(401, { error: "unauthorized" });
+        }
 
-    if (businessRow.user_id !== authData.user.id) {
-        return json(403, { error: "forbidden" });
-    }
+        // 2) Fetch business (activity) and verify ownership
+        const { data: business, error: businessError } = await supabase
+            .from("businesses")
+            .select("id, name, user_id")
+            .eq("id", activityId)
+            .single();
 
-    // 3) Resolve active collection via scheduling rules
-    const { data: schedulesData, error: schedulesError } = await supabase
-        .from("business_collection_schedules")
-        .select(
-            "id, business_id, collection_id, slot, days_of_week, start_time, end_time, is_active, created_at"
-        )
-        .eq("business_id", businessId)
-        .eq("is_active", true);
+        if (businessError || !business) {
+            return json(404, { error: "business_not_found" });
+        }
 
-    if (schedulesError) {
-        return json(500, { error: "schedule_fetch_failed" });
-    }
+        const businessRow = business as BusinessRow;
 
-    const schedules = (schedulesData ?? []) as BusinessScheduleRow[];
-    const nowRome = getNowInTimeZone("Europe/Rome");
-    const activeCollectionId = resolveActivePrimaryCollectionId(schedules, nowRome);
+        if (businessRow.user_id !== authData.user.id) {
+            return json(403, { error: "forbidden" });
+        }
 
-    if (!activeCollectionId) {
-        return json(404, { error: "no_active_collection" });
-    }
+        const now = getNowInTimeZone("Europe/Rome");
 
-    // 4) Fetch collection, sections, items, and overrides
-    const { data: collection, error: collectionError } = await supabase
-        .from("collections")
-        .select("id, name")
-        .eq("id", activeCollectionId)
-        .single();
-
-    if (collectionError || !collection) {
-        return json(404, { error: "collection_not_found" });
-    }
-
-    const collectionRow = collection as CollectionRow;
-
-    const [{ data: sectionsData, error: sectionsError }, { data: itemsData, error: itemsError }] =
-        await Promise.all([
+        // 3) Resolve Active Layout Catalog
+        const [activityRulesRes, groupMembersRes] = await Promise.all([
             supabase
-                .from("collection_sections")
-                .select("id, label, order_index")
-                .eq("collection_id", activeCollectionId)
-                .order("order_index", { ascending: true }),
+                .from("v2_schedules")
+                .select(
+                    `
+                id,
+                priority,
+                created_at,
+                time_mode,
+                days_of_week,
+                time_from,
+                time_to,
+                layout:v2_schedule_layout(catalog_id)
+            `
+                )
+                .eq("rule_type", "layout")
+                .eq("enabled", true)
+                .eq("target_type", "activity")
+                .eq("target_id", activityId)
+                .order("priority", { ascending: true })
+                .order("created_at", { ascending: true }),
             supabase
-                .from("collection_items")
-                .select("id, section_id, order_index, visible, item:items ( id, name, base_price )")
-                .eq("collection_id", activeCollectionId)
-                .order("order_index", { ascending: true })
+                .from("v2_activity_group_members")
+                .select("group_id")
+                .eq("activity_id", activityId)
         ]);
 
-    if (sectionsError || itemsError) {
-        return json(500, { error: "collection_data_fetch_failed" });
-    }
+        if (activityRulesRes.error) {
+            return json(500, { error: "schedule_fetch_failed" });
+        }
 
-    const sectionsRows = (sectionsData ?? []) as CollectionSectionRow[];
-    const itemsRows = (itemsData ?? []) as CollectionItemRow[];
-
-    const normalizedItems = itemsRows
-        .map(row => {
-            const rawItem = Array.isArray(row.item) ? row.item[0] ?? null : row.item;
-            if (!rawItem) return null;
-
-            return {
-                id: row.id,
-                section_id: row.section_id,
-                order_index: row.order_index,
-                visible: (row.visible ?? true) as boolean,
-                item: {
-                    id: rawItem.id,
-                    name: rawItem.name,
-                    base_price: rawItem.base_price
-                }
-            };
-        })
-        .filter(
-            (
-                row
-            ): row is {
-                id: string;
-                section_id: string;
-                order_index: number;
-                visible: boolean;
-                item: { id: string; name: string; base_price: number | null };
-            } => row !== null
+        const activityRows = (activityRulesRes.data ?? []) as RawLayoutRuleRow[];
+        const groupIds = Array.from(
+            new Set(
+                ((groupMembersRes?.data ?? []) as RawActivityGroupMemberRow[]).map(
+                    row => row.group_id
+                )
+            )
         );
 
-    const itemIds = normalizedItems.map(it => it.item.id);
+        let activityGroupRows: RawLayoutRuleRow[] = [];
+        if (groupIds.length > 0) {
+            const { data, error } = await supabase
+                .from("v2_schedules")
+                .select(
+                    `
+                id,
+                priority,
+                created_at,
+                time_mode,
+                days_of_week,
+                time_from,
+                time_to,
+                layout:v2_schedule_layout(catalog_id)
+            `
+                )
+                .eq("rule_type", "layout")
+                .eq("enabled", true)
+                .eq("target_type", "activity_group")
+                .in("target_id", groupIds)
+                .order("priority", { ascending: true })
+                .order("created_at", { ascending: true });
 
-    const overrides: Record<
-        string,
-        { item_id: string; price_override: number | null; visible_override: boolean | null }
-    > = {};
-
-    if (itemIds.length > 0) {
-        const { data: overrideData, error: overrideError } = await supabase
-            .from("business_item_overrides")
-            .select("item_id, price_override, visible_override")
-            .eq("business_id", businessId)
-            .in("item_id", itemIds);
-
-        if (overrideError) {
-            return json(500, { error: "overrides_fetch_failed" });
+            if (!error) {
+                activityGroupRows = (data ?? []) as RawLayoutRuleRow[];
+            }
         }
 
-        const overrideRows = (overrideData ?? []) as BusinessItemOverrideRow[];
-        for (const row of overrideRows) {
-            overrides[row.item_id] = {
-                item_id: row.item_id,
-                price_override: row.price_override ?? null,
-                visible_override: row.visible_override ?? null
-            };
+        const sortedRules = [...activityRows, ...activityGroupRows].sort((a, b) => {
+            if (a.priority !== b.priority) return a.priority - b.priority;
+            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        });
+
+        const validRules = sortedRules.filter(row => isTimeRuleActiveNow(row, now));
+        const selectedRule = validRules.find(
+            row => (normalizeOne(row.layout)?.catalog_id ?? null) !== null
+        );
+        const layoutCatalogId = normalizeOne(selectedRule?.layout)?.catalog_id ?? null;
+
+        if (!layoutCatalogId) {
+            return json(404, { error: "no_active_collection" });
         }
-    }
 
-    const itemsBySection = new Map<string, { name: string; price: number | null }[]>();
+        // 4) Load Catalog
+        const { data: catalogData, error: catalogError } = await supabase
+            .from("v2_catalogs")
+            .select(
+                `
+            id,
+            name,
+            sections:v2_catalog_sections(
+                id,
+                label,
+                order_index,
+                items:v2_catalog_items(
+                    id,
+                    order_index,
+                    visible,
+                    product:v2_products(id, base_price, name)
+                )
+            )
+        `
+            )
+            .eq("id", layoutCatalogId)
+            .maybeSingle();
 
-    for (const it of normalizedItems) {
-        const override = overrides[it.item.id];
-        const visible = override?.visible_override ?? it.visible ?? true;
-
-        if (!visible) continue;
-
-        const price = override?.price_override ?? it.item.base_price ?? null;
-        const arr = itemsBySection.get(it.section_id) ?? [];
-        arr.push({ name: it.item.name, price });
-        itemsBySection.set(it.section_id, arr);
-    }
-
-    const sections = sectionsRows
-        .map(section => {
-            const sectionItems = itemsBySection.get(section.id) ?? [];
-            return {
-                id: section.id,
-                label: section.label,
-                items: sectionItems
-            };
-        })
-        .filter(s => s.items.length > 0);
-
-    if (sections.length === 0) {
-        return json(404, { error: "no_visible_items" });
-    }
-
-    // 5) Generate a clean A4 portrait PDF
-    const pdfDoc = await PDFDocument.create();
-    const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-    const PAGE_WIDTH = 595.28;
-    const PAGE_HEIGHT = 841.89;
-    const MARGIN_X = 50;
-    const MARGIN_TOP = 60;
-    const MARGIN_BOTTOM = 60;
-
-    const TITLE_SIZE = 20;
-    const COLLECTION_SIZE = 16;
-    const SECTION_SIZE = 14;
-    const ITEM_SIZE = 12;
-
-    const TITLE_LINE = TITLE_SIZE * 1.4;
-    const COLLECTION_LINE = COLLECTION_SIZE * 1.4;
-    const SECTION_LINE = SECTION_SIZE * 1.4;
-    const ITEM_LINE = ITEM_SIZE * 1.35;
-
-    let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    let y = PAGE_HEIGHT - MARGIN_TOP;
-
-    const ensureSpace = (height: number) => {
-        // Basic pagination: add a new page when space is not enough
-        if (y - height < MARGIN_BOTTOM) {
-            page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-            y = PAGE_HEIGHT - MARGIN_TOP;
+        if (catalogError || !catalogData) {
+            return json(404, { error: "collection_not_found" });
         }
-    };
 
-    // Header: business name and active collection title
-    ensureSpace(TITLE_LINE);
-    page.drawText(businessRow.name, {
-        x: MARGIN_X,
-        y,
-        size: TITLE_SIZE,
-        font: fontBold,
-        color: rgb(0, 0, 0)
-    });
-    y -= TITLE_LINE;
+        const rawCatalog = catalogData as RawCatalogRow;
+        const normalizedCatalog = normalizeCatalog(rawCatalog);
+        if (!normalizedCatalog) {
+            return json(404, { error: "collection_corrupted" });
+        }
 
-    ensureSpace(COLLECTION_LINE);
-    page.drawText(collectionRow.name, {
-        x: MARGIN_X,
-        y,
-        size: COLLECTION_SIZE,
-        font: fontRegular,
-        color: rgb(0, 0, 0)
-    });
-    y -= COLLECTION_LINE;
+        // Initialize schedule
+        let schedules: V2ActivityScheduleRow[] = [
+            {
+                id: `layout-rule:${activityId}`,
+                activity_id: activityId,
+                catalog_id: layoutCatalogId,
+                slot: "primary",
+                days_of_week: null,
+                start_time: null,
+                end_time: null,
+                priority: Number.MAX_SAFE_INTEGER,
+                is_active: true,
+                created_at: new Date(0).toISOString(),
+                catalog: normalizedCatalog
+            }
+        ];
 
-    // Sections and items
-    for (const section of sections) {
-        ensureSpace(SECTION_LINE);
-        page.drawText(section.label, {
+        const productIds = Array.from(
+            new Set(
+                schedules.flatMap(schedule =>
+                    (schedule.catalog?.sections ?? []).flatMap(section =>
+                        section.items
+                            .map(item => item.product_id)
+                            .filter((id): id is string => Boolean(id))
+                    )
+                )
+            )
+        );
+
+        // ---------------------------------------------------------
+        // Resolve Overrides (Visibility & Price)
+        // ---------------------------------------------------------
+
+        const visibilityOverridesByProductId: Record<string, VisibilityOverrideRow> = {};
+        const overridesByProductId: Record<string, OverrideRow> = {};
+        const priceOverridesByProductId: Record<string, PriceOverrideRow> = {};
+
+        // Retrieve active visibility rule
+        const [visibilityRulesRes] = await Promise.all([
+            supabase
+                .from("v2_schedules")
+                .select("id, priority, created_at, time_mode, days_of_week, time_from, time_to")
+                .eq("rule_type", "visibility")
+                .eq("enabled", true)
+                .eq("target_type", "activity")
+                .eq("target_id", activityId)
+                .order("priority", { ascending: true })
+                .order("created_at", { ascending: true })
+        ]);
+
+        // Evaluate Visibility Winner
+        const activeVisibilityGroupRows = await supabase
+            .from("v2_schedules")
+            .select("id, priority, created_at, time_mode, days_of_week, time_from, time_to")
+            .eq("rule_type", "visibility")
+            .eq("enabled", true)
+            .eq("target_type", "activity_group")
+            .in(
+                "target_id",
+                groupIds.length > 0 ? groupIds : ["00000000-0000-0000-0000-000000000000"]
+            )
+            .order("priority", { ascending: true })
+            .order("created_at", { ascending: true });
+
+        const visRows = [
+            ...(visibilityRulesRes.data ?? []),
+            ...(activeVisibilityGroupRows.data ?? [])
+        ] as RawVisibilityRuleRow[];
+        visRows.sort((a, b) => {
+            if (a.priority !== b.priority) return a.priority - b.priority;
+            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        });
+        const validVisRows = visRows.filter(row => isTimeRuleActiveNow(row, now));
+        const activeVisibilityRuleScheduleId = validVisRows[0]?.id ?? null;
+
+        if (activeVisibilityRuleScheduleId && productIds.length > 0) {
+            const { data: visibilityOverrideData } = await supabase
+                .from("v2_schedule_visibility_overrides")
+                .select("product_id, visible")
+                .eq("schedule_id", activeVisibilityRuleScheduleId)
+                .in("product_id", productIds);
+
+            for (const row of (visibilityOverrideData ?? []) as VisibilityOverrideRow[]) {
+                visibilityOverridesByProductId[row.product_id] = row;
+            }
+        }
+
+        schedules = schedules.map(schedule => ({
+            ...schedule,
+            catalog: applyVisibilityOverridesToCatalog(
+                schedule.catalog,
+                visibilityOverridesByProductId
+            )
+        }));
+
+        const visibleProductIds = Array.from(
+            new Set(
+                schedules.flatMap(schedule =>
+                    (schedule.catalog?.sections ?? []).flatMap(section =>
+                        section.items
+                            .map(item => item.product_id)
+                            .filter((id): id is string => Boolean(id))
+                    )
+                )
+            )
+        );
+
+        if (visibleProductIds.length > 0) {
+            const { data: overrideData } = await supabase
+                .from("v2_activity_product_overrides")
+                .select("product_id, visible_override")
+                .eq("activity_id", activityId)
+                .in("product_id", visibleProductIds);
+
+            for (const row of (overrideData ?? []) as OverrideRow[]) {
+                overridesByProductId[row.product_id] = row;
+            }
+        }
+
+        // Retrieve active price rule
+        const [priceRulesRes] = await Promise.all([
+            supabase
+                .from("v2_schedules")
+                .select("id, priority, created_at, time_mode, days_of_week, time_from, time_to")
+                .eq("rule_type", "price")
+                .eq("enabled", true)
+                .eq("target_type", "activity")
+                .eq("target_id", activityId)
+                .order("priority", { ascending: true })
+                .order("created_at", { ascending: true })
+        ]);
+
+        const activePriceGroupRows = await supabase
+            .from("v2_schedules")
+            .select("id, priority, created_at, time_mode, days_of_week, time_from, time_to")
+            .eq("rule_type", "price")
+            .eq("enabled", true)
+            .eq("target_type", "activity_group")
+            .in(
+                "target_id",
+                groupIds.length > 0 ? groupIds : ["00000000-0000-0000-0000-000000000000"]
+            )
+            .order("priority", { ascending: true })
+            .order("created_at", { ascending: true });
+
+        const priceRows = [
+            ...(priceRulesRes.data ?? []),
+            ...(activePriceGroupRows.data ?? [])
+        ] as RawPriceRuleRow[];
+        priceRows.sort((a, b) => {
+            if (a.priority !== b.priority) return a.priority - b.priority;
+            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        });
+        const validPriceRows = priceRows.filter(row => isTimeRuleActiveNow(row, now));
+        const activePriceRuleScheduleId = validPriceRows[0]?.id ?? null;
+
+        if (activePriceRuleScheduleId && visibleProductIds.length > 0) {
+            const { data: priceOverrideData } = await supabase
+                .from("v2_schedule_price_overrides")
+                .select("product_id, override_price, show_original_price")
+                .eq("schedule_id", activePriceRuleScheduleId)
+                .in("product_id", visibleProductIds);
+
+            for (const row of (priceOverrideData ?? []) as PriceOverrideRow[]) {
+                priceOverridesByProductId[row.product_id] = row;
+            }
+        }
+
+        schedules = schedules.map(schedule => ({
+            ...schedule,
+            catalog: applyPriceOverridesToCatalog(schedule.catalog, priceOverridesByProductId)
+        }));
+
+        const schedulesWithItems = schedules.filter(schedule =>
+            hasRenderableItems(schedule, overridesByProductId)
+        );
+
+        const activePrimary = pickWinner(
+            schedulesWithItems.filter(schedule => schedule.slot === "primary")
+        );
+        const fallbackPrimary = activePrimary ? null : pickFallbackPrimary(schedulesWithItems, now);
+        const finalPrimary = activePrimary ?? fallbackPrimary;
+
+        if (!finalPrimary || !finalPrimary.catalog) {
+            return json(404, { error: "no_visible_items" });
+        }
+
+        // -------------------------------------------------------------
+        // Compile mapped sections for the PDF Template
+        // -------------------------------------------------------------
+
+        // Combine original rawCatalog sections labels & products info with the resolved visible catalog tree.
+        const productInfoMap: Record<string, { name: string }> = {};
+        if (rawCatalog.sections && Array.isArray(rawCatalog.sections)) {
+            rawCatalog.sections.forEach(rawSec => {
+                if (rawSec.items && Array.isArray(rawSec.items)) {
+                    rawSec.items.forEach(rawIt => {
+                        const rawPr = Array.isArray(rawIt.product)
+                            ? rawIt.product[0]
+                            : rawIt.product;
+                        if (rawPr && rawPr.id && rawPr.name) {
+                            productInfoMap[rawPr.id] = { name: rawPr.name };
+                        }
+                    });
+                }
+            });
+        }
+
+        const sections = finalPrimary.catalog.sections
+            .map(section => {
+                const rawSection = Array.isArray(rawCatalog.sections)
+                    ? rawCatalog.sections.find(s => s.id === section.id)
+                    : null;
+                const label = rawSection?.label ?? "Sezione";
+
+                const items = section.items
+                    .map(item => {
+                        const productName = item.product_id
+                            ? (productInfoMap[item.product_id]?.name ?? "Sconosciuto")
+                            : "Sconosciuto";
+                        const visible =
+                            overridesByProductId[item.product_id!]?.visible_override ??
+                            item.effective_visible ??
+                            item.visible;
+                        if (!visible) return null;
+
+                        return {
+                            name: productName,
+                            price: item.effective_price,
+                            original_price: item.original_price
+                        };
+                    })
+                    .filter(
+                        (
+                            i
+                        ): i is {
+                            name: string;
+                            price: number | null;
+                            original_price?: number | null;
+                        } => i !== null
+                    );
+
+                return {
+                    id: section.id,
+                    label,
+                    items
+                };
+            })
+            .filter(s => s.items.length > 0);
+
+        if (sections.length === 0) {
+            return json(404, { error: "no_visible_items" });
+        }
+
+        const collectionName = rawCatalog.name ?? "Catalogo";
+
+        const pdfDoc = await PDFDocument.create();
+        const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+        const fontStrike = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+        const PAGE_WIDTH = 595.28;
+        const PAGE_HEIGHT = 841.89;
+        const MARGIN_X = 50;
+        const MARGIN_TOP = 60;
+        const MARGIN_BOTTOM = 60;
+
+        const TITLE_SIZE = 20;
+        const COLLECTION_SIZE = 16;
+        const SECTION_SIZE = 14;
+        const ITEM_SIZE = 12;
+
+        const TITLE_LINE = TITLE_SIZE * 1.4;
+        const COLLECTION_LINE = COLLECTION_SIZE * 1.4;
+        const SECTION_LINE = SECTION_SIZE * 1.4;
+        const ITEM_LINE = ITEM_SIZE * 1.35;
+
+        let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+        let y = PAGE_HEIGHT - MARGIN_TOP;
+
+        const ensureSpace = (height: number) => {
+            // Basic pagination: add a new page when space is not enough
+            if (y - height < MARGIN_BOTTOM) {
+                page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+                y = PAGE_HEIGHT - MARGIN_TOP;
+            }
+        };
+
+        // Header: business name and active collection title
+        ensureSpace(TITLE_LINE);
+        page.drawText(businessRow.name, {
             x: MARGIN_X,
             y,
-            size: SECTION_SIZE,
+            size: TITLE_SIZE,
             font: fontBold,
             color: rgb(0, 0, 0)
         });
-        y -= SECTION_LINE;
+        y -= TITLE_LINE;
 
-        for (const item of section.items) {
-            const priceText = item.price != null ? `€ ${item.price.toFixed(2)}` : "-";
-            const priceWidth = fontRegular.widthOfTextAtSize(priceText, ITEM_SIZE);
-            const priceX = PAGE_WIDTH - MARGIN_X - priceWidth;
-            const maxNameWidth = priceX - MARGIN_X - 10;
+        ensureSpace(COLLECTION_LINE);
+        page.drawText(collectionName, {
+            x: MARGIN_X,
+            y,
+            size: COLLECTION_SIZE,
+            font: fontRegular,
+            color: rgb(0, 0, 0)
+        });
+        y -= COLLECTION_LINE;
 
-            const lines = wrapText(item.name, maxNameWidth, fontRegular, ITEM_SIZE);
+        // Sections and items
+        for (const section of sections) {
+            ensureSpace(SECTION_LINE);
+            page.drawText(section.label, {
+                x: MARGIN_X,
+                y,
+                size: SECTION_SIZE,
+                font: fontBold,
+                color: rgb(0, 0, 0)
+            });
+            y -= SECTION_LINE;
 
-            for (let i = 0; i < lines.length; i++) {
-                ensureSpace(ITEM_LINE);
-                page.drawText(lines[i], {
-                    x: MARGIN_X,
-                    y,
-                    size: ITEM_SIZE,
-                    font: fontRegular,
-                    color: rgb(0, 0, 0)
-                });
+            for (const item of section.items) {
+                const priceText = item.price != null ? `€ ${item.price.toFixed(2)}` : "-";
+                const oldPriceText =
+                    item.original_price != null ? `€ ${item.original_price.toFixed(2)}` : null;
 
-                // Draw price only on the first line
-                if (i === 0) {
-                    page.drawText(priceText, {
-                        x: priceX,
+                // Layout price text to find width
+                let totalPriceWidth = fontRegular.widthOfTextAtSize(priceText, ITEM_SIZE);
+                let oldPriceWidth = 0;
+                if (oldPriceText) {
+                    oldPriceWidth = fontStrike.widthOfTextAtSize(oldPriceText, ITEM_SIZE - 2);
+                    totalPriceWidth += oldPriceWidth + 5; // adding small gap
+                }
+
+                const priceX = PAGE_WIDTH - MARGIN_X - totalPriceWidth;
+                const maxNameWidth = priceX - MARGIN_X - 10;
+
+                const lines = wrapText(item.name, maxNameWidth, fontRegular, ITEM_SIZE);
+
+                for (let i = 0; i < lines.length; i++) {
+                    ensureSpace(ITEM_LINE);
+                    page.drawText(lines[i], {
+                        x: MARGIN_X,
                         y,
                         size: ITEM_SIZE,
                         font: fontRegular,
                         color: rgb(0, 0, 0)
                     });
+
+                    // Draw price only on the first line
+                    if (i === 0) {
+                        let currentPriceX = priceX;
+                        if (oldPriceText) {
+                            // Draw strikethrough original price
+                            page.drawText(oldPriceText, {
+                                x: currentPriceX,
+                                y: y + 1, // small baseline shift
+                                size: ITEM_SIZE - 2,
+                                font: fontStrike,
+                                color: rgb(0.5, 0.5, 0.5)
+                            });
+                            // draw strikethrough line
+                            const textHeight = (ITEM_SIZE - 2) * 0.4;
+                            page.drawLine({
+                                start: { x: currentPriceX - 1, y: y + 1 + textHeight },
+                                end: {
+                                    x: currentPriceX + oldPriceWidth + 1,
+                                    y: y + 1 + textHeight
+                                },
+                                thickness: 1,
+                                color: rgb(0.5, 0.5, 0.5)
+                            });
+                            currentPriceX += oldPriceWidth + 5;
+                        }
+
+                        page.drawText(priceText, {
+                            x: currentPriceX,
+                            y,
+                            size: ITEM_SIZE,
+                            font: fontRegular,
+                            color: rgb(0, 0, 0)
+                        });
+                    }
+
+                    y -= ITEM_LINE;
                 }
-
-                y -= ITEM_LINE;
             }
+
+            // Extra spacing between sections
+            y -= 6;
         }
 
-        // Extra spacing between sections
-        y -= 6;
+        const pdfBytes = await pdfDoc.save();
+
+        const safeName = businessRow.name.replace(/[^a-zA-Z0-9-_]+/g, "_");
+        const filename = safeName ? `menu-${safeName}.pdf` : "menu.pdf";
+
+        // 6) Return the PDF as a binary response
+        return new Response(pdfBytes, {
+            headers: {
+                ...corsHeaders,
+                "Content-Type": "application/pdf",
+                "Content-Disposition": `attachment; filename="${filename}"`
+            }
+        });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        const stack = err instanceof Error ? err.stack : undefined;
+        return json(500, { error: "internal_server_error", message, stack });
     }
-
-    const pdfBytes = await pdfDoc.save();
-
-    const safeName = businessRow.name.replace(/[^a-zA-Z0-9-_]+/g, "_");
-    const filename = safeName ? `menu-${safeName}.pdf` : "menu.pdf";
-
-    // 6) Return the PDF as a binary response
-    return new Response(pdfBytes, {
-        headers: {
-            ...corsHeaders,
-            "Content-Type": "application/pdf",
-            "Content-Disposition": `attachment; filename="${filename}"`
-        }
-    });
 });
