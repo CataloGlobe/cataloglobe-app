@@ -6,6 +6,8 @@ export type PublicCollectionSectionItem = {
     description: string | null;
     image?: string | null;
     price: number | null;
+    effective_price?: number | null;
+    original_price?: number | null;
 };
 
 export type PublicCollectionSection = {

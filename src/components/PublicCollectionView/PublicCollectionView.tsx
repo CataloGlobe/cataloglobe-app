@@ -22,7 +22,9 @@ export default function PublicCollectionView({ business, collection, overlayColl
                 name: it.name,
                 description: it.description ?? null,
                 image: it.image ?? null,
-                price: it.price ?? null
+                price: it.price ?? null,
+                effective_price: it.effective_price ?? null,
+                original_price: it.original_price ?? null
             }))
         })) ?? [];
 
@@ -34,7 +36,9 @@ export default function PublicCollectionView({ business, collection, overlayColl
             name: it.name,
             description: it.description ?? null,
             image: it.image ?? null,
-            price: it.price ?? null
+            price: it.price ?? null,
+            effective_price: it.effective_price ?? null,
+            original_price: it.original_price ?? null
         }))
     }));
 

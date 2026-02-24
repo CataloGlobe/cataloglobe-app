@@ -13,6 +13,8 @@ export type CollectionViewSectionItem = {
     name: string;
     description?: string | null;
     price?: number | null;
+    effective_price?: number | null;
+    original_price?: number | null;
     image?: string | null;
 };
 
@@ -213,13 +215,32 @@ export default function CollectionView({
                                                             {item.name}
                                                         </Text>
 
-                                                        {item.price != null && (
+                                                        {(console.log("RENDER ITEM:", item), null)}
+                                                        {(item.effective_price ?? item.price) !=
+                                                            null && (
                                                             <Text
                                                                 variant="caption"
                                                                 colorVariant="muted"
                                                                 className={styles.price}
                                                             >
-                                                                € {item.price.toFixed(2)}
+                                                                {item.original_price != null && (
+                                                                    <span
+                                                                        className={
+                                                                            styles.priceOriginal
+                                                                        }
+                                                                    >
+                                                                        €{" "}
+                                                                        {item.original_price.toFixed(
+                                                                            2
+                                                                        )}
+                                                                    </span>
+                                                                )}
+                                                                <span className={styles.priceCurrent}>
+                                                                    €{" "}
+                                                                    {(item.effective_price ?? item.price)?.toFixed(
+                                                                        2
+                                                                    )}
+                                                                </span>
                                                             </Text>
                                                         )}
 

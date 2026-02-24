@@ -49,9 +49,16 @@ export default function ItemDetail({ item, isOpen, onClose }: Props) {
 
                     {/* CONTENUTO */}
                     <div className={styles.content}>
-                        {item.price != null && (
+                        {(item.effective_price ?? item.price) != null && (
                             <Text variant="body" weight={600} className={styles.price}>
-                                € {item.price.toFixed(2)}
+                                {item.original_price != null && (
+                                    <span className={styles.priceOriginal}>
+                                        € {item.original_price.toFixed(2)}
+                                    </span>
+                                )}
+                                <span className={styles.priceCurrent}>
+                                    € {(item.effective_price ?? item.price)?.toFixed(2)}
+                                </span>
                             </Text>
                         )}
 
