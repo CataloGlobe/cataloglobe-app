@@ -1,0 +1,329 @@
+@use "@styles/variables" as *;
+
+.programming {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-bottom: 2rem;
+}
+
+.topArea {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.warningsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+  margin-bottom: 0.2rem;
+}
+
+.warningBanner {
+  background: #991b1b;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.tableCard {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.tableHeader,
+.row {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr 1.6fr 1.6fr 0.8fr 1fr 0.8fr 0.8fr;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+}
+
+.tableHeader {
+  border-bottom: 1px solid var(--border);
+  background: var(--hover-bg);
+}
+
+.row {
+  border-bottom: 1px solid var(--border);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowComfort {
+  min-height: 76px;
+}
+
+.rowDense {
+  min-height: 58px;
+}
+
+.statusOn,
+.statusOff {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+}
+
+.statusOn {
+  background: #15803d;
+}
+
+.statusOff {
+  background: #991b1b;
+}
+
+.ruleTypeBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+}
+
+.ruleTypeLayout {
+  background: #1d4ed8;
+}
+
+.ruleTypePrice {
+  background: #b45309;
+}
+
+.ruleTypeVisibility {
+  background: #065f46;
+}
+
+.typeCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: flex-start;
+}
+
+.activeNowBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  background: #166534; // Deep green
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  animation: pulse-active 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-active {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.placeholderBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px dashed var(--border);
+  padding: 0.16rem 0.5rem;
+}
+
+.ruleTypeFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.ruleTypeFilterButton {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  background: color-mix(in srgb, var(--hover-bg) 90%, white 10%);
+  cursor: pointer;
+}
+
+.ruleTypeFilterButtonActive {
+  border-color: var(--brand-primary);
+  background: var(--brand-primary);
+}
+
+.emptyState {
+  text-align: center;
+  padding: 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.drawerHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.drawerFooterContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.duplicateWarningBox {
+  background: #b45309;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.drawerFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.drawerSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ruleTypeSegmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.ruleTypeSegmentButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  background: color-mix(in srgb, var(--hover-bg) 90%, white 10%);
+  cursor: pointer;
+}
+
+.ruleTypeSegmentButtonActive {
+  border-color: var(--brand-primary);
+  background: var(--brand-primary);
+}
+
+.ruleTypeSegmentButtonDisabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.comingSoonBadge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  padding: 0.1rem 0.35rem;
+  background: color-mix(in srgb, var(--hover-bg) 88%, white 12%);
+}
+
+.targetInfo {
+  margin-top: -0.2rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--hover-bg) 78%, white 22%);
+}
+
+.comingSoonPanel {
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--hover-bg) 85%, white 15%);
+}
+
+.productsBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.selectedProducts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.productOverrideList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.productOverrideCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  background: color-mix(in srgb, var(--hover-bg) 82%, white 18%);
+}
+
+.windowBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.timeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.formHint {
+  margin-top: 0.2rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--hover-bg) 85%, white 15%);
+}
+
+@media (max-width: 1024px) {
+  .tableHeader {
+    display: none;
+  }
+
+  .row {
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+    padding: 0.85rem;
+  }
+
+  .statusOn,
+  .statusOff,
+  .ruleTypeBadge,
+  .placeholderBadge {
+    justify-self: flex-start;
+  }
+
+  .timeGrid {
+    grid-template-columns: 1fr;
+  }
+}
