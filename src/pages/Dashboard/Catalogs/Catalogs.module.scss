@@ -1,0 +1,266 @@
+.container {
+  width: 100%;
+}
+
+.content {
+  padding: var(--spacing-6);
+  background-color: var(--color-gray-50);
+  min-height: calc(100vh - 61px);
+}
+
+.catalogsCard {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--color-gray-200);
+}
+
+.loadingState,
+.emptyState {
+  padding: var(--spacing-12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--spacing-3);
+  color: var(--color-gray-500);
+}
+
+.emptyIcon {
+  color: var(--color-gray-400);
+  margin-bottom: var(--spacing-2);
+}
+
+.emptyButton {
+  margin-top: var(--spacing-4);
+}
+
+.listContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.catalogRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-4) var(--spacing-6);
+  border-bottom: 1px solid var(--color-gray-100);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background-color: var(--color-gray-50);
+  }
+}
+
+.catalogInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-4);
+}
+
+.iconWrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-gray-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-gray-600);
+}
+
+.catalogActions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.actionButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: none;
+  color: var(--color-gray-500);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: var(--color-gray-100);
+    color: var(--color-gray-900);
+  }
+}
+
+/* Dropdown specific */
+.dropdownContent {
+  background-color: white;
+  border-radius: var(--radius-md);
+  padding: 6px;
+  box-shadow:
+    0 10px 38px -10px rgba(22, 23, 24, 0.35),
+    0 10px 20px -15px rgba(22, 23, 24, 0.2);
+  min-width: 180px;
+  border: 1px solid var(--color-gray-200);
+  animation-duration: 200ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 50;
+}
+
+.dropdownItem {
+  font-size: 13px;
+  line-height: 1;
+  color: var(--color-gray-700);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  position: relative;
+  user-select: none;
+  outline: none;
+  cursor: pointer;
+
+  &[data-highlighted] {
+    background-color: var(--color-gray-100);
+    color: var(--color-gray-900);
+  }
+}
+
+.dropdownSeparator {
+  height: 1px;
+  background-color: var(--color-gray-200);
+  margin: 6px -6px;
+}
+
+.danger {
+  color: var(--color-red-600);
+  &[data-highlighted] {
+    background-color: var(--color-red-50);
+    color: var(--color-red-700);
+  }
+}
+
+/* Drawers */
+.drawerFooterContainer {
+  width: 100%;
+  margin: calc(var(--spacing-6) * -1);
+  margin-top: 0;
+  padding: var(--spacing-4) var(--spacing-6);
+  background-color: var(--color-surface);
+  border-top: 1px solid var(--color-gray-200);
+}
+
+.drawerFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-3);
+  width: 100%;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.deleteWarning {
+  padding: var(--spacing-4);
+  background-color: var(--color-red-50);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-red-200);
+  color: var(--color-red-900);
+}
+
+/* Catalog Engine Styles */
+.engineHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-6);
+}
+
+.treeContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.categoryNode {
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  background-color: #fff;
+  overflow: hidden;
+}
+
+.categoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-3) var(--spacing-4);
+  background-color: var(--color-gray-50);
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.categoryTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.categoryLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+.levelBadge {
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+}
+.level1 {
+  background-color: #e0f2fe;
+  color: #0284c7;
+}
+.level2 {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+.level3 {
+  background-color: #fff1f2;
+  color: #e11d48;
+}
+
+.categoryChildren {
+  padding: var(--spacing-4);
+  padding-left: calc(var(--spacing-4) + 20px);
+  border-left: 2px solid var(--color-gray-100);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.productRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-2) var(--spacing-3);
+  background-color: #fff;
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  margin-top: var(--spacing-2);
+}
+
+.productList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}

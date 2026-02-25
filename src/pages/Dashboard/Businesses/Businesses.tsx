@@ -361,7 +361,7 @@ export default function Businesses() {
     // ======================================
 
     const handleOpenReviews = useCallback(
-        (id: string) => navigate(`/dashboard/reviews?businessId=${id}`),
+        (id: string) => navigate(`/dashboard/recensioni?businessId=${id}`),
         [navigate]
     );
 

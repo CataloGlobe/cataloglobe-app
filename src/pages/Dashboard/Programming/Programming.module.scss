@@ -327,3 +327,45 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Style Details Card Specifics */
+.styleDetailsCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background-color: color-mix(in srgb, var(--brand-primary) 5%, var(--card-bg) 95%);
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 20%, var(--border) 80%);
+  border-radius: var(--radius-md);
+  margin-top: -4px;
+}
+
+.styleDetailsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.styleDetailsGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.styleHelperText {
+  padding-top: 8px;
+  border-top: 1px dashed color-mix(in srgb, var(--brand-primary) 20%, var(--border) 80%);
+}
+
+.styleOrphanWarning {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background-color: var(--color-danger-light);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+  margin-top: -4px;
+}

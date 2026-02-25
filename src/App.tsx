@@ -17,7 +17,8 @@ import UpdatePassword from "./pages/Auth/UpdatePassword";
 // Dashboard pages
 import Overview from "@pages/Dashboard/Overview/Overview";
 import Businesses from "./pages/Dashboard/Businesses/Businesses";
-import Collections from "./pages/Dashboard/Collections/Collections";
+import Catalogs from "./pages/Dashboard/Catalogs/Catalogs";
+import CatalogEngine from "./pages/Dashboard/Catalogs/CatalogEngine";
 import Reviews from "@pages/Dashboard/Reviews/Reviews";
 import Analytics from "@pages/Dashboard/Analytics/Analytics";
 import Settings from "@/pages/Dashboard/Settings/Settings";
@@ -25,6 +26,7 @@ import Programming from "./pages/Dashboard/Programming/Programming";
 import Products from "./pages/Dashboard/Products/Products";
 import Highlights from "./pages/Dashboard/Highlights/Highlights";
 import Styles from "./pages/Dashboard/Styles/Styles";
+import Attributes from "./pages/Dashboard/Attributes/Attributes";
 
 // Public pages
 import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
@@ -101,10 +103,12 @@ export default function App() {
                 <Route path="attivita" element={<Businesses />} />
                 <Route path="programmazione" element={<Programming />} />
 
-                <Route path="cataloghi" element={<Collections />} />
+                <Route path="cataloghi" element={<Catalogs />} />
+                <Route path="cataloghi/:id" element={<CatalogEngine />} />
                 <Route path="prodotti" element={<Products />} />
                 <Route path="contenuti-in-evidenza" element={<Highlights />} />
                 <Route path="stili" element={<Styles />} />
+                <Route path="attributi" element={<Attributes />} />
 
                 <Route path="recensioni" element={<Reviews />} />
 

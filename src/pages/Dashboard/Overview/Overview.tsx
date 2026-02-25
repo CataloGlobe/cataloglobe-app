@@ -112,7 +112,7 @@ export default function Overview() {
                         <Text
                             as="a"
                             className={styles.linkBtn}
-                            onClick={() => navigate("/dashboard/reviews")}
+                            onClick={() => navigate("/dashboard/recensioni")}
                         >
                             Vedi tutte
                         </Text>
@@ -165,8 +165,8 @@ export default function Overview() {
                 </div>
                 <Text
                     as="a"
-                    className={styles.linkBtn}
-                    onClick={() => navigate("/dashboard/analytics")}
+                    onClick={() => navigate("/dashboard/analitiche")}
+                    className={styles.insightsSection}
                 >
                     Vai a Analytics
                 </Text>

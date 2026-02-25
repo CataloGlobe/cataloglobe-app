@@ -1,0 +1,89 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  background: var(--surface-primary, #ffffff);
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  border-radius: 8px;
+  gap: 8px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+
+  &.extended .listItem {
+    padding: 20px;
+  }
+
+  &.compact .listItem {
+    padding: 12px 20px;
+  }
+}
+
+.listItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: var(--surface-primary, #ffffff);
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--border-base, #d1d5db);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  }
+}
+
+.cardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.badges {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 12px;
+  background: var(--surface-tertiary, #f3f4f6);
+  color: var(--text-secondary, #4b5563);
+
+  &.draft {
+    background: var(--warning-subtle, #fef3c7);
+    color: var(--warning-dark, #b45309);
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}

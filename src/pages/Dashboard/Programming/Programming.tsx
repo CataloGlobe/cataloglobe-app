@@ -11,6 +11,9 @@ import { Switch } from "@/components/ui/Switch/Switch";
 import { PillGroupMultiple } from "@/components/ui/PillGroup/PillGroupMultiple";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { Link } from "react-router-dom";
+import { IconAlertTriangle, IconExternalLink } from "@tabler/icons-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useAuth } from "@context/useAuth";
 import {
@@ -52,6 +55,11 @@ type CreateRuleForm = {
     daysOfWeek: string[];
     timeFrom: string;
     timeTo: string;
+    featuredContents: Array<{
+        featuredContentId: string;
+        slot: "hero" | "before_catalog" | "after_catalog";
+        sortOrder: number;
+    }>;
 };
 
 const DAY_OPTIONS = [
@@ -106,7 +114,8 @@ function buildDefaultForm(
         timeMode: "always",
         daysOfWeek: [],
         timeFrom: "",
-        timeTo: ""
+        timeTo: "",
+        featuredContents: []
     };
 }
 
@@ -166,6 +175,7 @@ export default function Programming() {
     const [catalogs, setCatalogs] = useState<LayoutRuleOption[]>([]);
     const [stylesOptions, setStylesOptions] = useState<LayoutRuleOption[]>([]);
     const [productsOptions, setProductsOptions] = useState<LayoutRuleOption[]>([]);
+    const [featuredContentsOptions, setFeaturedContentsOptions] = useState<LayoutRuleOption[]>([]);
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -188,7 +198,8 @@ export default function Programming() {
         timeMode: "always",
         daysOfWeek: [],
         timeFrom: "",
-        timeTo: ""
+        timeTo: "",
+        featuredContents: []
     });
 
     const activityById = useMemo(() => new Map(activities.map(a => [a.id, a])), [activities]);
@@ -225,11 +236,22 @@ export default function Programming() {
         return stylesOptions.filter(style => style.tenant_id === tenantId);
     }, [currentTenantId, stylesOptions, tenantActivity]);
 
+    const selectedStyle = useMemo(() => {
+        if (!form.styleId) return null;
+        return tenantStyleOptions.find(s => s.id === form.styleId) || null;
+    }, [form.styleId, tenantStyleOptions]);
+
     const tenantProductOptions = useMemo(() => {
         const tenantId = currentTenantId ?? tenantActivity?.tenant_id ?? null;
         if (!tenantId) return [];
         return productsOptions.filter(product => product.tenant_id === tenantId);
     }, [currentTenantId, productsOptions, tenantActivity]);
+
+    const tenantFeaturedContentsOptions = useMemo(() => {
+        const tenantId = currentTenantId ?? tenantActivity?.tenant_id ?? null;
+        if (!tenantId) return [];
+        return featuredContentsOptions.filter(fc => fc.tenant_id === tenantId);
+    }, [currentTenantId, featuredContentsOptions, tenantActivity]);
 
     const loadRules = useCallback(async () => {
         const data = await listLayoutRules();
@@ -248,6 +270,7 @@ export default function Programming() {
             setCatalogs(optionsData.catalogs);
             setStylesOptions(optionsData.styles);
             setProductsOptions(optionsData.products);
+            setFeaturedContentsOptions(optionsData.featuredContents);
             setForm(buildDefaultForm(optionsData, currentTenantId));
         } catch (error) {
             console.error("Errore caricamento Programmazione:", error);
@@ -567,7 +590,7 @@ export default function Programming() {
         if (
             !currentTenantId ||
             (!isAllActivitiesTarget && !selectedFormActivity) ||
-            (isLayoutType && (!form.catalogId || !form.styleId)) ||
+            (isLayoutType && (!form.catalogId || !form.styleId || !selectedStyle)) ||
             Number.isNaN(priority)
         ) {
             showToast({
@@ -688,7 +711,8 @@ export default function Programming() {
                             ? form.daysOfWeek.map(day => Number(day))
                             : null,
                     timeFrom: form.timeMode === "window" && hasBothTimes ? form.timeFrom : null,
-                    timeTo: form.timeMode === "window" && hasBothTimes ? form.timeTo : null
+                    timeTo: form.timeMode === "window" && hasBothTimes ? form.timeTo : null,
+                    featuredContents: form.featuredContents
                 });
             } else if (isPriceType) {
                 await createPriceRule({
@@ -1185,6 +1209,196 @@ export default function Programming() {
                                         ]}
                                         disabled={!currentTenantId}
                                     />
+
+                                    {form.styleId && !selectedStyle && (
+                                        <div className={styles.styleOrphanWarning}>
+                                            <IconAlertTriangle size={24} />
+                                            <div>
+                                                <Text variant="body-sm" weight={600}>
+                                                    Stile non trovato
+                                                </Text>
+                                                <Text variant="caption">
+                                                    Lo stile attualmente associato a questa regola
+                                                    non esiste più. Seleziona un nuovo stile per
+                                                    poter salvare la regola.
+                                                </Text>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {selectedStyle && (
+                                        <div className={styles.styleDetailsCard}>
+                                            <div className={styles.styleDetailsHeader}>
+                                                <div className={styles.styleDetailsGroup}>
+                                                    <Text variant="body-sm" weight={600}>
+                                                        {selectedStyle.name}
+                                                    </Text>
+                                                    {selectedStyle.is_system && (
+                                                        <Badge variant="primary">Sistema</Badge>
+                                                    )}
+                                                    <Badge variant="secondary">
+                                                        v
+                                                        {selectedStyle.current_version?.version ||
+                                                            "1"}
+                                                    </Badge>
+                                                </div>
+                                                <Link
+                                                    to={`/dashboard/stili`}
+                                                    target="_blank"
+                                                    style={{
+                                                        textDecoration: "none",
+                                                        display: "flex"
+                                                    }}
+                                                >
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        rightIcon={<IconExternalLink size={14} />}
+                                                        type="button"
+                                                    >
+                                                        Apri stile
+                                                    </Button>
+                                                </Link>
+                                            </div>
+                                            <div className={styles.styleHelperText}>
+                                                <Text variant="caption-xs" colorVariant="muted">
+                                                    Modifiche allo stile dalla pagina di design
+                                                    creano nuove versioni automaticamente, che si
+                                                    applicheranno subito in questa regola.
+                                                </Text>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className={styles.productsBlock}>
+                                        <div className={styles.selectedProducts}>
+                                            <Text variant="caption" colorVariant="muted">
+                                                Contenuti in evidenza
+                                            </Text>
+                                            <PillGroupMultiple
+                                                ariaLabel="Seleziona contenuti in evidenza per layout"
+                                                options={tenantFeaturedContentsOptions.map(fc => ({
+                                                    value: fc.id,
+                                                    label: fc.name
+                                                }))}
+                                                value={form.featuredContents.map(
+                                                    fc => fc.featuredContentId
+                                                )}
+                                                onChange={value =>
+                                                    setForm(prev => {
+                                                        const newIds = [...value];
+                                                        const nextFeaturedContents = newIds.map(
+                                                            id => {
+                                                                const existing =
+                                                                    prev.featuredContents.find(
+                                                                        fc =>
+                                                                            fc.featuredContentId ===
+                                                                            id
+                                                                    );
+                                                                return (
+                                                                    existing ?? {
+                                                                        featuredContentId: id,
+                                                                        slot: "hero" as const,
+                                                                        sortOrder: 0
+                                                                    }
+                                                                );
+                                                            }
+                                                        );
+                                                        return {
+                                                            ...prev,
+                                                            featuredContents: nextFeaturedContents
+                                                        };
+                                                    })
+                                                }
+                                                layout="auto"
+                                            />
+                                        </div>
+
+                                        {form.featuredContents.length > 0 && (
+                                            <div className={styles.productOverrideList}>
+                                                {form.featuredContents.map((fc, index) => {
+                                                    const fcOption =
+                                                        tenantFeaturedContentsOptions.find(
+                                                            o => o.id === fc.featuredContentId
+                                                        );
+                                                    return (
+                                                        <div
+                                                            key={fc.featuredContentId}
+                                                            className={styles.productOverrideCard}
+                                                        >
+                                                            <Text variant="body-sm" weight={600}>
+                                                                {fcOption?.name ??
+                                                                    fc.featuredContentId}
+                                                            </Text>
+
+                                                            <Select
+                                                                label="Slot"
+                                                                value={fc.slot}
+                                                                onChange={e => {
+                                                                    const newSlot = e.target
+                                                                        .value as
+                                                                        | "hero"
+                                                                        | "before_catalog"
+                                                                        | "after_catalog";
+                                                                    setForm(prev => {
+                                                                        const copy = [
+                                                                            ...prev.featuredContents
+                                                                        ];
+                                                                        copy[index] = {
+                                                                            ...copy[index],
+                                                                            slot: newSlot
+                                                                        };
+                                                                        return {
+                                                                            ...prev,
+                                                                            featuredContents: copy
+                                                                        };
+                                                                    });
+                                                                }}
+                                                                options={[
+                                                                    {
+                                                                        value: "hero",
+                                                                        label: "Hero"
+                                                                    },
+                                                                    {
+                                                                        value: "before_catalog",
+                                                                        label: "Prima del catalogo"
+                                                                    },
+                                                                    {
+                                                                        value: "after_catalog",
+                                                                        label: "Dopo il catalogo"
+                                                                    }
+                                                                ]}
+                                                            />
+
+                                                            <NumberInput
+                                                                label="Ordinamento"
+                                                                min={0}
+                                                                step={1}
+                                                                value={fc.sortOrder.toString()}
+                                                                onChange={e => {
+                                                                    setForm(prev => {
+                                                                        const copy = [
+                                                                            ...prev.featuredContents
+                                                                        ];
+                                                                        copy[index] = {
+                                                                            ...copy[index],
+                                                                            sortOrder: Number(
+                                                                                e.target.value
+                                                                            )
+                                                                        };
+                                                                        return {
+                                                                            ...prev,
+                                                                            featuredContents: copy
+                                                                        };
+                                                                    });
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
                                 </>
                             ) : form.ruleType === "price" ? (
                                 <div className={styles.productsBlock}>

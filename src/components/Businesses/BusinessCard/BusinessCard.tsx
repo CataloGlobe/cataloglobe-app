@@ -178,7 +178,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => navigate("/dashboard/collections")}
+                                onClick={() => navigate("/dashboard/cataloghi")}
                             >
                                 Crea catalogo
                             </Button>
