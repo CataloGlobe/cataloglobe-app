@@ -16,6 +16,13 @@ export type VisibilityRuleProductOverride = {
     visible: boolean;
 };
 
+export type LayoutRuleFeaturedContent = {
+    featured_content_id: string;
+    slot: "hero" | "before_catalog" | "after_catalog";
+    sort_order: number;
+    featured_content_title?: string | null;
+};
+
 export type LayoutRule = {
     id: string;
     tenant_id: string;
@@ -40,12 +47,15 @@ export type LayoutRule = {
     } | null;
     price_overrides: PriceRuleProductOverride[];
     visibility_overrides: VisibilityRuleProductOverride[];
+    featured_contents: LayoutRuleFeaturedContent[];
 };
 
 export type LayoutRuleOption = {
     id: string;
     name: string;
     tenant_id: string;
+    is_system?: boolean;
+    current_version?: { version: number } | null;
 };
 
 type RawScheduleRow = {
@@ -94,6 +104,21 @@ type RawVisibilityOverrideRow = {
           }
         | {
               name: string | null;
+          }[]
+        | null;
+};
+
+type RawScheduleFeaturedContentRow = {
+    schedule_id: string;
+    featured_content_id: string;
+    slot: string;
+    sort_order: number;
+    featured_content:
+        | {
+              title: string;
+          }
+        | {
+              title: string;
           }[]
         | null;
 };
@@ -174,7 +199,8 @@ export async function listLayoutRules(): Promise<LayoutRule[]> {
         created_at: row.created_at,
         layout: null,
         price_overrides: [],
-        visibility_overrides: []
+        visibility_overrides: [],
+        featured_contents: []
     }));
 
     const layoutRuleIds = baseRules
@@ -292,6 +318,36 @@ export async function listLayoutRules(): Promise<LayoutRule[]> {
         );
     }
 
+    const featuredContentsByScheduleId = new Map<string, LayoutRuleFeaturedContent[]>();
+    if (layoutRuleIds.length > 0) {
+        const { data: fcData, error: fcError } = await supabase
+            .from("v2_schedule_featured_contents")
+            .select(
+                `
+                schedule_id,
+                featured_content_id,
+                slot,
+                sort_order,
+                featured_content:v2_featured_contents(title)
+            `
+            )
+            .in("schedule_id", layoutRuleIds)
+            .order("sort_order", { ascending: true });
+
+        if (fcError) throw fcError;
+
+        for (const row of (fcData ?? []) as RawScheduleFeaturedContentRow[]) {
+            const current = featuredContentsByScheduleId.get(row.schedule_id) ?? [];
+            current.push({
+                featured_content_id: row.featured_content_id,
+                slot: row.slot as "hero" | "before_catalog" | "after_catalog",
+                sort_order: row.sort_order,
+                featured_content_title: normalizeOne(row.featured_content)?.title ?? null
+            });
+            featuredContentsByScheduleId.set(row.schedule_id, current);
+        }
+    }
+
     return baseRules.map(rule => ({
         ...rule,
         target_group:
@@ -302,7 +358,9 @@ export async function listLayoutRules(): Promise<LayoutRule[]> {
         visibility_overrides:
             rule.rule_type === "visibility"
                 ? (visibilityOverridesByScheduleId.get(rule.id) ?? [])
-                : []
+                : [],
+        featured_contents:
+            rule.rule_type === "layout" ? (featuredContentsByScheduleId.get(rule.id) ?? []) : []
     }));
 }
 
@@ -311,8 +369,9 @@ export async function listLayoutRuleOptions(): Promise<{
     catalogs: LayoutRuleOption[];
     styles: LayoutRuleOption[];
     products: LayoutRuleOption[];
+    featuredContents: LayoutRuleOption[];
 }> {
-    const [activitiesRes, catalogsRes, stylesRes, productsRes] = await Promise.all([
+    const [activitiesRes, catalogsRes, stylesRes, productsRes, featuredRes] = await Promise.all([
         supabase
             .from("v2_activities")
             .select("id, name, tenant_id")
@@ -323,25 +382,44 @@ export async function listLayoutRuleOptions(): Promise<{
             .order("name", { ascending: true }),
         supabase
             .from("v2_styles")
-            .select("id, name, tenant_id")
+            .select(
+                "id, name, tenant_id, is_system, current_version:v2_style_versions!current_version_id(version)"
+            )
             .eq("is_active", true)
             .order("name", { ascending: true }),
         supabase
             .from("v2_products")
             .select("id, name, tenant_id")
-            .order("name", { ascending: true })
+            .order("name", { ascending: true }),
+        supabase
+            .from("v2_featured_contents")
+            .select("id, title, tenant_id")
+            .eq("is_active", true)
+            .order("title", { ascending: true })
     ]);
 
     if (activitiesRes.error) throw activitiesRes.error;
     if (catalogsRes.error) throw catalogsRes.error;
     if (stylesRes.error) throw stylesRes.error;
     if (productsRes.error) throw productsRes.error;
+    if (featuredRes.error) throw featuredRes.error;
 
     return {
         activities: (activitiesRes.data ?? []) as LayoutRuleOption[],
         catalogs: (catalogsRes.data ?? []) as LayoutRuleOption[],
-        styles: (stylesRes.data ?? []) as LayoutRuleOption[],
-        products: (productsRes.data ?? []) as LayoutRuleOption[]
+        styles: ((stylesRes.data ?? []) as any[]).map(s => ({
+            id: s.id,
+            name: s.name,
+            tenant_id: s.tenant_id,
+            is_system: s.is_system,
+            current_version: Array.isArray(s.current_version)
+                ? s.current_version[0]
+                : s.current_version
+        })),
+        products: (productsRes.data ?? []) as LayoutRuleOption[],
+        featuredContents: (
+            (featuredRes.data ?? []) as { id: string; title: string; tenant_id: string }[]
+        ).map(fc => ({ id: fc.id, name: fc.title, tenant_id: fc.tenant_id }))
     };
 }
 
@@ -357,6 +435,11 @@ export async function createLayoutRule(input: {
     daysOfWeek: number[] | null;
     timeFrom: string | null;
     timeTo: string | null;
+    featuredContents: Array<{
+        featuredContentId: string;
+        slot: "hero" | "before_catalog" | "after_catalog";
+        sortOrder: number;
+    }>;
 }): Promise<void> {
     const { data: schedule, error: scheduleError } = await supabase
         .from("v2_schedules")
@@ -385,10 +468,27 @@ export async function createLayoutRule(input: {
         catalog_id: input.catalogId
     });
 
-    if (!layoutError) return;
+    if (layoutError) {
+        await supabase.from("v2_schedules").delete().eq("id", scheduleId);
+        throw layoutError;
+    }
 
-    await supabase.from("v2_schedules").delete().eq("id", scheduleId);
-    throw layoutError;
+    if (input.featuredContents && input.featuredContents.length > 0) {
+        const { error: fcError } = await supabase.from("v2_schedule_featured_contents").insert(
+            input.featuredContents.map(fc => ({
+                tenant_id: input.tenantId,
+                schedule_id: scheduleId,
+                featured_content_id: fc.featuredContentId,
+                slot: fc.slot,
+                sort_order: fc.sortOrder
+            }))
+        );
+
+        if (fcError) {
+            await supabase.from("v2_schedules").delete().eq("id", scheduleId);
+            throw fcError;
+        }
+    }
 }
 
 export async function createPriceRule(input: {
@@ -505,6 +605,7 @@ export async function createVisibilityRule(input: {
 
 export async function updateLayoutRule(input: {
     scheduleId: string;
+    tenantId: string;
     targetType?: "activity" | "activity_group";
     targetId?: string;
     catalogId: string;
@@ -515,6 +616,11 @@ export async function updateLayoutRule(input: {
     daysOfWeek: number[] | null;
     timeFrom: string | null;
     timeTo: string | null;
+    featuredContents?: Array<{
+        featuredContentId: string;
+        slot: "hero" | "before_catalog" | "after_catalog";
+        sortOrder: number;
+    }>;
 }): Promise<void> {
     const schedulePatch: {
         priority: number;
@@ -564,16 +670,41 @@ export async function updateLayoutRule(input: {
             .eq("id", existingLayout.id);
 
         if (layoutUpdateError) throw layoutUpdateError;
-        return;
+    } else {
+        const { error: layoutInsertError } = await supabase.from("v2_schedule_layout").insert({
+            schedule_id: input.scheduleId,
+            style_id: input.styleId,
+            catalog_id: input.catalogId
+        });
+        if (layoutInsertError) throw layoutInsertError;
     }
 
-    const { error: layoutInsertError } = await supabase.from("v2_schedule_layout").insert({
-        schedule_id: input.scheduleId,
-        style_id: input.styleId,
-        catalog_id: input.catalogId
-    });
+    if (input.featuredContents !== undefined) {
+        // Delete existing
+        const { error: delError } = await supabase
+            .from("v2_schedule_featured_contents")
+            .delete()
+            .eq("schedule_id", input.scheduleId);
 
-    if (layoutInsertError) throw layoutInsertError;
+        if (delError) throw delError;
+
+        // Insert new
+        if (input.featuredContents.length > 0) {
+            const { error: fcInsertError } = await supabase
+                .from("v2_schedule_featured_contents")
+                .insert(
+                    input.featuredContents.map(fc => ({
+                        tenant_id: input.tenantId,
+                        schedule_id: input.scheduleId,
+                        featured_content_id: fc.featuredContentId,
+                        slot: fc.slot,
+                        sort_order: fc.sortOrder
+                    }))
+                );
+
+            if (fcInsertError) throw fcInsertError;
+        }
+    }
 }
 
 export async function deleteLayoutRule(scheduleId: string): Promise<void> {

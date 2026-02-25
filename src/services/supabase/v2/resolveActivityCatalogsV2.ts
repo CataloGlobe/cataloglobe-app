@@ -1,29 +1,61 @@
 import { supabase } from "../client";
 
-type ResolvedCollections = {
-    primary: string | null;
-    overlay: string | null;
+export type ResolvedVariant = {
+    id: string;
+    name: string;
+    price?: number;
+    attributes?: any[];
+    allergens?: any[];
+};
+
+export type ResolvedProduct = {
+    id: string;
+    name: string;
+    description?: string;
+    price?: number;
+    is_visible: boolean;
+    attributes?: any[];
+    allergens?: any[];
+    variants?: ResolvedVariant[];
+};
+
+export type ResolvedCategory = {
+    id: string;
+    name: string;
+    level: number;
+    sort_order: number;
+    products: ResolvedProduct[];
+};
+
+export type ResolvedCatalog = {
+    id: string;
+    name: string;
+    categories?: ResolvedCategory[];
+};
+
+export type ResolvedStyle = {
+    id: string;
+    name: string;
+    config?: any;
+};
+
+export type ResolvedCollections = {
+    style?: ResolvedStyle;
+    featured?: {
+        hero?: V2FeaturedContent[];
+        before_catalog?: V2FeaturedContent[];
+        after_catalog?: V2FeaturedContent[];
+    };
+    catalog?: ResolvedCatalog;
 };
 
 type ScheduleSlot = "primary" | "overlay";
 
-type V2CatalogItem = {
+export type V2FeaturedContent = {
     id: string;
-    visible: boolean;
-    effective_visible?: boolean;
-    product_id: string | null;
-    effective_price: number | null;
-    original_price?: number | null;
-};
-
-type V2CatalogSection = {
-    id: string;
-    items: V2CatalogItem[];
-};
-
-type V2Catalog = {
-    id: string;
-    sections: V2CatalogSection[];
+    title: string;
+    type: "informativo" | "composito";
+    is_active: boolean;
 };
 
 type V2ActivityScheduleRow = {
@@ -37,34 +69,86 @@ type V2ActivityScheduleRow = {
     priority: number;
     is_active: boolean;
     created_at: string;
-    catalog: V2Catalog | null;
+    catalog?: ResolvedCatalog;
+    styleData?: ResolvedStyle;
+};
+
+type RawAllergenRow = {
+    allergen: {
+        id: number;
+        code: string;
+        label_it: string;
+        label_en: string;
+    } | null;
+};
+
+type RawAttributeDefRow = {
+    code: string;
+    label: string;
+    type: string;
+};
+
+type RawAttributeValueRow = {
+    attribute_definition_id: string;
+    value_text: string | null;
+    value_number: number | null;
+    value_boolean: boolean | null;
+    value_json: any | null;
+    definition: RawAttributeDefRow | null;
+};
+
+type RawVariantRow = {
+    id: string;
+    name: string;
+    base_price: number | null;
+    attributes: RawAttributeValueRow[] | RawAttributeValueRow | null;
+    allergens: RawAllergenRow[] | RawAllergenRow | null;
 };
 
 type RawProductRow = {
     id: string;
+    name: string;
+    description: string | null;
     base_price: number | null;
+    variants: RawVariantRow[] | RawVariantRow | null;
+    attributes: RawAttributeValueRow[] | RawAttributeValueRow | null;
+    allergens: RawAllergenRow[] | RawAllergenRow | null;
 };
 
-type RawCatalogItemRow = {
+type RawCategoryProductRow = {
     id: string;
-    order_index: number | null;
-    visible: boolean | null;
+    sort_order: number;
     product: RawProductRow | RawProductRow[] | null;
 };
 
-type RawCatalogSectionRow = {
+type RawCategoryRow = {
     id: string;
-    order_index: number | null;
-    items: RawCatalogItemRow[] | RawCatalogItemRow | null;
+    name: string;
+    level: number;
+    sort_order: number;
+    parent_category_id: string | null;
+    products: RawCategoryProductRow[] | RawCategoryProductRow | null;
+};
+
+type RawStyleVersionRow = {
+    config: any;
+};
+
+type RawStyleRow = {
+    id: string;
+    name: string;
+    current_version: RawStyleVersionRow | RawStyleVersionRow[] | null;
 };
 
 type RawCatalogRow = {
     id: string;
-    sections: RawCatalogSectionRow[] | RawCatalogSectionRow | null;
+    name: string;
+    categories: RawCategoryRow[] | RawCategoryRow | null;
 };
 
 type RawScheduleLayoutRow = {
     catalog_id: string | null;
+    style: RawStyleRow | RawStyleRow[] | null;
 };
 
 type RawLayoutRuleRow = {
@@ -120,7 +204,7 @@ type OverrideRow = {
 
 function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
     if (!value) return null;
-    return Array.isArray(value) ? value[0] ?? null : value;
+    return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
 function normalizeMany<T>(value: T[] | T | null | undefined): T[] {
@@ -128,75 +212,186 @@ function normalizeMany<T>(value: T[] | T | null | undefined): T[] {
     return Array.isArray(value) ? value : [value];
 }
 
-function normalizeCatalog(raw: RawCatalogRow | RawCatalogRow[] | null): V2Catalog | null {
+function normalizeCatalog(
+    raw: RawCatalogRow | RawCatalogRow[] | null
+): ResolvedCatalog | undefined {
     const catalog = normalizeOne(raw);
-    if (!catalog) return null;
+    if (!catalog) return undefined;
 
-    const sections = normalizeMany(catalog.sections)
+    const categories = normalizeMany(catalog.categories)
         .slice()
-        .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
-        .map(section => {
-            const items = normalizeMany(section.items)
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        .map(cat => {
+            const products = normalizeMany(cat.products)
                 .slice()
-                .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
-                .map(item => {
-                    const product = normalizeOne(item.product);
-                    return {
-                        id: item.id,
-                        visible: item.visible ?? true,
-                        product_id: product?.id ?? null,
-                        effective_price: product?.base_price ?? null
-                    };
-                });
+                .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+                .map(cp => {
+                    const p = normalizeOne(cp.product);
+                    if (!p) return null;
 
-            return {
-                id: section.id,
-                items
+                    const mapAttributes = (rows: any) =>
+                        normalizeMany(rows).map(a => {
+                            const def = normalizeOne(a.definition);
+                            return {
+                                attribute_definition_id: a.attribute_definition_id,
+                                value_text: a.value_text,
+                                value_number: a.value_number,
+                                value_boolean: a.value_boolean,
+                                value_json: a.value_json,
+                                definition: def
+                                    ? {
+                                          code: def.code,
+                                          label: def.label,
+                                          type: def.type
+                                      }
+                                    : null
+                            };
+                        });
+
+                    const mapAllergens = (rows: any) =>
+                        normalizeMany(rows)
+                            .map(al => {
+                                const allergen = normalizeOne(al.allergen);
+                                return allergen
+                                    ? {
+                                          id: allergen.id,
+                                          code: allergen.code,
+                                          label_it: allergen.label_it,
+                                          label_en: allergen.label_en
+                                      }
+                                    : null;
+                            })
+                            .filter(Boolean);
+
+                    const pAttrs = mapAttributes(p.attributes);
+                    const pAllergens = mapAllergens(p.allergens);
+                    const pVariants = normalizeMany(p.variants).map(v => {
+                        const vAttrs = mapAttributes(v.attributes);
+                        const vAllergens = mapAllergens(v.allergens);
+                        return {
+                            id: v.id,
+                            name: v.name,
+                            ...(v.base_price !== null ? { price: v.base_price } : {}),
+                            ...(vAttrs.length > 0 ? { attributes: vAttrs } : {}),
+                            ...(vAllergens.length > 0 ? { allergens: vAllergens } : {})
+                        };
+                    });
+
+                    const resolvedProduct: ResolvedProduct = {
+                        id: p.id,
+                        name: p.name,
+                        is_visible: true, // overridden later
+                        ...(p.description ? { description: p.description } : {}),
+                        ...(p.base_price !== null ? { price: p.base_price } : {}),
+                        ...(pAttrs.length > 0 ? { attributes: pAttrs } : {}),
+                        ...(pAllergens.length > 0 ? { allergens: pAllergens } : {}),
+                        ...(pVariants.length > 0 ? { variants: pVariants } : {})
+                    };
+
+                    return resolvedProduct;
+                })
+                .filter((p): p is ResolvedProduct => p !== null);
+
+            const resolvedCategory: ResolvedCategory = {
+                id: cat.id,
+                name: cat.name,
+                level: cat.level,
+                sort_order: cat.sort_order,
+                products
             };
+
+            return resolvedCategory;
         });
 
     return {
         id: catalog.id,
-        sections
+        name: catalog.name,
+        ...(categories.length > 0 ? { categories } : {})
     };
 }
 
-async function loadCatalogById(catalogId: string): Promise<V2Catalog | null> {
+async function loadCatalogById(catalogId: string): Promise<ResolvedCatalog | undefined> {
     const { data, error } = await supabase
         .from("v2_catalogs")
         .select(
             `
             id,
-            sections:v2_catalog_sections(
+            name,
+            categories:v2_catalog_categories(
               id,
-              order_index,
-              items:v2_catalog_items(
+              name,
+              level,
+              sort_order,
+              parent_category_id,
+              products:v2_catalog_category_products(
                 id,
-                order_index,
-                visible,
+                sort_order,
                 product:v2_products(
                   id,
-                  base_price
+                  name,
+                  description,
+                  base_price,
+                  variants:v2_products(
+                    id,
+                    name,
+                    base_price,
+                    attributes:v2_product_attribute_values(
+                        attribute_definition_id,
+                        value_text,
+                        value_number,
+                        value_boolean,
+                        value_json,
+                        definition:v2_product_attribute_definitions(
+                            code,
+                            label,
+                            type
+                        )
+                    ),
+                    allergens:v2_product_allergens(
+                        allergen:v2_allergens(
+                            id,
+                            code,
+                            label_it,
+                            label_en
+                        )
+                    )
+                  ),
+                  attributes:v2_product_attribute_values(
+                      attribute_definition_id,
+                      value_text,
+                      value_number,
+                      value_boolean,
+                      value_json,
+                      definition:v2_product_attribute_definitions(
+                          code,
+                          label,
+                          type
+                      )
+                  ),
+                  allergens:v2_product_allergens(
+                      allergen:v2_allergens(
+                          id,
+                          code,
+                          label_it,
+                          label_en
+                      )
+                  )
                 )
               )
             )
-            `
+        `
         )
         .eq("id", catalogId)
         .maybeSingle();
 
     if (error) throw error;
 
-    const normalizedCatalog = normalizeCatalog((data as RawCatalogRow | null) ?? null);
-    const sectionsCount = normalizedCatalog?.sections.length ?? 0;
-    const itemsCount =
-        normalizedCatalog?.sections.reduce((total, section) => total + section.items.length, 0) ?? 0;
+    const normalizedCatalog = normalizeCatalog((data as unknown as RawCatalogRow | null) ?? null);
 
     // DEBUG START
     console.log("[resolveActivityCatalogsV2][loadCatalogById] catalog counts", {
         catalogId,
-        sectionsCount,
-        itemsCount
+        categoriesCount: normalizedCatalog?.categories?.length ?? 0
     });
     // DEBUG END
 
@@ -204,10 +399,7 @@ async function loadCatalogById(catalogId: string): Promise<V2Catalog | null> {
 }
 
 function isTimeRuleActiveNow(
-    rule: Pick<
-        RawLayoutRuleRow,
-        "time_mode" | "days_of_week" | "time_from" | "time_to"
-    >,
+    rule: Pick<RawLayoutRuleRow, "time_mode" | "days_of_week" | "time_from" | "time_to">,
     now: Date
 ): boolean {
     if (rule.time_mode === "always") return true;
@@ -232,7 +424,10 @@ function isTimeRuleActiveNow(
     return from <= nowMinutes && nowMinutes < to;
 }
 
-async function findLayoutCatalogId(activityId: string, now: Date): Promise<string | null> {
+async function findLayoutCatalogId(
+    activityId: string,
+    now: Date
+): Promise<{ catalogId: string | null; scheduleId: string | null; styleData?: ResolvedStyle }> {
     const [activityRulesRes, groupMembersRes] = await Promise.all([
         supabase
             .from("v2_schedules")
@@ -246,7 +441,14 @@ async function findLayoutCatalogId(activityId: string, now: Date): Promise<strin
                 time_from,
                 time_to,
                 layout:v2_schedule_layout(
-                    catalog_id
+                    catalog_id,
+                    style:v2_styles(
+                        id,
+                        name,
+                        current_version:v2_style_versions!v2_styles_current_version_id_fkey(
+                            config
+                        )
+                    )
                 )
                 `
             )
@@ -256,10 +458,7 @@ async function findLayoutCatalogId(activityId: string, now: Date): Promise<strin
             .eq("target_id", activityId)
             .order("priority", { ascending: true })
             .order("created_at", { ascending: true }),
-        supabase
-            .from("v2_activity_group_members")
-            .select("group_id")
-            .eq("activity_id", activityId)
+        supabase.from("v2_activity_group_members").select("group_id").eq("activity_id", activityId)
     ]);
 
     if (activityRulesRes.error) throw activityRulesRes.error;
@@ -267,7 +466,9 @@ async function findLayoutCatalogId(activityId: string, now: Date): Promise<strin
 
     const activityRows = (activityRulesRes.data ?? []) as RawLayoutRuleRow[];
     const groupIds = Array.from(
-        new Set(((groupMembersRes.data ?? []) as RawActivityGroupMemberRow[]).map(row => row.group_id))
+        new Set(
+            ((groupMembersRes.data ?? []) as RawActivityGroupMemberRow[]).map(row => row.group_id)
+        )
     );
 
     let activityGroupRows: RawLayoutRuleRow[] = [];
@@ -284,7 +485,14 @@ async function findLayoutCatalogId(activityId: string, now: Date): Promise<strin
                 time_from,
                 time_to,
                 layout:v2_schedule_layout(
-                    catalog_id
+                    catalog_id,
+                    style:v2_styles(
+                        id,
+                        name,
+                        current_version:v2_style_versions!v2_styles_current_version_id_fkey(
+                            config
+                        )
+                    )
                 )
                 `
             )
@@ -306,7 +514,19 @@ async function findLayoutCatalogId(activityId: string, now: Date): Promise<strin
     const validRows = rows.filter(row => isTimeRuleActiveNow(row, now));
     const selectedRule =
         validRows.find(row => (normalizeOne(row.layout)?.catalog_id ?? null) !== null) ?? null;
-    const catalogId = normalizeOne(selectedRule?.layout)?.catalog_id ?? null;
+
+    const layoutRow = normalizeOne(selectedRule?.layout);
+    const catalogId = layoutRow?.catalog_id ?? null;
+
+    const styleObj = normalizeOne(layoutRow?.style);
+    const styleVersion = styleObj ? normalizeOne(styleObj.current_version) : null;
+    const styleData: ResolvedStyle | undefined = styleObj
+        ? {
+              id: styleObj.id,
+              name: styleObj.name,
+              ...(styleVersion?.config ? { config: styleVersion.config } : {})
+          }
+        : undefined;
 
     // DEBUG START
     console.log("[resolveActivityCatalogsV2][findLayoutCatalogId] candidates", {
@@ -328,7 +548,11 @@ async function findLayoutCatalogId(activityId: string, now: Date): Promise<strin
     });
     // DEBUG END
 
-    return catalogId;
+    return {
+        catalogId,
+        scheduleId: selectedRule?.id ?? null,
+        styleData
+    };
 }
 
 export async function findActivePriceRuleScheduleId(
@@ -355,10 +579,7 @@ export async function findActivePriceRuleScheduleId(
             .eq("target_id", activityId)
             .order("priority", { ascending: true })
             .order("created_at", { ascending: true }),
-        supabase
-            .from("v2_activity_group_members")
-            .select("group_id")
-            .eq("activity_id", activityId)
+        supabase.from("v2_activity_group_members").select("group_id").eq("activity_id", activityId)
     ]);
 
     if (activityRulesRes.error) throw activityRulesRes.error;
@@ -366,7 +587,9 @@ export async function findActivePriceRuleScheduleId(
 
     const activityRows = (activityRulesRes.data ?? []) as RawPriceRuleRow[];
     const groupIds = Array.from(
-        new Set(((groupMembersRes.data ?? []) as RawActivityGroupMemberRow[]).map(row => row.group_id))
+        new Set(
+            ((groupMembersRes.data ?? []) as RawActivityGroupMemberRow[]).map(row => row.group_id)
+        )
     );
 
     let activityGroupRows: RawPriceRuleRow[] = [];
@@ -424,7 +647,10 @@ export async function findActivePriceRuleScheduleId(
     return selectedRule?.id ?? null;
 }
 
-async function findActiveVisibilityRuleScheduleId(activityId: string, now: Date): Promise<string | null> {
+async function findActiveVisibilityRuleScheduleId(
+    activityId: string,
+    now: Date
+): Promise<string | null> {
     const [activityRulesRes, groupMembersRes] = await Promise.all([
         supabase
             .from("v2_schedules")
@@ -445,10 +671,7 @@ async function findActiveVisibilityRuleScheduleId(activityId: string, now: Date)
             .eq("target_id", activityId)
             .order("priority", { ascending: true })
             .order("created_at", { ascending: true }),
-        supabase
-            .from("v2_activity_group_members")
-            .select("group_id")
-            .eq("activity_id", activityId)
+        supabase.from("v2_activity_group_members").select("group_id").eq("activity_id", activityId)
     ]);
 
     if (activityRulesRes.error) throw activityRulesRes.error;
@@ -456,7 +679,9 @@ async function findActiveVisibilityRuleScheduleId(activityId: string, now: Date)
 
     const activityRows = (activityRulesRes.data ?? []) as RawVisibilityRuleRow[];
     const groupIds = Array.from(
-        new Set(((groupMembersRes.data ?? []) as RawActivityGroupMemberRow[]).map(row => row.group_id))
+        new Set(
+            ((groupMembersRes.data ?? []) as RawActivityGroupMemberRow[]).map(row => row.group_id)
+        )
     );
 
     let activityGroupRows: RawVisibilityRuleRow[] = [];
@@ -503,71 +728,71 @@ async function findActiveVisibilityRuleScheduleId(activityId: string, now: Date)
 }
 
 function applyVisibilityOverridesToCatalog(
-    catalog: V2Catalog | null,
+    catalog: ResolvedCatalog | undefined,
     overridesByProductId: Record<string, VisibilityOverrideRow>
-): V2Catalog | null {
-    if (!catalog) return null;
+): ResolvedCatalog | undefined {
+    if (!catalog) return undefined;
 
     return {
         ...catalog,
-        sections: catalog.sections
-            .map(section => ({
-                ...section,
-                items: section.items
-                    .map(item => {
-                        if (!item.product_id) {
-                            const effectiveVisible = item.visible;
-                            return {
-                                ...item,
-                                effective_visible: effectiveVisible
-                            };
-                        }
+        ...(catalog.categories
+            ? {
+                  categories: catalog.categories
+                      .map(category => ({
+                          ...category,
+                          products: category.products
+                              .map(item => {
+                                  const override = overridesByProductId[item.id];
+                                  const effectiveVisible = override?.visible ?? item.is_visible;
 
-                        const override = overridesByProductId[item.product_id];
-                        const effectiveVisible = override?.visible ?? item.visible;
-
-                        return {
-                            ...item,
-                            effective_visible: effectiveVisible
-                        };
-                    })
-                    .filter(item => (item.effective_visible ?? item.visible) === true)
-            }))
-            .filter(section => section.items.length > 0)
+                                  return {
+                                      ...item,
+                                      is_visible: effectiveVisible
+                                  };
+                              })
+                              .filter(item => item.is_visible === true)
+                      }))
+                      .filter(category => category.products.length > 0)
+              }
+            : {})
     };
 }
 
 function applyPriceOverridesToCatalog(
-    catalog: V2Catalog | null,
+    catalog: ResolvedCatalog | undefined,
     overridesByProductId: Record<string, PriceOverrideRow>
-): V2Catalog | null {
-    if (!catalog) return null;
+): ResolvedCatalog | undefined {
+    if (!catalog) return undefined;
 
     return {
         ...catalog,
-        sections: catalog.sections.map(section => ({
-            ...section,
-            items: section.items.map(item => {
-                if (!item.product_id) return item;
+        ...(catalog.categories
+            ? {
+                  categories: catalog.categories.map(category => ({
+                      ...category,
+                      products: category.products.map(item => {
+                          const override = overridesByProductId[item.id];
+                          console.log(
+                              "Product price check:",
+                              item.id,
+                              "base:",
+                              item.price,
+                              "override:",
+                              override?.override_price
+                          );
+                          if (!override) return item;
 
-                const override = overridesByProductId[item.product_id];
-                console.log(
-                    "Product price check:",
-                    item.product_id,
-                    "base:",
-                    item.effective_price,
-                    "override:",
-                    override?.override_price
-                );
-                if (!override) return item;
-
-                return {
-                    ...item,
-                    effective_price: override.override_price,
-                    ...(override.show_original_price ? { original_price: item.effective_price } : {})
-                };
-            })
-        }))
+                          return {
+                              ...item,
+                              price: override.override_price,
+                              ...(override.show_original_price
+                                  ? { original_price: item.price }
+                                  : {})
+                          };
+                      })
+                  }))
+              }
+            : {})
     };
 }
 
@@ -728,13 +953,12 @@ function hasRenderableItems(
     schedule: V2ActivityScheduleRow,
     overridesByProductId: Record<string, OverrideRow>
 ) {
-    const sections = schedule.catalog?.sections ?? [];
+    const categories = schedule.catalog?.categories ?? [];
 
-    for (const section of sections) {
-        for (const item of section.items) {
-            if (!item.product_id) continue;
-            const override = overridesByProductId[item.product_id];
-            const visible = override?.visible_override ?? item.effective_visible ?? item.visible;
+    for (const category of categories) {
+        for (const item of category.products) {
+            const override = overridesByProductId[item.id];
+            const visible = override?.visible_override ?? item.is_visible;
             if (visible) return true;
         }
     }
@@ -746,35 +970,127 @@ export async function resolveActivityCatalogsV2(
     activityId: string,
     now: Date = new Date()
 ): Promise<ResolvedCollections> {
-    const layoutCatalogId = await findLayoutCatalogId(activityId, now);
+    // ------------------------------------------------------------------------
+    // CACHING STRATEGY (Placeholder for future implementation)
+    // ------------------------------------------------------------------------
+    // Ideal implementation:
+    // Const cacheKey = `v2_activity_catalog:${activityId}`;
+    // Const cachedValue = await redis.get(cacheKey);
+    // if (cachedValue) return JSON.parse(cachedValue);
+    //
+    // The fully resolved payload (ResolvedCollections) should be cached here.
+    // Invalidation strategy:
+    // - TTL: 5 minutes automatic expiry
+    // - Manual invalidation on any catalog/schedule save event
+    // ------------------------------------------------------------------------
+
+    const {
+        catalogId: layoutCatalogId,
+        scheduleId: layoutScheduleId,
+        styleData
+    } = await findLayoutCatalogId(activityId, now);
 
     // DEBUG START
     console.log("[resolveActivityCatalogsV2] layoutCatalogId", {
         activityId,
-        layoutCatalogId
+        layoutCatalogId,
+        layoutScheduleId
     });
     // DEBUG END
+
+    const featured: ResolvedCollections["featured"] = {
+        hero: [],
+        before_catalog: [],
+        after_catalog: []
+    };
+
+    if (layoutScheduleId) {
+        const { data: featuredData, error: featuredError } = await supabase
+            .from("v2_schedule_featured_contents")
+            .select(
+                `
+                slot,
+                sort_order,
+                featured_content:v2_featured_contents(
+                    id,
+                    title,
+                    type,
+                    is_active
+                )
+            `
+            )
+            .eq("schedule_id", layoutScheduleId);
+
+        if (featuredError) {
+            console.error(
+                "[resolveActivityCatalogsV2] error fetching featured contents",
+                featuredError
+            );
+        } else if (featuredData) {
+            type RawFeaturedJoin = {
+                slot: "hero" | "before_catalog" | "after_catalog";
+                sort_order: number;
+                featured_content: V2FeaturedContent | V2FeaturedContent[] | null;
+            };
+
+            const validFeaturedItems = (featuredData as unknown as RawFeaturedJoin[])
+                .map(row => {
+                    const fc = normalizeOne(row.featured_content);
+                    return { slot: row.slot, sort_order: row.sort_order, featured_content: fc };
+                })
+                .filter(
+                    (
+                        row
+                    ): row is {
+                        slot: "hero" | "before_catalog" | "after_catalog";
+                        sort_order: number;
+                        featured_content: V2FeaturedContent;
+                    } => row.featured_content !== null && row.featured_content.is_active === true
+                )
+                .sort((a, b) => {
+                    const slotOrder = { hero: 1, before_catalog: 2, after_catalog: 3 };
+                    const aSlot = slotOrder[a.slot] || 99;
+                    const bSlot = slotOrder[b.slot] || 99;
+                    if (aSlot !== bSlot) return aSlot - bSlot;
+                    return a.sort_order - b.sort_order;
+                });
+
+            for (const item of validFeaturedItems) {
+                if (item.slot === "hero") {
+                    if (!featured.hero) featured.hero = [];
+                    featured.hero.push(item.featured_content);
+                } else if (item.slot === "before_catalog") {
+                    if (!featured.before_catalog) featured.before_catalog = [];
+                    featured.before_catalog.push(item.featured_content);
+                } else if (item.slot === "after_catalog") {
+                    if (!featured.after_catalog) featured.after_catalog = [];
+                    featured.after_catalog.push(item.featured_content);
+                }
+            }
+        }
+    }
 
     let schedules: V2ActivityScheduleRow[] = [];
 
     if (!layoutCatalogId) {
         return {
-            primary: null,
-            overlay: null
+            featured
         };
     }
 
     const layoutCatalog = await loadCatalogById(layoutCatalogId);
 
-    const sectionsCount = layoutCatalog?.sections.length ?? 0;
+    const categoriesCount = layoutCatalog?.categories?.length ?? 0;
     const itemsCount =
-        layoutCatalog?.sections.reduce((total, section) => total + section.items.length, 0) ?? 0;
+        layoutCatalog?.categories?.reduce(
+            (total, category) => total + category.products.length,
+            0
+        ) ?? 0;
 
     // DEBUG START
     console.log("[resolveActivityCatalogsV2] layoutCatalog loaded", {
         activityId,
-        layoutCatalog,
-        sectionsCount,
+        sectionsCount: categoriesCount,
         itemsCount
     });
     // DEBUG END
@@ -791,17 +1107,16 @@ export async function resolveActivityCatalogsV2(
             priority: Number.MAX_SAFE_INTEGER,
             is_active: true,
             created_at: new Date(0).toISOString(),
-            catalog: layoutCatalog
+            catalog: layoutCatalog,
+            ...(styleData ? { styleData } : {})
         }
     ];
 
     const productIds = Array.from(
         new Set(
             schedules.flatMap(schedule =>
-                (schedule.catalog?.sections ?? []).flatMap(section =>
-                    section.items
-                        .map(item => item.product_id)
-                        .filter((id): id is string => Boolean(id))
+                (schedule.catalog?.categories ?? []).flatMap(category =>
+                    category.products.map(item => item.id)
                 )
             )
         )
@@ -811,7 +1126,10 @@ export async function resolveActivityCatalogsV2(
     const overridesByProductId: Record<string, OverrideRow> = {};
     const priceOverridesByProductId: Record<string, PriceOverrideRow> = {};
 
-    const activeVisibilityRuleScheduleId = await findActiveVisibilityRuleScheduleId(activityId, now);
+    const activeVisibilityRuleScheduleId = await findActiveVisibilityRuleScheduleId(
+        activityId,
+        now
+    );
     if (activeVisibilityRuleScheduleId && productIds.length > 0) {
         const { data: visibilityOverrideData, error: visibilityOverrideError } = await supabase
             .from("v2_schedule_visibility_overrides")
@@ -834,10 +1152,8 @@ export async function resolveActivityCatalogsV2(
     const visibleProductIds = Array.from(
         new Set(
             schedules.flatMap(schedule =>
-                (schedule.catalog?.sections ?? []).flatMap(section =>
-                    section.items
-                        .map(item => item.product_id)
-                        .filter((id): id is string => Boolean(id))
+                (schedule.catalog?.categories ?? []).flatMap(category =>
+                    category.products.map(item => item.id)
                 )
             )
         )
@@ -903,7 +1219,8 @@ export async function resolveActivityCatalogsV2(
     // DEBUG END
 
     return {
-        primary: finalPrimary?.catalog_id ?? null,
-        overlay: activeOverlay?.catalog_id ?? null
+        ...(finalPrimary?.styleData ? { style: finalPrimary.styleData } : {}),
+        ...(finalPrimary?.catalog ? { catalog: finalPrimary.catalog } : {}),
+        ...(Object.keys(featured).length > 0 ? { featured } : {})
     };
 }
