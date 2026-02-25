@@ -1,0 +1,77 @@
+.card {
+  background: var(--color-surface, #fff);
+  border-radius: var(--radius-md, 8px);
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.baseProduct {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.name {
+  flex: 1;
+}
+
+.price {
+  white-space: nowrap;
+}
+
+.description {
+  margin-top: 4px;
+}
+
+.attributesList {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.attributeItem {
+  background-color: var(--color-gray-100, #f5f5f5);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.allergensText {
+  margin-top: 8px;
+  color: var(--color-warning-dark, #b7791f);
+  font-size: 0.75rem;
+}
+
+.variantsContainer {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--color-gray-200, #eee);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.variantRow {
+  padding-left: 12px;
+  border-left: 2px solid var(--color-primary, #ccc);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.variantHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}

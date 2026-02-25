@@ -1,0 +1,29 @@
+.categoryContainer {
+  margin-bottom: 32px;
+}
+
+.categoryContainer[data-level="2"] {
+  margin-left: 16px;
+  margin-top: 24px;
+}
+
+.categoryContainer[data-level="3"] {
+  margin-left: 32px;
+  margin-top: 16px;
+}
+
+.categoryTitle {
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-gray-200, #eee);
+}
+
+.productsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
