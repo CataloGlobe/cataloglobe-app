@@ -38,3 +38,9 @@ tsconfig.tsbuildinfo
 *.njsproj
 *.sln
 *.sw?
+
+# Agent
+.agent/
+.agents/
+supabase/.temp/
+skills-lock.json
