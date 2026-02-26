@@ -108,11 +108,24 @@ export function ProductDeleteDrawer({
                             </Text>
                         </>
                     ) : (
-                        <Text variant="body" style={{ display: "block" }}>
-                            Stai per eliminare {isVariant ? "la variante" : "il prodotto"}{" "}
-                            <strong>{productData.name}</strong>. Questa operazione non è
-                            reversibile.
-                        </Text>
+                        <div className={styles.warningBox}>
+                            <IconAlertTriangle
+                                size={24}
+                                className={styles.warningIcon}
+                                color="var(--color-warning-500)"
+                            />
+                            <div>
+                                <Text variant="body" weight={600}>
+                                    Azione distruttiva permanente
+                                </Text>
+                                <Text variant="body-sm" style={{ marginTop: 4 }}>
+                                    Stai per eliminare {isVariant ? "la variante" : "il prodotto"}{" "}
+                                    <strong>{productData.name}</strong>. Assicurati che non sia in
+                                    uso in alcun Listino o Catalogo, altrimenti l'operazione verrà
+                                    bloccata.
+                                </Text>
+                            </div>
+                        </div>
                     )}
                 </div>
             </DrawerLayout>

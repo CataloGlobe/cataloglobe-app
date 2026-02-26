@@ -169,6 +169,20 @@ export async function deleteProduct(
         throw new Error("Cannot delete product because it is used in Featured Contents.");
     }
 
+    // 1.5 Check if used in any catalog category
+    const { data: catalogUsage, error: catalogError } = await supabase
+        .from("v2_catalog_category_products")
+        .select("id")
+        .eq("product_id", id)
+        .limit(1);
+
+    if (catalogError) throw catalogError;
+    if (catalogUsage && catalogUsage.length > 0) {
+        throw new Error(
+            "Cannot delete product because it is present in one or more Catalogs. Remove it from the catalogs first."
+        );
+    }
+
     // 2. Handle variants
     const { data: variants, error: variantsError } = await supabase
         .from("v2_products")
@@ -211,6 +225,14 @@ export async function deleteProduct(
         throw delError;
     }
 }
+
+import {
+    getProductOptionGroups,
+    getOptionValues,
+    createProductOptionGroup,
+    createOptionValue
+} from "./productOptions";
+import { getProductIngredients, setProductIngredients } from "./ingredients";
 
 export async function duplicateProduct(productId: string, tenantId: string): Promise<V2Product> {
     // 1. Fetch original product
@@ -256,6 +278,38 @@ export async function duplicateProduct(productId: string, tenantId: string): Pro
             groupId: group.group_id,
             tenantId: tenantId
         });
+    }
+
+    // 6. Copy ingredients
+    const originalIngredients = await getProductIngredients(productId);
+    if (originalIngredients.length > 0) {
+        await setProductIngredients(
+            tenantId,
+            newProduct.id,
+            originalIngredients.map(i => i.ingredient_id)
+        );
+    }
+
+    // 7. Copy product options
+    const originalOptionGroups = await getProductOptionGroups(productId);
+    for (const group of originalOptionGroups) {
+        const newGroup = await createProductOptionGroup({
+            tenant_id: tenantId,
+            product_id: newProduct.id,
+            name: group.name,
+            is_required: group.is_required,
+            max_selectable: group.max_selectable
+        });
+
+        const originalValues = await getOptionValues(group.id);
+        for (const val of originalValues) {
+            await createOptionValue({
+                tenant_id: tenantId,
+                option_group_id: newGroup.id,
+                name: val.name,
+                price_modifier: val.price_modifier
+            });
+        }
     }
 
     return newProduct;
