@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
@@ -17,9 +18,14 @@ import {
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import styles from "./Products.module.scss";
 
-import { listBaseProductsWithVariants, V2Product } from "@/services/supabase/v2/products";
+import {
+    listBaseProductsWithVariants,
+    V2Product,
+    duplicateProduct
+} from "@/services/supabase/v2/products";
 import { ProductCreateEditDrawer, ProductFormMode } from "./ProductCreateEditDrawer";
 import { ProductDeleteDrawer } from "./ProductDeleteDrawer";
+import ProductGroupsTab from "@/components/Products/ProductGroupsTab/ProductGroupsTab";
 
 export default function Products() {
     const { user } = useAuth();
@@ -29,6 +35,9 @@ export default function Products() {
     const [isLoading, setIsLoading] = useState(true);
     const [allProducts, setAllProducts] = useState<V2Product[]>([]);
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+    const [activeTab, setActiveTab] = useState<"products" | "groups">("products");
+    const [isCreateGroupOpen, setCreateGroupOpen] = useState(false);
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState("");
@@ -111,6 +120,17 @@ export default function Products() {
         setIsCreateEditOpen(true);
     };
 
+    const handleDuplicate = async (product: V2Product) => {
+        try {
+            await duplicateProduct(product.id, currentTenantId!);
+            showToast({ message: "Prodotto duplicato con successo.", type: "success" });
+            loadData();
+        } catch (error) {
+            console.error("Errore durante la duplicazione del prodotto:", error);
+            showToast({ message: "Errore durante la duplicazione del prodotto.", type: "error" });
+        }
+    };
+
     const handleDelete = (product: V2Product) => {
         setProductToDelete(product);
         setIsDeleteOpen(true);
@@ -136,248 +156,153 @@ export default function Products() {
         <section className={styles.container}>
             <PageHeader
                 title="Prodotti"
-                subtitle="Gestisci il tuo catalogo prodotti, prezzi e varianti."
+                subtitle="Gestisci il tuo catalogo prodotti, prezzi, varianti e raggruppamenti."
                 actions={
-                    <Button variant="primary" onClick={handleCreateBase}>
-                        Crea prodotto
-                    </Button>
+                    activeTab === "products" ? (
+                        <Button variant="primary" onClick={handleCreateBase}>
+                            Crea prodotto
+                        </Button>
+                    ) : (
+                        <Button variant="primary" onClick={() => setCreateGroupOpen(true)}>
+                            Crea gruppo
+                        </Button>
+                    )
                 }
             />
 
-            <div className={styles.content}>
-                <div
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "16px",
-                        marginBottom: "24px",
-                        flexWrap: "wrap"
-                    }}
-                >
-                    <FilterBar
-                        search={{
-                            value: searchQuery,
-                            onChange: setSearchQuery,
-                            placeholder: "Cerca piatto o variante..."
-                        }}
-                        view={{
-                            value: density === "compact" ? "list" : "grid",
-                            onChange: v => setDensity(v === "list" ? "compact" : "extended")
-                        }}
-                        className={styles.filterBar}
-                    />
-                </div>
+            <Tabs value={activeTab} onChange={val => setActiveTab(val as "products" | "groups")}>
+                <Tabs.List>
+                    <Tabs.Tab value="products">Prodotti</Tabs.Tab>
+                    <Tabs.Tab value="groups">Gruppi Prodotti</Tabs.Tab>
+                </Tabs.List>
 
-                <Card className={styles.tableCard}>
-                    {isLoading ? (
-                        <div className={styles.loadingState}>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Caricamento prodotti in corso...
-                            </Text>
+                <Tabs.Panel value="products">
+                    <div className={styles.content}>
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "16px",
+                                marginBottom: "24px",
+                                flexWrap: "wrap"
+                            }}
+                        >
+                            <FilterBar
+                                search={{
+                                    value: searchQuery,
+                                    onChange: setSearchQuery,
+                                    placeholder: "Cerca piatto o variante..."
+                                }}
+                                view={{
+                                    value: density === "compact" ? "list" : "grid",
+                                    onChange: v => setDensity(v === "list" ? "compact" : "extended")
+                                }}
+                                className={styles.filterBar}
+                            />
                         </div>
-                    ) : filteredProducts.length === 0 ? (
-                        <div className={styles.emptyState}>
-                            <IconPizza size={48} stroke={1} className={styles.emptyIcon} />
-                            <Text variant="title-sm" weight={600}>
-                                Nessun prodotto trovato
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                {searchQuery || !showHidden
-                                    ? "Nessun prodotto corrisponde ai filtri di ricerca."
-                                    : "Non hai ancora aggiunto alcun prodotto base."}
-                            </Text>
-                            {!searchQuery && showHidden && (
-                                <Button
-                                    variant="primary"
-                                    onClick={handleCreateBase}
-                                    className={styles.emptyButton}
-                                >
-                                    Crea primo prodotto
-                                </Button>
-                            )}
-                        </div>
-                    ) : (
-                        <div className={containerClasses.join(" ")}>
-                            <div className={styles.listHeader}>
-                                <div className={styles.colExpander}></div>
-                                <div className={styles.colName}>Nome</div>
-                                <div className={styles.colPrice}>Prezzo Base</div>
-                                <div className={styles.colVisibility}>Visibilità</div>
-                                <div className={styles.colVariants}>Varianti</div>
-                                <div className={styles.colActions}></div>
-                            </div>
-                            <div className={styles.listBody}>
-                                {filteredProducts.map(product => {
-                                    const hasVariants =
-                                        product.variants && product.variants.length > 0;
-                                    const isExpanded = expandedRows.has(product.id);
 
-                                    // Visible variants list according to toggle
-                                    const visibleVariants =
-                                        product.variants?.filter(
-                                            v => showHidden || v.is_visible !== false
-                                        ) || [];
+                        <Card className={styles.tableCard}>
+                            {isLoading ? (
+                                <div className={styles.loadingState}>
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        Caricamento prodotti in corso...
+                                    </Text>
+                                </div>
+                            ) : filteredProducts.length === 0 ? (
+                                <div className={styles.emptyState}>
+                                    <IconPizza size={48} stroke={1} className={styles.emptyIcon} />
+                                    <Text variant="title-sm" weight={600}>
+                                        Nessun prodotto trovato
+                                    </Text>
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        {searchQuery || !showHidden
+                                            ? "Nessun prodotto corrisponde ai filtri di ricerca."
+                                            : "Non hai ancora aggiunto alcun prodotto base."}
+                                    </Text>
+                                    {!searchQuery && showHidden && (
+                                        <Button
+                                            variant="primary"
+                                            onClick={handleCreateBase}
+                                            className={styles.emptyButton}
+                                        >
+                                            Crea primo prodotto
+                                        </Button>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className={containerClasses.join(" ")}>
+                                    <div className={styles.listHeader}>
+                                        <div className={styles.colExpander}></div>
+                                        <div className={styles.colName}>Nome</div>
+                                        <div className={styles.colPrice}>Prezzo Base</div>
+                                        <div className={styles.colVisibility}>Visibilità</div>
+                                        <div className={styles.colVariants}>Varianti</div>
+                                        <div className={styles.colActions}></div>
+                                    </div>
+                                    <div className={styles.listBody}>
+                                        {filteredProducts.map(product => {
+                                            const hasVariants =
+                                                product.variants && product.variants.length > 0;
+                                            const isExpanded = expandedRows.has(product.id);
 
-                                    return (
-                                        <React.Fragment key={product.id}>
-                                            <div
-                                                className={`${styles.listRow} ${hasVariants ? styles.rowExpandable : ""} ${isExpanded ? styles.rowExpanded : ""}`}
-                                                onClick={() => {
-                                                    if (hasVariants) toggleRow(product.id);
-                                                }}
-                                            >
-                                                <div className={styles.colExpander}>
-                                                    {hasVariants && (
-                                                        <button
-                                                            className={styles.expandButton}
-                                                            aria-label={
-                                                                isExpanded ? "Comprimi" : "Espandi"
-                                                            }
-                                                        >
-                                                            {isExpanded ? (
-                                                                <IconChevronDown size={20} />
-                                                            ) : (
-                                                                <IconChevronRight size={20} />
-                                                            )}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                <div className={styles.colName}>
-                                                    <div className={styles.productNameRow}>
-                                                        <Text variant="body-sm" weight={600}>
-                                                            {product.name}
-                                                        </Text>
-                                                    </div>
-                                                    {product.description && (
-                                                        <Text
-                                                            variant="caption"
-                                                            colorVariant="muted"
-                                                        >
-                                                            {product.description}
-                                                        </Text>
-                                                    )}
-                                                </div>
-                                                <div className={styles.colPrice}>
-                                                    {product.base_price !== null ? (
-                                                        <Text variant="body-sm">
-                                                            €{product.base_price.toFixed(2)}
-                                                        </Text>
-                                                    ) : (
-                                                        <Text
-                                                            variant="body-sm"
-                                                            colorVariant="muted"
-                                                        >
-                                                            —
-                                                        </Text>
-                                                    )}
-                                                </div>
-                                                <div className={styles.colVisibility}>
-                                                    {product.is_visible !== false ? (
-                                                        <Badge variant="success">Visibile</Badge>
-                                                    ) : (
-                                                        <Badge variant="secondary">Nascosto</Badge>
-                                                    )}
-                                                </div>
-                                                <div className={styles.colVariants}>
-                                                    {hasVariants ? (
-                                                        <Badge variant="primary">
-                                                            {visibleVariants.length} varianti
-                                                        </Badge>
-                                                    ) : (
-                                                        <Text
-                                                            variant="body-sm"
-                                                            colorVariant="muted"
-                                                        >
-                                                            —
-                                                        </Text>
-                                                    )}
-                                                </div>
-                                                <div
-                                                    className={styles.colActions}
-                                                    onClick={e => e.stopPropagation()}
-                                                >
-                                                    <DropdownMenu.Root>
-                                                        <DropdownMenu.Trigger asChild>
-                                                            <button
-                                                                className={styles.actionButton}
-                                                                aria-label="Azioni"
-                                                            >
-                                                                <IconDotsVertical size={16} />
-                                                            </button>
-                                                        </DropdownMenu.Trigger>
-                                                        <DropdownMenu.Portal>
-                                                            <DropdownMenu.Content
-                                                                className={styles.dropdownContent}
-                                                                align="end"
-                                                                sideOffset={4}
-                                                            >
-                                                                <DropdownMenu.Item
-                                                                    className={styles.dropdownItem}
-                                                                    onClick={() =>
-                                                                        handleEdit(product)
-                                                                    }
-                                                                >
-                                                                    Modifica Prodotto
-                                                                </DropdownMenu.Item>
-                                                                <DropdownMenu.Item
-                                                                    className={styles.dropdownItem}
-                                                                    onClick={() =>
-                                                                        handleCreateVariant(product)
-                                                                    }
-                                                                >
-                                                                    Aggiungi Variante
-                                                                </DropdownMenu.Item>
-                                                                <DropdownMenu.Separator
-                                                                    className={
-                                                                        styles.dropdownSeparator
-                                                                    }
-                                                                />
-                                                                <DropdownMenu.Item
-                                                                    className={`${styles.dropdownItem} ${styles.danger}`}
-                                                                    onClick={() =>
-                                                                        handleDelete(product)
-                                                                    }
-                                                                >
-                                                                    Elimina
-                                                                </DropdownMenu.Item>
-                                                            </DropdownMenu.Content>
-                                                        </DropdownMenu.Portal>
-                                                    </DropdownMenu.Root>
-                                                </div>
-                                            </div>
+                                            // Visible variants list according to toggle
+                                            const visibleVariants =
+                                                product.variants?.filter(
+                                                    v => showHidden || v.is_visible !== false
+                                                ) || [];
 
-                                            {/* Sub-rows for Variants */}
-                                            {isExpanded &&
-                                                visibleVariants.map(variant => (
+                                            return (
+                                                <React.Fragment key={product.id}>
                                                     <div
-                                                        key={variant.id}
-                                                        className={styles.listRowVariant}
+                                                        className={`${styles.listRow} ${hasVariants ? styles.rowExpandable : ""} ${isExpanded ? styles.rowExpanded : ""}`}
+                                                        onClick={() => {
+                                                            if (hasVariants) toggleRow(product.id);
+                                                        }}
                                                     >
+                                                        <div className={styles.colExpander}>
+                                                            {hasVariants && (
+                                                                <button
+                                                                    className={styles.expandButton}
+                                                                    aria-label={
+                                                                        isExpanded
+                                                                            ? "Comprimi"
+                                                                            : "Espandi"
+                                                                    }
+                                                                >
+                                                                    {isExpanded ? (
+                                                                        <IconChevronDown
+                                                                            size={20}
+                                                                        />
+                                                                    ) : (
+                                                                        <IconChevronRight
+                                                                            size={20}
+                                                                        />
+                                                                    )}
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                         <div className={styles.colName}>
                                                             <div className={styles.productNameRow}>
                                                                 <Text
                                                                     variant="body-sm"
-                                                                    weight={500}
+                                                                    weight={600}
                                                                 >
-                                                                    {variant.name}
+                                                                    {product.name}
                                                                 </Text>
-                                                                <Badge variant="secondary">
-                                                                    Variante
-                                                                </Badge>
                                                             </div>
-                                                            {variant.description && (
+                                                            {product.description && (
                                                                 <Text
                                                                     variant="caption"
                                                                     colorVariant="muted"
                                                                 >
-                                                                    {variant.description}
+                                                                    {product.description}
                                                                 </Text>
                                                             )}
                                                         </div>
                                                         <div className={styles.colPrice}>
-                                                            {variant.base_price !== null ? (
+                                                            {product.base_price !== null ? (
                                                                 <Text variant="body-sm">
-                                                                    €{variant.base_price.toFixed(2)}
+                                                                    €{product.base_price.toFixed(2)}
                                                                 </Text>
                                                             ) : (
                                                                 <Text
@@ -389,7 +314,7 @@ export default function Products() {
                                                             )}
                                                         </div>
                                                         <div className={styles.colVisibility}>
-                                                            {variant.is_visible !== false ? (
+                                                            {product.is_visible !== false ? (
                                                                 <Badge variant="success">
                                                                     Visibile
                                                                 </Badge>
@@ -399,8 +324,25 @@ export default function Products() {
                                                                 </Badge>
                                                             )}
                                                         </div>
-                                                        <div className={styles.colVariants}></div>
-                                                        <div className={styles.colActions}>
+                                                        <div className={styles.colVariants}>
+                                                            {hasVariants ? (
+                                                                <Badge variant="primary">
+                                                                    {visibleVariants.length}{" "}
+                                                                    varianti
+                                                                </Badge>
+                                                            ) : (
+                                                                <Text
+                                                                    variant="body-sm"
+                                                                    colorVariant="muted"
+                                                                >
+                                                                    —
+                                                                </Text>
+                                                            )}
+                                                        </div>
+                                                        <div
+                                                            className={styles.colActions}
+                                                            onClick={e => e.stopPropagation()}
+                                                        >
                                                             <DropdownMenu.Root>
                                                                 <DropdownMenu.Trigger asChild>
                                                                     <button
@@ -427,10 +369,22 @@ export default function Products() {
                                                                                 styles.dropdownItem
                                                                             }
                                                                             onClick={() =>
-                                                                                handleEdit(variant)
+                                                                                handleEdit(product)
                                                                             }
                                                                         >
-                                                                            Modifica Variante
+                                                                            Modifica Prodotto
+                                                                        </DropdownMenu.Item>
+                                                                        <DropdownMenu.Item
+                                                                            className={
+                                                                                styles.dropdownItem
+                                                                            }
+                                                                            onClick={() =>
+                                                                                handleCreateVariant(
+                                                                                    product
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            Aggiungi Variante
                                                                         </DropdownMenu.Item>
                                                                         <DropdownMenu.Separator
                                                                             className={
@@ -438,47 +392,204 @@ export default function Products() {
                                                                             }
                                                                         />
                                                                         <DropdownMenu.Item
-                                                                            className={`${styles.dropdownItem} ${styles.danger}`}
+                                                                            className={
+                                                                                styles.dropdownItem
+                                                                            }
                                                                             onClick={() =>
-                                                                                handleDelete(
-                                                                                    variant
+                                                                                handleDuplicate(
+                                                                                    product
                                                                                 )
                                                                             }
                                                                         >
-                                                                            Elimina Variante
+                                                                            Duplica
+                                                                        </DropdownMenu.Item>
+                                                                        <DropdownMenu.Item
+                                                                            className={`${styles.dropdownItem} ${styles.danger}`}
+                                                                            onClick={() =>
+                                                                                handleDelete(
+                                                                                    product
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            Elimina
                                                                         </DropdownMenu.Item>
                                                                     </DropdownMenu.Content>
                                                                 </DropdownMenu.Portal>
                                                             </DropdownMenu.Root>
                                                         </div>
                                                     </div>
-                                                ))}
-                                        </React.Fragment>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-                </Card>
-            </div>
 
-            {/* Drawers */}
-            <ProductCreateEditDrawer
-                open={isCreateEditOpen}
-                onClose={() => setIsCreateEditOpen(false)}
-                mode={createEditMode}
-                productData={productToEdit}
-                parentProduct={parentForVariant}
-                onSuccess={loadData}
-                tenantId={currentTenantId}
-            />
+                                                    {/* Sub-rows for Variants */}
+                                                    {isExpanded &&
+                                                        visibleVariants.map(variant => (
+                                                            <div
+                                                                key={variant.id}
+                                                                className={styles.listRowVariant}
+                                                            >
+                                                                <div className={styles.colName}>
+                                                                    <div
+                                                                        className={
+                                                                            styles.productNameRow
+                                                                        }
+                                                                    >
+                                                                        <Text
+                                                                            variant="body-sm"
+                                                                            weight={500}
+                                                                        >
+                                                                            {variant.name}
+                                                                        </Text>
+                                                                        <Badge variant="secondary">
+                                                                            Variante
+                                                                        </Badge>
+                                                                    </div>
+                                                                    {variant.description && (
+                                                                        <Text
+                                                                            variant="caption"
+                                                                            colorVariant="muted"
+                                                                        >
+                                                                            {variant.description}
+                                                                        </Text>
+                                                                    )}
+                                                                </div>
+                                                                <div className={styles.colPrice}>
+                                                                    {variant.base_price !== null ? (
+                                                                        <Text variant="body-sm">
+                                                                            €
+                                                                            {variant.base_price.toFixed(
+                                                                                2
+                                                                            )}
+                                                                        </Text>
+                                                                    ) : (
+                                                                        <Text
+                                                                            variant="body-sm"
+                                                                            colorVariant="muted"
+                                                                        >
+                                                                            —
+                                                                        </Text>
+                                                                    )}
+                                                                </div>
+                                                                <div
+                                                                    className={styles.colVisibility}
+                                                                >
+                                                                    {variant.is_visible !==
+                                                                    false ? (
+                                                                        <Badge variant="success">
+                                                                            Visibile
+                                                                        </Badge>
+                                                                    ) : (
+                                                                        <Badge variant="secondary">
+                                                                            Nascosto
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
+                                                                <div
+                                                                    className={styles.colVariants}
+                                                                ></div>
+                                                                <div className={styles.colActions}>
+                                                                    <DropdownMenu.Root>
+                                                                        <DropdownMenu.Trigger
+                                                                            asChild
+                                                                        >
+                                                                            <button
+                                                                                className={
+                                                                                    styles.actionButton
+                                                                                }
+                                                                                aria-label="Azioni"
+                                                                            >
+                                                                                <IconDotsVertical
+                                                                                    size={16}
+                                                                                />
+                                                                            </button>
+                                                                        </DropdownMenu.Trigger>
+                                                                        <DropdownMenu.Portal>
+                                                                            <DropdownMenu.Content
+                                                                                className={
+                                                                                    styles.dropdownContent
+                                                                                }
+                                                                                align="end"
+                                                                                sideOffset={4}
+                                                                            >
+                                                                                <DropdownMenu.Item
+                                                                                    className={
+                                                                                        styles.dropdownItem
+                                                                                    }
+                                                                                    onClick={() =>
+                                                                                        handleEdit(
+                                                                                            variant
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    Modifica
+                                                                                    Variante
+                                                                                </DropdownMenu.Item>
+                                                                                <DropdownMenu.Separator
+                                                                                    className={
+                                                                                        styles.dropdownSeparator
+                                                                                    }
+                                                                                />
+                                                                                <DropdownMenu.Item
+                                                                                    className={
+                                                                                        styles.dropdownItem
+                                                                                    }
+                                                                                    onClick={() =>
+                                                                                        handleDuplicate(
+                                                                                            variant
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    Duplica
+                                                                                </DropdownMenu.Item>
+                                                                                <DropdownMenu.Item
+                                                                                    className={`${styles.dropdownItem} ${styles.danger}`}
+                                                                                    onClick={() =>
+                                                                                        handleDelete(
+                                                                                            variant
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    Elimina Variante
+                                                                                </DropdownMenu.Item>
+                                                                            </DropdownMenu.Content>
+                                                                        </DropdownMenu.Portal>
+                                                                    </DropdownMenu.Root>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </Card>
+                    </div>
 
-            <ProductDeleteDrawer
-                open={isDeleteOpen}
-                onClose={() => setIsDeleteOpen(false)}
-                productData={productToDelete}
-                onSuccess={loadData}
-            />
+                    {/* Drawers */}
+                    <ProductCreateEditDrawer
+                        open={isCreateEditOpen}
+                        onClose={() => setIsCreateEditOpen(false)}
+                        mode={createEditMode}
+                        productData={productToEdit}
+                        parentProduct={parentForVariant}
+                        onSuccess={loadData}
+                        tenantId={currentTenantId}
+                    />
+
+                    <ProductDeleteDrawer
+                        open={isDeleteOpen}
+                        onClose={() => setIsDeleteOpen(false)}
+                        productData={productToDelete}
+                        onSuccess={loadData}
+                    />
+                </Tabs.Panel>
+                <Tabs.Panel value="groups">
+                    <ProductGroupsTab
+                        tenantId={currentTenantId}
+                        isCreateOpen={isCreateGroupOpen}
+                        onCloseCreate={() => setCreateGroupOpen(false)}
+                    />
+                </Tabs.Panel>
+            </Tabs>
         </section>
     );
 }
