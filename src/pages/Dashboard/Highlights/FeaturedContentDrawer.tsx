@@ -13,7 +13,8 @@ import {
     createFeaturedContent,
     updateFeaturedContent,
     FeaturedContentWithProducts,
-    FeaturedContentType,
+    FeaturedContentPricingMode,
+    FeaturedContentStatus,
     FeaturedContentProduct
 } from "@/services/supabase/v2/featuredContents";
 import styles from "./Highlights.module.scss";
@@ -44,11 +45,14 @@ export default function FeaturedContentDrawer({
     const { showToast } = useToast();
     const [submitting, setSubmitting] = useState(false);
 
+    const [internalName, setInternalName] = useState("");
     const [title, setTitle] = useState("");
     const [subtitle, setSubtitle] = useState("");
     const [description, setDescription] = useState("");
-    const [type, setType] = useState<FeaturedContentType>("informative");
-    const [isActive, setIsActive] = useState(true);
+    const [ctaText, setCtaText] = useState("");
+    const [ctaUrl, setCtaUrl] = useState("");
+    const [pricingMode, setPricingMode] = useState<FeaturedContentPricingMode>("none");
+    const [status, setStatus] = useState<FeaturedContentStatus>("published");
 
     const [productsOptions, setProductsOptions] = useState<ProductOption[]>([]);
     const [selectedProducts, setSelectedProducts] = useState<DrawerProduct[]>([]);
@@ -72,11 +76,14 @@ export default function FeaturedContentDrawer({
     useEffect(() => {
         if (isOpen) {
             if (editingContent) {
+                setInternalName(editingContent.internal_name || "");
                 setTitle(editingContent.title);
                 setSubtitle(editingContent.subtitle || "");
                 setDescription(editingContent.description || "");
-                setType(editingContent.type);
-                setIsActive(editingContent.is_active);
+                setCtaText(editingContent.cta_text || "");
+                setCtaUrl(editingContent.cta_url || "");
+                setPricingMode(editingContent.pricing_mode || "none");
+                setStatus(editingContent.status || "published");
 
                 if (editingContent.products) {
                     setSelectedProducts(
@@ -91,11 +98,14 @@ export default function FeaturedContentDrawer({
                     setSelectedProducts([]);
                 }
             } else {
+                setInternalName("");
                 setTitle("");
                 setSubtitle("");
                 setDescription("");
-                setType("informative");
-                setIsActive(true);
+                setCtaText("");
+                setCtaUrl("");
+                setPricingMode("none");
+                setStatus("published");
                 setSelectedProducts([]);
             }
             setPickerValue("");
@@ -166,15 +176,19 @@ export default function FeaturedContentDrawer({
         try {
             setSubmitting(true);
             const contentData = {
+                internal_name: internalName.trim() || title.trim(),
                 title: title.trim(),
                 subtitle: subtitle.trim() || null,
                 description: description.trim() || null,
-                type,
-                is_active: isActive
+                cta_text: ctaText.trim() || null,
+                cta_url: ctaUrl.trim() || null,
+                pricing_mode: pricingMode,
+                status: status,
+                show_original_total: false
             };
 
             const productsData =
-                type === "composite"
+                pricingMode !== "none"
                     ? selectedProducts.map((p, i) => ({
                           product_id: p.product_id,
                           note: p.note || null,
@@ -182,7 +196,7 @@ export default function FeaturedContentDrawer({
                       }))
                     : [];
 
-            if (type === "composite" && productsData.length === 0) {
+            if (pricingMode !== "none" && productsData.length === 0) {
                 showToast({
                     type: "success",
                     message: "Avviso: Contenuto composito salvato senza prodotti",
@@ -208,225 +222,243 @@ export default function FeaturedContentDrawer({
     };
 
     return (
-        <Drawer
-            isOpen={isOpen}
-            onClose={onClose}
-            title={editingContent ? "Modifica contenuto" : "Crea contenuto"}
-            footer={
-                <div
-                    style={{
-                        display: "flex",
-                        gap: "12px",
-                        justifyContent: "flex-end",
-                        width: "100%"
-                    }}
-                >
-                    <Button variant="secondary" onClick={onClose} disabled={submitting}>
-                        Annulla
-                    </Button>
-                    <Button variant="primary" onClick={handleSave} loading={submitting}>
-                        {editingContent ? "Salva" : "Crea"}
-                    </Button>
-                </div>
-            }
+        <form
+            id="featured-content-form"
+            onSubmit={e => {
+                e.preventDefault();
+                handleSave();
+            }}
+            style={{ display: "flex", flexDirection: "column", gap: "24px", padding: "24px" }}
         >
-            <div style={{ display: "flex", flexDirection: "column", gap: "24px", padding: "24px" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                    <Text variant="title-sm" weight={600}>
-                        Informazioni base
-                    </Text>
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <Text variant="title-sm" weight={600}>
+                    Informazioni base
+                </Text>
 
-                    <TextInput
-                        label="Titolo *"
-                        value={title}
-                        onChange={e => setTitle(e.target.value)}
-                        placeholder="Es: Promozione speciale"
-                    />
+                <TextInput
+                    label="Nome interno *"
+                    value={internalName}
+                    onChange={e => setInternalName(e.target.value)}
+                    placeholder="Es: RistoPromo - Sede Roma"
+                />
 
-                    <TextInput
-                        label="Sottotitolo"
-                        value={subtitle}
-                        onChange={e => setSubtitle(e.target.value)}
-                        placeholder="Es: Valida fino a fine mese"
-                    />
+                <TextInput
+                    label="Titolo pubblico *"
+                    value={title}
+                    onChange={e => setTitle(e.target.value)}
+                    placeholder="Es: Promozione speciale"
+                />
 
-                    <TextInput
-                        label="Descrizione"
-                        value={description}
-                        onChange={e => setDescription(e.target.value)}
-                        placeholder="Dettagli del contenuto..."
-                    />
+                <TextInput
+                    label="Sottotitolo"
+                    value={subtitle}
+                    onChange={e => setSubtitle(e.target.value)}
+                    placeholder="Es: Valida fino a fine mese"
+                />
 
-                    <CheckboxInput
-                        label="Stato editoriale"
-                        description={isActive ? "Contenuto attivo" : "Bozza (non visibile)"}
-                        checked={isActive}
-                        onChange={e => setIsActive(e.target.checked)}
-                    />
-                </div>
+                <TextInput
+                    label="Descrizione"
+                    value={description}
+                    onChange={e => setDescription(e.target.value)}
+                    placeholder="Dettagli del contenuto..."
+                />
 
-                <hr style={{ border: "0", borderTop: "1px solid var(--border-subtle, #e5e7eb)" }} />
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                    <Text variant="title-sm" weight={600}>
-                        Tipologia
-                    </Text>
-                    <div style={{ display: "flex", gap: "16px" }}>
-                        <label
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                                cursor: "pointer"
-                            }}
-                        >
-                            <input
-                                type="radio"
-                                name="type"
-                                value="informative"
-                                checked={type === "informative"}
-                                onChange={() => setType("informative")}
-                            />
-                            <Text variant="body">Informativo</Text>
-                        </label>
-                        <label
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                                cursor: "pointer"
-                            }}
-                        >
-                            <input
-                                type="radio"
-                                name="type"
-                                value="composite"
-                                checked={type === "composite"}
-                                onChange={() => setType("composite")}
-                            />
-                            <Text variant="body">Composito (con prodotti)</Text>
-                        </label>
+                <div style={{ display: "flex", gap: "12px" }}>
+                    <div style={{ flex: 1 }}>
+                        <TextInput
+                            label="Testo Pulsante (CTA)"
+                            value={ctaText}
+                            onChange={e => setCtaText(e.target.value)}
+                            placeholder="Es: Scopri di più"
+                        />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <TextInput
+                            label="Link Pulsante (URL)"
+                            value={ctaUrl}
+                            onChange={e => setCtaUrl(e.target.value)}
+                            placeholder="Es: https://..."
+                        />
                     </div>
                 </div>
 
-                {type === "composite" && (
-                    <>
-                        <hr
-                            style={{
-                                border: "0",
-                                borderTop: "1px solid var(--border-subtle, #e5e7eb)"
-                            }}
+                <CheckboxInput
+                    label="Stato editoriale"
+                    description={
+                        status === "published"
+                            ? "Contenuto attivo e utilizzabile"
+                            : "Bozza (non pronto per la pubblicazione)"
+                    }
+                    checked={status === "published"}
+                    onChange={e => setStatus(e.target.checked ? "published" : "draft")}
+                />
+            </div>
+
+            <hr style={{ border: "0", borderTop: "1px solid var(--border-subtle, #e5e7eb)" }} />
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <Text variant="title-sm" weight={600}>
+                    Prodotti aggregati
+                </Text>
+                <div style={{ display: "flex", gap: "16px" }}>
+                    <label
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            cursor: "pointer"
+                        }}
+                    >
+                        <input
+                            type="radio"
+                            name="pricing_mode"
+                            value="none"
+                            checked={pricingMode === "none"}
+                            onChange={() => setPricingMode("none")}
                         />
-                        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                            <Text variant="title-sm" weight={600}>
-                                Prodotti inclusi
-                            </Text>
+                        <Text variant="body">Nessuno (Solo Editoriale)</Text>
+                    </label>
+                    <label
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            cursor: "pointer"
+                        }}
+                    >
+                        <input
+                            type="radio"
+                            name="pricing_mode"
+                            value="per_item"
+                            checked={pricingMode === "per_item"}
+                            onChange={() => setPricingMode("per_item")}
+                        />
+                        <Text variant="body">Mostra prodotti collegati</Text>
+                    </label>
+                </div>
+            </div>
 
-                            <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
-                                <div style={{ flex: 1 }}>
-                                    <Select
-                                        value={pickerValue}
-                                        onChange={e => setPickerValue(e.target.value)}
-                                        options={[
-                                            { value: "", label: "Seleziona un prodotto..." },
-                                            ...productsOptions.map(p => ({
-                                                value: p.id,
-                                                label: p.name
-                                            }))
-                                        ]}
-                                    />
-                                </div>
-                                <Button
-                                    variant="secondary"
-                                    onClick={handleAddProduct}
-                                    disabled={!pickerValue}
-                                >
-                                    Aggiungi
-                                </Button>
+            {pricingMode !== "none" && (
+                <>
+                    <hr
+                        style={{
+                            border: "0",
+                            borderTop: "1px solid var(--border-subtle, #e5e7eb)"
+                        }}
+                    />
+                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                        <Text variant="title-sm" weight={600}>
+                            Prodotti inclusi
+                        </Text>
+
+                        <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
+                            <div style={{ flex: 1 }}>
+                                <Select
+                                    value={pickerValue}
+                                    onChange={e => setPickerValue(e.target.value)}
+                                    options={[
+                                        { value: "", label: "Seleziona un prodotto..." },
+                                        ...productsOptions.map(p => ({
+                                            value: p.id,
+                                            label: p.name
+                                        }))
+                                    ]}
+                                />
                             </div>
+                            <Button
+                                variant="secondary"
+                                type="button"
+                                onClick={handleAddProduct}
+                                disabled={!pickerValue}
+                            >
+                                Aggiungi
+                            </Button>
+                        </div>
 
-                            {selectedProducts.length > 0 ? (
-                                <ul
-                                    style={{
-                                        listStyle: "none",
-                                        padding: 0,
-                                        margin: 0,
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        gap: "8px"
-                                    }}
-                                >
-                                    {selectedProducts.map((item, index) => (
-                                        <li
-                                            key={`${item.product_id}-${index}`}
+                        {selectedProducts.length > 0 ? (
+                            <ul
+                                style={{
+                                    listStyle: "none",
+                                    padding: 0,
+                                    margin: 0,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: "8px"
+                                }}
+                            >
+                                {selectedProducts.map((item, index) => (
+                                    <li
+                                        key={`${item.product_id}-${index}`}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "12px",
+                                            background: "var(--surface-tertiary)",
+                                            padding: "12px",
+                                            borderRadius: "8px"
+                                        }}
+                                    >
+                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                            <IconButton
+                                                type="button"
+                                                variant="ghost"
+                                                icon={<ArrowUp size={14} />}
+                                                aria-label="Sposta su"
+                                                onClick={() => handleMoveProduct(index, "up")}
+                                                disabled={index === 0}
+                                            />
+                                            <IconButton
+                                                type="button"
+                                                variant="ghost"
+                                                icon={<ArrowDown size={14} />}
+                                                aria-label="Sposta giù"
+                                                onClick={() => handleMoveProduct(index, "down")}
+                                                disabled={index === selectedProducts.length - 1}
+                                            />
+                                        </div>
+                                        <div
                                             style={{
+                                                flex: 1,
                                                 display: "flex",
-                                                alignItems: "center",
-                                                gap: "12px",
-                                                background: "var(--surface-tertiary)",
-                                                padding: "12px",
-                                                borderRadius: "8px"
+                                                flexDirection: "column",
+                                                gap: "8px"
                                             }}
                                         >
-                                            <div
-                                                style={{ display: "flex", flexDirection: "column" }}
-                                            >
-                                                <IconButton
-                                                    variant="ghost"
-                                                    icon={<ArrowUp size={14} />}
-                                                    aria-label="Sposta su"
-                                                    onClick={() => handleMoveProduct(index, "up")}
-                                                    disabled={index === 0}
-                                                />
-                                                <IconButton
-                                                    variant="ghost"
-                                                    icon={<ArrowDown size={14} />}
-                                                    aria-label="Sposta giù"
-                                                    onClick={() => handleMoveProduct(index, "down")}
-                                                    disabled={index === selectedProducts.length - 1}
-                                                />
-                                            </div>
-                                            <div
-                                                style={{
-                                                    flex: 1,
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    gap: "8px"
-                                                }}
-                                            >
-                                                <Text variant="body" weight={600}>
-                                                    {/* @ts-ignore */}
-                                                    {item.product?.name || "Prodotto sconosciuto"}
-                                                </Text>
-                                                <TextInput
-                                                    placeholder="Nota (es: + patatine)"
-                                                    value={item.note || ""}
-                                                    onChange={e =>
-                                                        handleUpdateNote(index, e.target.value)
-                                                    }
-                                                />
-                                            </div>
-                                            <div>
-                                                <IconButton
-                                                    variant="ghost"
-                                                    icon={<Trash2 size={16} />}
-                                                    aria-label="Rimuovi"
-                                                    onClick={() => handleRemoveProduct(index)}
-                                                />
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : (
-                                <Text colorVariant="muted" variant="body-sm">
-                                    Nessun prodotto selezionato. Aggiungi almeno un prodotto per
-                                    completare il contenuto composito.
-                                </Text>
-                            )}
-                        </div>
-                    </>
-                )}
-            </div>
-        </Drawer>
+                                            <Text variant="body" weight={600}>
+                                                {/* @ts-ignore */}
+                                                {item.product?.name || "Prodotto sconosciuto"}
+                                            </Text>
+                                            <TextInput
+                                                placeholder="Nota (es: + patatine)"
+                                                value={item.note || ""}
+                                                onChange={e =>
+                                                    handleUpdateNote(index, e.target.value)
+                                                }
+                                            />
+                                        </div>
+                                        <div>
+                                            <IconButton
+                                                type="button"
+                                                variant="ghost"
+                                                icon={<Trash2 size={16} />}
+                                                aria-label="Rimuovi"
+                                                onClick={() => handleRemoveProduct(index)}
+                                            />
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <Text colorVariant="muted" variant="body-sm">
+                                Nessun prodotto selezionato. Aggiungi almeno un prodotto per
+                                completare il contenuto composito.
+                            </Text>
+                        )}
+                    </div>
+                </>
+            )}
+
+            <input type="submit" id="featured-content-submit" style={{ display: "none" }} />
+        </form>
     );
 }

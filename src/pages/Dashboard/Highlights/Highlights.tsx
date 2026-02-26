@@ -19,20 +19,18 @@ import {
 } from "@/services/supabase/v2/featuredContents";
 import FeaturedContentDrawer from "./FeaturedContentDrawer";
 import styles from "./Highlights.module.scss";
+import { useDrawer } from "@/context/Drawer/useDrawer";
 
 export default function Highlights() {
     const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [contents, setContents] = useState<FeaturedContentWithProducts[]>([]);
+    const { openDrawer, closeDrawer } = useDrawer();
 
     // Filters and Toolbar
     const [searchQuery, setSearchQuery] = useState("");
     const [typeFilter, setTypeFilter] = useState<string>("all");
     const [densityView, setDensityView] = useState<"list" | "grid">("grid"); // list = compact, grid = extended mapping
-
-    // Drawer state
-    const [drawerOpen, setDrawerOpen] = useState(false);
-    const [editingContent, setEditingContent] = useState<FeaturedContentWithProducts | null>(null);
 
     // Delete state
     const [deleteTarget, setDeleteTarget] = useState<FeaturedContentWithProducts | null>(null);
@@ -59,14 +57,47 @@ export default function Highlights() {
         loadData();
     }, []);
 
+    const openContentDrawer = (editingContent: FeaturedContentWithProducts | null) => {
+        openDrawer({
+            title: editingContent ? "Modifica contenuto" : "Crea contenuto",
+            size: "md",
+            content: (
+                <FeaturedContentDrawer
+                    isOpen={true} // kept for backward compatibility if needed internally
+                    onClose={closeDrawer}
+                    editingContent={editingContent}
+                    onSuccess={() => {
+                        closeDrawer();
+                        loadData();
+                    }}
+                />
+            ),
+            footer: (
+                <div
+                    style={{
+                        display: "flex",
+                        gap: "12px",
+                        justifyContent: "flex-end",
+                        width: "100%"
+                    }}
+                >
+                    <Button variant="secondary" onClick={closeDrawer}>
+                        Annulla
+                    </Button>
+                    <Button variant="primary" type="submit" form="featured-content-form">
+                        {editingContent ? "Salva" : "Crea"}
+                    </Button>
+                </div>
+            )
+        });
+    };
+
     const handleCreate = () => {
-        setEditingContent(null);
-        setDrawerOpen(true);
+        openContentDrawer(null);
     };
 
     const handleEdit = (item: FeaturedContentWithProducts) => {
-        setEditingContent(item);
-        setDrawerOpen(true);
+        openContentDrawer(item);
     };
 
     const handleDelete = async () => {
@@ -96,7 +127,10 @@ export default function Highlights() {
 
     const filteredContents = contents.filter(item => {
         const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesType = typeFilter === "all" || item.type === typeFilter;
+        const matchesType =
+            typeFilter === "all" ||
+            (typeFilter === "editorial" && item.pricing_mode === "none") ||
+            (typeFilter === "products" && item.pricing_mode !== "none");
         return matchesSearch && matchesType;
     });
 
@@ -107,8 +141,8 @@ export default function Highlights() {
                 onChange={e => setTypeFilter(e.target.value)}
                 options={[
                     { value: "all", label: "Tutti i tipi" },
-                    { value: "informative", label: "Informativo" },
-                    { value: "composite", label: "Composito" }
+                    { value: "editorial", label: "Editoriale" },
+                    { value: "products", label: "Con prodotti" }
                 ]}
             />
         </div>
@@ -119,7 +153,7 @@ export default function Highlights() {
             <div className={styles.wrapper}>
                 <PageHeader
                     title="Contenuti in evidenza"
-                    subtitle="Gestisci i contenuti informativi e compositi."
+                    subtitle="Gestisci i contenuti editoriali e aggregatori di prodotti."
                     actions={
                         <Button variant="primary" onClick={handleCreate}>
                             Crea contenuto
@@ -164,16 +198,16 @@ export default function Highlights() {
                                     </Text>
                                     <div className={styles.badges}>
                                         <div className={styles.badge}>
-                                            {item.type === "informative"
-                                                ? "Informativo"
+                                            {item.pricing_mode === "none"
+                                                ? "Editoriale"
                                                 : "Composito"}
                                         </div>
-                                        {!item.is_active && (
+                                        {item.status === "draft" && (
                                             <div className={`${styles.badge} ${styles.draft}`}>
                                                 Bozza
                                             </div>
                                         )}
-                                        {item.type === "composite" && (
+                                        {item.pricing_mode !== "none" && (
                                             <div className={styles.badge}>
                                                 {item.products_count || 0} prodotti
                                             </div>
@@ -204,16 +238,6 @@ export default function Highlights() {
                     </ul>
                 )}
             </div>
-
-            <FeaturedContentDrawer
-                isOpen={drawerOpen}
-                onClose={() => setDrawerOpen(false)}
-                editingContent={editingContent}
-                onSuccess={() => {
-                    setDrawerOpen(false);
-                    loadData();
-                }}
-            />
 
             <ModalLayout
                 isOpen={Boolean(deleteTarget)}
