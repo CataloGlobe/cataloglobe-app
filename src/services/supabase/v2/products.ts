@@ -1,4 +1,7 @@
 import { supabase } from "../client";
+import { getProductAttributes, setProductAttributeValue } from "./attributes";
+import { getProductAllergens, setProductAllergens } from "./allergens";
+import { getProductGroupAssignments, assignProductToGroup } from "./productGroups";
 
 export type V2Product = {
     id: string;
@@ -94,6 +97,7 @@ export async function createProduct(
     const { data: newProduct, error } = await supabase
         .from("v2_products")
         .insert({
+            id: crypto.randomUUID(),
             tenant_id: tenantId,
             name: data.name,
             description: data.description || null,
@@ -206,4 +210,53 @@ export async function deleteProduct(
         }
         throw delError;
     }
+}
+
+export async function duplicateProduct(productId: string, tenantId: string): Promise<V2Product> {
+    // 1. Fetch original product
+    const original = await getProduct(productId, tenantId);
+    if (!original) {
+        throw new Error(`Product ${productId} not found.`);
+    }
+
+    // 2. Create new product
+    const newProduct = await createProduct(
+        tenantId,
+        {
+            name: `${original.name} (Copia)`,
+            description: original.description,
+            base_price: original.base_price,
+            is_visible: original.is_visible
+        },
+        null // parent_product_id = null
+    );
+
+    // 3. Copy attributes
+    const originalAttributes = await getProductAttributes(productId, tenantId);
+    for (const attr of originalAttributes) {
+        await setProductAttributeValue(tenantId, newProduct.id, attr.attribute_definition_id, {
+            value_text: attr.value_text || undefined,
+            value_number: attr.value_number !== null ? attr.value_number : undefined,
+            value_boolean: attr.value_boolean !== null ? attr.value_boolean : undefined,
+            value_json: attr.value_json || undefined
+        });
+    }
+
+    // 4. Copy allergens
+    const originalAllergens = await getProductAllergens(productId, tenantId);
+    if (originalAllergens.length > 0) {
+        await setProductAllergens(tenantId, newProduct.id, originalAllergens);
+    }
+
+    // 5. Copy groups
+    const originalGroups = await getProductGroupAssignments(productId);
+    for (const group of originalGroups) {
+        await assignProductToGroup({
+            productId: newProduct.id,
+            groupId: group.group_id,
+            tenantId: tenantId
+        });
+    }
+
+    return newProduct;
 }
