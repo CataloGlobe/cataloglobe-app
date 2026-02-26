@@ -26,6 +26,7 @@ import Programming from "./pages/Dashboard/Programming/Programming";
 import Products from "./pages/Dashboard/Products/Products";
 import Highlights from "./pages/Dashboard/Highlights/Highlights";
 import Styles from "./pages/Dashboard/Styles/Styles";
+import StyleEditorPage from "./pages/Dashboard/Styles/StyleEditorPage";
 import Attributes from "./pages/Dashboard/Attributes/Attributes";
 
 // Public pages
@@ -107,7 +108,10 @@ export default function App() {
                 <Route path="cataloghi/:id" element={<CatalogEngine />} />
                 <Route path="prodotti" element={<Products />} />
                 <Route path="contenuti-in-evidenza" element={<Highlights />} />
-                <Route path="stili" element={<Styles />} />
+                <Route path="stili">
+                    <Route index element={<Styles />} />
+                    <Route path=":styleId" element={<StyleEditorPage />} />
+                </Route>
                 <Route path="attributi" element={<Attributes />} />
 
                 <Route path="recensioni" element={<Reviews />} />

@@ -8,11 +8,22 @@
   min-height: calc(100vh - 61px);
 }
 
-.catalogsCard {
+.filterBar {
+  margin-bottom: var(--spacing-6);
+}
+
+.tableCard {
+  padding: 0;
+  overflow: hidden;
   background: #fff;
   border-radius: var(--radius-lg);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   border: 1px solid var(--color-gray-200);
+
+  &:hover {
+    transform: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
 }
 
 .loadingState,
@@ -36,31 +47,9 @@
   margin-top: var(--spacing-4);
 }
 
-.listContainer {
-  display: flex;
-  flex-direction: column;
-}
-
-.catalogRow {
+.colName {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: var(--spacing-4) var(--spacing-6);
-  border-bottom: 1px solid var(--color-gray-100);
-
-  &:last-child {
-    border-bottom: none;
-  }
-
-  &:hover {
-    background-color: var(--color-gray-50);
-  }
-}
-
-.catalogInfo {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-4);
 }
 
 .iconWrapper {
@@ -78,6 +67,12 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-2);
+}
+
+.catalogNameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
 }
 
 .actionButton {

@@ -109,12 +109,7 @@ export default function Attributes() {
             <PageHeader
                 title="Attributi prodotto"
                 subtitle="Definisci gli attributi dinamici (es. Colore, Taglia, Ingredienti) per arricchire i tuoi prodotti."
-                actions={
-                    <Button onClick={handleCreate}>
-                        <IconPlus size={20} />
-                        Nuovo attributo
-                    </Button>
-                }
+                actions={<Button onClick={handleCreate}>Nuovo attributo</Button>}
             />
 
             <div className={styles.content}>

@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
+import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { Card } from "@/components/ui/Card/Card";
+import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconBook2, IconPlus, IconDotsVertical } from "@tabler/icons-react";
@@ -28,6 +30,8 @@ export default function Catalogs() {
 
     const [catalogs, setCatalogs] = useState<V2Catalog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [density, setDensity] = useState<"compact" | "extended">("compact");
 
     // Drawer state
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -40,7 +44,7 @@ export default function Catalogs() {
     const [catalogToDelete, setCatalogToDelete] = useState<V2Catalog | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         if (!currentTenantId) return;
         setIsLoading(true);
         try {
@@ -52,11 +56,11 @@ export default function Catalogs() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [currentTenantId, showToast]);
 
     useEffect(() => {
         loadData();
-    }, [currentTenantId]);
+    }, [loadData]);
 
     const handleOpenCreate = () => {
         setEditingCatalog(null);
@@ -120,6 +124,124 @@ export default function Catalogs() {
         }
     };
 
+    const filteredCatalogs = useMemo(() => {
+        const normalizedSearch = searchQuery.trim().toLowerCase();
+        if (!normalizedSearch) return catalogs;
+
+        return catalogs.filter(catalog => catalog.name.toLowerCase().includes(normalizedSearch));
+    }, [catalogs, searchQuery]);
+
+    const columns: ColumnDefinition<V2Catalog>[] = [
+            {
+                id: "name",
+                header: "Nome",
+                width: "2fr",
+                accessor: catalog => catalog.name,
+                cell: (_value, catalog) => (
+                    <div className={styles.colName}>
+                        <div className={styles.catalogNameRow}>
+                            <div className={styles.iconWrapper}>
+                                <IconBook2 size={18} />
+                            </div>
+                            <Text variant="body-sm" weight={600}>
+                                {catalog.name}
+                            </Text>
+                        </div>
+                    </div>
+                )
+            },
+            {
+                id: "createdAt",
+                header: "Creato il",
+                width: "1fr",
+                accessor: catalog => catalog.created_at,
+                cell: value => {
+                    const dateValue = typeof value === "string" ? new Date(value) : null;
+                    const formattedDate =
+                        dateValue && !Number.isNaN(dateValue.getTime())
+                            ? new Intl.DateTimeFormat("it-IT", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric"
+                              }).format(dateValue)
+                            : "—";
+
+                    return (
+                        <Text variant="body-sm" colorVariant="muted">
+                            {formattedDate}
+                        </Text>
+                    );
+                }
+            },
+            {
+                id: "actions",
+                header: "",
+                width: "60px",
+                align: "right",
+                cell: (_value, catalog) => (
+                    <div className={styles.catalogActions}>
+                        <DropdownMenu.Root>
+                            <DropdownMenu.Trigger asChild>
+                                <button className={styles.actionButton} aria-label="Azioni">
+                                    <IconDotsVertical size={18} />
+                                </button>
+                            </DropdownMenu.Trigger>
+                            <DropdownMenu.Portal>
+                                <DropdownMenu.Content
+                                    className={styles.dropdownContent}
+                                    align="end"
+                                    sideOffset={4}
+                                >
+                                    <DropdownMenu.Item
+                                        className={styles.dropdownItem}
+                                        onClick={() => handleOpenEdit(catalog)}
+                                    >
+                                        Modifica nome
+                                    </DropdownMenu.Item>
+                                    <DropdownMenu.Separator className={styles.dropdownSeparator} />
+                                    <DropdownMenu.Item
+                                        className={`${styles.dropdownItem} ${styles.danger}`}
+                                        onClick={() => handleOpenDelete(catalog)}
+                                    >
+                                        Elimina catalogo
+                                    </DropdownMenu.Item>
+                                </DropdownMenu.Content>
+                            </DropdownMenu.Portal>
+                        </DropdownMenu.Root>
+                    </div>
+                )
+            }
+        ];
+
+    const loadingState = (
+        <div className={styles.loadingState}>
+            <Text variant="body-sm" colorVariant="muted">
+                Caricamento in corso...
+            </Text>
+        </div>
+    );
+
+    const hasSearchFilter = searchQuery.trim().length > 0;
+
+    const emptyState = (
+        <div className={styles.emptyState}>
+            <IconBook2 size={48} stroke={1} className={styles.emptyIcon} />
+            <Text variant="title-sm" weight={600}>
+                Nessun catalogo trovato
+            </Text>
+            <Text variant="body-sm" colorVariant="muted">
+                {hasSearchFilter
+                    ? "Non ci sono cataloghi che corrispondono alla ricerca."
+                    : "Non hai ancora creato alcun catalogo per organizzare i tuoi prodotti."}
+            </Text>
+            {!hasSearchFilter && (
+                <Button variant="primary" onClick={handleOpenCreate} className={styles.emptyButton}>
+                    Crea il primo catalogo
+                </Button>
+            )}
+        </div>
+    );
+
     return (
         <section className={styles.container}>
             <PageHeader
@@ -134,93 +256,29 @@ export default function Catalogs() {
             />
 
             <div className={styles.content}>
-                <Card className={styles.catalogsCard}>
-                    {isLoading ? (
-                        <div className={styles.loadingState}>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Caricamento in corso...
-                            </Text>
-                        </div>
-                    ) : catalogs.length === 0 ? (
-                        <div className={styles.emptyState}>
-                            <IconBook2 size={48} stroke={1} className={styles.emptyIcon} />
-                            <Text variant="title-sm" weight={600}>
-                                Nessun catalogo trovato
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Non hai ancora creato alcun catalogo per organizzare i tuoi
-                                prodotti.
-                            </Text>
-                            <Button
-                                variant="primary"
-                                onClick={handleOpenCreate}
-                                className={styles.emptyButton}
-                            >
-                                Crea il primo catalogo
-                            </Button>
-                        </div>
-                    ) : (
-                        <div className={styles.listContainer}>
-                            {catalogs.map(catalog => (
-                                <div key={catalog.id} className={styles.catalogRow}>
-                                    <div className={styles.catalogInfo}>
-                                        <div className={styles.iconWrapper}>
-                                            <IconBook2 size={20} />
-                                        </div>
-                                        <div>
-                                            <Text variant="body-sm" weight={600}>
-                                                {catalog.name}
-                                            </Text>
-                                        </div>
-                                    </div>
-                                    <div className={styles.catalogActions}>
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            onClick={() =>
-                                                navigate(`/dashboard/cataloghi/${catalog.id}`)
-                                            }
-                                        >
-                                            Entra nel catalogo
-                                        </Button>
-                                        <DropdownMenu.Root>
-                                            <DropdownMenu.Trigger asChild>
-                                                <button
-                                                    className={styles.actionButton}
-                                                    aria-label="Azioni"
-                                                >
-                                                    <IconDotsVertical size={18} />
-                                                </button>
-                                            </DropdownMenu.Trigger>
-                                            <DropdownMenu.Portal>
-                                                <DropdownMenu.Content
-                                                    className={styles.dropdownContent}
-                                                    align="end"
-                                                    sideOffset={4}
-                                                >
-                                                    <DropdownMenu.Item
-                                                        className={styles.dropdownItem}
-                                                        onClick={() => handleOpenEdit(catalog)}
-                                                    >
-                                                        Modifica nome
-                                                    </DropdownMenu.Item>
-                                                    <DropdownMenu.Separator
-                                                        className={styles.dropdownSeparator}
-                                                    />
-                                                    <DropdownMenu.Item
-                                                        className={`${styles.dropdownItem} ${styles.danger}`}
-                                                        onClick={() => handleOpenDelete(catalog)}
-                                                    >
-                                                        Elimina catalogo
-                                                    </DropdownMenu.Item>
-                                                </DropdownMenu.Content>
-                                            </DropdownMenu.Portal>
-                                        </DropdownMenu.Root>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                <FilterBar
+                    search={{
+                        value: searchQuery,
+                        onChange: setSearchQuery,
+                        placeholder: "Cerca cataloghi..."
+                    }}
+                    view={{
+                        value: density === "compact" ? "list" : "grid",
+                        onChange: value => setDensity(value === "list" ? "compact" : "extended")
+                    }}
+                    className={styles.filterBar}
+                />
+
+                <Card className={styles.tableCard}>
+                    <DataTable<V2Catalog>
+                        data={filteredCatalogs}
+                        columns={columns}
+                        isLoading={isLoading}
+                        density={density}
+                        onRowClick={catalog => navigate(`/dashboard/cataloghi/${catalog.id}`)}
+                        loadingState={loadingState}
+                        emptyState={emptyState}
+                    />
                 </Card>
             </div>
 

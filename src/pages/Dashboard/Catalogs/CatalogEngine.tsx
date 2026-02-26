@@ -534,10 +534,11 @@ export default function CatalogEngine() {
                             variant="secondary"
                             onClick={() => navigate("/dashboard/cataloghi")}
                         >
-                            <IconChevronLeft size={20} /> Torna ai Cataloghi
+                            {" "}
+                            Torna ai Cataloghi
                         </Button>
                         <Button variant="primary" onClick={handleAddRootCategory}>
-                            <IconPlus size={20} /> Categoria Principale
+                            Crea categoria
                         </Button>
                     </div>
                 }

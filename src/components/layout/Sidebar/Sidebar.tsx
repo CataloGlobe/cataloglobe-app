@@ -58,7 +58,7 @@ const groups = [
                 label: "Contenuti in evidenza",
                 icon: <Layers size={18} />
             },
-            { to: "/dashboard/stili", label: "Stili & design", icon: <Palette size={18} /> }
+            { to: "/dashboard/stili", label: "Stili", icon: <Palette size={18} /> }
         ]
     },
     {

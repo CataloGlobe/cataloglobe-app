@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useMemo, useState, useEffect } from "react";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
+import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import ModalLayout, {
@@ -36,7 +37,7 @@ export default function Highlights() {
     const [deleteTarget, setDeleteTarget] = useState<FeaturedContentWithProducts | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         try {
             setLoading(true);
             const data = await listFeaturedContents();
@@ -51,11 +52,11 @@ export default function Highlights() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [showToast]);
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [loadData]);
 
     const openContentDrawer = (editingContent: FeaturedContentWithProducts | null) => {
         openDrawer({
@@ -125,14 +126,103 @@ export default function Highlights() {
         }
     };
 
-    const filteredContents = contents.filter(item => {
-        const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesType =
-            typeFilter === "all" ||
-            (typeFilter === "editorial" && item.pricing_mode === "none") ||
-            (typeFilter === "products" && item.pricing_mode !== "none");
-        return matchesSearch && matchesType;
-    });
+    const filteredContents = useMemo(() => {
+        return contents.filter(item => {
+            const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesType =
+                typeFilter === "all" ||
+                (typeFilter === "editorial" && item.pricing_mode === "none") ||
+                (typeFilter === "products" && item.pricing_mode !== "none");
+            return matchesSearch && matchesType;
+        });
+    }, [contents, searchQuery, typeFilter]);
+
+    const columns: ColumnDefinition<FeaturedContentWithProducts>[] = [
+        {
+            id: "title",
+            header: "Titolo",
+            width: "2fr",
+            accessor: item => item.title,
+            cell: (_value, item) => (
+                <div className={styles.titleCell}>
+                    <Text variant="body-sm" weight={600}>
+                        {item.title}
+                    </Text>
+                    {item.subtitle ? (
+                        <Text variant="caption" colorVariant="muted" className={styles.subtitle}>
+                            {item.subtitle}
+                        </Text>
+                    ) : (
+                        <Text variant="caption" colorVariant="muted" className={styles.subtitle}>
+                            Nessun sottotitolo
+                        </Text>
+                    )}
+                </div>
+            )
+        },
+        {
+            id: "type",
+            header: "Tipo",
+            width: "1fr",
+            accessor: item => item.pricing_mode,
+            cell: (_value, item) => (
+                <span className={styles.typeBadge}>
+                    {item.pricing_mode === "none" ? "Editoriale" : "Composito"}
+                </span>
+            )
+        },
+        {
+            id: "products",
+            header: "Prodotti",
+            width: "0.8fr",
+            accessor: item => item.products_count || 0,
+            cell: (value, item) =>
+                item.pricing_mode === "none" ? (
+                    <Text variant="body-sm" colorVariant="muted">
+                        -
+                    </Text>
+                ) : (
+                    <Text variant="body-sm">{(value as number) || 0}</Text>
+                )
+        },
+        {
+            id: "status",
+            header: "Stato",
+            width: "0.9fr",
+            accessor: item => item.status,
+            cell: (value, item) => (
+                <span
+                    className={
+                        item.status === "published" ? styles.statusPublished : styles.statusDraft
+                    }
+                >
+                    {value === "published" ? "Pubblicato" : "Bozza"}
+                </span>
+            )
+        },
+        {
+            id: "actions",
+            header: "Azioni",
+            width: "96px",
+            align: "right",
+            cell: (_value, item) => (
+                <div className={styles.actions}>
+                    <IconButton
+                        variant="ghost"
+                        icon={<Pencil size={16} />}
+                        aria-label="Modifica"
+                        onClick={() => handleEdit(item)}
+                    />
+                    <IconButton
+                        variant="ghost"
+                        icon={<Trash2 size={16} />}
+                        aria-label="Elimina"
+                        onClick={() => setDeleteTarget(item)}
+                    />
+                </div>
+            )
+        }
+    ];
 
     const activeFilters = (
         <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
@@ -174,69 +264,29 @@ export default function Highlights() {
                     advancedFilters={activeFilters}
                 />
 
-                {loading ? (
-                    <Text colorVariant="muted">Caricamento in corso...</Text>
-                ) : filteredContents.length === 0 ? (
-                    <div className={styles.emptyState}>
-                        <Text variant="title-sm" weight={600}>
-                            Nessun contenuto trovato
-                        </Text>
-                        <Text colorVariant="muted">
-                            Non ci sono contenuti che corrispondono ai filtri.
-                        </Text>
-                    </div>
-                ) : (
-                    <ul
-                        className={`${styles.list} ${densityView === "list" ? styles.compact : styles.extended}`}
-                        role="list"
-                    >
-                        {filteredContents.map(item => (
-                            <li key={item.id} className={styles.listItem}>
-                                <div className={styles.cardInfo}>
-                                    <Text variant="title-sm" weight={600}>
-                                        {item.title}
-                                    </Text>
-                                    <div className={styles.badges}>
-                                        <div className={styles.badge}>
-                                            {item.pricing_mode === "none"
-                                                ? "Editoriale"
-                                                : "Composito"}
-                                        </div>
-                                        {item.status === "draft" && (
-                                            <div className={`${styles.badge} ${styles.draft}`}>
-                                                Bozza
-                                            </div>
-                                        )}
-                                        {item.pricing_mode !== "none" && (
-                                            <div className={styles.badge}>
-                                                {item.products_count || 0} prodotti
-                                            </div>
-                                        )}
-                                    </div>
-                                    {densityView === "grid" && item.subtitle && (
-                                        <Text variant="caption" colorVariant="muted">
-                                            {item.subtitle}
-                                        </Text>
-                                    )}
-                                </div>
-                                <div className={styles.actions}>
-                                    <IconButton
-                                        variant="ghost"
-                                        icon={<Pencil size={16} />}
-                                        aria-label="Modifica"
-                                        onClick={() => handleEdit(item)}
-                                    />
-                                    <IconButton
-                                        variant="ghost"
-                                        icon={<Trash2 size={16} />}
-                                        aria-label="Elimina"
-                                        onClick={() => setDeleteTarget(item)}
-                                    />
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
-                )}
+                <div className={styles.tableCard}>
+                    <DataTable<FeaturedContentWithProducts>
+                        data={filteredContents}
+                        columns={columns}
+                        isLoading={loading}
+                        density={densityView === "list" ? "compact" : "extended"}
+                        loadingState={
+                            <div className={styles.loadingState}>
+                                <Text colorVariant="muted">Caricamento in corso...</Text>
+                            </div>
+                        }
+                        emptyState={
+                            <div className={styles.emptyState}>
+                                <Text variant="title-sm" weight={600}>
+                                    Nessun contenuto trovato
+                                </Text>
+                                <Text colorVariant="muted">
+                                    Non ci sono contenuti che corrispondono ai filtri.
+                                </Text>
+                            </div>
+                        }
+                    />
+                </div>
             </div>
 
             <ModalLayout

@@ -3,6 +3,7 @@ import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
 import { Button } from "@/components/ui";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
+import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
@@ -393,10 +394,10 @@ export default function Programming() {
         return typeFilteredRules.filter(rule => {
             const targetLabel = getRuleTargetLabel(rule, activityById);
             const catalogLabel = rule.layout?.catalog_id
-                ? (catalogById.get(rule.layout.catalog_id)?.name ?? rule.layout.catalog_id)
+                ? catalogById.get(rule.layout.catalog_id)?.name ?? rule.layout.catalog_id
                 : "";
             const styleLabel = rule.layout?.style_id
-                ? (styleById.get(rule.layout.style_id)?.name ?? rule.layout.style_id)
+                ? styleById.get(rule.layout.style_id)?.name ?? rule.layout.style_id
                 : "";
             const ruleTypeLabel = getRuleTypeLabel(rule.rule_type);
             const priceProductsLabel =
@@ -410,7 +411,9 @@ export default function Programming() {
                     ? rule.visibility_overrides
                           .map(
                               override =>
-                                  `${override.product_name ?? override.product_id} ${override.visible ? "visibile" : "nascosto"}`
+                                  `${override.product_name ?? override.product_id} ${
+                                      override.visible ? "visibile" : "nascosto"
+                                  }`
                           )
                           .join(" ")
                     : "";
@@ -503,6 +506,165 @@ export default function Programming() {
         rules
     ]);
 
+    const columns: ColumnDefinition<LayoutRule>[] = [
+        {
+            id: "target",
+            header: "Activity",
+            width: "2.2fr",
+            cell: (_value, rule) => {
+                const targetLabel = getRuleTargetLabel(rule, activityById);
+                const isPriceRule = rule.rule_type === "price";
+                const isVisibilityRule = rule.rule_type === "visibility";
+
+                return (
+                    <div>
+                        <Text variant="body-sm" weight={600}>
+                            {targetLabel}
+                        </Text>
+                        <Text variant="caption" colorVariant="muted">
+                            {rule.target_id}
+                        </Text>
+                        {isPriceRule && rule.price_overrides.length > 0 && (
+                            <Text variant="caption" colorVariant="muted">
+                                Prodotti:{" "}
+                                {rule.price_overrides
+                                    .map(override => override.product_name ?? override.product_id)
+                                    .join(", ")}
+                            </Text>
+                        )}
+                        {isVisibilityRule && rule.visibility_overrides.length > 0 && (
+                            <Text variant="caption" colorVariant="muted">
+                                Prodotti:{" "}
+                                {rule.visibility_overrides
+                                    .map(
+                                        override =>
+                                            `${override.product_name ?? override.product_id} (${
+                                                override.visible ? "visibile" : "nascosto"
+                                            })`
+                                    )
+                                    .join(", ")}
+                            </Text>
+                        )}
+                    </div>
+                );
+            }
+        },
+        {
+            id: "type",
+            header: "Tipo",
+            width: "1fr",
+            cell: (_value, rule) => {
+                const ruleTypeLabel = getRuleTypeLabel(rule.rule_type);
+                const ruleTypeBadgeClassName =
+                    rule.rule_type === "layout"
+                        ? styles.ruleTypeLayout
+                        : rule.rule_type === "price"
+                        ? styles.ruleTypePrice
+                        : styles.ruleTypeVisibility;
+
+                return (
+                    <div className={styles.typeCell}>
+                        <span className={`${styles.ruleTypeBadge} ${ruleTypeBadgeClassName}`}>
+                            <Text variant="caption" colorVariant="white" as="span">
+                                {ruleTypeLabel}
+                            </Text>
+                        </span>
+                        {activeRuleIds.has(rule.id) && (
+                            <span className={styles.activeNowBadge}>
+                                <Text variant="caption-xs" colorVariant="white" as="span">
+                                    Attiva ora
+                                </Text>
+                            </span>
+                        )}
+                    </div>
+                );
+            }
+        },
+        {
+            id: "catalog",
+            header: "Catalog",
+            width: "1.6fr",
+            cell: (_value, rule) => {
+                if (rule.rule_type !== "layout") {
+                    return (
+                        <span className={styles.placeholderBadge}>
+                            <Text variant="caption" colorVariant="muted" as="span">
+                                N/A
+                            </Text>
+                        </span>
+                    );
+                }
+
+                const catalogName = rule.layout?.catalog_id
+                    ? catalogById.get(rule.layout.catalog_id)?.name ?? rule.layout.catalog_id
+                    : null;
+
+                return <Text variant="body-sm">{catalogName ?? "-"}</Text>;
+            }
+        },
+        {
+            id: "style",
+            header: "Style",
+            width: "1.6fr",
+            cell: (_value, rule) => {
+                if (rule.rule_type !== "layout") {
+                    return (
+                        <span className={styles.placeholderBadge}>
+                            <Text variant="caption" colorVariant="muted" as="span">
+                                N/A
+                            </Text>
+                        </span>
+                    );
+                }
+
+                const styleName = rule.layout?.style_id
+                    ? styleById.get(rule.layout.style_id)?.name ?? rule.layout.style_id
+                    : null;
+
+                return <Text variant="body-sm">{styleName ?? "-"}</Text>;
+            }
+        },
+        {
+            id: "priority",
+            header: "Priority",
+            width: "0.8fr",
+            accessor: rule => rule.priority,
+            cell: value => <Text variant="body-sm">{value as number}</Text>
+        },
+        {
+            id: "timeMode",
+            header: "Time Mode",
+            width: "1fr",
+            accessor: rule => rule.time_mode,
+            cell: value => <Text variant="body-sm">{value as string}</Text>
+        },
+        {
+            id: "status",
+            header: "Stato",
+            width: "0.8fr",
+            cell: (_value, rule) => (
+                <span className={rule.enabled ? styles.statusOn : styles.statusOff}>
+                    <Text variant="caption" colorVariant="white" as="span">
+                        {rule.enabled ? "Enabled" : "Disabled"}
+                    </Text>
+                </span>
+            )
+        },
+        {
+            id: "actions",
+            header: "Azioni",
+            width: "0.8fr",
+            align: "right",
+            cell: (_value, rule) => (
+                <div>
+                    <Button variant="secondary" onClick={() => void handleDeleteRule(rule.id)}>
+                        Elimina
+                    </Button>
+                </div>
+            )
+        }
+    ];
+
     const handleOpenCreate = () => {
         setForm(
             buildDefaultForm(
@@ -517,7 +679,7 @@ export default function Programming() {
         setIsCreateDrawerOpen(true);
     };
 
-    const handleDeleteRule = async (scheduleId: string) => {
+    async function handleDeleteRule(scheduleId: string) {
         const ruleToDelete = rules.find(r => r.id === scheduleId);
         if (!ruleToDelete) return;
 
@@ -572,7 +734,7 @@ export default function Programming() {
                 duration: 3000
             });
         }
-    };
+    }
 
     const handleCreateRule = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -753,8 +915,8 @@ export default function Programming() {
                 message: isLayoutType
                     ? "Layout rule creata con successo."
                     : isPriceType
-                      ? "Price rule creata con successo."
-                      : "Visibility rule creata con successo.",
+                    ? "Price rule creata con successo."
+                    : "Visibility rule creata con successo.",
                 duration: 2400
             });
 
@@ -775,17 +937,9 @@ export default function Programming() {
     return (
         <section className={styles.programming}>
             <div className={styles.topArea}>
-                <Breadcrumb
-                    items={[
-                        { label: "Dashboard", to: "/dashboard" },
-                        { label: "Operatività", to: "/dashboard/attivita" },
-                        { label: "Programmazione" }
-                    ]}
-                />
-
                 <PageHeader
                     title="Programmazione"
-                    subtitle="Gestisci le regole layout V2 per attività, cataloghi e stili."
+                    subtitle="Gestisci le regole layout per attività, cataloghi e stili."
                     actions={
                         <Button
                             variant="primary"
@@ -851,165 +1005,25 @@ export default function Programming() {
             />
 
             <div className={styles.tableCard}>
-                <div className={styles.tableHeader}>
-                    <Text variant="caption" colorVariant="muted">
-                        Activity
-                    </Text>
-                    <Text variant="caption" colorVariant="muted">
-                        Tipo
-                    </Text>
-                    <Text variant="caption" colorVariant="muted">
-                        Catalog
-                    </Text>
-                    <Text variant="caption" colorVariant="muted">
-                        Style
-                    </Text>
-                    <Text variant="caption" colorVariant="muted">
-                        Priority
-                    </Text>
-                    <Text variant="caption" colorVariant="muted">
-                        Time Mode
-                    </Text>
-                    <Text variant="caption" colorVariant="muted">
-                        Stato
-                    </Text>
-                    <Text variant="caption" colorVariant="muted">
-                        Azioni
-                    </Text>
-                </div>
-
-                {isLoading ? (
-                    <div className={styles.emptyState}>
-                        <Text colorVariant="muted">Caricamento regole...</Text>
-                    </div>
-                ) : filteredRules.length === 0 ? (
-                    <div className={styles.emptyState}>
-                        <Text variant="title-sm">Nessuna regola</Text>
-                        <Text colorVariant="muted">
-                            Crea la prima regola layout o modifica i filtri di ricerca.
-                        </Text>
-                    </div>
-                ) : (
-                    filteredRules.map(rule => {
-                        const targetLabel = getRuleTargetLabel(rule, activityById);
-                        const isLayoutRule = rule.rule_type === "layout";
-                        const isPriceRule = rule.rule_type === "price";
-                        const isVisibilityRule = rule.rule_type === "visibility";
-                        const catalogName =
-                            isLayoutRule && rule.layout?.catalog_id
-                                ? (catalogById.get(rule.layout.catalog_id)?.name ??
-                                  rule.layout.catalog_id)
-                                : null;
-                        const styleName =
-                            isLayoutRule && rule.layout?.style_id
-                                ? (styleById.get(rule.layout.style_id)?.name ??
-                                  rule.layout.style_id)
-                                : null;
-                        const ruleTypeLabel = getRuleTypeLabel(rule.rule_type);
-                        const ruleTypeBadgeClassName =
-                            rule.rule_type === "layout"
-                                ? styles.ruleTypeLayout
-                                : rule.rule_type === "price"
-                                  ? styles.ruleTypePrice
-                                  : styles.ruleTypeVisibility;
-
-                        return (
-                            <div
-                                key={rule.id}
-                                className={`${styles.row} ${
-                                    densityView === "list" ? styles.rowDense : styles.rowComfort
-                                }`}
-                            >
-                                <div>
-                                    <Text variant="body-sm" weight={600}>
-                                        {targetLabel}
-                                    </Text>
-                                    <Text variant="caption" colorVariant="muted">
-                                        {rule.target_id}
-                                    </Text>
-                                    {isPriceRule && rule.price_overrides.length > 0 && (
-                                        <Text variant="caption" colorVariant="muted">
-                                            Prodotti:{" "}
-                                            {rule.price_overrides
-                                                .map(
-                                                    override =>
-                                                        override.product_name ?? override.product_id
-                                                )
-                                                .join(", ")}
-                                        </Text>
-                                    )}
-                                    {isVisibilityRule && rule.visibility_overrides.length > 0 && (
-                                        <Text variant="caption" colorVariant="muted">
-                                            Prodotti:{" "}
-                                            {rule.visibility_overrides
-                                                .map(
-                                                    override =>
-                                                        `${override.product_name ?? override.product_id} (${override.visible ? "visibile" : "nascosto"})`
-                                                )
-                                                .join(", ")}
-                                        </Text>
-                                    )}
-                                </div>
-
-                                <div className={styles.typeCell}>
-                                    <span
-                                        className={`${styles.ruleTypeBadge} ${ruleTypeBadgeClassName}`}
-                                    >
-                                        <Text variant="caption" colorVariant="white" as="span">
-                                            {ruleTypeLabel}
-                                        </Text>
-                                    </span>
-                                    {activeRuleIds.has(rule.id) && (
-                                        <span className={styles.activeNowBadge}>
-                                            <Text
-                                                variant="caption-xs"
-                                                colorVariant="white"
-                                                as="span"
-                                            >
-                                                Attiva ora
-                                            </Text>
-                                        </span>
-                                    )}
-                                </div>
-
-                                {isLayoutRule ? (
-                                    <Text variant="body-sm">{catalogName ?? "-"}</Text>
-                                ) : (
-                                    <span className={styles.placeholderBadge}>
-                                        <Text variant="caption" colorVariant="muted" as="span">
-                                            N/A
-                                        </Text>
-                                    </span>
-                                )}
-
-                                {isLayoutRule ? (
-                                    <Text variant="body-sm">{styleName ?? "-"}</Text>
-                                ) : (
-                                    <span className={styles.placeholderBadge}>
-                                        <Text variant="caption" colorVariant="muted" as="span">
-                                            N/A
-                                        </Text>
-                                    </span>
-                                )}
-                                <Text variant="body-sm">{rule.priority}</Text>
-                                <Text variant="body-sm">{rule.time_mode}</Text>
-                                <span className={rule.enabled ? styles.statusOn : styles.statusOff}>
-                                    <Text variant="caption" colorVariant="white" as="span">
-                                        {rule.enabled ? "Enabled" : "Disabled"}
-                                    </Text>
-                                </span>
-                                <div>
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() => void handleDeleteRule(rule.id)}
-                                    >
-                                        Elimina
-                                    </Button>
-                                </div>
-                            </div>
-                        );
-                    })
-                )}
+                <DataTable<LayoutRule>
+                    data={filteredRules}
+                    columns={columns}
+                    isLoading={isLoading}
+                    density={densityView === "list" ? "compact" : "extended"}
+                    loadingState={
+                        <div className={styles.emptyState}>
+                            <Text colorVariant="muted">Caricamento regole...</Text>
+                        </div>
+                    }
+                    emptyState={
+                        <div className={styles.emptyState}>
+                            <Text variant="title-sm">Nessuna regola</Text>
+                            <Text colorVariant="muted">
+                                Crea la prima regola layout o modifica i filtri di ricerca.
+                            </Text>
+                        </div>
+                    }
+                />
             </div>
 
             <SystemDrawer
@@ -1087,7 +1101,11 @@ export default function Programming() {
                                             }
                                             className={`${styles.ruleTypeSegmentButton} ${
                                                 isSelected ? styles.ruleTypeSegmentButtonActive : ""
-                                            } ${option.disabled ? styles.ruleTypeSegmentButtonDisabled : ""}`}
+                                            } ${
+                                                option.disabled
+                                                    ? styles.ruleTypeSegmentButtonDisabled
+                                                    : ""
+                                            }`}
                                         >
                                             <Text
                                                 as="span"

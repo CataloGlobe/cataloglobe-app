@@ -33,7 +33,6 @@ import ModalLayout, {
     ModalLayoutFooter,
     ModalLayoutHeader
 } from "@/components/ui/ModalLayout/ModalLayout";
-import { useDrawer } from "@/context/Drawer/useDrawer";
 
 // valore statico → performance migliore
 const previewBaseUrl = window.location.origin;
@@ -58,7 +57,6 @@ export default function Businesses() {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-    const { openDrawer, closeDrawer } = useDrawer();
 
     // ======================================
     // STATE: lista dei business
@@ -739,44 +737,6 @@ export default function Businesses() {
                     </Button>
                 </ModalLayoutFooter>
             </ModalLayout>
-            {/* TEST TRIGGER */}
-            <Button
-                variant="secondary"
-                onClick={() => {
-                    openDrawer({
-                        title: "Test Global Drawer",
-                        content: (
-                            <div style={{ padding: 20 }}>
-                                <p>
-                                    <strong>Integration Test on Businesses Page</strong>
-                                </p>
-                                <p>This drawer is opened via global drawer system.</p>
-                                <p>It should overlay the Sidebar and Main Content.</p>
-                                <p>Scroll should be locked.</p>
-                                <div
-                                    style={{
-                                        height: "150vh",
-                                        background: "linear-gradient(#fff, #f0f0f0)"
-                                    }}
-                                >
-                                    <p style={{ paddingTop: 20 }}>
-                                        Scroll down to test body scroll...
-                                    </p>
-                                </div>
-                            </div>
-                        ),
-                        footer: (
-                            <Button variant="secondary" onClick={closeDrawer}>
-                                Close Drawer
-                            </Button>
-                        ),
-                        size: "md"
-                    });
-                }}
-                style={{ position: "fixed", bottom: 20, right: 20, zIndex: 100 }}
-            >
-                Open Global Drawer
-            </Button>
         </section>
     );
 }
