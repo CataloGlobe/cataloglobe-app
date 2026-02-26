@@ -1,16 +1,23 @@
 import { supabase } from "../client";
 
-export type FeaturedContentType = "informative" | "composite";
+export type FeaturedContentStatus = "draft" | "published";
+export type FeaturedContentPricingMode = "none" | "per_item" | "bundle";
 
 export interface FeaturedContent {
     id: string;
     tenant_id: string;
+    internal_name: string;
     title: string;
     subtitle: string | null;
     description: string | null;
-    cover_image_url: string | null;
-    type: FeaturedContentType;
-    is_active: boolean;
+    media_id: string | null;
+    cta_text: string | null;
+    cta_url: string | null;
+    status: FeaturedContentStatus;
+    layout_style: string | null;
+    pricing_mode: FeaturedContentPricingMode;
+    bundle_price: number | null;
+    show_original_total: boolean;
     created_at: string;
     updated_at: string;
 }
@@ -66,24 +73,20 @@ export async function getFeaturedContentById(id: string): Promise<FeaturedConten
 
     if (contentError) throw contentError;
 
-    if (content.type === "composite") {
-        const { data: products, error: productsError } = await supabase
-            .from("v2_featured_content_products")
-            .select(
-                `
-                *,
-                product:product_id (id, name, description, image_url, price)
+    const { data: products, error: productsError } = await supabase
+        .from("v2_featured_content_products")
+        .select(
             `
-            )
-            .eq("featured_content_id", id)
-            .order("sort_order", { ascending: true });
+            *,
+            product:product_id (id, name, description, image_url, price)
+        `
+        )
+        .eq("featured_content_id", id)
+        .order("sort_order", { ascending: true });
 
-        if (productsError) throw productsError;
+    if (productsError) throw productsError;
 
-        return { ...content, products };
-    }
-
-    return content;
+    return { ...content, products };
 }
 
 export async function createFeaturedContent(
@@ -102,7 +105,7 @@ export async function createFeaturedContent(
 
     if (contentError) throw contentError;
 
-    if (content.type === "composite" && productsData.length > 0) {
+    if (productsData.length > 0) {
         const productsToInsert = productsData.map((p, index) => ({
             ...p,
             tenant_id: tenantId,
@@ -135,37 +138,28 @@ export async function updateFeaturedContent(
 
     if (contentError) throw contentError;
 
-    if (contentData.type === "informative" || content.type === "informative") {
-        // If it's informative, delete any possibly existing products
-        const { error: delError } = await supabase
+    // Delete all and re-insert logic
+    const { error: delError } = await supabase
+        .from("v2_featured_content_products")
+        .delete()
+        .eq("featured_content_id", id);
+
+    if (delError) throw delError;
+
+    if (productsData.length > 0) {
+        const productsToInsert = productsData.map((p, index) => ({
+            product_id: p.product_id,
+            note: p.note || null,
+            tenant_id: tenantId,
+            featured_content_id: id,
+            sort_order: p.sort_order ?? index
+        }));
+
+        const { error: productsError } = await supabase
             .from("v2_featured_content_products")
-            .delete()
-            .eq("featured_content_id", id);
-        if (delError) throw delError;
-    } else if (content.type === "composite") {
-        // Delete all and re-insert logic
-        const { error: delError } = await supabase
-            .from("v2_featured_content_products")
-            .delete()
-            .eq("featured_content_id", id);
+            .insert(productsToInsert);
 
-        if (delError) throw delError;
-
-        if (productsData.length > 0) {
-            const productsToInsert = productsData.map((p, index) => ({
-                product_id: p.product_id,
-                note: p.note || null,
-                tenant_id: tenantId,
-                featured_content_id: id,
-                sort_order: p.sort_order ?? index
-            }));
-
-            const { error: productsError } = await supabase
-                .from("v2_featured_content_products")
-                .insert(productsToInsert);
-
-            if (productsError) throw productsError;
-        }
+        if (productsError) throw productsError;
     }
 
     return content;

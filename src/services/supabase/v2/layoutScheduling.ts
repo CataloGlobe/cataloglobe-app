@@ -394,7 +394,7 @@ export async function listLayoutRuleOptions(): Promise<{
         supabase
             .from("v2_featured_contents")
             .select("id, title, tenant_id")
-            .eq("is_active", true)
+            .eq("status", "published")
             .order("title", { ascending: true })
     ]);
 
