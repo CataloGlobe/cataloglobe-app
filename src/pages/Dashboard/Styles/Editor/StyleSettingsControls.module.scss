@@ -1,0 +1,255 @@
+.panelRoot {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.panelSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--color-border, #e5e9f2);
+}
+
+.panelSection:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.sectionTitle {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.85rem;
+  color: var(--color-text-muted, #64748b);
+}
+
+.controlField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fieldLabel {
+  margin: 0;
+  color: var(--color-text, #1f2a37);
+  font-size: 0.95rem;
+}
+
+.colorInputShell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border, #dce3ef);
+  border-radius: 12px;
+  background: var(--color-surface, #ffffff);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.colorInputShell:focus-within {
+  border-color: var(--color-primary, #6366f1);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.16);
+}
+
+.colorSwatch {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border, #d5ddeb);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+  overflow: hidden;
+}
+
+.hiddenColorInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.colorHexInput {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: "JetBrains Mono", "Fira Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  font-size: 0.95rem;
+  color: var(--color-text, #2a3648);
+  letter-spacing: 0.2px;
+}
+
+.colorHexInput::placeholder {
+  color: var(--color-text-muted, #9aa6bb);
+}
+
+.colorEditAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  color: var(--color-text-muted, #98a4ba);
+  background: transparent;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.colorEditAction:hover {
+  color: var(--color-text, #5f6f88);
+  background-color: var(--color-surface-hover, #f4f7fc);
+}
+
+.sliderHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sliderValue {
+  margin: 0;
+  color: var(--color-text-muted, #5f6f88);
+  font-size: 0.8rem;
+}
+
+.sliderInput {
+  width: 100%;
+  height: 18px;
+  cursor: pointer;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.sliderInput:focus-visible {
+  outline: none;
+}
+
+.sliderInput::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-border, #e4e8f1);
+}
+
+.sliderInput::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border: 2px solid var(--color-surface, #ffffff);
+  border-radius: 999px;
+  background: var(--color-primary, #6366f1);
+  box-shadow: 0 3px 10px rgba(99, 102, 241, 0.24);
+  -webkit-appearance: none;
+}
+
+.sliderInput::-moz-range-track {
+  height: 6px;
+  border: none;
+  border-radius: 999px;
+  background: var(--color-border, #e4e8f1);
+}
+
+.sliderInput::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-surface, #ffffff);
+  border-radius: 999px;
+  background: var(--color-primary, #6366f1);
+  box-shadow: 0 3px 10px rgba(99, 102, 241, 0.24);
+}
+
+.buttonGroup {
+  display: grid;
+  gap: 8px;
+}
+
+.nav {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cards {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.optionButton {
+  border: 1px solid var(--color-border, #dce3ef);
+  border-radius: 10px;
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text-muted, #5f6f88);
+  min-height: 44px;
+  padding: 8px 10px;
+  text-align: center;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.optionButton:hover {
+  border-color: var(--color-border-subtle, #b9c5dd);
+}
+
+.optionButtonActive {
+  border-color: var(--color-primary, #6366f1);
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--color-primary, #4b53d0);
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.12);
+}
+
+.cardOptionButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 104px;
+}
+
+.layoutPreview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 42px;
+}
+
+.gridPreview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gridPreview span {
+  width: 21px;
+  height: 38px;
+  border-radius: 3px;
+  background: #7e82f2;
+}
+
+.listPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 80%;
+}
+
+.listPreview span {
+  height: 8px;
+  border-radius: 3px;
+  background: #b5bcc9;
+}
+
+@media (max-width: 480px) {
+  .nav {
+    grid-template-columns: 1fr;
+  }
+
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}
