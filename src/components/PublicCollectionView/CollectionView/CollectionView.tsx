@@ -16,6 +16,17 @@ export type CollectionViewSectionItem = {
     effective_price?: number | null;
     original_price?: number | null;
     image?: string | null;
+    optionGroups?: {
+        id: string;
+        name: string;
+        isRequired: boolean;
+        maxSelectable: number | null;
+        values: {
+            id: string;
+            name: string;
+            priceModifier: number | null;
+        }[];
+    }[];
 };
 
 export type CollectionViewSection = {
@@ -235,11 +246,14 @@ export default function CollectionView({
                                                                         )}
                                                                     </span>
                                                                 )}
-                                                                <span className={styles.priceCurrent}>
+                                                                <span
+                                                                    className={styles.priceCurrent}
+                                                                >
                                                                     €{" "}
-                                                                    {(item.effective_price ?? item.price)?.toFixed(
-                                                                        2
-                                                                    )}
+                                                                    {(
+                                                                        item.effective_price ??
+                                                                        item.price
+                                                                    )?.toFixed(2)}
                                                                 </span>
                                                             </Text>
                                                         )}

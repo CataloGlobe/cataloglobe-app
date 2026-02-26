@@ -72,6 +72,102 @@ export default function ItemDetail({ item, isOpen, onClose }: Props) {
                             </Text>
                         )}
 
+                        {/* OPZIONI PRODOTTO */}
+                        {item.optionGroups && item.optionGroups.length > 0 && (
+                            <div className={styles.optionsSection}>
+                                <Text
+                                    variant="body"
+                                    weight={700}
+                                    style={{ marginTop: 24, marginBottom: 12 }}
+                                >
+                                    Opzioni disponibili
+                                </Text>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                                    {item.optionGroups.map(group => (
+                                        <div key={group.id} className={styles.optionGroup}>
+                                            <div
+                                                style={{
+                                                    marginBottom: 8,
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: 8
+                                                }}
+                                            >
+                                                <Text variant="body-sm" weight={600}>
+                                                    {group.name}
+                                                </Text>
+                                                {group.isRequired && (
+                                                    <span
+                                                        style={{
+                                                            backgroundColor:
+                                                                "var(--color-warning-100)",
+                                                            color: "var(--color-warning-700)",
+                                                            padding: "2px 6px",
+                                                            borderRadius: "4px",
+                                                            fontSize: "11px",
+                                                            fontWeight: 600
+                                                        }}
+                                                    >
+                                                        Obbligatorio
+                                                    </span>
+                                                )}
+                                                {group.maxSelectable != null && (
+                                                    <Text variant="caption" colorVariant="muted">
+                                                        Max {group.maxSelectable} selezionabili
+                                                    </Text>
+                                                )}
+                                            </div>
+                                            {group.values.length > 0 && (
+                                                <ul
+                                                    style={{
+                                                        listStyle: "none",
+                                                        padding: 0,
+                                                        margin: 0,
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        gap: 4
+                                                    }}
+                                                >
+                                                    {group.values.map(val => (
+                                                        <li
+                                                            key={val.id}
+                                                            style={{
+                                                                display: "flex",
+                                                                justifyContent: "space-between",
+                                                                alignItems: "center",
+                                                                padding: "6px 0",
+                                                                borderBottom:
+                                                                    "1px solid var(--color-gray-100)"
+                                                            }}
+                                                        >
+                                                            <Text variant="body-sm">
+                                                                {val.name}
+                                                            </Text>
+                                                            {val.priceModifier != null &&
+                                                                val.priceModifier !== 0 && (
+                                                                    <Text
+                                                                        variant="body-sm"
+                                                                        colorVariant="muted"
+                                                                    >
+                                                                        {val.priceModifier > 0
+                                                                            ? "+"
+                                                                            : ""}
+                                                                        {val.priceModifier.toFixed(
+                                                                            2
+                                                                        )}{" "}
+                                                                        €
+                                                                    </Text>
+                                                                )}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* 🔮 SLOT FUTURI
                         - allergeni
                         - ingredienti
