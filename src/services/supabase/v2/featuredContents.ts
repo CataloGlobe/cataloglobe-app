@@ -39,8 +39,7 @@ export interface FeaturedContentWithProducts extends FeaturedContent {
             id: string;
             name: string;
             description?: string;
-            image_url?: string;
-            price?: number;
+            base_price?: number;
         };
     })[];
 }
@@ -78,7 +77,7 @@ export async function getFeaturedContentById(id: string): Promise<FeaturedConten
         .select(
             `
             *,
-            product:product_id (id, name, description, image_url, price)
+            product:product_id (id, name, description, base_price)
         `
         )
         .eq("featured_content_id", id)

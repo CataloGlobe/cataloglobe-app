@@ -61,7 +61,7 @@ type ProductCreateEditDrawerProps = {
     mode: ProductFormMode;
     productData: V2Product | null; // For edit
     parentProduct: V2Product | null; // For create_variant
-    onSuccess: () => void;
+    onSuccess: (savedProduct?: V2Product) => void | Promise<void>;
     tenantId?: string;
 };
 
@@ -454,9 +454,10 @@ export function ProductCreateEditDrawer({
         setIsSaving(true);
         try {
             let savedProductId = "";
+            let savedProduct: V2Product | undefined;
 
             if (isEditing && productData) {
-                await updateProduct(
+                const updatedProduct = await updateProduct(
                     productData.id,
                     productData.tenant_id,
                     {
@@ -468,6 +469,7 @@ export function ProductCreateEditDrawer({
                     productData.parent_product_id
                 );
                 savedProductId = productData.id;
+                savedProduct = updatedProduct;
             } else {
                 if (!tenantId) throw new Error("Tenant ID mancante");
                 const parentId =
@@ -483,6 +485,7 @@ export function ProductCreateEditDrawer({
                     parentId
                 );
                 savedProductId = newProduct.id;
+                savedProduct = newProduct;
             }
 
             // Save attributes associated with the product
@@ -536,7 +539,7 @@ export function ProductCreateEditDrawer({
                 type: "success"
             });
 
-            onSuccess();
+            await Promise.resolve(onSuccess(savedProduct));
             onClose();
         } catch (error: any) {
             console.error("Errore salvataggio prodotto:", error);

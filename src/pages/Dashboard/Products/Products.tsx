@@ -9,12 +9,7 @@ import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/Data
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import {
-    IconPizza,
-    IconDotsVertical,
-    IconChevronDown,
-    IconChevronRight
-} from "@tabler/icons-react";
+import { IconDotsVertical, IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import styles from "./Products.module.scss";
 
@@ -202,7 +197,11 @@ export default function Products() {
                         onClick={() => toggleRow(row.product.id)}
                         aria-label={row.isExpanded ? "Comprimi" : "Espandi"}
                     >
-                        {row.isExpanded ? <IconChevronDown size={20} /> : <IconChevronRight size={20} />}
+                        {row.isExpanded ? (
+                            <IconChevronDown size={20} />
+                        ) : (
+                            <IconChevronRight size={20} />
+                        )}
                     </button>
                 ) : (
                     <span className={styles.expanderSpacer} />
@@ -214,7 +213,11 @@ export default function Products() {
             width: "2fr",
             accessor: row => row.product.name,
             cell: (_value, row) => (
-                <div className={`${styles.colName} ${row.kind === "variant" ? styles.variantName : ""}`}>
+                <div
+                    className={`${styles.colName} ${
+                        row.kind === "variant" ? styles.variantName : ""
+                    }`}
+                >
                     <div className={styles.productNameRow}>
                         <Text variant="body-sm" weight={row.kind === "variant" ? 500 : 600}>
                             {row.product.name}
@@ -297,7 +300,9 @@ export default function Products() {
                                     className={styles.dropdownItem}
                                     onClick={() => handleEdit(row.product)}
                                 >
-                                    {row.kind === "base" ? "Modifica Prodotto" : "Modifica Variante"}
+                                    {row.kind === "base"
+                                        ? "Modifica Prodotto"
+                                        : "Modifica Variante"}
                                 </DropdownMenu.Item>
 
                                 {row.kind === "base" && (
@@ -389,7 +394,6 @@ export default function Products() {
                                 </div>
                             ) : filteredProducts.length === 0 ? (
                                 <div className={styles.emptyState}>
-                                    <IconPizza size={48} stroke={1} className={styles.emptyIcon} />
                                     <Text variant="title-sm" weight={600}>
                                         Nessun prodotto trovato
                                     </Text>

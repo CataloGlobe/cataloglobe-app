@@ -15,6 +15,7 @@ import ModalLayout, {
 } from "@/components/ui/ModalLayout/ModalLayout";
 import {
     listFeaturedContents,
+    getFeaturedContentById,
     deleteFeaturedContent,
     FeaturedContentWithProducts
 } from "@/services/supabase/v2/featuredContents";
@@ -97,8 +98,19 @@ export default function Highlights() {
         openContentDrawer(null);
     };
 
-    const handleEdit = (item: FeaturedContentWithProducts) => {
-        openContentDrawer(item);
+    const handleEdit = async (item: FeaturedContentWithProducts) => {
+        try {
+            // Carica il record completo con i prodotti reali (la lista ha solo il count)
+            const fullContent = await getFeaturedContentById(item.id);
+            openContentDrawer(fullContent);
+        } catch (error) {
+            console.error(error);
+            showToast({
+                type: "error",
+                message: "Errore durante il caricamento del contenuto",
+                duration: 3000
+            });
+        }
     };
 
     const handleDelete = async () => {

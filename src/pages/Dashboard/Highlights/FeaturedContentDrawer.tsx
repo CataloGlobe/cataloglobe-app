@@ -35,6 +35,44 @@ type DrawerProduct = Partial<FeaturedContentProduct> & { product?: { name: strin
 
 import { useAuth } from "@/context/useAuth";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Derivazione pricing_mode dal doppio controllo UI
+// ─────────────────────────────────────────────────────────────────────────────
+function derivePricingMode(mostraProdotti: boolean, haPrezzo: boolean): FeaturedContentPricingMode {
+    if (haPrezzo) return "bundle";
+    if (mostraProdotti) return "per_item";
+    return "none";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Inizializzazione stato UI da pricing_mode (edit mode)
+// ─────────────────────────────────────────────────────────────────────────────
+function deriveUIState(content: FeaturedContentWithProducts): {
+    mostraProdotti: boolean;
+    haPrezzo: boolean;
+} {
+    // Conta solo i prodotti "reali" (con product_id stringa), non gli oggetti {count}
+    // provenienti da listFeaturedContents() che usa `products (count)`
+    const realProductsCount =
+        content.products?.filter(p => typeof p.product_id === "string").length ?? 0;
+
+    switch (content.pricing_mode) {
+        case "bundle":
+            return {
+                haPrezzo: true,
+                mostraProdotti: realProductsCount > 0
+            };
+        case "per_item":
+            return { mostraProdotti: true, haPrezzo: false };
+        case "none":
+        default:
+            return { mostraProdotti: false, haPrezzo: false };
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Componente
+// ─────────────────────────────────────────────────────────────────────────────
 export default function FeaturedContentDrawer({
     isOpen,
     onClose,
@@ -45,19 +83,26 @@ export default function FeaturedContentDrawer({
     const { showToast } = useToast();
     const [submitting, setSubmitting] = useState(false);
 
+    // — Campi editoriali —
     const [internalName, setInternalName] = useState("");
     const [title, setTitle] = useState("");
     const [subtitle, setSubtitle] = useState("");
     const [description, setDescription] = useState("");
     const [ctaText, setCtaText] = useState("");
     const [ctaUrl, setCtaUrl] = useState("");
-    const [pricingMode, setPricingMode] = useState<FeaturedContentPricingMode>("none");
     const [status, setStatus] = useState<FeaturedContentStatus>("published");
 
+    // — Controlli indipendenti per prodotti e prezzo —
+    const [mostraProdotti, setMostraProdotti] = useState(false);
+    const [haPrezzo, setHaPrezzo] = useState(false);
+    const [bundlePrice, setBundlePrice] = useState<string>("");
+
+    // — Prodotti —
     const [productsOptions, setProductsOptions] = useState<ProductOption[]>([]);
     const [selectedProducts, setSelectedProducts] = useState<DrawerProduct[]>([]);
     const [pickerValue, setPickerValue] = useState("");
 
+    // Caricamento lista prodotti
     useEffect(() => {
         async function loadProducts() {
             const { data, error } = await supabase
@@ -73,6 +118,7 @@ export default function FeaturedContentDrawer({
         }
     }, [isOpen]);
 
+    // Inizializzazione / reset al cambio di isOpen / editingContent
     useEffect(() => {
         if (isOpen) {
             if (editingContent) {
@@ -82,8 +128,15 @@ export default function FeaturedContentDrawer({
                 setDescription(editingContent.description || "");
                 setCtaText(editingContent.cta_text || "");
                 setCtaUrl(editingContent.cta_url || "");
-                setPricingMode(editingContent.pricing_mode || "none");
                 setStatus(editingContent.status || "published");
+
+                // Deriva stato UI dal pricing_mode persisted
+                const { mostraProdotti: mp, haPrezzo: hp } = deriveUIState(editingContent);
+                setMostraProdotti(mp);
+                setHaPrezzo(hp);
+                setBundlePrice(
+                    editingContent.bundle_price != null ? String(editingContent.bundle_price) : ""
+                );
 
                 if (editingContent.products) {
                     setSelectedProducts(
@@ -98,20 +151,32 @@ export default function FeaturedContentDrawer({
                     setSelectedProducts([]);
                 }
             } else {
+                // Nuovo contenuto — reset completo
                 setInternalName("");
                 setTitle("");
                 setSubtitle("");
                 setDescription("");
                 setCtaText("");
                 setCtaUrl("");
-                setPricingMode("none");
                 setStatus("published");
+                setMostraProdotti(false);
+                setHaPrezzo(false);
+                setBundlePrice("");
                 setSelectedProducts([]);
             }
             setPickerValue("");
         }
     }, [isOpen, editingContent]);
 
+    // Reset bundle_price quando haPrezzo viene disattivato
+    const handleToggleHaPrezzo = (checked: boolean) => {
+        setHaPrezzo(checked);
+        if (!checked) {
+            setBundlePrice("");
+        }
+    };
+
+    // ── Handlers prodotti ──────────────────────────────────────────────────
     const handleAddProduct = () => {
         if (!pickerValue) return;
         if (selectedProducts.some(p => p.product_id === pickerValue)) {
@@ -154,20 +219,33 @@ export default function FeaturedContentDrawer({
         updated[index] = updated[swapIndex];
         updated[swapIndex] = temp;
 
-        // Reassign sort orders seamlessly
         updated.forEach((p, i) => {
             p.sort_order = i;
         });
         setSelectedProducts(updated);
     };
 
+    // ── Save ───────────────────────────────────────────────────────────────
     const handleSave = async () => {
         if (!title.trim()) {
             showToast({ type: "error", message: "Il titolo è obbligatorio", duration: 3000 });
             return;
         }
 
-        const tenantId = user?.id; // user comes from useAuth
+        // Validazione prezzo quando attivo
+        if (haPrezzo) {
+            const parsed = parseFloat(bundlePrice);
+            if (bundlePrice.trim() === "" || isNaN(parsed) || parsed <= 0) {
+                showToast({
+                    type: "error",
+                    message: "Inserisci un prezzo valido (maggiore di 0)",
+                    duration: 3000
+                });
+                return;
+            }
+        }
+
+        const tenantId = user?.id;
         if (!tenantId) {
             showToast({ type: "error", message: "Utente non identificato (tenantId mancante)" });
             return;
@@ -175,6 +253,11 @@ export default function FeaturedContentDrawer({
 
         try {
             setSubmitting(true);
+
+            // Derivazione pricing_mode dal doppio stato UI
+            const pricingMode = derivePricingMode(mostraProdotti, haPrezzo);
+            const resolvedBundlePrice = pricingMode === "bundle" ? parseFloat(bundlePrice) : null;
+
             const contentData = {
                 internal_name: internalName.trim() || title.trim(),
                 title: title.trim(),
@@ -183,26 +266,19 @@ export default function FeaturedContentDrawer({
                 cta_text: ctaText.trim() || null,
                 cta_url: ctaUrl.trim() || null,
                 pricing_mode: pricingMode,
+                bundle_price: resolvedBundlePrice,
                 status: status,
                 show_original_total: false
             };
 
-            const productsData =
-                pricingMode !== "none"
-                    ? selectedProducts.map((p, i) => ({
-                          product_id: p.product_id,
-                          note: p.note || null,
-                          sort_order: i
-                      }))
-                    : [];
-
-            if (pricingMode !== "none" && productsData.length === 0) {
-                showToast({
-                    type: "success",
-                    message: "Avviso: Contenuto composito salvato senza prodotti",
-                    duration: 3000
-                });
-            }
+            // I prodotti vengono inviati solo se la sezione è attiva
+            const productsData = mostraProdotti
+                ? selectedProducts.map((p, i) => ({
+                      product_id: p.product_id,
+                      note: p.note || null,
+                      sort_order: i
+                  }))
+                : [];
 
             if (editingContent) {
                 await updateFeaturedContent(editingContent.id, tenantId, contentData, productsData);
@@ -221,6 +297,7 @@ export default function FeaturedContentDrawer({
         }
     };
 
+    // ── Render ─────────────────────────────────────────────────────────────
     return (
         <form
             id="featured-content-form"
@@ -230,6 +307,7 @@ export default function FeaturedContentDrawer({
             }}
             style={{ display: "flex", flexDirection: "column", gap: "24px", padding: "24px" }}
         >
+            {/* ── Sezione: Informazioni base ───────────────────────────────── */}
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 <Text variant="title-sm" weight={600}>
                     Informazioni base
@@ -296,11 +374,13 @@ export default function FeaturedContentDrawer({
 
             <hr style={{ border: "0", borderTop: "1px solid var(--border-subtle, #e5e7eb)" }} />
 
+            {/* ── Sezione: Prodotti inclusi ─────────────────────────────────── */}
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 <Text variant="title-sm" weight={600}>
-                    Prodotti aggregati
+                    Prodotti inclusi
                 </Text>
-                <div style={{ display: "flex", gap: "16px" }}>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                     <label
                         style={{
                             display: "flex",
@@ -311,12 +391,14 @@ export default function FeaturedContentDrawer({
                     >
                         <input
                             type="radio"
-                            name="pricing_mode"
-                            value="none"
-                            checked={pricingMode === "none"}
-                            onChange={() => setPricingMode("none")}
+                            name="mostra_prodotti"
+                            checked={!mostraProdotti}
+                            onChange={() => {
+                                setMostraProdotti(false);
+                                setSelectedProducts([]);
+                            }}
                         />
-                        <Text variant="body">Nessuno (Solo Editoriale)</Text>
+                        <Text variant="body">Nessuno (solo editoriale)</Text>
                     </label>
                     <label
                         style={{
@@ -328,29 +410,16 @@ export default function FeaturedContentDrawer({
                     >
                         <input
                             type="radio"
-                            name="pricing_mode"
-                            value="per_item"
-                            checked={pricingMode === "per_item"}
-                            onChange={() => setPricingMode("per_item")}
+                            name="mostra_prodotti"
+                            checked={mostraProdotti}
+                            onChange={() => setMostraProdotti(true)}
                         />
-                        <Text variant="body">Mostra prodotti collegati</Text>
+                        <Text variant="body">Mostra prodotti</Text>
                     </label>
                 </div>
-            </div>
 
-            {pricingMode !== "none" && (
-                <>
-                    <hr
-                        style={{
-                            border: "0",
-                            borderTop: "1px solid var(--border-subtle, #e5e7eb)"
-                        }}
-                    />
-                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                        <Text variant="title-sm" weight={600}>
-                            Prodotti inclusi
-                        </Text>
-
+                {mostraProdotti && (
+                    <>
                         <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
                             <div style={{ flex: 1 }}>
                                 <Select
@@ -450,13 +519,40 @@ export default function FeaturedContentDrawer({
                             </ul>
                         ) : (
                             <Text colorVariant="muted" variant="body-sm">
-                                Nessun prodotto selezionato. Aggiungi almeno un prodotto per
-                                completare il contenuto composito.
+                                Nessun prodotto selezionato.
                             </Text>
                         )}
-                    </div>
-                </>
-            )}
+                    </>
+                )}
+            </div>
+
+            <hr style={{ border: "0", borderTop: "1px solid var(--border-subtle, #e5e7eb)" }} />
+
+            {/* ── Sezione: Prezzo del contenuto ─────────────────────────────── */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <Text variant="title-sm" weight={600}>
+                    Prezzo del contenuto
+                </Text>
+
+                <CheckboxInput
+                    label="Questo contenuto ha un prezzo"
+                    description="Es: Menù del giorno, promozione a prezzo fisso"
+                    checked={haPrezzo}
+                    onChange={e => handleToggleHaPrezzo(e.target.checked)}
+                />
+
+                {haPrezzo && (
+                    <TextInput
+                        label="Prezzo (€) *"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={bundlePrice}
+                        onChange={e => setBundlePrice(e.target.value)}
+                        placeholder="Es: 18.00"
+                    />
+                )}
+            </div>
 
             <input type="submit" id="featured-content-submit" style={{ display: "none" }} />
         </form>
