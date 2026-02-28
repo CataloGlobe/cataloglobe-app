@@ -3,6 +3,7 @@
 @use "@styles/mixins" as *;
 @use "@styles/typography" as *;
 @use "@styles/theme" as *;
+@use "@styles/public-theme" as *;
 
 * {
   box-sizing: border-box;
@@ -17,7 +18,9 @@ body {
   line-height: 1.5;
   background: var(--bg);
   color: var(--text);
-  transition: background 0.3s ease, color 0.3s ease;
+  transition:
+    background 0.3s ease,
+    color 0.3s ease;
 }
 
 a {

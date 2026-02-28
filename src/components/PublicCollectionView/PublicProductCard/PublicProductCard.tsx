@@ -51,9 +51,20 @@ export default function PublicProductCard({ product }: Props) {
                         {product.name}
                     </Text>
                     {typeof product.price === "number" && (
-                        <Text variant="body" weight={700} className={styles.price}>
-                            € {product.price.toFixed(2)}
-                        </Text>
+                        <div className={styles.priceBlock}>
+                            <Text variant="body" weight={700} className={styles.price}>
+                                € {product.price.toFixed(2)}
+                            </Text>
+                            {typeof product.original_price === "number" && (
+                                <Text
+                                    variant="caption"
+                                    colorVariant="muted"
+                                    className={styles.originalPrice}
+                                >
+                                    € {product.original_price.toFixed(2)}
+                                </Text>
+                            )}
+                        </div>
                     )}
                 </div>
 

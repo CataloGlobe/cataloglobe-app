@@ -13,6 +13,7 @@ export type ResolvedProduct = {
     name: string;
     description?: string;
     price?: number;
+    original_price?: number;
     is_visible: boolean;
     attributes?: any[];
     allergens?: any[];
@@ -53,9 +54,30 @@ type ScheduleSlot = "primary" | "overlay";
 
 export type V2FeaturedContent = {
     id: string;
+    internal_name: string;
     title: string;
-    type: "informativo" | "composito";
-    is_active: boolean;
+    subtitle: string | null;
+    description: string | null;
+    media_id: string | null;
+    cta_text: string | null;
+    cta_url: string | null;
+    status: "draft" | "published";
+    layout_style: string | null;
+    pricing_mode: "none" | "per_item" | "bundle";
+    bundle_price: number | null;
+    show_original_total: boolean;
+    products?: Array<{
+        sort_order: number | null;
+        note: string | null;
+        product: {
+            id: string;
+            name: string;
+            description: string | null;
+            base_price: number | null;
+        } | null;
+    }>;
+    created_at: string;
+    updated_at: string;
 };
 
 type V2ActivityScheduleRow = {
@@ -1013,9 +1035,30 @@ export async function resolveActivityCatalogsV2(
                 sort_order,
                 featured_content:v2_featured_contents(
                     id,
+                    internal_name,
                     title,
-                    type,
-                    is_active
+                    subtitle,
+                    description,
+                    media_id,
+                    cta_text,
+                    cta_url,
+                    status,
+                    layout_style,
+                    pricing_mode,
+                    bundle_price,
+                    show_original_total,
+                    created_at,
+                    updated_at,
+                    products:v2_featured_content_products(
+                        sort_order,
+                        note,
+                        product:v2_products(
+                            id,
+                            name,
+                            description,
+                            base_price
+                        )
+                    )
                 )
             `
             )
@@ -1045,7 +1088,8 @@ export async function resolveActivityCatalogsV2(
                         slot: "hero" | "before_catalog" | "after_catalog";
                         sort_order: number;
                         featured_content: V2FeaturedContent;
-                    } => row.featured_content !== null && row.featured_content.is_active === true
+                    } =>
+                        row.featured_content !== null && row.featured_content.status === "published"
                 )
                 .sort((a, b) => {
                     const slotOrder = { hero: 1, before_catalog: 2, after_catalog: 3 };
