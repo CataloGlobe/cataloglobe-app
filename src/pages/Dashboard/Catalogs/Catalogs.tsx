@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/Card/Card";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import { IconBook2, IconPlus, IconDotsVertical } from "@tabler/icons-react";
+import { IconBook2, IconDotsVertical } from "@tabler/icons-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
     listCatalogs,
@@ -132,86 +132,86 @@ export default function Catalogs() {
     }, [catalogs, searchQuery]);
 
     const columns: ColumnDefinition<V2Catalog>[] = [
-            {
-                id: "name",
-                header: "Nome",
-                width: "2fr",
-                accessor: catalog => catalog.name,
-                cell: (_value, catalog) => (
-                    <div className={styles.colName}>
-                        <div className={styles.catalogNameRow}>
-                            <div className={styles.iconWrapper}>
-                                <IconBook2 size={18} />
-                            </div>
-                            <Text variant="body-sm" weight={600}>
-                                {catalog.name}
-                            </Text>
+        {
+            id: "name",
+            header: "Nome",
+            width: "2fr",
+            accessor: catalog => catalog.name,
+            cell: (_value, catalog) => (
+                <div className={styles.colName}>
+                    <div className={styles.catalogNameRow}>
+                        <div className={styles.iconWrapper}>
+                            <IconBook2 size={18} />
                         </div>
-                    </div>
-                )
-            },
-            {
-                id: "createdAt",
-                header: "Creato il",
-                width: "1fr",
-                accessor: catalog => catalog.created_at,
-                cell: value => {
-                    const dateValue = typeof value === "string" ? new Date(value) : null;
-                    const formattedDate =
-                        dateValue && !Number.isNaN(dateValue.getTime())
-                            ? new Intl.DateTimeFormat("it-IT", {
-                                  day: "2-digit",
-                                  month: "2-digit",
-                                  year: "numeric"
-                              }).format(dateValue)
-                            : "—";
-
-                    return (
-                        <Text variant="body-sm" colorVariant="muted">
-                            {formattedDate}
+                        <Text variant="body-sm" weight={600}>
+                            {catalog.name}
                         </Text>
-                    );
-                }
-            },
-            {
-                id: "actions",
-                header: "",
-                width: "60px",
-                align: "right",
-                cell: (_value, catalog) => (
-                    <div className={styles.catalogActions}>
-                        <DropdownMenu.Root>
-                            <DropdownMenu.Trigger asChild>
-                                <button className={styles.actionButton} aria-label="Azioni">
-                                    <IconDotsVertical size={18} />
-                                </button>
-                            </DropdownMenu.Trigger>
-                            <DropdownMenu.Portal>
-                                <DropdownMenu.Content
-                                    className={styles.dropdownContent}
-                                    align="end"
-                                    sideOffset={4}
-                                >
-                                    <DropdownMenu.Item
-                                        className={styles.dropdownItem}
-                                        onClick={() => handleOpenEdit(catalog)}
-                                    >
-                                        Modifica nome
-                                    </DropdownMenu.Item>
-                                    <DropdownMenu.Separator className={styles.dropdownSeparator} />
-                                    <DropdownMenu.Item
-                                        className={`${styles.dropdownItem} ${styles.danger}`}
-                                        onClick={() => handleOpenDelete(catalog)}
-                                    >
-                                        Elimina catalogo
-                                    </DropdownMenu.Item>
-                                </DropdownMenu.Content>
-                            </DropdownMenu.Portal>
-                        </DropdownMenu.Root>
                     </div>
-                )
+                </div>
+            )
+        },
+        {
+            id: "createdAt",
+            header: "Creato il",
+            width: "1fr",
+            accessor: catalog => catalog.created_at,
+            cell: value => {
+                const dateValue = typeof value === "string" ? new Date(value) : null;
+                const formattedDate =
+                    dateValue && !Number.isNaN(dateValue.getTime())
+                        ? new Intl.DateTimeFormat("it-IT", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric"
+                          }).format(dateValue)
+                        : "—";
+
+                return (
+                    <Text variant="body-sm" colorVariant="muted">
+                        {formattedDate}
+                    </Text>
+                );
             }
-        ];
+        },
+        {
+            id: "actions",
+            header: "",
+            width: "60px",
+            align: "right",
+            cell: (_value, catalog) => (
+                <div className={styles.catalogActions}>
+                    <DropdownMenu.Root>
+                        <DropdownMenu.Trigger asChild>
+                            <button className={styles.actionButton} aria-label="Azioni">
+                                <IconDotsVertical size={18} />
+                            </button>
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Portal>
+                            <DropdownMenu.Content
+                                className={styles.dropdownContent}
+                                align="end"
+                                sideOffset={4}
+                            >
+                                <DropdownMenu.Item
+                                    className={styles.dropdownItem}
+                                    onClick={() => handleOpenEdit(catalog)}
+                                >
+                                    Modifica nome
+                                </DropdownMenu.Item>
+                                <DropdownMenu.Separator className={styles.dropdownSeparator} />
+                                <DropdownMenu.Item
+                                    className={`${styles.dropdownItem} ${styles.danger}`}
+                                    onClick={() => handleOpenDelete(catalog)}
+                                >
+                                    Elimina catalogo
+                                </DropdownMenu.Item>
+                            </DropdownMenu.Content>
+                        </DropdownMenu.Portal>
+                    </DropdownMenu.Root>
+                </div>
+            )
+        }
+    ];
 
     const loadingState = (
         <div className={styles.loadingState}>
@@ -249,7 +249,6 @@ export default function Catalogs() {
                 subtitle="Gestisci l'albero delle categorie e i gruppi del tuo menu."
                 actions={
                     <Button variant="primary" onClick={handleOpenCreate}>
-                        <IconPlus size={20} />
                         Crea catalogo
                     </Button>
                 }

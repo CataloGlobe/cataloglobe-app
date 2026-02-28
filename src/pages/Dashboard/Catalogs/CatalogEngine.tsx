@@ -1,107 +1,395 @@
-import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
-import { Card } from "@/components/ui/Card/Card";
-import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
+import Text from "@/components/ui/Text/Text";
+import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { SearchInput } from "@/components/ui/Input/SearchInput";
+import { Select } from "@/components/ui/Select/Select";
+import { IconGripVertical, IconPhoto } from "@tabler/icons-react";
+import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
+import { TextInput } from "@/components/ui/Input/TextInput";
 import {
-    IconChevronLeft,
-    IconPlus,
-    IconFolder,
-    IconPizza,
-    IconTrash,
-    IconEdit,
-    IconArrowUp,
-    IconArrowDown
-} from "@tabler/icons-react";
-import {
+    addProductToCategory,
+    createCategory,
+    deleteCategory,
     listCategories,
     listCategoryProducts,
-    createCategory,
-    updateCategory,
-    deleteCategory,
-    addProductToCategory,
     removeProductFromCategory,
-    updateProductSortOrder,
+    updateCategory,
     V2Catalog,
     V2CatalogCategory,
     V2CatalogCategoryProduct
 } from "@/services/supabase/v2/catalogs";
+import { ProductCreateEditDrawer } from "@/pages/Dashboard/Products/ProductCreateEditDrawer";
 import { listBaseProductsWithVariants, V2Product } from "@/services/supabase/v2/products";
+import { listAttributeDefinitions } from "@/services/supabase/v2/attributes";
 import { supabase } from "@/services/supabase/client";
-import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
-import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
-import { TextInput } from "@/components/ui/Input/TextInput";
-import styles from "./Catalogs.module.scss";
+import { CatalogSplitLayout } from "./components/CatalogSplitLayout";
+import { CatalogTree } from "./components/CatalogTree";
+import { CatalogTreeNodeData } from "./components/CatalogTree.types";
+import styles from "./CatalogEngine.module.scss";
 
-// --- TREE NODE DEFINITION ---
-type CategoryNode = V2CatalogCategory & {
-    children: CategoryNode[];
-    products: (V2CatalogCategoryProduct & { productDetails?: V2Product })[];
+type ProductRow = {
+    id: string;
+    linkId: string;
+    productId: string;
+    name: string;
+    sku: string | null;
+    price: number | null;
 };
+
+type ProductAttributeValueRow = {
+    product_id: string;
+    attribute_definition_id: string;
+    value_text: string | null;
+};
+
+function formatPrice(value: number | null): string {
+    if (value === null) return "—";
+    return `€${value.toFixed(2)}`;
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof Error && error.message.trim().length > 0) {
+        return error.message;
+    }
+    return fallback;
+}
+
+function sortByOrderAndCreated<T extends { sort_order: number; created_at: string }>(
+    rows: T[]
+): T[] {
+    return [...rows].sort((a, b) => {
+        if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+}
+
+function areSetsEqual<T>(a: Set<T>, b: Set<T>): boolean {
+    if (a.size !== b.size) return false;
+    for (const item of a) {
+        if (!b.has(item)) return false;
+    }
+    return true;
+}
+
+function buildCategoryTree(
+    categories: V2CatalogCategory[],
+    categoryProducts: V2CatalogCategoryProduct[]
+): CatalogTreeNodeData[] {
+    const directCountByCategoryId = new Map<string, number>();
+    for (const category of categories) {
+        directCountByCategoryId.set(category.id, 0);
+    }
+    for (const link of categoryProducts) {
+        directCountByCategoryId.set(
+            link.category_id,
+            (directCountByCategoryId.get(link.category_id) ?? 0) + 1
+        );
+    }
+
+    const nodeMap = new Map<string, CatalogTreeNodeData>();
+    for (const category of categories) {
+        nodeMap.set(category.id, {
+            ...category,
+            children: [],
+            directProductCount: directCountByCategoryId.get(category.id) ?? 0,
+            totalProductCount: 0
+        });
+    }
+
+    const roots: CatalogTreeNodeData[] = [];
+    for (const category of categories) {
+        const node = nodeMap.get(category.id);
+        if (!node) continue;
+
+        if (category.parent_category_id) {
+            const parent = nodeMap.get(category.parent_category_id);
+            if (parent) {
+                parent.children.push(node);
+                continue;
+            }
+        }
+        roots.push(node);
+    }
+
+    const sortAndAggregate = (nodes: CatalogTreeNodeData[]): number => {
+        nodes.sort((a, b) => {
+            if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        });
+
+        let subtotal = 0;
+        for (const node of nodes) {
+            const childrenTotal = sortAndAggregate(node.children);
+            node.totalProductCount = node.directProductCount + childrenTotal;
+            subtotal += node.totalProductCount;
+        }
+        return subtotal;
+    };
+
+    sortAndAggregate(roots);
+    return roots;
+}
+
+function buildChildrenMap(categories: V2CatalogCategory[]): Map<string, string[]> {
+    const map = new Map<string, string[]>();
+    for (const category of categories) {
+        const parentId = category.parent_category_id;
+        if (!parentId) continue;
+        const children = map.get(parentId) ?? [];
+        children.push(category.id);
+        map.set(parentId, children);
+    }
+    return map;
+}
+
+function collectDescendantIds(rootId: string, childrenMap: Map<string, string[]>): string[] {
+    const descendants: string[] = [];
+    const stack = [...(childrenMap.get(rootId) ?? [])];
+
+    while (stack.length > 0) {
+        const currentId = stack.pop();
+        if (!currentId) continue;
+        descendants.push(currentId);
+        const children = childrenMap.get(currentId) ?? [];
+        stack.push(...children);
+    }
+
+    return descendants;
+}
 
 export default function CatalogEngine() {
     const { id: catalogId } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { user } = useAuth();
     const currentTenantId = user?.id;
     const { showToast } = useToast();
 
-    // Data state
+    const selectedCategoryId = searchParams.get("categoryId");
+
     const [catalog, setCatalog] = useState<V2Catalog | null>(null);
     const [categories, setCategories] = useState<V2CatalogCategory[]>([]);
     const [categoryProducts, setCategoryProducts] = useState<V2CatalogCategoryProduct[]>([]);
     const [allProducts, setAllProducts] = useState<V2Product[]>([]);
+
+    const [skuByProductId, setSkuByProductId] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(true);
+    const [isReorderingCategories, setIsReorderingCategories] = useState(false);
+    const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set());
 
-    // Tree State
-    const [tree, setTree] = useState<CategoryNode[]>([]);
+    const [productSearch, setProductSearch] = useState("");
+    const [selectedProductLinkIds, setSelectedProductLinkIds] = useState<Set<string>>(new Set());
+    const [isRemovingProducts, setIsRemovingProducts] = useState(false);
 
-    // Category Drawer
     const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<V2CatalogCategory | null>(null);
-    const [parentCategory, setParentCategory] = useState<V2CatalogCategory | null>(null);
     const [categoryName, setCategoryName] = useState("");
+    const [categoryParentId, setCategoryParentId] = useState("");
+    const [categorySortOrder, setCategorySortOrder] = useState("");
     const [isSavingCategory, setIsSavingCategory] = useState(false);
 
-    // Delete Category Confirm
     const [categoryToDelete, setCategoryToDelete] = useState<V2CatalogCategory | null>(null);
     const [isDeletingCategory, setIsDeletingCategory] = useState(false);
 
-    // Product Assignment Drawer
-    const [isProductDrawerOpen, setIsProductDrawerOpen] = useState(false);
-    const [targetCategoryForProduct, setTargetCategoryForProduct] =
-        useState<V2CatalogCategory | null>(null);
-    const [productSearch, setProductSearch] = useState("");
+    const [isAssignProductDrawerOpen, setIsAssignProductDrawerOpen] = useState(false);
+    const [assignProductSearch, setAssignProductSearch] = useState("");
     const [isAssigningProduct, setIsAssigningProduct] = useState(false);
 
-    const loadData = async () => {
+    const [isCreateProductDrawerOpen, setIsCreateProductDrawerOpen] = useState(false);
+
+    const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
+
+    const setSelectedCategoryInUrl = useCallback(
+        (nextCategoryId: string | null, replace: boolean = false) => {
+            setSearchParams(
+                prev => {
+                    const nextParams = new URLSearchParams(prev);
+                    if (nextCategoryId) {
+                        nextParams.set("categoryId", nextCategoryId);
+                    } else {
+                        nextParams.delete("categoryId");
+                    }
+                    return nextParams;
+                },
+                { replace }
+            );
+        },
+        [setSearchParams]
+    );
+
+    const categoriesById = useMemo(
+        () => new Map(categories.map(category => [category.id, category])),
+        [categories]
+    );
+
+    const productById = useMemo(() => {
+        const map = new Map<string, V2Product>();
+        for (const baseProduct of allProducts) {
+            map.set(baseProduct.id, baseProduct);
+            for (const variant of baseProduct.variants ?? []) {
+                map.set(variant.id, variant);
+            }
+        }
+        return map;
+    }, [allProducts]);
+
+    const tree = useMemo(
+        () => buildCategoryTree(categories, categoryProducts),
+        [categories, categoryProducts]
+    );
+
+    const selectedCategory = useMemo(() => {
+        if (!selectedCategoryId) return null;
+        return categoriesById.get(selectedCategoryId) ?? null;
+    }, [categoriesById, selectedCategoryId]);
+
+    const selectedCategoryLinks = useMemo(() => {
+        if (!selectedCategoryId) return [];
+        return sortByOrderAndCreated(
+            categoryProducts.filter(link => link.category_id === selectedCategoryId)
+        );
+    }, [categoryProducts, selectedCategoryId]);
+
+    const selectedCategoryProductIds = useMemo(
+        () => new Set(selectedCategoryLinks.map(link => link.product_id)),
+        [selectedCategoryLinks]
+    );
+
+    const productRows = useMemo<ProductRow[]>(() => {
+        return selectedCategoryLinks.map(link => {
+            const product = productById.get(link.product_id);
+            return {
+                id: link.id,
+                linkId: link.id,
+                productId: link.product_id,
+                name: product?.name ?? "Prodotto sconosciuto",
+                sku: skuByProductId[link.product_id] ?? null,
+                price: product?.base_price ?? null
+            };
+        });
+    }, [productById, selectedCategoryLinks, skuByProductId]);
+
+    const filteredRows = useMemo(() => {
+        const normalizedSearch = productSearch.trim().toLowerCase();
+        if (!normalizedSearch) return productRows;
+        return productRows.filter(row => {
+            const haystack = `${row.name} ${row.sku ?? ""}`.toLowerCase();
+            return haystack.includes(normalizedSearch);
+        });
+    }, [productRows, productSearch]);
+
+    const assignableProducts = useMemo(() => {
+        const normalizedSearch = assignProductSearch.trim().toLowerCase();
+        const flattenedProducts: V2Product[] = [];
+        for (const baseProduct of allProducts) {
+            flattenedProducts.push(baseProduct);
+            for (const variant of baseProduct.variants ?? []) {
+                flattenedProducts.push(variant);
+            }
+        }
+
+        return flattenedProducts.filter(product => {
+            if (selectedCategoryProductIds.has(product.id)) return false;
+            if (!normalizedSearch) return true;
+            return product.name.toLowerCase().includes(normalizedSearch);
+        });
+    }, [allProducts, assignProductSearch, selectedCategoryProductIds]);
+
+    const allFilteredSelected =
+        filteredRows.length > 0 &&
+        filteredRows.every(row => selectedProductLinkIds.has(row.linkId));
+    const someFilteredSelected = filteredRows.some(row => selectedProductLinkIds.has(row.linkId));
+
+    useEffect(() => {
+        if (!selectAllCheckboxRef.current) return;
+        selectAllCheckboxRef.current.indeterminate = someFilteredSelected && !allFilteredSelected;
+    }, [allFilteredSelected, someFilteredSelected]);
+
+    const getNextSortOrder = useCallback(
+        (parentId: string | null) => {
+            const siblings = categories.filter(
+                category => category.parent_category_id === parentId
+            );
+            if (siblings.length === 0) return 0;
+            return Math.max(...siblings.map(category => category.sort_order)) + 10;
+        },
+        [categories]
+    );
+
+    const loadProductMetadata = useCallback(async () => {
+        if (!currentTenantId) return;
+
+        const nextSkuMap: Record<string, string> = {};
+        try {
+            const definitions = await listAttributeDefinitions(currentTenantId);
+            const skuDefId = definitions.find(def => def.code === "sku")?.id;
+            const targetDefIds = [skuDefId].filter(
+                (defId): defId is string => typeof defId === "string"
+            );
+
+            if (targetDefIds.length > 0) {
+                const { data: valueRows, error: valueError } = await supabase
+                    .from("v2_product_attribute_values")
+                    .select("product_id, attribute_definition_id, value_text")
+                    .eq("tenant_id", currentTenantId)
+                    .in("attribute_definition_id", targetDefIds);
+
+                if (valueError) throw valueError;
+
+                for (const row of (valueRows ?? []) as ProductAttributeValueRow[]) {
+                    if (skuDefId && row.attribute_definition_id === skuDefId) {
+                        if (
+                            typeof row.value_text === "string" &&
+                            row.value_text.trim().length > 0
+                        ) {
+                            nextSkuMap[row.product_id] = row.value_text.trim();
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn("Impossibile caricare metadata prodotti:", error);
+        }
+
+        setSkuByProductId(nextSkuMap);
+    }, [currentTenantId]);
+
+    const loadData = useCallback(async () => {
         if (!currentTenantId || !catalogId) return;
+
         setIsLoading(true);
         try {
-            // Fetch catalog details
-            const { data: catData, error: catErr } = await supabase
-                .from("v2_catalogs")
-                .select("*")
-                .eq("id", catalogId)
-                .eq("tenant_id", currentTenantId)
-                .single();
-            if (catErr) throw catErr;
-            setCatalog(catData);
+            const [
+                { data: catalogData, error: catalogError },
+                loadedCategories,
+                loadedLinks,
+                loadedProducts
+            ] = await Promise.all([
+                supabase
+                    .from("v2_catalogs")
+                    .select("*")
+                    .eq("id", catalogId)
+                    .eq("tenant_id", currentTenantId)
+                    .single(),
+                listCategories(currentTenantId, catalogId),
+                listCategoryProducts(currentTenantId, catalogId),
+                listBaseProductsWithVariants(currentTenantId)
+            ]);
 
-            // Fetch categories
-            const cats = await listCategories(currentTenantId, catalogId);
-            setCategories(cats);
+            if (catalogError) throw catalogError;
 
-            // Fetch product assignments
-            const catProds = await listCategoryProducts(currentTenantId, catalogId);
-            setCategoryProducts(catProds);
+            setCatalog(catalogData as V2Catalog);
+            setCategories(loadedCategories);
+            setCategoryProducts(loadedLinks);
+            setAllProducts(loadedProducts);
 
-            // Fetch all products (to display names and for selection)
-            const prods = await listBaseProductsWithVariants(currentTenantId);
-            setAllProducts(prods);
+            await loadProductMetadata();
         } catch (error) {
             console.error(error);
             showToast({ message: "Errore durante il caricamento del catalogo.", type: "error" });
@@ -109,490 +397,685 @@ export default function CatalogEngine() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [catalogId, currentTenantId, loadProductMetadata, navigate, showToast]);
 
     useEffect(() => {
         loadData();
-    }, [currentTenantId, catalogId]);
+    }, [loadData]);
 
-    // Build the tree whenever data changes
     useEffect(() => {
-        if (!categories.length && !categoryProducts.length) {
-            setTree([]);
+        if (tree.length === 0) {
+            setExpandedCategoryIds(prev => (prev.size === 0 ? prev : new Set()));
             return;
         }
 
-        // 1. Create a map of nodes
-        const nodeMap = new Map<string, CategoryNode>();
-        categories.forEach(c => {
-            nodeMap.set(c.id, { ...c, children: [], products: [] });
-        });
-
-        // 2. Attach products to nodes
-        categoryProducts.forEach(cp => {
-            const node = nodeMap.get(cp.category_id);
-            if (node) {
-                // Find product details
-                let productDetails = allProducts.find(p => p.id === cp.product_id);
-                if (!productDetails) {
-                    // Try looking in variants
-                    for (const base of allProducts) {
-                        const variant = base.variants?.find(v => v.id === cp.product_id);
-                        if (variant) {
-                            productDetails = variant as V2Product; // Cast for simplicity here
-                            break;
-                        }
-                    }
+        setExpandedCategoryIds(prev => {
+            const next = new Set(prev);
+            if (next.size === 0) {
+                for (const root of tree) {
+                    next.add(root.id);
                 }
-                node.products.push({ ...cp, productDetails });
             }
-        });
 
-        // 3. Sort products within nodes
-        nodeMap.forEach(node => {
-            node.products.sort((a, b) => a.sort_order - b.sort_order);
-        });
-
-        // 4. Build hierarchy
-        const rootNodes: CategoryNode[] = [];
-        nodeMap.forEach(node => {
-            if (node.parent_category_id) {
-                const parent = nodeMap.get(node.parent_category_id);
-                if (parent) {
-                    parent.children.push(node);
-                } else {
-                    rootNodes.push(node); // Fallback if parent is missing
+            if (selectedCategoryId) {
+                let current = categoriesById.get(selectedCategoryId) ?? null;
+                while (current?.parent_category_id) {
+                    next.add(current.parent_category_id);
+                    current = categoriesById.get(current.parent_category_id) ?? null;
                 }
-            } else {
-                rootNodes.push(node);
             }
+
+            return areSetsEqual(prev, next) ? prev : next;
         });
+    }, [categoriesById, selectedCategoryId, tree]);
 
-        // 5. Sort children
-        const sortNodes = (nodes: CategoryNode[]) => {
-            nodes.sort((a, b) => a.sort_order - b.sort_order);
-            nodes.forEach(n => sortNodes(n.children));
-        };
-        sortNodes(rootNodes);
+    useEffect(() => {
+        if (!selectedCategoryId) return;
+        if (categoriesById.has(selectedCategoryId)) return;
 
-        setTree(rootNodes);
-    }, [categories, categoryProducts, allProducts]);
+        const fallbackRootId = tree[0]?.id ?? null;
+        setSelectedCategoryInUrl(fallbackRootId, true);
+    }, [categoriesById, selectedCategoryId, setSelectedCategoryInUrl, tree]);
 
-    // --- CATEGORY HANDLERS ---
-    const handleAddRootCategory = () => {
-        setParentCategory(null);
+    useEffect(() => {
+        setSelectedProductLinkIds(new Set());
+    }, [selectedCategoryId]);
+
+    const createParentOptions = useMemo(() => {
+        const options = [{ value: "", label: "Nessuna (categoria root)" }];
+        const eligibleParents = sortByOrderAndCreated(categories).filter(
+            category => category.level < 3
+        );
+        for (const parent of eligibleParents) {
+            const prefix = parent.level > 1 ? `${"-- ".repeat(parent.level - 1)}` : "";
+            options.push({
+                value: parent.id,
+                label: `${prefix}${parent.name}`
+            });
+        }
+        return options;
+    }, [categories]);
+
+    const openCreateRootCategoryDrawer = useCallback(() => {
         setEditingCategory(null);
         setCategoryName("");
+        setCategoryParentId("");
+        setCategorySortOrder(String(getNextSortOrder(null)));
         setIsCategoryDrawerOpen(true);
-    };
+    }, [getNextSortOrder]);
 
-    const handleAddSubCategory = (parent: V2CatalogCategory) => {
-        if (parent.level >= 3) {
-            showToast({ message: "Non puoi creare categorie oltre il livello 3.", type: "error" });
-            return;
-        }
-        setParentCategory(parent);
-        setEditingCategory(null);
-        setCategoryName("");
-        setIsCategoryDrawerOpen(true);
-    };
+    const openCreateSubCategoryDrawer = useCallback(
+        (parentCategoryId: string) => {
+            const parent = categoriesById.get(parentCategoryId);
+            if (!parent) return;
 
-    const handleEditCategory = (category: V2CatalogCategory) => {
-        setEditingCategory(category);
-        setParentCategory(categories.find(c => c.id === category.parent_category_id) || null);
-        setCategoryName(category.name);
-        setIsCategoryDrawerOpen(true);
-    };
+            if (parent.level >= 3) {
+                showToast({
+                    message: "Non puoi creare categorie oltre il livello 3.",
+                    type: "error"
+                });
+                return;
+            }
 
-    const handleSaveCategory = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!currentTenantId || !catalogId) return;
-        if (!categoryName.trim()) {
-            showToast({ message: "Il nome della categoria è obbligatorio.", type: "error" });
-            return;
-        }
+            setEditingCategory(null);
+            setCategoryName("");
+            setCategoryParentId(parent.id);
+            setCategorySortOrder(String(getNextSortOrder(parent.id)));
+            setExpandedCategoryIds(prev => new Set(prev).add(parent.id));
+            setIsCategoryDrawerOpen(true);
+        },
+        [categoriesById, getNextSortOrder, showToast]
+    );
 
-        setIsSavingCategory(true);
-        try {
-            if (editingCategory) {
-                await updateCategory(editingCategory.id, currentTenantId, { name: categoryName });
-                showToast({ message: "Categoria aggiornata.", type: "success" });
-            } else {
+    const openEditCategoryDrawer = useCallback(
+        (categoryId: string) => {
+            const category = categoriesById.get(categoryId);
+            if (!category) return;
+            setEditingCategory(category);
+            setCategoryName(category.name);
+            setCategoryParentId(category.parent_category_id ?? "");
+            setCategorySortOrder(String(category.sort_order));
+            setIsCategoryDrawerOpen(true);
+        },
+        [categoriesById]
+    );
+
+    const openDeleteCategoryDrawer = useCallback(
+        (categoryId: string) => {
+            const category = categoriesById.get(categoryId);
+            if (!category) return;
+            setCategoryToDelete(category);
+        },
+        [categoriesById]
+    );
+
+    const handleSaveCategory = useCallback(
+        async (event: React.FormEvent) => {
+            event.preventDefault();
+            if (!currentTenantId || !catalogId) return;
+
+            if (!categoryName.trim()) {
+                showToast({ message: "Il nome della categoria è obbligatorio.", type: "error" });
+                return;
+            }
+
+            setIsSavingCategory(true);
+            try {
+                if (editingCategory) {
+                    await updateCategory(editingCategory.id, currentTenantId, {
+                        name: categoryName.trim()
+                    });
+                    showToast({ message: "Categoria aggiornata.", type: "success" });
+                    setIsCategoryDrawerOpen(false);
+                    await loadData();
+                    return;
+                }
+
+                const parentId = categoryParentId || null;
+                const parentCategory = parentId ? categoriesById.get(parentId) ?? null : null;
+                if (parentCategory && parentCategory.level >= 3) {
+                    showToast({
+                        message: "La categoria padre selezionata è già al livello massimo.",
+                        type: "error"
+                    });
+                    return;
+                }
+
                 const targetLevel = parentCategory ? ((parentCategory.level + 1) as 1 | 2 | 3) : 1;
-                // Calculate max sort order among siblings
-                const siblings = categories.filter(
-                    c => c.parent_category_id === (parentCategory?.id || null)
-                );
-                const nextSortOrder =
-                    siblings.length > 0 ? Math.max(...siblings.map(s => s.sort_order)) + 10 : 0;
+                const parsedSortOrder = Number.parseInt(categorySortOrder, 10);
+                const finalSortOrder = Number.isFinite(parsedSortOrder)
+                    ? parsedSortOrder
+                    : getNextSortOrder(parentId);
 
-                await createCategory(
+                const createdCategory = await createCategory(
                     currentTenantId,
                     catalogId,
-                    categoryName,
+                    categoryName.trim(),
                     targetLevel,
-                    parentCategory?.id || null,
-                    nextSortOrder
+                    parentId,
+                    finalSortOrder
                 );
-                showToast({ message: "Categoria creata.", type: "success" });
-            }
-            setIsCategoryDrawerOpen(false);
-            loadData();
-        } catch (error: any) {
-            console.error(error);
-            showToast({ message: error.message || "Errore salvataggio categoria.", type: "error" });
-        } finally {
-            setIsSavingCategory(false);
-        }
-    };
 
-    const handleDeleteCategory = async () => {
+                showToast({ message: "Categoria creata.", type: "success" });
+                setIsCategoryDrawerOpen(false);
+                await loadData();
+                setSelectedCategoryInUrl(createdCategory.id);
+            } catch (error: unknown) {
+                console.error(error);
+                showToast({
+                    message: getErrorMessage(error, "Errore salvataggio categoria."),
+                    type: "error"
+                });
+            } finally {
+                setIsSavingCategory(false);
+            }
+        },
+        [
+            catalogId,
+            categoriesById,
+            categoryName,
+            categoryParentId,
+            categorySortOrder,
+            currentTenantId,
+            editingCategory,
+            getNextSortOrder,
+            loadData,
+            setSelectedCategoryInUrl,
+            showToast
+        ]
+    );
+
+    const handleDeleteCategory = useCallback(async () => {
         if (!currentTenantId || !categoryToDelete) return;
+
         setIsDeletingCategory(true);
         try {
+            const childrenMap = buildChildrenMap(categories);
+            const deletedIds = new Set([
+                categoryToDelete.id,
+                ...collectDescendantIds(categoryToDelete.id, childrenMap)
+            ]);
+
+            const selectedInDeletedBranch = selectedCategoryId
+                ? deletedIds.has(selectedCategoryId)
+                : false;
+
+            let fallbackCategoryId: string | null = null;
+            if (selectedInDeletedBranch) {
+                if (categoryToDelete.parent_category_id) {
+                    fallbackCategoryId = categoryToDelete.parent_category_id;
+                } else {
+                    const remainingRoots = sortByOrderAndCreated(
+                        categories.filter(
+                            category => !category.parent_category_id && !deletedIds.has(category.id)
+                        )
+                    );
+                    fallbackCategoryId = remainingRoots[0]?.id ?? null;
+                }
+            }
+
             await deleteCategory(categoryToDelete.id, currentTenantId);
-            showToast({ message: "Categoria e sotto-categorie eliminate.", type: "success" });
+            showToast({ message: "Categoria eliminata.", type: "success" });
             setCategoryToDelete(null);
-            loadData();
+            await loadData();
+
+            if (selectedInDeletedBranch) {
+                setSelectedCategoryInUrl(fallbackCategoryId);
+            }
         } catch (error) {
             console.error(error);
             showToast({ message: "Errore durante l'eliminazione.", type: "error" });
         } finally {
             setIsDeletingCategory(false);
         }
-    };
+    }, [
+        categories,
+        categoryToDelete,
+        currentTenantId,
+        loadData,
+        selectedCategoryId,
+        setSelectedCategoryInUrl,
+        showToast
+    ]);
 
-    const moveCategory = async (category: V2CatalogCategory, direction: "up" | "down") => {
-        if (!currentTenantId) return;
-        const siblings = categories
-            .filter(c => c.parent_category_id === category.parent_category_id)
-            .sort((a, b) => a.sort_order - b.sort_order);
+    const handleReorderSiblings = useCallback(
+        async (parentCategoryId: string | null, orderedSiblingIds: string[]) => {
+            if (!currentTenantId || orderedSiblingIds.length === 0) return;
 
-        const index = siblings.findIndex(s => s.id === category.id);
-        if (index === -1) return;
+            setIsReorderingCategories(true);
+            try {
+                const siblingsById = new Map(
+                    categories
+                        .filter(category => category.parent_category_id === parentCategoryId)
+                        .map(category => [category.id, category])
+                );
 
-        if (direction === "up" && index > 0) {
-            const prev = siblings[index - 1];
-            // Swap sort orders
-            const tempOrder = prev.sort_order;
-            await updateCategory(category.id, currentTenantId, { sort_order: prev.sort_order });
-            await updateCategory(prev.id, currentTenantId, { sort_order: category.sort_order });
-            loadData();
-        } else if (direction === "down" && index < siblings.length - 1) {
-            const next = siblings[index + 1];
-            await updateCategory(category.id, currentTenantId, { sort_order: next.sort_order });
-            await updateCategory(next.id, currentTenantId, { sort_order: category.sort_order });
-            loadData();
-        }
-    };
+                const updates = orderedSiblingIds
+                    .map((categoryId, index) => {
+                        const category = siblingsById.get(categoryId);
+                        if (!category) return null;
+                        const nextOrder = index * 10;
+                        if (category.sort_order === nextOrder) return null;
+                        return { categoryId, nextOrder };
+                    })
+                    .filter(
+                        (row): row is { categoryId: string; nextOrder: number } => row !== null
+                    );
 
-    const moveProduct = async (
-        link: V2CatalogCategoryProduct,
-        direction: "up" | "down",
-        siblings: V2CatalogCategoryProduct[]
-    ) => {
-        if (!currentTenantId) return;
+                if (updates.length === 0) return;
 
-        const index = siblings.findIndex(s => s.id === link.id);
-        if (index === -1) return;
+                await Promise.all(
+                    updates.map(update =>
+                        updateCategory(update.categoryId, currentTenantId, {
+                            sort_order: update.nextOrder
+                        })
+                    )
+                );
+                await loadData();
+            } catch (error) {
+                console.error(error);
+                showToast({ message: "Impossibile riordinare le categorie.", type: "error" });
+            } finally {
+                setIsReorderingCategories(false);
+            }
+        },
+        [categories, currentTenantId, loadData, showToast]
+    );
 
-        if (direction === "up" && index > 0) {
-            const prev = siblings[index - 1];
-            await updateProductSortOrder(link.id, currentTenantId, prev.sort_order);
-            await updateProductSortOrder(prev.id, currentTenantId, link.sort_order);
-            loadData();
-        } else if (direction === "down" && index < siblings.length - 1) {
-            const next = siblings[index + 1];
-            await updateProductSortOrder(link.id, currentTenantId, next.sort_order);
-            await updateProductSortOrder(next.id, currentTenantId, link.sort_order);
-            loadData();
-        }
-    };
+    const toggleCategoryExpansion = useCallback((categoryId: string) => {
+        setExpandedCategoryIds(prev => {
+            const next = new Set(prev);
+            if (next.has(categoryId)) {
+                next.delete(categoryId);
+            } else {
+                next.add(categoryId);
+            }
+            return next;
+        });
+    }, []);
 
-    // --- PRODUCT HANDLERS ---
-    const handleOpenProductDrawer = (category: V2CatalogCategory) => {
-        setTargetCategoryForProduct(category);
-        setProductSearch("");
-        setIsProductDrawerOpen(true);
-    };
+    const handleAssignExistingProduct = useCallback(
+        async (productId: string) => {
+            if (!currentTenantId || !catalogId || !selectedCategoryId) return;
 
-    const handleAddProduct = async (productId: string) => {
-        if (!currentTenantId || !catalogId || !targetCategoryForProduct) return;
-        setIsAssigningProduct(true);
+            setIsAssigningProduct(true);
+            try {
+                const nextSortOrder =
+                    selectedCategoryLinks.length > 0
+                        ? Math.max(...selectedCategoryLinks.map(link => link.sort_order)) + 10
+                        : 0;
+
+                await addProductToCategory(
+                    currentTenantId,
+                    catalogId,
+                    selectedCategoryId,
+                    productId,
+                    nextSortOrder
+                );
+                showToast({ message: "Prodotto associato alla categoria.", type: "success" });
+                setIsAssignProductDrawerOpen(false);
+                await loadData();
+            } catch (error: unknown) {
+                console.error(error);
+                showToast({
+                    message: getErrorMessage(error, "Impossibile associare il prodotto."),
+                    type: "error"
+                });
+            } finally {
+                setIsAssigningProduct(false);
+            }
+        },
+        [catalogId, currentTenantId, loadData, selectedCategoryId, selectedCategoryLinks, showToast]
+    );
+
+    const handleProductCreated = useCallback(
+        async (createdProduct?: V2Product) => {
+            if (!currentTenantId || !catalogId || !selectedCategoryId || !createdProduct) {
+                await loadData();
+                return;
+            }
+
+            try {
+                const currentLinks = categoryProducts.filter(
+                    link => link.category_id === selectedCategoryId
+                );
+                const nextSortOrder =
+                    currentLinks.length > 0
+                        ? Math.max(...currentLinks.map(link => link.sort_order)) + 10
+                        : 0;
+
+                await addProductToCategory(
+                    currentTenantId,
+                    catalogId,
+                    selectedCategoryId,
+                    createdProduct.id,
+                    nextSortOrder
+                );
+                showToast({
+                    message: "Prodotto creato e assegnato alla categoria.",
+                    type: "success"
+                });
+            } catch (error: unknown) {
+                console.error(error);
+                showToast({
+                    message: getErrorMessage(
+                        error,
+                        "Prodotto creato, ma non è stato possibile associarlo alla categoria."
+                    ),
+                    type: "error"
+                });
+            } finally {
+                await loadData();
+            }
+        },
+        [catalogId, categoryProducts, currentTenantId, loadData, selectedCategoryId, showToast]
+    );
+
+    const handleToggleRowSelection = useCallback((linkId: string, checked: boolean) => {
+        setSelectedProductLinkIds(prev => {
+            const next = new Set(prev);
+            if (checked) {
+                next.add(linkId);
+            } else {
+                next.delete(linkId);
+            }
+            return next;
+        });
+    }, []);
+
+    const handleToggleAllFiltered = useCallback(
+        (checked: boolean) => {
+            setSelectedProductLinkIds(prev => {
+                const next = new Set(prev);
+                for (const row of filteredRows) {
+                    if (checked) next.add(row.linkId);
+                    else next.delete(row.linkId);
+                }
+                return next;
+            });
+        },
+        [filteredRows]
+    );
+
+    const handleBulkRemoveSelected = useCallback(async () => {
+        if (!currentTenantId || selectedProductLinkIds.size === 0) return;
+
+        setIsRemovingProducts(true);
         try {
-            // Find max sort order in target category
-            const existingLinks = categoryProducts.filter(
-                cp => cp.category_id === targetCategoryForProduct.id
+            await Promise.all(
+                Array.from(selectedProductLinkIds).map(linkId =>
+                    removeProductFromCategory(currentTenantId, linkId)
+                )
             );
-            const nextSort =
-                existingLinks.length > 0
-                    ? Math.max(...existingLinks.map(l => l.sort_order)) + 10
-                    : 0;
-
-            await addProductToCategory(
-                currentTenantId,
-                catalogId,
-                targetCategoryForProduct.id,
-                productId,
-                nextSort
-            );
-            showToast({ message: "Prodotto aggiunto alla categoria.", type: "success" });
-            setIsProductDrawerOpen(false); // Can keep open if user wants to add multiple, but UX preference is usually close or feedback
-            loadData();
-        } catch (error: any) {
+            showToast({ message: "Prodotti rimossi dalla categoria.", type: "success" });
+            setSelectedProductLinkIds(new Set());
+            await loadData();
+        } catch (error) {
             console.error(error);
             showToast({
-                message: error.message || "Impossibile aggiungere il prodotto.",
+                message: "Errore durante la rimozione dei prodotti selezionati.",
                 type: "error"
             });
         } finally {
-            setIsAssigningProduct(false);
+            setIsRemovingProducts(false);
         }
-    };
+    }, [currentTenantId, loadData, selectedProductLinkIds, showToast]);
 
-    const handleRemoveProduct = async (linkId: string) => {
-        if (!currentTenantId) return;
-        try {
-            await removeProductFromCategory(currentTenantId, linkId);
-            showToast({ message: "Prodotto rimosso.", type: "success" });
-            loadData();
-        } catch (error) {
-            console.error(error);
-            showToast({ message: "Errore durante la rimozione.", type: "error" });
-        }
-    };
-
-    // Render Recursive Tree Node
-    const renderNode = (node: CategoryNode) => {
-        return (
-            <div
-                key={node.id}
-                className={styles.categoryNode}
-                style={{ marginTop: node.level > 1 ? "12px" : "0" }}
-            >
-                <div className={styles.categoryHeader}>
-                    <div className={styles.categoryTitle}>
-                        <IconFolder size={18} color="var(--color-gray-500)" />
-                        <Text variant="body" weight={600}>
-                            {node.name}
-                        </Text>
-                        <span className={`${styles.levelBadge} ${styles[`level${node.level}`]}`}>
-                            L{node.level}
-                        </span>
+    const columns = useMemo<ColumnDefinition<ProductRow>[]>(
+        () => [
+            {
+                id: "select",
+                header: (
+                    <div className={styles.checkboxCell}>
+                        <input
+                            ref={selectAllCheckboxRef}
+                            type="checkbox"
+                            checked={allFilteredSelected}
+                            onChange={event => handleToggleAllFiltered(event.target.checked)}
+                            className={styles.tableCheckbox}
+                            aria-label="Seleziona tutti i prodotti filtrati"
+                        />
                     </div>
-                    <div className={styles.categoryActions}>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => moveCategory(node, "up")}
-                            aria-label="Sposta su"
-                        >
-                            <IconArrowUp size={16} />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => moveCategory(node, "down")}
-                            aria-label="Sposta giù"
-                        >
-                            <IconArrowDown size={16} />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditCategory(node)}
-                            aria-label="Modifica"
-                        >
-                            <IconEdit size={16} />
-                        </Button>
-                        {node.level < 3 && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleAddSubCategory(node)}
-                                aria-label="Aggiungi sotto-categoria"
-                                style={{ color: "var(--color-primary-600)" }}
-                            >
-                                <IconPlus size={16} /> Sub
-                            </Button>
+                ),
+                width: "54px",
+                align: "center",
+                cell: (_value, row) => (
+                    <div className={styles.checkboxCell}>
+                        <input
+                            type="checkbox"
+                            checked={selectedProductLinkIds.has(row.linkId)}
+                            onChange={event =>
+                                handleToggleRowSelection(row.linkId, event.target.checked)
+                            }
+                            className={styles.tableCheckbox}
+                            aria-label={`Seleziona ${row.name}`}
+                        />
+                    </div>
+                )
+            },
+            {
+                id: "drag",
+                header: "",
+                width: "50px",
+                align: "center",
+                cell: () => (
+                    <span className={styles.dragCell}>
+                        <IconGripVertical size={16} />
+                    </span>
+                )
+            },
+            {
+                id: "photo",
+                header: "Foto",
+                width: "78px",
+                align: "center",
+                cell: () => (
+                    <span className={styles.productThumb}>
+                        <IconPhoto size={16} />
+                    </span>
+                )
+            },
+            {
+                id: "name",
+                header: "Nome prodotto",
+                width: "2fr",
+                cell: (_value, row) => (
+                    <div className={styles.productNameCell}>
+                        <Text variant="body-sm" weight={600} className={styles.productNameMain}>
+                            {row.name}
+                        </Text>
+                        {row.sku && (
+                            <Text variant="caption" className={styles.productSku}>
+                                {row.sku}
+                            </Text>
                         )}
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleOpenProductDrawer(node)}
-                            aria-label="Aggiungi prodotto"
-                            style={{ color: "var(--color-green-600)" }}
-                        >
-                            <IconPizza size={16} /> Prod
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setCategoryToDelete(node)}
-                            aria-label="Elimina"
-                            style={{ color: "var(--color-red-600)" }}
-                        >
-                            <IconTrash size={16} />
+                    </div>
+                )
+            },
+            {
+                id: "price",
+                header: "Prezzo",
+                width: "0.9fr",
+                accessor: row => row.price,
+                cell: value => <Text variant="body-sm">{formatPrice(value as number | null)}</Text>
+            }
+        ],
+        [
+            allFilteredSelected,
+            handleToggleAllFiltered,
+            handleToggleRowSelection,
+            selectedProductLinkIds
+        ]
+    );
+
+    const renderRightPane = () => {
+        if (!selectedCategory) {
+            return (
+                <div className={styles.productsEmptySelection}>
+                    <div className={styles.emptyCard}>
+                        <Text variant="title-md" weight={700}>
+                            Seleziona una categoria
+                        </Text>
+                        <Text variant="body-sm" colorVariant="muted">
+                            Seleziona una categoria dall'albero per gestire i prodotti.
+                        </Text>
+                        <Button variant="primary" onClick={openCreateRootCategoryDrawer}>
+                            Crea nuova categoria
                         </Button>
                     </div>
                 </div>
+            );
+        }
 
-                {(node.children.length > 0 || node.products.length > 0) && (
-                    <div className={styles.categoryChildren}>
-                        {/* Products under this category */}
-                        {node.products.length > 0 && (
-                            <div className={styles.productList}>
-                                {node.products.map(link => (
-                                    <div key={link.id} className={styles.productRow}>
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "8px"
-                                            }}
-                                        >
-                                            <IconPizza size={16} color="var(--color-gray-400)" />
-                                            <Text variant="body-sm">
-                                                {link.productDetails?.name ||
-                                                    "Prodotto sconosciuto"}
-                                            </Text>
-                                        </div>
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "4px"
-                                            }}
-                                        >
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() =>
-                                                    moveProduct(link, "up", node.products)
-                                                }
-                                                aria-label="Sposta su"
-                                            >
-                                                <IconArrowUp size={14} />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() =>
-                                                    moveProduct(link, "down", node.products)
-                                                }
-                                                aria-label="Sposta giù"
-                                            >
-                                                <IconArrowDown size={14} />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleRemoveProduct(link.id)}
-                                                aria-label="Rimuovi"
-                                                style={{ color: "var(--color-red-600)" }}
-                                            >
-                                                <IconTrash size={14} />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Sub-categories */}
-                        {node.children.map(child => renderNode(child))}
+        return (
+            <div className={styles.productsPanel}>
+                <div className={styles.productsHeader}>
+                    <div className={styles.productsTitleRow}>
+                        <div>
+                            <Text variant="title-lg" weight={700}>
+                                {selectedCategory.name}
+                            </Text>
+                            <Text variant="body-sm" colorVariant="muted">
+                                {selectedCategoryLinks.length} prodotti
+                            </Text>
+                        </div>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                            <Button
+                                variant="secondary"
+                                onClick={() => {
+                                    setAssignProductSearch("");
+                                    setIsAssignProductDrawerOpen(true);
+                                }}
+                            >
+                                Associa esistente
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={() => setIsCreateProductDrawerOpen(true)}
+                            >
+                                Crea prodotto
+                            </Button>
+                        </div>
                     </div>
-                )}
+
+                    <div className={styles.productsTools}>
+                        <div className={styles.quickSearchWrap}>
+                            <SearchInput
+                                value={productSearch}
+                                onChange={event => setProductSearch(event.target.value)}
+                                onClear={() => setProductSearch("")}
+                                placeholder="Filtro rapido (Nome, SKU...)"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className={styles.tableCard}>
+                    {selectedProductLinkIds.size > 0 && (
+                        <div className={styles.bulkBar}>
+                            <Text variant="body-sm" weight={600}>
+                                {selectedProductLinkIds.size} selezionati
+                            </Text>
+                            <div className={styles.bulkActions}>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => setSelectedProductLinkIds(new Set())}
+                                >
+                                    Deseleziona
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    size="sm"
+                                    onClick={handleBulkRemoveSelected}
+                                    loading={isRemovingProducts}
+                                >
+                                    Rimuovi dalla categoria
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    <DataTable<ProductRow>
+                        data={filteredRows}
+                        columns={columns}
+                        emptyState={
+                            <div style={{ padding: "24px" }}>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    {productSearch.trim()
+                                        ? "Nessun prodotto corrisponde al filtro."
+                                        : "Nessun prodotto associato a questa categoria."}
+                                </Text>
+                            </div>
+                        }
+                    />
+                </div>
             </div>
         );
     };
 
-    // Filter products for the drawer
-    const filteredProductsForDrawer = allProducts.flatMap(p => {
-        const matches = [];
-        if (p.name.toLowerCase().includes(productSearch.toLowerCase())) {
-            matches.push(p);
-        }
-        if (p.variants) {
-            p.variants.forEach(v => {
-                if (v.name.toLowerCase().includes(productSearch.toLowerCase())) {
-                    matches.push(v as V2Product);
-                }
-            });
-        }
-        return matches;
-    });
-
     return (
-        <section className={styles.container}>
-            <PageHeader
-                title={catalog?.name || "Caricamento catalogo..."}
-                subtitle="Configura la struttura delle categorie e aggiungi i prodotti."
-                actions={
-                    <div style={{ display: "flex", gap: "8px" }}>
+        <section className={styles.engineContainer}>
+            <div className={styles.engineHeader}>
+                <PageHeader
+                    title={catalog?.name || "Catalogo"}
+                    subtitle="Gestisci categorie e prodotti con navigazione ad albero."
+                    actions={
                         <Button
                             variant="secondary"
                             onClick={() => navigate("/dashboard/cataloghi")}
                         >
-                            {" "}
-                            Torna ai Cataloghi
+                            Torna ai cataloghi
                         </Button>
-                        <Button variant="primary" onClick={handleAddRootCategory}>
-                            Crea categoria
-                        </Button>
-                    </div>
-                }
-            />
+                    }
+                />
+            </div>
 
-            <div className={styles.content}>
+            <div className={styles.engineBody}>
                 {isLoading ? (
-                    <Card className={styles.catalogsCard}>
-                        <div className={styles.loadingState}>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Costruzione albero in corso...
-                            </Text>
-                        </div>
-                    </Card>
-                ) : tree.length === 0 ? (
-                    <Card className={styles.catalogsCard}>
-                        <div className={styles.emptyState}>
-                            <IconFolder size={48} stroke={1} className={styles.emptyIcon} />
-                            <Text variant="title-sm" weight={600}>
-                                Catalogo Vuoto
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Inizia creando la tua prima categoria principale.
-                            </Text>
-                            <Button
-                                variant="primary"
-                                onClick={handleAddRootCategory}
-                                className={styles.emptyButton}
-                            >
-                                Crea categoria
-                            </Button>
-                        </div>
-                    </Card>
+                    <div className={styles.loadingPanel}>
+                        <Text variant="body-sm" colorVariant="muted">
+                            Caricamento catalogo in corso...
+                        </Text>
+                    </div>
                 ) : (
-                    <div className={styles.treeContainer}>{tree.map(node => renderNode(node))}</div>
+                    <CatalogSplitLayout
+                        tree={
+                            <CatalogTree
+                                nodes={tree}
+                                selectedCategoryId={selectedCategoryId}
+                                expandedCategoryIds={expandedCategoryIds}
+                                onToggleExpand={toggleCategoryExpansion}
+                                onSelectCategory={categoryId =>
+                                    setSelectedCategoryInUrl(categoryId)
+                                }
+                                onCreateRootCategory={openCreateRootCategoryDrawer}
+                                onCreateSubCategory={openCreateSubCategoryDrawer}
+                                onEditCategory={openEditCategoryDrawer}
+                                onDeleteCategory={openDeleteCategoryDrawer}
+                                onReorderSiblings={handleReorderSiblings}
+                                isReordering={isReorderingCategories}
+                            />
+                        }
+                        content={renderRightPane()}
+                    />
                 )}
             </div>
 
-            {/* Category Create/Edit Drawer */}
             <SystemDrawer
                 open={isCategoryDrawerOpen}
                 onClose={() => setIsCategoryDrawerOpen(false)}
-                width={400}
+                width={420}
             >
                 <DrawerLayout
                     header={
                         <div>
-                            <Text variant="title-sm" weight={600}>
-                                {editingCategory ? "Modifica Categoria" : "Nuova Categoria"}
+                            <Text variant="title-sm" weight={700}>
+                                {editingCategory ? "Modifica categoria" : "Nuova categoria"}
                             </Text>
-                            {parentCategory && (
+                            {!editingCategory && categoryParentId && (
                                 <Text variant="caption" colorVariant="muted">
-                                    All'interno di "{parentCategory.name}" (Livello{" "}
-                                    {parentCategory.level + 1})
+                                    Parent preimpostato dalla selezione nel tree.
                                 </Text>
                             )}
                         </div>
@@ -610,7 +1093,7 @@ export default function CatalogEngine() {
                                 <Button
                                     variant="primary"
                                     type="submit"
-                                    form="category-form"
+                                    form="catalog-category-form"
                                     loading={isSavingCategory}
                                 >
                                     Salva
@@ -619,28 +1102,56 @@ export default function CatalogEngine() {
                         </div>
                     }
                 >
-                    <form id="category-form" onSubmit={handleSaveCategory} className={styles.form}>
+                    <form
+                        id="catalog-category-form"
+                        onSubmit={handleSaveCategory}
+                        className={styles.form}
+                    >
                         <TextInput
-                            label="Nome Categoria"
-                            required
+                            label="Nome"
                             value={categoryName}
-                            onChange={e => setCategoryName(e.target.value)}
-                            placeholder="Es: Pizze, Bevande..."
+                            onChange={event => setCategoryName(event.target.value)}
+                            placeholder="Es: Antipasti, Bevande..."
+                            required
                         />
+
+                        {!editingCategory && (
+                            <>
+                                <Select
+                                    label="Parent"
+                                    value={categoryParentId}
+                                    onChange={event => {
+                                        const nextParentId = event.target.value;
+                                        setCategoryParentId(nextParentId);
+                                        setCategorySortOrder(
+                                            String(getNextSortOrder(nextParentId || null))
+                                        );
+                                    }}
+                                    options={createParentOptions}
+                                />
+
+                                <TextInput
+                                    label="Ordine"
+                                    type="number"
+                                    value={categorySortOrder}
+                                    onChange={event => setCategorySortOrder(event.target.value)}
+                                    placeholder="Default: in fondo"
+                                />
+                            </>
+                        )}
                     </form>
                 </DrawerLayout>
             </SystemDrawer>
 
-            {/* Delete Category Warning */}
             <SystemDrawer
-                open={!!categoryToDelete}
+                open={Boolean(categoryToDelete)}
                 onClose={() => setCategoryToDelete(null)}
-                width={400}
+                width={420}
             >
                 <DrawerLayout
                     header={
-                        <Text variant="title-sm" weight={600}>
-                            Elimina Categoria
+                        <Text variant="title-sm" weight={700}>
+                            Elimina categoria
                         </Text>
                     }
                     footer={
@@ -655,12 +1166,12 @@ export default function CatalogEngine() {
                                 </Button>
                                 <Button
                                     variant="primary"
-                                    style={{
-                                        backgroundColor: "var(--color-red-600)",
-                                        borderColor: "var(--color-red-600)"
-                                    }}
                                     onClick={handleDeleteCategory}
                                     loading={isDeletingCategory}
+                                    style={{
+                                        backgroundColor: "var(--color-red-600, #dc2626)",
+                                        borderColor: "var(--color-red-600, #dc2626)"
+                                    }}
                                 >
                                     Elimina
                                 </Button>
@@ -670,28 +1181,26 @@ export default function CatalogEngine() {
                 >
                     <div className={styles.deleteWarning}>
                         <Text variant="body-sm">
-                            Eliminando "{categoryToDelete?.name}", rimuoverai anche{" "}
-                            <strong>TUTTE le sotto-categorie e i collegamenti dei prodotti</strong>{" "}
-                            al suo interno.
+                            Eliminando "<strong>{categoryToDelete?.name}</strong>" verranno rimosse
+                            anche le relative sotto-categorie e i collegamenti ai prodotti.
                         </Text>
                     </div>
                 </DrawerLayout>
             </SystemDrawer>
 
-            {/* Add Product Drawer */}
             <SystemDrawer
-                open={isProductDrawerOpen}
-                onClose={() => setIsProductDrawerOpen(false)}
-                width={450}
+                open={isAssignProductDrawerOpen}
+                onClose={() => setIsAssignProductDrawerOpen(false)}
+                width={460}
             >
                 <DrawerLayout
                     header={
                         <div>
-                            <Text variant="title-sm" weight={600}>
-                                Aggiungi Prodotto
+                            <Text variant="title-sm" weight={700}>
+                                Associa prodotto esistente
                             </Text>
                             <Text variant="caption" colorVariant="muted">
-                                Categoria di destinazione: {targetCategoryForProduct?.name}
+                                Categoria: {selectedCategory?.name ?? "—"}
                             </Text>
                         </div>
                     }
@@ -700,7 +1209,7 @@ export default function CatalogEngine() {
                             <div className={styles.drawerFooter}>
                                 <Button
                                     variant="secondary"
-                                    onClick={() => setIsProductDrawerOpen(false)}
+                                    onClick={() => setIsAssignProductDrawerOpen(false)}
                                 >
                                     Chiudi
                                 </Button>
@@ -709,66 +1218,56 @@ export default function CatalogEngine() {
                     }
                 >
                     <div className={styles.form}>
-                        <TextInput
-                            placeholder="Cerca per nome..."
-                            value={productSearch}
-                            onChange={e => setProductSearch(e.target.value)}
+                        <SearchInput
+                            value={assignProductSearch}
+                            onChange={event => setAssignProductSearch(event.target.value)}
+                            onClear={() => setAssignProductSearch("")}
+                            placeholder="Cerca prodotto..."
                         />
 
-                        <div
-                            style={{
-                                marginTop: "16px",
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "8px"
-                            }}
-                        >
-                            {filteredProductsForDrawer.slice(0, 20).map(prod => (
-                                <div
-                                    key={prod.id}
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        padding: "8px",
-                                        border: "1px solid var(--color-gray-200)",
-                                        borderRadius: "var(--radius-md)"
-                                    }}
-                                >
-                                    <div>
-                                        <Text variant="body-sm" weight={500}>
-                                            {prod.name}
+                        <div className={styles.assignResults}>
+                            {assignableProducts.slice(0, 30).map(product => (
+                                <div key={product.id} className={styles.assignRow}>
+                                    <div className={styles.assignMeta}>
+                                        <Text variant="body-sm" weight={600}>
+                                            {product.name}
                                         </Text>
-                                        {(prod as any).parent_product_id && (
+                                        {product.parent_product_id && (
                                             <Text variant="caption" colorVariant="muted">
                                                 Variante
                                             </Text>
                                         )}
                                     </div>
                                     <Button
-                                        size="sm"
                                         variant="primary"
-                                        onClick={() => handleAddProduct(prod.id)}
+                                        size="sm"
+                                        onClick={() => handleAssignExistingProduct(product.id)}
                                         disabled={isAssigningProduct}
                                     >
-                                        <IconPlus size={14} /> Add
+                                        Associa
                                     </Button>
                                 </div>
                             ))}
-                            {filteredProductsForDrawer.length === 0 && (
+
+                            {assignableProducts.length === 0 && (
                                 <Text variant="body-sm" colorVariant="muted">
-                                    Nessun prodotto trovato.
-                                </Text>
-                            )}
-                            {filteredProductsForDrawer.length > 20 && (
-                                <Text variant="caption" colorVariant="muted">
-                                    Mostrando i primi 20 risultati. Affina la ricerca.
+                                    Nessun prodotto disponibile da associare.
                                 </Text>
                             )}
                         </div>
                     </div>
                 </DrawerLayout>
             </SystemDrawer>
+
+            <ProductCreateEditDrawer
+                open={isCreateProductDrawerOpen}
+                onClose={() => setIsCreateProductDrawerOpen(false)}
+                mode="create_base"
+                productData={null}
+                parentProduct={null}
+                onSuccess={handleProductCreated}
+                tenantId={currentTenantId}
+            />
         </section>
     );
 }
