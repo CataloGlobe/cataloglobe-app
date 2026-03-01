@@ -8,16 +8,36 @@ export type ResolvedVariant = {
     allergens?: any[];
 };
 
+export type ResolvedOptionValue = {
+    id: string;
+    name: string;
+    absolute_price: number | null;
+    price_modifier: number | null;
+};
+
+export type ResolvedOptionGroup = {
+    id: string;
+    name: string;
+    group_kind: "PRIMARY_PRICE" | "ADDON";
+    pricing_mode: "ABSOLUTE" | "DELTA";
+    is_required: boolean;
+    max_selectable: number | null;
+    values: ResolvedOptionValue[];
+};
+
 export type ResolvedProduct = {
     id: string;
     name: string;
     description?: string;
     price?: number;
     original_price?: number;
+    /** Min absolute_price across PRIMARY_PRICE formats. Set when product has formats. */
+    from_price?: number;
     is_visible: boolean;
     attributes?: any[];
     allergens?: any[];
     variants?: ResolvedVariant[];
+    optionGroups?: ResolvedOptionGroup[];
 };
 
 export type ResolvedCategory = {
@@ -150,6 +170,23 @@ type RawCategoryRow = {
     sort_order: number;
     parent_category_id: string | null;
     products: RawCategoryProductRow[] | RawCategoryProductRow | null;
+};
+
+type RawOptionValueRow = {
+    id: string;
+    name: string;
+    absolute_price: number | null;
+    price_modifier: number | null;
+};
+
+type RawOptionGroupRow = {
+    id: string;
+    name: string;
+    group_kind: string;
+    pricing_mode: string;
+    is_required: boolean;
+    max_selectable: number | null;
+    values: RawOptionValueRow[] | RawOptionValueRow | null;
 };
 
 type RawStyleVersionRow = {
@@ -299,15 +336,51 @@ function normalizeCatalog(
                         };
                     });
 
+                    const optionGroupsRaw = normalizeMany<RawOptionGroupRow>(
+                        (p as any).option_groups
+                    );
+                    const resolvedOptionGroups: ResolvedOptionGroup[] = optionGroupsRaw.map(og => ({
+                        id: og.id,
+                        name: og.name,
+                        group_kind: (og.group_kind as "PRIMARY_PRICE" | "ADDON") || "ADDON",
+                        pricing_mode: (og.pricing_mode as "ABSOLUTE" | "DELTA") || "DELTA",
+                        is_required: og.is_required ?? false,
+                        max_selectable: og.max_selectable ?? null,
+                        values: normalizeMany<RawOptionValueRow>(og.values).map(v => ({
+                            id: v.id,
+                            name: v.name,
+                            absolute_price: v.absolute_price ?? null,
+                            price_modifier: v.price_modifier ?? null
+                        }))
+                    }));
+
+                    // Compute from_price: min absolute_price in PRIMARY_PRICE group
+                    let from_price: number | undefined = undefined;
+                    const primaryGroup = resolvedOptionGroups.find(
+                        og => og.group_kind === "PRIMARY_PRICE" && og.pricing_mode === "ABSOLUTE"
+                    );
+                    if (primaryGroup && primaryGroup.values.length > 0) {
+                        const validPrices = primaryGroup.values
+                            .map(v => v.absolute_price)
+                            .filter((p): p is number => p !== null);
+                        if (validPrices.length > 0) {
+                            from_price = Math.min(...validPrices);
+                        }
+                    }
+
                     const resolvedProduct: ResolvedProduct = {
                         id: p.id,
                         name: p.name,
                         is_visible: true, // overridden later
                         ...(p.description ? { description: p.description } : {}),
                         ...(p.base_price !== null ? { price: p.base_price } : {}),
+                        ...(from_price !== undefined ? { from_price } : {}),
                         ...(pAttrs.length > 0 ? { attributes: pAttrs } : {}),
                         ...(pAllergens.length > 0 ? { allergens: pAllergens } : {}),
-                        ...(pVariants.length > 0 ? { variants: pVariants } : {})
+                        ...(pVariants.length > 0 ? { variants: pVariants } : {}),
+                        ...(resolvedOptionGroups.length > 0
+                            ? { optionGroups: resolvedOptionGroups }
+                            : {})
                     };
 
                     return resolvedProduct;
@@ -353,6 +426,20 @@ async function loadCatalogById(catalogId: string): Promise<ResolvedCatalog | und
                   name,
                   description,
                   base_price,
+                  option_groups:v2_product_option_groups(
+                    id,
+                    name,
+                    group_kind,
+                    pricing_mode,
+                    is_required,
+                    max_selectable,
+                    values:v2_product_option_values(
+                      id,
+                      name,
+                      absolute_price,
+                      price_modifier
+                    )
+                  ),
                   variants:v2_products(
                     id,
                     name,

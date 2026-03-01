@@ -298,7 +298,9 @@ export async function duplicateProduct(productId: string, tenantId: string): Pro
             product_id: newProduct.id,
             name: group.name,
             is_required: group.is_required,
-            max_selectable: group.max_selectable
+            max_selectable: group.max_selectable,
+            group_kind: group.group_kind,
+            pricing_mode: group.pricing_mode
         });
 
         const originalValues = await getOptionValues(group.id);
@@ -307,7 +309,8 @@ export async function duplicateProduct(productId: string, tenantId: string): Pro
                 tenant_id: tenantId,
                 option_group_id: newGroup.id,
                 name: val.name,
-                price_modifier: val.price_modifier
+                price_modifier: val.price_modifier,
+                absolute_price: val.absolute_price
             });
         }
     }
