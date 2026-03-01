@@ -1,77 +1,54 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
-import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
-import { Button } from "@/components/ui";
-import FilterBar from "@/components/ui/FilterBar/FilterBar";
-import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import Text from "@/components/ui/Text/Text";
-import { Select } from "@/components/ui/Select/Select";
-import { NumberInput } from "@/components/ui/Input/NumberInput";
-import { TimeInput } from "@/components/ui/Input/TimeInput";
-import { Switch } from "@/components/ui/Switch/Switch";
-import { PillGroupMultiple } from "@/components/ui/PillGroup/PillGroupMultiple";
-import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { useNavigate } from "react-router-dom";
+import { IconDotsVertical } from "@tabler/icons-react";
+import { Globe, Building2, Users, AlertCircle, FileText, Loader2 } from "lucide-react";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
-import { Badge } from "@/components/ui/Badge/Badge";
-import { Link } from "react-router-dom";
-import { IconAlertTriangle, IconExternalLink } from "@tabler/icons-react";
+import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
+import { Button } from "@/components/ui/Button/Button";
+import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
+import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
+import { Switch } from "@/components/ui/Switch/Switch";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
+import { Pill } from "@/components/ui/Pill/Pill";
+import ModalLayout, {
+    ModalLayoutContent,
+    ModalLayoutFooter,
+    ModalLayoutHeader
+} from "@/components/ui/ModalLayout/ModalLayout";
+import FilterBar from "@/components/ui/FilterBar/FilterBar";
+import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { TextInput } from "@/components/ui/Input/TextInput";
+import { Select } from "@/components/ui/Select/Select";
+import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
-import { useAuth } from "@context/useAuth";
+import { useAuth } from "@/context/useAuth";
 import {
-    createPriceRule,
-    createVisibilityRule,
-    createLayoutRule,
+    createRuleDraft,
     deleteLayoutRule,
     getSystemActivityGroupId,
     listLayoutRuleOptions,
     listLayoutRules,
+    updateScheduleEnabled,
     type LayoutRule,
     type LayoutRuleOption,
-    type LayoutTimeMode,
-    type RuleType
+    type RuleType,
+    type RuleTargetType
 } from "@/services/supabase/v2/layoutScheduling";
+import { buildRuleSummary } from "@/utils/ruleHelpers";
 import styles from "./Programming.module.scss";
 
-type LayoutRuleTargetMode = "all_activities" | "specific_activity";
+type TargetMode = "all_activities" | "activity_group" | "specific_activity";
 type RuleTypeFilter = "all" | RuleType;
 
 type CreateRuleForm = {
     ruleType: RuleType;
-    targetMode: LayoutRuleTargetMode;
+    name: string;
+    targetMode: TargetMode;
     activityId: string;
-    catalogId: string;
-    styleId: string;
-    selectedProductIds: string[];
-    productOverrides: Record<
-        string,
-        {
-            overridePrice: string;
-            showOriginalPrice: boolean;
-            visible: boolean;
-        }
-    >;
-    priority: string;
-    enabled: boolean;
-    timeMode: LayoutTimeMode;
-    daysOfWeek: string[];
-    timeFrom: string;
-    timeTo: string;
-    featuredContents: Array<{
-        featuredContentId: string;
-        slot: "hero" | "before_catalog" | "after_catalog";
-        sortOrder: number;
-    }>;
+    activityGroupId: string;
 };
-
-const DAY_OPTIONS = [
-    { value: "1", label: "Mon" },
-    { value: "2", label: "Tue" },
-    { value: "3", label: "Wed" },
-    { value: "4", label: "Thu" },
-    { value: "5", label: "Fri" },
-    { value: "6", label: "Sat" },
-    { value: "0", label: "Sun" }
-] as const;
 
 const RULE_TYPE_FILTER_OPTIONS: Array<{ value: RuleTypeFilter; label: string }> = [
     { value: "all", label: "Tutte" },
@@ -80,44 +57,16 @@ const RULE_TYPE_FILTER_OPTIONS: Array<{ value: RuleTypeFilter; label: string }> 
     { value: "visibility", label: "Visibilità" }
 ];
 
-const CREATE_RULE_TYPE_OPTIONS: Array<{ value: RuleType; label: string; disabled: boolean }> = [
-    { value: "layout", label: "Layout", disabled: false },
-    { value: "price", label: "Prezzi", disabled: false },
-    { value: "visibility", label: "Visibilità", disabled: false }
+const CREATE_RULE_TYPE_OPTIONS: Array<{ value: RuleType; label: string }> = [
+    { value: "layout", label: "Layout" },
+    { value: "price", label: "Prezzi" },
+    { value: "visibility", label: "Visibilità" }
 ];
 
-function buildDefaultForm(
-    options: {
-        activities: LayoutRuleOption[];
-        catalogs: LayoutRuleOption[];
-        styles: LayoutRuleOption[];
-    },
-    tenantId: string | null
-): CreateRuleForm {
-    const fallbackTenantId =
-        tenantId ?? options.activities[0]?.tenant_id ?? options.catalogs[0]?.tenant_id ?? null;
-
-    const firstActivity =
-        options.activities.find(activity => activity.tenant_id === fallbackTenantId) ?? null;
-
-    const tenantCatalogs = options.catalogs.filter(c => c.tenant_id === fallbackTenantId);
-    const tenantStyles = options.styles.filter(s => s.tenant_id === fallbackTenantId);
-    return {
-        ruleType: "layout",
-        targetMode: "specific_activity",
-        activityId: firstActivity?.id ?? "",
-        catalogId: tenantCatalogs[0]?.id ?? "",
-        styleId: tenantStyles[0]?.id ?? "",
-        selectedProductIds: [],
-        productOverrides: {},
-        priority: "10",
-        enabled: true,
-        timeMode: "always",
-        daysOfWeek: [],
-        timeFrom: "",
-        timeTo: "",
-        featuredContents: []
-    };
+function getRuleTypeLabel(ruleType: RuleType): string {
+    if (ruleType === "layout") return "Layout";
+    if (ruleType === "price") return "Prezzi";
+    return "Visibilità";
 }
 
 function getRuleTargetLabel(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>): string {
@@ -129,58 +78,49 @@ function getRuleTargetLabel(rule: LayoutRule, activityById: Map<string, LayoutRu
     return activityById.get(rule.target_id)?.name ?? rule.target_id;
 }
 
-function getRuleTypeLabel(ruleType: RuleType): string {
-    if (ruleType === "layout") return "Layout";
-    if (ruleType === "price") return "Prezzi";
-    return "Visibilità";
-}
+function buildDefaultCreateForm(input: {
+    activities: LayoutRuleOption[];
+    groups: LayoutRuleOption[];
+    tenantId: string | null;
+}): CreateRuleForm {
+    const firstActivity =
+        input.activities.find(activity => activity.tenant_id === input.tenantId) ??
+        input.activities[0] ??
+        null;
 
-function toMinutes(hhmm: string | null): number | null {
-    if (!hhmm) return null;
-    const [h, m] = hhmm.slice(0, 5).split(":").map(Number);
-    if (Number.isNaN(h) || Number.isNaN(m)) return null;
-    return h * 60 + m;
-}
+    const firstGroup =
+        input.groups.find(group => group.tenant_id === input.tenantId && !group.is_system) ??
+        input.groups.find(group => !group.is_system) ??
+        null;
 
-function isTimeRuleActiveNow(
-    rule: Pick<LayoutRule, "time_mode" | "days_of_week" | "time_from" | "time_to">,
-    now: Date
-): boolean {
-    if (rule.time_mode === "always") return true;
-
-    const day = now.getDay();
-    const nowMinutes = toMinutes(now.toTimeString().slice(0, 5));
-    if (nowMinutes === null) return false;
-
-    if (rule.days_of_week !== null && !rule.days_of_week.includes(day)) {
-        return false;
-    }
-
-    if (!rule.time_from || !rule.time_to) {
-        return true;
-    }
-
-    const from = toMinutes(rule.time_from);
-    const to = toMinutes(rule.time_to);
-    if (from === null || to === null) return false;
-
-    return from <= nowMinutes && nowMinutes < to;
+    return {
+        ruleType: "layout",
+        name: "",
+        targetMode: "specific_activity",
+        activityId: firstActivity?.id ?? "",
+        activityGroupId: firstGroup?.id ?? ""
+    };
 }
 
 export default function Programming() {
+    const navigate = useNavigate();
     const { user } = useAuth();
     const { showToast } = useToast();
 
+    const currentTenantId = user?.id ?? null;
+
     const [rules, setRules] = useState<LayoutRule[]>([]);
     const [activities, setActivities] = useState<LayoutRuleOption[]>([]);
+    const [activityGroups, setActivityGroups] = useState<LayoutRuleOption[]>([]);
     const [catalogs, setCatalogs] = useState<LayoutRuleOption[]>([]);
     const [stylesOptions, setStylesOptions] = useState<LayoutRuleOption[]>([]);
-    const [productsOptions, setProductsOptions] = useState<LayoutRuleOption[]>([]);
-    const [featuredContentsOptions, setFeaturedContentsOptions] = useState<LayoutRuleOption[]>([]);
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [ruleToDelete, setRuleToDelete] = useState<string | null>(null);
+    const [updatingRules, setUpdatingRules] = useState<Set<string>>(new Set());
 
     const [searchTerm, setSearchTerm] = useState("");
     const [ruleTypeFilter, setRuleTypeFilter] = useState<RuleTypeFilter>("all");
@@ -188,96 +128,68 @@ export default function Programming() {
 
     const [form, setForm] = useState<CreateRuleForm>({
         ruleType: "layout",
+        name: "",
         targetMode: "specific_activity",
         activityId: "",
-        catalogId: "",
-        styleId: "",
-        selectedProductIds: [],
-        productOverrides: {},
-        priority: "10",
-        enabled: true,
-        timeMode: "always",
-        daysOfWeek: [],
-        timeFrom: "",
-        timeTo: "",
-        featuredContents: []
+        activityGroupId: ""
     });
 
-    const activityById = useMemo(() => new Map(activities.map(a => [a.id, a])), [activities]);
-    const catalogById = useMemo(() => new Map(catalogs.map(c => [c.id, c])), [catalogs]);
-    const styleById = useMemo(() => new Map(stylesOptions.map(s => [s.id, s])), [stylesOptions]);
-    const productById = useMemo(
-        () => new Map(productsOptions.map(product => [product.id, product])),
-        [productsOptions]
+    const activityById = useMemo(
+        () => new Map(activities.map(item => [item.id, item])),
+        [activities]
     );
-    const currentTenantId = user?.id ?? null;
-
-    const selectedActivity = useMemo(
-        () => activities.find(activity => activity.id === form.activityId) ?? null,
-        [activities, form.activityId]
+    const catalogById = useMemo(() => new Map(catalogs.map(item => [item.id, item])), [catalogs]);
+    const styleById = useMemo(
+        () => new Map(stylesOptions.map(item => [item.id, item])),
+        [stylesOptions]
     );
 
-    const tenantActivity = useMemo(() => {
-        if (selectedActivity) return selectedActivity;
-        if (currentTenantId) {
-            return activities.find(activity => activity.tenant_id === currentTenantId) ?? null;
-        }
-        return activities[0] ?? null;
-    }, [activities, currentTenantId, selectedActivity]);
+    const tenantActivities = useMemo(
+        () =>
+            currentTenantId
+                ? activities.filter(activity => activity.tenant_id === currentTenantId)
+                : activities,
+        [activities, currentTenantId]
+    );
 
-    const tenantCatalogOptions = useMemo(() => {
-        const tenantId = currentTenantId ?? tenantActivity?.tenant_id ?? null;
-        if (!tenantId) return [];
-        return catalogs.filter(catalog => catalog.tenant_id === tenantId);
-    }, [catalogs, currentTenantId, tenantActivity]);
-
-    const tenantStyleOptions = useMemo(() => {
-        const tenantId = currentTenantId ?? tenantActivity?.tenant_id ?? null;
-        if (!tenantId) return [];
-        return stylesOptions.filter(style => style.tenant_id === tenantId);
-    }, [currentTenantId, stylesOptions, tenantActivity]);
-
-    const selectedStyle = useMemo(() => {
-        if (!form.styleId) return null;
-        return tenantStyleOptions.find(s => s.id === form.styleId) || null;
-    }, [form.styleId, tenantStyleOptions]);
-
-    const tenantProductOptions = useMemo(() => {
-        const tenantId = currentTenantId ?? tenantActivity?.tenant_id ?? null;
-        if (!tenantId) return [];
-        return productsOptions.filter(product => product.tenant_id === tenantId);
-    }, [currentTenantId, productsOptions, tenantActivity]);
-
-    const tenantFeaturedContentsOptions = useMemo(() => {
-        const tenantId = currentTenantId ?? tenantActivity?.tenant_id ?? null;
-        if (!tenantId) return [];
-        return featuredContentsOptions.filter(fc => fc.tenant_id === tenantId);
-    }, [currentTenantId, featuredContentsOptions, tenantActivity]);
+    const tenantGroups = useMemo(
+        () =>
+            (currentTenantId
+                ? activityGroups.filter(group => group.tenant_id === currentTenantId)
+                : activityGroups
+            ).filter(group => !group.is_system),
+        [activityGroups, currentTenantId]
+    );
 
     const loadRules = useCallback(async () => {
-        const data = await listLayoutRules();
-        setRules(data);
+        const rulesData = await listLayoutRules();
+        setRules(rulesData);
     }, []);
 
     const loadInitialData = useCallback(async () => {
-        setIsLoading(true);
         try {
+            setIsLoading(true);
             const [rulesData, optionsData] = await Promise.all([
                 listLayoutRules(),
                 listLayoutRuleOptions()
             ]);
             setRules(rulesData);
             setActivities(optionsData.activities);
+            setActivityGroups(optionsData.activityGroups);
             setCatalogs(optionsData.catalogs);
             setStylesOptions(optionsData.styles);
-            setProductsOptions(optionsData.products);
-            setFeaturedContentsOptions(optionsData.featuredContents);
-            setForm(buildDefaultForm(optionsData, currentTenantId));
+            setForm(
+                buildDefaultCreateForm({
+                    activities: optionsData.activities,
+                    groups: optionsData.activityGroups,
+                    tenantId: currentTenantId
+                })
+            );
         } catch (error) {
             console.error("Errore caricamento Programmazione:", error);
             showToast({
                 type: "error",
-                message: "Impossibile caricare la programmazione layout.",
+                message: "Impossibile caricare la programmazione.",
                 duration: 3000
             });
         } finally {
@@ -289,147 +201,36 @@ export default function Programming() {
         void loadInitialData();
     }, [loadInitialData]);
 
-    useEffect(() => {
-        if (!currentTenantId) return;
-
-        if (!tenantCatalogOptions.some(catalog => catalog.id === form.catalogId)) {
-            setForm(prev => ({ ...prev, catalogId: tenantCatalogOptions[0]?.id ?? "" }));
-        }
-
-        if (!tenantStyleOptions.some(style => style.id === form.styleId)) {
-            setForm(prev => ({ ...prev, styleId: tenantStyleOptions[0]?.id ?? "" }));
-        }
-    }, [currentTenantId, form.catalogId, form.styleId, tenantCatalogOptions, tenantStyleOptions]);
-
-    useEffect(() => {
-        const tenantProductIds = new Set(tenantProductOptions.map(product => product.id));
-
-        setForm(prev => {
-            const filteredProductIds = prev.selectedProductIds.filter(productId =>
-                tenantProductIds.has(productId)
-            );
-            if (filteredProductIds.length === prev.selectedProductIds.length) {
-                return prev;
-            }
-
-            const nextOverrides: CreateRuleForm["productOverrides"] = {};
-            for (const productId of filteredProductIds) {
-                nextOverrides[productId] = prev.productOverrides[productId] ?? {
-                    overridePrice: "",
-                    showOriginalPrice: false,
-                    visible: false
-                };
-            }
-
-            return {
-                ...prev,
-                selectedProductIds: filteredProductIds,
-                productOverrides: nextOverrides
-            };
-        });
-    }, [tenantProductOptions]);
-
-    const activitiesMissingLayoutRule = useMemo(() => {
-        if (!activities.length || isLoading) return [];
-
-        return activities.filter(activity => {
-            const hasValidRule = rules.some(rule => {
-                if (rule.rule_type !== "layout") return false;
-                if (!rule.enabled) return false;
-
-                const isActivityTarget =
-                    rule.target_type === "activity" && rule.target_id === activity.id;
-                const isSystemTarget =
-                    rule.target_type === "activity_group" && rule.target_group?.is_system === true;
-
-                if (!isActivityTarget && !isSystemTarget) return false;
-
-                if (rule.time_mode === "window") {
-                    const hasDays = rule.days_of_week && rule.days_of_week.length > 0;
-                    const hasTimes = rule.time_from && rule.time_to;
-                    if (!hasDays && !hasTimes) return false;
-                }
-
-                return true;
-            });
-
-            return !hasValidRule;
-        });
-    }, [activities, rules, isLoading]);
-
-    const activeRuleIds = useMemo(() => {
-        const now = new Date();
-        const winningRuleIds = new Set<string>();
-
-        const activeRules = rules.filter(r => r.enabled && isTimeRuleActiveNow(r, now));
-
-        const groups = new Map<string, LayoutRule[]>();
-        for (const rule of activeRules) {
-            const key = `${rule.target_type}-${rule.target_id}-${rule.rule_type}`;
-            if (!groups.has(key)) groups.set(key, []);
-            groups.get(key)!.push(rule);
-        }
-
-        for (const groupRules of groups.values()) {
-            groupRules.sort((a, b) => {
-                if (a.priority !== b.priority) return a.priority - b.priority;
-                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-            });
-            if (groupRules[0]) {
-                winningRuleIds.add(groupRules[0].id);
-            }
-        }
-
-        return winningRuleIds;
-    }, [rules]);
-
     const filteredRules = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
         const typeFilteredRules =
             ruleTypeFilter === "all"
                 ? rules
                 : rules.filter(rule => rule.rule_type === ruleTypeFilter);
+
         if (!query) return typeFilteredRules;
 
         return typeFilteredRules.filter(rule => {
             const targetLabel = getRuleTargetLabel(rule, activityById);
             const catalogLabel = rule.layout?.catalog_id
-                ? catalogById.get(rule.layout.catalog_id)?.name ?? rule.layout.catalog_id
+                ? (catalogById.get(rule.layout.catalog_id)?.name ?? rule.layout.catalog_id)
                 : "";
             const styleLabel = rule.layout?.style_id
-                ? styleById.get(rule.layout.style_id)?.name ?? rule.layout.style_id
+                ? (styleById.get(rule.layout.style_id)?.name ?? rule.layout.style_id)
                 : "";
-            const ruleTypeLabel = getRuleTypeLabel(rule.rule_type);
-            const priceProductsLabel =
-                rule.rule_type === "price"
-                    ? rule.price_overrides
-                          .map(override => override.product_name ?? override.product_id)
-                          .join(" ")
-                    : "";
-            const visibilityProductsLabel =
-                rule.rule_type === "visibility"
-                    ? rule.visibility_overrides
-                          .map(
-                              override =>
-                                  `${override.product_name ?? override.product_id} ${
-                                      override.visible ? "visibile" : "nascosto"
-                                  }`
-                          )
-                          .join(" ")
-                    : "";
+            const ruleName = rule.name ?? "";
 
             return [
+                ruleName,
                 rule.id,
-                ruleTypeLabel,
+                getRuleTypeLabel(rule.rule_type),
                 rule.rule_type,
+                targetLabel,
                 rule.target_type,
                 rule.target_id,
-                targetLabel,
                 catalogLabel,
                 styleLabel,
-                priceProductsLabel,
-                visibilityProductsLabel,
-                rule.time_mode
+                rule.priority
             ]
                 .join(" ")
                 .toLowerCase()
@@ -437,229 +238,199 @@ export default function Programming() {
         });
     }, [activityById, catalogById, ruleTypeFilter, rules, searchTerm, styleById]);
 
-    const duplicateRuleWarning = useMemo(() => {
-        const selectedFormActivity = activities.find(item => item.id === form.activityId) ?? null;
-        const isAllActivitiesTarget = form.targetMode === "all_activities";
-
-        if (!isAllActivitiesTarget && !selectedFormActivity) return null;
-
-        const priority = Number(form.priority);
-        if (Number.isNaN(priority)) return null;
-
-        const hasDays = form.daysOfWeek.length > 0;
-        const hasBothTimes = Boolean(form.timeFrom && form.timeTo);
-
-        if (form.timeMode === "window") {
-            const hasSingleTime = Boolean(form.timeFrom) !== Boolean(form.timeTo);
-            if (hasSingleTime || (!hasDays && !hasBothTimes)) return null;
-        }
-
-        const overlappingRule = rules.find(r => {
-            if (r.rule_type !== form.ruleType) return false;
-            if (r.priority !== priority) return false;
-
-            if (isAllActivitiesTarget) {
-                if (r.target_type !== "activity_group" || r.target_group?.is_system !== true)
-                    return false;
-            } else {
-                if (r.target_type !== "activity" || r.target_id !== form.activityId) return false;
-            }
-
-            if (r.time_mode !== form.timeMode) return false;
-
-            if (form.timeMode === "window") {
-                const formDaysSet = new Set(form.daysOfWeek.map(Number));
-                const ruleDaysSet = new Set(r.days_of_week ?? []);
-
-                if (formDaysSet.size !== ruleDaysSet.size) return false;
-                for (const d of formDaysSet) {
-                    if (!ruleDaysSet.has(d)) return false;
-                }
-
-                const ruleFrom = r.time_from ? r.time_from.slice(0, 5) : "";
-                const formFrom = form.timeFrom ? form.timeFrom.slice(0, 5) : "";
-                if (ruleFrom !== formFrom) return false;
-
-                const ruleTo = r.time_to ? r.time_to.slice(0, 5) : "";
-                const formTo = form.timeTo ? form.timeTo.slice(0, 5) : "";
-                if (ruleTo !== formTo) return false;
-            }
-
-            return true;
+    const handleToggleEnabled = async (ruleId: string, enabled: boolean) => {
+        // Optimistic update
+        setRules(prev => prev.map(r => (r.id === ruleId ? { ...r, enabled } : r)));
+        setUpdatingRules(prev => {
+            const next = new Set(prev);
+            next.add(ruleId);
+            return next;
         });
 
-        if (overlappingRule) {
-            return "⚠ Esiste già una regola con la stessa priorità e le stesse impostazioni temporali per questo Target.";
+        try {
+            await updateScheduleEnabled(ruleId, enabled);
+            showToast({
+                type: "success",
+                message: enabled ? "Regola abilitata." : "Regola disabilitata.",
+                duration: 2000
+            });
+        } catch (error) {
+            console.error("Errore update stato regola:", error);
+            // Revert
+            setRules(prev => prev.map(r => (r.id === ruleId ? { ...r, enabled: !enabled } : r)));
+            showToast({
+                type: "error",
+                message: "Impossibile aggiornare lo stato.",
+                duration: 3000
+            });
+        } finally {
+            setUpdatingRules(prev => {
+                const next = new Set(prev);
+                next.delete(ruleId);
+                return next;
+            });
         }
+    };
 
-        return null;
-    }, [
-        activities,
-        form.activityId,
-        form.daysOfWeek,
-        form.priority,
-        form.ruleType,
-        form.targetMode,
-        form.timeFrom,
-        form.timeMode,
-        form.timeTo,
-        rules
-    ]);
+    const isDraft = (rule: LayoutRule) => {
+        if (rule.rule_type === "layout") {
+            return !rule.layout?.catalog_id || !rule.layout?.style_id;
+        }
+        if (rule.rule_type === "price") {
+            return rule.price_overrides.length === 0;
+        }
+        if (rule.rule_type === "visibility") {
+            return rule.visibility_overrides.length === 0;
+        }
+        return false;
+    };
 
     const columns: ColumnDefinition<LayoutRule>[] = [
         {
-            id: "target",
-            header: "Activity",
-            width: "2.2fr",
+            id: "name",
+            header: "Regola",
+            width: "2.4fr",
             cell: (_value, rule) => {
-                const targetLabel = getRuleTargetLabel(rule, activityById);
-                const isPriceRule = rule.rule_type === "price";
-                const isVisibilityRule = rule.rule_type === "visibility";
+                const draft = isDraft(rule);
+                const summary = buildRuleSummary(rule);
+                return (
+                    <div className={styles.nameCell}>
+                        <div className={styles.nameRow}>
+                            <Text variant="body-sm" weight={700}>
+                                {(
+                                    rule.name ??
+                                    `${getRuleTypeLabel(rule.rule_type)} · ${rule.id.slice(0, 6)}`
+                                ).trim()}
+                            </Text>
+                            {draft && (
+                                <span className={styles.badgeDraft}>
+                                    <FileText size={10} />
+                                    Bozza
+                                </span>
+                            )}
+                        </div>
+                        <Text variant="caption" colorVariant="muted" className={styles.summaryLine}>
+                            {summary}
+                        </Text>
+                    </div>
+                );
+            }
+        },
+        {
+            id: "target",
+            header: "Target attività",
+            width: "1.4fr",
+            cell: (_value, rule) => {
+                let targetLabel = "";
+                let Icon = Building2;
+                let isAll = false;
+
+                if (rule.target_type === "activity_group") {
+                    if (rule.target_group?.is_system) {
+                        targetLabel = "Tutte le attività";
+                        Icon = Globe;
+                        isAll = true;
+                    } else {
+                        targetLabel = `Gruppo: ${rule.target_group?.name ?? rule.target_id}`;
+                        Icon = Users;
+                    }
+                } else {
+                    targetLabel = `Attività: ${activityById.get(rule.target_id)?.name ?? rule.target_id}`;
+                }
 
                 return (
-                    <div>
-                        <Text variant="body-sm" weight={600}>
-                            {targetLabel}
-                        </Text>
-                        <Text variant="caption" colorVariant="muted">
-                            {rule.target_id}
-                        </Text>
-                        {isPriceRule && rule.price_overrides.length > 0 && (
-                            <Text variant="caption" colorVariant="muted">
-                                Prodotti:{" "}
-                                {rule.price_overrides
-                                    .map(override => override.product_name ?? override.product_id)
-                                    .join(", ")}
+                    <Tooltip content={`Applicata a: ${targetLabel}`} side="top">
+                        <div className={styles.targetPill}>
+                            <Icon size={14} className={styles.targetIcon} />
+                            <Text variant="caption" weight={600}>
+                                {isAll
+                                    ? "Tutte"
+                                    : (rule.target_group?.name ??
+                                      activityById.get(rule.target_id)?.name ??
+                                      "...")}
                             </Text>
-                        )}
-                        {isVisibilityRule && rule.visibility_overrides.length > 0 && (
-                            <Text variant="caption" colorVariant="muted">
-                                Prodotti:{" "}
-                                {rule.visibility_overrides
-                                    .map(
-                                        override =>
-                                            `${override.product_name ?? override.product_id} (${
-                                                override.visible ? "visibile" : "nascosto"
-                                            })`
-                                    )
-                                    .join(", ")}
-                            </Text>
-                        )}
-                    </div>
+                        </div>
+                    </Tooltip>
                 );
             }
         },
         {
             id: "type",
             header: "Tipo",
-            width: "1fr",
+            width: "0.8fr",
             cell: (_value, rule) => {
-                const ruleTypeLabel = getRuleTypeLabel(rule.rule_type);
                 const ruleTypeBadgeClassName =
                     rule.rule_type === "layout"
                         ? styles.ruleTypeLayout
                         : rule.rule_type === "price"
-                        ? styles.ruleTypePrice
-                        : styles.ruleTypeVisibility;
+                          ? styles.ruleTypePrice
+                          : styles.ruleTypeVisibility;
 
                 return (
-                    <div className={styles.typeCell}>
-                        <span className={`${styles.ruleTypeBadge} ${ruleTypeBadgeClassName}`}>
-                            <Text variant="caption" colorVariant="white" as="span">
-                                {ruleTypeLabel}
-                            </Text>
-                        </span>
-                        {activeRuleIds.has(rule.id) && (
-                            <span className={styles.activeNowBadge}>
-                                <Text variant="caption-xs" colorVariant="white" as="span">
-                                    Attiva ora
-                                </Text>
-                            </span>
-                        )}
+                    <span className={`${styles.ruleTypeBadge} ${ruleTypeBadgeClassName}`}>
+                        <Text variant="caption" colorVariant="white" as="span">
+                            {getRuleTypeLabel(rule.rule_type)}
+                        </Text>
+                    </span>
+                );
+            }
+        },
+        {
+            id: "priority",
+            header: "Priorità",
+            width: "0.6fr",
+            accessor: rule => rule.priority,
+            cell: value => <Text variant="body-sm">{value as number}</Text>
+        },
+        {
+            id: "status",
+            header: "Stato",
+            width: "80px",
+            align: "center",
+            cell: (_value, rule) => {
+                const isUpdating = updatingRules.has(rule.id);
+                return (
+                    <div className={styles.statusCell} onClick={e => e.stopPropagation()}>
+                        <Switch
+                            checked={rule.enabled}
+                            onChange={checked => void handleToggleEnabled(rule.id, checked)}
+                            disabled={isUpdating}
+                        />
+                        {isUpdating && <Loader2 size={14} className={styles.miniLoader} />}
                     </div>
                 );
             }
         },
         {
-            id: "catalog",
-            header: "Catalog",
-            width: "1.6fr",
-            cell: (_value, rule) => {
-                if (rule.rule_type !== "layout") {
-                    return (
-                        <span className={styles.placeholderBadge}>
-                            <Text variant="caption" colorVariant="muted" as="span">
-                                N/A
-                            </Text>
-                        </span>
-                    );
-                }
-
-                const catalogName = rule.layout?.catalog_id
-                    ? catalogById.get(rule.layout.catalog_id)?.name ?? rule.layout.catalog_id
-                    : null;
-
-                return <Text variant="body-sm">{catalogName ?? "-"}</Text>;
-            }
-        },
-        {
-            id: "style",
-            header: "Style",
-            width: "1.6fr",
-            cell: (_value, rule) => {
-                if (rule.rule_type !== "layout") {
-                    return (
-                        <span className={styles.placeholderBadge}>
-                            <Text variant="caption" colorVariant="muted" as="span">
-                                N/A
-                            </Text>
-                        </span>
-                    );
-                }
-
-                const styleName = rule.layout?.style_id
-                    ? styleById.get(rule.layout.style_id)?.name ?? rule.layout.style_id
-                    : null;
-
-                return <Text variant="body-sm">{styleName ?? "-"}</Text>;
-            }
-        },
-        {
-            id: "priority",
-            header: "Priority",
-            width: "0.8fr",
-            accessor: rule => rule.priority,
-            cell: value => <Text variant="body-sm">{value as number}</Text>
-        },
-        {
-            id: "timeMode",
-            header: "Time Mode",
-            width: "1fr",
-            accessor: rule => rule.time_mode,
-            cell: value => <Text variant="body-sm">{value as string}</Text>
-        },
-        {
-            id: "status",
-            header: "Stato",
-            width: "0.8fr",
-            cell: (_value, rule) => (
-                <span className={rule.enabled ? styles.statusOn : styles.statusOff}>
-                    <Text variant="caption" colorVariant="white" as="span">
-                        {rule.enabled ? "Enabled" : "Disabled"}
-                    </Text>
-                </span>
-            )
-        },
-        {
             id: "actions",
             header: "Azioni",
-            width: "0.8fr",
+            width: "80px",
             align: "right",
             cell: (_value, rule) => (
-                <div>
-                    <Button variant="secondary" onClick={() => void handleDeleteRule(rule.id)}>
-                        Elimina
-                    </Button>
+                <div className={styles.rowActions} data-row-click-ignore="true">
+                    <DropdownMenu
+                        trigger={
+                            <button className={styles.kebabButton} aria-label="Azioni riga">
+                                <IconDotsVertical size={18} />
+                            </button>
+                        }
+                        placement="bottom-end"
+                    >
+                        <DropdownItem
+                            onClick={() => navigate(`/dashboard/programmazione/${rule.id}`)}
+                        >
+                            Modifica
+                        </DropdownItem>
+                        <DropdownItem
+                            danger
+                            onClick={() => {
+                                setRuleToDelete(rule.id);
+                                setIsDeleteModalOpen(true);
+                            }}
+                        >
+                            Elimina
+                        </DropdownItem>
+                    </DropdownMenu>
                 </div>
             )
         }
@@ -667,64 +438,27 @@ export default function Programming() {
 
     const handleOpenCreate = () => {
         setForm(
-            buildDefaultForm(
-                {
-                    activities,
-                    catalogs,
-                    styles: stylesOptions
-                },
-                currentTenantId
-            )
+            buildDefaultCreateForm({
+                activities,
+                groups: activityGroups,
+                tenantId: currentTenantId
+            })
         );
         setIsCreateDrawerOpen(true);
     };
 
-    async function handleDeleteRule(scheduleId: string) {
-        const ruleToDelete = rules.find(r => r.id === scheduleId);
+    const handleDeleteConfirm = async () => {
         if (!ruleToDelete) return;
 
-        let isLastActiveLayoutRule = false;
-
-        if (ruleToDelete.rule_type === "layout" && ruleToDelete.enabled) {
-            const isValidWindow = (r: typeof ruleToDelete) => {
-                if (r.time_mode !== "window") return true;
-                const hasDays = r.days_of_week && r.days_of_week.length > 0;
-                const hasTimes = r.time_from && r.time_to;
-                return Boolean(hasDays || hasTimes);
-            };
-
-            if (isValidWindow(ruleToDelete)) {
-                const otherActiveLayoutRules = rules.filter(
-                    r =>
-                        r.id !== scheduleId &&
-                        r.rule_type === "layout" &&
-                        r.enabled &&
-                        r.target_type === ruleToDelete.target_type &&
-                        r.target_id === ruleToDelete.target_id &&
-                        isValidWindow(r)
-                );
-
-                if (otherActiveLayoutRules.length === 0) {
-                    isLastActiveLayoutRule = true;
-                }
-            }
-        }
-
-        const confirmMessage = isLastActiveLayoutRule
-            ? "⚠ Questa è l'ultima layout rule attiva per questo target. Il menu pubblico non sarà visibile. Vuoi continuare?"
-            : "Eliminare questa regola? L’operazione è irreversibile.";
-
-        if (!window.confirm(confirmMessage)) {
-            return;
-        }
-
         try {
-            await deleteLayoutRule(scheduleId);
+            await deleteLayoutRule(ruleToDelete);
             showToast({
                 type: "success",
                 message: "Regola eliminata con successo.",
-                duration: 2400
+                duration: 2200
             });
+            setIsDeleteModalOpen(false);
+            setRuleToDelete(null);
             await loadRules();
         } catch (error) {
             console.error("Errore eliminazione regola:", error);
@@ -734,199 +468,92 @@ export default function Programming() {
                 duration: 3000
             });
         }
-    }
+    };
 
     const handleCreateRule = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
-        const isLayoutType = form.ruleType === "layout";
-        const isPriceType = form.ruleType === "price";
-        const isVisibilityType = form.ruleType === "visibility";
-        const selectedFormActivity = activities.find(item => item.id === form.activityId) ?? null;
-        const isAllActivitiesTarget = form.targetMode === "all_activities";
-        const priority = Number(form.priority);
-        const hasDays = form.daysOfWeek.length > 0;
-        const hasBothTimes = Boolean(form.timeFrom && form.timeTo);
-        const hasSingleTime = Boolean(form.timeFrom) !== Boolean(form.timeTo);
-
-        if (
-            !currentTenantId ||
-            (!isAllActivitiesTarget && !selectedFormActivity) ||
-            (isLayoutType && (!form.catalogId || !form.styleId || !selectedStyle)) ||
-            Number.isNaN(priority)
-        ) {
+        if (!currentTenantId) {
             showToast({
                 type: "error",
-                message: "Compila tutti i campi richiesti prima di salvare.",
-                duration: 2800
-            });
-            return;
-        }
-
-        if (isPriceType && form.selectedProductIds.length === 0) {
-            showToast({
-                type: "error",
-                message: "Seleziona almeno un prodotto per la regola prezzi.",
+                message: "Utente non valido. Effettua nuovamente il login.",
                 duration: 3000
             });
             return;
         }
 
-        if (isVisibilityType && form.selectedProductIds.length === 0) {
+        const ruleName = form.name.trim();
+        if (!ruleName) {
             showToast({
                 type: "error",
-                message: "Seleziona almeno un prodotto per la regola visibilità.",
-                duration: 3000
+                message: "Inserisci il nome regola.",
+                duration: 2600
             });
             return;
         }
 
-        const parsedPriceOverrides = isPriceType
-            ? form.selectedProductIds.map(productId => ({
-                  productId,
-                  overridePrice: Number(form.productOverrides[productId]?.overridePrice ?? ""),
-                  showOriginalPrice: form.productOverrides[productId]?.showOriginalPrice ?? false
-              }))
-            : [];
-        const parsedVisibilityOverrides = isVisibilityType
-            ? form.selectedProductIds.map(productId => ({
-                  productId,
-                  visible: form.productOverrides[productId]?.visible ?? false
-              }))
-            : [];
+        let targetType: RuleTargetType = "activity";
+        let targetId = form.activityId;
 
-        if (
-            isPriceType &&
-            parsedPriceOverrides.some(
-                override => Number.isNaN(override.overridePrice) || override.overridePrice <= 0
-            )
-        ) {
-            showToast({
-                type: "error",
-                message: "Per ogni prodotto imposta un override_price maggiore di 0.",
-                duration: 3200
-            });
-            return;
+        if (form.targetMode === "all_activities") {
+            const systemGroupId = await getSystemActivityGroupId(currentTenantId);
+            if (!systemGroupId) {
+                showToast({
+                    type: "error",
+                    message: "Gruppo di sistema 'Tutte le sedi' mancante.",
+                    duration: 3000
+                });
+                return;
+            }
+            targetType = "activity_group";
+            targetId = systemGroupId;
         }
 
-        if (form.timeMode === "window") {
-            if (hasSingleTime) {
+        if (form.targetMode === "activity_group") {
+            if (!form.activityGroupId) {
                 showToast({
                     type: "error",
-                    message: "Per la finestra oraria servono sia Ora inizio che Ora fine.",
-                    duration: 3000
+                    message: "Seleziona un gruppo attività.",
+                    duration: 2600
                 });
                 return;
             }
+            targetType = "activity_group";
+            targetId = form.activityGroupId;
+        }
 
-            if (!hasDays && !hasBothTimes) {
-                showToast({
-                    type: "error",
-                    message: "In modalità window imposta almeno giorni o fascia oraria.",
-                    duration: 3000
-                });
-                return;
-            }
+        if (form.targetMode === "specific_activity" && !form.activityId) {
+            showToast({
+                type: "error",
+                message: "Seleziona un'attività.",
+                duration: 2600
+            });
+            return;
         }
 
         setIsSaving(true);
         try {
-            if (!isLayoutType && !isPriceType && !isVisibilityType) {
-                showToast({
-                    type: "error",
-                    message: "Tipo regola non ancora supportato.",
-                    duration: 3000
-                });
-                return;
-            }
-
-            let targetType: "activity" | "activity_group" = "activity";
-            let targetId = selectedFormActivity?.id ?? "";
-
-            if (isAllActivitiesTarget) {
-                const systemGroupId = await getSystemActivityGroupId(currentTenantId);
-                if (!systemGroupId) {
-                    showToast({
-                        type: "error",
-                        message: "Gruppo di sistema 'Tutte le sedi' mancante",
-                        duration: 3000
-                    });
-                    return;
-                }
-
-                targetType = "activity_group";
-                targetId = systemGroupId;
-            }
-
-            if (isLayoutType) {
-                await createLayoutRule({
-                    tenantId: currentTenantId,
-                    targetType,
-                    targetId,
-                    catalogId: form.catalogId,
-                    styleId: form.styleId,
-                    priority,
-                    enabled: form.enabled,
-                    timeMode: form.timeMode,
-                    daysOfWeek:
-                        form.timeMode === "window" && hasDays
-                            ? form.daysOfWeek.map(day => Number(day))
-                            : null,
-                    timeFrom: form.timeMode === "window" && hasBothTimes ? form.timeFrom : null,
-                    timeTo: form.timeMode === "window" && hasBothTimes ? form.timeTo : null,
-                    featuredContents: form.featuredContents
-                });
-            } else if (isPriceType) {
-                await createPriceRule({
-                    tenantId: currentTenantId,
-                    targetType,
-                    targetId,
-                    priority,
-                    enabled: form.enabled,
-                    timeMode: form.timeMode,
-                    daysOfWeek:
-                        form.timeMode === "window" && hasDays
-                            ? form.daysOfWeek.map(day => Number(day))
-                            : null,
-                    timeFrom: form.timeMode === "window" && hasBothTimes ? form.timeFrom : null,
-                    timeTo: form.timeMode === "window" && hasBothTimes ? form.timeTo : null,
-                    products: parsedPriceOverrides
-                });
-            } else {
-                await createVisibilityRule({
-                    tenantId: currentTenantId,
-                    targetType,
-                    targetId,
-                    priority,
-                    enabled: form.enabled,
-                    timeMode: form.timeMode,
-                    daysOfWeek:
-                        form.timeMode === "window" && hasDays
-                            ? form.daysOfWeek.map(day => Number(day))
-                            : null,
-                    timeFrom: form.timeMode === "window" && hasBothTimes ? form.timeFrom : null,
-                    timeTo: form.timeMode === "window" && hasBothTimes ? form.timeTo : null,
-                    products: parsedVisibilityOverrides
-                });
-            }
+            const newRuleId = await createRuleDraft({
+                tenantId: currentTenantId,
+                ruleType: form.ruleType,
+                name: ruleName,
+                targetType,
+                targetId
+            });
 
             showToast({
                 type: "success",
-                message: isLayoutType
-                    ? "Layout rule creata con successo."
-                    : isPriceType
-                    ? "Price rule creata con successo."
-                    : "Visibility rule creata con successo.",
+                message: "Regola creata. Apri il workspace per configurarla.",
                 duration: 2400
             });
 
             setIsCreateDrawerOpen(false);
-            await loadRules();
+            navigate(`/dashboard/programmazione/${newRuleId}`);
         } catch (error) {
-            console.error("Errore creazione layout rule:", error);
+            console.error("Errore creazione regola:", error);
             showToast({
                 type: "error",
-                message: "Errore durante la creazione della layout rule.",
+                message: "Errore durante la creazione della regola.",
                 duration: 3000
             });
         } finally {
@@ -937,39 +564,27 @@ export default function Programming() {
     return (
         <section className={styles.programming}>
             <div className={styles.topArea}>
+                <Breadcrumb items={[{ label: "Programmazione" }]} />
                 <PageHeader
                     title="Programmazione"
-                    subtitle="Gestisci le regole layout per attività, cataloghi e stili."
+                    subtitle="Gestisci le regole del Rule Engine."
                     actions={
                         <Button
                             variant="primary"
                             onClick={handleOpenCreate}
                             disabled={!currentTenantId}
                         >
-                            Nuova layout rule
+                            Nuova regola
                         </Button>
                     }
                 />
             </div>
 
-            {activitiesMissingLayoutRule.length > 0 && (
-                <div className={styles.warningsContainer}>
-                    {activitiesMissingLayoutRule.map(activity => (
-                        <div key={activity.id} className={styles.warningBanner}>
-                            <Text variant="body-sm" colorVariant="white" weight={600}>
-                                ⚠ Nessuna layout rule attiva per questa activity ({activity.name}).
-                                Il menu pubblico non sarà visibile.
-                            </Text>
-                        </div>
-                    ))}
-                </div>
-            )}
-
             <FilterBar
                 search={{
                     value: searchTerm,
                     onChange: setSearchTerm,
-                    placeholder: "Cerca per tipo, target, catalogo, stile o id..."
+                    placeholder: "Cerca per nome, tipo, target o id..."
                 }}
                 view={{
                     value: densityView,
@@ -1010,6 +625,8 @@ export default function Programming() {
                     columns={columns}
                     isLoading={isLoading}
                     density={densityView === "list" ? "compact" : "extended"}
+                    onRowClick={row => navigate(`/dashboard/programmazione/${row.id}`)}
+                    rowClassName={rule => (!rule.enabled ? styles.disabledRow : "")}
                     loadingState={
                         <div className={styles.emptyState}>
                             <Text colorVariant="muted">Caricamento regole...</Text>
@@ -1019,7 +636,7 @@ export default function Programming() {
                         <div className={styles.emptyState}>
                             <Text variant="title-sm">Nessuna regola</Text>
                             <Text colorVariant="muted">
-                                Crea la prima regola layout o modifica i filtri di ricerca.
+                                Crea la prima regola o modifica i filtri di ricerca.
                             </Text>
                         </div>
                     }
@@ -1029,141 +646,85 @@ export default function Programming() {
             <SystemDrawer
                 open={isCreateDrawerOpen}
                 onClose={() => setIsCreateDrawerOpen(false)}
-                width={520}
-                aria-labelledby="create-layout-rule-title"
+                width={460}
+                aria-labelledby="create-rule-title"
             >
                 <DrawerLayout
                     header={
                         <div className={styles.drawerHeader}>
-                            <Text as="h3" variant="title-sm" id="create-layout-rule-title">
+                            <Text as="h3" variant="title-sm" id="create-rule-title">
                                 Nuova regola
                             </Text>
                             <Text variant="body-sm" colorVariant="muted">
-                                Crea una regola del Rule Engine su target activity con priorità
-                                ordinabile.
+                                Crea una regola draft e apri subito il workspace di configurazione.
                             </Text>
                         </div>
                     }
                     footer={
-                        <div className={styles.drawerFooterContainer}>
-                            {duplicateRuleWarning && (
-                                <div className={styles.duplicateWarningBox}>
-                                    <Text variant="caption" weight={600} colorVariant="white">
-                                        {duplicateRuleWarning}
-                                    </Text>
-                                </div>
-                            )}
-                            <div className={styles.drawerFooter}>
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => setIsCreateDrawerOpen(false)}
-                                    disabled={isSaving}
-                                >
-                                    Annulla
-                                </Button>
-                                <Button
-                                    variant="primary"
-                                    type="submit"
-                                    form="layout-rule-form"
-                                    loading={isSaving}
-                                >
-                                    Crea rule
-                                </Button>
-                            </div>
+                        <div className={styles.drawerFooter}>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setIsCreateDrawerOpen(false)}
+                                disabled={isSaving}
+                            >
+                                Annulla
+                            </Button>
+                            <Button
+                                variant="primary"
+                                type="submit"
+                                form="create-rule-form"
+                                loading={isSaving}
+                            >
+                                Crea e configura
+                            </Button>
                         </div>
                     }
                 >
-                    <form id="layout-rule-form" className={styles.form} onSubmit={handleCreateRule}>
-                        <div className={styles.drawerSection}>
-                            <Text variant="caption" colorVariant="muted">
-                                Tipo regola
-                            </Text>
-                            <div
-                                className={styles.ruleTypeSegmented}
-                                role="radiogroup"
-                                aria-label="Tipo regola"
-                            >
-                                {CREATE_RULE_TYPE_OPTIONS.map(option => {
-                                    const isSelected = form.ruleType === option.value;
+                    <form id="create-rule-form" className={styles.form} onSubmit={handleCreateRule}>
+                        <Select
+                            label="Tipo regola"
+                            value={form.ruleType}
+                            onChange={event =>
+                                setForm(prev => ({
+                                    ...prev,
+                                    ruleType: event.target.value as RuleType
+                                }))
+                            }
+                            options={CREATE_RULE_TYPE_OPTIONS}
+                        />
 
-                                    return (
-                                        <button
-                                            key={option.value}
-                                            type="button"
-                                            role="radio"
-                                            aria-checked={isSelected}
-                                            disabled={option.disabled}
-                                            onClick={() =>
-                                                setForm(prev => ({
-                                                    ...prev,
-                                                    ruleType: option.value
-                                                }))
-                                            }
-                                            className={`${styles.ruleTypeSegmentButton} ${
-                                                isSelected ? styles.ruleTypeSegmentButtonActive : ""
-                                            } ${
-                                                option.disabled
-                                                    ? styles.ruleTypeSegmentButtonDisabled
-                                                    : ""
-                                            }`}
-                                        >
-                                            <Text
-                                                as="span"
-                                                variant="caption"
-                                                weight={600}
-                                                colorVariant={
-                                                    isSelected && !option.disabled
-                                                        ? "white"
-                                                        : "default"
-                                                }
-                                            >
-                                                {option.label}
-                                            </Text>
-                                            {option.disabled && (
-                                                <span className={styles.comingSoonBadge}>
-                                                    <Text
-                                                        as="span"
-                                                        variant="caption-xs"
-                                                        colorVariant="muted"
-                                                    >
-                                                        Prossimamente
-                                                    </Text>
-                                                </span>
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
+                        <TextInput
+                            label="Nome regola"
+                            value={form.name}
+                            onChange={event =>
+                                setForm(prev => ({
+                                    ...prev,
+                                    name: event.target.value
+                                }))
+                            }
+                            required
+                            placeholder="Es. Layout pranzo weekend"
+                        />
 
                         <Select
                             label="Target"
-                            required
                             value={form.targetMode}
                             onChange={event =>
                                 setForm(prev => ({
                                     ...prev,
-                                    targetMode: event.target.value as LayoutRuleTargetMode
+                                    targetMode: event.target.value as TargetMode
                                 }))
                             }
                             options={[
                                 { value: "all_activities", label: "Tutte le attività" },
+                                { value: "activity_group", label: "Gruppi attività" },
                                 { value: "specific_activity", label: "Attività specifiche" }
                             ]}
                         />
 
-                        {form.targetMode === "all_activities" && (
-                            <div className={styles.targetInfo}>
-                                <Text variant="caption" colorVariant="muted">
-                                    Si applica a tutte le attività (gruppo di sistema).
-                                </Text>
-                            </div>
-                        )}
-
                         {form.targetMode === "specific_activity" && (
                             <Select
-                                label="Activity"
-                                required
+                                label="Attività"
                                 value={form.activityId}
                                 onChange={event =>
                                     setForm(prev => ({
@@ -1173,7 +734,7 @@ export default function Programming() {
                                 }
                                 options={[
                                     { value: "", label: "Seleziona attività" },
-                                    ...activities.map(activity => ({
+                                    ...tenantActivities.map(activity => ({
                                         value: activity.id,
                                         label: activity.name
                                     }))
@@ -1181,557 +742,51 @@ export default function Programming() {
                             />
                         )}
 
-                        <div className={styles.drawerSection}>
-                            <Text variant="caption" colorVariant="muted">
-                                Contenuti associati
-                            </Text>
-
-                            {form.ruleType === "layout" ? (
-                                <>
-                                    <Select
-                                        label="Catalog"
-                                        required
-                                        value={form.catalogId}
-                                        onChange={event =>
-                                            setForm(prev => ({
-                                                ...prev,
-                                                catalogId: event.target.value
-                                            }))
-                                        }
-                                        options={[
-                                            { value: "", label: "Seleziona catalogo" },
-                                            ...tenantCatalogOptions.map(catalog => ({
-                                                value: catalog.id,
-                                                label: catalog.name
-                                            }))
-                                        ]}
-                                        disabled={!currentTenantId}
-                                    />
-
-                                    <Select
-                                        label="Style"
-                                        required
-                                        value={form.styleId}
-                                        onChange={event =>
-                                            setForm(prev => ({
-                                                ...prev,
-                                                styleId: event.target.value
-                                            }))
-                                        }
-                                        options={[
-                                            { value: "", label: "Seleziona stile" },
-                                            ...tenantStyleOptions.map(style => ({
-                                                value: style.id,
-                                                label: style.name
-                                            }))
-                                        ]}
-                                        disabled={!currentTenantId}
-                                    />
-
-                                    {form.styleId && !selectedStyle && (
-                                        <div className={styles.styleOrphanWarning}>
-                                            <IconAlertTriangle size={24} />
-                                            <div>
-                                                <Text variant="body-sm" weight={600}>
-                                                    Stile non trovato
-                                                </Text>
-                                                <Text variant="caption">
-                                                    Lo stile attualmente associato a questa regola
-                                                    non esiste più. Seleziona un nuovo stile per
-                                                    poter salvare la regola.
-                                                </Text>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {selectedStyle && (
-                                        <div className={styles.styleDetailsCard}>
-                                            <div className={styles.styleDetailsHeader}>
-                                                <div className={styles.styleDetailsGroup}>
-                                                    <Text variant="body-sm" weight={600}>
-                                                        {selectedStyle.name}
-                                                    </Text>
-                                                    {selectedStyle.is_system && (
-                                                        <Badge variant="primary">Sistema</Badge>
-                                                    )}
-                                                    <Badge variant="secondary">
-                                                        v
-                                                        {selectedStyle.current_version?.version ||
-                                                            "1"}
-                                                    </Badge>
-                                                </div>
-                                                <Link
-                                                    to={`/dashboard/stili`}
-                                                    target="_blank"
-                                                    style={{
-                                                        textDecoration: "none",
-                                                        display: "flex"
-                                                    }}
-                                                >
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        rightIcon={<IconExternalLink size={14} />}
-                                                        type="button"
-                                                    >
-                                                        Apri stile
-                                                    </Button>
-                                                </Link>
-                                            </div>
-                                            <div className={styles.styleHelperText}>
-                                                <Text variant="caption-xs" colorVariant="muted">
-                                                    Modifiche allo stile dalla pagina di design
-                                                    creano nuove versioni automaticamente, che si
-                                                    applicheranno subito in questa regola.
-                                                </Text>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className={styles.productsBlock}>
-                                        <div className={styles.selectedProducts}>
-                                            <Text variant="caption" colorVariant="muted">
-                                                Contenuti in evidenza
-                                            </Text>
-                                            <PillGroupMultiple
-                                                ariaLabel="Seleziona contenuti in evidenza per layout"
-                                                options={tenantFeaturedContentsOptions.map(fc => ({
-                                                    value: fc.id,
-                                                    label: fc.name
-                                                }))}
-                                                value={form.featuredContents.map(
-                                                    fc => fc.featuredContentId
-                                                )}
-                                                onChange={value =>
-                                                    setForm(prev => {
-                                                        const newIds = [...value];
-                                                        const nextFeaturedContents = newIds.map(
-                                                            id => {
-                                                                const existing =
-                                                                    prev.featuredContents.find(
-                                                                        fc =>
-                                                                            fc.featuredContentId ===
-                                                                            id
-                                                                    );
-                                                                return (
-                                                                    existing ?? {
-                                                                        featuredContentId: id,
-                                                                        slot: "hero" as const,
-                                                                        sortOrder: 0
-                                                                    }
-                                                                );
-                                                            }
-                                                        );
-                                                        return {
-                                                            ...prev,
-                                                            featuredContents: nextFeaturedContents
-                                                        };
-                                                    })
-                                                }
-                                                layout="auto"
-                                            />
-                                        </div>
-
-                                        {form.featuredContents.length > 0 && (
-                                            <div className={styles.productOverrideList}>
-                                                {form.featuredContents.map((fc, index) => {
-                                                    const fcOption =
-                                                        tenantFeaturedContentsOptions.find(
-                                                            o => o.id === fc.featuredContentId
-                                                        );
-                                                    return (
-                                                        <div
-                                                            key={fc.featuredContentId}
-                                                            className={styles.productOverrideCard}
-                                                        >
-                                                            <Text variant="body-sm" weight={600}>
-                                                                {fcOption?.name ??
-                                                                    fc.featuredContentId}
-                                                            </Text>
-
-                                                            <Select
-                                                                label="Slot"
-                                                                value={fc.slot}
-                                                                onChange={e => {
-                                                                    const newSlot = e.target
-                                                                        .value as
-                                                                        | "hero"
-                                                                        | "before_catalog"
-                                                                        | "after_catalog";
-                                                                    setForm(prev => {
-                                                                        const copy = [
-                                                                            ...prev.featuredContents
-                                                                        ];
-                                                                        copy[index] = {
-                                                                            ...copy[index],
-                                                                            slot: newSlot
-                                                                        };
-                                                                        return {
-                                                                            ...prev,
-                                                                            featuredContents: copy
-                                                                        };
-                                                                    });
-                                                                }}
-                                                                options={[
-                                                                    {
-                                                                        value: "hero",
-                                                                        label: "Hero"
-                                                                    },
-                                                                    {
-                                                                        value: "before_catalog",
-                                                                        label: "Prima del catalogo"
-                                                                    },
-                                                                    {
-                                                                        value: "after_catalog",
-                                                                        label: "Dopo il catalogo"
-                                                                    }
-                                                                ]}
-                                                            />
-
-                                                            <NumberInput
-                                                                label="Ordinamento"
-                                                                min={0}
-                                                                step={1}
-                                                                value={fc.sortOrder.toString()}
-                                                                onChange={e => {
-                                                                    setForm(prev => {
-                                                                        const copy = [
-                                                                            ...prev.featuredContents
-                                                                        ];
-                                                                        copy[index] = {
-                                                                            ...copy[index],
-                                                                            sortOrder: Number(
-                                                                                e.target.value
-                                                                            )
-                                                                        };
-                                                                        return {
-                                                                            ...prev,
-                                                                            featuredContents: copy
-                                                                        };
-                                                                    });
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                </>
-                            ) : form.ruleType === "price" ? (
-                                <div className={styles.productsBlock}>
-                                    <div className={styles.selectedProducts}>
-                                        <Text variant="caption" colorVariant="muted">
-                                            Prodotti interessati
-                                        </Text>
-                                        <PillGroupMultiple
-                                            ariaLabel="Seleziona prodotti per override prezzo"
-                                            options={tenantProductOptions.map(product => ({
-                                                value: product.id,
-                                                label: product.name
-                                            }))}
-                                            value={form.selectedProductIds}
-                                            onChange={value =>
-                                                setForm(prev => {
-                                                    const selectedProductIds = [...value];
-                                                    const productOverrides: CreateRuleForm["productOverrides"] =
-                                                        {
-                                                            ...prev.productOverrides
-                                                        };
-
-                                                    for (const productId of selectedProductIds) {
-                                                        if (!productOverrides[productId]) {
-                                                            productOverrides[productId] = {
-                                                                overridePrice: "",
-                                                                showOriginalPrice: false,
-                                                                visible: false
-                                                            };
-                                                        }
-                                                    }
-
-                                                    for (const productId of Object.keys(
-                                                        productOverrides
-                                                    )) {
-                                                        if (
-                                                            !selectedProductIds.includes(productId)
-                                                        ) {
-                                                            delete productOverrides[productId];
-                                                        }
-                                                    }
-
-                                                    return {
-                                                        ...prev,
-                                                        selectedProductIds,
-                                                        productOverrides
-                                                    };
-                                                })
-                                            }
-                                            layout="auto"
-                                        />
-                                    </div>
-
-                                    {form.selectedProductIds.length > 0 && (
-                                        <div className={styles.productOverrideList}>
-                                            {form.selectedProductIds.map(productId => {
-                                                const product = productById.get(productId);
-                                                const override = form.productOverrides[
-                                                    productId
-                                                ] ?? {
-                                                    overridePrice: "",
-                                                    showOriginalPrice: false,
-                                                    visible: false
-                                                };
-
-                                                return (
-                                                    <div
-                                                        key={productId}
-                                                        className={styles.productOverrideCard}
-                                                    >
-                                                        <Text variant="body-sm" weight={600}>
-                                                            {product?.name ?? productId}
-                                                        </Text>
-
-                                                        <NumberInput
-                                                            label="Override price"
-                                                            min={0}
-                                                            step={0.01}
-                                                            value={override.overridePrice}
-                                                            onChange={event =>
-                                                                setForm(prev => ({
-                                                                    ...prev,
-                                                                    productOverrides: {
-                                                                        ...prev.productOverrides,
-                                                                        [productId]: {
-                                                                            ...override,
-                                                                            overridePrice:
-                                                                                event.target.value
-                                                                        }
-                                                                    }
-                                                                }))
-                                                            }
-                                                        />
-
-                                                        <Switch
-                                                            label="Mostra prezzo originale"
-                                                            checked={override.showOriginalPrice}
-                                                            onChange={checked =>
-                                                                setForm(prev => ({
-                                                                    ...prev,
-                                                                    productOverrides: {
-                                                                        ...prev.productOverrides,
-                                                                        [productId]: {
-                                                                            ...override,
-                                                                            showOriginalPrice:
-                                                                                checked
-                                                                        }
-                                                                    }
-                                                                }))
-                                                            }
-                                                        />
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            ) : form.ruleType === "visibility" ? (
-                                <div className={styles.productsBlock}>
-                                    <div className={styles.selectedProducts}>
-                                        <Text variant="caption" colorVariant="muted">
-                                            Prodotti interessati
-                                        </Text>
-                                        <PillGroupMultiple
-                                            ariaLabel="Seleziona prodotti per override visibilità"
-                                            options={tenantProductOptions.map(product => ({
-                                                value: product.id,
-                                                label: product.name
-                                            }))}
-                                            value={form.selectedProductIds}
-                                            onChange={value =>
-                                                setForm(prev => {
-                                                    const selectedProductIds = [...value];
-                                                    const productOverrides: CreateRuleForm["productOverrides"] =
-                                                        {
-                                                            ...prev.productOverrides
-                                                        };
-
-                                                    for (const productId of selectedProductIds) {
-                                                        if (!productOverrides[productId]) {
-                                                            productOverrides[productId] = {
-                                                                overridePrice: "",
-                                                                showOriginalPrice: false,
-                                                                visible: false
-                                                            };
-                                                        }
-                                                    }
-
-                                                    for (const productId of Object.keys(
-                                                        productOverrides
-                                                    )) {
-                                                        if (
-                                                            !selectedProductIds.includes(productId)
-                                                        ) {
-                                                            delete productOverrides[productId];
-                                                        }
-                                                    }
-
-                                                    return {
-                                                        ...prev,
-                                                        selectedProductIds,
-                                                        productOverrides
-                                                    };
-                                                })
-                                            }
-                                            layout="auto"
-                                        />
-                                    </div>
-
-                                    {form.selectedProductIds.length > 0 && (
-                                        <div className={styles.productOverrideList}>
-                                            {form.selectedProductIds.map(productId => {
-                                                const product = productById.get(productId);
-                                                const override = form.productOverrides[
-                                                    productId
-                                                ] ?? {
-                                                    overridePrice: "",
-                                                    showOriginalPrice: false,
-                                                    visible: false
-                                                };
-
-                                                return (
-                                                    <div
-                                                        key={productId}
-                                                        className={styles.productOverrideCard}
-                                                    >
-                                                        <Text variant="body-sm" weight={600}>
-                                                            {product?.name ?? productId}
-                                                        </Text>
-
-                                                        <Switch
-                                                            label="Visibile"
-                                                            checked={override.visible}
-                                                            onChange={checked =>
-                                                                setForm(prev => ({
-                                                                    ...prev,
-                                                                    productOverrides: {
-                                                                        ...prev.productOverrides,
-                                                                        [productId]: {
-                                                                            ...override,
-                                                                            visible: checked
-                                                                        }
-                                                                    }
-                                                                }))
-                                                            }
-                                                        />
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className={styles.comingSoonPanel}>
-                                    <Text variant="caption" colorVariant="muted">
-                                        Configurazione{" "}
-                                        {getRuleTypeLabel(form.ruleType).toLowerCase()} in arrivo.
-                                    </Text>
-                                </div>
-                            )}
-                        </div>
-
-                        <NumberInput
-                            label="Priority"
-                            min={0}
-                            step={1}
-                            value={form.priority}
-                            onChange={event =>
-                                setForm(prev => ({
-                                    ...prev,
-                                    priority: event.target.value
-                                }))
-                            }
-                        />
-
-                        <Select
-                            label="Time mode"
-                            value={form.timeMode}
-                            onChange={event =>
-                                setForm(prev => ({
-                                    ...prev,
-                                    timeMode: event.target.value as LayoutTimeMode
-                                }))
-                            }
-                            options={[
-                                { value: "always", label: "always" },
-                                { value: "window", label: "window" }
-                            ]}
-                        />
-
-                        {form.timeMode === "window" && (
-                            <>
-                                <div className={styles.windowBlock}>
-                                    <Text variant="caption" colorVariant="muted">
-                                        Days of week
-                                    </Text>
-                                    <PillGroupMultiple
-                                        ariaLabel="Seleziona giorni della settimana"
-                                        options={DAY_OPTIONS}
-                                        value={form.daysOfWeek}
-                                        onChange={value =>
-                                            setForm(prev => ({
-                                                ...prev,
-                                                daysOfWeek: [...value]
-                                            }))
-                                        }
-                                        layout="stretch"
-                                    />
-                                </div>
-
-                                <div className={styles.timeGrid}>
-                                    <TimeInput
-                                        label="Time from"
-                                        value={form.timeFrom}
-                                        onChange={event =>
-                                            setForm(prev => ({
-                                                ...prev,
-                                                timeFrom: event.target.value
-                                            }))
-                                        }
-                                    />
-
-                                    <TimeInput
-                                        label="Time to"
-                                        value={form.timeTo}
-                                        onChange={event =>
-                                            setForm(prev => ({
-                                                ...prev,
-                                                timeTo: event.target.value
-                                            }))
-                                        }
-                                    />
-                                </div>
-                            </>
+                        {form.targetMode === "activity_group" && (
+                            <Select
+                                label="Gruppo attività"
+                                value={form.activityGroupId}
+                                onChange={event =>
+                                    setForm(prev => ({
+                                        ...prev,
+                                        activityGroupId: event.target.value
+                                    }))
+                                }
+                                options={[
+                                    { value: "", label: "Seleziona gruppo" },
+                                    ...tenantGroups.map(group => ({
+                                        value: group.id,
+                                        label: group.name
+                                    }))
+                                ]}
+                            />
                         )}
-
-                        <Switch
-                            label="Enabled"
-                            checked={form.enabled}
-                            onChange={checked =>
-                                setForm(prev => ({
-                                    ...prev,
-                                    enabled: checked
-                                }))
-                            }
-                        />
-
-                        <div className={styles.formHint}>
-                            <Text variant="caption" colorVariant="muted">
-                                Se time mode = window puoi impostare giorni e fascia oraria.
-                            </Text>
-                        </div>
                     </form>
                 </DrawerLayout>
             </SystemDrawer>
+            <ModalLayout
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                width="xs"
+                height="fit"
+            >
+                <ModalLayoutHeader>
+                    <Text as="h3" variant="title-sm">
+                        Eliminare regola?
+                    </Text>
+                </ModalLayoutHeader>
+                <ModalLayoutContent>
+                    <Text variant="body-sm">Questa azione è irreversibile.</Text>
+                </ModalLayoutContent>
+                <ModalLayoutFooter>
+                    <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)}>
+                        Annulla
+                    </Button>
+                    <Button variant="danger" onClick={handleDeleteConfirm}>
+                        Elimina
+                    </Button>
+                </ModalLayoutFooter>
+            </ModalLayout>
         </section>
     );
 }

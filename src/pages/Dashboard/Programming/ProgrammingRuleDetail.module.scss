@@ -1,0 +1,119 @@
+@use "@styles/variables" as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-bottom: 2rem;
+}
+
+.topArea {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.topActions {
+  display: flex;
+  gap: 0.65rem;
+}
+
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.sectionCard,
+.summaryCard {
+  background: #fff;
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.sectionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.summaryBox {
+  border: 1px solid var(--color-gray-200);
+  border-radius: 8px;
+  padding: 0.8rem;
+  background: var(--color-gray-50);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.summaryTitle {
+  letter-spacing: 0.05em;
+}
+
+.schedulingGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.inlineBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.itemCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.7rem;
+}
+
+.itemCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem;
+  background: color-mix(in srgb, var(--hover-bg) 82%, white 18%);
+}
+
+.hintCard {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 0.7rem;
+  background: color-mix(in srgb, var(--hover-bg) 85%, white 15%);
+}
+
+@media (max-width: 1024px) {
+  .topActions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .sectionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .itemCards {
+    grid-template-columns: 1fr;
+  }
+}

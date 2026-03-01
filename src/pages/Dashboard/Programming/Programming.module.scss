@@ -58,6 +58,16 @@
 
 .row {
   border-bottom: 1px solid var(--border);
+  transition: all 0.2s ease;
+
+  &.disabledRow {
+    opacity: 0.6;
+    background: var(--hover-bg);
+
+    .nameCell {
+      color: var(--text-muted);
+    }
+  }
 }
 
 .row:last-child {
@@ -107,6 +117,94 @@
 
 .ruleTypeVisibility {
   background: #065f46;
+}
+
+.nameCell {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.summaryLine {
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badgeDraft,
+.badgeExpired {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.badgeDraft {
+  background: var(--color-gray-100);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.badgeExpired {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.targetPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  cursor: help;
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.targetIcon {
+  color: var(--brand-primary);
+  flex-shrink: 0;
+}
+
+.statusCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: relative;
+}
+
+.miniLoader {
+  animation: spin 1s linear infinite;
+  color: var(--brand-primary);
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .typeCell {
@@ -374,4 +472,30 @@
   border-radius: var(--radius-md);
   color: var(--color-danger);
   margin-top: -4px;
+}
+
+.rowActions {
+  display: flex;
+  justify-content: flex-end;
+  padding-right: 0.5rem;
+}
+
+.kebabButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: var(--hover-bg);
+    border-color: var(--border);
+    color: var(--text);
+  }
 }
