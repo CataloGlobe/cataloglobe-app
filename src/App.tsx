@@ -23,6 +23,7 @@ import Reviews from "@pages/Dashboard/Reviews/Reviews";
 import Analytics from "@pages/Dashboard/Analytics/Analytics";
 import Settings from "@/pages/Dashboard/Settings/Settings";
 import Programming from "./pages/Dashboard/Programming/Programming";
+import ProgrammingRuleDetail from "./pages/Dashboard/Programming/ProgrammingRuleDetail";
 import Products from "./pages/Dashboard/Products/Products";
 import Highlights from "./pages/Dashboard/Highlights/Highlights";
 import Styles from "./pages/Dashboard/Styles/Styles";
@@ -103,6 +104,7 @@ export default function App() {
 
                 <Route path="attivita" element={<Businesses />} />
                 <Route path="programmazione" element={<Programming />} />
+                <Route path="programmazione/:ruleId" element={<ProgrammingRuleDetail />} />
 
                 <Route path="cataloghi" element={<Catalogs />} />
                 <Route path="cataloghi/:id" element={<CatalogEngine />} />

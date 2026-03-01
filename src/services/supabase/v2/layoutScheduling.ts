@@ -2,6 +2,7 @@ import { supabase } from "../client";
 
 export type LayoutTimeMode = "always" | "window";
 export type RuleType = "layout" | "price" | "visibility";
+export type RuleTargetType = "activity" | "activity_group";
 
 export type PriceRuleProductOverride = {
     product_id: string;
@@ -26,6 +27,7 @@ export type LayoutRuleFeaturedContent = {
 export type LayoutRule = {
     id: string;
     tenant_id: string;
+    name: string | null;
     rule_type: RuleType;
     target_type: string;
     target_id: string;
@@ -40,6 +42,8 @@ export type LayoutRule = {
     days_of_week: number[] | null;
     time_from: string | null;
     time_to: string | null;
+    start_at: string | null;
+    end_at: string | null;
     created_at: string;
     layout: {
         style_id: string | null;
@@ -61,6 +65,7 @@ export type LayoutRuleOption = {
 type RawScheduleRow = {
     id: string;
     tenant_id: string;
+    name?: string | null;
     rule_type: RuleType;
     target_type: string;
     target_id: string;
@@ -70,6 +75,8 @@ type RawScheduleRow = {
     days_of_week: number[] | null;
     time_from: string | null;
     time_to: string | null;
+    start_at: string | null;
+    end_at: string | null;
     created_at: string;
 };
 
@@ -136,6 +143,154 @@ function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
 
 const systemActivityGroupIdByTenant = new Map<string, string>();
 
+function isMissingColumnError(error: unknown, column: string): boolean {
+    if (!error || typeof error !== "object") return false;
+    const message = String((error as { message?: string }).message ?? "").toLowerCase();
+    const needle = column.toLowerCase();
+    return (
+        message.includes(needle) &&
+        (message.includes("column") ||
+            message.includes("schema cache") ||
+            message.includes("does not exist"))
+    );
+}
+
+async function selectSchedulesWithNameFallback(): Promise<RawScheduleRow[]> {
+    const selectWithName = `
+            id,
+            tenant_id,
+            name,
+            rule_type,
+            target_type,
+            target_id,
+            priority,
+            enabled,
+            time_mode,
+            days_of_week,
+            time_from,
+            time_to,
+            start_at,
+            end_at,
+            created_at
+            `;
+
+    const withNameRes = await supabase
+        .from("v2_schedules")
+        .select(selectWithName)
+        .order("priority", { ascending: true })
+        .order("created_at", { ascending: false });
+
+    if (!withNameRes.error) {
+        return (withNameRes.data ?? []) as RawScheduleRow[];
+    }
+
+    if (!isMissingColumnError(withNameRes.error, "name")) {
+        throw withNameRes.error;
+    }
+
+    const selectWithoutName = `
+            id,
+            tenant_id,
+            rule_type,
+            target_type,
+            target_id,
+            priority,
+            enabled,
+            time_mode,
+            days_of_week,
+            time_from,
+            time_to,
+            start_at,
+            end_at,
+            created_at
+            `;
+
+    const withoutNameRes = await supabase
+        .from("v2_schedules")
+        .select(selectWithoutName)
+        .order("priority", { ascending: true })
+        .order("created_at", { ascending: false });
+
+    if (withoutNameRes.error) throw withoutNameRes.error;
+    return (withoutNameRes.data ?? []) as RawScheduleRow[];
+}
+
+async function insertScheduleWithNameFallback(
+    payload: {
+        tenant_id: string;
+        rule_type: RuleType;
+        target_type: string;
+        target_id: string;
+        priority: number;
+        enabled: boolean;
+        time_mode: LayoutTimeMode;
+        days_of_week: number[] | null;
+        time_from: string | null;
+        time_to: string | null;
+    },
+    name?: string | null
+): Promise<{ id: string }> {
+    const normalizedName = name?.trim() ?? "";
+    if (normalizedName.length > 0) {
+        const withNameRes = await supabase
+            .from("v2_schedules")
+            .insert({
+                ...payload,
+                name: normalizedName
+            })
+            .select("id")
+            .single();
+
+        if (!withNameRes.error) return withNameRes.data;
+        if (!isMissingColumnError(withNameRes.error, "name")) throw withNameRes.error;
+    }
+
+    const withoutNameRes = await supabase
+        .from("v2_schedules")
+        .insert(payload)
+        .select("id")
+        .single();
+
+    if (withoutNameRes.error) throw withoutNameRes.error;
+    return withoutNameRes.data;
+}
+
+async function updateScheduleWithNameFallback(input: {
+    scheduleId: string;
+    patch: {
+        priority: number;
+        enabled: boolean;
+        time_mode: LayoutTimeMode;
+        days_of_week: number[] | null;
+        time_from: string | null;
+        time_to: string | null;
+        target_type?: RuleTargetType;
+        target_id?: string;
+    };
+    name?: string | null;
+}): Promise<void> {
+    const normalizedName = input.name?.trim() ?? "";
+    const patchWithName = {
+        ...input.patch,
+        name: normalizedName.length > 0 ? normalizedName : null
+    };
+
+    const withNameRes = await supabase
+        .from("v2_schedules")
+        .update(patchWithName)
+        .eq("id", input.scheduleId);
+
+    if (!withNameRes.error) return;
+    if (!isMissingColumnError(withNameRes.error, "name")) throw withNameRes.error;
+
+    const withoutNameRes = await supabase
+        .from("v2_schedules")
+        .update(input.patch)
+        .eq("id", input.scheduleId);
+
+    if (withoutNameRes.error) throw withoutNameRes.error;
+}
+
 export async function getSystemActivityGroupId(tenantId: string): Promise<string | null> {
     const cached = systemActivityGroupIdByTenant.get(tenantId);
     if (cached) return cached;
@@ -160,32 +315,12 @@ export async function getSystemActivityGroupId(tenantId: string): Promise<string
 }
 
 export async function listLayoutRules(): Promise<LayoutRule[]> {
-    const { data, error } = await supabase
-        .from("v2_schedules")
-        .select(
-            `
-            id,
-            tenant_id,
-            rule_type,
-            target_type,
-            target_id,
-            priority,
-            enabled,
-            time_mode,
-            days_of_week,
-            time_from,
-            time_to,
-            created_at
-            `
-        )
-        .order("priority", { ascending: true })
-        .order("created_at", { ascending: false });
+    const data = await selectSchedulesWithNameFallback();
 
-    if (error) throw error;
-
-    const baseRules = ((data ?? []) as RawScheduleRow[]).map(row => ({
+    const baseRules = data.map(row => ({
         id: row.id,
         tenant_id: row.tenant_id,
+        name: row.name ?? null,
         rule_type: row.rule_type,
         target_type: row.target_type,
         target_id: row.target_id,
@@ -196,6 +331,8 @@ export async function listLayoutRules(): Promise<LayoutRule[]> {
         days_of_week: row.days_of_week,
         time_from: row.time_from,
         time_to: row.time_to,
+        start_at: row.start_at,
+        end_at: row.end_at,
         created_at: row.created_at,
         layout: null,
         price_overrides: [],
@@ -366,39 +503,46 @@ export async function listLayoutRules(): Promise<LayoutRule[]> {
 
 export async function listLayoutRuleOptions(): Promise<{
     activities: LayoutRuleOption[];
+    activityGroups: LayoutRuleOption[];
     catalogs: LayoutRuleOption[];
     styles: LayoutRuleOption[];
     products: LayoutRuleOption[];
     featuredContents: LayoutRuleOption[];
 }> {
-    const [activitiesRes, catalogsRes, stylesRes, productsRes, featuredRes] = await Promise.all([
-        supabase
-            .from("v2_activities")
-            .select("id, name, tenant_id")
-            .order("name", { ascending: true }),
-        supabase
-            .from("v2_catalogs")
-            .select("id, name, tenant_id")
-            .order("name", { ascending: true }),
-        supabase
-            .from("v2_styles")
-            .select(
-                "id, name, tenant_id, is_system, current_version:v2_style_versions!current_version_id(version)"
-            )
-            .eq("is_active", true)
-            .order("name", { ascending: true }),
-        supabase
-            .from("v2_products")
-            .select("id, name, tenant_id")
-            .order("name", { ascending: true }),
-        supabase
-            .from("v2_featured_contents")
-            .select("id, title, tenant_id")
-            .eq("status", "published")
-            .order("title", { ascending: true })
-    ]);
+    const [activitiesRes, activityGroupsRes, catalogsRes, stylesRes, productsRes, featuredRes] =
+        await Promise.all([
+            supabase
+                .from("v2_activities")
+                .select("id, name, tenant_id")
+                .order("name", { ascending: true }),
+            supabase
+                .from("v2_activity_groups")
+                .select("id, name, tenant_id, is_system")
+                .order("name", { ascending: true }),
+            supabase
+                .from("v2_catalogs")
+                .select("id, name, tenant_id")
+                .order("name", { ascending: true }),
+            supabase
+                .from("v2_styles")
+                .select(
+                    "id, name, tenant_id, is_system, current_version:v2_style_versions!current_version_id(version)"
+                )
+                .eq("is_active", true)
+                .order("name", { ascending: true }),
+            supabase
+                .from("v2_products")
+                .select("id, name, tenant_id")
+                .order("name", { ascending: true }),
+            supabase
+                .from("v2_featured_contents")
+                .select("id, title, tenant_id")
+                .eq("status", "published")
+                .order("title", { ascending: true })
+        ]);
 
     if (activitiesRes.error) throw activitiesRes.error;
+    if (activityGroupsRes.error) throw activityGroupsRes.error;
     if (catalogsRes.error) throw catalogsRes.error;
     if (stylesRes.error) throw stylesRes.error;
     if (productsRes.error) throw productsRes.error;
@@ -406,6 +550,7 @@ export async function listLayoutRuleOptions(): Promise<{
 
     return {
         activities: (activitiesRes.data ?? []) as LayoutRuleOption[],
+        activityGroups: (activityGroupsRes.data ?? []) as LayoutRuleOption[],
         catalogs: (catalogsRes.data ?? []) as LayoutRuleOption[],
         styles: ((stylesRes.data ?? []) as any[]).map(s => ({
             id: s.id,
@@ -425,6 +570,7 @@ export async function listLayoutRuleOptions(): Promise<{
 
 export async function createLayoutRule(input: {
     tenantId: string;
+    name?: string;
     targetType: "activity" | "activity_group";
     targetId: string;
     catalogId: string;
@@ -441,9 +587,8 @@ export async function createLayoutRule(input: {
         sortOrder: number;
     }>;
 }): Promise<void> {
-    const { data: schedule, error: scheduleError } = await supabase
-        .from("v2_schedules")
-        .insert({
+    const schedule = await insertScheduleWithNameFallback(
+        {
             tenant_id: input.tenantId,
             rule_type: "layout",
             target_type: input.targetType,
@@ -454,11 +599,9 @@ export async function createLayoutRule(input: {
             days_of_week: input.daysOfWeek,
             time_from: input.timeFrom,
             time_to: input.timeTo
-        })
-        .select("id")
-        .single();
-
-    if (scheduleError) throw scheduleError;
+        },
+        input.name
+    );
 
     const scheduleId = schedule.id;
 
@@ -493,6 +636,7 @@ export async function createLayoutRule(input: {
 
 export async function createPriceRule(input: {
     tenantId: string;
+    name?: string;
     targetType: "activity" | "activity_group";
     targetId: string;
     priority: number;
@@ -511,9 +655,8 @@ export async function createPriceRule(input: {
         throw new Error("At least one product is required for price rules.");
     }
 
-    const { data: schedule, error: scheduleError } = await supabase
-        .from("v2_schedules")
-        .insert({
+    const schedule = await insertScheduleWithNameFallback(
+        {
             tenant_id: input.tenantId,
             rule_type: "price",
             target_type: input.targetType,
@@ -524,11 +667,9 @@ export async function createPriceRule(input: {
             days_of_week: input.daysOfWeek,
             time_from: input.timeFrom,
             time_to: input.timeTo
-        })
-        .select("id")
-        .single();
-
-    if (scheduleError) throw scheduleError;
+        },
+        input.name
+    );
 
     const scheduleId = schedule.id;
 
@@ -549,6 +690,7 @@ export async function createPriceRule(input: {
 
 export async function createVisibilityRule(input: {
     tenantId: string;
+    name?: string;
     targetType: "activity" | "activity_group";
     targetId: string;
     priority: number;
@@ -566,9 +708,8 @@ export async function createVisibilityRule(input: {
         throw new Error("At least one product is required for visibility rules.");
     }
 
-    const { data: schedule, error: scheduleError } = await supabase
-        .from("v2_schedules")
-        .insert({
+    const schedule = await insertScheduleWithNameFallback(
+        {
             tenant_id: input.tenantId,
             rule_type: "visibility",
             target_type: input.targetType,
@@ -579,11 +720,9 @@ export async function createVisibilityRule(input: {
             days_of_week: input.daysOfWeek,
             time_from: input.timeFrom,
             time_to: input.timeTo
-        })
-        .select("id")
-        .single();
-
-    if (scheduleError) throw scheduleError;
+        },
+        input.name
+    );
 
     const scheduleId = schedule.id;
 
@@ -606,6 +745,7 @@ export async function createVisibilityRule(input: {
 export async function updateLayoutRule(input: {
     scheduleId: string;
     tenantId: string;
+    name?: string | null;
     targetType?: "activity" | "activity_group";
     targetId?: string;
     catalogId: string;
@@ -645,12 +785,11 @@ export async function updateLayoutRule(input: {
         schedulePatch.target_id = input.targetId;
     }
 
-    const { error: scheduleError } = await supabase
-        .from("v2_schedules")
-        .update(schedulePatch)
-        .eq("id", input.scheduleId);
-
-    if (scheduleError) throw scheduleError;
+    await updateScheduleWithNameFallback({
+        scheduleId: input.scheduleId,
+        patch: schedulePatch,
+        name: input.name
+    });
 
     const { data: existingLayout, error: existingLayoutError } = await supabase
         .from("v2_schedule_layout")
@@ -707,8 +846,191 @@ export async function updateLayoutRule(input: {
     }
 }
 
+export async function getLayoutRuleById(ruleId: string): Promise<LayoutRule | null> {
+    const rules = await listLayoutRules();
+    return rules.find(rule => rule.id === ruleId) ?? null;
+}
+
+export async function createRuleDraft(input: {
+    tenantId: string;
+    ruleType: RuleType;
+    name: string;
+    targetType: RuleTargetType;
+    targetId: string;
+    priority?: number;
+}): Promise<string> {
+    const schedule = await insertScheduleWithNameFallback(
+        {
+            tenant_id: input.tenantId,
+            rule_type: input.ruleType,
+            target_type: input.targetType,
+            target_id: input.targetId,
+            priority: input.priority ?? 10,
+            enabled: false,
+            time_mode: "always",
+            days_of_week: null,
+            time_from: null,
+            time_to: null
+        },
+        input.name
+    );
+
+    return schedule.id;
+}
+
+export async function updateRule(input: {
+    scheduleId: string;
+    tenantId: string;
+    ruleType: RuleType;
+    name?: string | null;
+    targetType: RuleTargetType;
+    targetId: string;
+    priority: number;
+    enabled: boolean;
+    timeMode: LayoutTimeMode;
+    daysOfWeek: number[] | null;
+    timeFrom: string | null;
+    timeTo: string | null;
+    layout?: {
+        catalogId: string | null;
+        styleId: string | null;
+        featuredContents: Array<{
+            featuredContentId: string;
+            slot: "hero" | "before_catalog" | "after_catalog";
+            sortOrder: number;
+        }>;
+    };
+    priceProducts?: Array<{
+        productId: string;
+        overridePrice: number;
+        showOriginalPrice: boolean;
+    }>;
+    visibilityProducts?: Array<{
+        productId: string;
+        visible: boolean;
+    }>;
+}): Promise<void> {
+    await updateScheduleWithNameFallback({
+        scheduleId: input.scheduleId,
+        patch: {
+            target_type: input.targetType,
+            target_id: input.targetId,
+            priority: input.priority,
+            enabled: input.enabled,
+            time_mode: input.timeMode,
+            days_of_week: input.daysOfWeek,
+            time_from: input.timeFrom,
+            time_to: input.timeTo
+        },
+        name: input.name
+    });
+
+    if (input.ruleType === "layout") {
+        const { data: existingLayout, error: existingLayoutError } = await supabase
+            .from("v2_schedule_layout")
+            .select("id")
+            .eq("schedule_id", input.scheduleId)
+            .maybeSingle();
+
+        if (existingLayoutError) throw existingLayoutError;
+
+        const layoutPatch = {
+            style_id: input.layout?.styleId ?? null,
+            catalog_id: input.layout?.catalogId ?? null
+        };
+
+        if (existingLayout?.id) {
+            const { error: layoutUpdateError } = await supabase
+                .from("v2_schedule_layout")
+                .update(layoutPatch)
+                .eq("id", existingLayout.id);
+
+            if (layoutUpdateError) throw layoutUpdateError;
+        } else {
+            const { error: layoutInsertError } = await supabase.from("v2_schedule_layout").insert({
+                schedule_id: input.scheduleId,
+                ...layoutPatch
+            });
+            if (layoutInsertError) throw layoutInsertError;
+        }
+
+        const { error: deleteFcError } = await supabase
+            .from("v2_schedule_featured_contents")
+            .delete()
+            .eq("schedule_id", input.scheduleId);
+        if (deleteFcError) throw deleteFcError;
+
+        const featuredContents = input.layout?.featuredContents ?? [];
+        if (featuredContents.length > 0) {
+            const { error: insertFcError } = await supabase
+                .from("v2_schedule_featured_contents")
+                .insert(
+                    featuredContents.map(fc => ({
+                        tenant_id: input.tenantId,
+                        schedule_id: input.scheduleId,
+                        featured_content_id: fc.featuredContentId,
+                        slot: fc.slot,
+                        sort_order: fc.sortOrder
+                    }))
+                );
+            if (insertFcError) throw insertFcError;
+        }
+        return;
+    }
+
+    if (input.ruleType === "price") {
+        const { error: deleteError } = await supabase
+            .from("v2_schedule_price_overrides")
+            .delete()
+            .eq("schedule_id", input.scheduleId);
+        if (deleteError) throw deleteError;
+
+        const products = input.priceProducts ?? [];
+        if (products.length > 0) {
+            const { error: insertError } = await supabase
+                .from("v2_schedule_price_overrides")
+                .insert(
+                    products.map(product => ({
+                        schedule_id: input.scheduleId,
+                        product_id: product.productId,
+                        override_price: product.overridePrice,
+                        show_original_price: product.showOriginalPrice
+                    }))
+                );
+            if (insertError) throw insertError;
+        }
+        return;
+    }
+
+    const { error: deleteError } = await supabase
+        .from("v2_schedule_visibility_overrides")
+        .delete()
+        .eq("schedule_id", input.scheduleId);
+    if (deleteError) throw deleteError;
+
+    const products = input.visibilityProducts ?? [];
+    if (products.length > 0) {
+        const { error: insertError } = await supabase
+            .from("v2_schedule_visibility_overrides")
+            .insert(
+                products.map(product => ({
+                    schedule_id: input.scheduleId,
+                    product_id: product.productId,
+                    visible: product.visible
+                }))
+            );
+        if (insertError) throw insertError;
+    }
+}
+
 export async function deleteLayoutRule(scheduleId: string): Promise<void> {
     const { error } = await supabase.from("v2_schedules").delete().eq("id", scheduleId);
+
+    if (error) throw error;
+}
+
+export async function updateScheduleEnabled(scheduleId: string, enabled: boolean): Promise<void> {
+    const { error } = await supabase.from("v2_schedules").update({ enabled }).eq("id", scheduleId);
 
     if (error) throw error;
 }

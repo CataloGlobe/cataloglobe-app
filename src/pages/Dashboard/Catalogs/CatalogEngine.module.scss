@@ -95,7 +95,10 @@
   padding-right: 6px;
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid transparent;
-  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .treeNodeRow:hover,
@@ -371,6 +374,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
 }
 
 .productsEmptySelection {
