@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import Breadcrumb, { type BreadcrumbItem } from "@/components/ui/Breadcrumb/Breadcrumb";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
 import { Button } from "@/components/ui/Button/Button";
@@ -8,12 +9,29 @@ import Text from "@/components/ui/Text/Text";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
 import { Select } from "@/components/ui/Select/Select";
+import {
+    DndContext,
+    PointerSensor,
+    KeyboardSensor,
+    closestCenter,
+    useSensor,
+    useSensors,
+    DragEndEvent
+} from "@dnd-kit/core";
+import {
+    SortableContext,
+    verticalListSortingStrategy,
+    arrayMove,
+    useSortable
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { IconGripVertical, IconPhoto } from "@tabler/icons-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import {
     addProductToCategory,
+    updateProductSortOrder,
     createCategory,
     deleteCategory,
     listCategories,
@@ -26,6 +44,7 @@ import {
 } from "@/services/supabase/v2/catalogs";
 import { ProductCreateEditDrawer } from "@/pages/Dashboard/Products/ProductCreateEditDrawer";
 import { listBaseProductsWithVariants, V2Product } from "@/services/supabase/v2/products";
+import { getProductGroups, ProductGroup } from "@/services/supabase/v2/productGroups";
 import { listAttributeDefinitions } from "@/services/supabase/v2/attributes";
 import { supabase } from "@/services/supabase/client";
 import { CatalogSplitLayout } from "./components/CatalogSplitLayout";
@@ -163,6 +182,40 @@ function collectDescendantIds(rootId: string, childrenMap: Map<string, string[]>
     return descendants;
 }
 
+type SortableProductRowProps = {
+    children: React.ReactNode;
+    id: string;
+};
+
+const SortableProductRow = ({ children, id }: SortableProductRowProps) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+        id
+    });
+
+    const style: React.CSSProperties = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 1 : 0,
+        position: "relative",
+        opacity: isDragging ? 0.5 : 1
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} {...attributes}>
+            {React.Children.map(children, child => {
+                if (React.isValidElement(child)) {
+                    // Inject listeners only to the drag handle icon if found
+                    // We need to pass the listeners to the specific cell that contains IconGripVertical
+                    return React.cloneElement(child as React.ReactElement<any>, {
+                        dragHandleProps: listeners
+                    });
+                }
+                return child;
+            })}
+        </div>
+    );
+};
+
 export default function CatalogEngine() {
     const { id: catalogId } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -191,7 +244,6 @@ export default function CatalogEngine() {
     const [editingCategory, setEditingCategory] = useState<V2CatalogCategory | null>(null);
     const [categoryName, setCategoryName] = useState("");
     const [categoryParentId, setCategoryParentId] = useState("");
-    const [categorySortOrder, setCategorySortOrder] = useState("");
     const [isSavingCategory, setIsSavingCategory] = useState(false);
 
     const [categoryToDelete, setCategoryToDelete] = useState<V2CatalogCategory | null>(null);
@@ -200,6 +252,12 @@ export default function CatalogEngine() {
     const [isAssignProductDrawerOpen, setIsAssignProductDrawerOpen] = useState(false);
     const [assignProductSearch, setAssignProductSearch] = useState("");
     const [isAssigningProduct, setIsAssigningProduct] = useState(false);
+    const [selectedAssignProductIds, setSelectedAssignProductIds] = useState<Set<string>>(
+        new Set()
+    );
+    const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
+    const [productGroupMap, setProductGroupMap] = useState<Map<string, string[]>>(new Map());
+    const [assignGroupId, setAssignGroupId] = useState<string | null>(null);
 
     const [isCreateProductDrawerOpen, setIsCreateProductDrawerOpen] = useState(false);
 
@@ -221,6 +279,14 @@ export default function CatalogEngine() {
             );
         },
         [setSearchParams]
+    );
+
+    const breadcrumbItems = useMemo<BreadcrumbItem[]>(
+        () => [
+            { label: "Cataloghi", to: "/dashboard/cataloghi" },
+            { label: catalog?.name || "Catalogo" }
+        ],
+        [catalog?.name]
     );
 
     const categoriesById = useMemo(
@@ -296,10 +362,22 @@ export default function CatalogEngine() {
 
         return flattenedProducts.filter(product => {
             if (selectedCategoryProductIds.has(product.id)) return false;
+
+            if (assignGroupId) {
+                const groups = productGroupMap.get(product.id) ?? [];
+                if (!groups.includes(assignGroupId)) return false;
+            }
+
             if (!normalizedSearch) return true;
             return product.name.toLowerCase().includes(normalizedSearch);
         });
-    }, [allProducts, assignProductSearch, selectedCategoryProductIds]);
+    }, [
+        allProducts,
+        assignProductSearch,
+        selectedCategoryProductIds,
+        assignGroupId,
+        productGroupMap
+    ]);
 
     const allFilteredSelected =
         filteredRows.length > 0 &&
@@ -369,7 +447,9 @@ export default function CatalogEngine() {
                 { data: catalogData, error: catalogError },
                 loadedCategories,
                 loadedLinks,
-                loadedProducts
+                loadedProducts,
+                loadedGroups,
+                loadedGroupItems
             ] = await Promise.all([
                 supabase
                     .from("v2_catalogs")
@@ -379,15 +459,30 @@ export default function CatalogEngine() {
                     .single(),
                 listCategories(currentTenantId, catalogId),
                 listCategoryProducts(currentTenantId, catalogId),
-                listBaseProductsWithVariants(currentTenantId)
+                listBaseProductsWithVariants(currentTenantId),
+                getProductGroups(currentTenantId),
+                supabase
+                    .from("v2_product_group_items")
+                    .select("product_id, group_id")
+                    .eq("tenant_id", currentTenantId)
             ]);
 
             if (catalogError) throw catalogError;
+
+            const groupItems =
+                (loadedGroupItems.data as { product_id: string; group_id: string }[]) || [];
+            const nextGroupMap = new Map<string, string[]>();
+            for (const item of groupItems) {
+                const existing = nextGroupMap.get(item.product_id) ?? [];
+                nextGroupMap.set(item.product_id, [...existing, item.group_id]);
+            }
 
             setCatalog(catalogData as V2Catalog);
             setCategories(loadedCategories);
             setCategoryProducts(loadedLinks);
             setAllProducts(loadedProducts);
+            setProductGroups(loadedGroups);
+            setProductGroupMap(nextGroupMap);
 
             await loadProductMetadata();
         } catch (error) {
@@ -439,6 +534,9 @@ export default function CatalogEngine() {
 
     useEffect(() => {
         setSelectedProductLinkIds(new Set());
+        setSelectedAssignProductIds(new Set());
+        setAssignGroupId(null);
+        setAssignProductSearch("");
     }, [selectedCategoryId]);
 
     const createParentOptions = useMemo(() => {
@@ -460,9 +558,8 @@ export default function CatalogEngine() {
         setEditingCategory(null);
         setCategoryName("");
         setCategoryParentId("");
-        setCategorySortOrder(String(getNextSortOrder(null)));
         setIsCategoryDrawerOpen(true);
-    }, [getNextSortOrder]);
+    }, []);
 
     const openCreateSubCategoryDrawer = useCallback(
         (parentCategoryId: string) => {
@@ -480,11 +577,10 @@ export default function CatalogEngine() {
             setEditingCategory(null);
             setCategoryName("");
             setCategoryParentId(parent.id);
-            setCategorySortOrder(String(getNextSortOrder(parent.id)));
             setExpandedCategoryIds(prev => new Set(prev).add(parent.id));
             setIsCategoryDrawerOpen(true);
         },
-        [categoriesById, getNextSortOrder, showToast]
+        [categoriesById, showToast]
     );
 
     const openEditCategoryDrawer = useCallback(
@@ -494,7 +590,6 @@ export default function CatalogEngine() {
             setEditingCategory(category);
             setCategoryName(category.name);
             setCategoryParentId(category.parent_category_id ?? "");
-            setCategorySortOrder(String(category.sort_order));
             setIsCategoryDrawerOpen(true);
         },
         [categoriesById]
@@ -532,7 +627,7 @@ export default function CatalogEngine() {
                 }
 
                 const parentId = categoryParentId || null;
-                const parentCategory = parentId ? categoriesById.get(parentId) ?? null : null;
+                const parentCategory = parentId ? (categoriesById.get(parentId) ?? null) : null;
                 if (parentCategory && parentCategory.level >= 3) {
                     showToast({
                         message: "La categoria padre selezionata è già al livello massimo.",
@@ -542,10 +637,7 @@ export default function CatalogEngine() {
                 }
 
                 const targetLevel = parentCategory ? ((parentCategory.level + 1) as 1 | 2 | 3) : 1;
-                const parsedSortOrder = Number.parseInt(categorySortOrder, 10);
-                const finalSortOrder = Number.isFinite(parsedSortOrder)
-                    ? parsedSortOrder
-                    : getNextSortOrder(parentId);
+                const finalSortOrder = getNextSortOrder(parentId);
 
                 const createdCategory = await createCategory(
                     currentTenantId,
@@ -575,7 +667,6 @@ export default function CatalogEngine() {
             categoriesById,
             categoryName,
             categoryParentId,
-            categorySortOrder,
             currentTenantId,
             editingCategory,
             getNextSortOrder,
@@ -694,6 +785,73 @@ export default function CatalogEngine() {
         });
     }, []);
 
+    const toggleAssignProduct = useCallback((productId: string) => {
+        setSelectedAssignProductIds(prev => {
+            const next = new Set(prev);
+            if (next.has(productId)) {
+                next.delete(productId);
+            } else {
+                next.add(productId);
+            }
+            return next;
+        });
+    }, []);
+
+    const handleReorderProducts = useCallback(
+        async (event: DragEndEvent) => {
+            const { active, over } = event;
+            if (!over || active.id === over.id || !currentTenantId || !selectedCategoryId) return;
+
+            const oldIndex = filteredRows.findIndex(row => row.id === active.id);
+            const newIndex = filteredRows.findIndex(row => row.id === over.id);
+
+            if (oldIndex < 0 || newIndex < 0) return;
+
+            const reordered = arrayMove(filteredRows, oldIndex, newIndex);
+
+            // Optimistic update
+            const nextLinks = [...categoryProducts];
+            const updatedLinkIds: string[] = [];
+
+            reordered.forEach((row, index) => {
+                const linkIndex = nextLinks.findIndex(l => l.id === row.id);
+                if (linkIndex >= 0) {
+                    const nextSortOrder = index * 10;
+                    if (nextLinks[linkIndex].sort_order !== nextSortOrder) {
+                        nextLinks[linkIndex] = {
+                            ...nextLinks[linkIndex],
+                            sort_order: nextSortOrder
+                        };
+                        updatedLinkIds.push(nextLinks[linkIndex].id);
+                    }
+                }
+            });
+
+            setCategoryProducts(nextLinks);
+
+            // Persist changes
+            try {
+                await Promise.all(
+                    updatedLinkIds.map(linkId => {
+                        const link = nextLinks.find(l => l.id === linkId);
+                        if (!link) return Promise.resolve();
+                        return updateProductSortOrder(linkId, currentTenantId, link.sort_order);
+                    })
+                );
+            } catch (error) {
+                console.error("Errore durante il riordinamento prodotti:", error);
+                showToast({ message: "Errore durante il salvataggio dell'ordine.", type: "error" });
+                void loadData();
+            }
+        },
+        [filteredRows, currentTenantId, selectedCategoryId, categoryProducts, showToast, loadData]
+    );
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+        useSensor(KeyboardSensor)
+    );
+
     const handleAssignExistingProduct = useCallback(
         async (productId: string) => {
             if (!currentTenantId || !catalogId || !selectedCategoryId) return;
@@ -713,7 +871,6 @@ export default function CatalogEngine() {
                     nextSortOrder
                 );
                 showToast({ message: "Prodotto associato alla categoria.", type: "success" });
-                setIsAssignProductDrawerOpen(false);
                 await loadData();
             } catch (error: unknown) {
                 console.error(error);
@@ -727,6 +884,75 @@ export default function CatalogEngine() {
         },
         [catalogId, currentTenantId, loadData, selectedCategoryId, selectedCategoryLinks, showToast]
     );
+
+    const handleBulkAssignProducts = useCallback(async () => {
+        if (
+            !currentTenantId ||
+            !catalogId ||
+            !selectedCategoryId ||
+            selectedAssignProductIds.size === 0
+        )
+            return;
+
+        setIsAssigningProduct(true);
+        try {
+            const currentMaxOrder =
+                selectedCategoryLinks.length > 0
+                    ? Math.max(...selectedCategoryLinks.map(link => link.sort_order))
+                    : -10;
+
+            const results = await Promise.allSettled(
+                Array.from(selectedAssignProductIds).map((productId, index) =>
+                    addProductToCategory(
+                        currentTenantId,
+                        catalogId,
+                        selectedCategoryId,
+                        productId,
+                        currentMaxOrder + (index + 1) * 10
+                    )
+                )
+            );
+
+            const successCount = results.filter(r => r.status === "fulfilled").length;
+            const failedCount = results.length - successCount;
+
+            if (successCount > 0) {
+                if (failedCount === 0) {
+                    showToast({
+                        message: `${successCount} prodotti associati con successo.`,
+                        type: "success"
+                    });
+                } else {
+                    showToast({
+                        message: `${successCount} associati, ${failedCount} non associati (già presenti o errore).`,
+                        type: "info"
+                    });
+                }
+            } else if (failedCount > 0) {
+                showToast({
+                    message: "Impossibile associare i prodotti selezionati.",
+                    type: "error"
+                });
+            }
+
+            await loadData();
+            setSelectedAssignProductIds(new Set());
+            setIsAssignProductDrawerOpen(false);
+        } catch (error) {
+            console.error(error);
+            showToast({ message: "Errore durante l'associazione multipla.", type: "error" });
+        } finally {
+            setIsAssigningProduct(false);
+        }
+    }, [
+        catalogId,
+        currentTenantId,
+        loadData,
+        selectedAssignProductIds,
+        selectedCategoryId,
+        selectedCategoryLinks,
+        showToast
+    ]);
 
     const handleProductCreated = useCallback(
         async (createdProduct?: V2Product) => {
@@ -858,8 +1084,8 @@ export default function CatalogEngine() {
                 header: "",
                 width: "50px",
                 align: "center",
-                cell: () => (
-                    <span className={styles.dragCell}>
+                cell: (_value, _row, _rowIndex, dragHandleProps?: any) => (
+                    <span className={styles.dragCell} {...dragHandleProps}>
                         <IconGripVertical size={16} />
                     </span>
                 )
@@ -996,19 +1222,35 @@ export default function CatalogEngine() {
                         </div>
                     )}
 
-                    <DataTable<ProductRow>
-                        data={filteredRows}
-                        columns={columns}
-                        emptyState={
-                            <div style={{ padding: "24px" }}>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    {productSearch.trim()
-                                        ? "Nessun prodotto corrisponde al filtro."
-                                        : "Nessun prodotto associato a questa categoria."}
-                                </Text>
-                            </div>
-                        }
-                    />
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleReorderProducts}
+                    >
+                        <SortableContext
+                            items={filteredRows.map(r => r.id)}
+                            strategy={verticalListSortingStrategy}
+                        >
+                            <DataTable<ProductRow>
+                                data={filteredRows}
+                                columns={columns}
+                                emptyState={
+                                    <div style={{ padding: "24px" }}>
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            {productSearch.trim()
+                                                ? "Nessun prodotto corrisponde al filtro."
+                                                : "Nessun prodotto associato a questa categoria."}
+                                        </Text>
+                                    </div>
+                                }
+                                rowWrapper={(row, rowData) => (
+                                    <SortableProductRow key={rowData.id} id={rowData.id}>
+                                        {row}
+                                    </SortableProductRow>
+                                )}
+                            />
+                        </SortableContext>
+                    </DndContext>
                 </div>
             </div>
         );
@@ -1017,17 +1259,10 @@ export default function CatalogEngine() {
     return (
         <section className={styles.engineContainer}>
             <div className={styles.engineHeader}>
+                <Breadcrumb items={breadcrumbItems} />
                 <PageHeader
                     title={catalog?.name || "Catalogo"}
                     subtitle="Gestisci categorie e prodotti con navigazione ad albero."
-                    actions={
-                        <Button
-                            variant="secondary"
-                            onClick={() => navigate("/dashboard/cataloghi")}
-                        >
-                            Torna ai cataloghi
-                        </Button>
-                    }
                 />
             </div>
 
@@ -1120,22 +1355,8 @@ export default function CatalogEngine() {
                                 <Select
                                     label="Parent"
                                     value={categoryParentId}
-                                    onChange={event => {
-                                        const nextParentId = event.target.value;
-                                        setCategoryParentId(nextParentId);
-                                        setCategorySortOrder(
-                                            String(getNextSortOrder(nextParentId || null))
-                                        );
-                                    }}
+                                    onChange={event => setCategoryParentId(event.target.value)}
                                     options={createParentOptions}
-                                />
-
-                                <TextInput
-                                    label="Ordine"
-                                    type="number"
-                                    value={categorySortOrder}
-                                    onChange={event => setCategorySortOrder(event.target.value)}
-                                    placeholder="Default: in fondo"
                                 />
                             </>
                         )}
@@ -1190,7 +1411,12 @@ export default function CatalogEngine() {
 
             <SystemDrawer
                 open={isAssignProductDrawerOpen}
-                onClose={() => setIsAssignProductDrawerOpen(false)}
+                onClose={() => {
+                    setIsAssignProductDrawerOpen(false);
+                    setSelectedAssignProductIds(new Set());
+                    setAssignGroupId(null);
+                    setAssignProductSearch("");
+                }}
                 width={460}
             >
                 <DrawerLayout
@@ -1209,25 +1435,55 @@ export default function CatalogEngine() {
                             <div className={styles.drawerFooter}>
                                 <Button
                                     variant="secondary"
-                                    onClick={() => setIsAssignProductDrawerOpen(false)}
+                                    onClick={() => {
+                                        setIsAssignProductDrawerOpen(false);
+                                        setSelectedAssignProductIds(new Set());
+                                        setAssignGroupId(null);
+                                        setAssignProductSearch("");
+                                    }}
                                 >
                                     Chiudi
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    onClick={handleBulkAssignProducts}
+                                    loading={isAssigningProduct}
+                                    disabled={selectedAssignProductIds.size === 0}
+                                >
+                                    Associa selezionati ({selectedAssignProductIds.size})
                                 </Button>
                             </div>
                         </div>
                     }
                 >
                     <div className={styles.form}>
-                        <SearchInput
-                            value={assignProductSearch}
-                            onChange={event => setAssignProductSearch(event.target.value)}
-                            onClear={() => setAssignProductSearch("")}
-                            placeholder="Cerca prodotto..."
-                        />
+                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                            <Select
+                                label="Gruppo prodotto"
+                                value={assignGroupId ?? ""}
+                                onChange={event => setAssignGroupId(event.target.value || null)}
+                                options={[
+                                    { value: "", label: "Tutti i gruppi" },
+                                    ...productGroups.map(g => ({ value: g.id, label: g.name }))
+                                ]}
+                            />
+
+                            <SearchInput
+                                value={assignProductSearch}
+                                onChange={event => setAssignProductSearch(event.target.value)}
+                                onClear={() => setAssignProductSearch("")}
+                                placeholder="Cerca prodotto..."
+                            />
+                        </div>
 
                         <div className={styles.assignResults}>
-                            {assignableProducts.slice(0, 30).map(product => (
-                                <div key={product.id} className={styles.assignRow}>
+                            {assignableProducts.slice(0, 50).map(product => (
+                                <div
+                                    key={product.id}
+                                    className={styles.assignRow}
+                                    onClick={() => toggleAssignProduct(product.id)}
+                                    style={{ cursor: "pointer" }}
+                                >
                                     <div className={styles.assignMeta}>
                                         <Text variant="body-sm" weight={600}>
                                             {product.name}
@@ -1238,14 +1494,14 @@ export default function CatalogEngine() {
                                             </Text>
                                         )}
                                     </div>
-                                    <Button
-                                        variant="primary"
-                                        size="sm"
-                                        onClick={() => handleAssignExistingProduct(product.id)}
-                                        disabled={isAssigningProduct}
-                                    >
-                                        Associa
-                                    </Button>
+                                    <div className={styles.checkboxCell}>
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedAssignProductIds.has(product.id)}
+                                            onChange={() => {}} // Handled by row click
+                                            className={styles.tableCheckbox}
+                                        />
+                                    </div>
                                 </div>
                             ))}
 
