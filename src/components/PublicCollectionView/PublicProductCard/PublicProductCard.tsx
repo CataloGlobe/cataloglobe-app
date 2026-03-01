@@ -1,7 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import styles from "./PublicProductCard.module.scss";
 import type { ResolvedProduct } from "@/services/supabase/v2/resolveActivityCatalogsV2";
 import Text from "@/components/ui/Text/Text";
+import ModalLayout, {
+    ModalLayoutContent,
+    ModalLayoutHeader
+} from "@/components/ui/ModalLayout/ModalLayout";
+import { Button } from "@/components/ui";
+import ProductDetailOptions from "@/components/catalog-renderer/ProductDetailOptions";
 
 type Props = {
     product: ResolvedProduct;
@@ -10,7 +16,45 @@ type Props = {
 export default function PublicProductCard({ product }: Props) {
     if (!product.is_visible) return null;
 
-    const visibleVariants = product.variants?.filter(v => typeof v.price === "number") || []; // assuming if it has a price it's visible for now. Actually, the backend resolve does NOT output is_visible for variants currently, so we show all attached.
+    const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+    const visibleVariants = product.variants?.filter(v => typeof v.price === "number") || [];
+    const hasOptions = (product.optionGroups?.length ?? 0) > 0;
+    const isClickable = hasOptions;
+
+    // Determine what to show as price on the card
+    const renderPriceBadge = () => {
+        // Priority: from_price → effective_price → price
+        if (product.from_price != null) {
+            return (
+                <div className={styles.priceBlock}>
+                    <Text variant="body" weight={700} className={styles.price}>
+                        da {product.from_price.toFixed(2)} €
+                    </Text>
+                </div>
+            );
+        }
+        const displayPrice = (product as any).effective_price ?? product.price;
+        if (typeof displayPrice === "number") {
+            return (
+                <div className={styles.priceBlock}>
+                    <Text variant="body" weight={700} className={styles.price}>
+                        € {displayPrice.toFixed(2)}
+                    </Text>
+                    {typeof product.original_price === "number" && (
+                        <Text
+                            variant="caption"
+                            colorVariant="muted"
+                            className={styles.originalPrice}
+                        >
+                            € {product.original_price.toFixed(2)}
+                        </Text>
+                    )}
+                </div>
+            );
+        }
+        return null;
+    };
 
     // Format attributes
     const renderAttributes = (attrs: any[] | undefined) => {
@@ -44,60 +88,98 @@ export default function PublicProductCard({ product }: Props) {
     };
 
     return (
-        <article className={styles.card}>
-            <div className={styles.baseProduct}>
-                <div className={styles.headerRow}>
-                    <Text variant="body" weight={700} className={styles.name}>
-                        {product.name}
-                    </Text>
-                    {typeof product.price === "number" && (
-                        <div className={styles.priceBlock}>
-                            <Text variant="body" weight={700} className={styles.price}>
-                                € {product.price.toFixed(2)}
+        <>
+            <article
+                className={styles.card}
+                onClick={isClickable ? () => setIsDetailOpen(true) : undefined}
+                style={isClickable ? { cursor: "pointer" } : undefined}
+                tabIndex={isClickable ? 0 : undefined}
+                onKeyDown={
+                    isClickable
+                        ? e => {
+                              if (e.key === "Enter" || e.key === " ") setIsDetailOpen(true);
+                          }
+                        : undefined
+                }
+                role={isClickable ? "button" : undefined}
+                aria-label={isClickable ? `Vedi opzioni per ${product.name}` : undefined}
+            >
+                <div className={styles.baseProduct}>
+                    <div className={styles.headerRow}>
+                        <Text variant="body" weight={700} className={styles.name}>
+                            {product.name}
+                        </Text>
+                        {renderPriceBadge()}
+                    </div>
+
+                    {product.description && (
+                        <Text variant="caption" colorVariant="muted" className={styles.description}>
+                            {product.description}
+                        </Text>
+                    )}
+
+                    {renderAttributes(product.attributes)}
+                    {renderAllergens(product.allergens)}
+                </div>
+
+                {visibleVariants.length > 0 && (
+                    <div className={styles.variantsContainer}>
+                        {visibleVariants.map(variant => (
+                            <div key={variant.id} className={styles.variantRow}>
+                                <div className={styles.variantHeader}>
+                                    <Text variant="body-sm" weight={600}>
+                                        {variant.name}
+                                    </Text>
+                                    {typeof variant.price === "number" && (
+                                        <Text variant="body-sm" weight={600}>
+                                            € {variant.price.toFixed(2)}
+                                        </Text>
+                                    )}
+                                </div>
+                                {renderAttributes(variant.attributes)}
+                                {renderAllergens(variant.allergens)}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </article>
+
+            {/* Detail sheet — interactive options + live price */}
+            {isClickable && (
+                <ModalLayout
+                    isOpen={isDetailOpen}
+                    onClose={() => setIsDetailOpen(false)}
+                    width="sm"
+                    height="sm"
+                >
+                    <ModalLayoutHeader>
+                        <div>
+                            <Text as="h2" variant="title-md" weight={700}>
+                                {product.name}
                             </Text>
-                            {typeof product.original_price === "number" && (
+                        </div>
+                        <Button variant="secondary" onClick={() => setIsDetailOpen(false)}>
+                            Chiudi
+                        </Button>
+                    </ModalLayoutHeader>
+
+                    <ModalLayoutContent>
+                        <div style={{ padding: "4px 0" }}>
+                            {product.description && (
                                 <Text
-                                    variant="caption"
+                                    variant="body"
                                     colorVariant="muted"
-                                    className={styles.originalPrice}
+                                    style={{ marginBottom: 20 }}
                                 >
-                                    € {product.original_price.toFixed(2)}
+                                    {product.description}
                                 </Text>
                             )}
+
+                            <ProductDetailOptions optionGroups={product.optionGroups!} />
                         </div>
-                    )}
-                </div>
-
-                {product.description && (
-                    <Text variant="caption" colorVariant="muted" className={styles.description}>
-                        {product.description}
-                    </Text>
-                )}
-
-                {renderAttributes(product.attributes)}
-                {renderAllergens(product.allergens)}
-            </div>
-
-            {visibleVariants.length > 0 && (
-                <div className={styles.variantsContainer}>
-                    {visibleVariants.map(variant => (
-                        <div key={variant.id} className={styles.variantRow}>
-                            <div className={styles.variantHeader}>
-                                <Text variant="body-sm" weight={600}>
-                                    {variant.name}
-                                </Text>
-                                {typeof variant.price === "number" && (
-                                    <Text variant="body-sm" weight={600}>
-                                        € {variant.price.toFixed(2)}
-                                    </Text>
-                                )}
-                            </div>
-                            {renderAttributes(variant.attributes)}
-                            {renderAllergens(variant.allergens)}
-                        </div>
-                    ))}
-                </div>
+                    </ModalLayoutContent>
+                </ModalLayout>
             )}
-        </article>
+        </>
     );
 }

@@ -7,6 +7,8 @@ import styles from "./ItemDetail.module.scss";
 
 import type { CollectionViewSectionItem } from "../CollectionView/CollectionView";
 import { Button } from "@/components/ui";
+import ProductDetailOptions from "@/components/catalog-renderer/ProductDetailOptions";
+import type { ResolvedOptionGroup } from "@/services/supabase/v2/resolveActivityCatalogsV2";
 
 type Props = {
     item: CollectionViewSectionItem | null;
@@ -14,8 +16,35 @@ type Props = {
     onClose: () => void;
 };
 
+/**
+ * Map CollectionViewSectionItem.optionGroups to ResolvedOptionGroup[]
+ * so we can pass them to ProductDetailOptions (which uses the richer type).
+ */
+function mapToResolvedGroups(
+    optionGroups: CollectionViewSectionItem["optionGroups"]
+): ResolvedOptionGroup[] {
+    if (!optionGroups) return [];
+    return optionGroups.map(g => ({
+        id: g.id,
+        name: g.name,
+        group_kind: g.group_kind ?? "ADDON",
+        pricing_mode: g.pricing_mode ?? "DELTA",
+        is_required: g.isRequired,
+        max_selectable: g.maxSelectable,
+        values: g.values.map(v => ({
+            id: v.id,
+            name: v.name,
+            absolute_price: v.absolutePrice ?? null,
+            price_modifier: v.priceModifier
+        }))
+    }));
+}
+
 export default function ItemDetail({ item, isOpen, onClose }: Props) {
     if (!item) return null;
+
+    const resolvedGroups = mapToResolvedGroups(item.optionGroups);
+    const hasOptions = resolvedGroups.length > 0;
 
     return (
         <ModalLayout isOpen={isOpen} onClose={onClose} width="sm" height="sm">
@@ -49,7 +78,8 @@ export default function ItemDetail({ item, isOpen, onClose }: Props) {
 
                     {/* CONTENUTO */}
                     <div className={styles.content}>
-                        {(item.effective_price ?? item.price) != null && (
+                        {/* Price header — static display (before interactive calc) */}
+                        {!hasOptions && (item.effective_price ?? item.price) != null && (
                             <Text variant="body" weight={600} className={styles.price}>
                                 {item.original_price != null && (
                                     <span className={styles.priceOriginal}>
@@ -58,6 +88,15 @@ export default function ItemDetail({ item, isOpen, onClose }: Props) {
                                 )}
                                 <span className={styles.priceCurrent}>
                                     € {(item.effective_price ?? item.price)?.toFixed(2)}
+                                </span>
+                            </Text>
+                        )}
+
+                        {/* "da X€" header for products with formats */}
+                        {!hasOptions && item.from_price != null && (
+                            <Text variant="body" weight={600} className={styles.price}>
+                                <span className={styles.priceCurrent}>
+                                    da {item.from_price.toFixed(2)} €
                                 </span>
                             </Text>
                         )}
@@ -72,99 +111,10 @@ export default function ItemDetail({ item, isOpen, onClose }: Props) {
                             </Text>
                         )}
 
-                        {/* OPZIONI PRODOTTO */}
-                        {item.optionGroups && item.optionGroups.length > 0 && (
+                        {/* INTERACTIVE OPTIONS + LIVE PRICE CALC */}
+                        {hasOptions && (
                             <div className={styles.optionsSection}>
-                                <Text
-                                    variant="body"
-                                    weight={700}
-                                    style={{ marginTop: 24, marginBottom: 12 }}
-                                >
-                                    Opzioni disponibili
-                                </Text>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                                    {item.optionGroups.map(group => (
-                                        <div key={group.id} className={styles.optionGroup}>
-                                            <div
-                                                style={{
-                                                    marginBottom: 8,
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: 8
-                                                }}
-                                            >
-                                                <Text variant="body-sm" weight={600}>
-                                                    {group.name}
-                                                </Text>
-                                                {group.isRequired && (
-                                                    <span
-                                                        style={{
-                                                            backgroundColor:
-                                                                "var(--color-warning-100)",
-                                                            color: "var(--color-warning-700)",
-                                                            padding: "2px 6px",
-                                                            borderRadius: "4px",
-                                                            fontSize: "11px",
-                                                            fontWeight: 600
-                                                        }}
-                                                    >
-                                                        Obbligatorio
-                                                    </span>
-                                                )}
-                                                {group.maxSelectable != null && (
-                                                    <Text variant="caption" colorVariant="muted">
-                                                        Max {group.maxSelectable} selezionabili
-                                                    </Text>
-                                                )}
-                                            </div>
-                                            {group.values.length > 0 && (
-                                                <ul
-                                                    style={{
-                                                        listStyle: "none",
-                                                        padding: 0,
-                                                        margin: 0,
-                                                        display: "flex",
-                                                        flexDirection: "column",
-                                                        gap: 4
-                                                    }}
-                                                >
-                                                    {group.values.map(val => (
-                                                        <li
-                                                            key={val.id}
-                                                            style={{
-                                                                display: "flex",
-                                                                justifyContent: "space-between",
-                                                                alignItems: "center",
-                                                                padding: "6px 0",
-                                                                borderBottom:
-                                                                    "1px solid var(--color-gray-100)"
-                                                            }}
-                                                        >
-                                                            <Text variant="body-sm">
-                                                                {val.name}
-                                                            </Text>
-                                                            {val.priceModifier != null &&
-                                                                val.priceModifier !== 0 && (
-                                                                    <Text
-                                                                        variant="body-sm"
-                                                                        colorVariant="muted"
-                                                                    >
-                                                                        {val.priceModifier > 0
-                                                                            ? "+"
-                                                                            : ""}
-                                                                        {val.priceModifier.toFixed(
-                                                                            2
-                                                                        )}{" "}
-                                                                        €
-                                                                    </Text>
-                                                                )}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
+                                <ProductDetailOptions optionGroups={resolvedGroups} />
                             </div>
                         )}
 
