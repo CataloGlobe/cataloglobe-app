@@ -31,7 +31,7 @@ export default function Breadcrumb({ items }: BreadcrumbProps) {
                                     {item.icon && (
                                         <span className={styles.iconWrapper}>{item.icon}</span>
                                     )}
-                                    <Text variant="body-sm" as="span" className={styles.text}>
+                                    <Text as="span" className={styles.text}>
                                         {item.label}
                                     </Text>
                                 </Link>
@@ -43,12 +43,7 @@ export default function Breadcrumb({ items }: BreadcrumbProps) {
                                     {item.icon && !isLast && (
                                         <span className={styles.iconWrapper}>{item.icon}</span>
                                     )}
-                                    <Text
-                                        variant="body-sm"
-                                        weight={500}
-                                        as="span"
-                                        className={styles.text}
-                                    >
+                                    <Text as="span" className={styles.text}>
                                         {item.label}
                                     </Text>
                                 </span>
@@ -57,7 +52,7 @@ export default function Breadcrumb({ items }: BreadcrumbProps) {
                             {/* Separator */}
                             {!isLast && (
                                 <span className={styles.separator} aria-hidden="true">
-                                    <ChevronRight size={14} />
+                                    <ChevronRight size={12} />
                                 </span>
                             )}
                         </li>

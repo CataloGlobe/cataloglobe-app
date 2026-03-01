@@ -7,7 +7,7 @@ export type ColumnDefinition<T> = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     accessor?: (row: T) => any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    cell?: (value: any, row: T) => ReactNode;
+    cell?: (value: any, row: T, rowIndex: number, extra?: any) => ReactNode;
     width?: string;
     align?: "left" | "center" | "right";
     sortable?: boolean;
@@ -25,6 +25,7 @@ interface DataTableProps<T> {
     density?: DataTableDensity;
     rowClassName?: (row: T, rowIndex: number) => string | undefined;
     onRowClick?: (row: T, rowIndex: number) => void;
+    rowWrapper?: (row: ReactNode, rowData: T, rowIndex: number) => ReactNode;
 }
 
 function getRowKey<T>(row: T, index: number): string | number {
@@ -43,6 +44,64 @@ function getAlignClass(align: ColumnDefinition<unknown>["align"]): string {
     return styles.alignLeft;
 }
 
+interface DataTableRowProps<T> {
+    row: T;
+    rowIndex: number;
+    columns: ColumnDefinition<T>[];
+    gridStyle: CSSProperties;
+    densityRowClass: string;
+    rowClassName?: (row: T, rowIndex: number) => string | undefined;
+    onRowClick?: (row: T, rowIndex: number) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    dragHandleProps?: any;
+}
+
+function DataTableRow<T>({
+    row,
+    rowIndex,
+    columns,
+    gridStyle,
+    densityRowClass,
+    rowClassName,
+    onRowClick,
+    dragHandleProps
+}: DataTableRowProps<T>) {
+    return (
+        <div
+            className={`${styles.row} ${densityRowClass} ${onRowClick ? styles.rowClickable : ""} ${rowClassName?.(row, rowIndex) ?? ""}`}
+            style={gridStyle}
+            onClick={event => {
+                if (!onRowClick) return;
+                const target = event.target as HTMLElement | null;
+                if (
+                    target?.closest(
+                        'button, a, input, select, textarea, [role="menuitem"], [data-row-click-ignore="true"]'
+                    )
+                ) {
+                    return;
+                }
+                onRowClick(row, rowIndex);
+            }}
+        >
+            {columns.map(column => {
+                const value = column.accessor ? column.accessor(row) : undefined;
+                const content = column.cell
+                    ? column.cell(value, row, rowIndex, dragHandleProps)
+                    : (value as ReactNode);
+
+                return (
+                    <div
+                        key={column.id}
+                        className={`${styles.cell} ${getAlignClass(column.align)}`}
+                    >
+                        {content ?? null}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 export function DataTable<T>({
     data,
     columns,
@@ -52,7 +111,8 @@ export function DataTable<T>({
     loadingState,
     density = "compact",
     rowClassName,
-    onRowClick
+    onRowClick,
+    rowWrapper
 }: DataTableProps<T>) {
     const gridStyle = useMemo<CSSProperties>(() => {
         const gridTemplateColumns = columns
@@ -73,36 +133,22 @@ export function DataTable<T>({
             return <div className={styles.state}>{emptyState ?? "Nessun risultato."}</div>;
         }
 
-        return data.map((row, rowIndex) => (
-            <div
-                key={getRowKey(row, rowIndex)}
-                className={`${styles.row} ${densityRowClass} ${onRowClick ? styles.rowClickable : ""} ${rowClassName?.(row, rowIndex) ?? ""}`}
-                style={gridStyle}
-                onClick={event => {
-                    if (!onRowClick) return;
-                    const target = event.target as HTMLElement | null;
-                    if (
-                        target?.closest(
-                            'button, a, input, select, textarea, [role="menuitem"], [data-row-click-ignore="true"]'
-                        )
-                    ) {
-                        return;
-                    }
-                    onRowClick(row, rowIndex);
-                }}
-            >
-                {columns.map(column => {
-                    const value = column.accessor ? column.accessor(row) : undefined;
-                    const content = column.cell ? column.cell(value, row) : (value as ReactNode);
+        return data.map((row, rowIndex) => {
+            const rowElement = (
+                <DataTableRow
+                    key={getRowKey(row, rowIndex)}
+                    row={row}
+                    rowIndex={rowIndex}
+                    columns={columns}
+                    gridStyle={gridStyle}
+                    densityRowClass={densityRowClass}
+                    rowClassName={rowClassName}
+                    onRowClick={onRowClick}
+                />
+            );
 
-                    return (
-                        <div key={column.id} className={`${styles.cell} ${getAlignClass(column.align)}`}>
-                            {content ?? null}
-                        </div>
-                    );
-                })}
-            </div>
-        ));
+            return rowWrapper ? rowWrapper(rowElement, row, rowIndex) : rowElement;
+        });
     };
 
     return (
