@@ -42,7 +42,6 @@ import {
     V2CatalogCategory,
     V2CatalogCategoryProduct
 } from "@/services/supabase/v2/catalogs";
-import { ProductCreateEditDrawer } from "@/pages/Dashboard/Products/ProductCreateEditDrawer";
 import { listBaseProductsWithVariants, V2Product } from "@/services/supabase/v2/products";
 import { getProductGroups, ProductGroup } from "@/services/supabase/v2/productGroups";
 import { listAttributeDefinitions } from "@/services/supabase/v2/attributes";
@@ -50,6 +49,8 @@ import { supabase } from "@/services/supabase/client";
 import { CatalogSplitLayout } from "./components/CatalogSplitLayout";
 import { CatalogTree } from "./components/CatalogTree";
 import { CatalogTreeNodeData } from "./components/CatalogTree.types";
+import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { ProductForm } from "@/pages/Dashboard/Products/components/ProductForm";
 import styles from "./CatalogEngine.module.scss";
 
 type ProductRow = {
@@ -244,12 +245,16 @@ export default function CatalogEngine() {
     const [editingCategory, setEditingCategory] = useState<V2CatalogCategory | null>(null);
     const [categoryName, setCategoryName] = useState("");
     const [categoryParentId, setCategoryParentId] = useState("");
-    const [isSavingCategory, setIsSavingCategory] = useState(false);
 
+    // Unified Add Product Drawer
+    const [isUnifiedAddProductDrawerOpen, setIsUnifiedAddProductDrawerOpen] = useState(false);
+    const [addProductMode, setAddProductMode] = useState<"existing" | "new">("existing");
+    const [isSavingProduct, setIsSavingProduct] = useState(false);
+
+    const [isSavingCategory, setIsSavingCategory] = useState(false);
     const [categoryToDelete, setCategoryToDelete] = useState<V2CatalogCategory | null>(null);
     const [isDeletingCategory, setIsDeletingCategory] = useState(false);
 
-    const [isAssignProductDrawerOpen, setIsAssignProductDrawerOpen] = useState(false);
     const [assignProductSearch, setAssignProductSearch] = useState("");
     const [isAssigningProduct, setIsAssigningProduct] = useState(false);
     const [selectedAssignProductIds, setSelectedAssignProductIds] = useState<Set<string>>(
@@ -258,8 +263,6 @@ export default function CatalogEngine() {
     const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
     const [productGroupMap, setProductGroupMap] = useState<Map<string, string[]>>(new Map());
     const [assignGroupId, setAssignGroupId] = useState<string | null>(null);
-
-    const [isCreateProductDrawerOpen, setIsCreateProductDrawerOpen] = useState(false);
 
     const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
 
@@ -937,7 +940,7 @@ export default function CatalogEngine() {
 
             await loadData();
             setSelectedAssignProductIds(new Set());
-            setIsAssignProductDrawerOpen(false);
+            setIsUnifiedAddProductDrawerOpen(false);
         } catch (error) {
             console.error(error);
             showToast({ message: "Errore durante l'associazione multipla.", type: "error" });
@@ -1167,19 +1170,13 @@ export default function CatalogEngine() {
                         </div>
                         <div style={{ display: "flex", gap: "8px" }}>
                             <Button
-                                variant="secondary"
+                                variant="primary"
                                 onClick={() => {
-                                    setAssignProductSearch("");
-                                    setIsAssignProductDrawerOpen(true);
+                                    setAddProductMode("existing");
+                                    setIsUnifiedAddProductDrawerOpen(true);
                                 }}
                             >
-                                Associa esistente
-                            </Button>
-                            <Button
-                                variant="primary"
-                                onClick={() => setIsCreateProductDrawerOpen(true)}
-                            >
-                                Crea prodotto
+                                + Aggiungi prodotto
                             </Button>
                         </div>
                     </div>
@@ -1190,7 +1187,7 @@ export default function CatalogEngine() {
                                 value={productSearch}
                                 onChange={event => setProductSearch(event.target.value)}
                                 onClear={() => setProductSearch("")}
-                                placeholder="Filtro rapido (Nome, SKU...)"
+                                placeholder="Cerca prodotto..."
                             />
                         </div>
                     </div>
@@ -1410,24 +1407,37 @@ export default function CatalogEngine() {
             </SystemDrawer>
 
             <SystemDrawer
-                open={isAssignProductDrawerOpen}
+                open={isUnifiedAddProductDrawerOpen}
                 onClose={() => {
-                    setIsAssignProductDrawerOpen(false);
+                    setIsUnifiedAddProductDrawerOpen(false);
                     setSelectedAssignProductIds(new Set());
                     setAssignGroupId(null);
                     setAssignProductSearch("");
+                    // Reset mode for next time
+                    setAddProductMode("existing");
                 }}
-                width={460}
+                width={addProductMode === "new" ? 500 : 460}
             >
                 <DrawerLayout
                     header={
-                        <div>
-                            <Text variant="title-sm" weight={700}>
-                                Associa prodotto esistente
-                            </Text>
-                            <Text variant="caption" colorVariant="muted">
-                                Categoria: {selectedCategory?.name ?? "—"}
-                            </Text>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            <div>
+                                <Text variant="title-sm" weight={700}>
+                                    Aggiungi prodotto
+                                </Text>
+                                <Text variant="caption" colorVariant="muted">
+                                    Categoria: {selectedCategory?.name ?? "—"}
+                                </Text>
+                            </div>
+                            <Tabs
+                                value={addProductMode}
+                                onChange={v => setAddProductMode(v as "existing" | "new")}
+                            >
+                                <Tabs.List>
+                                    <Tabs.Tab value="existing">Esistente</Tabs.Tab>
+                                    <Tabs.Tab value="new">Nuovo</Tabs.Tab>
+                                </Tabs.List>
+                            </Tabs>
                         </div>
                     }
                     footer={
@@ -1435,95 +1445,108 @@ export default function CatalogEngine() {
                             <div className={styles.drawerFooter}>
                                 <Button
                                     variant="secondary"
-                                    onClick={() => {
-                                        setIsAssignProductDrawerOpen(false);
-                                        setSelectedAssignProductIds(new Set());
-                                        setAssignGroupId(null);
-                                        setAssignProductSearch("");
-                                    }}
+                                    onClick={() => setIsUnifiedAddProductDrawerOpen(false)}
                                 >
-                                    Chiudi
+                                    Annulla
                                 </Button>
-                                <Button
-                                    variant="primary"
-                                    onClick={handleBulkAssignProducts}
-                                    loading={isAssigningProduct}
-                                    disabled={selectedAssignProductIds.size === 0}
-                                >
-                                    Associa selezionati ({selectedAssignProductIds.size})
-                                </Button>
+                                {addProductMode === "existing" ? (
+                                    <Button
+                                        variant="primary"
+                                        onClick={handleBulkAssignProducts}
+                                        loading={isAssigningProduct}
+                                        disabled={selectedAssignProductIds.size === 0}
+                                    >
+                                        Associa selezionati ({selectedAssignProductIds.size})
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        variant="primary"
+                                        type="submit"
+                                        form="product-form-unified"
+                                        loading={isSavingProduct}
+                                    >
+                                        Crea e associa
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     }
                 >
-                    <div className={styles.form}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                            <Select
-                                label="Gruppo prodotto"
-                                value={assignGroupId ?? ""}
-                                onChange={event => setAssignGroupId(event.target.value || null)}
-                                options={[
-                                    { value: "", label: "Tutti i gruppi" },
-                                    ...productGroups.map(g => ({ value: g.id, label: g.name }))
-                                ]}
-                            />
+                    {addProductMode === "existing" ? (
+                        <div className={styles.form}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                                <Select
+                                    label="Gruppo prodotto"
+                                    value={assignGroupId ?? ""}
+                                    onChange={event => setAssignGroupId(event.target.value || null)}
+                                    options={[
+                                        { value: "", label: "Tutti i gruppi" },
+                                        ...productGroups.map(g => ({ value: g.id, label: g.name }))
+                                    ]}
+                                />
 
-                            <SearchInput
-                                value={assignProductSearch}
-                                onChange={event => setAssignProductSearch(event.target.value)}
-                                onClear={() => setAssignProductSearch("")}
-                                placeholder="Cerca prodotto..."
-                            />
-                        </div>
+                                <SearchInput
+                                    value={assignProductSearch}
+                                    onChange={event => setAssignProductSearch(event.target.value)}
+                                    onClear={() => setAssignProductSearch("")}
+                                    placeholder="Cerca prodotto..."
+                                />
+                            </div>
 
-                        <div className={styles.assignResults}>
-                            {assignableProducts.slice(0, 50).map(product => (
-                                <div
-                                    key={product.id}
-                                    className={styles.assignRow}
-                                    onClick={() => toggleAssignProduct(product.id)}
-                                    style={{ cursor: "pointer" }}
-                                >
-                                    <div className={styles.assignMeta}>
-                                        <Text variant="body-sm" weight={600}>
-                                            {product.name}
-                                        </Text>
-                                        {product.parent_product_id && (
-                                            <Text variant="caption" colorVariant="muted">
-                                                Variante
+                            <div className={styles.assignResults}>
+                                {assignableProducts.slice(0, 50).map(product => (
+                                    <div
+                                        key={product.id}
+                                        className={styles.assignRow}
+                                        onClick={() => toggleAssignProduct(product.id)}
+                                        style={{ cursor: "pointer" }}
+                                    >
+                                        <div className={styles.assignMeta}>
+                                            <Text variant="body-sm" weight={600}>
+                                                {product.name}
                                             </Text>
-                                        )}
+                                            {product.parent_product_id && (
+                                                <Text variant="caption" colorVariant="muted">
+                                                    Variante
+                                                </Text>
+                                            )}
+                                        </div>
+                                        <div className={styles.checkboxCell}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedAssignProductIds.has(product.id)}
+                                                onChange={() => {}} // Handled by row click
+                                                className={styles.tableCheckbox}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className={styles.checkboxCell}>
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedAssignProductIds.has(product.id)}
-                                            onChange={() => {}} // Handled by row click
-                                            className={styles.tableCheckbox}
-                                        />
-                                    </div>
-                                </div>
-                            ))}
+                                ))}
 
-                            {assignableProducts.length === 0 && (
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Nessun prodotto disponibile da associare.
-                                </Text>
-                            )}
+                                {assignableProducts.length === 0 && (
+                                    <div style={{ padding: "0 4px" }}>
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Nessun prodotto disponibile da associare.
+                                        </Text>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    ) : (
+                        <ProductForm
+                            formId="product-form-unified"
+                            mode="create_base"
+                            productData={null}
+                            parentProduct={null}
+                            tenantId={currentTenantId ?? null}
+                            onSuccess={async p => {
+                                await handleProductCreated(p);
+                                setIsUnifiedAddProductDrawerOpen(false);
+                            }}
+                            onSavingChange={setIsSavingProduct}
+                        />
+                    )}
                 </DrawerLayout>
             </SystemDrawer>
-
-            <ProductCreateEditDrawer
-                open={isCreateProductDrawerOpen}
-                onClose={() => setIsCreateProductDrawerOpen(false)}
-                mode="create_base"
-                productData={null}
-                parentProduct={null}
-                onSuccess={handleProductCreated}
-                tenantId={currentTenantId}
-            />
         </section>
     );
 }
