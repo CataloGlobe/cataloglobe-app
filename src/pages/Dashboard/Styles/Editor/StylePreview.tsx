@@ -9,7 +9,7 @@ type StylePreviewProps = {
 };
 
 export const StylePreview = ({ model }: StylePreviewProps) => {
-    const { colors, header, navigation, card } = model;
+    const { colors, typography, header, navigation, card } = model;
 
     // Toggle for desktop/mobile mock canvas width
     const [viewMode, setViewMode] = useState<"mobile" | "desktop">("mobile");
@@ -20,11 +20,18 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
         "--preview-primary": colors.primary,
         "--preview-header-bg": colors.headerBackground,
         "--preview-header-radius": `${header.imageBorderRadiusPx}px`,
+        "--preview-font-family":
+            typography.fontFamily === "poppins"
+                ? "'Poppins', sans-serif"
+                : typography.fontFamily === "playfair"
+                  ? "'Playfair Display', serif"
+                  : "'Inter', sans-serif",
+        "--preview-card-radius": card.radius === "sharp" ? "0px" : "14px",
         // Dynamic text colors based on background perceived lightness could be added,
         // using simple defaults for now.
         "--preview-text-main": "#111827",
         "--preview-text-muted": "#6b7280",
-        fontFamily: "sans-serif"
+        fontFamily: "var(--preview-font-family, sans-serif)"
     };
 
     return (
@@ -91,9 +98,10 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
             {/* Neutral Canvas Container */}
             <div
                 style={{
+                    ...previewStyle,
                     width: "100%",
                     maxWidth: viewMode === "mobile" ? "390px" : "900px",
-                    backgroundColor: "#ffffff",
+                    backgroundColor: "var(--preview-bg, #ffffff)",
                     borderRadius: "16px",
                     boxShadow:
                         "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
@@ -103,13 +111,13 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                     transition: "max-width 0.3s ease-in-out"
                 }}
             >
-                {/* Theme Applying Context */}
+                {/* Scrollable Content Engine */}
                 <div
                     style={{
-                        ...previewStyle,
                         minHeight: "600px",
                         display: "flex",
-                        flexDirection: "column"
+                        flexDirection: "column",
+                        backgroundColor: "transparent"
                     }}
                 >
                     {/* Simple Header */}
@@ -274,33 +282,40 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                                     key={item}
                                     style={{
                                         backgroundColor: "#ffffff",
-                                        borderRadius: "12px",
+                                        borderRadius: "var(--preview-card-radius)",
                                         overflow: "hidden",
                                         boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
                                         display: card.layout === "list" ? "flex" : "block",
+                                        flexDirection:
+                                            card.layout === "list" &&
+                                            card.image.position === "right"
+                                                ? "row-reverse"
+                                                : "row",
                                         border: "1px solid #f3f4f6"
                                     }}
                                 >
-                                    <div
-                                        style={{
-                                            height: card.layout === "grid" ? "140px" : "auto",
-                                            width: card.layout === "grid" ? "100%" : "120px",
-                                            backgroundColor: "#e5e7eb",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            flexShrink: 0
-                                        }}
-                                    >
+                                    {card.image.mode === "show" && (
                                         <div
                                             style={{
-                                                width: "40px",
-                                                height: "40px",
-                                                backgroundColor: "#d1d5db",
-                                                borderRadius: "4px"
+                                                height: card.layout === "grid" ? "140px" : "auto",
+                                                width: card.layout === "grid" ? "100%" : "120px",
+                                                backgroundColor: "#e5e7eb",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                flexShrink: 0
                                             }}
-                                        />
-                                    </div>
+                                        >
+                                            <div
+                                                style={{
+                                                    width: "40px",
+                                                    height: "40px",
+                                                    backgroundColor: "#d1d5db",
+                                                    borderRadius: "4px"
+                                                }}
+                                            />
+                                        </div>
+                                    )}
                                     <div
                                         style={{
                                             padding: "16px",

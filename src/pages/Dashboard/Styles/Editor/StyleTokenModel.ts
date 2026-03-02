@@ -1,11 +1,16 @@
 export type NavigationStyle = "pill" | "tabs" | "minimal";
 export type CardLayout = "grid" | "list";
+export type CardRadiusPreset = "sharp" | "rounded";
+export type FontFamily = "inter" | "poppins" | "playfair";
 
 export interface StyleTokenModel {
     colors: {
         pageBackground: string;
         primary: string;
         headerBackground: string;
+    };
+    typography: {
+        fontFamily: FontFamily;
     };
     header: {
         imageBorderRadiusPx: number;
@@ -15,6 +20,11 @@ export interface StyleTokenModel {
     };
     card: {
         layout: CardLayout;
+        radius: CardRadiusPreset;
+        image: {
+            mode: "show" | "hide";
+            position: "left" | "right";
+        };
     };
 }
 
@@ -25,6 +35,9 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
         primary: "#6366f1",
         headerBackground: "#ffffff"
     },
+    typography: {
+        fontFamily: "inter"
+    },
     header: {
         imageBorderRadiusPx: 12
     },
@@ -32,7 +45,12 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
         style: "pill"
     },
     card: {
-        layout: "grid"
+        layout: "grid",
+        radius: "rounded",
+        image: {
+            mode: "show",
+            position: "left"
+        }
     }
 };
 
@@ -51,6 +69,8 @@ export function parseTokens(rawJson: any): StyleTokenModel {
     const rawHeader = rawJson.header || {};
     const rawNav = rawJson.navigation || {};
     const rawCard = rawJson.card || {};
+    const rawTypo = rawJson.typography || {};
+    const rawCardImage = rawCard.image || {};
 
     return {
         colors: {
@@ -63,6 +83,13 @@ export function parseTokens(rawJson: any): StyleTokenModel {
                 rawColors.headerBackground ||
                 rawHeader.background ||
                 DEFAULT_STYLE_TOKENS.colors.headerBackground
+        },
+        typography: {
+            fontFamily: ["inter", "poppins", "playfair"].includes(
+                rawTypo.fontFamily || rawJson.fontFamily
+            )
+                ? rawTypo.fontFamily || rawJson.fontFamily
+                : DEFAULT_STYLE_TOKENS.typography.fontFamily
         },
         header: {
             imageBorderRadiusPx:
@@ -81,7 +108,18 @@ export function parseTokens(rawJson: any): StyleTokenModel {
         card: {
             layout: ["grid", "list"].includes(rawCard.layout || rawLayout.card)
                 ? ((rawCard.layout || rawLayout.card) as CardLayout)
-                : DEFAULT_STYLE_TOKENS.card.layout
+                : DEFAULT_STYLE_TOKENS.card.layout,
+            radius: ["sharp", "rounded"].includes(rawCard.radius)
+                ? (rawCard.radius as CardRadiusPreset)
+                : DEFAULT_STYLE_TOKENS.card.radius,
+            image: {
+                mode: ["show", "hide"].includes(rawCardImage.mode)
+                    ? rawCardImage.mode
+                    : DEFAULT_STYLE_TOKENS.card.image.mode,
+                position: ["left", "right"].includes(rawCardImage.position)
+                    ? rawCardImage.position
+                    : DEFAULT_STYLE_TOKENS.card.image.position
+            }
         }
     };
 }
@@ -97,6 +135,9 @@ export function serializeTokens(model: StyleTokenModel): any {
             primary: model.colors.primary,
             headerBackground: model.colors.headerBackground
         },
+        typography: {
+            fontFamily: model.typography.fontFamily
+        },
         header: {
             imageBorderRadiusPx: model.header.imageBorderRadiusPx
         },
@@ -104,7 +145,12 @@ export function serializeTokens(model: StyleTokenModel): any {
             style: model.navigation.style
         },
         card: {
-            layout: model.card.layout
+            layout: model.card.layout,
+            radius: model.card.radius,
+            image: {
+                mode: model.card.image.mode,
+                position: model.card.image.position
+            }
         }
     };
 }
