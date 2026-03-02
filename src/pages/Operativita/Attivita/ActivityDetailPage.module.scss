@@ -1,0 +1,368 @@
+@use "@/styles/variables" as v;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.contentWrapper {
+  width: 100%;
+  margin: 0 auto;
+}
+
+.grid12 {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 24px;
+  width: 100%;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.colSpan12 {
+  grid-column: span 12;
+}
+
+.colSpan6 {
+  grid-column: span 6;
+  @media (max-width: 768px) {
+    grid-column: span 1;
+  }
+}
+
+.colSpan4 {
+  grid-column: span 4;
+  @media (max-width: 1024px) {
+    grid-column: span 6;
+  }
+  @media (max-width: 768px) {
+    grid-column: span 1;
+  }
+}
+
+.header {
+  margin-bottom: 8px;
+
+  .titleSection {
+    h1 {
+      margin: 0.5rem 0 0;
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: v.$text-color;
+    }
+  }
+}
+
+.sectionsLayout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.mainColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sideColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.card {
+  background: v.$white;
+  border-radius: 12px;
+  border: 1px solid v.$gray-200;
+  overflow: hidden;
+}
+
+.cardHeader {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid v.$gray-200;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  h2,
+  h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: v.$text-color;
+  }
+}
+
+.cardContent {
+  padding: 1.5rem;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem 2.5rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: v.$gray-400;
+  }
+
+  span,
+  p {
+    font-size: 1rem;
+    color: v.$text-color;
+    margin: 0;
+  }
+
+  .placeholder {
+    color: v.$gray-400;
+    font-style: italic;
+  }
+
+  .slugLink {
+    font-size: 1rem;
+    color: v.$brand-primary;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    font-weight: 500;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.descriptionBox {
+  line-height: 1.6;
+  color: v.$text-color;
+  font-size: 1rem;
+  white-space: pre-wrap;
+  p {
+    margin: 0;
+  }
+}
+
+.coverImageWrapper {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: v.$gray-100;
+  border: 1px solid v.$gray-200;
+  position: relative;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .editOverlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    cursor: pointer;
+    color: v.$white;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+}
+
+.galleryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.galleryCard {
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid v.$gray-200;
+  background: v.$gray-100;
+  cursor: pointer;
+  transition: transform 0.2s;
+
+  &:hover {
+    transform: translateY(-2px);
+    .galleryOverlay {
+      opacity: 1;
+    }
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .galleryOverlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+    color: v.$white;
+  }
+
+  .badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: v.$brand-primary;
+    color: v.$white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+}
+
+.badgeList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.groupBadge {
+  padding: 0.25rem 0.75rem;
+  background: v.$gray-100;
+  border: 1px solid v.$gray-200;
+  border-radius: 100px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: v.$text-color;
+}
+
+.urlContainer {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  background: v.$gray-100;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid v.$gray-200;
+
+  code {
+    flex: 1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.875rem;
+    color: v.$text-color;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.625rem;
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+
+  &.active {
+    background: #ecfdf5;
+    color: #059669;
+  }
+
+  &.inactive {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+}
+
+.notFound {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 1.5rem;
+  text-align: center;
+
+  h1 {
+    font-size: 2rem;
+    margin: 0;
+  }
+}
+
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 1.5rem;
+  color: v.$gray-400;
+
+  svg {
+    opacity: 0.5;
+  }
+}
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid v.$gray-200;
+  background: v.$white;
+  color: v.$text-color;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+
+  &:focus {
+    outline: none;
+    border-color: v.$brand-primary;
+  }
+}
+
+.textarea {
+  min-height: 120px;
+  resize: vertical;
+}
