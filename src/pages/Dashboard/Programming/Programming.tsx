@@ -564,7 +564,6 @@ export default function Programming() {
     return (
         <section className={styles.programming}>
             <div className={styles.topArea}>
-                <Breadcrumb items={[{ label: "Programmazione" }]} />
                 <PageHeader
                     title="Programmazione"
                     subtitle="Gestisci le regole del Rule Engine."
