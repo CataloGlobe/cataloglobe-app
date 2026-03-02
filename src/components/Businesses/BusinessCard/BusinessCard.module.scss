@@ -2,24 +2,29 @@
   background: var(--card-bg, #ffffff);
   border: 1px solid var(--border, #e5e7eb);
   border-radius: 16px;
-  padding: 1.5rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
 }
 
-/* TOP ROW ---------------------------------------------------- */
-.top {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 1.2rem;
-  align-items: start;
+.cardHeader {
+  position: relative;
+  width: 100%;
 }
 
-/* Thumbnail */
 .thumbnail {
-  width: 160px;
-  height: 110px;
+  height: 180px;
+  width: 100%;
   border-radius: 12px;
   overflow: hidden;
   background: #f3f4f6;
@@ -37,126 +42,64 @@
   background: #e5e7eb;
 }
 
-/* Info testuale */
-.info {
+.menuWrapper {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+}
+
+.cardContent {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.6rem;
 }
 
-.badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-/* ---------------------------------------------
-   COLLECTION INFO
---------------------------------------------- */
-.collectionInfo {
-  margin-top: 0.75rem;
+.mainInfo {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.15rem;
 }
 
-.collectionRow {
+.titleRow {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
 }
 
-.modalContent {
+.entityName {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.address {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.catalogInfo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-light, #f1f5f9);
+}
+
+.catalogLabel {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 1rem;
+  gap: 0.1rem;
 }
 
-/* QR in alto a destra */
-.qrWrapper {
-  height: 110px;
-  width: 110px;
-  padding: 10px;
-  background: #f8f9fb;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
-  transition: box-shadow 0.25s ease, border 0.25s ease;
-  cursor: pointer;
-
-  &:hover {
-    border-color: var(--brand-primary, #6366f1);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
-  }
-}
-
-/* ACTIONS ------------------------------------------------------ */
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.6rem;
-}
-
-.actionsLeft {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-}
-
-.actionsRight {
-  position: relative; // serve per il dropdown
-  display: flex;
-  align-items: center;
-  justify-self: end;
-}
-
-/* RESPONSIVE -------------------------------------------------- */
+/* RESPONSIVE */
 @media (max-width: 700px) {
-  .top {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .qr {
-    width: 90px;
-    height: 90px;
-  }
-
-  .thumbnail {
-    width: 100%;
-  }
-}
-
-/* ============================
-   TITLE ROW + MENU ⋮
-============================ */
-
-.titleRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: relative; // serve per posizionare il menu
-}
-
-.moreButton {
-  background: transparent;
-  border: none;
-  padding: 4px;
-  cursor: pointer;
-  opacity: 0.6;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  &:hover {
-    opacity: 1;
-    background: var(--hover-bg, #f3f4f6);
+  .card {
+    padding: 1rem;
   }
 }

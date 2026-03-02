@@ -1,13 +1,20 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@context/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-    getUserBusinesses,
-    addBusiness,
-    updateBusiness,
-    uploadBusinessCover,
-    deleteBusinessAtomic
-} from "@services/supabase/businesses";
+    getActivities,
+    createActivity,
+    updateActivity,
+    uploadActivityCover,
+    deleteActivityAtomic
+} from "@/services/supabase/v2/activities";
+import { getActiveCatalogForActivities } from "@/services/supabase/v2/activeCatalog";
+import type {
+    ActiveCatalogMeta,
+    BusinessWithCapabilities,
+    BusinessFormValues,
+    BusinessType
+} from "@/types/Businesses";
 
 import Text from "@components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -15,13 +22,16 @@ import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
+import { BusinessAvailabilityModal } from "@/components/Businesses/BusinessAvailabilityModal/BusinessAvailabilityModal";
+import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { ActivityGroupsSection } from "@/components/Businesses/ActivityGroupsSection/ActivityGroupsSection";
 
 import { useDebounce } from "@/hooks/useDebounce";
 
 import { ensureUniqueBusinessSlug } from "@/utils/businessSlug";
 import { generateRandomSuffix, sanitizeSlugForSave } from "@/utils/slugify";
 
-import type { BusinessFormValues, BusinessWithCapabilities } from "@/types/Businesses";
+// Tipi importati da "@/types/Businesses"
 
 import styles from "./Businesses.module.scss";
 import { BusinessUpsert } from "@/components/Businesses/BusinessUpsert/BusinessUpsert";
@@ -57,12 +67,23 @@ export default function Businesses() {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeTab = (searchParams.get("tab") as "activities" | "groups") || "activities";
+    const setActiveTab = (tab: string) => {
+        setSearchParams(prev => {
+            prev.set("tab", tab);
+            return prev;
+        });
+    };
 
     // ======================================
     // STATE: lista dei business
     // ======================================
     const [businesses, setBusinesses] = useState<BusinessWithCapabilities[]>([]);
     const [isLoadingBusinesses, setIsLoadingBusinesses] = useState(true);
+    const [activeCatalogsMap, setActiveCatalogsMap] = useState<Record<string, ActiveCatalogMeta>>(
+        {}
+    );
 
     // ======================================
     // STATE: form creazione business
@@ -97,6 +118,19 @@ export default function Businesses() {
     const [isDeleting, setIsDeleting] = useState(false);
 
     // ======================================
+    // STATE: Modale Disponibilità (Step 3)
+    // ======================================
+    const [availabilityModal, setAvailabilityModal] = useState<{
+        isOpen: boolean;
+        activityId: string | null;
+        activityName: string | null;
+    }>({
+        isOpen: false,
+        activityId: null,
+        activityName: null
+    });
+
+    // ======================================
     // SLUGS
     // ======================================
     const [createSlugState, setCreateSlugState] = useState<SlugInlineState>({ type: "idle" });
@@ -116,10 +150,21 @@ export default function Businesses() {
 
         setIsLoadingBusinesses(true);
 
-        const data = await getUserBusinesses(userId);
+        try {
+            const data = await getActivities(userId);
+            setBusinesses(data as BusinessWithCapabilities[]);
 
-        setBusinesses(data);
-        setIsLoadingBusinesses(false);
+            // Batch fetch catalogo attivo in parallelo, non bloccante per la lista
+            if (data.length > 0) {
+                getActiveCatalogForActivities(data.map(b => b.id))
+                    .then(map => setActiveCatalogsMap(map))
+                    .catch(() => {});
+            }
+        } catch (error) {
+            console.error("Error fetching activities:", error);
+        } finally {
+            setIsLoadingBusinesses(false);
+        }
     }, [userId]);
 
     useEffect(() => {
@@ -197,7 +242,7 @@ export default function Businesses() {
         if (!values.name.trim()) errors.name = "Il nome è obbligatorio.";
         if (!values.city.trim()) errors.city = "La città è obbligatoria.";
         if (!values.address.trim()) errors.address = "L'indirizzo è obbligatorio.";
-        if (!values.type.trim()) errors.type = "Il tipo di attività è obbligatorio.";
+        if (!values.type?.trim()) errors.type = "Il tipo di attività è obbligatorio.";
         if (!values.slug.trim()) errors.slug = "Lo slug è obbligatorio.";
 
         return errors;
@@ -274,18 +319,17 @@ export default function Businesses() {
 
             setIsCreating(true);
             try {
-                const newBusiness = await addBusiness(
-                    user.id,
-                    createForm.name,
-                    createForm.city,
-                    createForm.address,
-                    uniqueSlug,
-                    createForm.type
-                );
+                const newActivity = await createActivity(user.id, {
+                    name: createForm.name,
+                    city: createForm.city,
+                    address: createForm.address,
+                    slug: uniqueSlug,
+                    activity_type: createForm.type
+                });
 
                 if (createCoverFile) {
-                    await uploadBusinessCover(
-                        { id: newBusiness.id, slug: newBusiness.slug },
+                    await uploadActivityCover(
+                        { id: newActivity.id, slug: newActivity.slug },
                         createCoverFile
                     );
                 }
@@ -332,7 +376,7 @@ export default function Businesses() {
         setIsDeleting(true);
 
         try {
-            await deleteBusinessAtomic(deleteTargetId);
+            await deleteActivityAtomic(deleteTargetId);
 
             await refreshBusinesses();
             showToast({
@@ -374,7 +418,7 @@ export default function Businesses() {
             city: business.city ?? "",
             address: business.address ?? "",
             slug: business.slug,
-            type: business.type,
+            type: business.activity_type || "other",
             coverPreview: business.cover_image ?? null
         });
         setEditCoverFile(null);
@@ -410,7 +454,7 @@ export default function Businesses() {
         if (!values.name.trim()) errors.name = "Il nome è obbligatorio.";
         if (!values.city.trim()) errors.city = "La città è obbligatoria.";
         if (!values.address.trim()) errors.address = "L'indirizzo è obbligatorio.";
-        if (!values.type.trim()) errors.type = "Il tipo di attività è obbligatorio.";
+        if (!values.type?.trim()) errors.type = "Il tipo di attività è obbligatorio.";
         if (!values.slug.trim()) errors.slug = "Lo slug è obbligatorio.";
 
         return errors;
@@ -486,16 +530,16 @@ export default function Businesses() {
             setIsEditing(true);
 
             try {
-                await updateBusiness(editingId, {
+                await updateActivity(editingId, {
                     name: editForm.name,
                     city: editForm.city,
                     address: editForm.address,
                     slug: cleanedSlug,
-                    type: editForm.type
+                    activity_type: editForm.type
                 });
 
                 if (editCoverFile) {
-                    await uploadBusinessCover(
+                    await uploadActivityCover(
                         { id: editingId, slug: editForm.slug },
                         editCoverFile
                     );
@@ -604,23 +648,50 @@ export default function Businesses() {
                 title="Le tue Attività"
                 subtitle="Gestisci le tue attività e genera il QR del sito pubblico."
                 actions={
-                    <Button
-                        variant="primary"
-                        onClick={() => {
-                            setIsCreateOpen(true);
-                            setCreateSlugState({ type: "idle" });
-                        }}
-                    >
-                        Aggiungi attività
-                    </Button>
+                    activeTab === "activities" ? (
+                        <Button
+                            variant="primary"
+                            onClick={() => {
+                                setIsCreateOpen(true);
+                                setCreateSlugState({ type: "idle" });
+                            }}
+                        >
+                            Aggiungi attività
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="primary"
+                            onClick={() => {
+                                // Questa funzione sarà passata o triggerata per aprire il drawer dei gruppi
+                                // Mapperemo un evento o useremo un ref?
+                                // In realtà ActivityGroupsSection ha la logica, ma la CTA è qui.
+                                // Dobbiamo esporre la funzione di creazione o usare un evento.
+                                window.dispatchEvent(new CustomEvent("open-group-drawer"));
+                            }}
+                        >
+                            Nuovo gruppo
+                        </Button>
+                    )
                 }
             />
+
+            {businesses.length > 1 && (
+                <div className={styles.tabsContainer} style={{ marginBottom: "1rem" }}>
+                    <Tabs value={activeTab} onChange={setActiveTab}>
+                        <Tabs.List>
+                            <Tabs.Tab value="activities">Attività</Tabs.Tab>
+                            <Tabs.Tab value="groups">Gruppi di attività</Tabs.Tab>
+                        </Tabs.List>
+                    </Tabs>
+                </div>
+            )}
 
             <FilterBar
                 search={{
                     value: searchTerm,
                     onChange: setSearchTerm,
-                    placeholder: "Cerca attività..."
+                    placeholder:
+                        activeTab === "activities" ? "Cerca attività..." : "Cerca gruppo..."
                 }}
                 view={{
                     value: viewMode,
@@ -628,73 +699,102 @@ export default function Businesses() {
                 }}
             />
 
-            <BusinessUpsert
-                open={isCreateOpen}
-                mode="create"
-                values={createForm}
-                errors={createErrors}
-                loading={isCreating}
-                previewBaseUrl={previewBaseUrl}
-                onFieldChange={handleCreateFieldChange}
-                onCoverChange={handleCreateCoverChange}
-                slugState={createSlugState}
-                onPickSlugSuggestion={slug => {
-                    setCreateForm(prev => ({ ...prev, slug }));
-                    setCreateSlugState({ type: "idle" });
-                }}
-                onSubmit={handleAdd}
-                onClose={() => {
-                    setIsCreateOpen(false);
-                    setCreateSlugState({ type: "idle" });
-                    resetCreateState();
-                }}
-            />
-
-            <BusinessUpsert
-                open={isEditOpen}
-                mode="edit"
-                values={editForm}
-                errors={editErrors}
-                loading={isEditing}
-                previewBaseUrl={previewBaseUrl}
-                onFieldChange={handleEditFieldChange}
-                onCoverChange={handleEditCoverChange}
-                slugState={editSlugState}
-                onPickSlugSuggestion={slug => {
-                    setEditForm(prev => (prev ? { ...prev, slug } : prev));
-                    // aggiorna warning: se slug scelto è diverso dall’originale, warning rimane (ci sta)
-                    if (editingBusiness && slug !== editingBusiness.slug) {
-                        setEditSlugState({ type: "warning" });
-                    } else {
-                        setEditSlugState({ type: "idle" });
-                    }
-                }}
-                onSubmit={handleSaveEdit}
-                onClose={() => {
-                    setIsEditOpen(false);
-                    setEditingId(null);
-                    setEditingBusiness(null);
-                    setEditForm(null);
-                    setEditCoverFile(null);
-                    setEditSlugState({ type: "idle" });
-                    setEditErrors({});
-                }}
-            />
-
-            {/* Lista attività */}
-            {showInitialSkeleton ? (
+            {activeTab === "activities" ? (
                 <>
-                    <BusinessCardSkeleton />
-                    <BusinessCardSkeleton />
-                    <BusinessCardSkeleton />
+                    <BusinessUpsert
+                        open={isCreateOpen}
+                        mode="create"
+                        values={createForm}
+                        errors={createErrors}
+                        loading={isCreating}
+                        previewBaseUrl={previewBaseUrl}
+                        onFieldChange={handleCreateFieldChange}
+                        onCoverChange={handleCreateCoverChange}
+                        slugState={createSlugState}
+                        onPickSlugSuggestion={slug => {
+                            setCreateForm(prev => ({ ...prev, slug }));
+                            setCreateSlugState({ type: "idle" });
+                        }}
+                        onSubmit={handleAdd}
+                        onClose={() => {
+                            setIsCreateOpen(false);
+                            setCreateSlugState({ type: "idle" });
+                            resetCreateState();
+                        }}
+                    />
+
+                    <BusinessUpsert
+                        open={isEditOpen}
+                        mode="edit"
+                        values={editForm}
+                        errors={editErrors}
+                        loading={isEditing}
+                        previewBaseUrl={previewBaseUrl}
+                        onFieldChange={handleEditFieldChange}
+                        onCoverChange={handleEditCoverChange}
+                        slugState={editSlugState}
+                        onPickSlugSuggestion={slug => {
+                            setEditForm(prev => (prev ? { ...prev, slug } : prev));
+                            // aggiorna warning: se slug scelto è diverso dall’originale, warning rimane (ci sta)
+                            if (editingBusiness && slug !== editingBusiness.slug) {
+                                setEditSlugState({ type: "warning" });
+                            } else {
+                                setEditSlugState({ type: "idle" });
+                            }
+                        }}
+                        onSubmit={handleSaveEdit}
+                        onClose={() => {
+                            setIsEditOpen(false);
+                            setEditingId(null);
+                            setEditingBusiness(null);
+                            setEditForm(null);
+                            setEditCoverFile(null);
+                            setEditSlugState({ type: "idle" });
+                            setEditErrors({});
+                        }}
+                    />
+
+                    {/* Lista attività */}
+                    {showInitialSkeleton ? (
+                        <>
+                            <BusinessCardSkeleton />
+                            <BusinessCardSkeleton />
+                            <BusinessCardSkeleton />
+                        </>
+                    ) : (
+                        <>
+                            <BusinessList
+                                businesses={businesses}
+                                viewMode={viewMode}
+                                onEdit={handleEditClick}
+                                onDelete={handleDelete}
+                                onOpenReviews={handleOpenReviews}
+                                activeCatalogsMap={activeCatalogsMap}
+                                onManageAvailability={(id, name) =>
+                                    setAvailabilityModal({
+                                        isOpen: true,
+                                        activityId: id,
+                                        activityName: name
+                                    })
+                                }
+                            />
+
+                            {/* MODALE DISPONIBILITÀ (STEP 3) */}
+                            {availabilityModal.activityId && (
+                                <BusinessAvailabilityModal
+                                    isOpen={availabilityModal.isOpen}
+                                    onClose={() =>
+                                        setAvailabilityModal(prev => ({ ...prev, isOpen: false }))
+                                    }
+                                    activityId={availabilityModal.activityId}
+                                    activityName={availabilityModal.activityName || ""}
+                                />
+                            )}
+                        </>
+                    )}
                 </>
             ) : (
-                <BusinessList
-                    businesses={businesses}
-                    onEdit={handleEditClick}
-                    onDelete={handleDelete}
-                    onOpenReviews={handleOpenReviews}
-                />
+                <ActivityGroupsSection searchQuery={searchTerm} />
             )}
 
             <ModalLayout
