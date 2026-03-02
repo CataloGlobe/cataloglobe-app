@@ -264,6 +264,11 @@ type OverrideRow = {
     visible_override: boolean | null;
 };
 
+export type ActivityProductOverrideRow = {
+    product_id: string;
+    visible_override: boolean | null;
+};
+
 function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
     if (!value) return null;
     return Array.isArray(value) ? (value[0] ?? null) : value;
@@ -910,6 +915,72 @@ function applyPriceOverridesToCatalog(
     };
 }
 
+export function applyActivityVisibilityOverridesToCatalog(
+    catalog: ResolvedCatalog | undefined,
+    baseCatalog: ResolvedCatalog | undefined,
+    overridesByProductId: Record<string, ActivityProductOverrideRow>
+): ResolvedCatalog | undefined {
+    if (!catalog) return undefined;
+
+    // Build lookup of ALL products from the base catalog (pre-schedule-filter)
+    // so we can restore products removed by the schedule visibility layer.
+    const baseProductsByProductId: Record<string, ResolvedProduct> = {};
+    for (const category of baseCatalog?.categories ?? []) {
+        for (const product of category.products) {
+            baseProductsByProductId[product.id] = product;
+        }
+    }
+
+    return {
+        ...catalog,
+        ...(catalog.categories
+            ? {
+                  categories: catalog.categories
+                      .map(category => {
+                          const currentProductIds = new Set(category.products.map(p => p.id));
+
+                          // Start with current (post-schedule-visibility) products
+                          const productsToConsider: ResolvedProduct[] = [...category.products];
+
+                          // Restore products hidden by schedule but overridden to visible=true
+                          for (const [productId, override] of Object.entries(
+                              overridesByProductId
+                          )) {
+                              if (
+                                  override.visible_override === true &&
+                                  !currentProductIds.has(productId) &&
+                                  baseProductsByProductId[productId]
+                              ) {
+                                  // Only restore if this product originally belonged to THIS category
+                                  const belongsToCategory = (baseCatalog?.categories ?? []).some(
+                                      c =>
+                                          c.id === category.id &&
+                                          c.products.some(p => p.id === productId)
+                                  );
+                                  if (belongsToCategory) {
+                                      productsToConsider.push(baseProductsByProductId[productId]);
+                                  }
+                              }
+                          }
+
+                          // Apply visible_override: false removes, true ensures present, null = no change
+                          const finalProducts = productsToConsider
+                              .map(item => {
+                                  const override = overridesByProductId[item.id];
+                                  if (!override || override.visible_override === null) return item;
+                                  if (override.visible_override === false) return null;
+                                  return item; // visible_override === true — keep
+                              })
+                              .filter((p): p is ResolvedProduct => p !== null);
+
+                          return { ...category, products: finalProducts };
+                      })
+                      .filter(category => category.products.length > 0)
+              }
+            : {})
+    };
+}
+
 function toMinutes(hhmm: string | null): number | null {
     if (!hhmm) return null;
     const [h, m] = hhmm.slice(0, 5).split(":").map(Number);
@@ -1065,7 +1136,7 @@ function pickFallbackPrimary(
 
 function hasRenderableItems(
     schedule: V2ActivityScheduleRow,
-    overridesByProductId: Record<string, OverrideRow>
+    overridesByProductId: Record<string, ActivityProductOverrideRow>
 ) {
     const categories = schedule.catalog?.categories ?? [];
 
@@ -1084,19 +1155,20 @@ export async function resolveActivityCatalogsV2(
     activityId: string,
     now: Date = new Date()
 ): Promise<ResolvedCollections> {
-    // ------------------------------------------------------------------------
-    // CACHING STRATEGY (Placeholder for future implementation)
-    // ------------------------------------------------------------------------
-    // Ideal implementation:
-    // Const cacheKey = `v2_activity_catalog:${activityId}`;
-    // Const cachedValue = await redis.get(cacheKey);
-    // if (cachedValue) return JSON.parse(cachedValue);
-    //
-    // The fully resolved payload (ResolvedCollections) should be cached here.
-    // Invalidation strategy:
-    // - TTL: 5 minutes automatic expiry
-    // - Manual invalidation on any catalog/schedule save event
-    // ------------------------------------------------------------------------
+    // ── Pre-flight check: Verify activity exists ──────────────────────────
+    const { data: activityExists, error: activityCheckError } = await supabase
+        .from("v2_activities")
+        .select("id")
+        .eq("id", activityId)
+        .maybeSingle();
+
+    if (activityCheckError) throw activityCheckError;
+    if (!activityExists) {
+        console.warn(`[resolveActivityCatalogsV2] Activity not found: ${activityId}`);
+        return {
+            featured: { hero: [], before_catalog: [], after_catalog: [] }
+        };
+    }
 
     const {
         catalogId: layoutCatalogId,
@@ -1216,6 +1288,12 @@ export async function resolveActivityCatalogsV2(
 
     const layoutCatalog = await loadCatalogById(layoutCatalogId);
 
+    // Preserve the base catalog (pre-schedule-filter) so the activity visibility
+    // override layer can restore products that were hidden by a schedule rule.
+    const baseCatalog: ResolvedCatalog | undefined = layoutCatalog
+        ? JSON.parse(JSON.stringify(layoutCatalog))
+        : undefined;
+
     const categoriesCount = layoutCatalog?.categories?.length ?? 0;
     const itemsCount =
         layoutCatalog?.categories?.reduce(
@@ -1259,7 +1337,6 @@ export async function resolveActivityCatalogsV2(
     );
 
     const visibilityOverridesByProductId: Record<string, VisibilityOverrideRow> = {};
-    const overridesByProductId: Record<string, OverrideRow> = {};
     const priceOverridesByProductId: Record<string, PriceOverrideRow> = {};
 
     const activeVisibilityRuleScheduleId = await findActiveVisibilityRuleScheduleId(
@@ -1295,17 +1372,28 @@ export async function resolveActivityCatalogsV2(
         )
     );
 
-    if (visibleProductIds.length > 0) {
-        const { data: overrideData, error: overrideError } = await supabase
+    // Build set of ALL product IDs in the base catalog (pre-schedule-filter)
+    // needed so the activity visible_override=true case can query products
+    // that may have been removed by the schedule visibility layer.
+    const allBaseProductIds = Array.from(
+        new Set(
+            (baseCatalog?.categories ?? []).flatMap(category => category.products.map(p => p.id))
+        )
+    );
+
+    const activityProductOverridesByProductId: Record<string, ActivityProductOverrideRow> = {};
+
+    if (allBaseProductIds.length > 0) {
+        const { data: activityOverrideData, error: activityOverrideError } = await supabase
             .from("v2_activity_product_overrides")
             .select("product_id, visible_override")
             .eq("activity_id", activityId)
-            .in("product_id", visibleProductIds);
+            .in("product_id", allBaseProductIds);
 
-        if (overrideError) throw overrideError;
+        if (activityOverrideError) throw activityOverrideError;
 
-        for (const row of (overrideData ?? []) as OverrideRow[]) {
-            overridesByProductId[row.product_id] = row;
+        for (const row of (activityOverrideData ?? []) as ActivityProductOverrideRow[]) {
+            activityProductOverridesByProductId[row.product_id] = row;
         }
     }
 
@@ -1333,8 +1421,18 @@ export async function resolveActivityCatalogsV2(
         catalog: applyPriceOverridesToCatalog(schedule.catalog, priceOverridesByProductId)
     }));
 
+    // ── Layer 4: Activity visibility override (last word on visibility) ─────
+    schedules = schedules.map(schedule => ({
+        ...schedule,
+        catalog: applyActivityVisibilityOverridesToCatalog(
+            schedule.catalog,
+            baseCatalog,
+            activityProductOverridesByProductId
+        )
+    }));
+
     const schedulesWithItems = schedules.filter(schedule =>
-        hasRenderableItems(schedule, overridesByProductId)
+        hasRenderableItems(schedule, activityProductOverridesByProductId)
     );
 
     const activeNow = schedulesWithItems.filter(schedule => isScheduleActive(schedule, now));

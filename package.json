@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "parity:check": "node --loader ./scripts/ts-loader.mjs scripts/parity-check.ts"
+    "parity:check": "node --loader ./scripts/ts-loader.mjs scripts/parity-check.ts",
+    "test:activity-overrides": "node --loader ./scripts/ts-loader.mjs scripts/test-activity-overrides.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

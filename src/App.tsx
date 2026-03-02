@@ -29,6 +29,7 @@ import Highlights from "./pages/Dashboard/Highlights/Highlights";
 import Styles from "./pages/Dashboard/Styles/Styles";
 import StyleEditorPage from "./pages/Dashboard/Styles/StyleEditorPage";
 import Attributes from "./pages/Dashboard/Attributes/Attributes";
+import ActivityDetailPage from "./pages/Operativita/Attivita/ActivityDetailPage";
 
 // Public pages
 import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
@@ -103,6 +104,7 @@ export default function App() {
                 <Route index element={<Overview />} />
 
                 <Route path="attivita" element={<Businesses />} />
+                <Route path="attivita/:activityId" element={<ActivityDetailPage />} />
                 <Route path="programmazione" element={<Programming />} />
                 <Route path="programmazione/:ruleId" element={<ProgrammingRuleDetail />} />
 
