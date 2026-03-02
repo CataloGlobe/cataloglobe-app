@@ -1,0 +1,46 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+}
+
+.tableCard {
+  padding: 0;
+  overflow: hidden;
+}
+
+.loadingState,
+.emptyState {
+  padding: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.emptyIcon {
+  color: var(--color-text-muted);
+  opacity: 0.5;
+}
+
+.colName {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.description {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.highlighted {
+  background: #f0f4ff !important; // Un blu leggerissimo per l'highlight
+  border-left: 3px solid var(--brand-primary, #6366f1) !important;
+}

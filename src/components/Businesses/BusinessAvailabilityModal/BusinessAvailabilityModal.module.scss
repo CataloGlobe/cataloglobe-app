@@ -1,0 +1,44 @@
+.container {
+  padding: 1rem;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+}
+
+.loading,
+.empty {
+  padding: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.tableWrapper {
+  margin-top: 1rem;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  max-height: 400px;
+  overflow-y: auto;
+
+  // Header sticky logic
+  :global(.table-header) {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+}
+
+.productCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rowSaving {
+  opacity: 0.5;
+  pointer-events: none;
+}
