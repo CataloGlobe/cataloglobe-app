@@ -15,6 +15,7 @@ const RUNTIME_VAR_KEYS = [
     "--pub-primary",
     "--pub-header-bg",
     "--pub-header-radius",
+    "--pub-font-family",
     "--pub-card-bg",
     "--pub-card-radius",
     "--pub-nav-style"
@@ -28,9 +29,15 @@ function buildVarMap(tokens: StyleTokenModel): Record<RuntimeVarKey, string> {
         "--pub-primary": tokens.colors.primary,
         "--pub-header-bg": tokens.colors.headerBackground,
         "--pub-header-radius": `${tokens.header.imageBorderRadiusPx}px`,
-        // card vars — derived from header radius for consistency (no separate token yet)
+        "--pub-font-family":
+            tokens.typography.fontFamily === "poppins"
+                ? "'Poppins', sans-serif"
+                : tokens.typography.fontFamily === "playfair"
+                  ? "'Playfair Display', serif"
+                  : "'Inter', sans-serif",
+        // card vars
         "--pub-card-bg": "#ffffff",
-        "--pub-card-radius": `${Math.round(tokens.header.imageBorderRadiusPx * 0.75)}px`,
+        "--pub-card-radius": tokens.card.radius === "sharp" ? "0px" : "14px",
         "--pub-nav-style": tokens.navigation.style
     };
 }

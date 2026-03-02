@@ -2,6 +2,7 @@ import React from "react";
 import type { Business } from "@/types/database";
 import { ResolvedCollections } from "@/services/supabase/v2/resolveActivityCatalogsV2";
 import { useRuntimeStyle } from "@/hooks/useRuntimeStyle";
+import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import FeaturedBlock from "./FeaturedBlock/FeaturedBlock";
 import PublicCatalogTree from "./PublicCatalogTree/PublicCatalogTree";
 import styles from "./PublicCollectionView.module.scss";
@@ -18,6 +19,8 @@ export default function PublicCollectionView({ business, resolved }: Props) {
     // Falls back to DEFAULT_STYLE_TOKENS when style is null.
     // Cleans up on unmount (so dashboard is unaffected).
     useRuntimeStyle(style);
+
+    const tokens = parseTokens(style?.config);
 
     return (
         <div className={styles.page}>
@@ -55,7 +58,11 @@ export default function PublicCollectionView({ business, resolved }: Props) {
                             <h2 className={styles.catalogTitle}>{catalog.name}</h2>
                             <div className={styles.catalogTree}>
                                 {catalog.categories?.map(category => (
-                                    <PublicCatalogTree key={category.id} category={category} />
+                                    <PublicCatalogTree
+                                        key={category.id}
+                                        category={category}
+                                        tokens={tokens}
+                                    />
                                 ))}
                             </div>
                         </section>

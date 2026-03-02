@@ -3,12 +3,14 @@ import styles from "./PublicCatalogTree.module.scss";
 import type { ResolvedCategory } from "@/services/supabase/v2/resolveActivityCatalogsV2";
 import Text from "@/components/ui/Text/Text";
 import PublicProductCard from "../PublicProductCard/PublicProductCard";
+import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 
 type Props = {
     category: ResolvedCategory;
+    tokens: StyleTokenModel;
 };
 
-export default function PublicCatalogTree({ category }: Props) {
+export default function PublicCatalogTree({ category, tokens }: Props) {
     // Hide empty branches without visible products
     const hasVisibleProducts = category.products.some(p => p.is_visible);
 
@@ -28,7 +30,7 @@ export default function PublicCatalogTree({ category }: Props) {
                 {category.products
                     .filter(p => p.is_visible)
                     .map(product => (
-                        <PublicProductCard key={product.id} product={product} />
+                        <PublicProductCard key={product.id} product={product} tokens={tokens} />
                     ))}
             </div>
         </div>

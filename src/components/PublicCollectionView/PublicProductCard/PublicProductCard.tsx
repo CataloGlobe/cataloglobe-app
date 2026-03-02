@@ -7,13 +7,15 @@ import ModalLayout, {
     ModalLayoutHeader
 } from "@/components/ui/ModalLayout/ModalLayout";
 import { Button } from "@/components/ui";
+import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import ProductDetailOptions from "@/components/catalog-renderer/ProductDetailOptions";
 
 type Props = {
     product: ResolvedProduct;
+    tokens: StyleTokenModel;
 };
 
-export default function PublicProductCard({ product }: Props) {
+export default function PublicProductCard({ product, tokens }: Props) {
     if (!product.is_visible) return null;
 
     const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -21,6 +23,10 @@ export default function PublicProductCard({ product }: Props) {
     const visibleVariants = product.variants?.filter(v => typeof v.price === "number") || [];
     const hasOptions = (product.optionGroups?.length ?? 0) > 0;
     const isClickable = hasOptions;
+
+    const isList = tokens.card.layout === "list";
+    const showImage = tokens.card.image.mode === "show";
+    const imagePos = tokens.card.image.position;
 
     // Determine what to show as price on the card
     const renderPriceBadge = () => {
@@ -90,9 +96,14 @@ export default function PublicProductCard({ product }: Props) {
     return (
         <>
             <article
-                className={styles.card}
+                className={`${styles.card} ${isList ? styles.listLayout : styles.gridLayout}`}
                 onClick={isClickable ? () => setIsDetailOpen(true) : undefined}
-                style={isClickable ? { cursor: "pointer" } : undefined}
+                style={{
+                    ...(isClickable ? { cursor: "pointer" } : undefined),
+                    ...(isList && imagePos === "right"
+                        ? { flexDirection: "row-reverse" }
+                        : undefined)
+                }}
                 tabIndex={isClickable ? 0 : undefined}
                 onKeyDown={
                     isClickable
@@ -104,44 +115,66 @@ export default function PublicProductCard({ product }: Props) {
                 role={isClickable ? "button" : undefined}
                 aria-label={isClickable ? `Vedi opzioni per ${product.name}` : undefined}
             >
-                <div className={styles.baseProduct}>
-                    <div className={styles.headerRow}>
-                        <Text variant="body" weight={700} className={styles.name}>
-                            {product.name}
-                        </Text>
-                        {renderPriceBadge()}
-                    </div>
-
-                    {product.description && (
-                        <Text variant="caption" colorVariant="muted" className={styles.description}>
-                            {product.description}
-                        </Text>
-                    )}
-
-                    {renderAttributes(product.attributes)}
-                    {renderAllergens(product.allergens)}
-                </div>
-
-                {visibleVariants.length > 0 && (
-                    <div className={styles.variantsContainer}>
-                        {visibleVariants.map(variant => (
-                            <div key={variant.id} className={styles.variantRow}>
-                                <div className={styles.variantHeader}>
-                                    <Text variant="body-sm" weight={600}>
-                                        {variant.name}
-                                    </Text>
-                                    {typeof variant.price === "number" && (
-                                        <Text variant="body-sm" weight={600}>
-                                            € {variant.price.toFixed(2)}
-                                        </Text>
-                                    )}
-                                </div>
-                                {renderAttributes(variant.attributes)}
-                                {renderAllergens(variant.allergens)}
+                {showImage && (
+                    <div className={styles.imageContainer}>
+                        {(product as any).image_url ? (
+                            <img
+                                src={(product as any).image_url}
+                                alt={product.name}
+                                className={styles.image}
+                            />
+                        ) : (
+                            <div className={styles.imagePlaceholder}>
+                                <div className={styles.placeholderIcon} />
                             </div>
-                        ))}
+                        )}
                     </div>
                 )}
+
+                <div className={styles.content}>
+                    <div className={styles.baseProduct}>
+                        <div className={styles.headerRow}>
+                            <Text variant="body" weight={700} className={styles.name}>
+                                {product.name}
+                            </Text>
+                            {renderPriceBadge()}
+                        </div>
+
+                        {product.description && (
+                            <Text
+                                variant="caption"
+                                colorVariant="muted"
+                                className={styles.description}
+                            >
+                                {product.description}
+                            </Text>
+                        )}
+
+                        {renderAttributes(product.attributes)}
+                        {renderAllergens(product.allergens)}
+                    </div>
+
+                    {visibleVariants.length > 0 && (
+                        <div className={styles.variantsContainer}>
+                            {visibleVariants.map(variant => (
+                                <div key={variant.id} className={styles.variantRow}>
+                                    <div className={styles.variantHeader}>
+                                        <Text variant="body-sm" weight={600}>
+                                            {variant.name}
+                                        </Text>
+                                        {typeof variant.price === "number" && (
+                                            <Text variant="body-sm" weight={600}>
+                                                € {variant.price.toFixed(2)}
+                                            </Text>
+                                        )}
+                                    </div>
+                                    {renderAttributes(variant.attributes)}
+                                    {renderAllergens(variant.allergens)}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </article>
 
             {/* Detail sheet — interactive options + live price */}

@@ -4,6 +4,7 @@
 .page {
   min-height: 100vh;
   background-color: var(--pub-bg);
+  font-family: var(--pub-font-family, sans-serif);
 }
 
 .skipLink {
