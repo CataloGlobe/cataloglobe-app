@@ -11,6 +11,7 @@ export type V2Product = {
     base_price: number | null;
     parent_product_id: string | null;
     is_visible: boolean;
+    image_url: string | null;
     created_at: string;
     updated_at: string;
     // Joined
@@ -89,6 +90,7 @@ export async function createProduct(
         description?: string | null;
         base_price?: number | null;
         is_visible?: boolean;
+        image_url?: string | null;
     },
     parentId?: string | null
 ): Promise<V2Product> {
@@ -103,7 +105,8 @@ export async function createProduct(
             description: data.description || null,
             base_price: data.base_price ?? null,
             parent_product_id: parentId || null,
-            is_visible: data.is_visible ?? true
+            is_visible: data.is_visible ?? true,
+            image_url: data.image_url ?? null
         })
         .select()
         .single();
@@ -120,6 +123,7 @@ export async function updateProduct(
         description?: string | null;
         base_price?: number | null;
         is_visible?: boolean;
+        image_url?: string | null;
     },
     parentId?: string | null
 ): Promise<V2Product> {
@@ -132,6 +136,7 @@ export async function updateProduct(
     if (data.description !== undefined) updatePayload.description = data.description;
     if (data.base_price !== undefined) updatePayload.base_price = data.base_price;
     if (data.is_visible !== undefined) updatePayload.is_visible = data.is_visible;
+    if (data.image_url !== undefined) updatePayload.image_url = data.image_url;
     if (parentId !== undefined) updatePayload.parent_product_id = parentId;
 
     const { data: updatedProduct, error } = await supabase
@@ -248,7 +253,8 @@ export async function duplicateProduct(productId: string, tenantId: string): Pro
             name: `${original.name} (Copia)`,
             description: original.description,
             base_price: original.base_price,
-            is_visible: original.is_visible
+            is_visible: original.is_visible,
+            image_url: original.image_url
         },
         null // parent_product_id = null
     );

@@ -36,6 +36,7 @@ export type ResolvedProduct = {
     is_visible: boolean;
     attributes?: any[];
     allergens?: any[];
+    image_url?: string;
     variants?: ResolvedVariant[];
     optionGroups?: ResolvedOptionGroup[];
 };
@@ -145,6 +146,7 @@ type RawVariantRow = {
     base_price: number | null;
     attributes: RawAttributeValueRow[] | RawAttributeValueRow | null;
     allergens: RawAllergenRow[] | RawAllergenRow | null;
+    image_url: string | null;
 };
 
 type RawProductRow = {
@@ -155,6 +157,7 @@ type RawProductRow = {
     variants: RawVariantRow[] | RawVariantRow | null;
     attributes: RawAttributeValueRow[] | RawAttributeValueRow | null;
     allergens: RawAllergenRow[] | RawAllergenRow | null;
+    image_url: string | null;
 };
 
 type RawCategoryProductRow = {
@@ -377,6 +380,7 @@ function normalizeCatalog(
                         ...(from_price !== undefined ? { from_price } : {}),
                         ...(pAttrs.length > 0 ? { attributes: pAttrs } : {}),
                         ...(pAllergens.length > 0 ? { allergens: pAllergens } : {}),
+                        ...(p.image_url ? { image_url: p.image_url } : {}),
                         ...(pVariants.length > 0 ? { variants: pVariants } : {}),
                         ...(resolvedOptionGroups.length > 0
                             ? { optionGroups: resolvedOptionGroups }
@@ -426,6 +430,7 @@ async function loadCatalogById(catalogId: string): Promise<ResolvedCatalog | und
                   name,
                   description,
                   base_price,
+                  image_url,
                   option_groups:v2_product_option_groups(
                     id,
                     name,
