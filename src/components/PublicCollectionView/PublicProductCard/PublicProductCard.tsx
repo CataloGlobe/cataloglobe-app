@@ -15,14 +15,27 @@ type Props = {
     tokens: StyleTokenModel;
 };
 
-export default function PublicProductCard({ product, tokens }: Props) {
-    if (!product.is_visible) return null;
+type ProductAttribute = {
+    definition?: {
+        label?: string | null;
+    } | null;
+    value_text?: string | null;
+    value_number?: number | null;
+    value_boolean?: boolean | null;
+};
 
+type ProductAllergen = {
+    label_it?: string | null;
+};
+
+export default function PublicProductCard({ product, tokens }: Props) {
     const [isDetailOpen, setIsDetailOpen] = useState(false);
+    if (!product.is_visible) return null;
 
     const visibleVariants = product.variants?.filter(v => typeof v.price === "number") || [];
     const hasOptions = (product.optionGroups?.length ?? 0) > 0;
-    const isClickable = hasOptions;
+    const isDisabled = product.is_disabled === true;
+    const isClickable = hasOptions && !isDisabled;
 
     const isList = tokens.card.layout === "list";
     const showImage = tokens.card.image.mode === "show";
@@ -40,7 +53,7 @@ export default function PublicProductCard({ product, tokens }: Props) {
                 </div>
             );
         }
-        const displayPrice = (product as any).effective_price ?? product.price;
+        const displayPrice = product.effective_price ?? product.price;
         if (typeof displayPrice === "number") {
             return (
                 <div className={styles.priceBlock}>
@@ -63,7 +76,7 @@ export default function PublicProductCard({ product, tokens }: Props) {
     };
 
     // Format attributes
-    const renderAttributes = (attrs: any[] | undefined) => {
+    const renderAttributes = (attrs: ProductAttribute[] | undefined) => {
         if (!attrs || attrs.length === 0) return null;
         return (
             <div className={styles.attributesList}>
@@ -74,7 +87,7 @@ export default function PublicProductCard({ product, tokens }: Props) {
                         colorVariant="muted"
                         className={styles.attributeItem}
                     >
-                        {a.definition?.label}:{" "}
+                        {a.definition?.label ?? "Attributo"}:{" "}
                         {a.value_text || a.value_number || (a.value_boolean ? "Sì" : "No")}
                     </Text>
                 ))}
@@ -83,9 +96,9 @@ export default function PublicProductCard({ product, tokens }: Props) {
     };
 
     // Format allergens
-    const renderAllergens = (allergens: any[] | undefined) => {
+    const renderAllergens = (allergens: ProductAllergen[] | undefined) => {
         if (!allergens || allergens.length === 0) return null;
-        const names = allergens.map(al => al.label_it).join(", ");
+        const names = allergens.map(al => al.label_it).filter(Boolean).join(", ");
         return (
             <Text variant="caption" className={styles.allergensText}>
                 Allergeni: {names}
@@ -96,7 +109,9 @@ export default function PublicProductCard({ product, tokens }: Props) {
     return (
         <>
             <article
-                className={`${styles.card} ${isList ? styles.listLayout : styles.gridLayout}`}
+                className={`${styles.card} ${isList ? styles.listLayout : styles.gridLayout} ${
+                    isDisabled ? styles.disabledCard : ""
+                }`}
                 onClick={isClickable ? () => setIsDetailOpen(true) : undefined}
                 style={{
                     ...(isClickable ? { cursor: "pointer" } : undefined),
@@ -114,12 +129,13 @@ export default function PublicProductCard({ product, tokens }: Props) {
                 }
                 role={isClickable ? "button" : undefined}
                 aria-label={isClickable ? `Vedi opzioni per ${product.name}` : undefined}
+                aria-disabled={isDisabled || undefined}
             >
                 {showImage && (
                     <div className={styles.imageContainer}>
-                        {(product as any).image_url ? (
+                        {product.image_url ? (
                             <img
-                                src={(product as any).image_url}
+                                src={product.image_url}
                                 alt={product.name}
                                 className={styles.image}
                             />
@@ -147,6 +163,11 @@ export default function PublicProductCard({ product, tokens }: Props) {
                                 className={styles.description}
                             >
                                 {product.description}
+                            </Text>
+                        )}
+                        {isDisabled && (
+                            <Text variant="caption" className={styles.unavailableBadge}>
+                                Non disponibile
                             </Text>
                         )}
 

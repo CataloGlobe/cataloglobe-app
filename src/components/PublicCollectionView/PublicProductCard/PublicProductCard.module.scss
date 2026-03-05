@@ -8,6 +8,11 @@
   overflow: hidden;
 }
 
+.disabledCard {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 .gridLayout {
   flex-direction: column;
 }
@@ -101,6 +106,17 @@
 
 .description {
   margin-top: 4px;
+}
+
+.unavailableBadge {
+  display: inline-flex;
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-gray-300, #d1d5db) 60%, white 40%);
+  color: var(--color-gray-700, #374151);
+  font-weight: 600;
 }
 
 .attributesList {
