@@ -6,7 +6,7 @@ import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, ArrowRight } from "lucide-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import ModalLayout, {
     ModalLayoutContent,
@@ -23,11 +23,14 @@ import FeaturedContentDrawer from "./FeaturedContentDrawer";
 import styles from "./Highlights.module.scss";
 import { useDrawer } from "@/context/Drawer/useDrawer";
 
+import { useNavigate, Link } from "react-router-dom";
+
 export default function Highlights() {
     const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [contents, setContents] = useState<FeaturedContentWithProducts[]>([]);
     const { openDrawer, closeDrawer } = useDrawer();
+    const navigate = useNavigate();
 
     // Filters and Toolbar
     const [searchQuery, setSearchQuery] = useState("");
@@ -59,15 +62,13 @@ export default function Highlights() {
         loadData();
     }, [loadData]);
 
-    const openContentDrawer = (editingContent: FeaturedContentWithProducts | null) => {
+    const handleCreate = () => {
         openDrawer({
-            title: editingContent ? "Modifica contenuto" : "Crea contenuto",
+            title: "Crea contenuto",
             size: "md",
             content: (
                 <FeaturedContentDrawer
-                    isOpen={true} // kept for backward compatibility if needed internally
                     onClose={closeDrawer}
-                    editingContent={editingContent}
                     onSuccess={() => {
                         closeDrawer();
                         loadData();
@@ -87,30 +88,15 @@ export default function Highlights() {
                         Annulla
                     </Button>
                     <Button variant="primary" type="submit" form="featured-content-form">
-                        {editingContent ? "Salva" : "Crea"}
+                        Crea
                     </Button>
                 </div>
             )
         });
     };
 
-    const handleCreate = () => {
-        openContentDrawer(null);
-    };
-
-    const handleEdit = async (item: FeaturedContentWithProducts) => {
-        try {
-            // Carica il record completo con i prodotti reali (la lista ha solo il count)
-            const fullContent = await getFeaturedContentById(item.id);
-            openContentDrawer(fullContent);
-        } catch (error) {
-            console.error(error);
-            showToast({
-                type: "error",
-                message: "Errore durante il caricamento del contenuto",
-                duration: 3000
-            });
-        }
+    const handleEdit = (item: FeaturedContentWithProducts) => {
+        navigate(`/dashboard/contenuti-in-evidenza/${item.id}`);
     };
 
     const handleDelete = async () => {
@@ -154,7 +140,6 @@ export default function Highlights() {
             id: "title",
             header: "Titolo",
             width: "2fr",
-            accessor: item => item.title,
             cell: (_value, item) => (
                 <div className={styles.titleCell}>
                     <Text variant="body-sm" weight={600}>
@@ -223,13 +208,19 @@ export default function Highlights() {
                         variant="ghost"
                         icon={<Pencil size={16} />}
                         aria-label="Modifica"
-                        onClick={() => handleEdit(item)}
+                        onClick={e => {
+                            e.stopPropagation();
+                            handleEdit(item);
+                        }}
                     />
                     <IconButton
                         variant="ghost"
                         icon={<Trash2 size={16} />}
                         aria-label="Elimina"
-                        onClick={() => setDeleteTarget(item)}
+                        onClick={e => {
+                            e.stopPropagation();
+                            setDeleteTarget(item);
+                        }}
                     />
                 </div>
             )
@@ -282,6 +273,7 @@ export default function Highlights() {
                         columns={columns}
                         isLoading={loading}
                         density={densityView === "list" ? "compact" : "extended"}
+                        onRowClick={item => navigate(`/dashboard/contenuti-in-evidenza/${item.id}`)}
                         loadingState={
                             <div className={styles.loadingState}>
                                 <Text colorVariant="muted">Caricamento in corso...</Text>
