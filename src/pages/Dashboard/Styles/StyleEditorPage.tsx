@@ -201,17 +201,19 @@ export default function StyleEditorPage() {
                 </div>
 
                 {/* RIGHT DRAWER SETTINGS */}
-                <StyleSettingsDrawer
-                    isOpen={isDrawerOpen}
-                    onClose={() => setIsDrawerOpen(false)}
-                    name={name}
-                    setName={setName}
-                    tokenModel={tokenModel}
-                    setTokenModel={setTokenModel}
-                    styleData={styleData}
-                    isSystemError={isSystemError}
-                    onSubmit={handleSubmit}
-                />
+                <div className={styles.styleEditorPanelShell}>
+                    <StyleSettingsDrawer
+                        isOpen={isDrawerOpen}
+                        onClose={() => setIsDrawerOpen(false)}
+                        name={name}
+                        setName={setName}
+                        tokenModel={tokenModel}
+                        setTokenModel={setTokenModel}
+                        styleData={styleData}
+                        isSystemError={isSystemError}
+                        onSubmit={handleSubmit}
+                    />
+                </div>
             </div>
         </section>
     );

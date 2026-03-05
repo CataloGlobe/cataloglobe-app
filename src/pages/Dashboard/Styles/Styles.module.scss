@@ -239,6 +239,18 @@
 }
 
 /* Drawer Specifics */
+.stylePageDrawer {
+  position: absolute;
+  top: 16px;
+  right: 0;
+  bottom: 16px;
+  border-top-left-radius: 16px;
+  border-bottom-left-radius: 16px;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.08);
+  background: #fff;
+  overflow: hidden;
+}
+
 .drawerHeader {
   display: flex;
   flex-direction: column;
@@ -375,6 +387,17 @@
 /* FASE 4: Rimuovere margin fantasma su ultimi elementi */
 .canvasArea > *:last-child {
   margin-bottom: 0 !important;
+}
+
+.styleEditorPanelShell {
+  margin-top: 16px;
+  border-top-left-radius: 16px;
+  border-bottom-left-radius: 0px;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.08), -2px 0 8px rgba(0, 0, 0, 0.04);
+  background: #ffffff;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
 }
 
 .settingsDrawer {
