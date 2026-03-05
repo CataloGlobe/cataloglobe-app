@@ -44,3 +44,20 @@
   background: #f0f4ff !important; // Un blu leggerissimo per l'highlight
   border-left: 3px solid var(--brand-primary, #6366f1) !important;
 }
+
+.createCta {
+  margin-top: 4px;
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: none;
+  background: var(--brand-primary, #6366f1);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+
+  &:hover {
+    opacity: 0.85;
+  }
+}

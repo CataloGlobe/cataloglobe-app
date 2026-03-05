@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/Card/Card";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { IconButton } from "@/components/ui/Button/IconButton";
-import { IconFolder, IconDotsVertical } from "@tabler/icons-react";
+import { IconFolder, IconDotsVertical, IconFolderPlus } from "@tabler/icons-react";
 import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
 import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
 import { DropdownSeparator } from "@/components/ui/DropdownMenu/DropdownSeparator";
@@ -151,14 +151,6 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                 cell: (_, group) => <Badge variant="secondary">{group.member_count} attività</Badge>
             },
             {
-                id: "system",
-                header: "Sistema",
-                width: "120px",
-                align: "center",
-                cell: (_, group) =>
-                    group.is_system ? <Badge variant="success">Sistema</Badge> : null
-            },
-            {
                 id: "actions",
                 header: "",
                 width: "64px",
@@ -209,15 +201,34 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                     </div>
                 ) : filteredGroups.length === 0 ? (
                     <div className={styles.emptyState}>
-                        <IconFolder size={48} stroke={1} className={styles.emptyIcon} />
-                        <Text variant="title-sm" weight={600}>
-                            Nessun gruppo trovato
-                        </Text>
-                        <Text variant="body-sm" colorVariant="muted">
-                            {externalSearchQuery
-                                ? "Nessun gruppo corrisponde alla ricerca."
-                                : "Non hai ancora creato nessun gruppo di attività."}
-                        </Text>
+                        {externalSearchQuery ? (
+                            <>
+                                <IconFolder size={48} stroke={1} className={styles.emptyIcon} />
+                                <Text variant="title-sm" weight={600}>
+                                    Nessun gruppo trovato
+                                </Text>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    Nessun gruppo corrisponde alla ricerca.
+                                </Text>
+                            </>
+                        ) : (
+                            <>
+                                <IconFolderPlus size={48} stroke={1} className={styles.emptyIcon} />
+                                <Text variant="title-sm" weight={600}>
+                                    Nessun gruppo creato
+                                </Text>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    Organizza le tue attività in gruppi per applicare regole mirate.
+                                </Text>
+                                <button
+                                    type="button"
+                                    className={styles.createCta}
+                                    onClick={handleCreate}
+                                >
+                                    Crea il tuo primo gruppo
+                                </button>
+                            </>
+                        )}
                     </div>
                 ) : (
                     <DataTable

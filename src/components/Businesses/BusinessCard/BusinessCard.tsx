@@ -63,7 +63,6 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                             <DropdownItem
                                 onClick={() => navigate(`/dashboard/attivita/${business.id}`)}
                             >
-                                <FileText size={16} />
                                 Apri dettaglio
                             </DropdownItem>
                             <DropdownItem
@@ -71,33 +70,14 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                                 target="_blank"
                                 rel="noopener noreferrer"
                             >
-                                <ExternalLink size={16} />
                                 Apri URL pubblico
                             </DropdownItem>
-                            <DropdownItem onClick={handleCopyLink}>
-                                <Link size={16} />
-                                Copia link
-                            </DropdownItem>
-
-                            {activeCatalog && (
-                                <DropdownItem
-                                    onClick={() =>
-                                        onManageAvailability?.(business.id, business.name)
-                                    }
-                                >
-                                    <Calendar size={16} />
-                                    Gestisci disponibilità
-                                </DropdownItem>
-                            )}
+                            <DropdownItem onClick={handleCopyLink}>Copia link</DropdownItem>
 
                             <DropdownSeparator />
 
-                            <DropdownItem onClick={() => onEdit(business)}>
-                                <Edit size={16} />
-                                Modifica
-                            </DropdownItem>
+                            <DropdownItem onClick={() => onEdit(business)}>Modifica</DropdownItem>
                             <DropdownItem danger onClick={() => onDelete(business.id)}>
-                                <Trash2 size={16} />
                                 Elimina
                             </DropdownItem>
                         </DropdownMenu>
