@@ -163,6 +163,21 @@
   gap: 8px;
 }
 
+.productLink {
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+
+  &:hover .productLinkText,
+  &:focus-visible .productLinkText {
+    text-decoration: underline;
+  }
+}
+
+.productLinkText {
+  transition: color 0.2s ease;
+}
+
 .actionButton {
   background: none;
   border: none;

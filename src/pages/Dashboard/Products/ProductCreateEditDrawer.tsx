@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
@@ -29,6 +30,7 @@ export function ProductCreateEditDrawer({
     tenantId
 }: ProductCreateEditDrawerProps) {
     const [isSaving, setIsSaving] = useState(false);
+    const navigate = useNavigate();
 
     let title = "Nuovo Prodotto";
     if (mode === "edit") title = "Modifica Prodotto";
@@ -38,9 +40,30 @@ export function ProductCreateEditDrawer({
         <SystemDrawer open={open} onClose={onClose} width={500}>
             <DrawerLayout
                 header={
-                    <Text variant="title-sm" weight={700}>
-                        {title}
-                    </Text>
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            width: "100%"
+                        }}
+                    >
+                        <Text variant="title-sm" weight={700}>
+                            {title}
+                        </Text>
+                        {mode === "edit" && productData && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    onClose();
+                                    navigate(`/dashboard/prodotti/${productData.id}`);
+                                }}
+                            >
+                                Apri pagina prodotto →
+                            </Button>
+                        )}
+                    </div>
                 }
                 footer={
                     <div className={styles.drawerFooterContainer}>
@@ -54,7 +77,7 @@ export function ProductCreateEditDrawer({
                                 form="product-form"
                                 loading={isSaving}
                             >
-                                Salva
+                                {mode === "edit" ? "Salva" : "Crea"}
                             </Button>
                         </div>
                     </div>

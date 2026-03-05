@@ -38,7 +38,7 @@ export function ProductDeleteDrawer({
 
         setIsDeleting(true);
         try {
-            await deleteProduct(productData.id, productData.tenant_id, hasVariants);
+            await deleteProduct(productData.id, productData.tenant_id);
             const successMsg = hasVariants
                 ? "Prodotto e tutte le sue varianti sono stati eliminati con successo."
                 : "Prodotto eliminato con successo.";
@@ -120,9 +120,9 @@ export function ProductDeleteDrawer({
                                 </Text>
                                 <Text variant="body-sm" style={{ marginTop: 4 }}>
                                     Stai per eliminare {isVariant ? "la variante" : "il prodotto"}{" "}
-                                    <strong>{productData.name}</strong>. Assicurati che non sia in
-                                    uso in alcun Listino o Catalogo, altrimenti l'operazione verrà
-                                    bloccata.
+                                    <strong>{productData.name}</strong>. Il prodotto verrà rimosso
+                                    automaticamente da tutti i cataloghi, contenuti in evidenza e
+                                    programmazioni associate.
                                 </Text>
                             </div>
                         </div>

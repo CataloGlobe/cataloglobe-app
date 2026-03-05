@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
@@ -90,6 +91,7 @@ export function ProductForm({
     formId = "product-form"
 }: ProductFormProps) {
     const { showToast } = useToast();
+    const navigate = useNavigate();
     const isEditing = mode === "edit";
 
     const [isSaving, setIsSaving] = useState(false);
@@ -97,7 +99,6 @@ export function ProductForm({
     const [description, setDescription] = useState("");
     const [imageUrl, setImageUrl] = useState("");
     const [basePrice, setBasePrice] = useState<string>("");
-    const [isVisible, setIsVisible] = useState(true);
 
     // Attributes state
     const [attributeDefinitions, setAttributeDefinitions] = useState<
@@ -182,13 +183,11 @@ export function ProductForm({
             setName(productData.name);
             setDescription(productData.description || "");
             setBasePrice(productData.base_price ? productData.base_price.toString() : "");
-            setIsVisible(productData.is_visible ?? true);
             setImageUrl(productData.image_url || "");
         } else {
             setName("");
             setDescription("");
             setBasePrice("");
-            setIsVisible(true);
             setImageUrl("");
         }
 
@@ -639,7 +638,6 @@ export function ProductForm({
                         name,
                         description: description || null,
                         base_price: shouldUseBasePrice ? price : null,
-                        is_visible: isVisible,
                         image_url: imageUrl || null
                     },
                     productData.parent_product_id
@@ -656,7 +654,6 @@ export function ProductForm({
                         name,
                         description: description || null,
                         base_price: shouldUseBasePrice ? price : null,
-                        is_visible: isVisible,
                         image_url: imageUrl || null
                     },
                     parentId
@@ -733,10 +730,24 @@ export function ProductForm({
                 await setProductIngredients(tenantId, savedProductId, selectedIngredients);
             }
 
-            showToast({
-                message: isEditing ? "Prodotto aggiornato." : "Prodotto creato con successo.",
-                type: "success"
-            });
+            if (isEditing) {
+                showToast({
+                    message: "Prodotto aggiornato.",
+                    type: "success",
+                    actionLabel: "Apri prodotto",
+                    onAction: () => {
+                        if (savedProductId) {
+                            navigate(`/dashboard/prodotti/${savedProductId}`);
+                        }
+                    }
+                });
+            }
+
+            // If it's a new product creation, navigate automatically to the product page with pricing tab hint
+            if (!isEditing && savedProductId) {
+                navigate(`/dashboard/prodotti/${savedProductId}?tab=pricing`);
+            }
+
             await Promise.resolve(onSuccess(savedProduct));
         } catch (error: any) {
             console.error("Errore salvataggio prodotto:", error);
@@ -786,308 +797,126 @@ export function ProductForm({
                         placeholder="Breve descrizione (opzionale)"
                     />
 
-                    <TextInput
-                        label="Immagine (URL)"
-                        placeholder="https://example.com/image.jpg"
-                        value={imageUrl}
-                        onChange={e => setImageUrl(e.target.value)}
-                    />
+                    {isEditing && (
+                        <TextInput
+                            label="Immagine (URL)"
+                            placeholder="https://example.com/image.jpg"
+                            value={imageUrl}
+                            onChange={e => setImageUrl(e.target.value)}
+                        />
+                    )}
+
+                    <div style={{ marginTop: 8 }}>
+                        <Text
+                            variant="body-sm"
+                            colorVariant="muted"
+                            style={{ fontStyle: "italic" }}
+                        >
+                            {isEditing
+                                ? "Per prezzi, formati, opzioni e utilizzo apri la pagina prodotto."
+                                : "Crea il prodotto, poi completa prezzi e configurazioni nella pagina prodotto."}
+                        </Text>
+                    </div>
                 </div>
             </div>
 
-            <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
+            {/* Render advanced sections ONLY if we want to (requirement: hide them) */}
+            {false && (
+                <>
+                    <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
 
-            <div>
-                <div style={{ marginBottom: 12 }}>
-                    <Text variant="title-sm" weight={600} style={{ marginBottom: 4 }}>
-                        Prezzi
-                    </Text>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    <TextInput
-                        label="Prezzo base (€)"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={basePrice}
-                        onChange={e => setBasePrice(e.target.value)}
-                        placeholder={
-                            hasFormatPricing
-                                ? "Disabilitato: stai usando prezzi per formato"
-                                : "Es: 10.50"
-                        }
-                        disabled={hasFormatPricing}
-                    />
                     <div>
-                        <div
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                marginBottom: 6
-                            }}
-                        >
-                            <Text variant="body-sm" weight={600}>
-                                Prezzi / Formati
+                        <div style={{ marginBottom: 12 }}>
+                            <Text variant="title-sm" weight={600} style={{ marginBottom: 4 }}>
+                                Prezzi
                             </Text>
-                            <Switch
-                                checked={hasFormatPricing}
-                                onChange={checked => {
-                                    setHasFormatPricing(checked);
-                                    if (checked) setBasePrice("");
-                                }}
-                            />
                         </div>
-                        <Text variant="body-sm" colorVariant="muted">
-                            Se presenti formati, il prezzo base non viene mostrato nel catalogo.
-                        </Text>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                            <TextInput
+                                label="Prezzo base (€)"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={basePrice}
+                                onChange={e => setBasePrice(e.target.value)}
+                                placeholder={
+                                    hasFormatPricing
+                                        ? "Disabilitato: stai usando prezzi per formato"
+                                        : "Es: 10.50"
+                                }
+                                disabled={hasFormatPricing}
+                            />
+                            <div>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        marginBottom: 6
+                                    }}
+                                >
+                                    <Text variant="body-sm" weight={600}>
+                                        Prezzi / Formati
+                                    </Text>
+                                    <Switch
+                                        checked={hasFormatPricing}
+                                        onChange={checked => {
+                                            setHasFormatPricing(checked);
+                                            if (checked) setBasePrice("");
+                                        }}
+                                    />
+                                </div>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    Se presenti formati, il prezzo base non viene mostrato nel
+                                    catalogo.
+                                </Text>
 
-                        {hasFormatPricing && (
-                            <div
-                                style={{
-                                    marginTop: 10,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 8
-                                }}
-                            >
-                                {(isEditing ? primaryPriceGroup?.values || [] : draftFormats)
-                                    .length > 0 ? (
+                                {hasFormatPricing && (
                                     <div
                                         style={{
-                                            border: "1px solid var(--color-gray-200)",
-                                            borderRadius: "8px",
-                                            padding: "12px",
-                                            backgroundColor: "var(--color-gray-50)",
+                                            marginTop: 10,
                                             display: "flex",
                                             flexDirection: "column",
                                             gap: 8
                                         }}
                                     >
-                                        {isEditing && primaryPriceGroup && (
-                                            <div
-                                                style={{
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: 6,
-                                                    marginBottom: 4
-                                                }}
-                                            >
-                                                <Text variant="body-sm" weight={600}>
-                                                    {primaryPriceGroup.name}
-                                                </Text>
-                                                <Badge variant="warning">Obbligatorio</Badge>
-                                                <Badge variant="secondary">1 scelta</Badge>
-                                            </div>
-                                        )}
                                         {(isEditing
                                             ? primaryPriceGroup?.values || []
                                             : draftFormats
-                                        ).map(val => (
+                                        ).length > 0 ? (
                                             <div
-                                                key={val.id}
                                                 style={{
+                                                    border: "1px solid var(--color-gray-200)",
+                                                    borderRadius: "8px",
+                                                    padding: "12px",
+                                                    backgroundColor: "var(--color-gray-50)",
                                                     display: "flex",
-                                                    justifyContent: "space-between",
-                                                    alignItems: "center",
-                                                    backgroundColor: "white",
-                                                    padding: "8px 12px",
-                                                    borderRadius: "6px",
-                                                    border: "1px solid var(--color-gray-200)"
+                                                    flexDirection: "column",
+                                                    gap: 8
                                                 }}
                                             >
-                                                <Text variant="body-sm" weight={500}>
-                                                    {val.name}
-                                                </Text>
-                                                <div
-                                                    style={{
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        gap: 12
-                                                    }}
-                                                >
-                                                    {val.absolute_price !== null && (
-                                                        <Text variant="body-sm" weight={600}>
-                                                            {val.absolute_price.toFixed(2)} €
-                                                        </Text>
-                                                    )}
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={e => {
-                                                            e.preventDefault();
-                                                            handleDeletePrimaryFormat(val.id);
+                                                {isEditing && primaryPriceGroup && (
+                                                    <div
+                                                        style={{
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            gap: 6,
+                                                            marginBottom: 4
                                                         }}
                                                     >
-                                                        Rimuovi
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div
-                                        style={{
-                                            border: "1px dashed var(--color-gray-300)",
-                                            borderRadius: "8px",
-                                            padding: "12px",
-                                            backgroundColor: "white"
-                                        }}
-                                    >
-                                        <Text variant="body-sm" colorVariant="muted">
-                                            Nessun formato configurato.
-                                        </Text>
-                                    </div>
-                                )}
-                                <div
-                                    style={{
-                                        border: "1px dashed var(--color-gray-300)",
-                                        borderRadius: "8px",
-                                        padding: "12px",
-                                        backgroundColor: "white"
-                                    }}
-                                >
-                                    <Text
-                                        variant="body-sm"
-                                        weight={600}
-                                        style={{ marginBottom: 8 }}
-                                    >
-                                        Aggiungi formato
-                                    </Text>
-                                    <div style={{ display: "flex", gap: 8 }}>
-                                        <div style={{ flex: 1 }}>
-                                            <TextInput
-                                                placeholder="Nome (es. 33cl, 256GB...)"
-                                                value={newFormatName}
-                                                onChange={e => setNewFormatName(e.target.value)}
-                                                onKeyDown={e => {
-                                                    if (e.key === "Enter") {
-                                                        e.preventDefault();
-                                                        handleCreateFormat();
-                                                    }
-                                                }}
-                                            />
-                                        </div>
-                                        <div style={{ width: "110px" }}>
-                                            <TextInput
-                                                placeholder="Prezzo €"
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                value={newFormatPrice}
-                                                onChange={e => setNewFormatPrice(e.target.value)}
-                                            />
-                                        </div>
-                                        <Button
-                                            variant="secondary"
-                                            onClick={e => {
-                                                e.preventDefault();
-                                                handleCreateFormat();
-                                            }}
-                                            disabled={
-                                                isCreatingFormat ||
-                                                !newFormatName.trim() ||
-                                                !newFormatPrice.trim()
-                                            }
-                                            loading={isCreatingFormat}
-                                        >
-                                            Aggiungi
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <div>
-                        <div
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                marginBottom: 6
-                            }}
-                        >
-                            <Text variant="body-sm" weight={600}>
-                                Opzioni aggiuntive
-                            </Text>
-                            <Switch checked={hasAddonOptions} onChange={setHasAddonOptions} />
-                        </div>
-                        <Text variant="body-sm" colorVariant="muted">
-                            Extra e configurazioni (es. Cottura, Aggiunte). Usa delta prezzo.
-                        </Text>
-
-                        {hasAddonOptions && (
-                            <div
-                                style={{
-                                    marginTop: 10,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 16
-                                }}
-                            >
-                                {(isEditing ? addonGroups : draftAddonGroups).map(group => (
-                                    <div
-                                        key={group.id}
-                                        style={{
-                                            border: "1px solid var(--color-gray-200)",
-                                            borderRadius: "8px",
-                                            padding: "12px",
-                                            backgroundColor: "var(--color-gray-50)"
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
-                                                alignItems: "flex-start",
-                                                marginBottom: 12
-                                            }}
-                                        >
-                                            <div>
-                                                <div
-                                                    style={{
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        gap: 8
-                                                    }}
-                                                >
-                                                    <Text variant="body-sm" weight={600}>
-                                                        {group.name}
-                                                    </Text>
-                                                    {group.is_required && (
+                                                        <Text variant="body-sm" weight={600}>
+                                                            {primaryPriceGroup?.name}
+                                                        </Text>
                                                         <Badge variant="warning">
                                                             Obbligatorio
                                                         </Badge>
-                                                    )}
-                                                </div>
-                                                {group.max_selectable !== null && (
-                                                    <Text variant="body-sm" colorVariant="muted">
-                                                        Max selezionabili: {group.max_selectable}
-                                                    </Text>
+                                                        <Badge variant="secondary">1 scelta</Badge>
+                                                    </div>
                                                 )}
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={e => {
-                                                    e.preventDefault();
-                                                    handleDeleteOptionGroup(group.id);
-                                                }}
-                                            >
-                                                Elimina Gruppo
-                                            </Button>
-                                        </div>
-                                        {group.values.length > 0 && (
-                                            <div
-                                                style={{
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    gap: 8,
-                                                    marginBottom: 12
-                                                }}
-                                            >
-                                                {group.values.map(val => (
+                                                {(isEditing
+                                                    ? primaryPriceGroup?.values || []
+                                                    : draftFormats
+                                                ).map(val => (
                                                     <div
                                                         key={val.id}
                                                         style={{
@@ -1100,7 +929,9 @@ export function ProductForm({
                                                             border: "1px solid var(--color-gray-200)"
                                                         }}
                                                     >
-                                                        <Text variant="body-sm">{val.name}</Text>
+                                                        <Text variant="body-sm" weight={500}>
+                                                            {val.name}
+                                                        </Text>
                                                         <div
                                                             style={{
                                                                 display: "flex",
@@ -1108,15 +939,13 @@ export function ProductForm({
                                                                 gap: 12
                                                             }}
                                                         >
-                                                            {val.price_modifier !== null && (
+                                                            {val.absolute_price !== null && (
                                                                 <Text
                                                                     variant="body-sm"
-                                                                    colorVariant="muted"
+                                                                    weight={600}
                                                                 >
-                                                                    {val.price_modifier >= 0
-                                                                        ? "+"
-                                                                        : ""}
-                                                                    {val.price_modifier} €
+                                                                    {val.absolute_price.toFixed(2)}{" "}
+                                                                    €
                                                                 </Text>
                                                             )}
                                                             <Button
@@ -1124,8 +953,7 @@ export function ProductForm({
                                                                 size="sm"
                                                                 onClick={e => {
                                                                     e.preventDefault();
-                                                                    handleDeleteOptionValue(
-                                                                        group.id,
+                                                                    handleDeletePrimaryFormat(
                                                                         val.id
                                                                     );
                                                                 }}
@@ -1136,72 +964,559 @@ export function ProductForm({
                                                     </div>
                                                 ))}
                                             </div>
-                                        )}
-                                        <div style={{ display: "flex", gap: 8 }}>
-                                            <div style={{ flex: 1 }}>
-                                                <TextInput
-                                                    placeholder="Nuovo valore..."
-                                                    value={newValueName[group.id] || ""}
-                                                    onChange={e =>
-                                                        setNewValueName(prev => ({
-                                                            ...prev,
-                                                            [group.id]: e.target.value
-                                                        }))
-                                                    }
-                                                    onKeyDown={e => {
-                                                        if (e.key === "Enter") {
-                                                            e.preventDefault();
-                                                            handleCreateOptionValue(group.id);
-                                                        }
-                                                    }}
-                                                />
-                                            </div>
-                                            <div style={{ width: "100px" }}>
-                                                <TextInput
-                                                    placeholder="Variazione €"
-                                                    type="number"
-                                                    step="0.01"
-                                                    value={newValuePrice[group.id] || ""}
-                                                    onChange={e =>
-                                                        setNewValuePrice(prev => ({
-                                                            ...prev,
-                                                            [group.id]: e.target.value
-                                                        }))
-                                                    }
-                                                />
-                                            </div>
-                                            <Button
-                                                variant="secondary"
-                                                onClick={e => {
-                                                    e.preventDefault();
-                                                    handleCreateOptionValue(group.id);
+                                        ) : (
+                                            <div
+                                                style={{
+                                                    border: "1px dashed var(--color-gray-300)",
+                                                    borderRadius: "8px",
+                                                    padding: "12px",
+                                                    backgroundColor: "white"
                                                 }}
-                                                disabled={
-                                                    isCreatingValue[group.id] ||
-                                                    !(newValueName[group.id] || "").trim()
-                                                }
-                                                loading={isCreatingValue[group.id]}
                                             >
-                                                Aggiungi
-                                            </Button>
+                                                <Text variant="body-sm" colorVariant="muted">
+                                                    Nessun formato configurato.
+                                                </Text>
+                                            </div>
+                                        )}
+                                        <div
+                                            style={{
+                                                border: "1px dashed var(--color-gray-300)",
+                                                borderRadius: "8px",
+                                                padding: "12px",
+                                                backgroundColor: "white"
+                                            }}
+                                        >
+                                            <Text
+                                                variant="body-sm"
+                                                weight={600}
+                                                style={{ marginBottom: 8 }}
+                                            >
+                                                Aggiungi formato
+                                            </Text>
+                                            <div style={{ display: "flex", gap: 8 }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <TextInput
+                                                        placeholder="Nome (es. 33cl, 256GB...)"
+                                                        value={newFormatName}
+                                                        onChange={e =>
+                                                            setNewFormatName(e.target.value)
+                                                        }
+                                                        onKeyDown={e => {
+                                                            if (e.key === "Enter") {
+                                                                e.preventDefault();
+                                                                handleCreateFormat();
+                                                            }
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div style={{ width: "110px" }}>
+                                                    <TextInput
+                                                        placeholder="Prezzo €"
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        value={newFormatPrice}
+                                                        onChange={e =>
+                                                            setNewFormatPrice(e.target.value)
+                                                        }
+                                                    />
+                                                </div>
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={e => {
+                                                        e.preventDefault();
+                                                        handleCreateFormat();
+                                                    }}
+                                                    disabled={
+                                                        isCreatingFormat ||
+                                                        !newFormatName.trim() ||
+                                                        !newFormatPrice.trim()
+                                                    }
+                                                    loading={isCreatingFormat}
+                                                >
+                                                    Aggiungi
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
-                                ))}
+                                )}
+                            </div>
+
+                            <div>
                                 <div
                                     style={{
-                                        border: "1px dashed var(--color-gray-300)",
-                                        borderRadius: "8px",
-                                        padding: "12px",
-                                        backgroundColor: "white"
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        marginBottom: 6
                                     }}
                                 >
-                                    <Text
-                                        variant="body-sm"
-                                        weight={600}
-                                        style={{ marginBottom: 8 }}
-                                    >
-                                        Nuovo gruppo opzioni
+                                    <Text variant="body-sm" weight={600}>
+                                        Opzioni aggiuntive
                                     </Text>
+                                    <Switch
+                                        checked={hasAddonOptions}
+                                        onChange={setHasAddonOptions}
+                                    />
+                                </div>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    Extra e configurazioni (es. Cottura, Aggiunte). Usa delta
+                                    prezzo.
+                                </Text>
+
+                                {hasAddonOptions && (
+                                    <div
+                                        style={{
+                                            marginTop: 10,
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: 16
+                                        }}
+                                    >
+                                        {(isEditing ? addonGroups : draftAddonGroups).map(group => (
+                                            <div
+                                                key={group.id}
+                                                style={{
+                                                    border: "1px solid var(--color-gray-200)",
+                                                    borderRadius: "8px",
+                                                    padding: "12px",
+                                                    backgroundColor: "var(--color-gray-50)"
+                                                }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "flex-start",
+                                                        marginBottom: 12
+                                                    }}
+                                                >
+                                                    <div>
+                                                        <div
+                                                            style={{
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                gap: 8
+                                                            }}
+                                                        >
+                                                            <Text variant="body-sm" weight={600}>
+                                                                {group.name}
+                                                            </Text>
+                                                            {group.is_required && (
+                                                                <Badge variant="warning">
+                                                                    Obbligatorio
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        {group.max_selectable !== null && (
+                                                            <Text
+                                                                variant="body-sm"
+                                                                colorVariant="muted"
+                                                            >
+                                                                Max selezionabili:{" "}
+                                                                {group.max_selectable}
+                                                            </Text>
+                                                        )}
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={e => {
+                                                            e.preventDefault();
+                                                            handleDeleteOptionGroup(group.id);
+                                                        }}
+                                                    >
+                                                        Elimina Gruppo
+                                                    </Button>
+                                                </div>
+                                                {group.values.length > 0 && (
+                                                    <div
+                                                        style={{
+                                                            display: "flex",
+                                                            flexDirection: "column",
+                                                            gap: 8,
+                                                            marginBottom: 12
+                                                        }}
+                                                    >
+                                                        {group.values.map(val => (
+                                                            <div
+                                                                key={val.id}
+                                                                style={{
+                                                                    display: "flex",
+                                                                    justifyContent: "space-between",
+                                                                    alignItems: "center",
+                                                                    backgroundColor: "white",
+                                                                    padding: "8px 12px",
+                                                                    borderRadius: "6px",
+                                                                    border: "1px solid var(--color-gray-200)"
+                                                                }}
+                                                            >
+                                                                <Text variant="body-sm">
+                                                                    {val.name}
+                                                                </Text>
+                                                                <div
+                                                                    style={{
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        gap: 12
+                                                                    }}
+                                                                >
+                                                                    {val.price_modifier !==
+                                                                        null && (
+                                                                        <Text
+                                                                            variant="body-sm"
+                                                                            colorVariant="muted"
+                                                                        >
+                                                                            {val.price_modifier >= 0
+                                                                                ? "+"
+                                                                                : ""}
+                                                                            {val.price_modifier} €
+                                                                        </Text>
+                                                                    )}
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={e => {
+                                                                            e.preventDefault();
+                                                                            handleDeleteOptionValue(
+                                                                                group.id,
+                                                                                val.id
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        Rimuovi
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                <div style={{ display: "flex", gap: 8 }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <TextInput
+                                                            placeholder="Nuovo valore..."
+                                                            value={newValueName[group.id] || ""}
+                                                            onChange={e =>
+                                                                setNewValueName(prev => ({
+                                                                    ...prev,
+                                                                    [group.id]: e.target.value
+                                                                }))
+                                                            }
+                                                            onKeyDown={e => {
+                                                                if (e.key === "Enter") {
+                                                                    e.preventDefault();
+                                                                    handleCreateOptionValue(
+                                                                        group.id
+                                                                    );
+                                                                }
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div style={{ width: "100px" }}>
+                                                        <TextInput
+                                                            placeholder="Variazione €"
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={newValuePrice[group.id] || ""}
+                                                            onChange={e =>
+                                                                setNewValuePrice(prev => ({
+                                                                    ...prev,
+                                                                    [group.id]: e.target.value
+                                                                }))
+                                                            }
+                                                        />
+                                                    </div>
+                                                    <Button
+                                                        variant="secondary"
+                                                        onClick={e => {
+                                                            e.preventDefault();
+                                                            handleCreateOptionValue(group.id);
+                                                        }}
+                                                        disabled={
+                                                            isCreatingValue[group.id] ||
+                                                            !(newValueName[group.id] || "").trim()
+                                                        }
+                                                        loading={isCreatingValue[group.id]}
+                                                    >
+                                                        Aggiungi
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <div
+                                            style={{
+                                                border: "1px dashed var(--color-gray-300)",
+                                                borderRadius: "8px",
+                                                padding: "12px",
+                                                backgroundColor: "white"
+                                            }}
+                                        >
+                                            <Text
+                                                variant="body-sm"
+                                                weight={600}
+                                                style={{ marginBottom: 8 }}
+                                            >
+                                                Nuovo gruppo opzioni
+                                            </Text>
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    gap: 12
+                                                }}
+                                            >
+                                                <TextInput
+                                                    placeholder="Nome gruppo (es. Cottura)"
+                                                    value={newGroupName}
+                                                    onChange={e => setNewGroupName(e.target.value)}
+                                                />
+                                                <div
+                                                    style={{
+                                                        display: "flex",
+                                                        gap: 12,
+                                                        alignItems: "center"
+                                                    }}
+                                                >
+                                                    <div
+                                                        style={{
+                                                            flex: 1,
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "space-between"
+                                                        }}
+                                                    >
+                                                        <Text variant="body-sm">Obbligatorio</Text>
+                                                        <Switch
+                                                            checked={newGroupIsRequired}
+                                                            onChange={setNewGroupIsRequired}
+                                                        />
+                                                    </div>
+                                                    <div style={{ flex: 1 }}>
+                                                        <TextInput
+                                                            placeholder="Max sel. (opz)"
+                                                            type="number"
+                                                            min="1"
+                                                            value={newGroupMaxSelectable}
+                                                            onChange={e =>
+                                                                setNewGroupMaxSelectable(
+                                                                    e.target.value
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={e => {
+                                                        e.preventDefault();
+                                                        handleCreateOptionGroup();
+                                                    }}
+                                                    disabled={
+                                                        isCreatingGroup || !newGroupName.trim()
+                                                    }
+                                                    loading={isCreatingGroup}
+                                                >
+                                                    Crea Gruppo
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
+
+                    <div>
+                        <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
+                            Organizzazione
+                        </Text>
+                        {systemGroups.length === 0 && !isLoadingGroups ? (
+                            <Text variant="body-sm" colorVariant="muted">
+                                Nessun gruppo presente. Creane uno dalla pagina Gruppi Prodotti.
+                            </Text>
+                        ) : (
+                            <>
+                                <TextInput
+                                    placeholder="Cerca gruppo..."
+                                    value={groupSearchQuery}
+                                    onChange={e => setGroupSearchQuery(e.target.value)}
+                                />
+                                {isLoadingGroups ? (
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        Caricamento gruppi...
+                                    </Text>
+                                ) : (
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            flexWrap: "wrap",
+                                            gap: 8,
+                                            marginTop: 8
+                                        }}
+                                    >
+                                        {systemGroups
+                                            .filter(g =>
+                                                g.name
+                                                    .toLowerCase()
+                                                    .includes(groupSearchQuery.toLowerCase())
+                                            )
+                                            .map(group => (
+                                                <Pill
+                                                    key={group.id}
+                                                    label={group.name}
+                                                    active={selectedGroups.includes(group.id)}
+                                                    onClick={() => handleGroupToggle(group.id)}
+                                                />
+                                            ))}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+
+                    <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
+
+                    <div>
+                        <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
+                            Specifiche prodotto
+                        </Text>
+                        {systemAllergens.length > 0 && (
+                            <div style={{ marginBottom: 16 }}>
+                                <Text variant="body-sm" weight={600} style={{ marginBottom: 4 }}>
+                                    Allergeni
+                                </Text>
+                                <TextInput
+                                    placeholder="Cerca allergene..."
+                                    value={allergenSearchQuery}
+                                    onChange={e => setAllergenSearchQuery(e.target.value)}
+                                />
+                                {isLoadingAllergens ? (
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        Caricamento allergeni...
+                                    </Text>
+                                ) : (
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            flexWrap: "wrap",
+                                            gap: 8,
+                                            marginTop: 8
+                                        }}
+                                    >
+                                        {systemAllergens
+                                            .filter(
+                                                a =>
+                                                    a.label_it
+                                                        .toLowerCase()
+                                                        .includes(
+                                                            allergenSearchQuery.toLowerCase()
+                                                        ) ||
+                                                    a.label_en
+                                                        .toLowerCase()
+                                                        .includes(allergenSearchQuery.toLowerCase())
+                                            )
+                                            .map(allergen => (
+                                                <Pill
+                                                    key={allergen.id}
+                                                    label={allergen.label_it}
+                                                    active={selectedAllergens.includes(allergen.id)}
+                                                    onClick={() =>
+                                                        handleAllergenToggle(allergen.id)
+                                                    }
+                                                />
+                                            ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        <div>
+                            <Text variant="body-sm" weight={600} style={{ marginBottom: 4 }}>
+                                Ingredienti
+                            </Text>
+                            <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
+                                <div style={{ flex: 1 }}>
+                                    <TextInput
+                                        placeholder="Nuovo ingrediente..."
+                                        value={newIngredientName}
+                                        onChange={e => setNewIngredientName(e.target.value)}
+                                        onKeyDown={e => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                handleCreateIngredient();
+                                            }
+                                        }}
+                                    />
+                                </div>
+                                <Button
+                                    variant="secondary"
+                                    onClick={e => {
+                                        e.preventDefault();
+                                        handleCreateIngredient();
+                                    }}
+                                    disabled={isCreatingIngredient || !newIngredientName.trim()}
+                                    loading={isCreatingIngredient}
+                                >
+                                    Crea
+                                </Button>
+                            </div>
+                            {systemIngredients.length > 0 && (
+                                <>
+                                    <TextInput
+                                        placeholder="Cerca ingrediente..."
+                                        value={ingredientSearchQuery}
+                                        onChange={e => setIngredientSearchQuery(e.target.value)}
+                                    />
+                                    {isLoadingIngredients ? (
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Caricamento ingredienti...
+                                        </Text>
+                                    ) : (
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                flexWrap: "wrap",
+                                                gap: 8,
+                                                marginTop: 8
+                                            }}
+                                        >
+                                            {systemIngredients
+                                                .filter(i =>
+                                                    i.name
+                                                        .toLowerCase()
+                                                        .includes(
+                                                            ingredientSearchQuery.toLowerCase()
+                                                        )
+                                                )
+                                                .map(ingredient => (
+                                                    <Pill
+                                                        key={ingredient.id}
+                                                        label={ingredient.name}
+                                                        active={selectedIngredients.includes(
+                                                            ingredient.id
+                                                        )}
+                                                        onClick={() =>
+                                                            handleIngredientToggle(ingredient.id)
+                                                        }
+                                                    />
+                                                ))}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+
+                        {attributeDefinitions.length > 0 && (
+                            <div style={{ marginTop: 16 }}>
+                                <Text variant="body-sm" weight={600} style={{ marginBottom: 8 }}>
+                                    Attributi
+                                </Text>
+                                {isLoadingAttributes ? (
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        Caricamento attributi...
+                                    </Text>
+                                ) : (
                                     <div
                                         style={{
                                             display: "flex",
@@ -1209,334 +1524,105 @@ export function ProductForm({
                                             gap: 12
                                         }}
                                     >
-                                        <TextInput
-                                            placeholder="Nome gruppo (es. Cottura)"
-                                            value={newGroupName}
-                                            onChange={e => setNewGroupName(e.target.value)}
-                                        />
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                gap: 12,
-                                                alignItems: "center"
-                                            }}
-                                        >
-                                            <div
-                                                style={{
-                                                    flex: 1,
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "space-between"
-                                                }}
-                                            >
-                                                <Text variant="body-sm">Obbligatorio</Text>
-                                                <Switch
-                                                    checked={newGroupIsRequired}
-                                                    onChange={setNewGroupIsRequired}
-                                                />
-                                            </div>
-                                            <div style={{ flex: 1 }}>
-                                                <TextInput
-                                                    placeholder="Max sel. (opz)"
-                                                    type="number"
-                                                    min="1"
-                                                    value={newGroupMaxSelectable}
-                                                    onChange={e =>
-                                                        setNewGroupMaxSelectable(e.target.value)
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
-                                        <Button
-                                            variant="secondary"
-                                            onClick={e => {
-                                                e.preventDefault();
-                                                handleCreateOptionGroup();
-                                            }}
-                                            disabled={isCreatingGroup || !newGroupName.trim()}
-                                            loading={isCreatingGroup}
-                                        >
-                                            Crea Gruppo
-                                        </Button>
+                                        {attributeDefinitions.map(def => {
+                                            const value = attributeValues[def.id];
+                                            if (def.type === "text" || def.type === "number")
+                                                return (
+                                                    <TextInput
+                                                        key={def.id}
+                                                        label={def.label}
+                                                        required={def.is_required}
+                                                        type={def.type}
+                                                        value={value || ""}
+                                                        onChange={e =>
+                                                            handleAttributeChange(
+                                                                def.id,
+                                                                e.target.value
+                                                            )
+                                                        }
+                                                    />
+                                                );
+                                            if (def.type === "boolean")
+                                                return (
+                                                    <div
+                                                        key={def.id}
+                                                        style={{
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "space-between"
+                                                        }}
+                                                    >
+                                                        <Text variant="body-sm" weight={600}>
+                                                            {def.label}
+                                                        </Text>
+                                                        <Switch
+                                                            checked={value || false}
+                                                            onChange={checked =>
+                                                                handleAttributeChange(
+                                                                    def.id,
+                                                                    checked
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
+                                                );
+                                            if (def.type === "select")
+                                                return (
+                                                    <Select
+                                                        key={def.id}
+                                                        label={def.label}
+                                                        required={def.is_required}
+                                                        value={value || ""}
+                                                        onChange={e =>
+                                                            handleAttributeChange(
+                                                                def.id,
+                                                                e.target.value
+                                                            )
+                                                        }
+                                                        options={[
+                                                            {
+                                                                value: "",
+                                                                label: "Seleziona un'opzione"
+                                                            },
+                                                            ...(Array.isArray(def.options)
+                                                                ? def.options.map(o => ({
+                                                                      value: o,
+                                                                      label: o
+                                                                  }))
+                                                                : [])
+                                                        ]}
+                                                    />
+                                                );
+                                            if (def.type === "multi_select")
+                                                return (
+                                                    <TextInput
+                                                        key={def.id}
+                                                        label={def.label + " (separati da virgola)"}
+                                                        required={def.is_required}
+                                                        value={value ? value.join(", ") : ""}
+                                                        onChange={e =>
+                                                            handleAttributeChange(
+                                                                def.id,
+                                                                e.target.value
+                                                                    .split(",")
+                                                                    .map(p => p.trim())
+                                                                    .filter(Boolean)
+                                                            )
+                                                        }
+                                                        placeholder="Es: Opzione 1, Opzione 2"
+                                                    />
+                                                );
+                                            return null;
+                                        })}
                                     </div>
-                                </div>
+                                )}
                             </div>
                         )}
                     </div>
-                </div>
-            </div>
+                </>
+            )}
 
             <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
-
-            <div>
-                <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
-                    Organizzazione
-                </Text>
-                {systemGroups.length === 0 && !isLoadingGroups ? (
-                    <Text variant="body-sm" colorVariant="muted">
-                        Nessun gruppo presente. Creane uno dalla pagina Gruppi Prodotti.
-                    </Text>
-                ) : (
-                    <>
-                        <TextInput
-                            placeholder="Cerca gruppo..."
-                            value={groupSearchQuery}
-                            onChange={e => setGroupSearchQuery(e.target.value)}
-                        />
-                        {isLoadingGroups ? (
-                            <Text variant="body-sm" colorVariant="muted">
-                                Caricamento gruppi...
-                            </Text>
-                        ) : (
-                            <div
-                                style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}
-                            >
-                                {systemGroups
-                                    .filter(g =>
-                                        g.name
-                                            .toLowerCase()
-                                            .includes(groupSearchQuery.toLowerCase())
-                                    )
-                                    .map(group => (
-                                        <Pill
-                                            key={group.id}
-                                            label={group.name}
-                                            active={selectedGroups.includes(group.id)}
-                                            onClick={() => handleGroupToggle(group.id)}
-                                        />
-                                    ))}
-                            </div>
-                        )}
-                    </>
-                )}
-            </div>
-
-            <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
-
-            <div>
-                <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
-                    Specifiche prodotto
-                </Text>
-                {systemAllergens.length > 0 && (
-                    <div style={{ marginBottom: 16 }}>
-                        <Text variant="body-sm" weight={600} style={{ marginBottom: 4 }}>
-                            Allergeni
-                        </Text>
-                        <TextInput
-                            placeholder="Cerca allergene..."
-                            value={allergenSearchQuery}
-                            onChange={e => setAllergenSearchQuery(e.target.value)}
-                        />
-                        {isLoadingAllergens ? (
-                            <Text variant="body-sm" colorVariant="muted">
-                                Caricamento allergeni...
-                            </Text>
-                        ) : (
-                            <div
-                                style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}
-                            >
-                                {systemAllergens
-                                    .filter(
-                                        a =>
-                                            a.label_it
-                                                .toLowerCase()
-                                                .includes(allergenSearchQuery.toLowerCase()) ||
-                                            a.label_en
-                                                .toLowerCase()
-                                                .includes(allergenSearchQuery.toLowerCase())
-                                    )
-                                    .map(allergen => (
-                                        <Pill
-                                            key={allergen.id}
-                                            label={allergen.label_it}
-                                            active={selectedAllergens.includes(allergen.id)}
-                                            onClick={() => handleAllergenToggle(allergen.id)}
-                                        />
-                                    ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-                <div>
-                    <Text variant="body-sm" weight={600} style={{ marginBottom: 4 }}>
-                        Ingredienti
-                    </Text>
-                    <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
-                        <div style={{ flex: 1 }}>
-                            <TextInput
-                                placeholder="Nuovo ingrediente..."
-                                value={newIngredientName}
-                                onChange={e => setNewIngredientName(e.target.value)}
-                                onKeyDown={e => {
-                                    if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        handleCreateIngredient();
-                                    }
-                                }}
-                            />
-                        </div>
-                        <Button
-                            variant="secondary"
-                            onClick={e => {
-                                e.preventDefault();
-                                handleCreateIngredient();
-                            }}
-                            disabled={isCreatingIngredient || !newIngredientName.trim()}
-                            loading={isCreatingIngredient}
-                        >
-                            Crea
-                        </Button>
-                    </div>
-                    {systemIngredients.length > 0 && (
-                        <>
-                            <TextInput
-                                placeholder="Cerca ingrediente..."
-                                value={ingredientSearchQuery}
-                                onChange={e => setIngredientSearchQuery(e.target.value)}
-                            />
-                            {isLoadingIngredients ? (
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Caricamento ingredienti...
-                                </Text>
-                            ) : (
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        flexWrap: "wrap",
-                                        gap: 8,
-                                        marginTop: 8
-                                    }}
-                                >
-                                    {systemIngredients
-                                        .filter(i =>
-                                            i.name
-                                                .toLowerCase()
-                                                .includes(ingredientSearchQuery.toLowerCase())
-                                        )
-                                        .map(ingredient => (
-                                            <Pill
-                                                key={ingredient.id}
-                                                label={ingredient.name}
-                                                active={selectedIngredients.includes(ingredient.id)}
-                                                onClick={() =>
-                                                    handleIngredientToggle(ingredient.id)
-                                                }
-                                            />
-                                        ))}
-                                </div>
-                            )}
-                        </>
-                    )}
-                </div>
-
-                {attributeDefinitions.length > 0 && (
-                    <div style={{ marginTop: 16 }}>
-                        <Text variant="body-sm" weight={600} style={{ marginBottom: 8 }}>
-                            Attributi
-                        </Text>
-                        {isLoadingAttributes ? (
-                            <Text variant="body-sm" colorVariant="muted">
-                                Caricamento attributi...
-                            </Text>
-                        ) : (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                {attributeDefinitions.map(def => {
-                                    const value = attributeValues[def.id];
-                                    if (def.type === "text" || def.type === "number")
-                                        return (
-                                            <TextInput
-                                                key={def.id}
-                                                label={def.label}
-                                                required={def.is_required}
-                                                type={def.type}
-                                                value={value || ""}
-                                                onChange={e =>
-                                                    handleAttributeChange(def.id, e.target.value)
-                                                }
-                                            />
-                                        );
-                                    if (def.type === "boolean")
-                                        return (
-                                            <div
-                                                key={def.id}
-                                                style={{
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "space-between"
-                                                }}
-                                            >
-                                                <Text variant="body-sm" weight={600}>
-                                                    {def.label}
-                                                </Text>
-                                                <Switch
-                                                    checked={value || false}
-                                                    onChange={checked =>
-                                                        handleAttributeChange(def.id, checked)
-                                                    }
-                                                />
-                                            </div>
-                                        );
-                                    if (def.type === "select")
-                                        return (
-                                            <Select
-                                                key={def.id}
-                                                label={def.label}
-                                                required={def.is_required}
-                                                value={value || ""}
-                                                onChange={e =>
-                                                    handleAttributeChange(def.id, e.target.value)
-                                                }
-                                                options={[
-                                                    { value: "", label: "Seleziona un'opzione" },
-                                                    ...(Array.isArray(def.options)
-                                                        ? def.options.map(o => ({
-                                                              value: o,
-                                                              label: o
-                                                          }))
-                                                        : [])
-                                                ]}
-                                            />
-                                        );
-                                    if (def.type === "multi_select")
-                                        return (
-                                            <TextInput
-                                                key={def.id}
-                                                label={def.label + " (separati da virgola)"}
-                                                required={def.is_required}
-                                                value={value ? value.join(", ") : ""}
-                                                onChange={e =>
-                                                    handleAttributeChange(
-                                                        def.id,
-                                                        e.target.value
-                                                            .split(",")
-                                                            .map(p => p.trim())
-                                                            .filter(Boolean)
-                                                    )
-                                                }
-                                                placeholder="Es: Opzione 1, Opzione 2"
-                                            />
-                                        );
-                                    return null;
-                                })}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div>
-                    <Text variant="title-sm" weight={600}>
-                        Stato
-                    </Text>
-                    <Text variant="body-sm" colorVariant="muted">
-                        Visibilità
-                    </Text>
-                </div>
-                <Switch checked={isVisible} onChange={setIsVisible} />
-            </div>
         </form>
     );
 }

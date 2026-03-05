@@ -10,13 +10,132 @@ export type V2Product = {
     description: string | null;
     base_price: number | null;
     parent_product_id: string | null;
-    is_visible: boolean;
     image_url: string | null;
     created_at: string;
     updated_at: string;
     // Joined
     variants?: V2Product[];
 };
+
+export type ProductListMetadata = {
+    formatsCount: number;
+    configurationsCount: number;
+    catalogsCount: number;
+    fromPrice: number | null;
+};
+
+type ProductOptionGroupListRow = {
+    id: string;
+    product_id: string;
+    group_kind: "PRIMARY_PRICE" | "ADDON";
+};
+
+type ProductOptionValueListRow = {
+    option_group_id: string;
+    absolute_price: number | null;
+};
+
+type CatalogItemListRow = {
+    product_id: string;
+    catalog_id: string;
+};
+
+export async function getProductListMetadata(
+    tenantId: string,
+    productIds: string[]
+): Promise<Record<string, ProductListMetadata>> {
+    const uniqueProductIds = Array.from(new Set(productIds.filter(Boolean)));
+    const metadataByProductId: Record<string, ProductListMetadata> = {};
+
+    for (const productId of uniqueProductIds) {
+        metadataByProductId[productId] = {
+            formatsCount: 0,
+            configurationsCount: 0,
+            catalogsCount: 0,
+            fromPrice: null
+        };
+    }
+
+    if (uniqueProductIds.length === 0) {
+        return metadataByProductId;
+    }
+
+    const [groupsRes, catalogItemsRes] = await Promise.all([
+        supabase
+            .from("v2_product_option_groups")
+            .select("id, product_id, group_kind")
+            .eq("tenant_id", tenantId)
+            .in("product_id", uniqueProductIds),
+        supabase
+            .from("v2_catalog_items")
+            .select("product_id, catalog_id")
+            .eq("tenant_id", tenantId)
+            .in("product_id", uniqueProductIds)
+    ]);
+
+    if (groupsRes.error) throw groupsRes.error;
+    if (catalogItemsRes.error) throw catalogItemsRes.error;
+
+    const primaryGroupToProductId = new Map<string, string>();
+    const groups = (groupsRes.data ?? []) as ProductOptionGroupListRow[];
+
+    for (const group of groups) {
+        const meta = metadataByProductId[group.product_id];
+        if (!meta) continue;
+
+        if (group.group_kind === "ADDON") {
+            meta.configurationsCount += 1;
+            continue;
+        }
+
+        primaryGroupToProductId.set(group.id, group.product_id);
+    }
+
+    if (primaryGroupToProductId.size > 0) {
+        const primaryGroupIds = Array.from(primaryGroupToProductId.keys());
+        const { data: values, error: valuesError } = await supabase
+            .from("v2_product_option_values")
+            .select("option_group_id, absolute_price")
+            .eq("tenant_id", tenantId)
+            .in("option_group_id", primaryGroupIds);
+
+        if (valuesError) throw valuesError;
+
+        for (const value of (values ?? []) as ProductOptionValueListRow[]) {
+            const productId = primaryGroupToProductId.get(value.option_group_id);
+            if (!productId) continue;
+
+            const meta = metadataByProductId[productId];
+            if (!meta) continue;
+
+            meta.formatsCount += 1;
+
+            if (typeof value.absolute_price === "number") {
+                meta.fromPrice =
+                    meta.fromPrice === null
+                        ? value.absolute_price
+                        : Math.min(meta.fromPrice, value.absolute_price);
+            }
+        }
+    }
+
+    const catalogIdsByProductId = new Map<string, Set<string>>();
+    const catalogItems = (catalogItemsRes.data ?? []) as CatalogItemListRow[];
+
+    for (const item of catalogItems) {
+        const catalogIds = catalogIdsByProductId.get(item.product_id) ?? new Set<string>();
+        catalogIds.add(item.catalog_id);
+        catalogIdsByProductId.set(item.product_id, catalogIds);
+    }
+
+    for (const [productId, catalogIds] of catalogIdsByProductId.entries()) {
+        const meta = metadataByProductId[productId];
+        if (!meta) continue;
+        meta.catalogsCount = catalogIds.size;
+    }
+
+    return metadataByProductId;
+}
 
 /**
  * Validates cross-tenant and nested variant conditions application-side
@@ -89,7 +208,6 @@ export async function createProduct(
         name: string;
         description?: string | null;
         base_price?: number | null;
-        is_visible?: boolean;
         image_url?: string | null;
     },
     parentId?: string | null
@@ -105,7 +223,6 @@ export async function createProduct(
             description: data.description || null,
             base_price: data.base_price ?? null,
             parent_product_id: parentId || null,
-            is_visible: data.is_visible ?? true,
             image_url: data.image_url ?? null
         })
         .select()
@@ -122,7 +239,6 @@ export async function updateProduct(
         name?: string;
         description?: string | null;
         base_price?: number | null;
-        is_visible?: boolean;
         image_url?: string | null;
     },
     parentId?: string | null
@@ -135,7 +251,6 @@ export async function updateProduct(
     if (data.name !== undefined) updatePayload.name = data.name;
     if (data.description !== undefined) updatePayload.description = data.description;
     if (data.base_price !== undefined) updatePayload.base_price = data.base_price;
-    if (data.is_visible !== undefined) updatePayload.is_visible = data.is_visible;
     if (data.image_url !== undefined) updatePayload.image_url = data.image_url;
     if (parentId !== undefined) updatePayload.parent_product_id = parentId;
 
@@ -152,82 +267,22 @@ export async function updateProduct(
 }
 
 /**
- * Safely deletes a product.
- * - Checks if the product is in use by `v2_featured_content_products` (ON DELETE RESTRICT).
- * - If `cascadeVariants` is false and variants exist, throws an error.
- * - If `cascadeVariants` is true, deletes the children first, then the parent.
+ * Deletes a product and all its dependencies via ON DELETE CASCADE.
+ * Cascades to: variants, catalog items, featured content products,
+ * activity overrides, schedule overrides, allergens, attributes, ingredients.
  */
-export async function deleteProduct(
-    id: string,
-    tenantId: string,
-    cascadeVariants: boolean = false
-): Promise<void> {
-    // 1. Check if used in featured contents
-    const { data: featuredUsage, error: featuredError } = await supabase
-        .from("v2_featured_content_products")
-        .select("id")
-        .eq("product_id", id)
-        .limit(1);
-
-    if (featuredError) throw featuredError;
-    if (featuredUsage && featuredUsage.length > 0) {
-        throw new Error("Cannot delete product because it is used in Featured Contents.");
-    }
-
-    // 1.5 Check if used in any catalog category
-    const { data: catalogUsage, error: catalogError } = await supabase
-        .from("v2_catalog_category_products")
-        .select("id")
-        .eq("product_id", id)
-        .limit(1);
-
-    if (catalogError) throw catalogError;
-    if (catalogUsage && catalogUsage.length > 0) {
-        throw new Error(
-            "Cannot delete product because it is present in one or more Catalogs. Remove it from the catalogs first."
-        );
-    }
-
-    // 2. Handle variants
-    const { data: variants, error: variantsError } = await supabase
-        .from("v2_products")
-        .select("id")
-        .eq("parent_product_id", id);
-
-    if (variantsError) throw variantsError;
-
-    const hasVariants = variants && variants.length > 0;
-
-    if (hasVariants) {
-        if (!cascadeVariants) {
-            throw new Error(`Cannot delete product because it has ${variants.length} variant(s).`);
-        } else {
-            // Delete variants first (since DB constraint is ON DELETE RESTRICT)
-            const variantIds = variants.map(v => v.id);
-            const { error: delVariantsError } = await supabase
-                .from("v2_products")
-                .delete()
-                .in("id", variantIds)
-                .eq("tenant_id", tenantId); // security check
-
-            if (delVariantsError) throw delVariantsError;
-        }
-    }
-
-    // 3. Delete the product itself
-    // (Other tables like v2_catalog_items or overrides have ON DELETE CASCADE so they clean up automatically)
-    const { error: delError } = await supabase
+export async function deleteProduct(id: string, tenantId: string): Promise<void> {
+    const { error } = await supabase
         .from("v2_products")
         .delete()
         .eq("id", id)
         .eq("tenant_id", tenantId);
 
-    if (delError) {
-        // Fallback for any unanticipated restrict constraint
-        if (delError.code === "23503") {
+    if (error) {
+        if (error.code === "23503") {
             throw new Error("Cannot delete product because it is referenced by another record.");
         }
-        throw delError;
+        throw error;
     }
 }
 
@@ -253,7 +308,6 @@ export async function duplicateProduct(productId: string, tenantId: string): Pro
             name: `${original.name} (Copia)`,
             description: original.description,
             base_price: original.base_price,
-            is_visible: original.is_visible,
             image_url: original.image_url
         },
         null // parent_product_id = null

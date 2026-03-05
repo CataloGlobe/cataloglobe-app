@@ -11,12 +11,15 @@ import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconDotsVertical, IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { Link } from "react-router-dom";
 import styles from "./Products.module.scss";
 
 import {
     listBaseProductsWithVariants,
     V2Product,
-    duplicateProduct
+    duplicateProduct,
+    getProductListMetadata,
+    ProductListMetadata
 } from "@/services/supabase/v2/products";
 import { ProductCreateEditDrawer, ProductFormMode } from "./ProductCreateEditDrawer";
 import { ProductDeleteDrawer } from "./ProductDeleteDrawer";
@@ -31,6 +34,18 @@ type ProductTableRow = {
     isExpanded: boolean;
 };
 
+const EMPTY_PRODUCT_METADATA: ProductListMetadata = {
+    formatsCount: 0,
+    configurationsCount: 0,
+    catalogsCount: 0,
+    fromPrice: null
+};
+
+const formatCurrency = (value: number) => `${value.toFixed(2)} €`;
+
+const getAllProductIds = (products: V2Product[]): string[] =>
+    products.flatMap(product => [product.id, ...(product.variants?.map(variant => variant.id) ?? [])]);
+
 export default function Products() {
     const { user } = useAuth();
     const currentTenantId = user?.id;
@@ -38,6 +53,7 @@ export default function Products() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [allProducts, setAllProducts] = useState<V2Product[]>([]);
+    const [productMetadata, setProductMetadata] = useState<Record<string, ProductListMetadata>>({});
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
     const [activeTab, setActiveTab] = useState<"products" | "groups">("products");
@@ -45,7 +61,6 @@ export default function Products() {
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState("");
-    const [showHidden] = useState(false);
     const [density, setDensity] = useState<"compact" | "extended">("compact");
 
     // Drawer States
@@ -63,6 +78,19 @@ export default function Products() {
             setIsLoading(true);
             const data = await listBaseProductsWithVariants(currentTenantId);
             setAllProducts(data);
+            const productIds = getAllProductIds(data);
+
+            try {
+                const metadata = await getProductListMetadata(currentTenantId, productIds);
+                setProductMetadata(metadata);
+            } catch (metadataError) {
+                console.error("Errore nel caricamento dei metadati prodotto:", metadataError);
+                setProductMetadata({});
+                showToast({
+                    message: "Alcuni dati prodotto non sono disponibili al momento.",
+                    type: "info"
+                });
+            }
         } catch (error) {
             console.error("Errore nel caricamento dei prodotti:", error);
             showToast({ message: "Non è stato possibile caricare i prodotti.", type: "error" });
@@ -77,23 +105,17 @@ export default function Products() {
 
     const filteredProducts = useMemo(() => {
         return allProducts.filter(product => {
-            // Visibility filter
-            if (!showHidden && product.is_visible === false) {
-                return false;
-            }
             // Search filter
             if (searchQuery && !product.name.toLowerCase().includes(searchQuery.toLowerCase())) {
                 // Check if any variant matches
-                const variantsMatch = product.variants?.some(
-                    v =>
-                        v.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-                        (showHidden || v.is_visible !== false)
+                const variantsMatch = product.variants?.some(v =>
+                    v.name.toLowerCase().includes(searchQuery.toLowerCase())
                 );
                 if (!variantsMatch) return false;
             }
             return true;
         });
-    }, [allProducts, searchQuery, showHidden]);
+    }, [allProducts, searchQuery]);
 
     const tableRows = useMemo<ProductTableRow[]>(() => {
         const rows: ProductTableRow[] = [];
@@ -101,8 +123,7 @@ export default function Products() {
         filteredProducts.forEach(product => {
             const hasVariants = Boolean(product.variants?.length);
             const isExpanded = expandedRows.has(product.id);
-            const visibleVariants =
-                product.variants?.filter(v => showHidden || v.is_visible !== false) || [];
+            const visibleVariants = product.variants || [];
 
             rows.push({
                 kind: "base",
@@ -127,7 +148,7 @@ export default function Products() {
         });
 
         return rows;
-    }, [filteredProducts, expandedRows, showHidden]);
+    }, [filteredProducts, expandedRows]);
 
     // Handlers
     const handleCreateBase = () => {
@@ -187,27 +208,6 @@ export default function Products() {
 
     const columns: ColumnDefinition<ProductTableRow>[] = [
         {
-            id: "expander",
-            header: "",
-            width: "40px",
-            cell: (_value, row) =>
-                row.kind === "base" && row.hasVariants ? (
-                    <button
-                        className={styles.expandButton}
-                        onClick={() => toggleRow(row.product.id)}
-                        aria-label={row.isExpanded ? "Comprimi" : "Espandi"}
-                    >
-                        {row.isExpanded ? (
-                            <IconChevronDown size={20} />
-                        ) : (
-                            <IconChevronRight size={20} />
-                        )}
-                    </button>
-                ) : (
-                    <span className={styles.expanderSpacer} />
-                )
-        },
-        {
             id: "name",
             header: "Nome",
             width: "2fr",
@@ -219,9 +219,30 @@ export default function Products() {
                     }`}
                 >
                     <div className={styles.productNameRow}>
-                        <Text variant="body-sm" weight={row.kind === "variant" ? 500 : 600}>
-                            {row.product.name}
-                        </Text>
+                        {row.kind === "base" && row.hasVariants ? (
+                            <button
+                                className={styles.expandButton}
+                                onClick={() => toggleRow(row.product.id)}
+                                aria-label={row.isExpanded ? "Comprimi" : "Espandi"}
+                            >
+                                {row.isExpanded ? (
+                                    <IconChevronDown size={20} />
+                                ) : (
+                                    <IconChevronRight size={20} />
+                                )}
+                            </button>
+                        ) : (
+                            <span className={styles.expanderSpacer} />
+                        )}
+                        <Link to={`/products/${row.product.id}`} className={styles.productLink}>
+                            <Text
+                                variant="body-sm"
+                                weight={row.kind === "variant" ? 500 : 600}
+                                className={styles.productLinkText}
+                            >
+                                {row.product.name}
+                            </Text>
+                        </Link>
                         {row.kind === "variant" && <Badge variant="secondary">Variante</Badge>}
                     </div>
                     {row.product.description && (
@@ -234,53 +255,98 @@ export default function Products() {
         },
         {
             id: "price",
-            header: "Prezzo Base",
+            header: "Prezzo",
             width: "1fr",
-            accessor: row => row.product.base_price,
-            cell: value =>
-                value !== null ? (
-                    <Text variant="body-sm">€{(value as number).toFixed(2)}</Text>
-                ) : (
-                    <Text variant="body-sm" colorVariant="muted">
-                        —
-                    </Text>
-                )
-        },
-        {
-            id: "visibility",
-            header: "Visibilità",
-            width: "1fr",
-            accessor: row => row.product.is_visible,
-            cell: value =>
-                value !== false ? (
-                    <Badge variant="success">Visibile</Badge>
-                ) : (
-                    <Badge variant="secondary">Nascosto</Badge>
-                )
-        },
-        {
-            id: "variants",
-            header: "Varianti",
-            width: "1fr",
-            cell: (_value, row) =>
-                row.kind === "base" ? (
-                    row.hasVariants ? (
-                        <Badge variant="primary">{row.visibleVariants.length} varianti</Badge>
+            accessor: row => row.product.id,
+            cell: (_value, row) => {
+                const meta = productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA;
+                const hasFormats = meta.formatsCount > 0;
+
+                if (hasFormats) {
+                    const fromPrice = meta.fromPrice ?? row.product.base_price;
+                    return fromPrice !== null ? (
+                        <Text variant="body-sm">da {formatCurrency(fromPrice)}</Text>
                     ) : (
                         <Text variant="body-sm" colorVariant="muted">
                             —
                         </Text>
-                    )
+                    );
+                }
+
+                return row.product.base_price !== null ? (
+                    <Text variant="body-sm">{formatCurrency(row.product.base_price)}</Text>
                 ) : (
                     <Text variant="body-sm" colorVariant="muted">
                         —
                     </Text>
-                )
+                );
+            }
+        },
+        {
+            id: "formats",
+            header: "Formati",
+            width: "1fr",
+            accessor: row => row.product.id,
+            cell: (_value, row) => {
+                const formatsCount =
+                    (productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA).formatsCount;
+
+                return formatsCount > 0 ? (
+                    <Text variant="body-sm">
+                        {formatsCount} {formatsCount === 1 ? "formato" : "formati"}
+                    </Text>
+                ) : (
+                    <Text variant="body-sm" colorVariant="muted">
+                        —
+                    </Text>
+                );
+            }
+        },
+        {
+            id: "configurations",
+            header: "Configurazioni",
+            width: "1fr",
+            accessor: row => row.product.id,
+            cell: (_value, row) => {
+                const configurationsCount =
+                    (productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA).configurationsCount;
+
+                return configurationsCount > 0 ? (
+                    <Text variant="body-sm">
+                        {configurationsCount}{" "}
+                        {configurationsCount === 1 ? "opzione" : "opzioni"}
+                    </Text>
+                ) : (
+                    <Text variant="body-sm" colorVariant="muted">
+                        —
+                    </Text>
+                );
+            }
+        },
+        {
+            id: "catalogs",
+            header: "Cataloghi",
+            width: "1fr",
+            accessor: row => row.product.id,
+            cell: (_value, row) => {
+                const catalogsCount =
+                    (productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA).catalogsCount;
+
+                return catalogsCount > 0 ? (
+                    <Text variant="body-sm">
+                        {catalogsCount} {catalogsCount === 1 ? "catalogo" : "cataloghi"}
+                    </Text>
+                ) : (
+                    <Text variant="body-sm" colorVariant="muted">
+                        —
+                    </Text>
+                );
+            }
         },
         {
             id: "actions",
-            header: "",
-            width: "60px",
+            header: "Azioni",
+            width: "96px",
             align: "right",
             cell: (_value, row) => (
                 <div className={styles.colActions}>
@@ -398,11 +464,11 @@ export default function Products() {
                                         Nessun prodotto trovato
                                     </Text>
                                     <Text variant="body-sm" colorVariant="muted">
-                                        {searchQuery || !showHidden
+                                        {searchQuery
                                             ? "Nessun prodotto corrisponde ai filtri di ricerca."
                                             : "Non hai ancora aggiunto alcun prodotto base."}
                                     </Text>
-                                    {!searchQuery && showHidden && (
+                                    {!searchQuery && (
                                         <Button
                                             variant="primary"
                                             onClick={handleCreateBase}
