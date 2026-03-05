@@ -13,25 +13,24 @@ import {
     type LayoutRuleOption,
     type LayoutTimeMode,
     type RuleType,
-    type RuleTargetType
+    type VisibilityMode,
+    type ProductGroupAssignmentOption
 } from "@/services/supabase/v2/layoutScheduling";
 import { buildRuleSummary } from "@/utils/ruleHelpers";
 import styles from "./ProgrammingRuleDetail.module.scss";
 
 // Componentes
-import { TargetSection } from "./components/TargetSection";
+import { TargetSection, type TargetMode } from "./components/TargetSection";
 import { AssociatedContentSection } from "./components/AssociatedContentSection";
 import { SchedulingSection } from "./components/SchedulingSection";
 import { PrioritySection } from "./components/PrioritySection";
-
-type TargetMode = "all_activities" | "activity_group" | "specific_activity";
 
 type RuleDetailForm = {
     name: string;
     ruleType: RuleType;
     targetMode: TargetMode;
-    activityId: string;
-    activityGroupId: string;
+    activityIds: string[];
+    groupIds: string[];
     catalogId: string;
     styleId: string;
     featuredContents: Array<{
@@ -45,9 +44,9 @@ type RuleDetailForm = {
         {
             overridePrice: string;
             showOriginalPrice: boolean;
-            visible: boolean;
         }
     >;
+    visibilityProductModes: Record<string, VisibilityMode>;
     priority: string;
     enabled: boolean;
     alwaysActive: boolean;
@@ -65,37 +64,9 @@ function getRuleTypeLabel(ruleType: RuleType): string {
     return "Visibilità";
 }
 
-function getRuleTargetLabel(
-    rule: Pick<LayoutRule, "target_type" | "target_id" | "target_group">,
-    activityById: Map<string, LayoutRuleOption>
-): string {
-    if (rule.target_type === "activity_group") {
-        if (rule.target_group?.is_system) return "Tutte le attività";
-        return rule.target_group?.name ?? rule.target_id;
-    }
-    return activityById.get(rule.target_id)?.name ?? rule.target_id;
-}
-
-function buildFallbackRuleName(
-    rule: Pick<LayoutRule, "rule_type" | "target_type" | "target_id" | "target_group">,
-    activityById: Map<string, LayoutRuleOption>
-): string {
-    const typeLabel = getRuleTypeLabel(rule.rule_type);
-    const targetLabel = getRuleTargetLabel(rule, activityById);
-    return `${typeLabel} · ${targetLabel}`;
-}
-
 function buildForm(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>): RuleDetailForm {
-    const isSystemGroup =
-        rule.target_type === "activity_group" && rule.target_group?.is_system === true;
-    const targetMode: TargetMode =
-        rule.target_type === "activity"
-            ? "specific_activity"
-            : isSystemGroup
-              ? "all_activities"
-              : "activity_group";
-
     const productOverrides: RuleDetailForm["productOverrides"] = {};
+    const visibilityProductModes: RuleDetailForm["visibilityProductModes"] = {};
     const selectedProductIds: string[] = [];
 
     if (rule.rule_type === "price") {
@@ -103,8 +74,7 @@ function buildForm(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>
             selectedProductIds.push(product.product_id);
             productOverrides[product.product_id] = {
                 overridePrice: String(product.override_price ?? ""),
-                showOriginalPrice: product.show_original_price,
-                visible: false
+                showOriginalPrice: product.show_original_price
             };
         }
     }
@@ -112,20 +82,39 @@ function buildForm(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>
     if (rule.rule_type === "visibility") {
         for (const product of rule.visibility_overrides) {
             selectedProductIds.push(product.product_id);
-            productOverrides[product.product_id] = {
-                overridePrice: "",
-                showOriginalPrice: false,
-                visible: product.visible
-            };
+            visibilityProductModes[product.product_id] = product.mode;
         }
     }
 
+    const targetMode: TargetMode = rule.applyToAll
+        ? "all"
+        : rule.groupIds.length > 0
+        ? "groups"
+        : rule.activityIds.length > 0
+        ? "activities"
+        : rule.target_type === "activity_group"
+        ? "groups"
+        : "activities";
+
+    const fallbackName = (() => {
+        const typeLabel = getRuleTypeLabel(rule.rule_type);
+        const targetLabel =
+            targetMode === "all"
+                ? "tutte le attività"
+                : targetMode === "activities" && rule.activityIds.length > 0
+                ? activityById.get(rule.activityIds[0])?.name ?? rule.activityIds[0]
+                : targetMode === "groups" && rule.groupIds.length > 0
+                ? rule.target_group?.name ?? rule.groupIds[0]
+                : "nessun target";
+        return `${typeLabel} · ${targetLabel}`;
+    })();
+
     return {
-        name: (rule.name ?? buildFallbackRuleName(rule, activityById)).trim(),
+        name: (rule.name ?? fallbackName).trim(),
         ruleType: rule.rule_type,
         targetMode,
-        activityId: rule.target_type === "activity" ? rule.target_id : "",
-        activityGroupId: rule.target_type === "activity_group" ? rule.target_id : "",
+        activityIds: rule.activityIds ?? [],
+        groupIds: rule.groupIds ?? [],
         catalogId: rule.layout?.catalog_id ?? "",
         styleId: rule.layout?.style_id ?? "",
         featuredContents: rule.featured_contents.map(fc => ({
@@ -135,6 +124,7 @@ function buildForm(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>
         })),
         selectedProductIds,
         productOverrides,
+        visibilityProductModes,
         priority: String(rule.priority),
         enabled: rule.enabled,
         alwaysActive: rule.time_mode === "always",
@@ -157,12 +147,24 @@ function toSummary(input: {
 }): string {
     const { form, activityById, groupById, catalogById, styleById, productById } = input;
 
-    const targetLabel =
-        form.targetMode === "all_activities"
-            ? "tutte le attività"
-            : form.targetMode === "activity_group"
-              ? (groupById.get(form.activityGroupId)?.name ?? "gruppo non selezionato")
-              : (activityById.get(form.activityId)?.name ?? "attività non selezionata");
+    let targetLabel: string;
+    if (form.targetMode === "all") {
+        targetLabel = "tutte le attività";
+    } else if (form.targetMode === "activities") {
+        const names = form.activityIds.map(id => activityById.get(id)?.name ?? id);
+        if (names.length === 0) {
+            targetLabel = "nessuna attività";
+        } else {
+            targetLabel = names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`;
+        }
+    } else {
+        const names = form.groupIds.map(id => groupById.get(id)?.name ?? id);
+        if (names.length === 0) {
+            targetLabel = "nessun gruppo";
+        } else {
+            targetLabel = names.length === 1 ? `gruppo ${names[0]}` : `${names.length} gruppi`;
+        }
+    }
 
     const scheduleLabel = buildRuleSummary({
         time_mode: form.timeMode,
@@ -174,10 +176,10 @@ function toSummary(input: {
 
     if (form.ruleType === "layout") {
         const catalogLabel = form.catalogId
-            ? (catalogById.get(form.catalogId)?.name ?? form.catalogId)
+            ? catalogById.get(form.catalogId)?.name ?? form.catalogId
             : "nessun catalogo";
         const styleLabel = form.styleId
-            ? (styleById.get(form.styleId)?.name ?? form.styleId)
+            ? styleById.get(form.styleId)?.name ?? form.styleId
             : "nessuno stile";
         return `Regola: tipo layout su ${targetLabel}, catalogo ${catalogLabel}, stile ${styleLabel}, priorità ${form.priority}, ${scheduleLabel}.`;
     }
@@ -192,16 +194,21 @@ function toSummary(input: {
 
     const productsLabel =
         form.selectedProductIds.length > 0
-            ? form.selectedProductIds
-                  .map(id => {
-                      const label = productById.get(id)?.name ?? id;
-                      const state = form.productOverrides[id]?.visible ? "visibile" : "nascosto";
-                      return `${label} (${state})`;
-                  })
-                  .join(", ")
+            ? form.selectedProductIds.map(id => productById.get(id)?.name ?? id).join(", ")
             : "nessun prodotto";
 
-    return `Regola: visibilità su ${targetLabel} per ${productsLabel}, priorità ${form.priority}, ${scheduleLabel}.`;
+    const hideCount = form.selectedProductIds.filter(
+        id => (form.visibilityProductModes[id] ?? "hide") === "hide"
+    ).length;
+    const disableCount = form.selectedProductIds.length - hideCount;
+    const behaviorLabel =
+        hideCount > 0 && disableCount > 0
+            ? `${hideCount} nascosti, ${disableCount} non disponibili`
+            : disableCount > 0
+            ? "mostra come non disponibile"
+            : "nascondi";
+
+    return `Regola: visibilità su ${targetLabel} per ${productsLabel} (${behaviorLabel}), priorità ${form.priority}, ${scheduleLabel}.`;
 }
 
 export default function ProgrammingRuleDetail() {
@@ -218,6 +225,10 @@ export default function ProgrammingRuleDetail() {
     const [catalogs, setCatalogs] = useState<LayoutRuleOption[]>([]);
     const [stylesOptions, setStylesOptions] = useState<LayoutRuleOption[]>([]);
     const [productsOptions, setProductsOptions] = useState<LayoutRuleOption[]>([]);
+    const [productGroupsOptions, setProductGroupsOptions] = useState<LayoutRuleOption[]>([]);
+    const [productGroupItemsOptions, setProductGroupItemsOptions] = useState<
+        ProductGroupAssignmentOption[]
+    >([]);
     const [featuredContentsOptions, setFeaturedContentsOptions] = useState<LayoutRuleOption[]>([]);
 
     const [form, setForm] = useState<RuleDetailForm | null>(null);
@@ -279,6 +290,22 @@ export default function ProgrammingRuleDetail() {
         [productsOptions, tenantId]
     );
 
+    const tenantProductGroups = useMemo(
+        () =>
+            tenantId
+                ? productGroupsOptions.filter(item => item.tenant_id === tenantId)
+                : productGroupsOptions,
+        [productGroupsOptions, tenantId]
+    );
+
+    const tenantProductGroupItems = useMemo(
+        () =>
+            tenantId
+                ? productGroupItemsOptions.filter(item => item.tenant_id === tenantId)
+                : productGroupItemsOptions,
+        [productGroupItemsOptions, tenantId]
+    );
+
     const tenantFeaturedContents = useMemo(
         () =>
             tenantId
@@ -327,6 +354,8 @@ export default function ProgrammingRuleDetail() {
             setCatalogs(optionsData.catalogs);
             setStylesOptions(optionsData.styles);
             setProductsOptions(optionsData.products);
+            setProductGroupsOptions(optionsData.productGroups);
+            setProductGroupItemsOptions(optionsData.productGroupItems);
             setFeaturedContentsOptions(optionsData.featuredContents);
 
             const nextForm = buildForm(
@@ -401,10 +430,22 @@ export default function ProgrammingRuleDetail() {
             }
         }
 
-        let targetType: RuleTargetType = "activity";
-        let targetId = form.activityId;
+        if (form.targetMode === "activities" && form.activityIds.length === 0) {
+            showToast({
+                type: "error",
+                message: "Seleziona almeno un'attività o cambia modalità target.",
+                duration: 2600
+            });
+            return;
+        }
 
-        if (form.targetMode === "all_activities") {
+        // Build legacy target_type / target_id for backward compat with Edge Functions
+        // and derive multi-target applyToAll from explicit targetMode state.
+        const applyToAll = form.targetMode === "all";
+        let targetType: "activity" | "activity_group";
+        let targetId: string;
+
+        if (form.targetMode === "all") {
             const systemGroupId = await getSystemActivityGroupId(rule.tenant_id);
             if (!systemGroupId) {
                 showToast({
@@ -416,24 +457,30 @@ export default function ProgrammingRuleDetail() {
             }
             targetType = "activity_group";
             targetId = systemGroupId;
-        }
-
-        if (form.targetMode === "activity_group") {
-            if (!form.activityGroupId) {
+        } else if (form.targetMode === "activities") {
+            targetType = "activity";
+            targetId = form.activityIds[0];
+        } else if (form.groupIds.length > 0) {
+            targetType = "activity_group";
+            targetId = form.groupIds[0];
+        } else if (rule.target_type === "activity_group") {
+            targetType = "activity_group";
+            targetId = rule.target_id;
+        } else if (tenantGroups[0]?.id) {
+            targetType = "activity_group";
+            targetId = tenantGroups[0].id;
+        } else {
+            const systemGroupId = await getSystemActivityGroupId(rule.tenant_id);
+            if (!systemGroupId) {
                 showToast({
                     type: "error",
-                    message: "Seleziona un gruppo attività.",
-                    duration: 2600
+                    message: "Nessun gruppo disponibile per il target.",
+                    duration: 3000
                 });
                 return;
             }
             targetType = "activity_group";
-            targetId = form.activityGroupId;
-        }
-
-        if (form.targetMode === "specific_activity" && !form.activityId) {
-            showToast({ type: "error", message: "Seleziona un'attività.", duration: 2600 });
-            return;
+            targetId = systemGroupId;
         }
 
         if (form.ruleType === "price") {
@@ -460,6 +507,9 @@ export default function ProgrammingRuleDetail() {
                 tenantId: rule.tenant_id,
                 ruleType: form.ruleType,
                 name: trimmedName,
+                applyToAll,
+                activityIds: form.activityIds,
+                groupIds: form.groupIds,
                 targetType,
                 targetId,
                 priority,
@@ -488,11 +538,11 @@ export default function ProgrammingRuleDetail() {
                                   form.productOverrides[productId]?.showOriginalPrice ?? false
                           }))
                         : undefined,
-                visibilityProducts:
+                visibilityProductOverrides:
                     form.ruleType === "visibility"
                         ? form.selectedProductIds.map(productId => ({
                               productId,
-                              visible: form.productOverrides[productId]?.visible ?? false
+                              mode: form.visibilityProductModes[productId] ?? "hide"
                           }))
                         : undefined
             });
@@ -555,8 +605,8 @@ export default function ProgrammingRuleDetail() {
                     name={form.name}
                     ruleType={form.ruleType}
                     targetMode={form.targetMode}
-                    activityId={form.activityId}
-                    activityGroupId={form.activityGroupId}
+                    activityIds={form.activityIds}
+                    groupIds={form.groupIds}
                     tenantActivities={tenantActivities}
                     tenantGroups={tenantGroups}
                     onFormChange={handleFormChange}
@@ -569,10 +619,13 @@ export default function ProgrammingRuleDetail() {
                     featuredContents={form.featuredContents}
                     selectedProductIds={form.selectedProductIds}
                     productOverrides={form.productOverrides}
+                    visibilityProductModes={form.visibilityProductModes}
                     tenantCatalogs={tenantCatalogs}
                     tenantStyles={tenantStyles}
                     tenantFeaturedContents={tenantFeaturedContents}
                     tenantProducts={tenantProducts}
+                    tenantProductGroups={tenantProductGroups}
+                    tenantProductGroupItems={tenantProductGroupItems}
                     onFormChange={handleFormChange}
                 />
 

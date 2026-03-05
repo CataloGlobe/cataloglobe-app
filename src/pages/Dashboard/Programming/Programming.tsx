@@ -4,14 +4,12 @@ import { IconDotsVertical } from "@tabler/icons-react";
 import { Globe, Building2, Users, AlertCircle, FileText, Loader2 } from "lucide-react";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
-import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
 import { Button } from "@/components/ui/Button/Button";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
 import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
-import { Pill } from "@/components/ui/Pill/Pill";
 import ModalLayout, {
     ModalLayoutContent,
     ModalLayoutFooter,
@@ -27,27 +25,21 @@ import { useAuth } from "@/context/useAuth";
 import {
     createRuleDraft,
     deleteLayoutRule,
-    getSystemActivityGroupId,
     listLayoutRuleOptions,
     listLayoutRules,
     updateScheduleEnabled,
     type LayoutRule,
     type LayoutRuleOption,
-    type RuleType,
-    type RuleTargetType
+    type RuleType
 } from "@/services/supabase/v2/layoutScheduling";
-import { buildRuleSummary } from "@/utils/ruleHelpers";
+import { buildRuleSummary, isRuleCurrentlyActive } from "@/utils/ruleHelpers";
 import styles from "./Programming.module.scss";
 
-type TargetMode = "all_activities" | "activity_group" | "specific_activity";
 type RuleTypeFilter = "all" | RuleType;
 
 type CreateRuleForm = {
     ruleType: RuleType;
     name: string;
-    targetMode: TargetMode;
-    activityId: string;
-    activityGroupId: string;
 };
 
 const RULE_TYPE_FILTER_OPTIONS: Array<{ value: RuleTypeFilter; label: string }> = [
@@ -78,27 +70,10 @@ function getRuleTargetLabel(rule: LayoutRule, activityById: Map<string, LayoutRu
     return activityById.get(rule.target_id)?.name ?? rule.target_id;
 }
 
-function buildDefaultCreateForm(input: {
-    activities: LayoutRuleOption[];
-    groups: LayoutRuleOption[];
-    tenantId: string | null;
-}): CreateRuleForm {
-    const firstActivity =
-        input.activities.find(activity => activity.tenant_id === input.tenantId) ??
-        input.activities[0] ??
-        null;
-
-    const firstGroup =
-        input.groups.find(group => group.tenant_id === input.tenantId && !group.is_system) ??
-        input.groups.find(group => !group.is_system) ??
-        null;
-
+function buildDefaultCreateForm(): CreateRuleForm {
     return {
         ruleType: "layout",
-        name: "",
-        targetMode: "specific_activity",
-        activityId: firstActivity?.id ?? "",
-        activityGroupId: firstGroup?.id ?? ""
+        name: ""
     };
 }
 
@@ -128,10 +103,7 @@ export default function Programming() {
 
     const [form, setForm] = useState<CreateRuleForm>({
         ruleType: "layout",
-        name: "",
-        targetMode: "specific_activity",
-        activityId: "",
-        activityGroupId: ""
+        name: ""
     });
 
     const activityById = useMemo(
@@ -142,23 +114,6 @@ export default function Programming() {
     const styleById = useMemo(
         () => new Map(stylesOptions.map(item => [item.id, item])),
         [stylesOptions]
-    );
-
-    const tenantActivities = useMemo(
-        () =>
-            currentTenantId
-                ? activities.filter(activity => activity.tenant_id === currentTenantId)
-                : activities,
-        [activities, currentTenantId]
-    );
-
-    const tenantGroups = useMemo(
-        () =>
-            (currentTenantId
-                ? activityGroups.filter(group => group.tenant_id === currentTenantId)
-                : activityGroups
-            ).filter(group => !group.is_system),
-        [activityGroups, currentTenantId]
     );
 
     const loadRules = useCallback(async () => {
@@ -178,13 +133,7 @@ export default function Programming() {
             setActivityGroups(optionsData.activityGroups);
             setCatalogs(optionsData.catalogs);
             setStylesOptions(optionsData.styles);
-            setForm(
-                buildDefaultCreateForm({
-                    activities: optionsData.activities,
-                    groups: optionsData.activityGroups,
-                    tenantId: currentTenantId
-                })
-            );
+            setForm(buildDefaultCreateForm());
         } catch (error) {
             console.error("Errore caricamento Programmazione:", error);
             showToast({
@@ -195,7 +144,7 @@ export default function Programming() {
         } finally {
             setIsLoading(false);
         }
-    }, [currentTenantId, showToast]);
+    }, [showToast]);
 
     useEffect(() => {
         void loadInitialData();
@@ -237,6 +186,34 @@ export default function Programming() {
                 .includes(query);
         });
     }, [activityById, catalogById, ruleTypeFilter, rules, searchTerm, styleById]);
+
+    const [currentTime, setCurrentTime] = useState(new Date());
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 15000); // Check every 15s to be responsive
+        return () => clearInterval(interval);
+    }, []);
+
+    const winningRuleIds = useMemo(() => {
+        const ids = new Set<string>();
+        const ruleTypes: RuleType[] = ["layout", "price", "visibility"];
+
+        ruleTypes.forEach(type => {
+            const activeRules = rules
+                .filter(
+                    r => r.rule_type === type && r.enabled && isRuleCurrentlyActive(r, currentTime)
+                )
+                .sort((a, b) => a.priority - b.priority);
+
+            if (activeRules.length > 0) {
+                ids.add(activeRules[0].id);
+            }
+        });
+
+        return ids;
+    }, [rules, currentTime]);
 
     const handleToggleEnabled = async (ruleId: string, enabled: boolean) => {
         // Optimistic update
@@ -293,25 +270,42 @@ export default function Programming() {
             cell: (_value, rule) => {
                 const draft = isDraft(rule);
                 const summary = buildRuleSummary(rule);
+                const isWinning = winningRuleIds.has(rule.id);
+
                 return (
                     <div className={styles.nameCell}>
-                        <div className={styles.nameRow}>
-                            <Text variant="body-sm" weight={700}>
-                                {(
-                                    rule.name ??
-                                    `${getRuleTypeLabel(rule.rule_type)} · ${rule.id.slice(0, 6)}`
-                                ).trim()}
-                            </Text>
-                            {draft && (
-                                <span className={styles.badgeDraft}>
-                                    <FileText size={10} />
-                                    Bozza
-                                </span>
+                        <div className={styles.activityDotWrapper}>
+                            {isWinning ? (
+                                <Tooltip content="Attualmente applicata" side="top">
+                                    <div className={`${styles.activityDot} ${styles.active}`} />
+                                </Tooltip>
+                            ) : (
+                                <div className={styles.activityDot} />
                             )}
                         </div>
-                        <Text variant="caption" colorVariant="muted" className={styles.summaryLine}>
-                            {summary}
-                        </Text>
+                        <div className={styles.nameCellContent}>
+                            <div className={styles.nameRow}>
+                                <Text variant="body-sm" weight={700}>
+                                    {(
+                                        rule.name ??
+                                        `${getRuleTypeLabel(rule.rule_type)} · ${rule.id.slice(0, 6)}`
+                                    ).trim()}
+                                </Text>
+                                {draft && (
+                                    <span className={styles.badgeDraft}>
+                                        <FileText size={10} />
+                                        Bozza
+                                    </span>
+                                )}
+                            </div>
+                            <Text
+                                variant="caption"
+                                colorVariant="muted"
+                                className={styles.summaryLine}
+                            >
+                                {summary}
+                            </Text>
+                        </div>
                     </div>
                 );
             }
@@ -321,36 +315,71 @@ export default function Programming() {
             header: "Target attività",
             width: "1.4fr",
             cell: (_value, rule) => {
-                let targetLabel = "";
-                let Icon = Building2;
-                let isAll = false;
-
-                if (rule.target_type === "activity_group") {
-                    if (rule.target_group?.is_system) {
-                        targetLabel = "Tutte le attività";
-                        Icon = Globe;
-                        isAll = true;
-                    } else {
-                        targetLabel = `Gruppo: ${rule.target_group?.name ?? rule.target_id}`;
-                        Icon = Users;
-                    }
-                } else {
-                    targetLabel = `Attività: ${activityById.get(rule.target_id)?.name ?? rule.target_id}`;
+                // Multi-target rendering
+                if (rule.applyToAll) {
+                    return (
+                        <Tooltip content="Applicata a: Tutte le attività" side="top">
+                            <div className={styles.targetPill}>
+                                <Globe size={14} className={styles.targetIcon} />
+                                <Text variant="caption" weight={600}>
+                                    Tutte
+                                </Text>
+                            </div>
+                        </Tooltip>
+                    );
                 }
 
+                if (rule.activityIds.length > 0) {
+                    const firstName = activityById.get(rule.activityIds[0])?.name ?? "…";
+                    const extra = rule.activityIds.length - 1;
+                    const allNames = rule.activityIds
+                        .map(id => activityById.get(id)?.name ?? id)
+                        .join(", ");
+                    return (
+                        <Tooltip content={`Attività: ${allNames}`} side="top">
+                            <div className={styles.targetPill}>
+                                <Building2 size={14} className={styles.targetIcon} />
+                                <Text variant="caption" weight={600}>
+                                    {firstName}
+                                    {extra > 0 && (
+                                        <span className={styles.targetExtraBadge}>+{extra}</span>
+                                    )}
+                                </Text>
+                            </div>
+                        </Tooltip>
+                    );
+                }
+
+                if (rule.groupIds.length > 0) {
+                    const firstGroupName =
+                        activityGroups.find(g => g.id === rule.groupIds[0])?.name ?? "…";
+                    const extra = rule.groupIds.length - 1;
+                    const allGroupNames = rule.groupIds
+                        .map(id => activityGroups.find(g => g.id === id)?.name ?? id)
+                        .join(", ");
+                    return (
+                        <Tooltip content={`Gruppi: ${allGroupNames}`} side="top">
+                            <div className={styles.targetPill}>
+                                <Users size={14} className={styles.targetIcon} />
+                                <Text variant="caption" weight={600}>
+                                    {firstGroupName}
+                                    {extra > 0 && (
+                                        <span className={styles.targetExtraBadge}>+{extra}</span>
+                                    )}
+                                </Text>
+                            </div>
+                        </Tooltip>
+                    );
+                }
+
+                // Fallback for legacy / no target
                 return (
-                    <Tooltip content={`Applicata a: ${targetLabel}`} side="top">
-                        <div className={styles.targetPill}>
-                            <Icon size={14} className={styles.targetIcon} />
-                            <Text variant="caption" weight={600}>
-                                {isAll
-                                    ? "Tutte"
-                                    : (rule.target_group?.name ??
-                                      activityById.get(rule.target_id)?.name ??
-                                      "...")}
-                            </Text>
-                        </div>
-                    </Tooltip>
+                    <div className={styles.targetPill}>
+                        <AlertCircle size={14} className={styles.targetIcon} />
+                        <Text variant="caption" colorVariant="muted">
+                            Nessun target
+                        </Text>
+                    </div>
                 );
             }
         },
@@ -437,13 +466,7 @@ export default function Programming() {
     ];
 
     const handleOpenCreate = () => {
-        setForm(
-            buildDefaultCreateForm({
-                activities,
-                groups: activityGroups,
-                tenantId: currentTenantId
-            })
-        );
+        setForm(buildDefaultCreateForm());
         setIsCreateDrawerOpen(true);
     };
 
@@ -492,53 +515,12 @@ export default function Programming() {
             return;
         }
 
-        let targetType: RuleTargetType = "activity";
-        let targetId = form.activityId;
-
-        if (form.targetMode === "all_activities") {
-            const systemGroupId = await getSystemActivityGroupId(currentTenantId);
-            if (!systemGroupId) {
-                showToast({
-                    type: "error",
-                    message: "Gruppo di sistema 'Tutte le sedi' mancante.",
-                    duration: 3000
-                });
-                return;
-            }
-            targetType = "activity_group";
-            targetId = systemGroupId;
-        }
-
-        if (form.targetMode === "activity_group") {
-            if (!form.activityGroupId) {
-                showToast({
-                    type: "error",
-                    message: "Seleziona un gruppo attività.",
-                    duration: 2600
-                });
-                return;
-            }
-            targetType = "activity_group";
-            targetId = form.activityGroupId;
-        }
-
-        if (form.targetMode === "specific_activity" && !form.activityId) {
-            showToast({
-                type: "error",
-                message: "Seleziona un'attività.",
-                duration: 2600
-            });
-            return;
-        }
-
         setIsSaving(true);
         try {
             const newRuleId = await createRuleDraft({
                 tenantId: currentTenantId,
                 ruleType: form.ruleType,
-                name: ruleName,
-                targetType,
-                targetId
+                name: ruleName
             });
 
             showToast({
@@ -704,62 +686,6 @@ export default function Programming() {
                             required
                             placeholder="Es. Layout pranzo weekend"
                         />
-
-                        <Select
-                            label="Target"
-                            value={form.targetMode}
-                            onChange={event =>
-                                setForm(prev => ({
-                                    ...prev,
-                                    targetMode: event.target.value as TargetMode
-                                }))
-                            }
-                            options={[
-                                { value: "all_activities", label: "Tutte le attività" },
-                                { value: "activity_group", label: "Gruppi attività" },
-                                { value: "specific_activity", label: "Attività specifiche" }
-                            ]}
-                        />
-
-                        {form.targetMode === "specific_activity" && (
-                            <Select
-                                label="Attività"
-                                value={form.activityId}
-                                onChange={event =>
-                                    setForm(prev => ({
-                                        ...prev,
-                                        activityId: event.target.value
-                                    }))
-                                }
-                                options={[
-                                    { value: "", label: "Seleziona attività" },
-                                    ...tenantActivities.map(activity => ({
-                                        value: activity.id,
-                                        label: activity.name
-                                    }))
-                                ]}
-                            />
-                        )}
-
-                        {form.targetMode === "activity_group" && (
-                            <Select
-                                label="Gruppo attività"
-                                value={form.activityGroupId}
-                                onChange={event =>
-                                    setForm(prev => ({
-                                        ...prev,
-                                        activityGroupId: event.target.value
-                                    }))
-                                }
-                                options={[
-                                    { value: "", label: "Seleziona gruppo" },
-                                    ...tenantGroups.map(group => ({
-                                        value: group.id,
-                                        label: group.name
-                                    }))
-                                ]}
-                            />
-                        )}
                     </form>
                 </DrawerLayout>
             </SystemDrawer>

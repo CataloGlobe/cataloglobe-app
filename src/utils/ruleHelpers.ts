@@ -94,3 +94,36 @@ export function buildRuleSummary(rule: RuleSummaryParams): string {
 
     return segments.join(" • ");
 }
+
+export function isRuleCurrentlyActive(rule: RuleSummaryParams, now: Date): boolean {
+    if (rule.enabled === false) return false;
+
+    // 1. Date range check
+    if (rule.time_mode === "window") {
+        if (rule.start_at && new Date(rule.start_at) > now) return false;
+        if (rule.end_at && new Date(rule.end_at) < now) return false;
+    }
+
+    // 2. Weekly days check
+    if (rule.days_of_week && rule.days_of_week.length > 0) {
+        const currentDay = now.getDay();
+        if (!rule.days_of_week.includes(currentDay)) return false;
+    }
+
+    // 3. Time window check
+    if (rule.time_from && rule.time_to) {
+        const currentTimeStr = now.toTimeString().slice(0, 5); // "HH:mm"
+        const from = rule.time_from.slice(0, 5);
+        const to = rule.time_to.slice(0, 5);
+
+        if (from <= to) {
+            // Normal range (e.g., 09:00 - 17:00)
+            if (currentTimeStr < from || currentTimeStr > to) return false;
+        } else {
+            // Overnight range (e.g., 22:00 - 04:00)
+            if (currentTimeStr < from && currentTimeStr > to) return false;
+        }
+    }
+
+    return true;
+}

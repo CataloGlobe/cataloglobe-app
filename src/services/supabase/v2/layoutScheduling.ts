@@ -3,6 +3,7 @@ import { supabase } from "../client";
 export type LayoutTimeMode = "always" | "window";
 export type RuleType = "layout" | "price" | "visibility";
 export type RuleTargetType = "activity" | "activity_group";
+export type VisibilityMode = "hide" | "disable";
 
 export type PriceRuleProductOverride = {
     product_id: string;
@@ -14,7 +15,7 @@ export type PriceRuleProductOverride = {
 export type VisibilityRuleProductOverride = {
     product_id: string;
     product_name: string | null;
-    visible: boolean;
+    mode: VisibilityMode;
 };
 
 export type LayoutRuleFeaturedContent = {
@@ -29,6 +30,7 @@ export type LayoutRule = {
     tenant_id: string;
     name: string | null;
     rule_type: RuleType;
+    // Legacy single-target fields (kept for backward compat with runtime Edge Functions)
     target_type: string;
     target_id: string;
     target_group: {
@@ -36,6 +38,11 @@ export type LayoutRule = {
         name: string;
         is_system: boolean;
     } | null;
+    // Multi-target fields
+    applyToAll: boolean;
+    activityIds: string[];
+    groupIds: string[];
+    visibility_mode: VisibilityMode;
     priority: number;
     enabled: boolean;
     time_mode: LayoutTimeMode;
@@ -69,6 +76,8 @@ type RawScheduleRow = {
     rule_type: RuleType;
     target_type: string;
     target_id: string;
+    apply_to_all?: boolean | null;
+    visibility_mode?: VisibilityMode | null;
     priority: number;
     enabled: boolean;
     time_mode: LayoutTimeMode;
@@ -105,6 +114,7 @@ type RawVisibilityOverrideRow = {
     schedule_id: string;
     product_id: string;
     visible: boolean;
+    mode?: VisibilityMode | null;
     product:
         | {
               name: string | null;
@@ -136,9 +146,34 @@ type ActivityGroupRow = {
     is_system: boolean;
 };
 
+type RawScheduleTargetRow = {
+    schedule_id: string;
+    target_type: string;
+    target_id: string;
+};
+
+type RawStyleOptionRow = {
+    id: string;
+    name: string;
+    tenant_id: string;
+    is_system: boolean;
+    current_version: { version: number } | { version: number }[] | null;
+};
+
+export type ProductGroupAssignmentOption = {
+    product_id: string;
+    group_id: string;
+    tenant_id: string;
+};
+
 function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
     if (!value) return null;
     return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+function normalizeVisibilityMode(value: string | null | undefined): VisibilityMode | null {
+    if (value === "hide" || value === "disable") return value;
+    return null;
 }
 
 const systemActivityGroupIdByTenant = new Map<string, string>();
@@ -156,63 +191,57 @@ function isMissingColumnError(error: unknown, column: string): boolean {
 }
 
 async function selectSchedulesWithNameFallback(): Promise<RawScheduleRow[]> {
-    const selectWithName = `
-            id,
-            tenant_id,
-            name,
-            rule_type,
-            target_type,
-            target_id,
-            priority,
-            enabled,
-            time_mode,
-            days_of_week,
-            time_from,
-            time_to,
-            start_at,
-            end_at,
-            created_at
-            `;
+    let includeName = true;
+    let includeApplyToAll = true;
+    let includeVisibilityMode = true;
 
-    const withNameRes = await supabase
-        .from("v2_schedules")
-        .select(selectWithName)
-        .order("priority", { ascending: true })
-        .order("created_at", { ascending: false });
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+        const selectColumns = [
+            "id",
+            "tenant_id",
+            ...(includeName ? ["name"] : []),
+            "rule_type",
+            "target_type",
+            "target_id",
+            ...(includeApplyToAll ? ["apply_to_all"] : []),
+            ...(includeVisibilityMode ? ["visibility_mode"] : []),
+            "priority",
+            "enabled",
+            "time_mode",
+            "days_of_week",
+            "time_from",
+            "time_to",
+            "start_at",
+            "end_at",
+            "created_at"
+        ].join(", ");
 
-    if (!withNameRes.error) {
-        return (withNameRes.data ?? []) as RawScheduleRow[];
+        const result = await supabase
+            .from("v2_schedules")
+            .select(selectColumns)
+            .order("priority", { ascending: true })
+            .order("created_at", { ascending: false });
+
+        if (!result.error) {
+            return (result.data ?? []) as RawScheduleRow[];
+        }
+
+        const missingName = includeName && isMissingColumnError(result.error, "name");
+        const missingApplyToAll =
+            includeApplyToAll && isMissingColumnError(result.error, "apply_to_all");
+        const missingVisibilityMode =
+            includeVisibilityMode && isMissingColumnError(result.error, "visibility_mode");
+
+        if (!missingName && !missingApplyToAll && !missingVisibilityMode) {
+            throw result.error;
+        }
+
+        if (missingName) includeName = false;
+        if (missingApplyToAll) includeApplyToAll = false;
+        if (missingVisibilityMode) includeVisibilityMode = false;
     }
 
-    if (!isMissingColumnError(withNameRes.error, "name")) {
-        throw withNameRes.error;
-    }
-
-    const selectWithoutName = `
-            id,
-            tenant_id,
-            rule_type,
-            target_type,
-            target_id,
-            priority,
-            enabled,
-            time_mode,
-            days_of_week,
-            time_from,
-            time_to,
-            start_at,
-            end_at,
-            created_at
-            `;
-
-    const withoutNameRes = await supabase
-        .from("v2_schedules")
-        .select(selectWithoutName)
-        .order("priority", { ascending: true })
-        .order("created_at", { ascending: false });
-
-    if (withoutNameRes.error) throw withoutNameRes.error;
-    return (withoutNameRes.data ?? []) as RawScheduleRow[];
+    throw new Error("Impossibile leggere v2_schedules con lo schema corrente.");
 }
 
 async function insertScheduleWithNameFallback(
@@ -291,6 +320,104 @@ async function updateScheduleWithNameFallback(input: {
     if (withoutNameRes.error) throw withoutNameRes.error;
 }
 
+async function updateScheduleVisibilityModeFallback(
+    scheduleId: string,
+    visibilityMode: VisibilityMode
+): Promise<void> {
+    const { error } = await supabase
+        .from("v2_schedules")
+        .update({ visibility_mode: visibilityMode })
+        .eq("id", scheduleId);
+
+    if (error && !isMissingColumnError(error, "visibility_mode")) {
+        throw error;
+    }
+}
+
+async function selectVisibilityOverridesWithModeFallback(
+    scheduleIds: string[]
+): Promise<RawVisibilityOverrideRow[]> {
+    if (scheduleIds.length === 0) return [];
+
+    const withModeRes = await supabase
+        .from("v2_schedule_visibility_overrides")
+        .select(
+            `
+            schedule_id,
+            product_id,
+            visible,
+            mode,
+            product:v2_products(
+                name
+            )
+            `
+        )
+        .in("schedule_id", scheduleIds);
+
+    if (!withModeRes.error) {
+        return (withModeRes.data ?? []) as RawVisibilityOverrideRow[];
+    }
+
+    if (!isMissingColumnError(withModeRes.error, "mode")) {
+        throw withModeRes.error;
+    }
+
+    const withoutModeRes = await supabase
+        .from("v2_schedule_visibility_overrides")
+        .select(
+            `
+            schedule_id,
+            product_id,
+            visible,
+            product:v2_products(
+                name
+            )
+            `
+        )
+        .in("schedule_id", scheduleIds);
+
+    if (withoutModeRes.error) throw withoutModeRes.error;
+    return ((withoutModeRes.data ?? []) as RawVisibilityOverrideRow[]).map(row => ({
+        ...row,
+        mode: null
+    }));
+}
+
+async function insertVisibilityOverridesWithModeFallback(
+    rows: Array<{ schedule_id: string; product_id: string; mode: VisibilityMode }>
+): Promise<void> {
+    if (rows.length === 0) return;
+
+    const withModeRes = await supabase.from("v2_schedule_visibility_overrides").insert(
+        rows.map(row => ({
+            schedule_id: row.schedule_id,
+            product_id: row.product_id,
+            visible: false,
+            mode: row.mode
+        }))
+    );
+
+    if (!withModeRes.error) return;
+    if (!isMissingColumnError(withModeRes.error, "mode")) throw withModeRes.error;
+
+    const uniqueModes = Array.from(new Set(rows.map(row => row.mode)));
+    if (uniqueModes.length > 1) {
+        throw new Error(
+            "Schema non aggiornato: impossibile salvare comportamenti visibility differenti per prodotto senza colonna mode."
+        );
+    }
+
+    const withoutModeRes = await supabase.from("v2_schedule_visibility_overrides").insert(
+        rows.map(row => ({
+            schedule_id: row.schedule_id,
+            product_id: row.product_id,
+            visible: false
+        }))
+    );
+
+    if (withoutModeRes.error) throw withoutModeRes.error;
+}
+
 export async function getSystemActivityGroupId(tenantId: string): Promise<string | null> {
     const cached = systemActivityGroupIdByTenant.get(tenantId);
     if (cached) return cached;
@@ -316,6 +443,7 @@ export async function getSystemActivityGroupId(tenantId: string): Promise<string
 
 export async function listLayoutRules(): Promise<LayoutRule[]> {
     const data = await selectSchedulesWithNameFallback();
+    const applyToAllByScheduleId = new Map(data.map(row => [row.id, row.apply_to_all]));
 
     const baseRules = data.map(row => ({
         id: row.id,
@@ -325,6 +453,11 @@ export async function listLayoutRules(): Promise<LayoutRule[]> {
         target_type: row.target_type,
         target_id: row.target_id,
         target_group: null,
+        // Will be populated below
+        applyToAll: false,
+        activityIds: [] as string[],
+        groupIds: [] as string[],
+        visibility_mode: row.visibility_mode ?? "hide",
         priority: row.priority,
         enabled: row.enabled,
         time_mode: row.time_mode,
@@ -404,35 +537,40 @@ export async function listLayoutRules(): Promise<LayoutRule[]> {
         .filter(rule => rule.rule_type === "visibility")
         .map(rule => rule.id);
 
-    const visibilityOverridesByScheduleId = new Map<string, VisibilityRuleProductOverride[]>();
+    const visibilityOverrideRowsByScheduleId = new Map<string, RawVisibilityOverrideRow[]>();
     if (visibilityRuleIds.length > 0) {
-        const { data: visibilityOverridesData, error: visibilityOverridesError } = await supabase
-            .from("v2_schedule_visibility_overrides")
-            .select(
-                `
-                schedule_id,
-                product_id,
-                visible,
-                product:v2_products(
-                    name
-                )
-                `
-            )
-            .in("schedule_id", visibilityRuleIds);
-
-        if (visibilityOverridesError) throw visibilityOverridesError;
-
-        for (const row of (visibilityOverridesData ?? []) as RawVisibilityOverrideRow[]) {
-            const current = visibilityOverridesByScheduleId.get(row.schedule_id) ?? [];
-            current.push({
-                product_id: row.product_id,
-                product_name: normalizeOne(row.product)?.name ?? null,
-                visible: row.visible
-            });
-            visibilityOverridesByScheduleId.set(row.schedule_id, current);
+        const visibilityOverrideRows = await selectVisibilityOverridesWithModeFallback(
+            visibilityRuleIds
+        );
+        for (const row of visibilityOverrideRows) {
+            const current = visibilityOverrideRowsByScheduleId.get(row.schedule_id) ?? [];
+            current.push(row);
+            visibilityOverrideRowsByScheduleId.set(row.schedule_id, current);
         }
     }
 
+    const allRuleIds = baseRules.map(r => r.id);
+
+    // Load multi-target entries from join table
+    const scheduleTargetsByScheduleId = new Map<string, RawScheduleTargetRow[]>();
+    if (allRuleIds.length > 0) {
+        const { data: targetsData, error: targetsError } = await supabase
+            .from("v2_schedule_targets")
+            .select("schedule_id, target_type, target_id")
+            .in("schedule_id", allRuleIds);
+
+        if (!targetsError && targetsData) {
+            for (const row of targetsData as RawScheduleTargetRow[]) {
+                const arr = scheduleTargetsByScheduleId.get(row.schedule_id) ?? [];
+                arr.push(row);
+                scheduleTargetsByScheduleId.set(row.schedule_id, arr);
+            }
+        }
+        // If v2_schedule_targets doesn't exist yet (pre-migration), silently fall back
+    }
+
+    // Determine apply_to_all from DB column OR legacy system-group detection
+    // We also need to resolve target_group for the legacy column
     const activityGroupIds = Array.from(
         new Set(
             baseRules
@@ -485,20 +623,87 @@ export async function listLayoutRules(): Promise<LayoutRule[]> {
         }
     }
 
-    return baseRules.map(rule => ({
-        ...rule,
-        target_group:
-            rule.target_type === "activity_group" ? (groupById.get(rule.target_id) ?? null) : null,
-        layout: rule.rule_type === "layout" ? (layoutByScheduleId.get(rule.id) ?? null) : null,
-        price_overrides:
-            rule.rule_type === "price" ? (priceOverridesByScheduleId.get(rule.id) ?? []) : [],
-        visibility_overrides:
+    return baseRules.map(rule => {
+        const targetGroup =
+            rule.target_type === "activity_group" ? (groupById.get(rule.target_id) ?? null) : null;
+
+        // Determine applyToAll:
+        // - Prefer explicit apply_to_all column when available.
+        // - Fall back to legacy system-group detection for old schemas.
+        const targets = scheduleTargetsByScheduleId.get(rule.id) ?? [];
+        const isLegacySystemGroup = targetGroup?.is_system === true;
+        const rowApplyToAll = applyToAllByScheduleId.get(rule.id);
+        const hasApplyToAllFlag = typeof rowApplyToAll === "boolean";
+
+        // If apply_to_all is present on row, treat schema as migrated even when join-table is empty.
+        const hasMigrated =
+            hasApplyToAllFlag || scheduleTargetsByScheduleId.has(rule.id) || targets.length > 0;
+
+        let applyToAll =
+            typeof rowApplyToAll === "boolean" ? rowApplyToAll : isLegacySystemGroup;
+        let activityIds: string[] = [];
+        let groupIds: string[] = [];
+
+        if (hasMigrated) {
+            // targets is the source of truth if migration has run
+            activityIds = targets.filter(t => t.target_type === "activity").map(t => t.target_id);
+            groupIds = targets
+                .filter(t => t.target_type === "activity_group")
+                .map(t => t.target_id);
+            if (typeof rowApplyToAll !== "boolean") {
+                applyToAll = activityIds.length === 0 && groupIds.length === 0;
+            }
+        } else {
+            // Legacy fallback: single target
+            if (!isLegacySystemGroup) {
+                if (rule.target_type === "activity") {
+                    activityIds = [rule.target_id];
+                } else if (rule.target_type === "activity_group") {
+                    groupIds = [rule.target_id];
+                }
+            }
+        }
+
+        const visibilityOverrides =
             rule.rule_type === "visibility"
-                ? (visibilityOverridesByScheduleId.get(rule.id) ?? [])
-                : [],
-        featured_contents:
-            rule.rule_type === "layout" ? (featuredContentsByScheduleId.get(rule.id) ?? []) : []
-    }));
+                ? (visibilityOverrideRowsByScheduleId.get(rule.id) ?? []).flatMap(row => {
+                      if (row.visible === true) {
+                          // Legacy explicit "visible=true" rows mean "do not impact this product".
+                          return [];
+                      }
+
+                      const modeFromRow = normalizeVisibilityMode(row.mode ?? null);
+                      const legacyMode =
+                          row.visible === false ? (rule.visibility_mode ?? "hide") : null;
+                      const effectiveMode = modeFromRow ?? legacyMode;
+
+                      if (!effectiveMode) return [];
+
+                      return [
+                          {
+                              product_id: row.product_id,
+                              product_name: normalizeOne(row.product)?.name ?? null,
+                              mode: effectiveMode
+                          }
+                      ];
+                  })
+                : [];
+
+        return {
+            ...rule,
+            target_group: targetGroup,
+            applyToAll,
+            activityIds,
+            groupIds,
+            visibility_mode: rule.visibility_mode ?? "hide",
+            layout: rule.rule_type === "layout" ? (layoutByScheduleId.get(rule.id) ?? null) : null,
+            price_overrides:
+                rule.rule_type === "price" ? (priceOverridesByScheduleId.get(rule.id) ?? []) : [],
+            visibility_overrides: visibilityOverrides,
+            featured_contents:
+                rule.rule_type === "layout" ? (featuredContentsByScheduleId.get(rule.id) ?? []) : []
+        };
+    });
 }
 
 export async function listLayoutRuleOptions(): Promise<{
@@ -507,9 +712,20 @@ export async function listLayoutRuleOptions(): Promise<{
     catalogs: LayoutRuleOption[];
     styles: LayoutRuleOption[];
     products: LayoutRuleOption[];
+    productGroups: LayoutRuleOption[];
+    productGroupItems: ProductGroupAssignmentOption[];
     featuredContents: LayoutRuleOption[];
 }> {
-    const [activitiesRes, activityGroupsRes, catalogsRes, stylesRes, productsRes, featuredRes] =
+    const [
+        activitiesRes,
+        activityGroupsRes,
+        catalogsRes,
+        stylesRes,
+        productsRes,
+        productGroupsRes,
+        productGroupItemsRes,
+        featuredRes
+    ] =
         await Promise.all([
             supabase
                 .from("v2_activities")
@@ -535,6 +751,13 @@ export async function listLayoutRuleOptions(): Promise<{
                 .select("id, name, tenant_id")
                 .order("name", { ascending: true }),
             supabase
+                .from("v2_product_groups")
+                .select("id, name, tenant_id")
+                .order("name", { ascending: true }),
+            supabase
+                .from("v2_product_group_items")
+                .select("product_id, group_id, tenant_id"),
+            supabase
                 .from("v2_featured_contents")
                 .select("id, title, tenant_id")
                 .eq("status", "published")
@@ -546,13 +769,15 @@ export async function listLayoutRuleOptions(): Promise<{
     if (catalogsRes.error) throw catalogsRes.error;
     if (stylesRes.error) throw stylesRes.error;
     if (productsRes.error) throw productsRes.error;
+    if (productGroupsRes.error) throw productGroupsRes.error;
+    if (productGroupItemsRes.error) throw productGroupItemsRes.error;
     if (featuredRes.error) throw featuredRes.error;
 
     return {
         activities: (activitiesRes.data ?? []) as LayoutRuleOption[],
         activityGroups: (activityGroupsRes.data ?? []) as LayoutRuleOption[],
         catalogs: (catalogsRes.data ?? []) as LayoutRuleOption[],
-        styles: ((stylesRes.data ?? []) as any[]).map(s => ({
+        styles: ((stylesRes.data ?? []) as RawStyleOptionRow[]).map(s => ({
             id: s.id,
             name: s.name,
             tenant_id: s.tenant_id,
@@ -562,6 +787,8 @@ export async function listLayoutRuleOptions(): Promise<{
                 : s.current_version
         })),
         products: (productsRes.data ?? []) as LayoutRuleOption[],
+        productGroups: (productGroupsRes.data ?? []) as LayoutRuleOption[],
+        productGroupItems: (productGroupItemsRes.data ?? []) as ProductGroupAssignmentOption[],
         featuredContents: (
             (featuredRes.data ?? []) as { id: string; title: string; tenant_id: string }[]
         ).map(fc => ({ id: fc.id, name: fc.title, tenant_id: fc.tenant_id }))
@@ -701,7 +928,7 @@ export async function createVisibilityRule(input: {
     timeTo: string | null;
     products: Array<{
         productId: string;
-        visible: boolean;
+        mode: VisibilityMode;
     }>;
 }): Promise<void> {
     if (input.products.length === 0) {
@@ -725,21 +952,21 @@ export async function createVisibilityRule(input: {
     );
 
     const scheduleId = schedule.id;
+    await updateScheduleVisibilityModeFallback(scheduleId, input.products[0]?.mode ?? "hide");
 
-    const { error: overridesError } = await supabase
-        .from("v2_schedule_visibility_overrides")
-        .insert(
+    try {
+        await insertVisibilityOverridesWithModeFallback(
             input.products.map(product => ({
                 schedule_id: scheduleId,
                 product_id: product.productId,
-                visible: product.visible
+                mode: product.mode
             }))
         );
-
-    if (!overridesError) return;
-
-    await supabase.from("v2_schedules").delete().eq("id", scheduleId);
-    throw overridesError;
+        return;
+    } catch (error) {
+        await supabase.from("v2_schedules").delete().eq("id", scheduleId);
+        throw error;
+    }
 }
 
 export async function updateLayoutRule(input: {
@@ -855,16 +1082,19 @@ export async function createRuleDraft(input: {
     tenantId: string;
     ruleType: RuleType;
     name: string;
-    targetType: RuleTargetType;
-    targetId: string;
     priority?: number;
 }): Promise<string> {
+    const systemGroupId = await getSystemActivityGroupId(input.tenantId);
+    if (!systemGroupId) {
+        throw new Error("Gruppo di sistema 'Tutte le sedi' mancante.");
+    }
+
     const schedule = await insertScheduleWithNameFallback(
         {
             tenant_id: input.tenantId,
             rule_type: input.ruleType,
-            target_type: input.targetType,
-            target_id: input.targetId,
+            target_type: "activity_group",
+            target_id: systemGroupId,
             priority: input.priority ?? 10,
             enabled: false,
             time_mode: "always",
@@ -875,6 +1105,26 @@ export async function createRuleDraft(input: {
         input.name
     );
 
+    const { error: applyToAllError } = await supabase
+        .from("v2_schedules")
+        .update({ apply_to_all: true })
+        .eq("id", schedule.id);
+    if (applyToAllError && !isMissingColumnError(applyToAllError, "apply_to_all")) {
+        throw applyToAllError;
+    }
+
+    const { error: deleteTargetsError } = await supabase
+        .from("v2_schedule_targets")
+        .delete()
+        .eq("schedule_id", schedule.id);
+    if (deleteTargetsError && !isMissingColumnError(deleteTargetsError, "v2_schedule_targets")) {
+        console.warn("v2_schedule_targets delete failed:", deleteTargetsError);
+    }
+
+    if (input.ruleType === "visibility") {
+        await updateScheduleVisibilityModeFallback(schedule.id, "hide");
+    }
+
     return schedule.id;
 }
 
@@ -883,6 +1133,11 @@ export async function updateRule(input: {
     tenantId: string;
     ruleType: RuleType;
     name?: string | null;
+    // Multi-target fields
+    applyToAll: boolean;
+    activityIds: string[];
+    groupIds: string[];
+    // Legacy fallback target (kept for backward compat with Edge Functions)
     targetType: RuleTargetType;
     targetId: string;
     priority: number;
@@ -905,16 +1160,39 @@ export async function updateRule(input: {
         overridePrice: number;
         showOriginalPrice: boolean;
     }>;
-    visibilityProducts?: Array<{
+    visibilityProductOverrides?: Array<{
         productId: string;
-        visible: boolean;
+        mode: VisibilityMode;
     }>;
 }): Promise<void> {
+    // Update v2_schedules (legacy target fields kept in sync + apply_to_all)
+    const { error: scheduleUpdateError } = await supabase
+        .from("v2_schedules")
+        .update({
+            apply_to_all: input.applyToAll,
+            target_type: input.targetType,
+            target_id: input.targetId
+        })
+        .eq("id", input.scheduleId);
+    if (scheduleUpdateError) {
+        if (!isMissingColumnError(scheduleUpdateError, "apply_to_all")) {
+            throw scheduleUpdateError;
+        }
+
+        const { error: legacyTargetUpdateError } = await supabase
+            .from("v2_schedules")
+            .update({
+                target_type: input.targetType,
+                target_id: input.targetId
+            })
+            .eq("id", input.scheduleId);
+
+        if (legacyTargetUpdateError) throw legacyTargetUpdateError;
+    }
+
     await updateScheduleWithNameFallback({
         scheduleId: input.scheduleId,
         patch: {
-            target_type: input.targetType,
-            target_id: input.targetId,
             priority: input.priority,
             enabled: input.enabled,
             time_mode: input.timeMode,
@@ -924,6 +1202,43 @@ export async function updateRule(input: {
         },
         name: input.name
     });
+
+    // Sync join table: delete existing targets, then insert new ones
+    const { error: deleteTargetsError } = await supabase
+        .from("v2_schedule_targets")
+        .delete()
+        .eq("schedule_id", input.scheduleId);
+    if (deleteTargetsError && !isMissingColumnError(deleteTargetsError, "v2_schedule_targets")) {
+        // Silently ignore if table doesn't exist yet (pre-migration)
+        console.warn("v2_schedule_targets delete failed (pre-migration?):", deleteTargetsError);
+    }
+
+    if (!input.applyToAll) {
+        const targetRows: Array<{ schedule_id: string; target_type: string; target_id: string }> = [
+            ...input.activityIds.map(id => ({
+                schedule_id: input.scheduleId,
+                target_type: "activity" as const,
+                target_id: id
+            })),
+            ...input.groupIds.map(id => ({
+                schedule_id: input.scheduleId,
+                target_type: "activity_group" as const,
+                target_id: id
+            }))
+        ];
+
+        if (targetRows.length > 0) {
+            const { error: insertTargetsError } = await supabase
+                .from("v2_schedule_targets")
+                .insert(targetRows);
+            if (
+                insertTargetsError &&
+                !isMissingColumnError(insertTargetsError, "v2_schedule_targets")
+            ) {
+                console.warn("v2_schedule_targets insert failed:", insertTargetsError);
+            }
+        }
+    }
 
     if (input.ruleType === "layout") {
         const { data: existingLayout, error: existingLayoutError } = await supabase
@@ -1002,24 +1317,26 @@ export async function updateRule(input: {
         return;
     }
 
+    const visibilityProductOverrides = input.visibilityProductOverrides ?? [];
+    await updateScheduleVisibilityModeFallback(
+        input.scheduleId,
+        visibilityProductOverrides[0]?.mode ?? "hide"
+    );
+
     const { error: deleteError } = await supabase
         .from("v2_schedule_visibility_overrides")
         .delete()
         .eq("schedule_id", input.scheduleId);
     if (deleteError) throw deleteError;
 
-    const products = input.visibilityProducts ?? [];
-    if (products.length > 0) {
-        const { error: insertError } = await supabase
-            .from("v2_schedule_visibility_overrides")
-            .insert(
-                products.map(product => ({
-                    schedule_id: input.scheduleId,
-                    product_id: product.productId,
-                    visible: product.visible
-                }))
-            );
-        if (insertError) throw insertError;
+    if (visibilityProductOverrides.length > 0) {
+        await insertVisibilityOverridesWithModeFallback(
+            visibilityProductOverrides.map(product => ({
+                schedule_id: input.scheduleId,
+                product_id: product.productId,
+                mode: product.mode
+            }))
+        );
     }
 }
 
