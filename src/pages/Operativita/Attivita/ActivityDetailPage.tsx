@@ -62,7 +62,7 @@ const ActivityDetailPage: React.FC = () => {
 
             if (activityData) {
                 setActivity(activityData);
-                setGroups(groupsData);
+                setGroups(groupsData.filter(g => !g.is_system));
             }
         } catch (error) {
             console.error("Error fetching activity details:", error);
