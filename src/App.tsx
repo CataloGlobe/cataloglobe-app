@@ -25,7 +25,9 @@ import Settings from "@/pages/Dashboard/Settings/Settings";
 import Programming from "./pages/Dashboard/Programming/Programming";
 import ProgrammingRuleDetail from "./pages/Dashboard/Programming/ProgrammingRuleDetail";
 import Products from "./pages/Dashboard/Products/Products";
+import ProductPage from "./pages/Dashboard/Products/ProductPage";
 import Highlights from "./pages/Dashboard/Highlights/Highlights";
+import FeaturedContentDetailPage from "./pages/Dashboard/Highlights/FeaturedContentDetailPage";
 import Styles from "./pages/Dashboard/Styles/Styles";
 import StyleEditorPage from "./pages/Dashboard/Styles/StyleEditorPage";
 import Attributes from "./pages/Dashboard/Attributes/Attributes";
@@ -111,7 +113,11 @@ export default function App() {
                 <Route path="cataloghi" element={<Catalogs />} />
                 <Route path="cataloghi/:id" element={<CatalogEngine />} />
                 <Route path="prodotti" element={<Products />} />
-                <Route path="contenuti-in-evidenza" element={<Highlights />} />
+                <Route path="prodotti/:productId" element={<ProductPage />} />
+                <Route path="contenuti-in-evidenza">
+                    <Route index element={<Highlights />} />
+                    <Route path=":featuredId" element={<FeaturedContentDetailPage />} />
+                </Route>
                 <Route path="stili">
                     <Route index element={<Styles />} />
                     <Route path=":styleId" element={<StyleEditorPage />} />
@@ -125,6 +131,17 @@ export default function App() {
                 <Route path="impostazioni" element={<Settings />} />
 
                 <Route path="impostazioni/sicurezza" element={<UpdatePassword />} />
+            </Route>
+
+            <Route
+                path="/products/:productId"
+                element={
+                    <ProtectedRoute>
+                        <MainLayout />
+                    </ProtectedRoute>
+                }
+            >
+                <Route index element={<ProductPage />} />
             </Route>
 
             {/* PUBLIC BUSINESS */}

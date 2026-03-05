@@ -1,0 +1,121 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  padding: 24px 0;
+}
+
+.divider {
+  height: 1px;
+  background-color: var(--color-border, #e5e7eb);
+  margin: 0;
+}
+
+/* Base price */
+.basePriceDisplay {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.basePriceEdit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 320px;
+}
+
+.basePriceActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.microcopy {
+  margin-top: 6px;
+}
+
+/* Format table */
+.formatTable {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.formatHeader {
+  display: grid;
+  grid-template-columns: 1fr 120px 200px;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: var(--color-surface-secondary, #f9fafb);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.formatRow {
+  display: grid;
+  grid-template-columns: 1fr 120px 200px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.formatEditRow {
+  display: grid;
+  grid-template-columns: 1fr 120px 200px;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background-color: var(--color-surface-secondary, #f9fafb);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.rowActions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.rowError {
+  grid-column: 1 / -1;
+  padding-top: 2px;
+}
+
+/* Add format form */
+.addForm {
+  margin-top: 8px;
+}
+
+.addFormInputs {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+
+  > :first-child {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  > :nth-child(2) {
+    width: 120px;
+  }
+}

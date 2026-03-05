@@ -234,3 +234,34 @@ export async function deleteOptionValue(id: string): Promise<void> {
 
     if (error) throw error;
 }
+
+/**
+ * Creates a new format in the PRIMARY_PRICE group.
+ * If the group does not exist yet, it is created automatically.
+ */
+export async function createPrimaryPriceFormat(
+    productId: string,
+    tenantId: string,
+    name: string,
+    absolutePrice: number
+): Promise<V2ProductOptionValue> {
+    let group = await getPrimaryPriceGroup(productId);
+    if (!group) {
+        group = await createProductOptionGroup({
+            tenant_id: tenantId,
+            product_id: productId,
+            name: "Formati",
+            is_required: false,
+            max_selectable: null,
+            group_kind: "PRIMARY_PRICE",
+            pricing_mode: "ABSOLUTE"
+        });
+    }
+    return createOptionValue({
+        tenant_id: tenantId,
+        option_group_id: group.id,
+        name,
+        price_modifier: null,
+        absolute_price: absolutePrice
+    });
+}
