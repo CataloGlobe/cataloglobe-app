@@ -1,5 +1,9 @@
 import { supabase } from "../client";
-import { resolveActivityCatalogsV2 } from "./resolveActivityCatalogsV2";
+import {
+    resolveActivityCatalogsV2,
+    findLayoutCatalogId,
+    loadCatalogById
+} from "./resolveActivityCatalogsV2";
 
 // ==========================================
 // TYPES
@@ -103,9 +107,17 @@ export async function getRenderableCatalogForActivity(
     activityId: string
 ): Promise<RenderableCatalog> {
     const now = new Date();
-    const resolved = await resolveActivityCatalogsV2(activityId, now);
+    const { catalogId } = await findLayoutCatalogId(activityId, now);
 
-    const catalog = (resolved as any).catalog;
+    if (!catalogId) {
+        return { catalogId: null, catalogName: null, products: [] };
+    }
+
+    const [catalog, overrides] = await Promise.all([
+        loadCatalogById(catalogId),
+        getActivityProductOverrides(activityId)
+    ]);
+
     if (!catalog) {
         return { catalogId: null, catalogName: null, products: [] };
     }
@@ -113,26 +125,20 @@ export async function getRenderableCatalogForActivity(
     const products: RenderableProduct[] = [];
     for (const category of catalog.categories || []) {
         for (const p of category.products || []) {
+            const override = overrides[p.id];
             products.push({
                 product_id: p.id,
                 name: p.name,
                 category_name: category.name,
-                final_price: p.price,
-                is_visible: p.is_visible
+                final_price: p.price ?? 0,
+                is_visible: override?.visible_override ?? true
             });
         }
     }
 
-    // Step 2: Fetch the actual catalog name
-    const { data: catalogData } = await supabase
-        .from("v2_catalogs")
-        .select("name")
-        .eq("id", catalog.id)
-        .single();
-
     return {
         catalogId: catalog.id,
-        catalogName: catalogData?.name ?? "Catalogo senza nome",
+        catalogName: catalog.name ?? "Catalogo senza nome",
         products
     };
 }

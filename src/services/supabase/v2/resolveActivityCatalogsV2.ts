@@ -1,5 +1,7 @@
 import { supabase } from "../client";
 
+type VisibilityMode = "hide" | "disable";
+
 export type ResolvedVariant = {
     id: string;
     name: string;
@@ -30,10 +32,12 @@ export type ResolvedProduct = {
     name: string;
     description?: string;
     price?: number;
+    effective_price?: number;
     original_price?: number;
     /** Min absolute_price across PRIMARY_PRICE formats. Set when product has formats. */
     from_price?: number;
     is_visible: boolean;
+    is_disabled?: boolean;
     attributes?: any[];
     allergens?: any[];
     image_url?: string;
@@ -248,6 +252,11 @@ type RawVisibilityRuleRow = {
     time_to: string | null;
 };
 
+type ActiveVisibilityRule = {
+    scheduleId: string;
+    fallbackVisibilityMode: VisibilityMode;
+};
+
 type PriceOverrideRow = {
     product_id: string;
     override_price: number;
@@ -256,12 +265,8 @@ type PriceOverrideRow = {
 
 type VisibilityOverrideRow = {
     product_id: string;
-    visible: boolean;
-};
-
-type OverrideRow = {
-    product_id: string;
-    visible_override: boolean | null;
+    visible?: boolean;
+    mode?: VisibilityMode | null;
 };
 
 export type ActivityProductOverrideRow = {
@@ -277,6 +282,23 @@ function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
 function normalizeMany<T>(value: T[] | T | null | undefined): T[] {
     if (!value) return [];
     return Array.isArray(value) ? value : [value];
+}
+
+function normalizeVisibilityMode(value: string | null | undefined): VisibilityMode | null {
+    if (value === "hide" || value === "disable") return value;
+    return null;
+}
+
+function isMissingColumnError(error: unknown, column: string): boolean {
+    if (!error || typeof error !== "object") return false;
+    const message = String((error as { message?: string }).message ?? "").toLowerCase();
+    const needle = column.toLowerCase();
+    return (
+        message.includes(needle) &&
+        (message.includes("column") ||
+            message.includes("schema cache") ||
+            message.includes("does not exist"))
+    );
 }
 
 function normalizeCatalog(
@@ -380,6 +402,7 @@ function normalizeCatalog(
                         id: p.id,
                         name: p.name,
                         is_visible: true, // overridden later
+                        is_disabled: false,
                         ...(p.description ? { description: p.description } : {}),
                         ...(p.base_price !== null ? { price: p.base_price } : {}),
                         ...(from_price !== undefined ? { from_price } : {}),
@@ -414,7 +437,7 @@ function normalizeCatalog(
     };
 }
 
-async function loadCatalogById(catalogId: string): Promise<ResolvedCatalog | undefined> {
+export async function loadCatalogById(catalogId: string): Promise<ResolvedCatalog | undefined> {
     const { data, error } = await supabase
         .from("v2_catalogs")
         .select(
@@ -543,7 +566,7 @@ function isTimeRuleActiveNow(
     return from <= nowMinutes && nowMinutes < to;
 }
 
-async function findLayoutCatalogId(
+export async function findLayoutCatalogId(
     activityId: string,
     now: Date
 ): Promise<{ catalogId: string | null; scheduleId: string | null; styleData?: ResolvedStyle }> {
@@ -766,10 +789,26 @@ export async function findActivePriceRuleScheduleId(
     return selectedRule?.id ?? null;
 }
 
-async function findActiveVisibilityRuleScheduleId(
+async function getVisibilityModeForSchedule(scheduleId: string): Promise<VisibilityMode> {
+    const { data, error } = await supabase
+        .from("v2_schedules")
+        .select("visibility_mode")
+        .eq("id", scheduleId)
+        .maybeSingle();
+
+    if (error) {
+        if (isMissingColumnError(error, "visibility_mode")) return "hide";
+        throw error;
+    }
+
+    const value = (data as { visibility_mode?: string | null } | null)?.visibility_mode;
+    return value === "disable" ? "disable" : "hide";
+}
+
+async function findActiveVisibilityRule(
     activityId: string,
     now: Date
-): Promise<string | null> {
+): Promise<ActiveVisibilityRule | null> {
     const [activityRulesRes, groupMembersRes] = await Promise.all([
         supabase
             .from("v2_schedules")
@@ -836,19 +875,64 @@ async function findActiveVisibilityRuleScheduleId(
     const validRows = rows.filter(row => isTimeRuleActiveNow(row, now));
     const selectedRule = validRows[0] ?? null;
 
-    console.log("[resolveActivityCatalogsV2][findActiveVisibilityRuleScheduleId] selected", {
+    const fallbackVisibilityMode = selectedRule
+        ? await getVisibilityModeForSchedule(selectedRule.id)
+        : "hide";
+
+    console.log("[resolveActivityCatalogsV2][findActiveVisibilityRule] selected", {
         activityId,
         selectedScheduleId: selectedRule?.id ?? null,
+        fallbackVisibilityMode,
         candidates: rows.length,
         valid: validRows.length
     });
 
-    return selectedRule?.id ?? null;
+    if (!selectedRule) return null;
+
+    return {
+        scheduleId: selectedRule.id,
+        fallbackVisibilityMode
+    };
+}
+
+async function selectVisibilityOverridesWithModeFallback(
+    scheduleId: string,
+    productIds: string[]
+): Promise<VisibilityOverrideRow[]> {
+    if (productIds.length === 0) return [];
+
+    const withModeRes = await supabase
+        .from("v2_schedule_visibility_overrides")
+        .select("product_id, mode, visible")
+        .eq("schedule_id", scheduleId)
+        .in("product_id", productIds);
+
+    if (!withModeRes.error) {
+        return (withModeRes.data ?? []) as VisibilityOverrideRow[];
+    }
+
+    if (!isMissingColumnError(withModeRes.error, "mode")) {
+        throw withModeRes.error;
+    }
+
+    const withoutModeRes = await supabase
+        .from("v2_schedule_visibility_overrides")
+        .select("product_id, visible")
+        .eq("schedule_id", scheduleId)
+        .in("product_id", productIds);
+
+    if (withoutModeRes.error) throw withoutModeRes.error;
+
+    return ((withoutModeRes.data ?? []) as VisibilityOverrideRow[]).map(row => ({
+        ...row,
+        mode: null
+    }));
 }
 
 function applyVisibilityOverridesToCatalog(
     catalog: ResolvedCatalog | undefined,
-    overridesByProductId: Record<string, VisibilityOverrideRow>
+    overridesByProductId: Record<string, VisibilityOverrideRow>,
+    fallbackVisibilityMode: VisibilityMode
 ): ResolvedCatalog | undefined {
     if (!catalog) return undefined;
 
@@ -862,11 +946,41 @@ function applyVisibilityOverridesToCatalog(
                           products: category.products
                               .map(item => {
                                   const override = overridesByProductId[item.id];
-                                  const effectiveVisible = override?.visible ?? item.is_visible;
+                                  if (override?.visible === true) {
+                                      return {
+                                          ...item,
+                                          is_visible: item.is_visible,
+                                          is_disabled: false
+                                      };
+                                  }
+
+                                  const modeFromOverride = normalizeVisibilityMode(
+                                      override?.mode ?? null
+                                  );
+                                  const legacyMode =
+                                      override?.visible === false ? fallbackVisibilityMode : null;
+                                  const effectiveMode = modeFromOverride ?? legacyMode;
+
+                                  if (effectiveMode === "hide") {
+                                      return {
+                                          ...item,
+                                          is_visible: false,
+                                          is_disabled: false
+                                      };
+                                  }
+
+                                  if (effectiveMode === "disable") {
+                                      return {
+                                          ...item,
+                                          is_visible: true,
+                                          is_disabled: true
+                                      };
+                                  }
 
                                   return {
                                       ...item,
-                                      is_visible: effectiveVisible
+                                      is_visible: item.is_visible,
+                                      is_disabled: false
                                   };
                               })
                               .filter(item => item.is_visible === true)
@@ -958,7 +1072,10 @@ export function applyActivityVisibilityOverridesToCatalog(
                                           c.products.some(p => p.id === productId)
                                   );
                                   if (belongsToCategory) {
-                                      productsToConsider.push(baseProductsByProductId[productId]);
+                                      productsToConsider.push({
+                                          ...baseProductsByProductId[productId],
+                                          is_disabled: false
+                                      });
                                   }
                               }
                           }
@@ -969,7 +1086,11 @@ export function applyActivityVisibilityOverridesToCatalog(
                                   const override = overridesByProductId[item.id];
                                   if (!override || override.visible_override === null) return item;
                                   if (override.visible_override === false) return null;
-                                  return item; // visible_override === true — keep
+                                  return {
+                                      ...item,
+                                      is_visible: true,
+                                      is_disabled: false
+                                  }; // visible_override === true — keep and re-enable
                               })
                               .filter((p): p is ResolvedProduct => p !== null);
 
@@ -1339,27 +1460,25 @@ export async function resolveActivityCatalogsV2(
     const visibilityOverridesByProductId: Record<string, VisibilityOverrideRow> = {};
     const priceOverridesByProductId: Record<string, PriceOverrideRow> = {};
 
-    const activeVisibilityRuleScheduleId = await findActiveVisibilityRuleScheduleId(
-        activityId,
-        now
-    );
-    if (activeVisibilityRuleScheduleId && productIds.length > 0) {
-        const { data: visibilityOverrideData, error: visibilityOverrideError } = await supabase
-            .from("v2_schedule_visibility_overrides")
-            .select("product_id, visible")
-            .eq("schedule_id", activeVisibilityRuleScheduleId)
-            .in("product_id", productIds);
+    const activeVisibilityRule = await findActiveVisibilityRule(activityId, now);
+    if (activeVisibilityRule?.scheduleId && productIds.length > 0) {
+        const visibilityOverrideRows = await selectVisibilityOverridesWithModeFallback(
+            activeVisibilityRule.scheduleId,
+            productIds
+        );
 
-        if (visibilityOverrideError) throw visibilityOverrideError;
-
-        for (const row of (visibilityOverrideData ?? []) as VisibilityOverrideRow[]) {
+        for (const row of visibilityOverrideRows) {
             visibilityOverridesByProductId[row.product_id] = row;
         }
     }
 
     schedules = schedules.map(schedule => ({
         ...schedule,
-        catalog: applyVisibilityOverridesToCatalog(schedule.catalog, visibilityOverridesByProductId)
+        catalog: applyVisibilityOverridesToCatalog(
+            schedule.catalog,
+            visibilityOverridesByProductId,
+            activeVisibilityRule?.fallbackVisibilityMode ?? "hide"
+        )
     }));
 
     const visibleProductIds = Array.from(
@@ -1437,7 +1556,6 @@ export async function resolveActivityCatalogsV2(
 
     const activeNow = schedulesWithItems.filter(schedule => isScheduleActive(schedule, now));
     const activePrimary = pickWinner(activeNow.filter(schedule => schedule.slot === "primary"));
-    const activeOverlay = pickWinner(activeNow.filter(schedule => schedule.slot === "overlay"));
 
     const fallbackPrimary = activePrimary ? null : pickFallbackPrimary(schedulesWithItems, now);
     const finalPrimary = activePrimary ?? fallbackPrimary;
