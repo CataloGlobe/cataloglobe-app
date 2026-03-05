@@ -16,7 +16,7 @@ export async function getActivityGroups(tenantId: string): Promise<V2ActivityGro
         `
         )
         .eq("tenant_id", tenantId)
-        .order("is_system", { ascending: false })
+        .eq("is_system", false)
         .order("name", { ascending: true });
 
     if (error) throw error;
