@@ -642,7 +642,7 @@ export default function Programming() {
                         </div>
                     }
                     footer={
-                        <div className={styles.drawerFooter}>
+                        <>
                             <Button
                                 variant="secondary"
                                 onClick={() => setIsCreateDrawerOpen(false)}
@@ -658,7 +658,7 @@ export default function Programming() {
                             >
                                 Crea e configura
                             </Button>
-                        </div>
+                        </>
                     }
                 >
                     <form id="create-rule-form" className={styles.form} onSubmit={handleCreateRule}>

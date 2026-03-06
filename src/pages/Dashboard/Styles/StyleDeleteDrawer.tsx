@@ -91,25 +91,23 @@ export function StyleDeleteDrawer({
                     </div>
                 }
                 footer={
-                    <div className={styles.drawerFooterContainer}>
-                        <div className={styles.drawerFooter}>
-                            <Button variant="secondary" onClick={onClose} disabled={isDeleting}>
-                                Annulla
+                    <>
+                        <Button variant="secondary" onClick={onClose} disabled={isDeleting}>
+                            Annulla
+                        </Button>
+                        {!isSystemError && (
+                            <Button
+                                variant="danger"
+                                onClick={handleDelete}
+                                loading={isDeleting}
+                            >
+                                Conferma Eliminazione
                             </Button>
-                            {!isSystemError && (
-                                <Button
-                                    variant="danger"
-                                    onClick={handleDelete}
-                                    loading={isDeleting}
-                                >
-                                    Conferma Eliminazione
-                                </Button>
-                            )}
-                        </div>
-                    </div>
+                        )}
+                    </>
                 }
             >
-                <div className={styles.deleteContent}>
+                <div>
                     {isSystemError ? (
                         <div className={styles.warningBox}>
                             <IconAlertTriangle

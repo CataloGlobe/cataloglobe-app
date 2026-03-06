@@ -96,21 +96,19 @@ export function StyleCreateDrawer({
                     </div>
                 }
                 footer={
-                    <div className={styles.drawerFooterContainer}>
-                        <div className={styles.drawerFooter}>
-                            <Button variant="secondary" onClick={onClose} disabled={isSaving}>
-                                Annulla
-                            </Button>
-                            <Button
-                                variant="primary"
-                                type="submit"
-                                form="style-create-form"
-                                loading={isSaving}
-                            >
-                                Crea e continua
-                            </Button>
-                        </div>
-                    </div>
+                    <>
+                        <Button variant="secondary" onClick={onClose} disabled={isSaving}>
+                            Annulla
+                        </Button>
+                        <Button
+                            variant="primary"
+                            type="submit"
+                            form="style-create-form"
+                            loading={isSaving}
+                        >
+                            Crea e continua
+                        </Button>
+                    </>
                 }
             >
                 <form id="style-create-form" className={styles.form} onSubmit={handleSubmit}>

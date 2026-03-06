@@ -257,30 +257,15 @@
   gap: 4px;
 }
 
-.drawerFooterContainer {
-  padding: 16px 24px;
-  border-top: 1px solid var(--color-border);
-  background-color: var(--color-surface);
-}
-
-.drawerFooter {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
 .form {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding: 24px;
 }
 
 .settingsForm {
   height: 100%;
   overflow: auto;
-  margin: -24px;
-  padding: 24px;
   gap: 18px;
   scrollbar-gutter: stable;
 }
@@ -327,9 +312,6 @@
   background-color: var(--color-danger-light);
 }
 
-.deleteContent {
-  padding: 24px;
-}
 
 .warningBox {
   display: flex;

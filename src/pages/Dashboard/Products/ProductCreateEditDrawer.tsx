@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { V2Product } from "@/services/supabase/v2/products";
 import { ProductForm } from "./components/ProductForm";
-import styles from "./Products.module.scss";
 
 export type ProductFormMode = "create_base" | "create_variant" | "edit";
 
@@ -66,21 +65,19 @@ export function ProductCreateEditDrawer({
                     </div>
                 }
                 footer={
-                    <div className={styles.drawerFooterContainer}>
-                        <div className={styles.drawerFooter}>
-                            <Button variant="secondary" onClick={onClose} disabled={isSaving}>
-                                Annulla
-                            </Button>
-                            <Button
-                                variant="primary"
-                                type="submit"
-                                form="product-form"
-                                loading={isSaving}
-                            >
-                                {mode === "edit" ? "Salva" : "Crea"}
-                            </Button>
-                        </div>
-                    </div>
+                    <>
+                        <Button variant="secondary" onClick={onClose} disabled={isSaving}>
+                            Annulla
+                        </Button>
+                        <Button
+                            variant="primary"
+                            type="submit"
+                            form="product-form"
+                            loading={isSaving}
+                        >
+                            {mode === "edit" ? "Salva" : "Crea"}
+                        </Button>
+                    </>
                 }
             >
                 <ProductForm

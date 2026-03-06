@@ -292,25 +292,23 @@ export default function Catalogs() {
                         </div>
                     }
                     footer={
-                        <div className={styles.drawerFooterContainer}>
-                            <div className={styles.drawerFooter}>
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => setIsDrawerOpen(false)}
-                                    disabled={isSaving}
-                                >
-                                    Annulla
-                                </Button>
-                                <Button
-                                    variant="primary"
-                                    type="submit"
-                                    form="catalog-form"
-                                    loading={isSaving}
-                                >
-                                    {editingCatalog ? "Salva Modifiche" : "Crea Catalogo"}
-                                </Button>
-                            </div>
-                        </div>
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setIsDrawerOpen(false)}
+                                disabled={isSaving}
+                            >
+                                Annulla
+                            </Button>
+                            <Button
+                                variant="primary"
+                                type="submit"
+                                form="catalog-form"
+                                loading={isSaving}
+                            >
+                                {editingCatalog ? "Salva Modifiche" : "Crea Catalogo"}
+                            </Button>
+                        </>
                     }
                 >
                     <form id="catalog-form" onSubmit={handleSave} className={styles.form}>
@@ -336,28 +334,22 @@ export default function Catalogs() {
                         </div>
                     }
                     footer={
-                        <div className={styles.drawerFooterContainer}>
-                            <div className={styles.drawerFooter}>
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => setIsDeleteOpen(false)}
-                                    disabled={isDeleting}
-                                >
-                                    Annulla
-                                </Button>
-                                <Button
-                                    variant="primary"
-                                    style={{
-                                        backgroundColor: "var(--color-red-600)",
-                                        borderColor: "var(--color-red-600)"
-                                    }}
-                                    onClick={handleDelete}
-                                    loading={isDeleting}
-                                >
-                                    Elimina
-                                </Button>
-                            </div>
-                        </div>
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setIsDeleteOpen(false)}
+                                disabled={isDeleting}
+                            >
+                                Annulla
+                            </Button>
+                            <Button
+                                variant="danger"
+                                onClick={handleDelete}
+                                loading={isDeleting}
+                            >
+                                Elimina
+                            </Button>
+                        </>
                     }
                 >
                     <div className={styles.deleteWarning}>

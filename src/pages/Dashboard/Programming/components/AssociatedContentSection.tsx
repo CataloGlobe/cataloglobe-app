@@ -391,14 +391,14 @@ export function AssociatedContentSection({
                             </div>
                         }
                         footer={
-                            <div className={styles.drawerFooter}>
+                            <>
                                 <Button variant="secondary" onClick={closeProductsDrawer}>
                                     Annulla
                                 </Button>
                                 <Button variant="primary" onClick={confirmProductsSelection}>
                                     Conferma
                                 </Button>
-                            </div>
+                            </>
                         }
                     >
                         <div className={styles.visibilityDrawerContent}>

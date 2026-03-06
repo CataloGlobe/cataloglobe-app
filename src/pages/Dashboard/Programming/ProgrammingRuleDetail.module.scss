@@ -158,11 +158,6 @@
   gap: 0.35rem;
 }
 
-.drawerFooter {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.6rem;
-}
 
 .visibilityDrawerContent {
   display: flex;
@@ -415,11 +410,4 @@
     gap: 0.5rem;
   }
 
-  .drawerFooter {
-    width: 100%;
-
-    button {
-      flex: 1;
-    }
-  }
 }
