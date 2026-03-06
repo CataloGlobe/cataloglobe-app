@@ -44,7 +44,10 @@ const EMPTY_PRODUCT_METADATA: ProductListMetadata = {
 const formatCurrency = (value: number) => `${value.toFixed(2)} €`;
 
 const getAllProductIds = (products: V2Product[]): string[] =>
-    products.flatMap(product => [product.id, ...(product.variants?.map(variant => variant.id) ?? [])]);
+    products.flatMap(product => [
+        product.id,
+        ...(product.variants?.map(variant => variant.id) ?? [])
+    ]);
 
 export default function Products() {
     const { user } = useAuth();
@@ -219,7 +222,7 @@ export default function Products() {
                     }`}
                 >
                     <div className={styles.productNameRow}>
-                        {row.kind === "base" && row.hasVariants ? (
+                        {row.kind === "base" && row.hasVariants && (
                             <button
                                 className={styles.expandButton}
                                 onClick={() => toggleRow(row.product.id)}
@@ -231,8 +234,6 @@ export default function Products() {
                                     <IconChevronRight size={20} />
                                 )}
                             </button>
-                        ) : (
-                            <span className={styles.expanderSpacer} />
                         )}
                         <Link to={`/products/${row.product.id}`} className={styles.productLink}>
                             <Text
@@ -288,8 +289,8 @@ export default function Products() {
             width: "1fr",
             accessor: row => row.product.id,
             cell: (_value, row) => {
-                const formatsCount =
-                    (productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA).formatsCount;
+                const formatsCount = (productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA)
+                    .formatsCount;
 
                 return formatsCount > 0 ? (
                     <Text variant="body-sm">
@@ -308,13 +309,13 @@ export default function Products() {
             width: "1fr",
             accessor: row => row.product.id,
             cell: (_value, row) => {
-                const configurationsCount =
-                    (productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA).configurationsCount;
+                const configurationsCount = (
+                    productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA
+                ).configurationsCount;
 
                 return configurationsCount > 0 ? (
                     <Text variant="body-sm">
-                        {configurationsCount}{" "}
-                        {configurationsCount === 1 ? "opzione" : "opzioni"}
+                        {configurationsCount} {configurationsCount === 1 ? "opzione" : "opzioni"}
                     </Text>
                 ) : (
                     <Text variant="body-sm" colorVariant="muted">
@@ -329,8 +330,8 @@ export default function Products() {
             width: "1fr",
             accessor: row => row.product.id,
             cell: (_value, row) => {
-                const catalogsCount =
-                    (productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA).catalogsCount;
+                const catalogsCount = (productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA)
+                    .catalogsCount;
 
                 return catalogsCount > 0 ? (
                     <Text variant="body-sm">
