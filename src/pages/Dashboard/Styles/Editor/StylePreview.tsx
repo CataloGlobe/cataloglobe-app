@@ -168,7 +168,7 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                                 Contenuto in evidenza
                             </Text>
                             <Text variant="body-sm" style={{ color: "inherit", opacity: 0.9 }}>
-                                Questa è un’anteprima. I contenuti reali dipendono dal tuo catalogo.
+                                Questa è un'anteprima. I contenuti reali dipendono dal tuo catalogo.
                             </Text>
                             <div style={{ marginTop: "8px" }}>
                                 <button

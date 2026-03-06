@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import PublicCollectionView from "@/components/PublicCollectionView/PublicCollectionView";
+import PublicCollectionRenderer from "@/features/public/components/PublicCollectionRenderer";
+import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 
 import { getBusinessBySlug } from "@/services/supabase/businesses";
 import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessCollections";
@@ -136,5 +137,9 @@ export default function PublicCollectionPage() {
         );
     }
 
-    return <PublicCollectionView business={state.business} resolved={state.resolved} />;
+    return (
+        <PublicThemeScope style={state.resolved.style}>
+            <PublicCollectionRenderer business={state.business} resolved={state.resolved} />
+        </PublicThemeScope>
+    );
 }
