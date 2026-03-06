@@ -1313,25 +1313,23 @@ export default function CatalogEngine() {
                         </div>
                     }
                     footer={
-                        <div className={styles.drawerFooterContainer}>
-                            <div className={styles.drawerFooter}>
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => setIsCategoryDrawerOpen(false)}
-                                    disabled={isSavingCategory}
-                                >
-                                    Annulla
-                                </Button>
-                                <Button
-                                    variant="primary"
-                                    type="submit"
-                                    form="catalog-category-form"
-                                    loading={isSavingCategory}
-                                >
-                                    Salva
-                                </Button>
-                            </div>
-                        </div>
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setIsCategoryDrawerOpen(false)}
+                                disabled={isSavingCategory}
+                            >
+                                Annulla
+                            </Button>
+                            <Button
+                                variant="primary"
+                                type="submit"
+                                form="catalog-category-form"
+                                loading={isSavingCategory}
+                            >
+                                Salva
+                            </Button>
+                        </>
                     }
                 >
                     <form
@@ -1373,28 +1371,22 @@ export default function CatalogEngine() {
                         </Text>
                     }
                     footer={
-                        <div className={styles.drawerFooterContainer}>
-                            <div className={styles.drawerFooter}>
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => setCategoryToDelete(null)}
-                                    disabled={isDeletingCategory}
-                                >
-                                    Annulla
-                                </Button>
-                                <Button
-                                    variant="primary"
-                                    onClick={handleDeleteCategory}
-                                    loading={isDeletingCategory}
-                                    style={{
-                                        backgroundColor: "var(--color-red-600, #dc2626)",
-                                        borderColor: "var(--color-red-600, #dc2626)"
-                                    }}
-                                >
-                                    Elimina
-                                </Button>
-                            </div>
-                        </div>
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setCategoryToDelete(null)}
+                                disabled={isDeletingCategory}
+                            >
+                                Annulla
+                            </Button>
+                            <Button
+                                variant="danger"
+                                onClick={handleDeleteCategory}
+                                loading={isDeletingCategory}
+                            >
+                                Elimina
+                            </Button>
+                        </>
                     }
                 >
                     <div className={styles.deleteWarning}>
@@ -1441,35 +1433,33 @@ export default function CatalogEngine() {
                         </div>
                     }
                     footer={
-                        <div className={styles.drawerFooterContainer}>
-                            <div className={styles.drawerFooter}>
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setIsUnifiedAddProductDrawerOpen(false)}
+                            >
+                                Annulla
+                            </Button>
+                            {addProductMode === "existing" ? (
                                 <Button
-                                    variant="secondary"
-                                    onClick={() => setIsUnifiedAddProductDrawerOpen(false)}
+                                    variant="primary"
+                                    onClick={handleBulkAssignProducts}
+                                    loading={isAssigningProduct}
+                                    disabled={selectedAssignProductIds.size === 0}
                                 >
-                                    Annulla
+                                    Associa selezionati ({selectedAssignProductIds.size})
                                 </Button>
-                                {addProductMode === "existing" ? (
-                                    <Button
-                                        variant="primary"
-                                        onClick={handleBulkAssignProducts}
-                                        loading={isAssigningProduct}
-                                        disabled={selectedAssignProductIds.size === 0}
-                                    >
-                                        Associa selezionati ({selectedAssignProductIds.size})
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        variant="primary"
-                                        type="submit"
-                                        form="product-form-unified"
-                                        loading={isSavingProduct}
-                                    >
-                                        Crea e associa
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
+                            ) : (
+                                <Button
+                                    variant="primary"
+                                    type="submit"
+                                    form="product-form-unified"
+                                    loading={isSavingProduct}
+                                >
+                                    Crea e associa
+                                </Button>
+                            )}
+                        </>
                     }
                 >
                     {addProductMode === "existing" ? (

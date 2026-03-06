@@ -66,19 +66,17 @@ export function AttributeDeleteDrawer({
                     </div>
                 }
                 footer={
-                    <div className={styles.drawerFooterContainer}>
-                        <div className={styles.drawerFooter}>
-                            <Button variant="secondary" onClick={onClose} disabled={isDeleting}>
-                                Annulla
-                            </Button>
-                            <Button variant="danger" onClick={handleDelete} loading={isDeleting}>
-                                Conferma Eliminazione
-                            </Button>
-                        </div>
-                    </div>
+                    <>
+                        <Button variant="secondary" onClick={onClose} disabled={isDeleting}>
+                            Annulla
+                        </Button>
+                        <Button variant="danger" onClick={handleDelete} loading={isDeleting}>
+                            Conferma Eliminazione
+                        </Button>
+                    </>
                 }
             >
-                <div className={styles.deleteContent}>
+                <div>
                     <div className={styles.warningBox}>
                         <IconAlertTriangle
                             size={24}

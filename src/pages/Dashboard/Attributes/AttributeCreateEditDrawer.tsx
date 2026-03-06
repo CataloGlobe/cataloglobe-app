@@ -158,21 +158,19 @@ export function AttributeCreateEditDrawer({
                     </div>
                 }
                 footer={
-                    <div className={styles.drawerFooterContainer}>
-                        <div className={styles.drawerFooter}>
-                            <Button variant="secondary" onClick={onClose} disabled={isSaving}>
-                                Annulla
-                            </Button>
-                            <Button
-                                variant="primary"
-                                type="submit"
-                                form="attr-form"
-                                loading={isSaving}
-                            >
-                                {isEditing ? "Salva Modifiche" : "Crea"}
-                            </Button>
-                        </div>
-                    </div>
+                    <>
+                        <Button variant="secondary" onClick={onClose} disabled={isSaving}>
+                            Annulla
+                        </Button>
+                        <Button
+                            variant="primary"
+                            type="submit"
+                            form="attr-form"
+                            loading={isSaving}
+                        >
+                            {isEditing ? "Salva Modifiche" : "Crea"}
+                        </Button>
+                    </>
                 }
             >
                 <form id="attr-form" className={styles.form} onSubmit={handleSubmit}>

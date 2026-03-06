@@ -178,27 +178,10 @@
   gap: 4px;
 }
 
-.drawerFooterContainer {
-  padding: 16px 24px;
-  border-top: 1px solid var(--color-gray-200);
-  background-color: var(--color-white);
-}
-
-.drawerFooter {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-}
-
 .form {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding: 24px;
-}
-
-.deleteContent {
-  padding: 24px;
 }
 
 .optionsSection {

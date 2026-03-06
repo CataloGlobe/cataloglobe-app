@@ -3,13 +3,13 @@
 }
 
 .content {
-  padding: var(--spacing-6);
+  padding-block: var(--spacing-6, 24px);
   background-color: var(--color-gray-50);
   min-height: calc(100vh - 61px);
 }
 
 .filterBar {
-  margin-bottom: var(--spacing-6);
+  margin-bottom: var(--spacing-6, 24px);
 }
 
 .tableCard {
@@ -141,23 +141,6 @@
     background-color: var(--color-red-50);
     color: var(--color-red-700);
   }
-}
-
-/* Drawers */
-.drawerFooterContainer {
-  width: 100%;
-  margin: calc(var(--spacing-6) * -1);
-  margin-top: 0;
-  padding: var(--spacing-4) var(--spacing-6);
-  background-color: var(--color-surface);
-  border-top: 1px solid var(--color-gray-200);
-}
-
-.drawerFooter {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--spacing-3);
-  width: 100%;
 }
 
 .form {

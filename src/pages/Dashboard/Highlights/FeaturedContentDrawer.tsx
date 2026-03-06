@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { Drawer } from "@/components/ui/Drawer/Drawer";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -90,7 +89,6 @@ export default function FeaturedContentDrawer({ onClose, onSuccess }: DrawerProp
                 display: "flex",
                 flexDirection: "column",
                 gap: "24px",
-                padding: "24px",
                 opacity: submitting ? 0.7 : 1,
                 pointerEvents: submitting ? "none" : "auto"
             }}

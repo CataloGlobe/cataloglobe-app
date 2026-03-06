@@ -76,21 +76,14 @@ export default function Highlights() {
                 />
             ),
             footer: (
-                <div
-                    style={{
-                        display: "flex",
-                        gap: "12px",
-                        justifyContent: "flex-end",
-                        width: "100%"
-                    }}
-                >
+                <>
                     <Button variant="secondary" onClick={closeDrawer}>
                         Annulla
                     </Button>
                     <Button variant="primary" type="submit" form="featured-content-form">
                         Crea
                     </Button>
-                </div>
+                </>
             )
         });
     };
