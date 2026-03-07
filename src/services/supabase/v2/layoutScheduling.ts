@@ -223,7 +223,7 @@ async function selectSchedulesWithNameFallback(): Promise<RawScheduleRow[]> {
             .order("created_at", { ascending: false });
 
         if (!result.error) {
-            return (result.data ?? []) as RawScheduleRow[];
+            return (result.data ?? []) as unknown as RawScheduleRow[];
         }
 
         const missingName = includeName && isMissingColumnError(result.error, "name");
