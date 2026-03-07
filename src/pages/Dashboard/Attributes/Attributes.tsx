@@ -7,8 +7,8 @@ import { Card } from "@/components/ui/Card/Card";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import { IconTags, IconDotsVertical, IconPlus } from "@tabler/icons-react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { IconTags, IconPlus } from "@tabler/icons-react";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import styles from "./Attributes.module.scss";
 
 import {
@@ -204,39 +204,20 @@ export default function Attributes() {
                                             )}
                                         </div>
                                         <div className={styles.colActions}>
-                                            <DropdownMenu.Root>
-                                                <DropdownMenu.Trigger asChild>
-                                                    <button
-                                                        className={styles.actionButton}
-                                                        aria-label="Azioni"
-                                                    >
-                                                        <IconDotsVertical size={16} />
-                                                    </button>
-                                                </DropdownMenu.Trigger>
-                                                <DropdownMenu.Portal>
-                                                    <DropdownMenu.Content
-                                                        className={styles.dropdownContent}
-                                                        align="end"
-                                                        sideOffset={4}
-                                                    >
-                                                        <DropdownMenu.Item
-                                                            className={styles.dropdownItem}
-                                                            onClick={() => handleEdit(attr)}
-                                                        >
-                                                            Modifica
-                                                        </DropdownMenu.Item>
-                                                        <DropdownMenu.Separator
-                                                            className={styles.dropdownSeparator}
-                                                        />
-                                                        <DropdownMenu.Item
-                                                            className={`${styles.dropdownItem} ${styles.danger}`}
-                                                            onClick={() => handleDelete(attr)}
-                                                        >
-                                                            Elimina
-                                                        </DropdownMenu.Item>
-                                                    </DropdownMenu.Content>
-                                                </DropdownMenu.Portal>
-                                            </DropdownMenu.Root>
+                                            <TableRowActions
+                                                actions={[
+                                                    {
+                                                        label: "Modifica",
+                                                        onClick: () => handleEdit(attr)
+                                                    },
+                                                    {
+                                                        label: "Elimina",
+                                                        onClick: () => handleDelete(attr),
+                                                        variant: "destructive",
+                                                        separator: true
+                                                    }
+                                                ]}
+                                            />
                                         </div>
                                     </div>
                                 ))}

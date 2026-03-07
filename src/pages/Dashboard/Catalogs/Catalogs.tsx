@@ -8,8 +8,8 @@ import { Card } from "@/components/ui/Card/Card";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import { IconBook2, IconDotsVertical } from "@tabler/icons-react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { IconBook2 } from "@tabler/icons-react";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import {
     listCatalogs,
     createCatalog,
@@ -140,9 +140,6 @@ export default function Catalogs() {
             cell: (_value, catalog) => (
                 <div className={styles.colName}>
                     <div className={styles.catalogNameRow}>
-                        <div className={styles.iconWrapper}>
-                            <IconBook2 size={18} />
-                        </div>
                         <Text variant="body-sm" weight={600}>
                             {catalog.name}
                         </Text>
@@ -179,36 +176,17 @@ export default function Catalogs() {
             width: "60px",
             align: "right",
             cell: (_value, catalog) => (
-                <div className={styles.catalogActions}>
-                    <DropdownMenu.Root>
-                        <DropdownMenu.Trigger asChild>
-                            <button className={styles.actionButton} aria-label="Azioni">
-                                <IconDotsVertical size={18} />
-                            </button>
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Portal>
-                            <DropdownMenu.Content
-                                className={styles.dropdownContent}
-                                align="end"
-                                sideOffset={4}
-                            >
-                                <DropdownMenu.Item
-                                    className={styles.dropdownItem}
-                                    onClick={() => handleOpenEdit(catalog)}
-                                >
-                                    Modifica nome
-                                </DropdownMenu.Item>
-                                <DropdownMenu.Separator className={styles.dropdownSeparator} />
-                                <DropdownMenu.Item
-                                    className={`${styles.dropdownItem} ${styles.danger}`}
-                                    onClick={() => handleOpenDelete(catalog)}
-                                >
-                                    Elimina catalogo
-                                </DropdownMenu.Item>
-                            </DropdownMenu.Content>
-                        </DropdownMenu.Portal>
-                    </DropdownMenu.Root>
-                </div>
+                <TableRowActions
+                    actions={[
+                        { label: "Modifica nome", onClick: () => handleOpenEdit(catalog) },
+                        {
+                            label: "Elimina catalogo",
+                            onClick: () => handleOpenDelete(catalog),
+                            variant: "destructive",
+                            separator: true
+                        }
+                    ]}
+                />
             )
         }
     ];
@@ -268,17 +246,15 @@ export default function Catalogs() {
                     className={styles.filterBar}
                 />
 
-                <Card className={styles.tableCard}>
-                    <DataTable<V2Catalog>
-                        data={filteredCatalogs}
-                        columns={columns}
-                        isLoading={isLoading}
-                        density={density}
-                        onRowClick={catalog => navigate(`/dashboard/cataloghi/${catalog.id}`)}
-                        loadingState={loadingState}
-                        emptyState={emptyState}
-                    />
-                </Card>
+                <DataTable<V2Catalog>
+                    data={filteredCatalogs}
+                    columns={columns}
+                    isLoading={isLoading}
+                    density={density}
+                    onRowClick={catalog => navigate(`/dashboard/cataloghi/${catalog.id}`)}
+                    loadingState={loadingState}
+                    emptyState={emptyState}
+                />
             </div>
 
             {/* Create/Edit Drawer */}
@@ -342,11 +318,7 @@ export default function Catalogs() {
                             >
                                 Annulla
                             </Button>
-                            <Button
-                                variant="danger"
-                                onClick={handleDelete}
-                                loading={isDeleting}
-                            >
+                            <Button variant="danger" onClick={handleDelete} loading={isDeleting}>
                                 Elimina
                             </Button>
                         </>

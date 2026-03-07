@@ -7,11 +7,7 @@ import {
     useSensor,
     useSensors
 } from "@dnd-kit/core";
-import {
-    SortableContext,
-    verticalListSortingStrategy,
-    arrayMove
-} from "@dnd-kit/sortable";
+import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { IconFolder, IconPlus } from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
@@ -29,7 +25,10 @@ type CatalogTreeProps = {
     onCreateSubCategory: (categoryId: string) => void;
     onEditCategory: (categoryId: string) => void;
     onDeleteCategory: (categoryId: string) => void;
-    onReorderSiblings: (parentCategoryId: string | null, orderedSiblingIds: string[]) => Promise<void>;
+    onReorderSiblings: (
+        parentCategoryId: string | null,
+        orderedSiblingIds: string[]
+    ) => Promise<void>;
     isReordering?: boolean;
 };
 
@@ -145,7 +144,9 @@ export function CatalogTree({
                         setIsDragging(false);
                         if (!over || active.id === over.id) return;
 
-                        const activeNode = visibleNodes.find(item => item.node.id === active.id)?.node;
+                        const activeNode = visibleNodes.find(
+                            item => item.node.id === active.id
+                        )?.node;
                         const overNode = visibleNodes.find(item => item.node.id === over.id)?.node;
 
                         if (!activeNode || !overNode) return;
@@ -188,4 +189,3 @@ export function CatalogTree({
         </div>
     );
 }
-

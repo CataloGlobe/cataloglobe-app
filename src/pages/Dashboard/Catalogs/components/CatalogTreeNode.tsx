@@ -2,12 +2,11 @@ import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "@dnd-kit/sortable";
 import {
     IconChevronRight,
-    IconDotsVertical,
     IconFolder,
     IconGripVertical,
     IconTrash
 } from "@tabler/icons-react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import Text from "@/components/ui/Text/Text";
 import styles from "../CatalogEngine.module.scss";
 import { CatalogTreeFlatNode } from "./CatalogTree.types";
@@ -99,43 +98,23 @@ export function CatalogTreeNode({
                 <span className={styles.treeNodeCount}>{node.totalProductCount}</span>
 
                 <div className={styles.treeNodeActions}>
-                    <DropdownMenu.Root>
-                        <DropdownMenu.Trigger asChild>
-                            <button className={styles.treeMenuTrigger} aria-label="Azioni categoria">
-                                <IconDotsVertical size={14} />
-                            </button>
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Portal>
-                            <DropdownMenu.Content
-                                className={styles.dropdownContent}
-                                align="end"
-                                sideOffset={4}
-                            >
-                                <DropdownMenu.Item
-                                    className={styles.dropdownItem}
-                                    onClick={() => onEditCategory(node.id)}
-                                >
-                                    Modifica
-                                </DropdownMenu.Item>
-                                {node.level < 3 && (
-                                    <DropdownMenu.Item
-                                        className={styles.dropdownItem}
-                                        onClick={() => onCreateSubCategory(node.id)}
-                                    >
-                                        Crea sotto-categoria
-                                    </DropdownMenu.Item>
-                                )}
-                                <DropdownMenu.Separator className={styles.dropdownSeparator} />
-                                <DropdownMenu.Item
-                                    className={`${styles.dropdownItem} ${styles.danger}`}
-                                    onClick={() => onDeleteCategory(node.id)}
-                                >
-                                    <IconTrash size={14} />
-                                    Elimina
-                                </DropdownMenu.Item>
-                            </DropdownMenu.Content>
-                        </DropdownMenu.Portal>
-                    </DropdownMenu.Root>
+                    <TableRowActions
+                        actions={[
+                            { label: "Modifica", onClick: () => onEditCategory(node.id) },
+                            {
+                                label: "Crea sotto-categoria",
+                                onClick: () => onCreateSubCategory(node.id),
+                                hidden: node.level >= 3
+                            },
+                            {
+                                label: "Elimina",
+                                icon: IconTrash,
+                                onClick: () => onDeleteCategory(node.id),
+                                variant: "destructive",
+                                separator: true
+                            }
+                        ]}
+                    />
                 </div>
             </div>
         </div>

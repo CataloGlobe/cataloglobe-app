@@ -9,8 +9,8 @@ import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/Data
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import { IconDotsVertical, IconChevronDown, IconChevronRight } from "@tabler/icons-react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { Link } from "react-router-dom";
 import styles from "./Products.module.scss";
 
@@ -350,55 +350,29 @@ export default function Products() {
             width: "96px",
             align: "right",
             cell: (_value, row) => (
-                <div className={styles.colActions}>
-                    <DropdownMenu.Root>
-                        <DropdownMenu.Trigger asChild>
-                            <button className={styles.actionButton} aria-label="Azioni">
-                                <IconDotsVertical size={16} />
-                            </button>
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Portal>
-                            <DropdownMenu.Content
-                                className={styles.dropdownContent}
-                                align="end"
-                                sideOffset={4}
-                            >
-                                <DropdownMenu.Item
-                                    className={styles.dropdownItem}
-                                    onClick={() => handleEdit(row.product)}
-                                >
-                                    {row.kind === "base"
-                                        ? "Modifica Prodotto"
-                                        : "Modifica Variante"}
-                                </DropdownMenu.Item>
-
-                                {row.kind === "base" && (
-                                    <DropdownMenu.Item
-                                        className={styles.dropdownItem}
-                                        onClick={() => handleCreateVariant(row.product)}
-                                    >
-                                        Aggiungi Variante
-                                    </DropdownMenu.Item>
-                                )}
-
-                                <DropdownMenu.Separator className={styles.dropdownSeparator} />
-
-                                <DropdownMenu.Item
-                                    className={styles.dropdownItem}
-                                    onClick={() => handleDuplicate(row.product)}
-                                >
-                                    Duplica
-                                </DropdownMenu.Item>
-                                <DropdownMenu.Item
-                                    className={`${styles.dropdownItem} ${styles.danger}`}
-                                    onClick={() => handleDelete(row.product)}
-                                >
-                                    {row.kind === "base" ? "Elimina" : "Elimina Variante"}
-                                </DropdownMenu.Item>
-                            </DropdownMenu.Content>
-                        </DropdownMenu.Portal>
-                    </DropdownMenu.Root>
-                </div>
+                <TableRowActions
+                    actions={[
+                        {
+                            label: row.kind === "base" ? "Modifica Prodotto" : "Modifica Variante",
+                            onClick: () => handleEdit(row.product)
+                        },
+                        {
+                            label: "Aggiungi Variante",
+                            onClick: () => handleCreateVariant(row.product),
+                            hidden: row.kind !== "base"
+                        },
+                        {
+                            label: "Duplica",
+                            onClick: () => handleDuplicate(row.product),
+                            separator: true
+                        },
+                        {
+                            label: row.kind === "base" ? "Elimina" : "Elimina Variante",
+                            onClick: () => handleDelete(row.product),
+                            variant: "destructive"
+                        }
+                    ]}
+                />
             )
         }
     ];
@@ -452,44 +426,42 @@ export default function Products() {
                             />
                         </div>
 
-                        <Card className={styles.tableCard}>
-                            {isLoading ? (
-                                <div className={styles.loadingState}>
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        Caricamento prodotti in corso...
-                                    </Text>
-                                </div>
-                            ) : filteredProducts.length === 0 ? (
-                                <div className={styles.emptyState}>
-                                    <Text variant="title-sm" weight={600}>
-                                        Nessun prodotto trovato
-                                    </Text>
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        {searchQuery
-                                            ? "Nessun prodotto corrisponde ai filtri di ricerca."
-                                            : "Non hai ancora aggiunto alcun prodotto base."}
-                                    </Text>
-                                    {!searchQuery && (
-                                        <Button
-                                            variant="primary"
-                                            onClick={handleCreateBase}
-                                            className={styles.emptyButton}
-                                        >
-                                            Crea primo prodotto
-                                        </Button>
-                                    )}
-                                </div>
-                            ) : (
-                                <DataTable<ProductTableRow>
-                                    data={tableRows}
-                                    columns={columns}
-                                    density={density}
-                                    rowClassName={row =>
-                                        row.kind === "variant" ? styles.variantTableRow : undefined
-                                    }
-                                />
-                            )}
-                        </Card>
+                        {isLoading ? (
+                            <div className={styles.loadingState}>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    Caricamento prodotti in corso...
+                                </Text>
+                            </div>
+                        ) : filteredProducts.length === 0 ? (
+                            <div className={styles.emptyState}>
+                                <Text variant="title-sm" weight={600}>
+                                    Nessun prodotto trovato
+                                </Text>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    {searchQuery
+                                        ? "Nessun prodotto corrisponde ai filtri di ricerca."
+                                        : "Non hai ancora aggiunto alcun prodotto base."}
+                                </Text>
+                                {!searchQuery && (
+                                    <Button
+                                        variant="primary"
+                                        onClick={handleCreateBase}
+                                        className={styles.emptyButton}
+                                    >
+                                        Crea primo prodotto
+                                    </Button>
+                                )}
+                            </div>
+                        ) : (
+                            <DataTable<ProductTableRow>
+                                data={tableRows}
+                                columns={columns}
+                                density={density}
+                                rowClassName={row =>
+                                    row.kind === "variant" ? styles.variantTableRow : undefined
+                                }
+                            />
+                        )}
                     </div>
 
                     {/* Drawers */}

@@ -5,8 +5,8 @@ import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TablePagination } from "@/components/ui/TablePagination/TablePagination";
-import { IconFolder, IconDotsVertical } from "@tabler/icons-react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { IconFolder } from "@tabler/icons-react";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import styles from "./ProductGroupsTab.module.scss";
 
 import { getProductGroups, ProductGroup } from "@/services/supabase/v2/productGroups";
@@ -144,10 +144,7 @@ export default function ProductGroupsTab({
             width: "2fr",
             accessor: row => row.name,
             cell: (_value, row) => (
-                <div
-                    className={styles.nameCell}
-                    style={{ paddingLeft: row.depth * 24 }}
-                >
+                <div className={styles.nameCell} style={{ paddingLeft: row.depth * 24 }}>
                     <Text variant="body-sm" weight={row.depth === 0 ? 600 : 500}>
                         {row.name}
                     </Text>
@@ -187,34 +184,17 @@ export default function ProductGroupsTab({
             align: "right",
             cell: (_value, row) => (
                 <div data-row-click-ignore="true">
-                    <DropdownMenu.Root>
-                        <DropdownMenu.Trigger asChild>
-                            <button className={styles.actionButton} aria-label="Azioni">
-                                <IconDotsVertical size={16} />
-                            </button>
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Portal>
-                            <DropdownMenu.Content
-                                className={styles.dropdownContent}
-                                align="end"
-                                sideOffset={4}
-                            >
-                                <DropdownMenu.Item
-                                    className={styles.dropdownItem}
-                                    onClick={() => handleEdit(row)}
-                                >
-                                    Modifica
-                                </DropdownMenu.Item>
-                                <DropdownMenu.Separator className={styles.dropdownSeparator} />
-                                <DropdownMenu.Item
-                                    className={`${styles.dropdownItem} ${styles.danger}`}
-                                    onClick={() => handleDelete(row)}
-                                >
-                                    Elimina
-                                </DropdownMenu.Item>
-                            </DropdownMenu.Content>
-                        </DropdownMenu.Portal>
-                    </DropdownMenu.Root>
+                    <TableRowActions
+                        actions={[
+                            { label: "Modifica", onClick: () => handleEdit(row) },
+                            {
+                                label: "Elimina",
+                                onClick: () => handleDelete(row),
+                                variant: "destructive",
+                                separator: true
+                            }
+                        ]}
+                    />
                 </div>
             )
         }
@@ -247,30 +227,28 @@ export default function ProductGroupsTab({
                 />
             </div>
 
-            <Card className={styles.tableCard}>
-                <DataTable<FlatGroup>
-                    data={paginatedRows}
-                    columns={columns}
-                    isLoading={isLoading}
-                    emptyState={emptyState}
-                    loadingState={
-                        <Text variant="body-sm" colorVariant="muted">
-                            Caricamento gruppi in corso...
-                        </Text>
-                    }
-                    pagination={
-                        !isLoading && flatTree.length > 0 ? (
-                            <TablePagination
-                                page={page}
-                                pageSize={pageSize}
-                                total={flatTree.length}
-                                onPageChange={setPage}
-                                onPageSizeChange={setPageSize}
-                            />
-                        ) : undefined
-                    }
-                />
-            </Card>
+            <DataTable<FlatGroup>
+                data={paginatedRows}
+                columns={columns}
+                isLoading={isLoading}
+                emptyState={emptyState}
+                loadingState={
+                    <Text variant="body-sm" colorVariant="muted">
+                        Caricamento gruppi in corso...
+                    </Text>
+                }
+                pagination={
+                    !isLoading && flatTree.length > 0 ? (
+                        <TablePagination
+                            page={page}
+                            pageSize={pageSize}
+                            total={flatTree.length}
+                            onPageChange={setPage}
+                            onPageSizeChange={setPageSize}
+                        />
+                    ) : undefined
+                }
+            />
 
             <ProductGroupCreateEditDrawer
                 open={isCreateOpen || isCreateEditOpen}

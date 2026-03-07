@@ -4,11 +4,8 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { Card } from "@/components/ui/Card/Card";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
-import { IconButton } from "@/components/ui/Button/IconButton";
-import { IconFolder, IconDotsVertical, IconFolderPlus } from "@tabler/icons-react";
-import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
-import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
-import { DropdownSeparator } from "@/components/ui/DropdownMenu/DropdownSeparator";
+import { IconFolder, IconFolderPlus } from "@tabler/icons-react";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import styles from "./ActivityGroupsSection.module.scss";
 
@@ -156,28 +153,18 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                 width: "64px",
                 align: "right",
                 cell: (_, group) => (
-                    <div onClick={e => e.stopPropagation()}>
-                        <DropdownMenu
-                            placement="bottom-end"
-                            trigger={
-                                <IconButton
-                                    icon={<IconDotsVertical size={18} />}
-                                    variant="ghost"
-                                    aria-label="Azioni"
-                                />
+                    <TableRowActions
+                        actions={[
+                            { label: "Modifica", onClick: () => handleEdit(group) },
+                            {
+                                label: "Elimina",
+                                onClick: () => handleDelete(group.id),
+                                variant: "destructive",
+                                separator: true,
+                                hidden: group.is_system
                             }
-                        >
-                            <DropdownItem onClick={() => handleEdit(group)}>Modifica</DropdownItem>
-                            {!group.is_system && (
-                                <>
-                                    <DropdownSeparator />
-                                    <DropdownItem danger onClick={() => handleDelete(group.id)}>
-                                        Elimina
-                                    </DropdownItem>
-                                </>
-                            )}
-                        </DropdownMenu>
-                    </div>
+                        ]}
+                    />
                 )
             }
         ],
@@ -192,45 +179,45 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
 
     return (
         <div className={styles.container}>
-            <Card className={styles.tableCard}>
-                {isLoading ? (
-                    <div className={styles.loadingState}>
-                        <Text variant="body-sm" colorVariant="muted">
-                            Caricamento gruppi...
-                        </Text>
-                    </div>
-                ) : filteredGroups.length === 0 ? (
-                    <div className={styles.emptyState}>
-                        {externalSearchQuery ? (
-                            <>
-                                <IconFolder size={48} stroke={1} className={styles.emptyIcon} />
-                                <Text variant="title-sm" weight={600}>
-                                    Nessun gruppo trovato
-                                </Text>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Nessun gruppo corrisponde alla ricerca.
-                                </Text>
-                            </>
-                        ) : (
-                            <>
-                                <IconFolderPlus size={48} stroke={1} className={styles.emptyIcon} />
-                                <Text variant="title-sm" weight={600}>
-                                    Nessun gruppo creato
-                                </Text>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Organizza le tue attività in gruppi per applicare regole mirate.
-                                </Text>
-                                <button
-                                    type="button"
-                                    className={styles.createCta}
-                                    onClick={handleCreate}
-                                >
-                                    Crea il tuo primo gruppo
-                                </button>
-                            </>
-                        )}
-                    </div>
-                ) : (
+            {isLoading ? (
+                <div className={styles.loadingState}>
+                    <Text variant="body-sm" colorVariant="muted">
+                        Caricamento gruppi...
+                    </Text>
+                </div>
+            ) : filteredGroups.length === 0 ? (
+                <div className={styles.emptyState}>
+                    {externalSearchQuery ? (
+                        <>
+                            <IconFolder size={48} stroke={1} className={styles.emptyIcon} />
+                            <Text variant="title-sm" weight={600}>
+                                Nessun gruppo trovato
+                            </Text>
+                            <Text variant="body-sm" colorVariant="muted">
+                                Nessun gruppo corrisponde alla ricerca.
+                            </Text>
+                        </>
+                    ) : (
+                        <>
+                            <IconFolderPlus size={48} stroke={1} className={styles.emptyIcon} />
+                            <Text variant="title-sm" weight={600}>
+                                Nessun gruppo creato
+                            </Text>
+                            <Text variant="body-sm" colorVariant="muted">
+                                Organizza le tue attività in gruppi per applicare regole mirate.
+                            </Text>
+                            <button
+                                type="button"
+                                className={styles.createCta}
+                                onClick={handleCreate}
+                            >
+                                Crea il tuo primo gruppo
+                            </button>
+                        </>
+                    )}
+                </div>
+            ) : (
+                <>
                     <DataTable
                         data={filteredGroups}
                         columns={columns}
@@ -238,8 +225,8 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                             highlightedGroupIds.includes(group.id) ? styles.highlighted : undefined
                         }
                     />
-                )}
-            </Card>
+                </>
+            )}
         </div>
     );
 };

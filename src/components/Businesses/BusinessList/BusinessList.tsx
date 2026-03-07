@@ -8,7 +8,6 @@ import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable
 import { Badge } from "@/components/ui/Badge/Badge";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import {
-    MoreVertical,
     ExternalLink,
     Link,
     FileText,
@@ -17,9 +16,7 @@ import {
     Calendar,
     ClipboardCheck
 } from "lucide-react";
-import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
-import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
-import { DropdownSeparator } from "@/components/ui/DropdownMenu/DropdownSeparator";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useNavigate } from "react-router-dom";
 
 export const BusinessList: React.FC<BusinessListProps> = ({
@@ -89,11 +86,6 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                     const activeCatalog = activeCatalogsMap?.[business.id];
                     const publicUrl = `${window.location.origin}/${business.slug}`;
 
-                    const handleCopyLink = (e: React.MouseEvent) => {
-                        e.stopPropagation();
-                        navigator.clipboard.writeText(publicUrl);
-                    };
-
                     return (
                         <div className={styles.actionsCell} onClick={e => e.stopPropagation()}>
                             {activeCatalog && (
@@ -107,54 +99,46 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                                     title="Gestisci disponibilità"
                                 />
                             )}
-                            <DropdownMenu
-                                placement="bottom-end"
-                                trigger={
-                                    <IconButton
-                                        icon={<MoreVertical size={18} />}
-                                        variant="ghost"
-                                        aria-label="Azioni"
-                                    />
-                                }
-                            >
-                                <DropdownItem
-                                    onClick={() => navigate(`/dashboard/attivita/${business.id}`)}
-                                >
-                                    <FileText size={16} />
-                                    Apri dettaglio
-                                </DropdownItem>
-                                <DropdownItem
-                                    href={publicUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    <ExternalLink size={16} />
-                                    Apri URL pubblico
-                                </DropdownItem>
-                                <DropdownItem onClick={handleCopyLink}>
-                                    <Link size={16} />
-                                    Copia link
-                                </DropdownItem>
-                                {activeCatalog && (
-                                    <DropdownItem
-                                        onClick={() =>
-                                            onManageAvailability?.(business.id, business.name)
-                                        }
-                                    >
-                                        <Calendar size={16} />
-                                        Gestisci disponibilità
-                                    </DropdownItem>
-                                )}
-                                <DropdownSeparator />
-                                <DropdownItem onClick={() => onEdit(business)}>
-                                    <Edit size={16} />
-                                    Modifica
-                                </DropdownItem>
-                                <DropdownItem danger onClick={() => onDelete(business.id)}>
-                                    <Trash2 size={16} />
-                                    Elimina
-                                </DropdownItem>
-                            </DropdownMenu>
+                            <TableRowActions
+                                actions={[
+                                    {
+                                        label: "Apri dettaglio",
+                                        icon: FileText,
+                                        onClick: () =>
+                                            navigate(`/dashboard/attivita/${business.id}`)
+                                    },
+                                    {
+                                        label: "Apri URL pubblico",
+                                        icon: ExternalLink,
+                                        onClick: () =>
+                                            window.open(publicUrl, "_blank", "noopener,noreferrer")
+                                    },
+                                    {
+                                        label: "Copia link",
+                                        icon: Link,
+                                        onClick: () => navigator.clipboard.writeText(publicUrl)
+                                    },
+                                    {
+                                        label: "Gestisci disponibilità",
+                                        icon: Calendar,
+                                        onClick: () =>
+                                            onManageAvailability?.(business.id, business.name),
+                                        hidden: !activeCatalog
+                                    },
+                                    {
+                                        label: "Modifica",
+                                        icon: Edit,
+                                        onClick: () => onEdit(business),
+                                        separator: true
+                                    },
+                                    {
+                                        label: "Elimina",
+                                        icon: Trash2,
+                                        onClick: () => onDelete(business.id),
+                                        variant: "destructive"
+                                    }
+                                ]}
+                            />
                         </div>
                     );
                 }

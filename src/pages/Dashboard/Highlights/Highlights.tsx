@@ -1,12 +1,12 @@
 import React, { useCallback, useMemo, useState, useEffect } from "react";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { Button } from "@/components/ui/Button/Button";
-import { IconButton } from "@/components/ui/Button/IconButton";
 import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { Pencil, Trash2, ArrowRight } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
 import ModalLayout, {
     ModalLayoutContent,
@@ -196,26 +196,18 @@ export default function Highlights() {
             width: "96px",
             align: "right",
             cell: (_value, item) => (
-                <div className={styles.actions}>
-                    <IconButton
-                        variant="ghost"
-                        icon={<Pencil size={16} />}
-                        aria-label="Modifica"
-                        onClick={e => {
-                            e.stopPropagation();
-                            handleEdit(item);
-                        }}
-                    />
-                    <IconButton
-                        variant="ghost"
-                        icon={<Trash2 size={16} />}
-                        aria-label="Elimina"
-                        onClick={e => {
-                            e.stopPropagation();
-                            setDeleteTarget(item);
-                        }}
-                    />
-                </div>
+                <TableRowActions
+                    actions={[
+                        { label: "Modifica", icon: Pencil, onClick: () => handleEdit(item) },
+                        {
+                            label: "Elimina",
+                            icon: Trash2,
+                            onClick: () => setDeleteTarget(item),
+                            variant: "destructive",
+                            separator: true
+                        }
+                    ]}
+                />
             )
         }
     ];

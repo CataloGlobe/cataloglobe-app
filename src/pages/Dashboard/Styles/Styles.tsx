@@ -8,8 +8,8 @@ import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/Data
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import { IconPalette, IconDotsVertical } from "@tabler/icons-react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { IconPalette } from "@tabler/icons-react";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import styles from "./Styles.module.scss";
 
 import { useNavigate } from "react-router-dom";
@@ -181,45 +181,18 @@ export default function Styles() {
 
     const renderRowActions = useCallback(
         (style: V2Style) => (
-            <div className={styles.colActions}>
-                <DropdownMenu.Root>
-                    <DropdownMenu.Trigger asChild>
-                        <button className={styles.actionButton} aria-label="Azioni">
-                            <IconDotsVertical size={16} />
-                        </button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Portal>
-                        <DropdownMenu.Content
-                            className={styles.dropdownContent}
-                            align="end"
-                            sideOffset={4}
-                        >
-                            <DropdownMenu.Item
-                                className={styles.dropdownItem}
-                                onClick={() => handleEditClick(style)}
-                            >
-                                Modifica
-                            </DropdownMenu.Item>
-
-                            <DropdownMenu.Item
-                                className={styles.dropdownItem}
-                                onClick={() => handleDuplicateClick(style)}
-                            >
-                                Duplica
-                            </DropdownMenu.Item>
-
-                            <DropdownMenu.Separator className={styles.dropdownSeparator} />
-
-                            <DropdownMenu.Item
-                                className={`${styles.dropdownItem} ${styles.danger}`}
-                                onClick={() => handleDeleteClick(style)}
-                            >
-                                Elimina
-                            </DropdownMenu.Item>
-                        </DropdownMenu.Content>
-                    </DropdownMenu.Portal>
-                </DropdownMenu.Root>
-            </div>
+            <TableRowActions
+                actions={[
+                    { label: "Modifica", onClick: () => handleEditClick(style) },
+                    { label: "Duplica", onClick: () => handleDuplicateClick(style) },
+                    {
+                        label: "Elimina",
+                        onClick: () => handleDeleteClick(style),
+                        variant: "destructive",
+                        separator: true
+                    }
+                ]}
+            />
         ),
         [handleDeleteClick, handleDuplicateClick, handleEditClick]
     );

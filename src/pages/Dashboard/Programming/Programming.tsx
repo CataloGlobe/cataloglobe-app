@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { IconDotsVertical } from "@tabler/icons-react";
 import { Globe, Building2, Users, AlertCircle, FileText, Loader2 } from "lucide-react";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { Button } from "@/components/ui/Button/Button";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
-import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import ModalLayout, {
@@ -437,29 +435,23 @@ export default function Programming() {
             align: "right",
             cell: (_value, rule) => (
                 <div className={styles.rowActions} data-row-click-ignore="true">
-                    <DropdownMenu
-                        trigger={
-                            <button className={styles.kebabButton} aria-label="Azioni riga">
-                                <IconDotsVertical size={18} />
-                            </button>
-                        }
-                        placement="bottom-end"
-                    >
-                        <DropdownItem
-                            onClick={() => navigate(`/dashboard/programmazione/${rule.id}`)}
-                        >
-                            Modifica
-                        </DropdownItem>
-                        <DropdownItem
-                            danger
-                            onClick={() => {
-                                setRuleToDelete(rule.id);
-                                setIsDeleteModalOpen(true);
-                            }}
-                        >
-                            Elimina
-                        </DropdownItem>
-                    </DropdownMenu>
+                    <TableRowActions
+                        actions={[
+                            {
+                                label: "Modifica",
+                                onClick: () => navigate(`/dashboard/programmazione/${rule.id}`)
+                            },
+                            {
+                                label: "Elimina",
+                                onClick: () => {
+                                    setRuleToDelete(rule.id);
+                                    setIsDeleteModalOpen(true);
+                                },
+                                variant: "destructive",
+                                separator: true
+                            }
+                        ]}
+                    />
                 </div>
             )
         }
