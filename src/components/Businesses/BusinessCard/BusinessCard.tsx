@@ -1,99 +1,47 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import BusinessOverrides from "../BusinessOverrides/BusinessOverrides";
 import Text from "@components/ui/Text/Text";
-import { QRCodeSVG } from "qrcode.react";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, ExternalLink, Link, FileText, Edit, Trash2, Calendar } from "lucide-react";
 import type { BusinessCardProps } from "@/types/Businesses";
 import styles from "./BusinessCard.module.scss";
 import BusinessCollectionSchedule from "../BusinessCollectionSchedule/BusinessCollectionSchedule";
 import { Button } from "@/components/ui";
 import { IconButton } from "@/components/ui/Button/IconButton";
-import { DownloadMenuButton } from "@/components/DownloadMenuButton";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/Badge/Badge";
-import ModalLayout, {
-    ModalLayoutContent,
-    ModalLayoutHeader
-} from "@/components/ui/ModalLayout/ModalLayout";
 import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
 import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
+import { DropdownSeparator } from "@/components/ui/DropdownMenu/DropdownSeparator";
 
 export const BusinessCard: React.FC<BusinessCardProps> = ({
     business,
-    totalBusinesses,
     onEdit,
     onDelete,
-    onOpenReviews
+    activeCatalog,
+    onManageAvailability
 }) => {
     const publicUrl = `${window.location.origin}/${business.slug}`;
-
-    const [showQrModal, setShowQrModal] = useState(false);
-    const [showMenu, setShowMenu] = useState(false);
     const [overrideOpen, setOverrideOpen] = useState(false);
     const [showScheduleModal, setShowScheduleModal] = useState(false);
-
-    const menuRef = useRef<HTMLDivElement | null>(null);
-
     const navigate = useNavigate();
 
-    const canSchedule = business.compatible_collection_count > 0;
-    const hasScheduled = business.scheduled_compatible_collection_count > 0;
-    const canOverride = totalBusinesses > 1 && hasScheduled;
-
-    /* ==============================
-       CLICK OUTSIDE PER CHIUDERE MENU
-    =============================== */
-    useEffect(() => {
-        function handleClickOutside(e: MouseEvent) {
-            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-                setShowMenu(false);
-            }
+    const handleCardClick = (e: React.MouseEvent) => {
+        if ((e.target as HTMLElement).closest("button") || (e.target as HTMLElement).closest("a")) {
+            return;
         }
+        navigate(`/dashboard/attivita/${business.id}`);
+    };
 
-        if (showMenu) document.addEventListener("mousedown", handleClickOutside);
-
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [showMenu]);
-
-    /* ==============================
-       DOWNLOAD QR
-    =============================== */
-    function downloadQrAsPng() {
-        const el = document.getElementById("qr-download");
-
-        if (!(el instanceof SVGSVGElement)) return;
-
-        const xml = new XMLSerializer().serializeToString(el);
-        const svg64 = btoa(xml);
-        const img = new Image();
-        img.src = `data:image/svg+xml;base64,${svg64}`;
-
-        img.onload = () => {
-            const canvas = document.createElement("canvas");
-            const size = 2000;
-            canvas.width = size;
-            canvas.height = size;
-
-            const ctx = canvas.getContext("2d");
-            if (!ctx) return;
-
-            ctx.fillStyle = "#fff";
-            ctx.fillRect(0, 0, size, size);
-            ctx.drawImage(img, 0, 0, size, size);
-
-            const pngFile = canvas.toDataURL("image/png");
-            const link = document.createElement("a");
-            link.href = pngFile;
-            link.download = `qr-${business.slug}.png`;
-            link.click();
-        };
-    }
+    const handleCopyLink = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(publicUrl);
+        // Toast?
+    };
 
     return (
         <>
-            <article className={styles.card}>
-                <div className={styles.top}>
-                    {/* Thumbnail */}
+            <article className={styles.card} onClick={handleCardClick}>
+                <div className={styles.cardHeader}>
                     <div className={styles.thumbnail}>
                         {business.cover_image ? (
                             <img src={business.cover_image} alt={`Copertina di ${business.name}`} />
@@ -101,95 +49,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                             <div className={styles.thumbnailPlaceholder} />
                         )}
                     </div>
-
-                    {/* INFO */}
-                    <div className={styles.info}>
-                        <Text as="h3" variant="title-sm" weight={600}>
-                            {business.name}
-                        </Text>
-
-                        <Text variant="body" colorVariant="muted">
-                            {business.address}, {business.city}
-                        </Text>
-
-                        <Text
-                            as="a"
-                            variant="body-sm"
-                            href={publicUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            color="#6366f1"
-                        >
-                            {publicUrl}
-                        </Text>
-
-                        <div className={styles.badges}>
-                            {/* Primary attiva ora */}
-                            {business.active_primary_collection_name && (
-                                <Badge>{business.active_primary_collection_name}</Badge>
-                            )}
-
-                            {/* Backup primary (solo se NON c'è una primary attiva) */}
-                            {!business.active_primary_collection_name &&
-                                business.fallback_primary_collection_name && (
-                                    <Badge variant="warning">
-                                        {business.fallback_primary_collection_name}
-                                    </Badge>
-                                )}
-
-                            {/* Special attiva */}
-                            {business.active_special_collection_name && (
-                                <Badge>{business.active_special_collection_name}</Badge>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* QR */}
-                    <div className={styles.qrWrapper} onClick={() => setShowQrModal(true)}>
-                        <QRCodeSVG value={publicUrl} bgColor="#f8f9fb" fgColor="#000000" />
-                    </div>
-                </div>
-
-                {/* ACTIONS */}
-                <div className={styles.actions}>
-                    <div className={styles.actionsLeft}>
-                        {/* Override */}
-                        {canOverride && (
-                            <Button variant="primary" onClick={() => setOverrideOpen(true)}>
-                                Gestisci disponibilità e prezzi
-                            </Button>
-                        )}
-
-                        {/* Schedule */}
-                        {canSchedule && (
-                            <Button
-                                variant="primary"
-                                onClick={() => {
-                                    setShowScheduleModal(true);
-                                    setShowMenu(false);
-                                }}
-                            >
-                                Contenuti & Orari
-                            </Button>
-                        )}
-
-                        {/* CTA solo se NON può schedulare */}
-                        {!canSchedule && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => navigate("/dashboard/collections")}
-                            >
-                                Crea catalogo
-                            </Button>
-                        )}
-
-                        <Button variant="outline" onClick={() => onOpenReviews(business.id)}>
-                            Recensioni
-                        </Button>
-                    </div>
-
-                    <div className={styles.actionsRight}>
+                    <div className={styles.menuWrapper}>
                         <DropdownMenu
                             placement="bottom-end"
                             trigger={
@@ -201,66 +61,75 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                             }
                         >
                             <DropdownItem
-                                onClick={() => {
-                                    onEdit(business);
-                                }}
+                                onClick={() => navigate(`/dashboard/attivita/${business.id}`)}
                             >
-                                Modifica
+                                Apri dettaglio
                             </DropdownItem>
-
                             <DropdownItem
-                                danger
-                                onClick={() => {
-                                    onDelete(business.id);
-                                }}
+                                href={publicUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
                             >
+                                Apri URL pubblico
+                            </DropdownItem>
+                            <DropdownItem onClick={handleCopyLink}>Copia link</DropdownItem>
+
+                            <DropdownSeparator />
+
+                            <DropdownItem onClick={() => onEdit(business)}>Modifica</DropdownItem>
+                            <DropdownItem danger onClick={() => onDelete(business.id)}>
                                 Elimina
                             </DropdownItem>
                         </DropdownMenu>
                     </div>
                 </div>
 
-                <div className={styles.actionsLeft}>
-                    <DownloadMenuButton businessId={business.id} />
+                <div className={styles.cardContent}>
+                    <div className={styles.mainInfo}>
+                        <div className={styles.titleRow}>
+                            <Text
+                                as="h3"
+                                variant="title-sm"
+                                weight={700}
+                                className={styles.entityName}
+                            >
+                                {business.name}
+                            </Text>
+                            <Badge variant={business.status === "active" ? "success" : "secondary"}>
+                                {business.status === "active" ? "Attiva" : "Inattiva"}
+                            </Badge>
+                        </div>
+
+                        <Text variant="body-sm" colorVariant="muted" className={styles.address}>
+                            {business.address}, {business.city}
+                        </Text>
+                    </div>
+
+                    <div className={styles.catalogInfo}>
+                        <div className={styles.catalogLabel}>
+                            <Text variant="caption" colorVariant="muted">
+                                Catalogo attivo
+                            </Text>
+                            <Text variant="caption" weight={600}>
+                                {activeCatalog?.catalogName ?? "—"}
+                            </Text>
+                        </div>
+                        {activeCatalog && (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={e => {
+                                    e.stopPropagation();
+                                    onManageAvailability?.(business.id, business.name);
+                                }}
+                            >
+                                Gestisci
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </article>
 
-            {/* MODALE QR */}
-            <ModalLayout
-                isOpen={showQrModal}
-                onClose={() => setShowQrModal(false)}
-                width="sm"
-                height="fit"
-            >
-                <ModalLayoutHeader>
-                    <div className={styles.headerLeft}>
-                        <Text as="h2" variant="title-md" weight={700}>
-                            QR code dell’attività
-                        </Text>
-                        <Text variant="caption" colorVariant="muted">
-                            Scansiona o scarica il QR code.
-                        </Text>
-                    </div>
-
-                    <div className={styles.headerRight}>
-                        <Button variant="secondary" onClick={() => setShowQrModal(false)}>
-                            Chiudi
-                        </Button>
-                    </div>
-                </ModalLayoutHeader>
-
-                <ModalLayoutContent>
-                    <div className={styles.modalContent}>
-                        <QRCodeSVG id="qr-download" value={publicUrl} size={240} />
-
-                        <Button variant="primary" size="lg" onClick={downloadQrAsPng}>
-                            Scarica QR Code
-                        </Button>
-                    </div>
-                </ModalLayoutContent>
-            </ModalLayout>
-
-            {/* OVERRIDES */}
             <BusinessOverrides
                 isOpen={overrideOpen}
                 onClose={() => setOverrideOpen(false)}
@@ -268,11 +137,10 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                 title={`${business.name} - Disponibilità e prezzi`}
             />
 
-            {/* SELECT COLLECTION */}
             <BusinessCollectionSchedule
                 isOpen={showScheduleModal}
                 businessId={business.id}
-                businessType={business.type}
+                businessType={business.activity_type as any}
                 onClose={() => setShowScheduleModal(false)}
             />
         </>

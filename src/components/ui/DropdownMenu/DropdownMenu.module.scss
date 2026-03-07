@@ -66,3 +66,8 @@
     background: rgba($error, 0.3);
   }
 }
+.separator {
+  height: 1px;
+  background: var(--border);
+  margin: 0.25rem 0;
+}

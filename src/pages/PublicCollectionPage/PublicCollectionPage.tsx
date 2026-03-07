@@ -1,18 +1,16 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import PublicCollectionView from "@/components/PublicCollectionView/PublicCollectionView";
+import PublicCollectionRenderer from "@/features/public/components/PublicCollectionRenderer";
+import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 
 import { getBusinessBySlug } from "@/services/supabase/businesses";
-import { getPublicBusinessCollection } from "@/services/supabase/collections";
 import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessCollections";
 
-import type { PublicCollection } from "@/types/collectionPublic";
 import type { Business } from "@/types/database";
-import CollectionView from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import { DEFAULT_PUBLIC_STYLE } from "@/utils/getDefaultPublicStyle";
-import { getEmptyCopy } from "@/utils/getEmptyCopy";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import NotFound from "../NotFound/NotFound";
+import { ResolvedCollections } from "@/services/supabase/v2/resolveActivityCatalogsV2";
 
 type PageState =
     | { status: "loading" }
@@ -20,8 +18,7 @@ type PageState =
     | {
           status: "ready";
           business: Business;
-          collection: PublicCollection;
-          overlayCollection: PublicCollection | null;
+          resolved: ResolvedCollections;
       }
     | {
           status: "empty";
@@ -62,7 +59,14 @@ export default function PublicCollectionPage() {
                 ============================ */
                 const resolved = await resolveBusinessCollections(business.id);
 
-                if (!resolved.primary) {
+                if (
+                    !resolved.catalog &&
+                    (!resolved.featured?.hero || resolved.featured.hero.length === 0) &&
+                    (!resolved.featured?.before_catalog ||
+                        resolved.featured.before_catalog.length === 0) &&
+                    (!resolved.featured?.after_catalog ||
+                        resolved.featured.after_catalog.length === 0)
+                ) {
                     setState({
                         status: "empty",
                         business
@@ -70,33 +74,17 @@ export default function PublicCollectionPage() {
                     return;
                 }
 
-                /* ============================
-                   3) COLLECTION PRIMARY
-                ============================ */
-                const collection = await getPublicBusinessCollection(business.id, resolved.primary);
-
-                /* ============================
-                   4) OVERLAY (opzionale)
-                ============================ */
-                let overlayCollection: PublicCollection | null = null;
-
-                if (resolved.overlay) {
-                    overlayCollection = await getPublicBusinessCollection(
-                        business.id,
-                        resolved.overlay
-                    );
-                }
-
                 if (cancelled) return;
 
                 setState({
                     status: "ready",
                     business,
-                    collection,
-                    overlayCollection
+                    resolved
                 });
             } catch (err) {
                 if (cancelled) return;
+
+                console.error("[PublicCollectionPage] loading error:", err);
 
                 setState({
                     status: "error",
@@ -132,23 +120,26 @@ export default function PublicCollectionPage() {
 
     if (state.status === "empty") {
         return (
-            <CollectionView
-                mode="public"
-                businessName={state.business.name}
-                businessImage={state.business.cover_image ?? null}
-                collectionTitle="Menu"
-                sections={[]}
-                style={DEFAULT_PUBLIC_STYLE}
-                emptyState={getEmptyCopy(state.business)}
-            />
+            <div
+                style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100vh",
+                    padding: "24px",
+                    textAlign: "center"
+                }}
+            >
+                <h2>{state.business.name}</h2>
+                <p>Nessun menu disponibile al momento.</p>
+            </div>
         );
     }
 
     return (
-        <PublicCollectionView
-            business={state.business}
-            collection={state.collection}
-            overlayCollection={state.overlayCollection}
-        />
+        <PublicThemeScope style={state.resolved.style}>
+            <PublicCollectionRenderer business={state.business} resolved={state.resolved} />
+        </PublicThemeScope>
     );
 }

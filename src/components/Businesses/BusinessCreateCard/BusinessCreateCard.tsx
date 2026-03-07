@@ -74,7 +74,7 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                 {/* Tipo di attività */}
                 <Select
                     label="Tipo di attività"
-                    value={values.type}
+                    value={values.type ?? undefined}
                     error={errors?.type}
                     onChange={e =>
                         onFieldChange("type", e.target.value as BusinessFormValues["type"])

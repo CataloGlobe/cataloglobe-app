@@ -1,44 +1,81 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
+function getEnvValue(key: string): string | undefined {
+    const importMetaEnv =
+        typeof import.meta !== "undefined"
+            ? (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env
+            : undefined;
+    if (importMetaEnv?.[key]) return importMetaEnv[key];
+
+    const processEnv =
+        (
+            globalThis as typeof globalThis & {
+                process?: { env?: Record<string, string | undefined> };
+            }
+        ).process?.env ?? {};
+
+    return processEnv[key];
+}
+
+const SUPABASE_URL = getEnvValue("VITE_SUPABASE_URL");
+const SUPABASE_ANON_KEY = getEnvValue("VITE_SUPABASE_ANON_KEY");
 
 const REMEMBER_KEY = "authRememberMe";
+const isBrowserRuntime =
+    typeof window !== "undefined" &&
+    typeof window.localStorage !== "undefined" &&
+    typeof window.sessionStorage !== "undefined";
 
 function getRememberPreference(): boolean {
+    if (!isBrowserRuntime) return true;
+
     // default: true (SaaS standard)
     const raw = localStorage.getItem(REMEMBER_KEY);
     if (raw === null) return true;
     return raw === "true";
 }
 
-function getAuthStorage(): Storage {
+function getAuthStorage(): Storage | undefined {
+    if (!isBrowserRuntime) return undefined;
+
     // ✅ True -> localStorage (persistente)
     // ✅ False -> sessionStorage (dura finché il browser è aperto; refresh OK)
     return getRememberPreference() ? window.localStorage : window.sessionStorage;
 }
 
 function createSupabaseClient(): SupabaseClient {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+        throw new Error("Missing Supabase env vars: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY");
+    }
+
     const storage = getAuthStorage();
 
     const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: {
-            persistSession: true, // IMPORTANT: deve restare true (se no refresh slogg)
-            autoRefreshToken: true,
-            detectSessionInUrl: true,
+            persistSession: isBrowserRuntime, // in Node non usiamo storage persistente
+            autoRefreshToken: isBrowserRuntime,
+            detectSessionInUrl: isBrowserRuntime,
             storage
         }
     });
 
-    client.auth.onAuthStateChange(event => {
-        if (event === "PASSWORD_RECOVERY") {
-            sessionStorage.setItem("passwordRecoveryFlow", "true");
-        }
-    });
+    if (isBrowserRuntime) {
+        client.auth.onAuthStateChange(event => {
+            if (event === "PASSWORD_RECOVERY") {
+                sessionStorage.setItem("passwordRecoveryFlow", "true");
+            }
+        });
 
-    if (import.meta.env.DEV) {
+        if (getEnvValue("DEV") === "true") {
+            client.auth.onAuthStateChange((event, session) => {
+                console.log("[supabase] auth changed:", event, session?.user?.id);
+            });
+        }
+    }
+
+    if (!isBrowserRuntime && getEnvValue("DEBUG_SUPABASE_AUTH") === "true") {
         client.auth.onAuthStateChange((event, session) => {
-            console.log("[supabase] auth changed:", event, session?.user?.id);
+            console.log("[supabase][node] auth changed:", event, session?.user?.id);
         });
     }
 
@@ -53,6 +90,7 @@ export let supabase = createSupabaseClient();
  * Va chiamato PRIMA del login.
  */
 export function setRememberMe(remember: boolean) {
+    if (!isBrowserRuntime) return;
     localStorage.setItem(REMEMBER_KEY, String(remember));
     supabase = createSupabaseClient();
 }

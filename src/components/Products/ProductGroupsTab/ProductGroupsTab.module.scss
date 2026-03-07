@@ -1,0 +1,33 @@
+.tabContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.filterRow {
+  display: flex;
+  gap: 16px;
+}
+
+.filterBar {
+  flex: 1;
+}
+
+.nameCell {
+  display: flex;
+  align-items: center;
+}
+
+.emptyState {
+  padding: 64px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 16px;
+}
+
+.emptyIcon {
+  color: var(--color-gray-300);
+}

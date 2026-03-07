@@ -13,19 +13,17 @@ import type { DropdownItemProps } from "./DropdownItem";
 import { motion, AnimatePresence } from "framer-motion";
 import styles from "./DropdownMenu.module.scss";
 
-type DropdownChild = ReactElement<DropdownItemProps>;
-
-type Placement = "bottom-start" | "bottom-end" | "top-start" | "top-end";
+type DropdownPlacement = "bottom-start" | "bottom-end" | "top-start" | "top-end";
 
 interface DropdownMenuProps {
     trigger: ReactNode;
-    children: DropdownChild | DropdownChild[];
-    placement?: Placement;
+    children: ReactNode;
+    placement?: DropdownPlacement;
 }
 
 export function DropdownMenu({ trigger, children, placement = "bottom-start" }: DropdownMenuProps) {
     const [open, setOpen] = useState(false);
-    const [computedPlacement, setComputedPlacement] = useState<Placement>(placement);
+    const [computedPlacement, setComputedPlacement] = useState<DropdownPlacement>(placement);
 
     const triggerRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -39,7 +37,9 @@ export function DropdownMenu({ trigger, children, placement = "bottom-start" }: 
         if (!open) return;
 
         requestAnimationFrame(() => {
-            itemRefs.current[0]?.focus();
+            // Focus on first actual button/item if possible
+            const firstButton = itemRefs.current.find(ref => ref);
+            firstButton?.focus();
         });
 
         const handler = (e: MouseEvent) => {
@@ -67,7 +67,9 @@ export function DropdownMenu({ trigger, children, placement = "bottom-start" }: 
 
         if (spaceBelow < menuRect.height && spaceAbove > spaceBelow) {
             setComputedPlacement(prev =>
-                prev.startsWith("bottom") ? (prev.replace("bottom", "top") as Placement) : prev
+                prev.startsWith("bottom")
+                    ? (prev.replace("bottom", "top") as DropdownPlacement)
+                    : prev
             );
         } else {
             setComputedPlacement(placement);
@@ -75,7 +77,7 @@ export function DropdownMenu({ trigger, children, placement = "bottom-start" }: 
     }, [open, placement]);
 
     function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-        const items = itemRefs.current;
+        const items = itemRefs.current.filter(ref => ref);
         if (!items.length) return;
 
         const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
@@ -126,12 +128,22 @@ export function DropdownMenu({ trigger, children, placement = "bottom-start" }: 
                         {Children.map(children, (child, index) => {
                             if (!isValidElement(child)) return child;
 
-                            return cloneElement(child, {
-                                itemRef: (el: HTMLButtonElement | null) => {
-                                    if (el) itemRefs.current[index] = el;
-                                },
-                                onSelect: close
-                            });
+                            // Solo se il componente accetta itemRef e onSelect (DropdownItem)
+                            // Facciamo un check "alla cieca" o per tipo se possibile
+                            if (
+                                typeof child.type === "function" &&
+                                child.type.name === "DropdownItem"
+                            ) {
+                                return cloneElement(child as ReactElement<any>, {
+                                    itemRef: (el: HTMLButtonElement | null) => {
+                                        if (el) itemRefs.current[index] = el;
+                                    },
+                                    onSelect: close
+                                });
+                            }
+
+                            // Altrimenti (es: Separator) torniamo il figlio così com'è
+                            return child;
                         })}
                     </motion.div>
                 )}

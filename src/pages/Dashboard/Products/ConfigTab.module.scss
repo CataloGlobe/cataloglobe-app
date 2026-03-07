@@ -1,0 +1,200 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Create group form */
+.createSection {
+  padding: 0 0 24px;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.createGroupForm {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+
+  > :first-child {
+    flex: 2;
+    min-width: 160px;
+  }
+
+  > :nth-child(2) {
+    width: 140px;
+  }
+}
+
+/* Group list */
+.groupList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.groupCard {
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* Group header */
+.groupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: var(--color-surface-secondary, #f9fafb);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  gap: 12px;
+}
+
+.groupMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.groupBadges {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.groupActions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Group edit form */
+.groupEditForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background-color: var(--color-surface-secondary, #f9fafb);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.groupEditRow {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+
+  > :first-child {
+    width: 140px;
+  }
+}
+
+.groupEditActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Delete confirm */
+.deleteConfirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background-color: var(--color-surface-secondary, #f9fafb);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.deleteConfirmActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Value section */
+.valueSection {
+  padding: 12px 16px 16px;
+}
+
+/* Value table */
+.valueTable {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.valueHeader {
+  display: grid;
+  grid-template-columns: 1fr 120px 200px;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: var(--color-surface-secondary, #f9fafb);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.valueRow {
+  display: grid;
+  grid-template-columns: 1fr 120px 200px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.valueEditRow {
+  display: grid;
+  grid-template-columns: 1fr 120px 200px;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 8px 12px;
+  background-color: var(--color-surface-secondary, #f9fafb);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.rowActions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.rowError {
+  grid-column: 1 / -1;
+  padding-top: 2px;
+}
+
+/* Add value form */
+.addValueForm {
+  margin-top: 4px;
+}
+
+.addValueInputs {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+
+  > :first-child {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  > :nth-child(2) {
+    width: 140px;
+  }
+}

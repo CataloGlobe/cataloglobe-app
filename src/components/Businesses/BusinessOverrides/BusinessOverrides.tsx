@@ -103,10 +103,10 @@ export default function BusinessOverrides({
         const currentPriceOverride = d.removePriceOverride
             ? null
             : d.hasPriceOverride
-            ? d.price.trim() === ""
-                ? null
-                : Number(d.price)
-            : d.originalPriceOverride;
+              ? d.price.trim() === ""
+                  ? null
+                  : Number(d.price)
+              : d.originalPriceOverride;
 
         const currentVisibleOverride = d.hasVisibleOverride ? d.visible : d.originalVisibleOverride;
 
@@ -141,8 +141,8 @@ export default function BusinessOverrides({
                     originalPriceOverride != null
                         ? String(originalPriceOverride)
                         : basePrice != null
-                        ? String(basePrice)
-                        : "";
+                          ? String(basePrice)
+                          : "";
 
                 next[item.id] = {
                     visible: visibleShown,
@@ -205,8 +205,7 @@ export default function BusinessOverrides({
                 if (!s.collection) continue;
 
                 const isActiveNow =
-                    (s.slot === "primary" && resolved.primary === s.collection.id) ||
-                    (s.slot === "overlay" && resolved.overlay === s.collection.id);
+                    s.slot === "primary" && resolved.catalog?.id === s.collection.id;
 
                 if (!map.has(s.collection.id)) {
                     map.set(s.collection.id, {

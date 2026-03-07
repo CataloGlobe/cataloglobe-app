@@ -1,0 +1,404 @@
+.container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-top: 24px;
+}
+
+.tableCard {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  border: none;
+}
+
+.loadingState,
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  text-align: center;
+  gap: 8px;
+}
+
+.emptyIcon {
+  color: var(--color-border);
+  margin-bottom: 16px;
+}
+
+.emptyButton {
+  margin-top: 16px;
+}
+
+.previewBox {
+  width: 84px;
+  height: 48px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  position: relative;
+  background-color: var(--color-surface);
+}
+
+.previewHeaderBand {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.previewBody {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.previewAccent {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  width: 22px;
+  height: 6px;
+  border-radius: 999px;
+}
+
+/* List Layout */
+.listContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: auto;
+}
+
+.listHeader {
+  display: flex;
+  align-items: center;
+  padding: 12px 24px;
+  background-color: var(--color-surface-hover);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.listBody {
+  display: flex;
+  flex-direction: column;
+}
+
+.listRow {
+  display: flex;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--color-surface-hover);
+  }
+}
+
+/* Density Extended */
+.densityExtended .listRow {
+  padding: 24px;
+}
+
+/* Columns */
+.colName {
+  flex: 2;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.styleNameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rowLink {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.descriptionText {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.colUsage {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Drawer Specifics */
+.stylePageDrawer {
+  position: absolute;
+  top: 16px;
+  right: 0;
+  bottom: 16px;
+  border-top-left-radius: 16px;
+  border-bottom-left-radius: 16px;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.08);
+  background: #fff;
+  overflow: hidden;
+}
+
+.drawerHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.settingsForm {
+  height: 100%;
+  overflow: auto;
+  gap: 18px;
+  scrollbar-gutter: stable;
+}
+
+.styleNameField {
+  margin-bottom: 4px;
+}
+
+.versionInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background-color: var(--color-surface-hover);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.configSection {
+  display: flex;
+  flex-direction: column;
+}
+
+.jsonEditor {
+  width: 100%;
+  font-family: monospace;
+  font-size: 13px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s ease;
+
+  &:focus {
+    border-color: var(--color-primary);
+  }
+}
+
+.jsonEditorError {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-light);
+}
+
+.warningBox {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background-color: var(--color-warning-100);
+  border: 1px solid var(--color-warning-300);
+  border-radius: var(--radius-md);
+  color: var(--color-warning-700);
+  margin-bottom: 24px;
+}
+
+.warningIcon {
+  flex-shrink: 0;
+}
+
+.replacementBox {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background-color: var(--color-surface-hover);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+/* Canvas + Drawer Layout */
+.editorLayout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  background-color: var(--color-surface-hover); /* Canvas background */
+}
+
+.canvasArea {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding-bottom: 24px; /* Evita incollamento sul fondo */
+}
+
+/* FASE 4: Rimuovere margin fantasma su ultimi elementi */
+.canvasArea > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+.styleEditorPanelShell {
+  margin-top: 16px;
+  border-top-left-radius: 16px;
+  border-bottom-left-radius: 0px;
+  box-shadow:
+    -10px 0 30px rgba(0, 0, 0, 0.08),
+    -2px 0 8px rgba(0, 0, 0, 0.04);
+  background: #ffffff;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+}
+
+.settingsDrawer {
+  width: 400px;
+  background-color: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.05);
+
+  /* Docked by default on desktop, we use transform to slide it away */
+  &.isOpen {
+    transform: translateX(0);
+  }
+
+  &.isClosed {
+    transform: translateX(100%);
+    position: absolute;
+    right: 0;
+  }
+}
+
+.drawerHeaderAction {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+.drawerTitle {
+  font-weight: 600;
+  font-size: var(--text-h5);
+  color: var(--color-text);
+  margin: 0;
+}
+
+.drawerCloseBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: var(--color-surface-hover);
+    color: var(--color-text);
+  }
+}
+
+.drawerContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* Floating Toggle Button (visible when drawer is closed) */
+.toggleDrawerBtn {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text);
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: var(--color-surface-hover);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+@media (max-width: 1024px) {
+  .settingsDrawer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: 50;
+    width: 380px;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .settingsDrawer {
+    width: 100%;
+  }
+}

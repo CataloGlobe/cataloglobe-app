@@ -1,65 +1,12 @@
-import CollectionView from "@/components/PublicCollectionView/CollectionView/CollectionView";
-import type { PublicCollection } from "@/types/collectionPublic";
 import type { Business } from "@/types/database";
+import { ResolvedCollections } from "@/services/supabase/v2/resolveActivityCatalogsV2";
+import PublicCollectionRenderer from "@/features/public/components/PublicCollectionRenderer";
 
 type Props = {
     business: Pick<Business, "name" | "cover_image">;
-    collection: PublicCollection;
-    overlayCollection?: PublicCollection | null;
+    resolved: ResolvedCollections;
 };
 
-export default function PublicCollectionView({ business, collection, overlayCollection }: Props) {
-    /* ============================
-       BUILD SECTIONS
-    ============================ */
-
-    const overlaySections =
-        overlayCollection?.sections.map(s => ({
-            id: `overlay-${s.id}`,
-            name: s.name,
-            items: s.items.map(it => ({
-                id: it.id,
-                name: it.name,
-                description: it.description ?? null,
-                image: it.image ?? null,
-                price: it.price ?? null
-            }))
-        })) ?? [];
-
-    const primarySections = collection.sections.map(s => ({
-        id: s.id,
-        name: s.name,
-        items: s.items.map(it => ({
-            id: it.id,
-            name: it.name,
-            description: it.description ?? null,
-            image: it.image ?? null,
-            price: it.price ?? null
-        }))
-    }));
-
-    const sections = [
-        ...(overlaySections.length > 0
-            ? [
-                  {
-                      id: "__overlay__",
-                      name: "In evidenza",
-                      items: []
-                  }
-              ]
-            : []),
-        ...overlaySections,
-        ...primarySections
-    ];
-
-    return (
-        <CollectionView
-            mode="public"
-            businessName={business.name}
-            businessImage={business.cover_image ?? null}
-            collectionTitle={collection.title}
-            sections={sections}
-            style={collection.style}
-        />
-    );
+export default function PublicCollectionView({ business, resolved }: Props) {
+    return <PublicCollectionRenderer business={business} resolved={resolved} />;
 }

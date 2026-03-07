@@ -200,9 +200,9 @@ export default function BusinessCollectionSchedule({
                 );
 
                 setActiveNow({
-                    primaryId: resolved.primary,
-                    overlayId: resolved.overlay,
-                    isFallback: !!resolved.primary && !hasActivePrimaryRule
+                    primaryId: resolved.catalog?.id ?? null,
+                    overlayId: null,
+                    isFallback: !!resolved.catalog && !hasActivePrimaryRule
                 });
             } catch {
                 if (!cancelled) setActiveNow(null);

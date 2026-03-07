@@ -2,7 +2,7 @@
 @use "@styles/typography" as typography;
 
 .text {
-  font-family: "Outfit", sans-serif;
+  font-family: var(--preview-font-family, var(--pub-font-family, "Outfit", sans-serif));
   margin: 0;
   padding: 0;
 }

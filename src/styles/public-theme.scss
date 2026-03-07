@@ -1,0 +1,27 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Public renderer CSS variable defaults.
+//
+// These are the fallback values for the --pub-* namespace.
+// useRuntimeStyle() will override them at runtime when a schedule style
+// is active. If no style is set, these defaults are used automatically
+// because CSS custom properties fall back to the :root value.
+//
+// The dashboard theme variables (--bg, --brand-primary, etc.) are intentionally
+// NOT used here to keep the two surfaces visually independent.
+// ─────────────────────────────────────────────────────────────────────────────
+
+:root {
+  // Colors
+  --pub-bg: #f3f4f6;
+  --pub-primary: #6366f1;
+  --pub-header-bg: #ffffff;
+
+  // Shape
+  --pub-header-radius: 12px;
+  --pub-card-bg: #ffffff;
+  --pub-card-radius: 9px;
+
+  // Layout signals (consumed via data-* attributes in CSS, not directly)
+  --pub-nav-style: pill;
+  --pub-font-family: "Inter", sans-serif;
+}

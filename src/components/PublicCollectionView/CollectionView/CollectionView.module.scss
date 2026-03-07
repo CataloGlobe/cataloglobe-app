@@ -216,6 +216,21 @@
   overflow: hidden;
 }
 
+.price {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.priceOriginal {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.priceCurrent {
+  color: inherit;
+}
+
 /* ----------------------------------------------------
    CARD TOP (TITLE + PRICE)
 ---------------------------------------------------- */

@@ -29,6 +29,18 @@
 
 .price {
     margin-top: 0.25rem;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.45rem;
+}
+
+.priceOriginal {
+    text-decoration: line-through;
+    opacity: 0.7;
+}
+
+.priceCurrent {
+    color: inherit;
 }
 
 .description {

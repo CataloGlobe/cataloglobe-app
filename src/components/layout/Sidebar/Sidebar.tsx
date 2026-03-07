@@ -18,7 +18,8 @@ import {
     FolderOpen,
     TrendingUp,
     Cpu,
-    Archive
+    Archive,
+    Tags
 } from "lucide-react";
 import logoPng from "@/assets/logo.png";
 import styles from "./Sidebar.module.scss";
@@ -57,7 +58,7 @@ const groups = [
                 label: "Contenuti in evidenza",
                 icon: <Layers size={18} />
             },
-            { to: "/dashboard/stili", label: "Stili & design", icon: <Palette size={18} /> }
+            { to: "/dashboard/stili", label: "Stili", icon: <Palette size={18} /> }
         ]
     },
     {
@@ -72,6 +73,7 @@ const groups = [
         title: "Sistema",
         icon: <Cpu size={12} />,
         items: [
+            // { to: "/dashboard/attributi", label: "Attributi prodotto", icon: <Tags size={18} /> },
             { to: "/dashboard/impostazioni", label: "Impostazioni", icon: <Settings size={18} /> }
         ]
     }

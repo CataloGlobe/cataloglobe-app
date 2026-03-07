@@ -8,7 +8,7 @@ export function getEmptyCopy(business: Business) {
     // business.tags
 
     return {
-        title: "Stiamo preparando il menu",
+        title: "Stiamo preparando il catalogo",
         description: "Torna a trovarci tra poco per scoprire le nostre proposte."
     };
 }

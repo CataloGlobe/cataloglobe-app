@@ -10,7 +10,7 @@ import type {
 } from "@/types/database";
 import { resolveCollectionStyle, safeCollectionStyle } from "@/types/collectionStyle";
 import { CatalogType } from "@/types/catalog";
-import { getBusinessOverridesForItems } from "./overrides";
+import { findActivePriceRuleScheduleId } from "./v2/resolveActivityCatalogsV2";
 
 /* ============================
    COLLECTIONS (CRUD)
@@ -429,114 +429,203 @@ export async function getCollectionItemsWithData(
     });
 }
 
-export async function getPublicCollectionById(collectionId: string): Promise<PublicCollection> {
-    const { data: collection } = await supabase
-        .from("collections")
-        .select("id, name, style")
-        .eq("id", collectionId)
-        .single();
+type PriceAwareCollectionItem = Item & {
+    price?: number | null;
+    effective_price?: number | null;
+    original_price?: number | null;
+};
 
-    if (!collection) throw new Error("Collection not found");
-
-    const sections = await listSections(collectionId);
-    const items = await getCollectionItemsWithData(collectionId);
-
-    const itemsBySection = new Map<string, typeof items>();
-
-    for (const it of items) {
-        if (!it.visible) continue;
-        const arr = itemsBySection.get(it.section_id) ?? [];
-        arr.push(it);
-        itemsBySection.set(it.section_id, arr);
-    }
-
-    const publicSections = sections
-        .map(section => {
-            const sectionItems = itemsBySection.get(section.id) ?? [];
-            return {
-                id: section.id,
-                name: section.label,
-                items: sectionItems.map(it => ({
-                    id: it.id,
-                    name: it.item.name,
-                    description: it.item.description ?? null,
-                    image: it.item.metadata?.image ?? null,
-                    price: it.item.base_price ?? null
-                }))
-            };
-        })
-        .filter(s => s.items.length > 0);
-
-    const resolvedStyle = resolveCollectionStyle(safeCollectionStyle(collection.style ?? null), {});
+function mapPublicSectionItem(row: CollectionItemWithItem) {
+    const item = row.item as PriceAwareCollectionItem;
+    const effectivePrice = item.effective_price ?? item.price ?? item.base_price ?? null;
 
     return {
-        title: collection.name,
-        sections: publicSections,
-        style: resolvedStyle
+        id: row.id,
+        name: item.name,
+        description: item.description ?? null,
+        image: item.metadata?.image ?? null,
+        price: effectivePrice,
+        effective_price: item.effective_price ?? null,
+        original_price: item.original_price ?? null
     };
 }
 
+type RawV2ProductRow = {
+    id: string;
+    name: string;
+    description: string | null;
+    base_price: number | null;
+};
+
+type RawV2CatalogItemRow = {
+    id: string;
+    order_index: number | null;
+    visible: boolean | null;
+    product: RawV2ProductRow | RawV2ProductRow[] | null;
+};
+
+type RawV2CatalogSectionRow = {
+    id: string;
+    label: string | null;
+    order_index: number | null;
+    items: RawV2CatalogItemRow[] | RawV2CatalogItemRow | null;
+};
+
+type RawV2CatalogRow = {
+    id: string;
+    name: string;
+    style: unknown;
+    sections: RawV2CatalogSectionRow[] | RawV2CatalogSectionRow | null;
+};
+
+type RawV2ActivityProductOverrideRow = {
+    product_id: string;
+    visible_override: boolean | null;
+};
+
+type RawV2SchedulePriceOverrideRow = {
+    product_id: string;
+    override_price: number;
+    show_original_price: boolean;
+};
+
+function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
+    if (!value) return null;
+    return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+function normalizeMany<T>(value: T[] | T | null | undefined): T[] {
+    if (!value) return [];
+    return Array.isArray(value) ? value : [value];
+}
+
 export async function getPublicBusinessCollection(
-    businessId: string,
-    collectionId: string
+    activityId: string,
+    catalogId: string
 ): Promise<PublicCollection> {
-    const { data: collection } = await supabase
-        .from("collections")
-        .select("id, name, style")
-        .eq("id", collectionId)
-        .single();
+    const { data: catalogData, error: catalogError } = await supabase
+        .from("v2_catalogs")
+        .select(
+            `
+            id,
+            name,
+            style,
+            sections:v2_catalog_sections(
+              id,
+              label,
+              order_index,
+              items:v2_catalog_items(
+                id,
+                order_index,
+                visible,
+                product:v2_products(
+                  id,
+                  name,
+                  description,
+                  base_price
+                )
+              )
+            )
+            `
+        )
+        .eq("id", catalogId)
+        .maybeSingle();
 
-    if (!collection) throw new Error("Collection not found");
+    if (catalogError) throw catalogError;
+    if (!catalogData) throw new Error("Collection not found");
 
-    const sections = await listSections(collectionId);
-    const items = await getCollectionItemsWithData(collectionId);
+    const catalog = catalogData as RawV2CatalogRow;
+    const sections = normalizeMany(catalog.sections)
+        .slice()
+        .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
 
-    // 🔹 carica override
-    const itemIds = items.map(it => it.item.id);
-    const overrides = await getBusinessOverridesForItems(businessId, itemIds);
+    const productIds = Array.from(
+        new Set(
+            sections.flatMap(section =>
+                normalizeMany(section.items)
+                    .map(item => normalizeOne(item.product)?.id ?? null)
+                    .filter((id): id is string => Boolean(id))
+            )
+        )
+    );
 
-    const itemsBySection = new Map<string, typeof items>();
+    const visibleOverridesByProductId: Record<string, RawV2ActivityProductOverrideRow> = {};
+    if (productIds.length > 0) {
+        const { data: visibleOverridesData, error: visibleOverridesError } = await supabase
+            .from("v2_activity_product_overrides")
+            .select("product_id, visible_override")
+            .eq("activity_id", activityId)
+            .in("product_id", productIds);
 
-    for (const it of items) {
-        const override = overrides[it.item.id];
+        if (visibleOverridesError) throw visibleOverridesError;
 
-        // visibilità finale
-        const visible = override?.visible_override ?? it.visible ?? true;
+        for (const row of (visibleOverridesData ?? []) as RawV2ActivityProductOverrideRow[]) {
+            visibleOverridesByProductId[row.product_id] = row;
+        }
+    }
 
-        if (!visible) continue;
+    const priceOverridesByProductId: Record<string, RawV2SchedulePriceOverrideRow> = {};
+    const activePriceRuleScheduleId = await findActivePriceRuleScheduleId(activityId, new Date());
+    if (activePriceRuleScheduleId && productIds.length > 0) {
+        const { data: priceOverridesData, error: priceOverridesError } = await supabase
+            .from("v2_schedule_price_overrides")
+            .select("product_id, override_price, show_original_price")
+            .eq("schedule_id", activePriceRuleScheduleId)
+            .in("product_id", productIds);
 
-        const arr = itemsBySection.get(it.section_id) ?? [];
-        arr.push({
-            ...it,
-            item: {
-                ...it.item,
-                base_price: override?.price_override ?? it.item.base_price
-            }
-        });
-        itemsBySection.set(it.section_id, arr);
+        if (priceOverridesError) throw priceOverridesError;
+
+        for (const row of (priceOverridesData ?? []) as RawV2SchedulePriceOverrideRow[]) {
+            priceOverridesByProductId[row.product_id] = row;
+        }
     }
 
     const publicSections = sections
         .map(section => {
-            const sectionItems = itemsBySection.get(section.id) ?? [];
+            const items = normalizeMany(section.items)
+                .slice()
+                .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+                .flatMap(item => {
+                    const product = normalizeOne(item.product);
+                    if (!product) return [];
+
+                    const visibleOverride =
+                        visibleOverridesByProductId[product.id]?.visible_override;
+                    const visible = visibleOverride ?? item.visible ?? true;
+                    if (!visible) return [];
+
+                    const priceOverride = priceOverridesByProductId[product.id];
+                    const effectivePrice =
+                        priceOverride?.override_price ?? product.base_price ?? null;
+                    const originalPrice = priceOverride?.show_original_price
+                        ? (product.base_price ?? null)
+                        : null;
+
+                    return [
+                        {
+                            id: item.id,
+                            name: product.name,
+                            description: product.description ?? null,
+                            image: null,
+                            price: effectivePrice,
+                            effective_price: effectivePrice,
+                            original_price: originalPrice
+                        }
+                    ];
+                });
+
             return {
                 id: section.id,
-                name: section.label,
-                items: sectionItems.map(it => ({
-                    id: it.id,
-                    name: it.item.name,
-                    description: it.item.description ?? null,
-                    image: it.item.metadata?.image ?? null,
-                    price: it.item.base_price ?? null
-                }))
+                name: section.label ?? "Senza categoria",
+                items
             };
         })
-        .filter(s => s.items.length > 0);
+        .filter(section => section.items.length > 0);
 
-    const resolvedStyle = resolveCollectionStyle(safeCollectionStyle(collection.style ?? null), {});
+    const resolvedStyle = resolveCollectionStyle(safeCollectionStyle(catalog.style ?? null), {});
 
     return {
-        title: collection.name,
+        title: catalog.name,
         sections: publicSections,
         style: resolvedStyle
     };

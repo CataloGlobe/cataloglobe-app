@@ -1,0 +1,517 @@
+.engineContainer {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.engineHeader {
+  flex: 0 0 auto;
+  margin-bottom: var(--spacing-4, 16px);
+}
+
+.engineBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.catalogLayout {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  border: 1px solid var(--color-gray-200, #e2e8f0);
+  border-radius: var(--radius-lg, 16px);
+  overflow: hidden;
+  background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
+}
+
+.catalogTreePane {
+  min-width: 280px;
+  background: linear-gradient(180deg, #f9fbff 0%, #f5f8fc 100%);
+  border-right: 1px solid var(--color-gray-200, #e2e8f0);
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.catalogContentPane {
+  overflow-y: auto;
+  min-height: 0;
+  background: #f8fafc;
+}
+
+.catalogTree {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.treeHeader {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-4, 16px) var(--spacing-4, 16px) var(--spacing-3, 12px);
+  border-bottom: 1px solid var(--color-gray-200, #e2e8f0);
+  background: rgba(249, 251, 255, 0.94);
+  backdrop-filter: blur(3px);
+}
+
+.treeHeading {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-gray-500, #64748b);
+}
+
+.treeList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--spacing-3, 12px) var(--spacing-3, 12px) var(--spacing-4, 16px);
+}
+
+.treeEmptyState {
+  padding: var(--spacing-8, 32px) var(--spacing-4, 16px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-2, 8px);
+  text-align: center;
+  color: var(--color-gray-500, #64748b);
+}
+
+.treeNodeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2, 8px);
+  min-height: 42px;
+  border-left: 3px solid transparent;
+  border-radius: 12px;
+  padding-right: 6px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid transparent;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.treeNodeRow:hover,
+.treeNodeRow:focus-within {
+  background: #ffffff;
+  border-color: #e4e9f2;
+}
+
+.treeNodeRowActive {
+  border-left-color: var(--brand-primary, #6366f1);
+  background: linear-gradient(90deg, #eef2ff 0%, #f8faff 100%);
+  border-color: #d8e2ff;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.12);
+}
+
+.treeNodeRowDragging {
+  opacity: 0.7;
+}
+
+.treeNodeMain {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+  position: relative;
+}
+
+.treeDragHandle {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm, 8px);
+  background: transparent;
+  color: var(--color-gray-400, #94a3b8);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+
+  &:hover {
+    color: var(--color-gray-600, #475569);
+    background: #e2e8f0;
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.treeExpandBtn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm, 8px);
+  background: transparent;
+  color: var(--color-gray-500, #64748b);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease;
+}
+
+.treeExpandOpen {
+  transform: rotate(90deg);
+}
+
+.treeExpandSpacer {
+  width: 24px;
+  height: 24px;
+  display: inline-block;
+}
+
+.treeSelectBtn {
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.treeLabelIcon {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #7a88a1;
+  background: #edf2f8;
+  flex-shrink: 0;
+}
+
+.treeLabelText {
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.treeNodeRowActive .treeLabelIcon {
+  color: var(--brand-primary, #6366f1);
+  background: #e2e9ff;
+}
+
+.treeNodeMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 4px;
+}
+
+.treeNodeCount {
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid var(--color-gray-200, #e2e8f0);
+  background: #f8fafc;
+  color: var(--color-gray-500, #64748b);
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.treeNodeRowActive .treeNodeCount {
+  background: #ffffff;
+  border-color: #ccd8ff;
+  color: #4a5cd8;
+}
+
+.treeNodeActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.treeNodeRow:hover .treeNodeActions,
+.treeNodeRow:focus-within .treeNodeActions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.treeMenuTrigger {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm, 8px);
+  background: transparent;
+  color: var(--color-gray-500, #64748b);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-gray-100, #f1f5f9);
+    color: var(--color-gray-800, #1e293b);
+  }
+}
+
+.productsPanel {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4, 16px);
+  padding: var(--spacing-6, 24px);
+}
+
+.productsHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2, 8px);
+  background: #ffffff;
+  border: 1px solid var(--color-gray-200, #e2e8f0);
+  border-radius: var(--radius-lg, 16px);
+  padding: var(--spacing-4, 16px) var(--spacing-4, 16px) var(--spacing-3, 12px);
+}
+
+.productsTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3, 12px);
+}
+
+.productsTools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--spacing-3, 12px);
+  flex-wrap: wrap;
+}
+
+.quickSearchWrap {
+  width: 100%;
+}
+
+.bulkBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3, 12px);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-gray-200, #e2e8f0);
+  background: #f4f7fb;
+  border: 1px solid var(--color-gray-200, #e2e8f0);
+  border-radius: var(--radius-md, 12px);
+  margin-bottom: var(--spacing-2, 8px);
+}
+
+.bulkActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2, 8px);
+}
+
+.productNameCell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.productNameMain {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.productSku {
+  color: var(--color-gray-500, #64748b);
+}
+
+.productThumb {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--color-gray-200, #e2e8f0);
+  background: #f8fafc;
+  color: var(--color-gray-400, #94a3b8);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dragCell {
+  color: var(--color-gray-400, #94a3b8);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.productsEmptySelection {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--spacing-8, 32px);
+}
+
+.emptyCard {
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-3, 12px);
+}
+
+.loadingPanel {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-gray-500, #64748b);
+}
+
+.checkboxCell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tableCheckbox {
+  width: 16px;
+  height: 16px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4, 16px);
+}
+
+.deleteWarning {
+  padding: var(--spacing-4, 16px);
+  background-color: var(--color-red-50, #fef2f2);
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--color-red-200, #fecaca);
+  color: var(--color-red-900, #7f1d1d);
+}
+
+.assignResults {
+  margin-top: var(--spacing-4, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2, 8px);
+}
+
+.assignRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3, 12px);
+  border: 1px solid var(--color-gray-200, #e2e8f0);
+  border-radius: var(--radius-md, 12px);
+  padding: var(--spacing-3, 12px);
+}
+
+.assignMeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dropdownContent {
+  background-color: white;
+  border-radius: var(--radius-md, 12px);
+  padding: 6px;
+  box-shadow:
+    0 10px 38px -10px rgba(22, 23, 24, 0.35),
+    0 10px 20px -15px rgba(22, 23, 24, 0.2);
+  min-width: 180px;
+  border: 1px solid var(--color-gray-200, #e2e8f0);
+  animation-duration: 200ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 50;
+}
+
+.dropdownItem {
+  font-size: 13px;
+  line-height: 1;
+  color: var(--color-gray-700, #334155);
+  border-radius: var(--radius-sm, 8px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  position: relative;
+  user-select: none;
+  outline: none;
+  cursor: pointer;
+
+  &[data-highlighted] {
+    background-color: var(--color-gray-100, #f1f5f9);
+    color: var(--color-gray-900, #0f172a);
+  }
+}
+
+.dropdownSeparator {
+  height: 1px;
+  background-color: var(--color-gray-200, #e2e8f0);
+  margin: 6px -6px;
+}
+
+.danger {
+  color: var(--color-red-600, #dc2626);
+
+  &[data-highlighted] {
+    background-color: var(--color-red-50, #fef2f2);
+    color: var(--color-red-700, #b91c1c);
+  }
+}
+
+@media (max-width: 1023px) {
+  .catalogLayout {
+    grid-template-columns: 1fr;
+    grid-template-rows: 280px minmax(0, 1fr);
+  }
+
+  .catalogTreePane {
+    min-width: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--color-gray-200, #e2e8f0);
+  }
+
+  .quickSearchWrap {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .productsPanel {
+    padding: var(--spacing-4, 16px);
+  }
+}

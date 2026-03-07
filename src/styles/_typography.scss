@@ -119,7 +119,7 @@ $typography-scale: (
    ========================================================= */
 
 html {
-  font-family: "Outfit", sans-serif;
+  font-family: var(--preview-font-family, var(--pub-font-family, "Outfit", sans-serif));
   font-size: 16px;
   color: $gray-800;
   line-height: 1.4;
@@ -140,7 +140,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: "Outfit", sans-serif;
+  font-family: var(--preview-font-family, var(--pub-font-family, "Outfit", sans-serif));
   font-weight: 600;
   color: $brand-dark;
   line-height: 1.2;

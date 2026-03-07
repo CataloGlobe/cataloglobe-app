@@ -13,7 +13,25 @@ export type CollectionViewSectionItem = {
     name: string;
     description?: string | null;
     price?: number | null;
+    effective_price?: number | null;
+    original_price?: number | null;
+    /** Min format price. When set, show "da X€" on card. */
+    from_price?: number | null;
     image?: string | null;
+    optionGroups?: {
+        id: string;
+        name: string;
+        group_kind: "PRIMARY_PRICE" | "ADDON";
+        pricing_mode: "ABSOLUTE" | "DELTA";
+        isRequired: boolean;
+        maxSelectable: number | null;
+        values: {
+            id: string;
+            name: string;
+            absolutePrice: number | null;
+            priceModifier: number | null;
+        }[];
+    }[];
 };
 
 export type CollectionViewSection = {
@@ -213,15 +231,49 @@ export default function CollectionView({
                                                             {item.name}
                                                         </Text>
 
-                                                        {item.price != null && (
+                                                        {item.from_price != null ? (
                                                             <Text
                                                                 variant="caption"
                                                                 colorVariant="muted"
                                                                 className={styles.price}
                                                             >
-                                                                € {item.price.toFixed(2)}
+                                                                <span
+                                                                    className={styles.priceCurrent}
+                                                                >
+                                                                    da {item.from_price.toFixed(2)}{" "}
+                                                                    €
+                                                                </span>
                                                             </Text>
-                                                        )}
+                                                        ) : (item.effective_price ?? item.price) !=
+                                                          null ? (
+                                                            <Text
+                                                                variant="caption"
+                                                                colorVariant="muted"
+                                                                className={styles.price}
+                                                            >
+                                                                {item.original_price != null && (
+                                                                    <span
+                                                                        className={
+                                                                            styles.priceOriginal
+                                                                        }
+                                                                    >
+                                                                        €{" "}
+                                                                        {item.original_price.toFixed(
+                                                                            2
+                                                                        )}
+                                                                    </span>
+                                                                )}
+                                                                <span
+                                                                    className={styles.priceCurrent}
+                                                                >
+                                                                    €{" "}
+                                                                    {(
+                                                                        item.effective_price ??
+                                                                        item.price
+                                                                    )?.toFixed(2)}
+                                                                </span>
+                                                            </Text>
+                                                        ) : null}
 
                                                         {item.description && (
                                                             <Text

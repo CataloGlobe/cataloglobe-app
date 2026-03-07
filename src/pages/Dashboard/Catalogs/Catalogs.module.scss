@@ -1,0 +1,156 @@
+.container {
+  width: 100%;
+}
+
+.content {
+  padding-block: var(--spacing-6, 24px);
+  background-color: var(--color-gray-50);
+  min-height: calc(100vh - 61px);
+}
+
+.filterBar {
+  margin-bottom: var(--spacing-6, 24px);
+}
+
+.loadingState,
+.emptyState {
+  padding: var(--spacing-12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--spacing-3);
+  color: var(--color-gray-500);
+}
+
+.emptyIcon {
+  color: var(--color-gray-400);
+  margin-bottom: var(--spacing-2);
+}
+
+.emptyButton {
+  margin-top: var(--spacing-4);
+}
+
+.colName {
+  display: flex;
+  align-items: center;
+}
+
+.iconWrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-gray-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-gray-600);
+}
+
+.catalogNameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.deleteWarning {
+  padding: var(--spacing-4);
+  background-color: var(--color-red-50);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-red-200);
+  color: var(--color-red-900);
+}
+
+/* Catalog Engine Styles */
+.engineHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-6);
+}
+
+.treeContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.categoryNode {
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  background-color: #fff;
+  overflow: hidden;
+}
+
+.categoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-3) var(--spacing-4);
+  background-color: var(--color-gray-50);
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.categoryTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.categoryLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+.levelBadge {
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+}
+.level1 {
+  background-color: #e0f2fe;
+  color: #0284c7;
+}
+.level2 {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+.level3 {
+  background-color: #fff1f2;
+  color: #e11d48;
+}
+
+.categoryChildren {
+  padding: var(--spacing-4);
+  padding-left: calc(var(--spacing-4) + 20px);
+  border-left: 2px solid var(--color-gray-100);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.productRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-2) var(--spacing-3);
+  background-color: #fff;
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  margin-top: var(--spacing-2);
+}
+
+.productList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
