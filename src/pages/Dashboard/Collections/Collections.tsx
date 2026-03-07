@@ -93,7 +93,7 @@ export default function Collections() {
         async function loadBusinesses() {
             try {
                 const businesses = await getUserBusinesses(id);
-                setUserBusinessTypes(businesses.map(b => b.activity_type));
+                setUserBusinessTypes(businesses.map(b => b.activity_type).filter(t => t !== null));
             } catch (error) {
                 console.error("Errore caricamento business", error);
                 setUserBusinessTypes([]);
