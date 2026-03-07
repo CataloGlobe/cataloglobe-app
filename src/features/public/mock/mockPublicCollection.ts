@@ -37,7 +37,7 @@ const antipasti: ResolvedCategory = {
             price: 11.0,
             original_price: 14.0,
             is_visible: true,
-            image_url: null,
+            image_url: undefined,
             allergens: [{ label_it: "Latte" }]
         },
         {
@@ -91,7 +91,7 @@ const pizze: ResolvedCategory = {
                 "Pomodoro, mozzarella, prosciutto cotto, funghi trifolati, carciofi e olive taggiasche.",
             price: 13.0,
             is_visible: true,
-            image_url: null,
+            image_url: undefined,
             allergens: [{ label_it: "Cereali" }, { label_it: "Latte" }, { label_it: "Uova" }]
         },
         {
@@ -138,7 +138,7 @@ const dolci: ResolvedCategory = {
                 "Cremosa panna cotta con coulis di lamponi, mirtilli e ribes freschi di stagione, decorata con foglioline di menta e zucchero a velo.",
             price: 6.5,
             is_visible: true,
-            image_url: null,
+            image_url: undefined,
             attributes: [{ definition: { label: "Dieta" }, value_text: "Senza Glutine" }]
         },
         {
