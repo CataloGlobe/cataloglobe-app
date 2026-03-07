@@ -2,7 +2,8 @@ import { useEffect, useState, memo } from "react";
 import { useAuth } from "@context/useAuth";
 import { getUserBusinesses } from "@services/supabase/businesses";
 import { supabase } from "@services/supabase/client";
-import type { Review, Business } from "@/types/database";
+import type { Review } from "@/types/database";
+import type { BusinessWithCapabilities } from "@/types/Businesses";
 import Text from "@components/ui/Text/Text";
 import Skeleton from "@components/ui/Skeleton/Skeleton";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
@@ -13,7 +14,7 @@ export default function Overview() {
     const { user } = useAuth();
     const navigate = useNavigate();
 
-    const [businesses, setBusinesses] = useState<Business[]>([]);
+    const [businesses, setBusinesses] = useState<BusinessWithCapabilities[]>([]);
     const [reviews, setReviews] = useState<Review[]>([]);
     const [average, setAverage] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);

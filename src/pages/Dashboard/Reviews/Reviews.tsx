@@ -3,7 +3,8 @@ import { useLocation } from "react-router-dom";
 import { useAuth } from "@context/useAuth";
 import { getUserBusinesses } from "@services/supabase/businesses";
 import { getBusinessReviews, deleteReview } from "@services/supabase/reviews";
-import type { Review, Business } from "@/types/database";
+import type { Review } from "@/types/database";
+import type { BusinessWithCapabilities } from "@/types/Businesses";
 import Text from "@components/ui/Text/Text";
 import { DateInput } from "@/components/ui/Input/DateInput";
 import { Globe, ShieldCheck, Trash2, Star } from "lucide-react";
@@ -34,7 +35,7 @@ export default function Reviews() {
     const location = useLocation();
 
     /** ------------------------ STATE ------------------------ */
-    const [businesses, setBusinesses] = useState<Business[]>([]);
+    const [businesses, setBusinesses] = useState<BusinessWithCapabilities[]>([]);
     const [reviews, setReviews] = useState<Review[]>([]);
     const [selectedBusiness, setSelectedBusiness] = useState<string | null>(null);
 
