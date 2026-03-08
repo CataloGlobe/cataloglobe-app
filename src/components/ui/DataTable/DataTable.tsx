@@ -1,5 +1,7 @@
-import { CSSProperties, ReactNode, useMemo } from "react";
+import { CSSProperties, ReactNode, useEffect, useMemo, useState } from "react";
+import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import styles from "./DataTable.module.scss";
+import Text from "@/components/ui/Text/Text";
 
 export type ColumnDefinition<T> = {
     id: string;
@@ -15,6 +17,8 @@ export type ColumnDefinition<T> = {
 
 type DataTableDensity = "compact" | "extended";
 
+const DEFAULT_ROWS_PER_PAGE = 5;
+
 interface DataTableProps<T> {
     data: T[];
     columns: ColumnDefinition<T>[];
@@ -26,6 +30,7 @@ interface DataTableProps<T> {
     rowClassName?: (row: T, rowIndex: number) => string | undefined;
     onRowClick?: (row: T, rowIndex: number) => void;
     rowWrapper?: (row: ReactNode, rowData: T, rowIndex: number) => ReactNode;
+    rowsPerPage?: number;
 }
 
 function getRowKey<T>(row: T, index: number): string | number {
@@ -112,8 +117,15 @@ export function DataTable<T>({
     density = "compact",
     rowClassName,
     onRowClick,
-    rowWrapper
+    rowWrapper,
+    rowsPerPage = DEFAULT_ROWS_PER_PAGE
 }: DataTableProps<T>) {
+    const [currentPage, setCurrentPage] = useState(1);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [data]);
+
     const gridStyle = useMemo<CSSProperties>(() => {
         const gridTemplateColumns = columns
             .map(column => column.width ?? "minmax(0, 1fr)")
@@ -124,6 +136,17 @@ export function DataTable<T>({
 
     const densityRowClass = density === "extended" ? styles.rowExtended : styles.rowCompact;
 
+    // Internal pagination is used only when no external pagination prop is passed.
+    const useInternalPagination = !pagination;
+    const totalPages = Math.max(1, Math.ceil(data.length / rowsPerPage));
+    const showInternalPagination = useInternalPagination && !isLoading && data.length > rowsPerPage;
+
+    const displayData = useMemo(() => {
+        if (!useInternalPagination) return data;
+        const start = (currentPage - 1) * rowsPerPage;
+        return data.slice(start, start + rowsPerPage);
+    }, [data, currentPage, rowsPerPage, useInternalPagination]);
+
     const renderState = () => {
         if (isLoading) {
             return <div className={styles.state}>{loadingState ?? "Caricamento..."}</div>;
@@ -133,7 +156,13 @@ export function DataTable<T>({
             return <div className={styles.state}>{emptyState ?? "Nessun risultato."}</div>;
         }
 
-        return data.map((row, rowIndex) => {
+        return displayData.map((row, pageRowIndex) => {
+            // Preserve global row index so rowIndex in cell/rowClassName is consistent
+            // regardless of which page is being viewed.
+            const rowIndex = useInternalPagination
+                ? (currentPage - 1) * rowsPerPage + pageRowIndex
+                : pageRowIndex;
+
             const rowElement = (
                 <DataTableRow
                     key={getRowKey(row, rowIndex)}
@@ -150,6 +179,40 @@ export function DataTable<T>({
             return rowWrapper ? rowWrapper(rowElement, row, rowIndex) : rowElement;
         });
     };
+
+    const startRow = (currentPage - 1) * rowsPerPage + 1;
+    const endRow = Math.min(currentPage * rowsPerPage, data.length);
+
+    const footerContent =
+        pagination ??
+        (showInternalPagination ? (
+            <div className={styles.pagination}>
+                <Text variant="body-sm" colorVariant="muted">
+                    {startRow}–{endRow} di {data.length}
+                </Text>
+                <div className={styles.paginationControls}>
+                    <button
+                        className={styles.paginationButton}
+                        onClick={() => setCurrentPage(p => p - 1)}
+                        disabled={currentPage === 1}
+                        aria-label="Pagina precedente"
+                    >
+                        <IconChevronLeft size={16} />
+                    </button>
+                    <Text variant="body-sm" colorVariant="muted">
+                        {currentPage} / {totalPages}
+                    </Text>
+                    <button
+                        className={styles.paginationButton}
+                        onClick={() => setCurrentPage(p => p + 1)}
+                        disabled={currentPage === totalPages}
+                        aria-label="Pagina successiva"
+                    >
+                        <IconChevronRight size={16} />
+                    </button>
+                </div>
+            </div>
+        ) : null);
 
     return (
         <div className={styles.table}>
@@ -168,7 +231,7 @@ export function DataTable<T>({
 
             <div className={styles.body}>{renderState()}</div>
 
-            {pagination ? <div className={styles.footer}>{pagination}</div> : null}
+            {footerContent ? <div className={styles.footer}>{footerContent}</div> : null}
         </div>
     );
 }
