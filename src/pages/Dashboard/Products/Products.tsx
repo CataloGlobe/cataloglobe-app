@@ -235,7 +235,7 @@ export default function Products() {
                                 )}
                             </button>
                         )}
-                        <Link to={`/products/${row.product.id}`} className={styles.productLink}>
+                        <Link to={`/dashboard/prodotti/${row.product.id}`} className={styles.productLink}>
                             <Text
                                 variant="body-sm"
                                 weight={row.kind === "variant" ? 500 : 600}
