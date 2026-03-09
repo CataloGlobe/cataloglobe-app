@@ -7,15 +7,7 @@ import clsx from "clsx";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { IconButton } from "@/components/ui/Button/IconButton";
-import {
-    ExternalLink,
-    Link,
-    FileText,
-    Edit,
-    Trash2,
-    Calendar,
-    ClipboardCheck
-} from "lucide-react";
+import { ExternalLink, Link, FileText, Edit, Trash2, Calendar, ClipboardCheck } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useNavigate } from "react-router-dom";
 
@@ -147,6 +139,10 @@ export const BusinessList: React.FC<BusinessListProps> = ({
         [activeCatalogsMap, onManageAvailability, onEdit, onDelete, navigate]
     );
 
+    const handleBulkDelete = (selectedIds: string[]) => {
+        selectedIds.forEach(id => onDelete(id));
+    };
+
     if (businesses.length === 0) {
         return (
             <div className={styles.emptyState}>
@@ -165,6 +161,8 @@ export const BusinessList: React.FC<BusinessListProps> = ({
             <DataTable
                 data={businesses}
                 columns={columns}
+                selectable
+                onBulkDelete={handleBulkDelete}
                 onRowClick={business => navigate(`/dashboard/attivita/${business.id}`)}
             />
         );
