@@ -17,6 +17,23 @@
   overflow: hidden;
 }
 
+.saveBar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2, 8px);
+  padding: 10px 16px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: var(--radius-md, 12px);
+  margin-bottom: var(--spacing-3, 12px);
+}
+
+.saveBarMessage {
+  flex: 1;
+  color: #92400e;
+}
+
 .catalogLayout {
   height: 100%;
   min-height: 0;
@@ -310,25 +327,6 @@
   width: 100%;
 }
 
-.bulkBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-3, 12px);
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--color-gray-200, #e2e8f0);
-  background: #f4f7fb;
-  border: 1px solid var(--color-gray-200, #e2e8f0);
-  border-radius: var(--radius-md, 12px);
-  margin-bottom: var(--spacing-2, 8px);
-}
-
-.bulkActions {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-2, 8px);
-}
-
 .productNameCell {
   min-width: 0;
   display: flex;
@@ -393,17 +391,6 @@
   align-items: center;
   justify-content: center;
   color: var(--color-gray-500, #64748b);
-}
-
-.checkboxCell {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tableCheckbox {
-  width: 16px;
-  height: 16px;
 }
 
 .form {
