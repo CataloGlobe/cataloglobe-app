@@ -1,5 +1,8 @@
-import { CSSProperties, ReactNode, useMemo } from "react";
+import { CSSProperties, ReactNode, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { IconChevronLeft, IconChevronRight, IconTrash, IconX } from "@tabler/icons-react";
 import styles from "./DataTable.module.scss";
+import Text from "@/components/ui/Text/Text";
 
 export type ColumnDefinition<T> = {
     id: string;
@@ -15,6 +18,9 @@ export type ColumnDefinition<T> = {
 
 type DataTableDensity = "compact" | "extended";
 
+const DEFAULT_ROWS_PER_PAGE = 5;
+const CHECKBOX_COLUMN_WIDTH = "48px";
+
 interface DataTableProps<T> {
     data: T[];
     columns: ColumnDefinition<T>[];
@@ -26,6 +32,9 @@ interface DataTableProps<T> {
     rowClassName?: (row: T, rowIndex: number) => string | undefined;
     onRowClick?: (row: T, rowIndex: number) => void;
     rowWrapper?: (row: ReactNode, rowData: T, rowIndex: number) => ReactNode;
+    rowsPerPage?: number;
+    selectable?: boolean;
+    onBulkDelete?: (selectedIds: string[]) => void;
 }
 
 function getRowKey<T>(row: T, index: number): string | number {
@@ -54,6 +63,10 @@ interface DataTableRowProps<T> {
     onRowClick?: (row: T, rowIndex: number) => void;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     dragHandleProps?: any;
+    selectable?: boolean;
+    isSelected?: boolean;
+    onSelect?: (id: string, checked: boolean) => void;
+    rowId?: string;
 }
 
 function DataTableRow<T>({
@@ -64,11 +77,15 @@ function DataTableRow<T>({
     densityRowClass,
     rowClassName,
     onRowClick,
-    dragHandleProps
+    dragHandleProps,
+    selectable,
+    isSelected,
+    onSelect,
+    rowId
 }: DataTableRowProps<T>) {
     return (
         <div
-            className={`${styles.row} ${densityRowClass} ${onRowClick ? styles.rowClickable : ""} ${rowClassName?.(row, rowIndex) ?? ""}`}
+            className={`${styles.row} ${densityRowClass} ${onRowClick ? styles.rowClickable : ""} ${isSelected ? styles.rowSelected : ""} ${rowClassName?.(row, rowIndex) ?? ""}`}
             style={gridStyle}
             onClick={event => {
                 if (!onRowClick) return;
@@ -83,6 +100,21 @@ function DataTableRow<T>({
                 onRowClick(row, rowIndex);
             }}
         >
+            {selectable && (
+                <div
+                    className={`${styles.cell} ${styles.checkboxCell}`}
+                    data-row-click-ignore="true"
+                >
+                    <input
+                        type="checkbox"
+                        className={styles.checkbox}
+                        checked={isSelected ?? false}
+                        onChange={e => onSelect?.(rowId ?? String(rowIndex), e.target.checked)}
+                        onClick={e => e.stopPropagation()}
+                        aria-label="Seleziona riga"
+                    />
+                </div>
+            )}
             {columns.map(column => {
                 const value = column.accessor ? column.accessor(row) : undefined;
                 const content = column.cell
@@ -112,17 +144,94 @@ export function DataTable<T>({
     density = "compact",
     rowClassName,
     onRowClick,
-    rowWrapper
+    rowWrapper,
+    rowsPerPage = DEFAULT_ROWS_PER_PAGE,
+    selectable = false,
+    onBulkDelete
 }: DataTableProps<T>) {
+    const [currentPage, setCurrentPage] = useState(1);
+    const [selectedRows, setSelectedRows] = useState<string[]>([]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+        setSelectedRows([]);
+    }, [data]);
+
+    // Reset selection when navigating between pages
+    useEffect(() => {
+        setSelectedRows([]);
+    }, [currentPage]);
+
     const gridStyle = useMemo<CSSProperties>(() => {
-        const gridTemplateColumns = columns
-            .map(column => column.width ?? "minmax(0, 1fr)")
-            .join(" ");
+        const columnWidths = columns.map(column => column.width ?? "minmax(0, 1fr)");
+        const gridTemplateColumns = selectable
+            ? `${CHECKBOX_COLUMN_WIDTH} ${columnWidths.join(" ")}`
+            : columnWidths.join(" ");
 
         return { gridTemplateColumns };
-    }, [columns]);
+    }, [columns, selectable]);
 
     const densityRowClass = density === "extended" ? styles.rowExtended : styles.rowCompact;
+
+    // Internal pagination is used only when no external pagination prop is passed.
+    const useInternalPagination = !pagination;
+    const totalPages = Math.max(1, Math.ceil(data.length / rowsPerPage));
+    const showInternalPagination = useInternalPagination && !isLoading && data.length > rowsPerPage;
+
+    const displayData = useMemo(() => {
+        if (!useInternalPagination) return data;
+        const start = (currentPage - 1) * rowsPerPage;
+        return data.slice(start, start + rowsPerPage);
+    }, [data, currentPage, rowsPerPage, useInternalPagination]);
+
+    // Compute stable row IDs for the current page to drive selection state
+    const displayDataWithIds = useMemo(
+        () =>
+            displayData.map((row, pageRowIndex) => {
+                const rowIndex = useInternalPagination
+                    ? (currentPage - 1) * rowsPerPage + pageRowIndex
+                    : pageRowIndex;
+                return { row, rowIndex, rowId: String(getRowKey(row, rowIndex)) };
+            }),
+        [displayData, useInternalPagination, currentPage, rowsPerPage]
+    );
+
+    const currentPageIds = useMemo(
+        () => displayDataWithIds.map(d => d.rowId),
+        [displayDataWithIds]
+    );
+
+    const allCurrentPageSelected =
+        selectable &&
+        currentPageIds.length > 0 &&
+        currentPageIds.every(id => selectedRows.includes(id));
+
+    const someCurrentPageSelected =
+        selectable &&
+        !allCurrentPageSelected &&
+        currentPageIds.some(id => selectedRows.includes(id));
+
+    const handleSelectRow = (id: string, checked: boolean) => {
+        setSelectedRows(prev => (checked ? [...prev, id] : prev.filter(r => r !== id)));
+    };
+
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) {
+            setSelectedRows(prev => {
+                const newIds = currentPageIds.filter(id => !prev.includes(id));
+                return [...prev, ...newIds];
+            });
+        } else {
+            setSelectedRows(prev => prev.filter(id => !currentPageIds.includes(id)));
+        }
+    };
+
+    const handleClearSelection = () => setSelectedRows([]);
+
+    const handleBulkDelete = () => {
+        onBulkDelete?.(selectedRows);
+        setSelectedRows([]);
+    };
 
     const renderState = () => {
         if (isLoading) {
@@ -133,10 +242,10 @@ export function DataTable<T>({
             return <div className={styles.state}>{emptyState ?? "Nessun risultato."}</div>;
         }
 
-        return data.map((row, rowIndex) => {
+        return displayDataWithIds.map(({ row, rowIndex, rowId }) => {
             const rowElement = (
                 <DataTableRow
-                    key={getRowKey(row, rowIndex)}
+                    key={rowId}
                     row={row}
                     rowIndex={rowIndex}
                     columns={columns}
@@ -144,6 +253,10 @@ export function DataTable<T>({
                     densityRowClass={densityRowClass}
                     rowClassName={rowClassName}
                     onRowClick={onRowClick}
+                    selectable={selectable}
+                    isSelected={selectedRows.includes(rowId)}
+                    onSelect={handleSelectRow}
+                    rowId={rowId}
                 />
             );
 
@@ -151,24 +264,100 @@ export function DataTable<T>({
         });
     };
 
-    return (
-        <div className={styles.table}>
-            <div className={styles.header} style={gridStyle}>
-                {columns.map(column => (
-                    <div
-                        key={column.id}
-                        className={`${styles.headerCell} ${getAlignClass(column.align)} ${
-                            column.sortable ? styles.sortable : ""
-                        }`}
+    const startRow = (currentPage - 1) * rowsPerPage + 1;
+    const endRow = Math.min(currentPage * rowsPerPage, data.length);
+
+    const footerContent =
+        pagination ??
+        (showInternalPagination ? (
+            <div className={styles.pagination}>
+                <Text variant="body-sm" colorVariant="muted">
+                    {startRow}–{endRow} di {data.length}
+                </Text>
+                <div className={styles.paginationControls}>
+                    <button
+                        className={styles.paginationButton}
+                        onClick={() => setCurrentPage(p => p - 1)}
+                        disabled={currentPage === 1}
+                        aria-label="Pagina precedente"
                     >
-                        {column.header}
-                    </div>
-                ))}
+                        <IconChevronLeft size={16} />
+                    </button>
+                    <Text variant="body-sm" colorVariant="muted">
+                        {currentPage} / {totalPages}
+                    </Text>
+                    <button
+                        className={styles.paginationButton}
+                        onClick={() => setCurrentPage(p => p + 1)}
+                        disabled={currentPage === totalPages}
+                        aria-label="Pagina successiva"
+                    >
+                        <IconChevronRight size={16} />
+                    </button>
+                </div>
+            </div>
+        ) : null);
+
+    return (
+        <>
+            <div className={styles.table}>
+                <div className={styles.header} style={gridStyle}>
+                    {selectable && (
+                        <div className={`${styles.headerCell} ${styles.checkboxCell}`}>
+                            <input
+                                type="checkbox"
+                                className={styles.checkbox}
+                                checked={allCurrentPageSelected}
+                                ref={el => {
+                                    if (el) el.indeterminate = someCurrentPageSelected;
+                                }}
+                                onChange={e => handleSelectAll(e.target.checked)}
+                                aria-label="Seleziona tutte le righe"
+                            />
+                        </div>
+                    )}
+                    {columns.map(column => (
+                        <div
+                            key={column.id}
+                            className={`${styles.headerCell} ${getAlignClass(column.align)} ${
+                                column.sortable ? styles.sortable : ""
+                            }`}
+                        >
+                            {column.header}
+                        </div>
+                    ))}
+                </div>
+
+                <div className={styles.body}>{renderState()}</div>
+
+                {footerContent ? <div className={styles.footer}>{footerContent}</div> : null}
             </div>
 
-            <div className={styles.body}>{renderState()}</div>
-
-            {pagination ? <div className={styles.footer}>{pagination}</div> : null}
-        </div>
+            {selectable &&
+                selectedRows.length > 0 &&
+                createPortal(
+                    <div className={styles.bulkBar}>
+                        <span className={styles.bulkCount}>{selectedRows.length} selezionati</span>
+                        <div className={styles.bulkSeparator} />
+                        {onBulkDelete && (
+                            <button
+                                className={`${styles.bulkAction} ${styles.bulkActionDanger}`}
+                                onClick={handleBulkDelete}
+                            >
+                                <IconTrash size={16} />
+                                Elimina selezionati
+                            </button>
+                        )}
+                        <button
+                            className={styles.bulkClose}
+                            onClick={handleClearSelection}
+                            aria-label="Annulla selezione"
+                        >
+                            <IconX size={16} />
+                        </button>
+                    </div>,
+                    document.body
+                )}
+        </>
     );
 }

@@ -133,17 +133,6 @@ export default function App() {
                 <Route path="impostazioni/sicurezza" element={<UpdatePassword />} />
             </Route>
 
-            <Route
-                path="/products/:productId"
-                element={
-                    <ProtectedRoute>
-                        <MainLayout />
-                    </ProtectedRoute>
-                }
-            >
-                <Route index element={<ProductPage />} />
-            </Route>
-
             {/* PUBLIC BUSINESS */}
             <Route path="/:slug" element={<PublicCollectionPage />} />
 

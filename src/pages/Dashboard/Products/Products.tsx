@@ -18,6 +18,7 @@ import {
     listBaseProductsWithVariants,
     V2Product,
     duplicateProduct,
+    deleteProduct,
     getProductListMetadata,
     ProductListMetadata
 } from "@/services/supabase/v2/products";
@@ -197,6 +198,24 @@ export default function Products() {
         setIsDeleteOpen(true);
     };
 
+    const handleBulkDelete = async (selectedIds: string[]) => {
+        if (!currentTenantId || selectedIds.length === 0) return;
+        try {
+            await Promise.all(selectedIds.map(id => deleteProduct(id, currentTenantId)));
+            showToast({
+                message: `${selectedIds.length} prodotti eliminati con successo.`,
+                type: "success"
+            });
+            loadData();
+        } catch (error) {
+            console.error("Errore durante l'eliminazione multipla:", error);
+            showToast({
+                message: "Errore durante l'eliminazione di alcuni prodotti.",
+                type: "error"
+            });
+        }
+    };
+
     const toggleRow = (id: string) => {
         setExpandedRows(prev => {
             const next = new Set(prev);
@@ -235,7 +254,10 @@ export default function Products() {
                                 )}
                             </button>
                         )}
-                        <Link to={`/products/${row.product.id}`} className={styles.productLink}>
+                        <Link
+                            to={`/dashboard/prodotti/${row.product.id}`}
+                            className={styles.productLink}
+                        >
                             <Text
                                 variant="body-sm"
                                 weight={row.kind === "variant" ? 500 : 600}
@@ -457,6 +479,8 @@ export default function Products() {
                                 data={tableRows}
                                 columns={columns}
                                 density={density}
+                                selectable
+                                onBulkDelete={handleBulkDelete}
                                 rowClassName={row =>
                                     row.kind === "variant" ? styles.variantTableRow : undefined
                                 }

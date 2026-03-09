@@ -13,7 +13,7 @@ import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions
 import styles from "./Styles.module.scss";
 
 import { useNavigate } from "react-router-dom";
-import { listStyles, duplicateStyle, V2Style } from "@/services/supabase/v2/styles";
+import { listStyles, duplicateStyle, deleteStyle, V2Style } from "@/services/supabase/v2/styles";
 import { StyleDeleteDrawer } from "./StyleDeleteDrawer";
 import { StyleCreateDrawer } from "./StyleCreateDrawer";
 
@@ -50,13 +50,9 @@ function resolvePreviewColors(style: V2Style) {
     const config = style.current_version?.config;
     const raw = config && typeof config === "object" ? (config as Record<string, unknown>) : {};
     const colors =
-        raw.colors && typeof raw.colors === "object"
-            ? (raw.colors as Record<string, unknown>)
-            : {};
+        raw.colors && typeof raw.colors === "object" ? (raw.colors as Record<string, unknown>) : {};
     const header =
-        raw.header && typeof raw.header === "object"
-            ? (raw.header as Record<string, unknown>)
-            : {};
+        raw.header && typeof raw.header === "object" ? (raw.header as Record<string, unknown>) : {};
 
     const pageBackground =
         typeof colors.pageBackground === "string"
@@ -178,6 +174,21 @@ export default function Styles() {
         setStyleToDelete(style);
         setIsDeleteOpen(true);
     }, []);
+
+    const handleBulkDelete = async (selectedIds: string[]) => {
+        if (selectedIds.length === 0) return;
+        try {
+            await Promise.all(selectedIds.map(id => deleteStyle(id)));
+            showToast({
+                message: `${selectedIds.length} stili eliminati con successo.`,
+                type: "success"
+            });
+            loadData();
+        } catch (error) {
+            console.error("Errore eliminazione multipla stili:", error);
+            showToast({ message: "Errore durante l'eliminazione di alcuni stili.", type: "error" });
+        }
+    };
 
     const renderRowActions = useCallback(
         (style: V2Style) => (
@@ -339,6 +350,8 @@ export default function Styles() {
                         <DataTable<V2Style>
                             data={filteredStyles}
                             columns={columns}
+                            selectable
+                            onBulkDelete={handleBulkDelete}
                             emptyState={emptyState}
                         />
                     ) : (

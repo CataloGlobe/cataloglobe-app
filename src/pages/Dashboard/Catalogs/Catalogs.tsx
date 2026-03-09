@@ -124,6 +124,24 @@ export default function Catalogs() {
         }
     };
 
+    const handleBulkDelete = async (selectedIds: string[]) => {
+        if (!currentTenantId || selectedIds.length === 0) return;
+        try {
+            await Promise.all(selectedIds.map(id => deleteCatalog(id, currentTenantId)));
+            showToast({
+                message: `${selectedIds.length} cataloghi eliminati con successo.`,
+                type: "success"
+            });
+            loadData();
+        } catch (error) {
+            console.error("Errore eliminazione multipla cataloghi:", error);
+            showToast({
+                message: "Errore durante l'eliminazione di alcuni cataloghi.",
+                type: "error"
+            });
+        }
+    };
+
     const filteredCatalogs = useMemo(() => {
         const normalizedSearch = searchQuery.trim().toLowerCase();
         if (!normalizedSearch) return catalogs;
@@ -251,6 +269,8 @@ export default function Catalogs() {
                     columns={columns}
                     isLoading={isLoading}
                     density={density}
+                    selectable
+                    onBulkDelete={handleBulkDelete}
                     onRowClick={catalog => navigate(`/dashboard/cataloghi/${catalog.id}`)}
                     loadingState={loadingState}
                     emptyState={emptyState}

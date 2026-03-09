@@ -485,6 +485,26 @@ export default function Programming() {
         }
     };
 
+    const handleBulkDelete = async (selectedIds: string[]) => {
+        if (selectedIds.length === 0) return;
+        try {
+            await Promise.all(selectedIds.map(id => deleteLayoutRule(id)));
+            showToast({
+                type: "success",
+                message: `${selectedIds.length} regole eliminate con successo.`,
+                duration: 2200
+            });
+            await loadRules();
+        } catch (error) {
+            console.error("Errore eliminazione multipla regole:", error);
+            showToast({
+                type: "error",
+                message: "Errore durante l'eliminazione di alcune regole.",
+                duration: 3000
+            });
+        }
+    };
+
     const handleCreateRule = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
@@ -598,6 +618,8 @@ export default function Programming() {
                     columns={columns}
                     isLoading={isLoading}
                     density={densityView === "list" ? "compact" : "extended"}
+                    selectable
+                    onBulkDelete={handleBulkDelete}
                     onRowClick={row => navigate(`/dashboard/programmazione/${row.id}`)}
                     rowClassName={rule => (!rule.enabled ? styles.disabledRow : "")}
                     loadingState={

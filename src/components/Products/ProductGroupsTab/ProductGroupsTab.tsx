@@ -9,7 +9,11 @@ import { IconFolder } from "@tabler/icons-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import styles from "./ProductGroupsTab.module.scss";
 
-import { getProductGroups, ProductGroup } from "@/services/supabase/v2/productGroups";
+import {
+    getProductGroups,
+    deleteProductGroup,
+    ProductGroup
+} from "@/services/supabase/v2/productGroups";
 import { ProductGroupCreateEditDrawer, GroupFormMode } from "./ProductGroupCreateEditDrawer";
 import { ProductGroupDeleteDrawer } from "./ProductGroupDeleteDrawer";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -137,6 +141,24 @@ export default function ProductGroupsTab({
         setIsDeleteOpen(true);
     };
 
+    const handleBulkDelete = async (selectedIds: string[]) => {
+        if (selectedIds.length === 0) return;
+        try {
+            await Promise.all(selectedIds.map(id => deleteProductGroup(id)));
+            showToast({
+                message: `${selectedIds.length} gruppi eliminati con successo.`,
+                type: "success"
+            });
+            loadData();
+        } catch (error) {
+            console.error("Errore eliminazione multipla gruppi:", error);
+            showToast({
+                message: "Errore durante l'eliminazione di alcuni gruppi prodotto.",
+                type: "error"
+            });
+        }
+    };
+
     const columns: ColumnDefinition<FlatGroup>[] = [
         {
             id: "name",
@@ -231,6 +253,8 @@ export default function ProductGroupsTab({
                 data={paginatedRows}
                 columns={columns}
                 isLoading={isLoading}
+                selectable
+                onBulkDelete={handleBulkDelete}
                 emptyState={emptyState}
                 loadingState={
                     <Text variant="body-sm" colorVariant="muted">

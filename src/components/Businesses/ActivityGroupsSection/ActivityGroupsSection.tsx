@@ -118,6 +118,24 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
         }
     };
 
+    const handleBulkDelete = async (selectedIds: string[]) => {
+        if (selectedIds.length === 0) return;
+        try {
+            await Promise.all(selectedIds.map(id => deleteActivityGroup(id)));
+            showToast({
+                message: `${selectedIds.length} gruppi eliminati con successo.`,
+                type: "success"
+            });
+            loadGroups();
+        } catch (error) {
+            console.error("Errore eliminazione multipla gruppi:", error);
+            showToast({
+                message: "Errore durante l'eliminazione di alcuni gruppi.",
+                type: "error"
+            });
+        }
+    };
+
     const columns = useMemo<ColumnDefinition<V2ActivityGroupWithCounts>[]>(
         () => [
             {
@@ -221,6 +239,8 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                     <DataTable
                         data={filteredGroups}
                         columns={columns}
+                        selectable
+                        onBulkDelete={handleBulkDelete}
                         rowClassName={group =>
                             highlightedGroupIds.includes(group.id) ? styles.highlighted : undefined
                         }

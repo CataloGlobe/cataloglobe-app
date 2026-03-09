@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import Breadcrumb, { type BreadcrumbItem } from "@/components/ui/Breadcrumb/Breadcrumb";
@@ -52,6 +52,58 @@ import { CatalogTreeNodeData } from "./components/CatalogTree.types";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ProductForm } from "@/pages/Dashboard/Products/components/ProductForm";
 import styles from "./CatalogEngine.module.scss";
+
+const LOCAL_LINK_PREFIX = "loc_";
+
+function validateProductAddition(
+    categoryId: string,
+    productId: string,
+    categories: V2CatalogCategory[],
+    categoryProducts: V2CatalogCategoryProduct[]
+): string | null {
+    const parentMap = new Map<string, string | null>();
+    categories.forEach(cat => parentMap.set(cat.id, cat.parent_category_id));
+
+    const getAncestors = (catId: string): string[] => {
+        const ancestors: string[] = [];
+        let current = parentMap.get(catId);
+        while (current) {
+            ancestors.push(current);
+            current = parentMap.get(current);
+        }
+        return ancestors;
+    };
+
+    const getDescendants = (catId: string): string[] => {
+        const children = categories.filter(c => c.parent_category_id === catId).map(c => c.id);
+        let descendants = [...children];
+        for (const childId of children) {
+            descendants = [...descendants, ...getDescendants(childId)];
+        }
+        return descendants;
+    };
+
+    const existingAssignments = categoryProducts.filter(cp => cp.product_id === productId);
+    if (existingAssignments.length === 0) return null;
+
+    const targetAncestors = getAncestors(categoryId);
+    const targetDescendants = getDescendants(categoryId);
+
+    for (const assignment of existingAssignments) {
+        if (assignment.category_id === categoryId) {
+            return "Il prodotto è già presente in questa categoria.";
+        }
+        if (targetAncestors.includes(assignment.category_id)) {
+            const cat = categories.find(c => c.id === assignment.category_id);
+            return `Non puoi aggiungere questo prodotto qui, in quanto è già presente in una categoria genitore ("${cat?.name}").`;
+        }
+        if (targetDescendants.includes(assignment.category_id)) {
+            const cat = categories.find(c => c.id === assignment.category_id);
+            return `Non puoi aggiungere questo prodotto qui, in quanto è già presente in una sotto-categoria figlia ("${cat?.name}").`;
+        }
+    }
+    return null;
+}
 
 type ProductRow = {
     id: string;
@@ -234,12 +286,16 @@ export default function CatalogEngine() {
 
     const [skuByProductId, setSkuByProductId] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(true);
-    const [isReorderingCategories, setIsReorderingCategories] = useState(false);
     const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set());
 
+    const [originalCategories, setOriginalCategories] = useState<V2CatalogCategory[]>([]);
+    const [originalCategoryProducts, setOriginalCategoryProducts] = useState<
+        V2CatalogCategoryProduct[]
+    >([]);
+    const [isDirty, setIsDirty] = useState(false);
+    const [isSavingChanges, setIsSavingChanges] = useState(false);
+
     const [productSearch, setProductSearch] = useState("");
-    const [selectedProductLinkIds, setSelectedProductLinkIds] = useState<Set<string>>(new Set());
-    const [isRemovingProducts, setIsRemovingProducts] = useState(false);
 
     const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<V2CatalogCategory | null>(null);
@@ -256,15 +312,12 @@ export default function CatalogEngine() {
     const [isDeletingCategory, setIsDeletingCategory] = useState(false);
 
     const [assignProductSearch, setAssignProductSearch] = useState("");
-    const [isAssigningProduct, setIsAssigningProduct] = useState(false);
     const [selectedAssignProductIds, setSelectedAssignProductIds] = useState<Set<string>>(
         new Set()
     );
     const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
     const [productGroupMap, setProductGroupMap] = useState<Map<string, string[]>>(new Map());
     const [assignGroupId, setAssignGroupId] = useState<string | null>(null);
-
-    const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
 
     const setSelectedCategoryInUrl = useCallback(
         (nextCategoryId: string | null, replace: boolean = false) => {
@@ -382,16 +435,6 @@ export default function CatalogEngine() {
         productGroupMap
     ]);
 
-    const allFilteredSelected =
-        filteredRows.length > 0 &&
-        filteredRows.every(row => selectedProductLinkIds.has(row.linkId));
-    const someFilteredSelected = filteredRows.some(row => selectedProductLinkIds.has(row.linkId));
-
-    useEffect(() => {
-        if (!selectAllCheckboxRef.current) return;
-        selectAllCheckboxRef.current.indeterminate = someFilteredSelected && !allFilteredSelected;
-    }, [allFilteredSelected, someFilteredSelected]);
-
     const getNextSortOrder = useCallback(
         (parentId: string | null) => {
             const siblings = categories.filter(
@@ -482,10 +525,13 @@ export default function CatalogEngine() {
 
             setCatalog(catalogData as V2Catalog);
             setCategories(loadedCategories);
+            setOriginalCategories(loadedCategories);
             setCategoryProducts(loadedLinks);
+            setOriginalCategoryProducts(loadedLinks);
             setAllProducts(loadedProducts);
             setProductGroups(loadedGroups);
             setProductGroupMap(nextGroupMap);
+            setIsDirty(false);
 
             await loadProductMetadata();
         } catch (error) {
@@ -536,7 +582,6 @@ export default function CatalogEngine() {
     }, [categoriesById, selectedCategoryId, setSelectedCategoryInUrl, tree]);
 
     useEffect(() => {
-        setSelectedProductLinkIds(new Set());
         setSelectedAssignProductIds(new Set());
         setAssignGroupId(null);
         setAssignProductSearch("");
@@ -558,14 +603,29 @@ export default function CatalogEngine() {
     }, [categories]);
 
     const openCreateRootCategoryDrawer = useCallback(() => {
+        if (isDirty) {
+            showToast({
+                message: "Salva o annulla le modifiche prima di creare o eliminare categorie.",
+                type: "info"
+            });
+            return;
+        }
         setEditingCategory(null);
         setCategoryName("");
         setCategoryParentId("");
         setIsCategoryDrawerOpen(true);
-    }, []);
+    }, [isDirty, showToast]);
 
     const openCreateSubCategoryDrawer = useCallback(
         (parentCategoryId: string) => {
+            if (isDirty) {
+                showToast({
+                    message: "Salva o annulla le modifiche prima di creare o eliminare categorie.",
+                    type: "info"
+                });
+                return;
+            }
+
             const parent = categoriesById.get(parentCategoryId);
             if (!parent) return;
 
@@ -583,7 +643,7 @@ export default function CatalogEngine() {
             setExpandedCategoryIds(prev => new Set(prev).add(parent.id));
             setIsCategoryDrawerOpen(true);
         },
-        [categoriesById, showToast]
+        [categoriesById, isDirty, showToast]
     );
 
     const openEditCategoryDrawer = useCallback(
@@ -600,11 +660,18 @@ export default function CatalogEngine() {
 
     const openDeleteCategoryDrawer = useCallback(
         (categoryId: string) => {
+            if (isDirty) {
+                showToast({
+                    message: "Salva o annulla le modifiche prima di creare o eliminare categorie.",
+                    type: "info"
+                });
+                return;
+            }
             const category = categoriesById.get(categoryId);
             if (!category) return;
             setCategoryToDelete(category);
         },
-        [categoriesById]
+        [categoriesById, isDirty, showToast]
     );
 
     const handleSaveCategory = useCallback(
@@ -617,18 +684,19 @@ export default function CatalogEngine() {
                 return;
             }
 
+            if (editingCategory) {
+                setCategories(prev =>
+                    prev.map(cat =>
+                        cat.id === editingCategory.id ? { ...cat, name: categoryName.trim() } : cat
+                    )
+                );
+                setIsDirty(true);
+                setIsCategoryDrawerOpen(false);
+                return;
+            }
+
             setIsSavingCategory(true);
             try {
-                if (editingCategory) {
-                    await updateCategory(editingCategory.id, currentTenantId, {
-                        name: categoryName.trim()
-                    });
-                    showToast({ message: "Categoria aggiornata.", type: "success" });
-                    setIsCategoryDrawerOpen(false);
-                    await loadData();
-                    return;
-                }
-
                 const parentId = categoryParentId || null;
                 const parentCategory = parentId ? (categoriesById.get(parentId) ?? null) : null;
                 if (parentCategory && parentCategory.level >= 3) {
@@ -733,47 +801,20 @@ export default function CatalogEngine() {
     ]);
 
     const handleReorderSiblings = useCallback(
-        async (parentCategoryId: string | null, orderedSiblingIds: string[]) => {
-            if (!currentTenantId || orderedSiblingIds.length === 0) return;
+        async (_parentCategoryId: string | null, orderedSiblingIds: string[]) => {
+            if (orderedSiblingIds.length === 0) return;
 
-            setIsReorderingCategories(true);
-            try {
-                const siblingsById = new Map(
-                    categories
-                        .filter(category => category.parent_category_id === parentCategoryId)
-                        .map(category => [category.id, category])
-                );
-
-                const updates = orderedSiblingIds
-                    .map((categoryId, index) => {
-                        const category = siblingsById.get(categoryId);
-                        if (!category) return null;
-                        const nextOrder = index * 10;
-                        if (category.sort_order === nextOrder) return null;
-                        return { categoryId, nextOrder };
-                    })
-                    .filter(
-                        (row): row is { categoryId: string; nextOrder: number } => row !== null
-                    );
-
-                if (updates.length === 0) return;
-
-                await Promise.all(
-                    updates.map(update =>
-                        updateCategory(update.categoryId, currentTenantId, {
-                            sort_order: update.nextOrder
-                        })
-                    )
-                );
-                await loadData();
-            } catch (error) {
-                console.error(error);
-                showToast({ message: "Impossibile riordinare le categorie.", type: "error" });
-            } finally {
-                setIsReorderingCategories(false);
-            }
+            setCategories(prev => {
+                const next = [...prev];
+                orderedSiblingIds.forEach((categoryId, index) => {
+                    const i = next.findIndex(c => c.id === categoryId);
+                    if (i >= 0) next[i] = { ...next[i], sort_order: index * 10 };
+                });
+                return next;
+            });
+            setIsDirty(true);
         },
-        [categories, currentTenantId, loadData, showToast]
+        []
     );
 
     const toggleCategoryExpansion = useCallback((categoryId: string) => {
@@ -801,9 +842,9 @@ export default function CatalogEngine() {
     }, []);
 
     const handleReorderProducts = useCallback(
-        async (event: DragEndEvent) => {
+        (event: DragEndEvent) => {
             const { active, over } = event;
-            if (!over || active.id === over.id || !currentTenantId || !selectedCategoryId) return;
+            if (!over || active.id === over.id || !selectedCategoryId) return;
 
             const oldIndex = filteredRows.findIndex(row => row.id === active.id);
             const newIndex = filteredRows.findIndex(row => row.id === over.id);
@@ -811,43 +852,19 @@ export default function CatalogEngine() {
             if (oldIndex < 0 || newIndex < 0) return;
 
             const reordered = arrayMove(filteredRows, oldIndex, newIndex);
-
-            // Optimistic update
             const nextLinks = [...categoryProducts];
-            const updatedLinkIds: string[] = [];
 
             reordered.forEach((row, index) => {
                 const linkIndex = nextLinks.findIndex(l => l.id === row.id);
                 if (linkIndex >= 0) {
-                    const nextSortOrder = index * 10;
-                    if (nextLinks[linkIndex].sort_order !== nextSortOrder) {
-                        nextLinks[linkIndex] = {
-                            ...nextLinks[linkIndex],
-                            sort_order: nextSortOrder
-                        };
-                        updatedLinkIds.push(nextLinks[linkIndex].id);
-                    }
+                    nextLinks[linkIndex] = { ...nextLinks[linkIndex], sort_order: index * 10 };
                 }
             });
 
             setCategoryProducts(nextLinks);
-
-            // Persist changes
-            try {
-                await Promise.all(
-                    updatedLinkIds.map(linkId => {
-                        const link = nextLinks.find(l => l.id === linkId);
-                        if (!link) return Promise.resolve();
-                        return updateProductSortOrder(linkId, currentTenantId, link.sort_order);
-                    })
-                );
-            } catch (error) {
-                console.error("Errore durante il riordinamento prodotti:", error);
-                showToast({ message: "Errore durante il salvataggio dell'ordine.", type: "error" });
-                void loadData();
-            }
+            setIsDirty(true);
         },
-        [filteredRows, currentTenantId, selectedCategoryId, categoryProducts, showToast, loadData]
+        [filteredRows, selectedCategoryId, categoryProducts]
     );
 
     const sensors = useSensors(
@@ -856,39 +873,50 @@ export default function CatalogEngine() {
     );
 
     const handleAssignExistingProduct = useCallback(
-        async (productId: string) => {
+        (productId: string) => {
             if (!currentTenantId || !catalogId || !selectedCategoryId) return;
 
-            setIsAssigningProduct(true);
-            try {
-                const nextSortOrder =
-                    selectedCategoryLinks.length > 0
-                        ? Math.max(...selectedCategoryLinks.map(link => link.sort_order)) + 10
-                        : 0;
-
-                await addProductToCategory(
-                    currentTenantId,
-                    catalogId,
-                    selectedCategoryId,
-                    productId,
-                    nextSortOrder
-                );
-                showToast({ message: "Prodotto associato alla categoria.", type: "success" });
-                await loadData();
-            } catch (error: unknown) {
-                console.error(error);
-                showToast({
-                    message: getErrorMessage(error, "Impossibile associare il prodotto."),
-                    type: "error"
-                });
-            } finally {
-                setIsAssigningProduct(false);
+            const validationError = validateProductAddition(
+                selectedCategoryId,
+                productId,
+                categories,
+                categoryProducts
+            );
+            if (validationError) {
+                showToast({ message: validationError, type: "error" });
+                return;
             }
+
+            const nextSortOrder =
+                selectedCategoryLinks.length > 0
+                    ? Math.max(...selectedCategoryLinks.map(link => link.sort_order)) + 10
+                    : 0;
+
+            const localLink: V2CatalogCategoryProduct = {
+                id: `${LOCAL_LINK_PREFIX}${selectedCategoryId}_${productId}`,
+                tenant_id: currentTenantId,
+                catalog_id: catalogId,
+                category_id: selectedCategoryId,
+                product_id: productId,
+                sort_order: nextSortOrder,
+                created_at: new Date().toISOString()
+            };
+
+            setCategoryProducts(prev => [...prev, localLink]);
+            setIsDirty(true);
         },
-        [catalogId, currentTenantId, loadData, selectedCategoryId, selectedCategoryLinks, showToast]
+        [
+            catalogId,
+            categories,
+            categoryProducts,
+            currentTenantId,
+            selectedCategoryId,
+            selectedCategoryLinks,
+            showToast
+        ]
     );
 
-    const handleBulkAssignProducts = useCallback(async () => {
+    const handleBulkAssignProducts = useCallback(() => {
         if (
             !currentTenantId ||
             !catalogId ||
@@ -897,60 +925,74 @@ export default function CatalogEngine() {
         )
             return;
 
-        setIsAssigningProduct(true);
-        try {
-            const currentMaxOrder =
-                selectedCategoryLinks.length > 0
-                    ? Math.max(...selectedCategoryLinks.map(link => link.sort_order))
-                    : -10;
+        const currentMaxOrder =
+            selectedCategoryLinks.length > 0
+                ? Math.max(...selectedCategoryLinks.map(link => link.sort_order))
+                : -10;
 
-            const results = await Promise.allSettled(
-                Array.from(selectedAssignProductIds).map((productId, index) =>
-                    addProductToCategory(
-                        currentTenantId,
-                        catalogId,
-                        selectedCategoryId,
-                        productId,
-                        currentMaxOrder + (index + 1) * 10
-                    )
-                )
+        let successCount = 0;
+        let failedCount = 0;
+        const newLinks: V2CatalogCategoryProduct[] = [];
+
+        // Snapshot of categoryProducts including links added in this loop
+        let workingProducts = [...categoryProducts];
+
+        Array.from(selectedAssignProductIds).forEach((productId, index) => {
+            const validationError = validateProductAddition(
+                selectedCategoryId,
+                productId,
+                categories,
+                workingProducts
             );
-
-            const successCount = results.filter(r => r.status === "fulfilled").length;
-            const failedCount = results.length - successCount;
-
-            if (successCount > 0) {
-                if (failedCount === 0) {
-                    showToast({
-                        message: `${successCount} prodotti associati con successo.`,
-                        type: "success"
-                    });
-                } else {
-                    showToast({
-                        message: `${successCount} associati, ${failedCount} non associati (già presenti o errore).`,
-                        type: "info"
-                    });
-                }
-            } else if (failedCount > 0) {
-                showToast({
-                    message: "Impossibile associare i prodotti selezionati.",
-                    type: "error"
-                });
+            if (validationError) {
+                failedCount++;
+                return;
             }
 
-            await loadData();
-            setSelectedAssignProductIds(new Set());
-            setIsUnifiedAddProductDrawerOpen(false);
-        } catch (error) {
-            console.error(error);
-            showToast({ message: "Errore durante l'associazione multipla.", type: "error" });
-        } finally {
-            setIsAssigningProduct(false);
+            const localLink: V2CatalogCategoryProduct = {
+                id: `${LOCAL_LINK_PREFIX}${selectedCategoryId}_${productId}`,
+                tenant_id: currentTenantId,
+                catalog_id: catalogId,
+                category_id: selectedCategoryId,
+                product_id: productId,
+                sort_order: currentMaxOrder + (index + 1) * 10,
+                created_at: new Date().toISOString()
+            };
+
+            newLinks.push(localLink);
+            workingProducts = [...workingProducts, localLink];
+            successCount++;
+        });
+
+        if (successCount > 0) {
+            setCategoryProducts(prev => [...prev, ...newLinks]);
+            setIsDirty(true);
+
+            if (failedCount === 0) {
+                showToast({
+                    message: `${successCount} prodotti associati con successo.`,
+                    type: "success"
+                });
+            } else {
+                showToast({
+                    message: `${successCount} associati, ${failedCount} non associati (già presenti).`,
+                    type: "info"
+                });
+            }
+        } else {
+            showToast({
+                message: "Impossibile associare i prodotti selezionati.",
+                type: "error"
+            });
         }
+
+        setSelectedAssignProductIds(new Set());
+        setIsUnifiedAddProductDrawerOpen(false);
     }, [
         catalogId,
+        categories,
+        categoryProducts,
         currentTenantId,
-        loadData,
         selectedAssignProductIds,
         selectedCategoryId,
         selectedCategoryLinks,
@@ -958,130 +1000,134 @@ export default function CatalogEngine() {
     ]);
 
     const handleProductCreated = useCallback(
-        async (createdProduct?: V2Product) => {
+        (createdProduct?: V2Product) => {
             if (!currentTenantId || !catalogId || !selectedCategoryId || !createdProduct) {
-                await loadData();
+                void loadData();
                 return;
             }
 
-            try {
-                const currentLinks = categoryProducts.filter(
-                    link => link.category_id === selectedCategoryId
-                );
-                const nextSortOrder =
-                    currentLinks.length > 0
-                        ? Math.max(...currentLinks.map(link => link.sort_order)) + 10
-                        : 0;
+            const currentLinks = categoryProducts.filter(
+                link => link.category_id === selectedCategoryId
+            );
+            const nextSortOrder =
+                currentLinks.length > 0
+                    ? Math.max(...currentLinks.map(link => link.sort_order)) + 10
+                    : 0;
 
-                await addProductToCategory(
-                    currentTenantId,
-                    catalogId,
-                    selectedCategoryId,
-                    createdProduct.id,
-                    nextSortOrder
-                );
-                showToast({
-                    message: "Prodotto creato e assegnato alla categoria.",
-                    type: "success"
-                });
-            } catch (error: unknown) {
-                console.error(error);
-                showToast({
-                    message: getErrorMessage(
-                        error,
-                        "Prodotto creato, ma non è stato possibile associarlo alla categoria."
-                    ),
-                    type: "error"
-                });
-            } finally {
-                await loadData();
-            }
+            const localLink: V2CatalogCategoryProduct = {
+                id: `${LOCAL_LINK_PREFIX}${selectedCategoryId}_${createdProduct.id}`,
+                tenant_id: currentTenantId,
+                catalog_id: catalogId,
+                category_id: selectedCategoryId,
+                product_id: createdProduct.id,
+                sort_order: nextSortOrder,
+                created_at: new Date().toISOString()
+            };
+
+            setAllProducts(prev => [...prev, createdProduct]);
+            setCategoryProducts(prev => [...prev, localLink]);
+            setIsDirty(true);
+            showToast({ message: "Prodotto creato e assegnato alla categoria.", type: "success" });
         },
         [catalogId, categoryProducts, currentTenantId, loadData, selectedCategoryId, showToast]
     );
 
-    const handleToggleRowSelection = useCallback((linkId: string, checked: boolean) => {
-        setSelectedProductLinkIds(prev => {
-            const next = new Set(prev);
-            if (checked) {
-                next.add(linkId);
-            } else {
-                next.delete(linkId);
-            }
-            return next;
-        });
+    const handleBulkRemoveSelected = useCallback((selectedIds: string[]) => {
+        if (selectedIds.length === 0) return;
+        const idsSet = new Set(selectedIds);
+        setCategoryProducts(prev => prev.filter(link => !idsSet.has(link.id)));
+        setIsDirty(true);
     }, []);
 
-    const handleToggleAllFiltered = useCallback(
-        (checked: boolean) => {
-            setSelectedProductLinkIds(prev => {
-                const next = new Set(prev);
-                for (const row of filteredRows) {
-                    if (checked) next.add(row.linkId);
-                    else next.delete(row.linkId);
-                }
-                return next;
-            });
-        },
-        [filteredRows]
-    );
+    const handleCancelChanges = useCallback(() => {
+        setCategories(originalCategories);
+        setCategoryProducts(originalCategoryProducts);
+        setIsDirty(false);
+    }, [originalCategories, originalCategoryProducts]);
 
-    const handleBulkRemoveSelected = useCallback(async () => {
-        if (!currentTenantId || selectedProductLinkIds.size === 0) return;
+    const saveCatalogChanges = useCallback(async () => {
+        if (!currentTenantId || !catalogId) return;
+        setIsSavingChanges(true);
 
-        setIsRemovingProducts(true);
         try {
-            await Promise.all(
-                Array.from(selectedProductLinkIds).map(linkId =>
-                    removeProductFromCategory(currentTenantId, linkId)
+            // 1. Category name + sort_order changes
+            const originalCatMap = new Map(originalCategories.map(c => [c.id, c]));
+            const categoryUpdates: Array<{
+                id: string;
+                updates: { name?: string; sort_order?: number };
+            }> = [];
+            for (const cat of categories) {
+                const orig = originalCatMap.get(cat.id);
+                if (!orig) continue;
+                const updates: { name?: string; sort_order?: number } = {};
+                if (orig.name !== cat.name) updates.name = cat.name;
+                if (orig.sort_order !== cat.sort_order) updates.sort_order = cat.sort_order;
+                if (Object.keys(updates).length > 0) categoryUpdates.push({ id: cat.id, updates });
+            }
+
+            // 2. New product links (synthetic IDs)
+            const addedLinks = categoryProducts.filter(l => l.id.startsWith(LOCAL_LINK_PREFIX));
+
+            // 3. Removed real product links
+            const currentLinkIds = new Set(categoryProducts.map(l => l.id));
+            const removedLinkIds = originalCategoryProducts
+                .filter(l => !currentLinkIds.has(l.id))
+                .map(l => l.id);
+
+            // 4. Reordered real product links
+            const origLinkMap = new Map(originalCategoryProducts.map(l => [l.id, l]));
+            const reorderedLinks = categoryProducts.filter(l => {
+                if (l.id.startsWith(LOCAL_LINK_PREFIX)) return false;
+                const orig = origLinkMap.get(l.id);
+                return orig !== undefined && orig.sort_order !== l.sort_order;
+            });
+
+            // Execute in parallel where safe
+            await Promise.all([
+                ...categoryUpdates.map(({ id, updates }) =>
+                    updateCategory(id, currentTenantId, updates)
+                ),
+                ...removedLinkIds.map(linkId => removeProductFromCategory(currentTenantId, linkId)),
+                ...reorderedLinks.map(link =>
+                    updateProductSortOrder(link.id, currentTenantId, link.sort_order)
                 )
-            );
-            showToast({ message: "Prodotti rimossi dalla categoria.", type: "success" });
-            setSelectedProductLinkIds(new Set());
+            ]);
+
+            // Add new links sequentially (respects anti-duplication on DB side)
+            for (const link of addedLinks) {
+                await addProductToCategory(
+                    currentTenantId,
+                    catalogId,
+                    link.category_id,
+                    link.product_id,
+                    link.sort_order
+                );
+            }
+
+            showToast({ message: "Modifiche salvate con successo.", type: "success" });
             await loadData();
         } catch (error) {
             console.error(error);
             showToast({
-                message: "Errore durante la rimozione dei prodotti selezionati.",
+                message: getErrorMessage(error, "Errore durante il salvataggio delle modifiche."),
                 type: "error"
             });
         } finally {
-            setIsRemovingProducts(false);
+            setIsSavingChanges(false);
         }
-    }, [currentTenantId, loadData, selectedProductLinkIds, showToast]);
+    }, [
+        catalogId,
+        categories,
+        categoryProducts,
+        currentTenantId,
+        loadData,
+        originalCategories,
+        originalCategoryProducts,
+        showToast
+    ]);
 
     const columns = useMemo<ColumnDefinition<ProductRow>[]>(
         () => [
-            {
-                id: "select",
-                header: (
-                    <div className={styles.checkboxCell}>
-                        <input
-                            ref={selectAllCheckboxRef}
-                            type="checkbox"
-                            checked={allFilteredSelected}
-                            onChange={event => handleToggleAllFiltered(event.target.checked)}
-                            className={styles.tableCheckbox}
-                            aria-label="Seleziona tutti i prodotti filtrati"
-                        />
-                    </div>
-                ),
-                width: "54px",
-                align: "center",
-                cell: (_value, row) => (
-                    <div className={styles.checkboxCell}>
-                        <input
-                            type="checkbox"
-                            checked={selectedProductLinkIds.has(row.linkId)}
-                            onChange={event =>
-                                handleToggleRowSelection(row.linkId, event.target.checked)
-                            }
-                            className={styles.tableCheckbox}
-                            aria-label={`Seleziona ${row.name}`}
-                        />
-                    </div>
-                )
-            },
             {
                 id: "drag",
                 header: "",
@@ -1129,12 +1175,7 @@ export default function CatalogEngine() {
                 cell: value => <Text variant="body-sm">{formatPrice(value as number | null)}</Text>
             }
         ],
-        [
-            allFilteredSelected,
-            handleToggleAllFiltered,
-            handleToggleRowSelection,
-            selectedProductLinkIds
-        ]
+        []
     );
 
     const renderRightPane = () => {
@@ -1194,31 +1235,6 @@ export default function CatalogEngine() {
                 </div>
 
                 <div className={styles.tableCard}>
-                    {selectedProductLinkIds.size > 0 && (
-                        <div className={styles.bulkBar}>
-                            <Text variant="body-sm" weight={600}>
-                                {selectedProductLinkIds.size} selezionati
-                            </Text>
-                            <div className={styles.bulkActions}>
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => setSelectedProductLinkIds(new Set())}
-                                >
-                                    Deseleziona
-                                </Button>
-                                <Button
-                                    variant="primary"
-                                    size="sm"
-                                    onClick={handleBulkRemoveSelected}
-                                    loading={isRemovingProducts}
-                                >
-                                    Rimuovi dalla categoria
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-
                     <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
@@ -1231,6 +1247,8 @@ export default function CatalogEngine() {
                             <DataTable<ProductRow>
                                 data={filteredRows}
                                 columns={columns}
+                                selectable
+                                onBulkDelete={handleBulkRemoveSelected}
                                 emptyState={
                                     <div style={{ padding: "24px" }}>
                                         <Text variant="body-sm" colorVariant="muted">
@@ -1263,6 +1281,30 @@ export default function CatalogEngine() {
                 />
             </div>
 
+            {isDirty && (
+                <div className={styles.saveBar}>
+                    <Text variant="body-sm" weight={600} className={styles.saveBarMessage}>
+                        Hai modifiche non salvate
+                    </Text>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleCancelChanges}
+                        disabled={isSavingChanges}
+                    >
+                        Annulla modifiche
+                    </Button>
+                    <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={saveCatalogChanges}
+                        loading={isSavingChanges}
+                    >
+                        Salva modifiche
+                    </Button>
+                </div>
+            )}
+
             <div className={styles.engineBody}>
                 {isLoading ? (
                     <div className={styles.loadingPanel}>
@@ -1286,7 +1328,7 @@ export default function CatalogEngine() {
                                 onEditCategory={openEditCategoryDrawer}
                                 onDeleteCategory={openDeleteCategoryDrawer}
                                 onReorderSiblings={handleReorderSiblings}
-                                isReordering={isReorderingCategories}
+                                isReordering={false}
                             />
                         }
                         content={renderRightPane()}
@@ -1444,7 +1486,6 @@ export default function CatalogEngine() {
                                 <Button
                                     variant="primary"
                                     onClick={handleBulkAssignProducts}
-                                    loading={isAssigningProduct}
                                     disabled={selectedAssignProductIds.size === 0}
                                 >
                                     Associa selezionati ({selectedAssignProductIds.size})
@@ -1528,8 +1569,8 @@ export default function CatalogEngine() {
                             productData={null}
                             parentProduct={null}
                             tenantId={currentTenantId ?? null}
-                            onSuccess={async p => {
-                                await handleProductCreated(p);
+                            onSuccess={p => {
+                                handleProductCreated(p);
                                 setIsUnifiedAddProductDrawerOpen(false);
                             }}
                             onSavingChange={setIsSavingProduct}

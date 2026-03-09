@@ -117,6 +117,26 @@ export default function Highlights() {
         }
     };
 
+    const handleBulkDelete = async (selectedIds: string[]) => {
+        if (selectedIds.length === 0) return;
+        try {
+            await Promise.all(selectedIds.map(id => deleteFeaturedContent(id)));
+            setContents(prev => prev.filter(c => !selectedIds.includes(c.id)));
+            showToast({
+                type: "success",
+                message: `${selectedIds.length} contenuti eliminati con successo`,
+                duration: 2500
+            });
+        } catch (error) {
+            console.error(error);
+            showToast({
+                type: "error",
+                message: "Errore durante l'eliminazione di alcuni contenuti",
+                duration: 3000
+            });
+        }
+    };
+
     const filteredContents = useMemo(() => {
         return contents.filter(item => {
             const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -258,6 +278,8 @@ export default function Highlights() {
                         columns={columns}
                         isLoading={loading}
                         density={densityView === "list" ? "compact" : "extended"}
+                        selectable
+                        onBulkDelete={handleBulkDelete}
                         onRowClick={item => navigate(`/dashboard/contenuti-in-evidenza/${item.id}`)}
                         loadingState={
                             <div className={styles.loadingState}>
