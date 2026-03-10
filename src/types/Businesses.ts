@@ -10,7 +10,6 @@ export interface BusinessFormValues {
     city: string;
     address: string;
     slug: string;
-    type: BusinessType;
     coverPreview: string | null;
 }
 
@@ -31,6 +30,7 @@ export interface BusinessListProps {
     onOpenReviews: (id: string) => void;
     activeCatalogsMap?: Record<string, ActiveCatalogMeta>;
     onManageAvailability?: (id: string, name: string) => void;
+    onCreateClick?: () => void;
 }
 
 export type BusinessWithCapabilities = V2Activity & {
