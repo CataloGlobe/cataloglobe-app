@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useParams } from "react-router-dom";
 import Text from "@/components/ui/Text/Text";
 import { motion } from "framer-motion";
 import {
@@ -24,60 +24,79 @@ import {
 import logoPng from "@/assets/logo.png";
 import styles from "./Sidebar.module.scss";
 import { IconButton } from "@/components/ui/Button/IconButton";
-import { useProfile } from "@/utils/useProfile";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
+import BusinessSwitcher from "@/components/Businesses/BusinessSwitcher/BusinessSwitcher";
 
 const SIDEBAR_EXPANDED = 260;
 const SIDEBAR_COLLAPSED = 90;
 
-const groups = [
-    {
-        title: null,
-        items: [{ to: "/dashboard", label: "Panoramica", icon: <LayoutDashboard size={18} /> }]
-    },
-    {
-        title: "Operatività",
-        icon: <Briefcase size={12} />,
-        items: [
-            { to: "/dashboard/attivita", label: "Attività", icon: <Store size={18} /> },
-            {
-                to: "/dashboard/programmazione",
-                label: "Programmazione",
-                icon: <Calendar size={18} />
-            }
-        ]
-    },
-    {
-        title: "Contenuti",
-        icon: <FolderOpen size={12} />,
-        items: [
-            { to: "/dashboard/cataloghi", label: "Cataloghi", icon: <BookOpen size={18} /> },
-            { to: "/dashboard/prodotti", label: "Prodotti", icon: <Archive size={18} /> },
-            {
-                to: "/dashboard/contenuti-in-evidenza",
-                label: "Contenuti in evidenza",
-                icon: <Layers size={18} />
-            },
-            { to: "/dashboard/stili", label: "Stili", icon: <Palette size={18} /> }
-        ]
-    },
-    {
-        title: "Insight",
-        icon: <TrendingUp size={12} />,
-        items: [
-            { to: "/dashboard/analitiche", label: "Analitiche", icon: <BarChart3 size={18} /> },
-            { to: "/dashboard/recensioni", label: "Recensioni", icon: <MessageSquare size={18} /> }
-        ]
-    },
-    {
-        title: "Sistema",
-        icon: <Cpu size={12} />,
-        items: [
-            // { to: "/dashboard/attributi", label: "Attributi prodotto", icon: <Tags size={18} /> },
-            { to: "/dashboard/impostazioni", label: "Impostazioni", icon: <Settings size={18} /> }
-        ]
-    }
-];
+interface NavItem {
+    to: string;
+    label: string;
+    icon: React.ReactNode;
+    end?: boolean;
+}
+
+interface NavGroup {
+    title: string | null;
+    icon?: React.ReactNode;
+    items: NavItem[];
+}
+
+function buildGroups(businessId: string): NavGroup[] {
+    const b = `/business/${businessId}`;
+    return [
+        {
+            title: null,
+            items: [
+                {
+                    to: `${b}/overview`,
+                    label: "Panoramica",
+                    icon: <LayoutDashboard size={18} />,
+                    end: true
+                }
+            ]
+        },
+        {
+            title: "Operatività",
+            icon: <Briefcase size={12} />,
+            items: [
+                { to: `${b}/locations`, label: "Sedi", icon: <Store size={18} /> },
+                { to: `${b}/scheduling`, label: "Programmazione", icon: <Calendar size={18} /> }
+            ]
+        },
+        {
+            title: "Contenuti",
+            icon: <FolderOpen size={12} />,
+            items: [
+                { to: `${b}/catalogs`, label: "Cataloghi", icon: <BookOpen size={18} /> },
+                { to: `${b}/products`, label: "Prodotti", icon: <Archive size={18} /> },
+                {
+                    to: `${b}/featured`,
+                    label: "Contenuti in evidenza",
+                    icon: <Layers size={18} />
+                },
+                { to: `${b}/styles`, label: "Stili", icon: <Palette size={18} /> }
+            ]
+        },
+        {
+            title: "Insight",
+            icon: <TrendingUp size={12} />,
+            items: [
+                { to: `${b}/analytics`, label: "Analitiche", icon: <BarChart3 size={18} /> },
+                { to: `${b}/reviews`, label: "Recensioni", icon: <MessageSquare size={18} /> }
+            ]
+        },
+        {
+            title: "Sistema",
+            icon: <Cpu size={12} />,
+            items: [
+                // { to: `${b}/attributes`, label: "Attributi prodotto", icon: <Tags size={18} /> },
+                { to: `${b}/settings`, label: "Impostazioni", icon: <Settings size={18} /> }
+            ]
+        }
+    ];
+}
 
 interface SidebarProps {
     isMobile: boolean;
@@ -94,11 +113,8 @@ export default function Sidebar({
     onRequestClose,
     onToggleCollapse
 }: SidebarProps) {
-    const { profile, loading } = useProfile();
-
-    const displayName = profile?.name || "Utente";
-    const avatarUrl = profile?.avatar_url || null;
-    const avatarInitial = displayName.charAt(0).toUpperCase();
+    const { businessId = "" } = useParams<{ businessId: string }>();
+    const groups = buildGroups(businessId);
 
     return (
         <>
@@ -190,7 +206,7 @@ export default function Sidebar({
                                         <li key={link.to}>
                                             <NavLink
                                                 to={link.to}
-                                                end={link.to === "/dashboard"}
+                                                end={link.end}
                                                 className={({ isActive }) =>
                                                     [
                                                         styles.link,
@@ -238,36 +254,9 @@ export default function Sidebar({
 
                 <div className={styles.divider} />
 
-                {/* ===== Header utente + toggle ===== */}
-                {/* ===== Header utente + toggle ===== */}
+                {/* ===== Business switcher + collapse toggle ===== */}
                 <div className={styles.sidebarHeader}>
-                    <div className={styles.userRow}>
-                        <div className={styles.avatar}>
-                            {loading ? (
-                                <div className={styles.avatarSkeleton} />
-                            ) : avatarUrl ? (
-                                <img
-                                    src={avatarUrl}
-                                    alt={`Avatar di ${displayName}`}
-                                    className={styles.avatarImage}
-                                />
-                            ) : (
-                                <span className={styles.avatarInitial}>{avatarInitial}</span>
-                            )}
-                        </div>
-
-                        <motion.div
-                            className={styles.userName}
-                            initial={false}
-                            animate={{
-                                opacity: collapsed ? 0 : 1,
-                                x: collapsed ? -8 : 0
-                            }}
-                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                        >
-                            {displayName}
-                        </motion.div>
-                    </div>
+                    <BusinessSwitcher collapsed={collapsed} />
 
                     {!isMobile && (
                         <motion.button

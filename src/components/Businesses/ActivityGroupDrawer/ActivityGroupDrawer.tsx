@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useAuth } from "@/context/useAuth";
+import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
@@ -28,8 +28,7 @@ export const ActivityGroupDrawer: React.FC<ActivityGroupDrawerProps> = ({
     onSuccess,
     onClose
 }) => {
-    const { user } = useAuth();
-    const tenantId = user?.id;
+    const tenantId = useTenantId();
     const { showToast } = useToast();
 
     const [isLoading, setIsLoading] = useState(false);
@@ -55,7 +54,7 @@ export const ActivityGroupDrawer: React.FC<ActivityGroupDrawerProps> = ({
 
                 // Se in edit, carica i dati del gruppo e i membri
                 if (mode === "edit" && groupId) {
-                    const { group, activityIds } = await getGroupWithMembers(groupId);
+                    const { group, activityIds } = await getGroupWithMembers(groupId, tenantId!);
                     setName(group.name);
                     setDescription(group.description || "");
                     setIsSystem(group.is_system);
@@ -101,7 +100,7 @@ export const ActivityGroupDrawer: React.FC<ActivityGroupDrawerProps> = ({
                 });
                 currentGroupId = newGroup.id;
             } else if (mode === "edit" && groupId) {
-                await updateActivityGroup(groupId, {
+                await updateActivityGroup(groupId, tenantId!, {
                     name: isSystem ? undefined : name.trim(), // Non permettere cambio nome se sistema
                     description: description.trim() || null
                 });
