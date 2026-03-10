@@ -1,0 +1,139 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ===== Section wrapper ===== */
+.section {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* ===== Section 1 — Business Header ===== */
+.businessHeader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.businessAvatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 20px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.businessInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Section 2 — Configuration Status ===== */
+.configList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.configItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: #f8fafc;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+  }
+}
+
+.configIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.configOk {
+  color: #16a34a;
+}
+
+.configWarn {
+  color: #d97706;
+}
+
+.configArrow {
+  margin-left: auto;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+/* ===== Section 3 — Quick Stats ===== */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.kpiCard {
+  background: #f8fafc;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: box-shadow 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* ===== Section 4 — Quick Actions ===== */
+.actionsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+
+  &:hover {
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.05);
+    color: #6366f1;
+  }
+}
