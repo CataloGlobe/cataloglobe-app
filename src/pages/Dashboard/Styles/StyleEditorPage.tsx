@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTenantId } from "@/context/useTenantId";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
 import { Button } from "@/components/ui/Button/Button";
@@ -19,6 +20,7 @@ import styles from "./Styles.module.scss";
 export default function StyleEditorPage() {
     const { styleId } = useParams<{ styleId: string }>();
     const navigate = useNavigate();
+    const currentTenantId = useTenantId();
     const { showToast } = useToast();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -58,7 +60,7 @@ export default function StyleEditorPage() {
 
     useEffect(() => {
         if (!styleId) {
-            navigate("/dashboard/stili");
+            navigate(`/business/${currentTenantId}/styles`);
             return;
         }
         loadStyle(styleId);
@@ -67,7 +69,7 @@ export default function StyleEditorPage() {
     const loadStyle = async (id: string) => {
         try {
             setIsLoading(true);
-            const data = await getStyle(id);
+            const data = await getStyle(id, currentTenantId!);
             if (data) {
                 setStyleData(data);
                 setName(data.name);
@@ -83,7 +85,7 @@ export default function StyleEditorPage() {
                 }
             } else {
                 showToast({ message: "Stile non trovato.", type: "error" });
-                navigate("/dashboard/stili");
+                navigate(`/business/${currentTenantId}/styles`);
             }
         } catch (error) {
             console.error("Errore caricamento stile:", error);
@@ -115,7 +117,7 @@ export default function StyleEditorPage() {
                 // Reset isDirty state by updating original tokens to current ones
                 setOriginalTokens(parseTokens(finalConfigToSave));
             } else {
-                navigate("/dashboard/stili");
+                navigate(`/business/${currentTenantId}/styles`);
             }
         } catch (error) {
             console.error("Errore salvataggio stile:", error);
@@ -134,7 +136,7 @@ export default function StyleEditorPage() {
     }
 
     const breadcrumbItems = [
-        { label: "Stili", to: "/dashboard/stili" },
+        { label: "Stili", to: `/business/${currentTenantId}/styles` },
         { label: name || "Modifica Stile" }
     ];
 

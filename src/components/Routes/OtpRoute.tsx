@@ -26,9 +26,9 @@ export const OtpRoute = ({ children }: OtpRouteProps) => {
         return <Navigate to="/login" replace state={{ from: location }} />;
     }
 
-    // OTP già verificato → dashboard
+    // OTP già verificato → workspace
     if (otpVerified) {
-        return <Navigate to="/dashboard" replace />;
+        return <Navigate to="/workspace" replace />;
     }
 
     // Utente loggato ma OTP non verificato → ok

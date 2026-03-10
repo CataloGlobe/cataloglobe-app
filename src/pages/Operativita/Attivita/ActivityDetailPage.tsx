@@ -26,7 +26,7 @@ type SlugInlineState =
     | { type: "conflict"; suggestions: string[] };
 
 const ActivityDetailPage: React.FC = () => {
-    const { activityId } = useParams<{ activityId: string }>();
+    const { activityId, businessId } = useParams<{ activityId: string; businessId: string }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -56,8 +56,8 @@ const ActivityDetailPage: React.FC = () => {
         try {
             setLoading(true);
             const [activityData, groupsData] = await Promise.all([
-                getActivityById(activityId),
-                getGroupsForActivity(activityId)
+                getActivityById(activityId, businessId!),
+                getGroupsForActivity(activityId, businessId!)
             ]);
 
             if (activityData) {
@@ -67,7 +67,7 @@ const ActivityDetailPage: React.FC = () => {
         } catch (error) {
             console.error("Error fetching activity details:", error);
             showToast({
-                message: "Impossibile caricare i dettagli dell'attività.",
+                message: "Impossibile caricare i dettagli della sede.",
                 type: "error"
             });
         } finally {
@@ -98,15 +98,15 @@ const ActivityDetailPage: React.FC = () => {
         if (!activity) return;
         const newStatus = activity.status === "active" ? "inactive" : "active";
         try {
-            await updateActivity(activity.id, { status: newStatus });
+            await updateActivity(activity.id, businessId!, { status: newStatus });
             setActivity({ ...activity, status: newStatus });
             showToast({
-                message: `Attività impostata come ${newStatus === "active" ? "attiva" : "inattiva"}.`,
+                message: `Sede impostata come ${newStatus === "active" ? "attiva" : "inattiva"}.`,
                 type: "success"
             });
         } catch (error) {
             showToast({
-                message: "Impossibile aggiornare lo stato dell'attività.",
+                message: "Impossibile aggiornare lo stato della sede.",
                 type: "error"
             });
         }
@@ -116,15 +116,15 @@ const ActivityDetailPage: React.FC = () => {
         if (!activity) return;
         setIsUpdating(true);
         try {
-            await updateActivity(activity.id, updates);
+            await updateActivity(activity.id, businessId!, updates);
             await fetchData();
             showToast({
-                message: "Attività aggiornata con successo.",
+                message: "Sede aggiornata con successo.",
                 type: "success"
             });
         } catch (error) {
             showToast({
-                message: "Impossibile aggiornare l'attività.",
+                message: "Impossibile aggiornare la sede.",
                 type: "error"
             });
         } finally {
@@ -134,10 +134,10 @@ const ActivityDetailPage: React.FC = () => {
 
     const breadcrumbItems = useMemo(
         () => [
-            { label: "Attività", to: "/dashboard/attivita?tab=activities" },
-            { label: activity?.name || "Dettaglio Attività" }
+            { label: "Sedi", to: `/business/${businessId}/locations` },
+            { label: activity?.name || "Dettaglio Sede" }
         ],
-        [activity]
+        [activity, businessId]
     );
 
     if (loading && !activity) {
@@ -145,7 +145,7 @@ const ActivityDetailPage: React.FC = () => {
             <div className={styles.container}>
                 <div className={styles.loadingState}>
                     <IconLoader2 className="animate-spin" size={48} />
-                    <p>Caricamento attività...</p>
+                    <p>Caricamento sede...</p>
                 </div>
             </div>
         );
@@ -155,9 +155,9 @@ const ActivityDetailPage: React.FC = () => {
         return (
             <div className={styles.container}>
                 <div className={styles.notFound}>
-                    <h1>Attività non trovata</h1>
-                    <p>L'attività che stai cercando non esiste o è stata eliminata.</p>
-                    <Button onClick={() => navigate("/dashboard/attivita")}>
+                    <h1>Sede non trovata</h1>
+                    <p>La sede che stai cercando non esiste o è stata eliminata.</p>
+                    <Button onClick={() => navigate(`/business/${businessId}/locations`)}>
                         Torna all'elenco
                     </Button>
                 </div>
@@ -194,7 +194,7 @@ const ActivityDetailPage: React.FC = () => {
                                 isSaving={isUpdating}
                                 onNavigateToGroups={() =>
                                     navigate(
-                                        `/dashboard/attivita?tab=groups&highlight=${activity.id}`
+                                        `/business/${businessId}/locations?tab=groups&highlight=${activity.id}`
                                     )
                                 }
                                 onCopyToClipboard={copyToClipboard}

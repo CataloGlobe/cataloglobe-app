@@ -13,9 +13,18 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 48px 24px;
+  padding: 60px 24px;
   text-align: center;
   gap: 8px;
+}
+
+.emptyIcon {
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+
+.emptyButton {
+  margin-top: 8px;
 }
 
 .titleCell {

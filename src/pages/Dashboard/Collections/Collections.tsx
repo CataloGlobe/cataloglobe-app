@@ -93,6 +93,10 @@ export default function Collections() {
         async function loadBusinesses() {
             try {
                 const businesses = await getUserBusinesses(id);
+                // TODO(phase10): activity_type is legacy and should not be used as primary business vertical.
+                // The source of truth is v2_tenants.vertical_type via useTenant().
+                // This entire Collections page is dead (no active route in App.tsx) and should be
+                // replaced by the V2 Catalogs page (/business/:businessId/catalogs).
                 setUserBusinessTypes(businesses.map(b => b.activity_type).filter(t => t !== null) as BusinessType[]);
             } catch (error) {
                 console.error("Errore caricamento business", error);

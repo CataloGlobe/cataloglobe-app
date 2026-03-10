@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useTenantId } from "@/context/useTenantId";
 import { deleteStyle, V2Style } from "@/services/supabase/v2/styles";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import styles from "./Styles.module.scss";
@@ -25,6 +26,7 @@ export function StyleDeleteDrawer({
     onSuccess
 }: StyleDeleteDrawerProps) {
     const { showToast } = useToast();
+    const currentTenantId = useTenantId();
     const [isDeleting, setIsDeleting] = useState(false);
     const [replacementId, setReplacementId] = useState<string>("");
 
@@ -59,7 +61,7 @@ export function StyleDeleteDrawer({
 
         setIsDeleting(true);
         try {
-            await deleteStyle(styleData.id, isUsed ? replacementId : undefined);
+            await deleteStyle(styleData.id, currentTenantId!, isUsed ? replacementId : undefined);
             const successMsg = isUsed
                 ? "Stile eliminato e associazioni aggiornate con successo."
                 : "Stile eliminato con successo.";

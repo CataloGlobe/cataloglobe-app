@@ -185,17 +185,17 @@ export function TargetSection({
     const radioOptions: Array<{ value: TargetMode; label: string; description: string }> = [
         {
             value: "all",
-            label: "Tutte le attività",
-            description: "La regola si applica a tutte le attività del tenant"
+            label: "Tutte le sedi",
+            description: "La regola si applica a tutte le sedi del tenant"
         },
         {
             value: "activities",
-            label: "Attività specifiche",
-            description: "Seleziona una o più attività specifiche"
+            label: "Sedi specifiche",
+            description: "Seleziona una o più sedi specifiche"
         },
         {
             value: "groups",
-            label: "Gruppi di attività",
+            label: "Gruppi di sedi",
             description: "Seleziona uno o più gruppi"
         }
     ];
@@ -255,8 +255,8 @@ export function TargetSection({
             {/* Conditional multi-select */}
             {targetMode === "activities" && (
                 <MultiSelectChip
-                    label="Attività selezionate"
-                    placeholder="Cerca attività..."
+                    label="Sedi selezionate"
+                    placeholder="Cerca sede..."
                     options={tenantActivities}
                     selectedIds={activityIds}
                     onAdd={handleAddActivity}

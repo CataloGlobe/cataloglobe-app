@@ -1,7 +1,7 @@
 import { useEffect, useState, memo } from "react";
 import { useAuth } from "@context/useAuth";
 import { getUserBusinesses } from "@services/supabase/businesses";
-import { supabase } from "@services/supabase/client";
+import { supabase } from "@/services/supabase/client";
 import type { Review } from "@/types/database";
 import type { BusinessWithCapabilities } from "@/types/Businesses";
 import Text from "@components/ui/Text/Text";

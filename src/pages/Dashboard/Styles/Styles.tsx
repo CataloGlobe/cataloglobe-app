@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
-import { useAuth } from "@/context/useAuth";
+import { useTenantId } from "@/context/useTenantId";
+import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { Card } from "@/components/ui/Card/Card";
@@ -13,6 +14,7 @@ import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions
 import styles from "./Styles.module.scss";
 
 import { useNavigate } from "react-router-dom";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { listStyles, duplicateStyle, deleteStyle, V2Style } from "@/services/supabase/v2/styles";
 import { StyleDeleteDrawer } from "./StyleDeleteDrawer";
 import { StyleCreateDrawer } from "./StyleCreateDrawer";
@@ -100,8 +102,8 @@ function UsageBadge({ style }: { style: V2Style }) {
 }
 
 export default function Styles() {
-    const { user } = useAuth();
-    const currentTenantId = user?.id;
+    const currentTenantId = useTenantId();
+    const { selectedTenant } = useTenant();
     const { showToast } = useToast();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -122,7 +124,7 @@ export default function Styles() {
         if (!currentTenantId) return;
         try {
             setIsLoading(true);
-            const data = await listStyles();
+            const data = await listStyles(currentTenantId!);
             setAllStyles(data);
         } catch (error) {
             console.error("Errore nel caricamento degli stili:", error);
@@ -151,7 +153,7 @@ export default function Styles() {
 
     const handleEditClick = useCallback(
         (style: V2Style) => {
-            navigate(`/dashboard/stili/${style.id}`);
+            navigate(`/business/${currentTenantId}/styles/${style.id}`);
         },
         [navigate]
     );
@@ -159,7 +161,7 @@ export default function Styles() {
     const handleDuplicateClick = useCallback(
         async (style: V2Style) => {
             try {
-                await duplicateStyle(style.id, `${style.name} (Copia)`);
+                await duplicateStyle(style.id, `${style.name} (Copia)`, currentTenantId!);
                 showToast({ message: "Stile duplicato con successo.", type: "success" });
                 loadData();
             } catch (error) {
@@ -178,7 +180,7 @@ export default function Styles() {
     const handleBulkDelete = async (selectedIds: string[]) => {
         if (selectedIds.length === 0) return;
         try {
-            await Promise.all(selectedIds.map(id => deleteStyle(id)));
+            await Promise.all(selectedIds.map(id => deleteStyle(id, currentTenantId!)));
             showToast({
                 message: `${selectedIds.length} stili eliminati con successo.`,
                 type: "success"
@@ -292,24 +294,23 @@ export default function Styles() {
     );
 
     const emptyState = (
-        <div className={styles.emptyState}>
-            <IconPalette size={48} stroke={1} className={styles.emptyIcon} />
-            <Text variant="title-sm" weight={600}>
-                Nessuno stile trovato
-            </Text>
-            <Text variant="body-sm" colorVariant="muted">
-                Crea un nuovo stile per personalizzare l'aspetto del tuo catalogo.
-            </Text>
-            <Button variant="primary" onClick={handleCreateClick} className={styles.emptyButton}>
-                Crea stile
-            </Button>
-        </div>
+        <EmptyState
+            icon={<IconPalette size={48} stroke={1} />}
+            title="Nessuno stile trovato"
+            description="Crea un nuovo stile per personalizzare l'aspetto del tuo catalogo."
+            action={
+                <Button variant="primary" onClick={handleCreateClick}>
+                    Crea stile
+                </Button>
+            }
+        />
     );
 
     return (
         <section className={styles.container}>
             <PageHeader
                 title="Stili"
+                businessName={selectedTenant?.name}
                 subtitle="Personalizza l'aspetto visivo e i colori del tuo catalogo."
                 actions={
                     <Button variant="primary" onClick={handleCreateClick}>
@@ -341,70 +342,72 @@ export default function Styles() {
                     />
                 </div>
 
-                <Card className={styles.tableCard}>
-                    {isLoading ? (
-                        loadingState
-                    ) : filteredStyles.length === 0 ? (
-                        emptyState
-                    ) : viewMode === "list" ? (
-                        <DataTable<V2Style>
-                            data={filteredStyles}
-                            columns={columns}
-                            selectable
-                            onBulkDelete={handleBulkDelete}
-                            emptyState={emptyState}
-                        />
-                    ) : (
-                        <div className={styles.listContainer}>
-                            <div className={styles.listHeader}>
-                                <div className={styles.colName}>Nome</div>
-                                <div className={styles.colUsage}>Stato</div>
-                                <div className={styles.colActions}></div>
-                            </div>
-                            <div className={styles.listBody}>
-                                {filteredStyles.map(style => (
-                                    <div key={style.id} className={styles.listRow}>
-                                        <div className={styles.colName}>
-                                            <button
-                                                type="button"
-                                                className={styles.rowLink}
-                                                onClick={() => handleEditClick(style)}
-                                            >
-                                                <div className={styles.styleNameRow}>
-                                                    <Text variant="body-sm" weight={600}>
-                                                        {style.name}
+                {isLoading ? (
+                    <Card className={styles.tableCard}>{loadingState}</Card>
+                ) : filteredStyles.length === 0 ? (
+                    emptyState
+                ) : (
+                    <Card className={styles.tableCard}>
+                        {viewMode === "list" ? (
+                            <DataTable<V2Style>
+                                data={filteredStyles}
+                                columns={columns}
+                                selectable
+                                onBulkDelete={handleBulkDelete}
+                                emptyState={emptyState}
+                            />
+                        ) : (
+                            <div className={styles.listContainer}>
+                                <div className={styles.listHeader}>
+                                    <div className={styles.colName}>Nome</div>
+                                    <div className={styles.colUsage}>Stato</div>
+                                    <div className={styles.colActions}></div>
+                                </div>
+                                <div className={styles.listBody}>
+                                    {filteredStyles.map(style => (
+                                        <div key={style.id} className={styles.listRow}>
+                                            <div className={styles.colName}>
+                                                <button
+                                                    type="button"
+                                                    className={styles.rowLink}
+                                                    onClick={() => handleEditClick(style)}
+                                                >
+                                                    <div className={styles.styleNameRow}>
+                                                        <Text variant="body-sm" weight={600}>
+                                                            {style.name}
+                                                        </Text>
+                                                        {style.is_system && (
+                                                            <Badge variant="primary">Sistema</Badge>
+                                                        )}
+                                                    </div>
+                                                    <Text variant="caption" colorVariant="muted">
+                                                        Versione {style.current_version?.version || "0"}
                                                     </Text>
-                                                    {style.is_system && (
-                                                        <Badge variant="primary">Sistema</Badge>
-                                                    )}
-                                                </div>
-                                                <Text variant="caption" colorVariant="muted">
-                                                    Versione {style.current_version?.version || "0"}
-                                                </Text>
-                                            </button>
-                                        </div>
+                                                </button>
+                                            </div>
 
-                                        <div className={styles.colUsage}>
-                                            <UsageBadge style={style} />
-                                        </div>
+                                            <div className={styles.colUsage}>
+                                                <UsageBadge style={style} />
+                                            </div>
 
-                                        {renderRowActions(style)}
-                                    </div>
-                                ))}
+                                            {renderRowActions(style)}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    )}
-                </Card>
+                        )}
+                    </Card>
+                )}
             </div>
 
             <StyleCreateDrawer
                 open={isCreateOpen}
                 onClose={() => setIsCreateOpen(false)}
-                tenantId={currentTenantId}
+                tenantId={currentTenantId ?? undefined}
                 allStyles={allStyles}
                 onSuccess={newStyleId => {
                     setIsCreateOpen(false);
-                    navigate(`/dashboard/stili/${newStyleId}`);
+                    navigate(`/business/${currentTenantId}/styles/${newStyleId}`);
                 }}
             />
 

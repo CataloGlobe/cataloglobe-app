@@ -5,7 +5,7 @@ import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Layers } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
 import ModalLayout, {
@@ -19,14 +19,19 @@ import {
     deleteFeaturedContent,
     FeaturedContentWithProducts
 } from "@/services/supabase/v2/featuredContents";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import FeaturedContentDrawer from "./FeaturedContentDrawer";
 import styles from "./Highlights.module.scss";
 import { useDrawer } from "@/context/Drawer/useDrawer";
 
 import { useNavigate, Link } from "react-router-dom";
+import { useTenantId } from "@/context/useTenantId";
+import { useTenant } from "@/context/useTenant";
 
 export default function Highlights() {
     const { showToast } = useToast();
+    const tenantId = useTenantId();
+    const { selectedTenant } = useTenant();
     const [loading, setLoading] = useState(true);
     const [contents, setContents] = useState<FeaturedContentWithProducts[]>([]);
     const { openDrawer, closeDrawer } = useDrawer();
@@ -42,9 +47,10 @@ export default function Highlights() {
     const [isDeleting, setIsDeleting] = useState(false);
 
     const loadData = useCallback(async () => {
+        if (!tenantId) return;
         try {
             setLoading(true);
-            const data = await listFeaturedContents();
+            const data = await listFeaturedContents(tenantId);
             setContents(data);
         } catch (error) {
             console.error(error);
@@ -56,7 +62,7 @@ export default function Highlights() {
         } finally {
             setLoading(false);
         }
-    }, [showToast]);
+    }, [tenantId, showToast]);
 
     useEffect(() => {
         loadData();
@@ -89,7 +95,7 @@ export default function Highlights() {
     };
 
     const handleEdit = (item: FeaturedContentWithProducts) => {
-        navigate(`/dashboard/contenuti-in-evidenza/${item.id}`);
+        navigate(`/business/${tenantId}/featured/${item.id}`);
     };
 
     const handleDelete = async () => {
@@ -97,7 +103,7 @@ export default function Highlights() {
 
         try {
             setIsDeleting(true);
-            await deleteFeaturedContent(deleteTarget.id);
+            await deleteFeaturedContent(deleteTarget.id, tenantId!);
             setContents(prev => prev.filter(c => c.id !== deleteTarget.id));
             showToast({
                 type: "success",
@@ -120,7 +126,7 @@ export default function Highlights() {
     const handleBulkDelete = async (selectedIds: string[]) => {
         if (selectedIds.length === 0) return;
         try {
-            await Promise.all(selectedIds.map(id => deleteFeaturedContent(id)));
+            await Promise.all(selectedIds.map(id => deleteFeaturedContent(id, tenantId!)));
             setContents(prev => prev.filter(c => !selectedIds.includes(c.id)));
             showToast({
                 type: "success",
@@ -251,6 +257,7 @@ export default function Highlights() {
             <div className={styles.wrapper}>
                 <PageHeader
                     title="Contenuti in evidenza"
+                    businessName={selectedTenant?.name}
                     subtitle="Gestisci i contenuti editoriali e aggregatori di prodotti."
                     actions={
                         <Button variant="primary" onClick={handleCreate}>
@@ -273,30 +280,41 @@ export default function Highlights() {
                 />
 
                 <div className={styles.tableCard}>
-                    <DataTable<FeaturedContentWithProducts>
-                        data={filteredContents}
-                        columns={columns}
-                        isLoading={loading}
-                        density={densityView === "list" ? "compact" : "extended"}
-                        selectable
-                        onBulkDelete={handleBulkDelete}
-                        onRowClick={item => navigate(`/dashboard/contenuti-in-evidenza/${item.id}`)}
-                        loadingState={
-                            <div className={styles.loadingState}>
-                                <Text colorVariant="muted">Caricamento in corso...</Text>
-                            </div>
-                        }
-                        emptyState={
-                            <div className={styles.emptyState}>
-                                <Text variant="title-sm" weight={600}>
-                                    Nessun contenuto trovato
-                                </Text>
-                                <Text colorVariant="muted">
-                                    Non ci sono contenuti che corrispondono ai filtri.
-                                </Text>
-                            </div>
-                        }
-                    />
+                    {loading ? (
+                        <div className={styles.loadingState}>
+                            <Text colorVariant="muted">Caricamento in corso...</Text>
+                        </div>
+                    ) : filteredContents.length === 0 ? (
+                        <EmptyState
+                            icon={<Layers size={40} strokeWidth={1.5} />}
+                            title={
+                                searchQuery || typeFilter !== "all"
+                                    ? "Nessun contenuto trovato"
+                                    : "Non hai ancora creato contenuti in evidenza"
+                            }
+                            description={
+                                searchQuery || typeFilter !== "all"
+                                    ? "Nessun contenuto corrisponde ai filtri."
+                                    : "I contenuti in evidenza compaiono nella homepage del tuo catalogo."
+                            }
+                            action={
+                                !searchQuery && typeFilter === "all" ? (
+                                    <Button variant="primary" onClick={handleCreate}>
+                                        + Crea il primo contenuto
+                                    </Button>
+                                ) : undefined
+                            }
+                        />
+                    ) : (
+                        <DataTable<FeaturedContentWithProducts>
+                            data={filteredContents}
+                            columns={columns}
+                            density={densityView === "list" ? "compact" : "extended"}
+                            selectable
+                            onBulkDelete={handleBulkDelete}
+                            onRowClick={item => navigate(`/business/${tenantId}/featured/${item.id}`)}
+                        />
+                    )}
                 </div>
             </div>
 

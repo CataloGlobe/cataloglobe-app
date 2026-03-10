@@ -20,7 +20,7 @@ export const GuestRoute = ({ children }: GuestRouteProps) => {
     if (user && otpLoading) return <AppLoader />;
 
     if (user) {
-        return <Navigate to={otpVerified ? "/dashboard" : "/verify-otp"} replace />;
+        return <Navigate to={otpVerified ? "/workspace" : "/verify-otp"} replace />;
     }
 
     return <>{children}</>;
