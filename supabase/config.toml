@@ -1,7 +1,7 @@
 
 [functions.delete-business]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/delete-business/deno.json"
 entrypoint = "./functions/delete-business/index.ts"
 
