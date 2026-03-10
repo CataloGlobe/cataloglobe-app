@@ -178,7 +178,7 @@ serve(async req => {
 
     // Invia email
     await resend.emails.send({
-        from: "Cataloglobe <noreply@cataloglobe.com>",
+        from: "CataloGlobe <noreply@cataloglobe.com>",
         to: user.email,
         subject: "Il tuo codice di verifica",
         html: `
@@ -186,7 +186,7 @@ serve(async req => {
         <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
           <h1 style="margin:0 0 16px;font-size:22px;color:#111827">Codice di accesso</h1>
           <p style="margin:0 0 24px;font-size:15px;color:#374151">
-            Usa questo codice per completare l’accesso a <strong>Cataloglobe</strong>.
+            Usa questo codice per completare l’accesso a <strong>CataloGlobe</strong>.
           </p>
           <div style="text-align:center;margin:32px 0">
             <div style="display:inline-block;padding:16px 24px;font-size:28px;letter-spacing:4px;font-weight:700;background:#111827;color:#ffffff;border-radius:10px">

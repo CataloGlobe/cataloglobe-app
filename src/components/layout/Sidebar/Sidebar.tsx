@@ -185,7 +185,7 @@ export default function Sidebar({
                                     whiteSpace: "nowrap"
                                 }}
                             >
-                                Cataloglobe
+                                CataloGlobe
                             </Text>
                         )}
                     </div>
