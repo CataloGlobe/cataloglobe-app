@@ -1,4 +1,4 @@
-import { supabase } from "../client";
+import { supabase } from "@/services/supabase/client";
 import { getProductAttributes, setProductAttributeValue } from "./attributes";
 import { getProductAllergens, setProductAllergens } from "./allergens";
 import { getProductGroupAssignments, assignProductToGroup } from "./productGroups";

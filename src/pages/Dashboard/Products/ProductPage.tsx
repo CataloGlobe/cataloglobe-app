@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import Text from "@/components/ui/Text/Text";
-import { useAuth } from "@/context/useAuth";
+import { useTenantId } from "@/context/useTenantId";
 import { getProduct, V2Product } from "@/services/supabase/v2/products";
 import { getProductOptions, GroupWithValues } from "@/services/supabase/v2/productOptions";
 import { supabase } from "@/services/supabase/client";
@@ -20,7 +20,7 @@ export default function ProductPage() {
     const { productId } = useParams<{ productId: string }>();
     const navigate = useNavigate();
     const location = useLocation();
-    const { user } = useAuth();
+    const tenantId = useTenantId();
     const queryTab = new URLSearchParams(location.search).get("tab");
 
     const [product, setProduct] = useState<V2Product | null>(null);
@@ -144,11 +144,11 @@ export default function ProductPage() {
     };
 
     const loadProduct = async () => {
-        if (!productId || !user?.id) return;
+        if (!productId || !tenantId) return;
         try {
             setLoading(true);
             setError(null);
-            const data = await getProduct(productId, user.id);
+            const data = await getProduct(productId, tenantId);
             setProduct(data);
         } catch (err: any) {
             console.error(err);
@@ -162,10 +162,10 @@ export default function ProductPage() {
 
     useEffect(() => {
         loadProduct();
-    }, [productId, user?.id]);
+    }, [productId, tenantId]);
 
     const breadcrumbItems = [
-        { label: "Prodotti", to: "/dashboard/prodotti" },
+        { label: "Prodotti", to: `/business/${tenantId}/products` },
         { label: loading ? "Caricamento..." : product?.name || "Prodotto non trovato" }
     ];
 
@@ -187,7 +187,7 @@ export default function ProductPage() {
                         {error || "Prodotto non trovato"}
                     </Text>
                     <div style={{ marginTop: "16px" }}>
-                        <Button variant="secondary" onClick={() => navigate("/dashboard/prodotti")}>
+                        <Button variant="secondary" onClick={() => navigate(`/business/${tenantId}/products`)}>
                             Torna alla lista
                         </Button>
                     </div>
@@ -215,7 +215,7 @@ export default function ProductPage() {
                         <Card>
                             <GeneralTab
                                 product={product}
-                                tenantId={user!.id}
+                                tenantId={tenantId!}
                                 onProductUpdated={updated => setProduct(updated)}
                             />
                         </Card>
@@ -225,7 +225,7 @@ export default function ProductPage() {
                         <Card>
                             <PricingTab
                                 product={product}
-                                tenantId={user!.id}
+                                tenantId={tenantId!}
                                 primaryPriceGroup={primaryPriceGroup}
                                 optionsLoading={optionsLoading}
                                 onRefreshOptions={loadOptions}
@@ -238,7 +238,7 @@ export default function ProductPage() {
                         <Card>
                             <ConfigTab
                                 productId={productId!}
-                                tenantId={user!.id}
+                                tenantId={tenantId!}
                                 addonGroups={addonGroups}
                                 optionsLoading={optionsLoading}
                                 onRefreshOptions={loadOptions}

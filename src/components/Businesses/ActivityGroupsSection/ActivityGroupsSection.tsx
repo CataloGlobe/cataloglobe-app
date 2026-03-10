@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { useAuth } from "@/context/useAuth";
+import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { Card } from "@/components/ui/Card/Card";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -22,8 +22,7 @@ interface ActivityGroupsSectionProps {
 export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
     searchQuery: externalSearchQuery = ""
 }) => {
-    const { user } = useAuth();
-    const tenantId = user?.id;
+    const tenantId = useTenantId();
     const { showToast } = useToast();
     const { openDrawer, closeDrawer } = useDrawer();
 
@@ -42,7 +41,7 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
 
             if (highlightActivityId) {
                 const activityGroups = await import("@/services/supabase/v2/activity-groups").then(
-                    m => m.getGroupsForActivity(highlightActivityId)
+                    m => m.getGroupsForActivity(highlightActivityId, tenantId!)
                 );
                 setHighlightedGroupIds(activityGroups.map(g => g.id));
             }
@@ -103,7 +102,7 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
         if (!window.confirm("Sei sicuro di voler eliminare questo gruppo?")) return;
 
         try {
-            await deleteActivityGroup(groupId);
+            await deleteActivityGroup(groupId, tenantId!);
             showToast({
                 message: "Gruppo eliminato con successo.",
                 type: "success"
@@ -121,7 +120,7 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
     const handleBulkDelete = async (selectedIds: string[]) => {
         if (selectedIds.length === 0) return;
         try {
-            await Promise.all(selectedIds.map(id => deleteActivityGroup(id)));
+            await Promise.all(selectedIds.map(id => deleteActivityGroup(id, tenantId!)));
             showToast({
                 message: `${selectedIds.length} gruppi eliminati con successo.`,
                 type: "success"

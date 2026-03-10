@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
-import { useAuth } from "@/context/useAuth";
+import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { Card } from "@/components/ui/Card/Card";
@@ -19,8 +19,7 @@ import { AttributeCreateEditDrawer } from "./AttributeCreateEditDrawer";
 import { AttributeDeleteDrawer } from "./AttributeDeleteDrawer";
 
 export default function Attributes() {
-    const { user } = useAuth();
-    const currentTenantId = user?.id;
+    const currentTenantId = useTenantId();
     const { showToast } = useToast();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -232,7 +231,7 @@ export default function Attributes() {
                 onClose={() => setIsCreateEditOpen(false)}
                 attributeData={attributeToEdit}
                 onSuccess={loadData}
-                tenantId={currentTenantId}
+                tenantId={currentTenantId ?? undefined}
             />
 
             <AttributeDeleteDrawer

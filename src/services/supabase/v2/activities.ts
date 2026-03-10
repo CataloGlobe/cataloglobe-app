@@ -1,4 +1,4 @@
-import { supabase } from "../client";
+import { supabase } from "@/services/supabase/client";
 import type { V2Activity } from "@/types/v2/activity";
 
 const BUSINESS_COVERS_BUCKET = "business-covers";
@@ -179,8 +179,13 @@ export async function getActivityBySlug(slug: string): Promise<V2Activity | null
 /**
  * Recupera una singola attività tramite ID.
  */
-export async function getActivityById(id: string): Promise<V2Activity | null> {
-    const { data, error } = await supabase.from("v2_activities").select("*").eq("id", id).single();
+export async function getActivityById(id: string, tenantId: string): Promise<V2Activity | null> {
+    const { data, error } = await supabase
+        .from("v2_activities")
+        .select("*")
+        .eq("id", id)
+        .eq("tenant_id", tenantId)
+        .single();
 
     if (error) return null;
     return data;
@@ -219,12 +224,14 @@ export async function createActivity(
 
 export async function updateActivity(
     id: string,
+    tenantId: string,
     updates: Partial<Omit<V2Activity, "id" | "tenant_id" | "created_at">>
 ): Promise<V2Activity> {
     const { data, error } = await supabase
         .from("v2_activities")
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq("id", id)
+        .eq("tenant_id", tenantId)
         .select()
         .single();
 
@@ -232,10 +239,14 @@ export async function updateActivity(
     return data;
 }
 
-export async function deleteActivity(id: string) {
+export async function deleteActivity(id: string, tenantId: string) {
     // Nota: l'eliminazione atomica (bucket + db) è gestita via Edge Function
     // o manualmente chiamando prima deleteActivityAssets.
-    const { error } = await supabase.from("v2_activities").delete().eq("id", id);
+    const { error } = await supabase
+        .from("v2_activities")
+        .delete()
+        .eq("id", id)
+        .eq("tenant_id", tenantId);
 
     if (error) throw error;
 }
@@ -244,18 +255,8 @@ export async function deleteActivity(id: string) {
  * Eliminazione atomica tramite Edge Function (replica logica legacy)
  */
 export async function deleteActivityAtomic(activityId: string) {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    const accessToken = sessionData.session?.access_token ?? null;
-
-    runDeleteBusinessDevDiagnostics(!!sessionData.session, accessToken);
-
-    if (sessionError || !accessToken) {
-        throw new Error(AUTH_SESSION_MISSING_MESSAGE);
-    }
-
     const { error, response } = await supabase.functions.invoke("delete-business", {
-        body: { businessId: activityId },
-        headers: { Authorization: `Bearer ${accessToken}` }
+        body: { businessId: activityId }
     });
 
     if (error) {
@@ -273,7 +274,7 @@ export async function deleteActivityAtomic(activityId: string) {
  ===================================================== */
 
 export async function uploadActivityCover(
-    activity: Pick<V2Activity, "id" | "slug">,
+    activity: Pick<V2Activity, "id" | "slug" | "tenant_id">,
     file: File
 ): Promise<string> {
     const extension = getFileExtension(file);
@@ -297,7 +298,7 @@ export async function uploadActivityCover(
     if (!publicUrl) throw new Error("Impossibile ottenere public URL");
 
     // 3. Update DB
-    await updateActivity(activity.id, { cover_image: publicUrl });
+    await updateActivity(activity.id, activity.tenant_id, { cover_image: publicUrl });
 
     return publicUrl;
 }

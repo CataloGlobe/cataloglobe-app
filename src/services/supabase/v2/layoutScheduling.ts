@@ -1,4 +1,4 @@
-import { supabase } from "../client";
+import { supabase } from "@/services/supabase/client";
 
 export type LayoutTimeMode = "always" | "window";
 export type RuleType = "layout" | "price" | "visibility";
@@ -190,7 +190,7 @@ function isMissingColumnError(error: unknown, column: string): boolean {
     );
 }
 
-async function selectSchedulesWithNameFallback(): Promise<RawScheduleRow[]> {
+async function selectSchedulesWithNameFallback(tenantId: string): Promise<RawScheduleRow[]> {
     let includeName = true;
     let includeApplyToAll = true;
     let includeVisibilityMode = true;
@@ -219,6 +219,7 @@ async function selectSchedulesWithNameFallback(): Promise<RawScheduleRow[]> {
         const result = await supabase
             .from("v2_schedules")
             .select(selectColumns)
+            .eq("tenant_id", tenantId)
             .order("priority", { ascending: true })
             .order("created_at", { ascending: false });
 
@@ -441,8 +442,8 @@ export async function getSystemActivityGroupId(tenantId: string): Promise<string
     return systemGroupId;
 }
 
-export async function listLayoutRules(): Promise<LayoutRule[]> {
-    const data = await selectSchedulesWithNameFallback();
+export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
+    const data = await selectSchedulesWithNameFallback(tenantId);
     const applyToAllByScheduleId = new Map(data.map(row => [row.id, row.apply_to_all]));
 
     const baseRules = data.map(row => ({
@@ -706,7 +707,7 @@ export async function listLayoutRules(): Promise<LayoutRule[]> {
     });
 }
 
-export async function listLayoutRuleOptions(): Promise<{
+export async function listLayoutRuleOptions(tenantId: string): Promise<{
     activities: LayoutRuleOption[];
     activityGroups: LayoutRuleOption[];
     catalogs: LayoutRuleOption[];
@@ -730,25 +731,30 @@ export async function listLayoutRuleOptions(): Promise<{
             supabase
                 .from("v2_activities")
                 .select("id, name, tenant_id")
+                .eq("tenant_id", tenantId)
                 .order("name", { ascending: true }),
             supabase
                 .from("v2_activity_groups")
                 .select("id, name, tenant_id, is_system")
+                .eq("tenant_id", tenantId)
                 .order("name", { ascending: true }),
             supabase
                 .from("v2_catalogs")
                 .select("id, name, tenant_id")
+                .eq("tenant_id", tenantId)
                 .order("name", { ascending: true }),
             supabase
                 .from("v2_styles")
                 .select(
                     "id, name, tenant_id, is_system, current_version:v2_style_versions!current_version_id(version)"
                 )
+                .eq("tenant_id", tenantId)
                 .eq("is_active", true)
                 .order("name", { ascending: true }),
             supabase
                 .from("v2_products")
                 .select("id, name, tenant_id")
+                .eq("tenant_id", tenantId)
                 .order("name", { ascending: true }),
             supabase
                 .from("v2_product_groups")
@@ -760,6 +766,7 @@ export async function listLayoutRuleOptions(): Promise<{
             supabase
                 .from("v2_featured_contents")
                 .select("id, title, tenant_id")
+                .eq("tenant_id", tenantId)
                 .eq("status", "published")
                 .order("title", { ascending: true })
         ]);
@@ -1073,8 +1080,8 @@ export async function updateLayoutRule(input: {
     }
 }
 
-export async function getLayoutRuleById(ruleId: string): Promise<LayoutRule | null> {
-    const rules = await listLayoutRules();
+export async function getLayoutRuleById(ruleId: string, tenantId: string): Promise<LayoutRule | null> {
+    const rules = await listLayoutRules(tenantId);
     return rules.find(rule => rule.id === ruleId) ?? null;
 }
 

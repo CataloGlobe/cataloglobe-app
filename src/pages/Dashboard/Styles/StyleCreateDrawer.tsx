@@ -48,7 +48,7 @@ export function StyleCreateDrawer({
 
             // If a base style is selected, fetch it and duplicate its config
             if (baseStyleId) {
-                const sourceStyle = await getStyle(baseStyleId);
+                const sourceStyle = await getStyle(baseStyleId, tenantId);
                 if (sourceStyle && sourceStyle.current_version?.config) {
                     configObj = sourceStyle.current_version.config;
                 }

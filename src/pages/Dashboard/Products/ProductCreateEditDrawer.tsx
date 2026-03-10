@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
@@ -30,6 +30,7 @@ export function ProductCreateEditDrawer({
 }: ProductCreateEditDrawerProps) {
     const [isSaving, setIsSaving] = useState(false);
     const navigate = useNavigate();
+    const { businessId } = useParams<{ businessId: string }>();
 
     let title = "Nuovo Prodotto";
     if (mode === "edit") title = "Modifica Prodotto";
@@ -56,7 +57,7 @@ export function ProductCreateEditDrawer({
                                 size="sm"
                                 onClick={() => {
                                     onClose();
-                                    navigate(`/dashboard/prodotti/${productData.id}`);
+                                    navigate(`/business/${businessId}/products/${productData.id}`);
                                 }}
                             >
                                 Apri pagina prodotto →

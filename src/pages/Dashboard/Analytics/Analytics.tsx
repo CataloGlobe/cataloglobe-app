@@ -17,6 +17,7 @@ import {
 import { getAnalyticsReviews } from "@services/supabase/reviews";
 import { getAnalyticsQrScans } from "@services/supabase/qrScans";
 import { useAuth } from "@context/useAuth";
+import { useTenant } from "@/context/useTenant";
 import Text from "@components/ui/Text/Text";
 import Skeleton from "@components/ui/Skeleton/Skeleton";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
@@ -49,6 +50,7 @@ type BusinessOption = {
 
 export default function Analytics() {
     const { user } = useAuth();
+    const { selectedTenant } = useTenant();
 
     const [reviews, setReviews] = useState<ExtendedAnalyticsReview[]>([]);
     const [qrScans, setQrScans] = useState<AnalyticsQrScan[]>([]);
@@ -258,7 +260,7 @@ export default function Analytics() {
 
     return (
         <main className={styles.analytics} aria-label="Sezione analytics recensioni e scansioni QR">
-            <PageHeader title="Analitiche" subtitle="Monitora le performance delle tue attività." />
+            <PageHeader title="Analitiche" businessName={selectedTenant?.name} subtitle="Monitora le performance delle tue attività." />
             <div className={styles.filtersRow}>
                 <div className={styles.businessSelector}>
                     <Select

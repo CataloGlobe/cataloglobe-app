@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
-import { useAuth } from "@/context/useAuth";
+import { useTenantId } from "@/context/useTenantId";
+import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { Card } from "@/components/ui/Card/Card";
@@ -17,14 +18,15 @@ import {
     deleteCatalog,
     V2Catalog
 } from "@/services/supabase/v2/catalogs";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import styles from "./Catalogs.module.scss";
 
 export default function Catalogs() {
-    const { user } = useAuth();
-    const currentTenantId = user?.id;
+    const currentTenantId = useTenantId();
+    const { selectedTenant } = useTenant();
     const { showToast } = useToast();
     const navigate = useNavigate();
 
@@ -220,28 +222,29 @@ export default function Catalogs() {
     const hasSearchFilter = searchQuery.trim().length > 0;
 
     const emptyState = (
-        <div className={styles.emptyState}>
-            <IconBook2 size={48} stroke={1} className={styles.emptyIcon} />
-            <Text variant="title-sm" weight={600}>
-                Nessun catalogo trovato
-            </Text>
-            <Text variant="body-sm" colorVariant="muted">
-                {hasSearchFilter
-                    ? "Non ci sono cataloghi che corrispondono alla ricerca."
-                    : "Non hai ancora creato alcun catalogo per organizzare i tuoi prodotti."}
-            </Text>
-            {!hasSearchFilter && (
-                <Button variant="primary" onClick={handleOpenCreate} className={styles.emptyButton}>
-                    Crea il primo catalogo
-                </Button>
-            )}
-        </div>
+        <EmptyState
+            icon={<IconBook2 size={40} stroke={1.5} />}
+            title={hasSearchFilter ? "Nessun catalogo trovato" : "Non hai ancora creato cataloghi"}
+            description={
+                hasSearchFilter
+                    ? "Nessun catalogo corrisponde alla ricerca."
+                    : "I cataloghi organizzano i tuoi prodotti e vengono mostrati ai clienti."
+            }
+            action={
+                !hasSearchFilter ? (
+                    <Button variant="primary" onClick={handleOpenCreate}>
+                        + Crea il tuo primo catalogo
+                    </Button>
+                ) : undefined
+            }
+        />
     );
 
     return (
         <section className={styles.container}>
             <PageHeader
                 title="Cataloghi"
+                businessName={selectedTenant?.name}
                 subtitle="Gestisci l'albero delle categorie e i gruppi del tuo menu."
                 actions={
                     <Button variant="primary" onClick={handleOpenCreate}>
@@ -264,17 +267,20 @@ export default function Catalogs() {
                     className={styles.filterBar}
                 />
 
-                <DataTable<V2Catalog>
-                    data={filteredCatalogs}
-                    columns={columns}
-                    isLoading={isLoading}
-                    density={density}
-                    selectable
-                    onBulkDelete={handleBulkDelete}
-                    onRowClick={catalog => navigate(`/dashboard/cataloghi/${catalog.id}`)}
-                    loadingState={loadingState}
-                    emptyState={emptyState}
-                />
+                {isLoading ? (
+                    loadingState
+                ) : filteredCatalogs.length === 0 ? (
+                    emptyState
+                ) : (
+                    <DataTable<V2Catalog>
+                        data={filteredCatalogs}
+                        columns={columns}
+                        density={density}
+                        selectable
+                        onBulkDelete={handleBulkDelete}
+                        onRowClick={catalog => navigate(`/business/${currentTenantId}/catalogs/${catalog.id}`)}
+                    />
+                )}
             </div>
 
             {/* Create/Edit Drawer */}

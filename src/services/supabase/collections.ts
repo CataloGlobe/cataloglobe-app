@@ -1,5 +1,5 @@
 import { PublicCollection } from "@/types/collectionPublic";
-import { supabase } from "./client";
+import { supabase } from "@/services/supabase/client";
 import type {
     Collection,
     CollectionSection,

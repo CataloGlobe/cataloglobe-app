@@ -18,10 +18,10 @@ interface DrawerProps {
     onSuccess: () => void;
 }
 
-import { useAuth } from "@/context/useAuth";
+import { useTenantId } from "@/context/useTenantId";
 
 export default function FeaturedContentDrawer({ onClose, onSuccess }: DrawerProps) {
-    const { user } = useAuth();
+    const tenantId = useTenantId();
     const { showToast } = useToast();
     const navigate = useNavigate();
     const [submitting, setSubmitting] = useState(false);
@@ -45,7 +45,6 @@ export default function FeaturedContentDrawer({ onClose, onSuccess }: DrawerProp
             return;
         }
 
-        const tenantId = user?.id;
         if (!tenantId) {
             showToast({ type: "error", message: "Utente non identificato (tenantId mancante)" });
             return;
@@ -67,7 +66,7 @@ export default function FeaturedContentDrawer({ onClose, onSuccess }: DrawerProp
             showToast({ type: "success", message: "Contenuto creato" });
             onSuccess();
             if (created && created.id) {
-                navigate(`/dashboard/contenuti-in-evidenza/${created.id}`);
+                navigate(`/business/${tenantId}/featured/${created.id}`);
             }
         } catch (error) {
             console.error(error);

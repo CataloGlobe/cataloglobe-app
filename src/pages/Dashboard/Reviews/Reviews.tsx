@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@context/useAuth";
+import { useTenant } from "@/context/useTenant";
 import { getUserBusinesses } from "@services/supabase/businesses";
 import { getBusinessReviews, deleteReview } from "@services/supabase/reviews";
 import type { Review } from "@/types/database";
@@ -32,6 +33,7 @@ const TAG_OPTIONS = [
 
 export default function Reviews() {
     const { user } = useAuth();
+    const { selectedTenant } = useTenant();
     const location = useLocation();
 
     /** ------------------------ STATE ------------------------ */
@@ -278,6 +280,7 @@ export default function Reviews() {
         <div className={styles.reviews}>
             <PageHeader
                 title="Recensioni"
+                businessName={selectedTenant?.name}
                 subtitle="Visualizza e rispondi alle recensioni dei clienti."
             />
 

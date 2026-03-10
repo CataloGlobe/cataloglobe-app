@@ -1,4 +1,4 @@
-import { supabase } from "./client"; // importa il tuo client, adegua il path se diverso
+import { supabase } from "@/services/supabase/client"; // importa il tuo client, adegua il path se diverso
 
 export type AnalyticsQrScan = {
     id: string;

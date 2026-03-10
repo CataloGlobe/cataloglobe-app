@@ -7,7 +7,7 @@ import styles from "./BusinessCard.module.scss";
 import BusinessCollectionSchedule from "../BusinessCollectionSchedule/BusinessCollectionSchedule";
 import { Button } from "@/components/ui";
 import { IconButton } from "@/components/ui/Button/IconButton";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
 import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
@@ -24,12 +24,13 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
     const [overrideOpen, setOverrideOpen] = useState(false);
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const navigate = useNavigate();
+    const { businessId } = useParams<{ businessId: string }>();
 
     const handleCardClick = (e: React.MouseEvent) => {
         if ((e.target as HTMLElement).closest("button") || (e.target as HTMLElement).closest("a")) {
             return;
         }
-        navigate(`/dashboard/attivita/${business.id}`);
+        navigate(`/business/${businessId}/locations/${business.id}`);
     };
 
     const handleCopyLink = (e: React.MouseEvent) => {
@@ -61,7 +62,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                             }
                         >
                             <DropdownItem
-                                onClick={() => navigate(`/dashboard/attivita/${business.id}`)}
+                                onClick={() => navigate(`/business/${businessId}/locations/${business.id}`)}
                             >
                                 Apri dettaglio
                             </DropdownItem>
@@ -137,6 +138,10 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                 title={`${business.name} - Disponibilità e prezzi`}
             />
 
+            {/* TODO(phase10): BusinessCollectionSchedule receives businessType from activity_type,
+                which is legacy and should not be the primary business vertical.
+                The trigger (setShowScheduleModal) is currently dead — no button calls it.
+                When revived, replace businessType with selectedTenant.vertical_type from useTenant(). */}
             <BusinessCollectionSchedule
                 isOpen={showScheduleModal}
                 businessId={business.id}

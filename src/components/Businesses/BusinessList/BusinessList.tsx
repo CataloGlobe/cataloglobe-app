@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import Text from "@components/ui/Text/Text";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { BusinessCard } from "../BusinessCard/BusinessCard";
 import type { BusinessListProps, BusinessWithCapabilities } from "@/types/Businesses";
 import styles from "./BusinessList.module.scss";
@@ -7,9 +8,10 @@ import clsx from "clsx";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { IconButton } from "@/components/ui/Button/IconButton";
-import { ExternalLink, Link, FileText, Edit, Trash2, Calendar, ClipboardCheck } from "lucide-react";
+import { ExternalLink, Link, FileText, Edit, Trash2, Calendar, ClipboardCheck, MapPin } from "lucide-react";
+import { Button } from "@/components/ui/Button/Button";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 export const BusinessList: React.FC<BusinessListProps> = ({
     businesses,
@@ -18,9 +20,11 @@ export const BusinessList: React.FC<BusinessListProps> = ({
     onDelete,
     onOpenReviews,
     activeCatalogsMap,
-    onManageAvailability
+    onManageAvailability,
+    onCreateClick
 }) => {
     const navigate = useNavigate();
+    const { businessId } = useParams<{ businessId: string }>();
 
     const columns = useMemo<ColumnDefinition<BusinessWithCapabilities>[]>(
         () => [
@@ -97,7 +101,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                                         label: "Apri dettaglio",
                                         icon: FileText,
                                         onClick: () =>
-                                            navigate(`/dashboard/attivita/${business.id}`)
+                                            navigate(`/business/${businessId}/locations/${business.id}`)
                                     },
                                     {
                                         label: "Apri URL pubblico",
@@ -145,14 +149,18 @@ export const BusinessList: React.FC<BusinessListProps> = ({
 
     if (businesses.length === 0) {
         return (
-            <div className={styles.emptyState}>
-                <Text as="h3" variant="title-sm" weight={600}>
-                    Nessuna attività trovata
-                </Text>
-                <Text variant="body" colorVariant="muted">
-                    Aggiungi una nuova attività usando il form sulla sinistra.
-                </Text>
-            </div>
+            <EmptyState
+                icon={<MapPin size={40} strokeWidth={1.5} />}
+                title="Non hai ancora aggiunto sedi"
+                description="Le sedi rappresentano i tuoi punti vendita o ristoranti."
+                action={
+                    onCreateClick ? (
+                        <Button variant="primary" onClick={onCreateClick}>
+                            + Aggiungi la prima sede
+                        </Button>
+                    ) : undefined
+                }
+            />
         );
     }
 
@@ -163,7 +171,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 columns={columns}
                 selectable
                 onBulkDelete={handleBulkDelete}
-                onRowClick={business => navigate(`/dashboard/attivita/${business.id}`)}
+                onRowClick={business => navigate(`/business/${businessId}/locations/${business.id}`)}
             />
         );
     }

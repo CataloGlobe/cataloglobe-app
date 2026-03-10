@@ -1,9 +1,12 @@
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Routes, Route } from "react-router-dom";
 import MainLayout from "@layouts/MainLayout/MainLayout";
+import WorkspaceLayout from "@layouts/WorkspaceLayout/WorkspaceLayout";
 import { ProtectedRoute } from "@/components/Routes/ProtectedRoute";
 import { GuestRoute } from "./components/Routes/GuestRoute";
 import { OtpRoute } from "./components/Routes/OtpRoute";
 import { RecoveryRoute } from "./components/Routes/RecoveryRoute";
+import { TenantProvider } from "@context/TenantProvider";
+import { DashboardRedirect } from "./components/Routes/DashboardRedirect";
 
 // Auth pages
 import Login from "./pages/Auth/Login";
@@ -14,14 +17,20 @@ import ForgotPassword from "./pages/Auth/ForgotPassword";
 import ResetPassword from "./pages/Auth/ResetPassword";
 import UpdatePassword from "./pages/Auth/UpdatePassword";
 
-// Dashboard pages
-import Overview from "@pages/Dashboard/Overview/Overview";
+// Workspace
+import WorkspacePage from "./pages/Workspace/WorkspacePage";
+import TeamPage from "./pages/Workspace/TeamPage";
+import BillingPage from "./pages/Workspace/BillingPage";
+import WorkspaceSettingsPage from "./pages/Workspace/WorkspaceSettingsPage";
+
+// Business pages (reused from former dashboard)
+import Overview from "@/pages/Business/OverviewPage";
 import Businesses from "./pages/Dashboard/Businesses/Businesses";
 import Catalogs from "./pages/Dashboard/Catalogs/Catalogs";
 import CatalogEngine from "./pages/Dashboard/Catalogs/CatalogEngine";
 import Reviews from "@pages/Dashboard/Reviews/Reviews";
 import Analytics from "@pages/Dashboard/Analytics/Analytics";
-import Settings from "@/pages/Dashboard/Settings/Settings";
+import BusinessSettingsPage from "./pages/Business/BusinessSettingsPage";
 import Programming from "./pages/Dashboard/Programming/Programming";
 import ProgrammingRuleDetail from "./pages/Dashboard/Programming/ProgrammingRuleDetail";
 import Products from "./pages/Dashboard/Products/Products";
@@ -32,6 +41,10 @@ import Styles from "./pages/Dashboard/Styles/Styles";
 import StyleEditorPage from "./pages/Dashboard/Styles/StyleEditorPage";
 import Attributes from "./pages/Dashboard/Attributes/Attributes";
 import ActivityDetailPage from "./pages/Operativita/Attivita/ActivityDetailPage";
+
+// Onboarding pages
+import CreateBusiness from "./pages/Onboarding/CreateBusiness";
+
 
 // Public pages
 import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
@@ -94,49 +107,92 @@ export default function App() {
                 }
             />
 
-            {/* Private dashboard area */}
+            {/* Workspace area */}
             <Route
-                path="/dashboard"
+                path="/workspace"
                 element={
                     <ProtectedRoute>
-                        <MainLayout />
+                        <WorkspaceLayout />
                     </ProtectedRoute>
                 }
             >
-                <Route index element={<Overview />} />
+                <Route index element={<WorkspacePage />} />
+                <Route path="team" element={<TeamPage />} />
+                <Route path="billing" element={<BillingPage />} />
+                <Route path="settings" element={<WorkspaceSettingsPage />} />
+            </Route>
 
-                <Route path="attivita" element={<Businesses />} />
-                <Route path="attivita/:activityId" element={<ActivityDetailPage />} />
-                <Route path="programmazione" element={<Programming />} />
-                <Route path="programmazione/:ruleId" element={<ProgrammingRuleDetail />} />
+            {/* Onboarding (no tenant required) */}
+            <Route
+                path="/onboarding/create-business"
+                element={
+                    <ProtectedRoute>
+                        <CreateBusiness />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/select-business"
+                element={<Navigate to="/workspace" replace />}
+            />
 
-                <Route path="cataloghi" element={<Catalogs />} />
-                <Route path="cataloghi/:id" element={<CatalogEngine />} />
-                <Route path="prodotti" element={<Products />} />
-                <Route path="prodotti/:productId" element={<ProductPage />} />
-                <Route path="contenuti-in-evidenza">
+            {/* Business-level area */}
+            <Route
+                path="/business/:businessId"
+                element={
+                    <ProtectedRoute>
+                        <TenantProvider>
+                            <MainLayout />
+                        </TenantProvider>
+                    </ProtectedRoute>
+                }
+            >
+                {/* Default: redirect /business/:id → /business/:id/overview */}
+                <Route index element={<Navigate to="overview" replace />} />
+
+                <Route path="overview" element={<Overview />} />
+
+                <Route path="locations" element={<Businesses />} />
+                <Route path="locations/:activityId" element={<ActivityDetailPage />} />
+
+                <Route path="scheduling" element={<Programming />} />
+                <Route path="scheduling/:ruleId" element={<ProgrammingRuleDetail />} />
+
+                <Route path="catalogs" element={<Catalogs />} />
+                <Route path="catalogs/:id" element={<CatalogEngine />} />
+
+                <Route path="products" element={<Products />} />
+                <Route path="products/:productId" element={<ProductPage />} />
+
+                <Route path="featured">
                     <Route index element={<Highlights />} />
                     <Route path=":featuredId" element={<FeaturedContentDetailPage />} />
                 </Route>
-                <Route path="stili">
+
+                <Route path="styles">
                     <Route index element={<Styles />} />
                     <Route path=":styleId" element={<StyleEditorPage />} />
                 </Route>
-                <Route path="attributi" element={<Attributes />} />
 
-                <Route path="recensioni" element={<Reviews />} />
+                <Route path="attributes" element={<Attributes />} />
 
-                <Route path="analitiche" element={<Analytics />} />
+                <Route path="reviews" element={<Reviews />} />
+                <Route path="analytics" element={<Analytics />} />
 
-                <Route path="impostazioni" element={<Settings />} />
+                <Route path="settings" element={<BusinessSettingsPage />} />
+                <Route path="settings/security" element={<UpdatePassword />} />
+            </Route>
 
-                <Route path="impostazioni/sicurezza" element={<UpdatePassword />} />
+            {/* Legacy backward-compatibility redirects */}
+            <Route path="/dashboard">
+                <Route index element={<DashboardRedirect />} />
+                <Route path="*" element={<DashboardRedirect />} />
             </Route>
 
             {/* PUBLIC BUSINESS */}
             <Route path="/:slug" element={<PublicCollectionPage />} />
 
-            {/* Global 404 → dashboard */}
+            {/* Global 404 */}
             <Route path="*" element={<NotFound />} />
         </Routes>
     );

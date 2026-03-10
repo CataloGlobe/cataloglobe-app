@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-import { useAuth } from "@context/useAuth";
+import { useTenantId } from "@/context/useTenantId";
+import { useTenant } from "@/context/useTenant";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     getActivities,
@@ -12,8 +13,7 @@ import { getActiveCatalogForActivities } from "@/services/supabase/v2/activeCata
 import type {
     ActiveCatalogMeta,
     BusinessWithCapabilities,
-    BusinessFormValues,
-    BusinessType
+    BusinessFormValues
 } from "@/types/Businesses";
 
 import Text from "@components/ui/Text/Text";
@@ -60,8 +60,8 @@ function isReservedSlug(slug: string) {
 // COMPONENT
 // ==========================================
 export default function Businesses() {
-    const { user } = useAuth();
-    const userId = user?.id ?? null;
+    const tenantId = useTenantId();
+    const { selectedTenant } = useTenant();
     const navigate = useNavigate();
     const { showToast } = useToast();
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -94,7 +94,6 @@ export default function Businesses() {
         city: "",
         address: "",
         slug: "",
-        type: "restaurant",
         coverPreview: null
     });
     const [createErrors, setCreateErrors] = useState<
@@ -146,12 +145,12 @@ export default function Businesses() {
     // FETCH BUSINESS
     // ======================================
     const refreshBusinesses = useCallback(async () => {
-        if (!userId) return;
+        if (!tenantId) return;
 
         setIsLoadingBusinesses(true);
 
         try {
-            const data = await getActivities(userId);
+            const data = await getActivities(tenantId);
             setBusinesses(data as BusinessWithCapabilities[]);
 
             // Batch fetch catalogo attivo in parallelo, non bloccante per la lista
@@ -165,7 +164,7 @@ export default function Businesses() {
         } finally {
             setIsLoadingBusinesses(false);
         }
-    }, [userId]);
+    }, [tenantId]);
 
     useEffect(() => {
         refreshBusinesses();
@@ -242,7 +241,6 @@ export default function Businesses() {
         if (!values.name.trim()) errors.name = "Il nome è obbligatorio.";
         if (!values.city.trim()) errors.city = "La città è obbligatoria.";
         if (!values.address.trim()) errors.address = "L'indirizzo è obbligatorio.";
-        if (!values.type?.trim()) errors.type = "Il tipo di attività è obbligatorio.";
         if (!values.slug.trim()) errors.slug = "Lo slug è obbligatorio.";
 
         return errors;
@@ -289,7 +287,7 @@ export default function Businesses() {
                 return;
             }
 
-            if (!user) return;
+            if (!tenantId) return;
 
             // 1. Sanitizziamo lo slug manuale dell’utente
             const baseSlug = sanitizeSlugForSave(createForm.slug || createForm.name);
@@ -319,17 +317,17 @@ export default function Businesses() {
 
             setIsCreating(true);
             try {
-                const newActivity = await createActivity(user.id, {
+                const newActivity = await createActivity(tenantId, {
                     name: createForm.name,
                     city: createForm.city,
                     address: createForm.address,
                     slug: uniqueSlug,
-                    activity_type: createForm.type
+                    activity_type: selectedTenant?.vertical_type ?? null
                 });
 
                 if (createCoverFile) {
                     await uploadActivityCover(
-                        { id: newActivity.id, slug: newActivity.slug },
+                        { id: newActivity.id, slug: newActivity.slug, tenant_id: newActivity.tenant_id },
                         createCoverFile
                     );
                 }
@@ -340,7 +338,6 @@ export default function Businesses() {
                     city: "",
                     address: "",
                     slug: "",
-                    type: "restaurant",
                     coverPreview: null
                 });
                 setCreateCoverFile(null);
@@ -360,7 +357,7 @@ export default function Businesses() {
                 setCreateSlugState({ type: "idle" });
             }
         },
-        [user, createForm, createCoverFile, refreshBusinesses, showToast]
+        [tenantId, createForm, createCoverFile, refreshBusinesses, showToast]
     );
 
     // ======================================
@@ -380,14 +377,14 @@ export default function Businesses() {
 
             await refreshBusinesses();
             showToast({
-                message: "Attività eliminata con successo.",
+                message: "Sede eliminata con successo.",
                 type: "success",
                 duration: 2500
             });
         } catch (e) {
-            console.error("Errore durante l'eliminazione dell'attività:", e);
+            console.error("Errore durante l'eliminazione della sede:", e);
             showToast({
-                message: "Errore durante l'eliminazione dell'attività.",
+                message: "Errore durante l'eliminazione della sede.",
                 type: "error",
                 duration: 2500
             });
@@ -403,8 +400,8 @@ export default function Businesses() {
     // ======================================
 
     const handleOpenReviews = useCallback(
-        (id: string) => navigate(`/dashboard/recensioni?businessId=${id}`),
-        [navigate]
+        (id: string) => navigate(`/business/${tenantId}/reviews?businessId=${id}`),
+        [navigate, tenantId]
     );
 
     // ======================================
@@ -418,7 +415,6 @@ export default function Businesses() {
             city: business.city ?? "",
             address: business.address ?? "",
             slug: business.slug,
-            type: business.activity_type || "other",
             coverPreview: business.cover_image ?? null
         });
         setEditCoverFile(null);
@@ -454,7 +450,6 @@ export default function Businesses() {
         if (!values.name.trim()) errors.name = "Il nome è obbligatorio.";
         if (!values.city.trim()) errors.city = "La città è obbligatoria.";
         if (!values.address.trim()) errors.address = "L'indirizzo è obbligatorio.";
-        if (!values.type?.trim()) errors.type = "Il tipo di attività è obbligatorio.";
         if (!values.slug.trim()) errors.slug = "Lo slug è obbligatorio.";
 
         return errors;
@@ -530,17 +525,16 @@ export default function Businesses() {
             setIsEditing(true);
 
             try {
-                await updateActivity(editingId, {
+                await updateActivity(editingId, tenantId!, {
                     name: editForm.name,
                     city: editForm.city,
                     address: editForm.address,
-                    slug: cleanedSlug,
-                    activity_type: editForm.type
+                    slug: cleanedSlug
                 });
 
                 if (editCoverFile) {
                     await uploadActivityCover(
-                        { id: editingId, slug: editForm.slug },
+                        { id: editingId, slug: editForm.slug, tenant_id: tenantId! },
                         editCoverFile
                     );
                 }
@@ -584,7 +578,6 @@ export default function Businesses() {
             city: "",
             address: "",
             slug: "",
-            type: "restaurant",
             coverPreview: null
         });
         setCreateCoverFile(null);
@@ -645,8 +638,9 @@ export default function Businesses() {
     return (
         <section className={styles.businesses} aria-labelledby="businesses-title">
             <PageHeader
-                title="Le tue Attività"
-                subtitle="Gestisci le tue attività e genera il QR del sito pubblico."
+                title="Le tue Sedi"
+                businessName={selectedTenant?.name}
+                subtitle="Gestisci le tue sedi e genera il QR del sito pubblico."
                 actions={
                     activeTab === "activities" ? (
                         <Button
@@ -656,7 +650,7 @@ export default function Businesses() {
                                 setCreateSlugState({ type: "idle" });
                             }}
                         >
-                            Aggiungi attività
+                            Aggiungi sede
                         </Button>
                     ) : (
                         <Button
@@ -679,8 +673,8 @@ export default function Businesses() {
                 <div className={styles.tabsContainer} style={{ marginBottom: "1rem" }}>
                     <Tabs value={activeTab} onChange={setActiveTab}>
                         <Tabs.List>
-                            <Tabs.Tab value="activities">Attività</Tabs.Tab>
-                            <Tabs.Tab value="groups">Gruppi di attività</Tabs.Tab>
+                            <Tabs.Tab value="activities">Sedi</Tabs.Tab>
+                            <Tabs.Tab value="groups">Gruppi di sedi</Tabs.Tab>
                         </Tabs.List>
                     </Tabs>
                 </div>
@@ -691,7 +685,7 @@ export default function Businesses() {
                     value: searchTerm,
                     onChange: setSearchTerm,
                     placeholder:
-                        activeTab === "activities" ? "Cerca attività..." : "Cerca gruppo..."
+                        activeTab === "activities" ? "Cerca sede..." : "Cerca gruppo..."
                 }}
                 view={{
                     value: viewMode,
@@ -777,6 +771,7 @@ export default function Businesses() {
                                         activityName: name
                                     })
                                 }
+                                onCreateClick={() => setIsCreateOpen(true)}
                             />
 
                             {/* MODALE DISPONIBILITÀ (STEP 3) */}
@@ -809,14 +804,14 @@ export default function Businesses() {
                 <ModalLayoutHeader>
                     <div className={styles.headerLeft}>
                         <Text as="h2" variant="title-sm" weight={700}>
-                            Elimina attività
+                            Elimina sede
                         </Text>
                     </div>
                 </ModalLayoutHeader>
 
                 <ModalLayoutContent>
                     <Text variant="body">
-                        Sei sicuro di voler eliminare questa attività? L'operazione non è
+                        Sei sicuro di voler eliminare questa sede? L'operazione non è
                         reversibile.
                     </Text>
                 </ModalLayoutContent>

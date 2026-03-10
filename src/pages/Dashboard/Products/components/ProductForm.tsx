@@ -737,7 +737,7 @@ export function ProductForm({
                     actionLabel: "Apri prodotto",
                     onAction: () => {
                         if (savedProductId) {
-                            navigate(`/dashboard/prodotti/${savedProductId}`);
+                            navigate(`/business/${tenantId}/products/${savedProductId}`);
                         }
                     }
                 });
@@ -745,7 +745,7 @@ export function ProductForm({
 
             // If it's a new product creation, navigate automatically to the product page with pricing tab hint
             if (!isEditing && savedProductId) {
-                navigate(`/dashboard/prodotti/${savedProductId}?tab=pricing`);
+                navigate(`/business/${tenantId}/products/${savedProductId}?tab=pricing`);
             }
 
             await Promise.resolve(onSuccess(savedProduct));

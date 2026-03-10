@@ -172,11 +172,6 @@ export const ActivityInfoTab: React.FC<ActivityInfoTabProps> = ({
                         </div>
 
                         <div className={styles.field}>
-                            <label>Tipo Attività</label>
-                            <span>{activity.activity_type || "—"}</span>
-                        </div>
-
-                        <div className={styles.field}>
                             <label>Gruppi</label>
                             <div className={styles.badgeList}>
                                 {groups.length > 0 ? (

@@ -100,7 +100,7 @@ function buildForm(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>
         const typeLabel = getRuleTypeLabel(rule.rule_type);
         const targetLabel =
             targetMode === "all"
-                ? "tutte le attività"
+                ? "tutte le sedi"
                 : targetMode === "activities" && rule.activityIds.length > 0
                 ? activityById.get(rule.activityIds[0])?.name ?? rule.activityIds[0]
                 : targetMode === "groups" && rule.groupIds.length > 0
@@ -149,11 +149,11 @@ function toSummary(input: {
 
     let targetLabel: string;
     if (form.targetMode === "all") {
-        targetLabel = "tutte le attività";
+        targetLabel = "tutte le sedi";
     } else if (form.targetMode === "activities") {
         const names = form.activityIds.map(id => activityById.get(id)?.name ?? id);
         if (names.length === 0) {
-            targetLabel = "nessuna attività";
+            targetLabel = "nessuna sede";
         } else {
             targetLabel = names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`;
         }
@@ -212,7 +212,7 @@ function toSummary(input: {
 }
 
 export default function ProgrammingRuleDetail() {
-    const { ruleId } = useParams<{ ruleId: string }>();
+    const { ruleId, businessId } = useParams<{ ruleId: string; businessId: string }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
 
@@ -331,20 +331,20 @@ export default function ProgrammingRuleDetail() {
 
     const loadData = useCallback(async () => {
         if (!ruleId) {
-            navigate("/dashboard/programmazione");
+            navigate(`/business/${businessId}/scheduling`);
             return;
         }
 
         try {
             setIsLoading(true);
             const [ruleData, optionsData] = await Promise.all([
-                getLayoutRuleById(ruleId),
-                listLayoutRuleOptions()
+                getLayoutRuleById(ruleId, businessId!),
+                listLayoutRuleOptions(businessId!)
             ]);
 
             if (!ruleData) {
                 showToast({ type: "error", message: "Regola non trovata.", duration: 3000 });
-                navigate("/dashboard/programmazione");
+                navigate(`/business/${businessId}/scheduling`);
                 return;
             }
 
@@ -433,7 +433,7 @@ export default function ProgrammingRuleDetail() {
         if (form.targetMode === "activities" && form.activityIds.length === 0) {
             showToast({
                 type: "error",
-                message: "Seleziona almeno un'attività o cambia modalità target.",
+                message: "Seleziona almeno una sede o cambia modalità target.",
                 duration: 2600
             });
             return;
@@ -566,7 +566,7 @@ export default function ProgrammingRuleDetail() {
     }
 
     const breadcrumbItems = [
-        { label: "Programmazione", to: "/dashboard/programmazione" },
+        { label: "Programmazione", to: `/business/${businessId}/scheduling` },
         { label: form.name || "Regola" }
     ];
 

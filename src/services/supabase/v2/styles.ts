@@ -1,4 +1,4 @@
-import { supabase } from "../client";
+import { supabase } from "@/services/supabase/client";
 import { resolveActivityCatalogsV2 } from "./resolveActivityCatalogsV2"; // Using for types or potential cache invalidation
 
 export type V2StyleVersion = {
@@ -25,7 +25,7 @@ export type V2Style = {
     usage_count?: number;
 };
 
-export async function listStyles(): Promise<V2Style[]> {
+export async function listStyles(tenantId: string): Promise<V2Style[]> {
     const { data: stylesData, error: stylesError } = await supabase
         .from("v2_styles")
         .select(
@@ -36,6 +36,7 @@ export async function listStyles(): Promise<V2Style[]> {
             )
         `
         )
+        .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
 
     if (stylesError) throw stylesError;
@@ -43,7 +44,8 @@ export async function listStyles(): Promise<V2Style[]> {
     // Fetch usage counts directly
     const { data: layoutsData, error: layoutsError } = await supabase
         .from("v2_schedule_layout")
-        .select("style_id");
+        .select("style_id")
+        .eq("tenant_id", tenantId);
 
     if (layoutsError) throw layoutsError;
 
@@ -67,7 +69,7 @@ export async function listStyles(): Promise<V2Style[]> {
     });
 }
 
-export async function getStyle(styleId: string): Promise<V2Style | null> {
+export async function getStyle(styleId: string, tenantId: string): Promise<V2Style | null> {
     const { data, error } = await supabase
         .from("v2_styles")
         .select(
@@ -79,6 +81,7 @@ export async function getStyle(styleId: string): Promise<V2Style | null> {
         `
         )
         .eq("id", styleId)
+        .eq("tenant_id", tenantId)
         .single();
 
     if (error) {
@@ -154,7 +157,7 @@ export async function updateStyle(
     newConfig: any | undefined, // undefined means don't create new version
     tenant_id: string
 ): Promise<V2Style> {
-    const currentStyle = await getStyle(styleId);
+    const currentStyle = await getStyle(styleId, tenant_id);
     if (!currentStyle) throw new Error("Style not found");
 
     let nextVersionId = currentStyle.current_version_id;
@@ -193,6 +196,7 @@ export async function updateStyle(
         .from("v2_styles")
         .update(updatePayload)
         .eq("id", styleId)
+        .eq("tenant_id", tenant_id)
         .select(
             `
             *,
@@ -215,8 +219,8 @@ export async function updateStyle(
     };
 }
 
-export async function duplicateStyle(styleId: string, newName: string): Promise<V2Style> {
-    const sourceStyle = await getStyle(styleId);
+export async function duplicateStyle(styleId: string, newName: string, tenantId: string): Promise<V2Style> {
+    const sourceStyle = await getStyle(styleId, tenantId);
     if (!sourceStyle) throw new Error("Source style not found");
     if (!sourceStyle.current_version)
         throw new Error("Source style has no config version to duplicate");
@@ -224,8 +228,8 @@ export async function duplicateStyle(styleId: string, newName: string): Promise<
     return createStyle(sourceStyle.tenant_id, newName, sourceStyle.current_version.config);
 }
 
-export async function deleteStyle(styleId: string, replaceWithStyleId?: string): Promise<void> {
-    const style = await getStyle(styleId);
+export async function deleteStyle(styleId: string, tenantId: string, replaceWithStyleId?: string): Promise<void> {
+    const style = await getStyle(styleId, tenantId);
     if (!style) return;
 
     if (style.is_system) {
@@ -236,7 +240,8 @@ export async function deleteStyle(styleId: string, replaceWithStyleId?: string):
     const { data: usages, error: usageError } = await supabase
         .from("v2_schedule_layout")
         .select("id")
-        .eq("style_id", styleId);
+        .eq("style_id", styleId)
+        .eq("tenant_id", tenantId);
 
     if (usageError) throw usageError;
 
@@ -248,20 +253,25 @@ export async function deleteStyle(styleId: string, replaceWithStyleId?: string):
         }
 
         // Ensure the replacement exists
-        const replacement = await getStyle(replaceWithStyleId);
+        const replacement = await getStyle(replaceWithStyleId, tenantId);
         if (!replacement) throw new Error("Replacement style not found");
 
         // Update all references
         const { error: updateError } = await supabase
             .from("v2_schedule_layout")
             .update({ style_id: replaceWithStyleId })
-            .eq("style_id", styleId);
+            .eq("style_id", styleId)
+            .eq("tenant_id", tenantId);
 
         if (updateError) throw updateError;
     }
 
     // Delete the style (cascade will delete versions)
-    const { error: deleteError } = await supabase.from("v2_styles").delete().eq("id", styleId);
+    const { error: deleteError } = await supabase
+        .from("v2_styles")
+        .delete()
+        .eq("id", styleId)
+        .eq("tenant_id", tenantId);
 
     if (deleteError) throw deleteError;
 }

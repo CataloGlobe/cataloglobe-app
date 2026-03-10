@@ -61,16 +61,13 @@ export default function VerifyOtp() {
             setInfo(null);
 
             const { data } = await supabase.auth.getSession();
-            const jwt = data.session?.access_token;
 
-            if (!jwt) {
+            if (!data.session) {
                 navigate("/login", { replace: true });
                 return;
             }
 
-            const { error } = await supabase.functions.invoke("send-otp", {
-                headers: { Authorization: `Bearer ${jwt}` }
-            });
+            const { error } = await supabase.functions.invoke("send-otp");
 
             if (error) {
                 const code = mapOtpError(error);
@@ -114,12 +111,9 @@ export default function VerifyOtp() {
 
     const loadOtpStatus = useCallback(async () => {
         const { data } = await supabase.auth.getSession();
-        const jwt = data.session?.access_token;
-        if (!jwt) return;
+        if (!data.session) return;
 
-        const { data: status, error } = await supabase.functions.invoke("status-otp", {
-            headers: { Authorization: `Bearer ${jwt}` }
-        });
+        const { data: status, error } = await supabase.functions.invoke("status-otp");
 
         if (error || !status) return;
 
@@ -252,16 +246,14 @@ export default function VerifyOtp() {
             setInfo("Verifica in corso...");
 
             const { data: sessionData } = await supabase.auth.getSession();
-            const jwt = sessionData.session?.access_token;
 
-            if (!jwt) {
+            if (!sessionData.session) {
                 navigate("/login", { replace: true });
                 return;
             }
 
             const { data, error } = await supabase.functions.invoke("verify-otp", {
-                body: { code },
-                headers: { Authorization: `Bearer ${jwt}` }
+                body: { code }
             });
 
             if (error) {
@@ -337,7 +329,7 @@ export default function VerifyOtp() {
             }
 
             await refreshOtp();
-            navigate("/dashboard", { replace: true });
+            navigate("/workspace", { replace: true });
         } finally {
             setLoading(false);
             setStatus("idle");
@@ -434,8 +426,8 @@ export default function VerifyOtp() {
                     {resendSeconds === null
                         ? "Reinvia codice"
                         : resendSeconds > 0
-                        ? `Reinvia codice (${resendSeconds}s)`
-                        : "Reinvia codice"}
+                          ? `Reinvia codice (${resendSeconds}s)`
+                          : "Reinvia codice"}
                 </Button>
             </div>
 

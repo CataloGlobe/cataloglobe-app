@@ -2,7 +2,6 @@
 import React from "react";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { Select } from "@/components/ui/Select/Select";
 import type { BusinessFormValues } from "@/types/Businesses";
 import styles from "./BusinessCreateCard.module.scss";
 import { FileInput } from "@/components/ui/Input/FileInput";
@@ -69,25 +68,6 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                     value={values.address}
                     onChange={e => onFieldChange("address", e.target.value)}
                     error={errors?.address}
-                />
-
-                {/* Tipo di attività */}
-                <Select
-                    label="Tipo di attività"
-                    value={values.type ?? undefined}
-                    error={errors?.type}
-                    onChange={e =>
-                        onFieldChange("type", e.target.value as BusinessFormValues["type"])
-                    }
-                    options={[
-                        { value: "restaurant", label: "Ristorante" },
-                        { value: "bar", label: "Bar" },
-                        { value: "hotel", label: "Hotel" },
-                        { value: "hairdresser", label: "Parrucchiere" },
-                        { value: "beauty", label: "Centro estetico" },
-                        { value: "shop", label: "Negozio" },
-                        { value: "other", label: "Altro" }
-                    ]}
                 />
 
                 {/* Slug */}

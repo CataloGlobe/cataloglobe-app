@@ -20,14 +20,14 @@ import {
     FeaturedContentPricingMode,
     FeaturedContentStatus
 } from "@/services/supabase/v2/featuredContents";
-import { useAuth } from "@/context/useAuth";
+import { useTenantId } from "@/context/useTenantId";
 import styles from "./Highlights.module.scss";
 
 export default function FeaturedContentDetailPage() {
     const { featuredId } = useParams<{ featuredId: string }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
-    const { user } = useAuth();
+    const tenantId = useTenantId();
 
     const [content, setContent] = useState<FeaturedContentWithProducts | null>(null);
     const [loading, setLoading] = useState(true);
@@ -70,7 +70,7 @@ export default function FeaturedContentDetailPage() {
     };
 
     const handleSaveInfo = async () => {
-        if (!content || !user?.id) return;
+        if (!content || !tenantId) return;
 
         if (!editTitle.trim()) {
             showToast({ type: "error", message: "Il titolo è obbligatorio" });
@@ -113,7 +113,7 @@ export default function FeaturedContentDetailPage() {
                 bundle_price: resolvedBundlePrice
             };
 
-            await updateFeaturedContent(content.id, user.id, updateData);
+            await updateFeaturedContent(content.id, tenantId, updateData);
 
             showToast({ type: "success", message: "Informazioni aggiornate" });
             setContent(prev => (prev ? { ...prev, ...updateData } : null));
@@ -162,7 +162,7 @@ export default function FeaturedContentDetailPage() {
 
     // Breadcrumb mapping
     const breadcrumbItems = [
-        { label: "Contenuti in evidenza", to: "/dashboard/contenuti-in-evidenza" },
+        { label: "Contenuti in evidenza", to: `/business/${tenantId}/featured` },
         {
             label: loading ? "Caricamento..." : content?.title || "Dettaglio contenuto"
         }
@@ -179,7 +179,7 @@ export default function FeaturedContentDetailPage() {
                     <div style={{ marginTop: "16px" }}>
                         <Button
                             variant="secondary"
-                            onClick={() => navigate("/dashboard/contenuti-in-evidenza")}
+                            onClick={() => navigate(`/business/${tenantId}/featured`)}
                         >
                             Torna alla lista
                         </Button>

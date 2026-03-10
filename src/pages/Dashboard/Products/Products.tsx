@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
-import { useAuth } from "@/context/useAuth";
+import { useTenantId } from "@/context/useTenantId";
+import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { Card } from "@/components/ui/Card/Card";
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
+import { Package } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { Link } from "react-router-dom";
 import styles from "./Products.module.scss";
@@ -22,6 +24,7 @@ import {
     getProductListMetadata,
     ProductListMetadata
 } from "@/services/supabase/v2/products";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ProductCreateEditDrawer, ProductFormMode } from "./ProductCreateEditDrawer";
 import { ProductDeleteDrawer } from "./ProductDeleteDrawer";
 import ProductGroupsTab from "@/components/Products/ProductGroupsTab/ProductGroupsTab";
@@ -51,8 +54,8 @@ const getAllProductIds = (products: V2Product[]): string[] =>
     ]);
 
 export default function Products() {
-    const { user } = useAuth();
-    const currentTenantId = user?.id;
+    const currentTenantId = useTenantId();
+    const { selectedTenant } = useTenant();
     const { showToast } = useToast();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -255,7 +258,7 @@ export default function Products() {
                             </button>
                         )}
                         <Link
-                            to={`/dashboard/prodotti/${row.product.id}`}
+                            to={`/business/${currentTenantId}/products/${row.product.id}`}
                             className={styles.productLink}
                         >
                             <Text
@@ -403,6 +406,7 @@ export default function Products() {
         <section className={styles.container}>
             <PageHeader
                 title="Prodotti"
+                businessName={selectedTenant?.name}
                 subtitle="Gestisci il tuo catalogo prodotti, prezzi, varianti e raggruppamenti."
                 actions={
                     activeTab === "products" ? (
@@ -455,25 +459,26 @@ export default function Products() {
                                 </Text>
                             </div>
                         ) : filteredProducts.length === 0 ? (
-                            <div className={styles.emptyState}>
-                                <Text variant="title-sm" weight={600}>
-                                    Nessun prodotto trovato
-                                </Text>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    {searchQuery
+                            <EmptyState
+                                icon={<Package size={40} strokeWidth={1.5} />}
+                                title={
+                                    searchQuery
+                                        ? "Nessun prodotto trovato"
+                                        : "Non hai ancora creato prodotti"
+                                }
+                                description={
+                                    searchQuery
                                         ? "Nessun prodotto corrisponde ai filtri di ricerca."
-                                        : "Non hai ancora aggiunto alcun prodotto base."}
-                                </Text>
-                                {!searchQuery && (
-                                    <Button
-                                        variant="primary"
-                                        onClick={handleCreateBase}
-                                        className={styles.emptyButton}
-                                    >
-                                        Crea primo prodotto
-                                    </Button>
-                                )}
-                            </div>
+                                        : "I prodotti sono gli elementi che compariranno nei tuoi cataloghi."
+                                }
+                                action={
+                                    !searchQuery ? (
+                                        <Button variant="primary" onClick={handleCreateBase}>
+                                            + Crea il tuo primo prodotto
+                                        </Button>
+                                    ) : undefined
+                                }
+                            />
                         ) : (
                             <DataTable<ProductTableRow>
                                 data={tableRows}
@@ -496,7 +501,7 @@ export default function Products() {
                         productData={productToEdit}
                         parentProduct={parentForVariant}
                         onSuccess={loadData}
-                        tenantId={currentTenantId}
+                        tenantId={currentTenantId ?? undefined}
                     />
 
                     <ProductDeleteDrawer
@@ -508,7 +513,7 @@ export default function Products() {
                 </Tabs.Panel>
                 <Tabs.Panel value="groups">
                     <ProductGroupsTab
-                        tenantId={currentTenantId}
+                        tenantId={currentTenantId ?? undefined}
                         isCreateOpen={isCreateGroupOpen}
                         onCloseCreate={() => setCreateGroupOpen(false)}
                     />

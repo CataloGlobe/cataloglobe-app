@@ -16,7 +16,7 @@ export default function Login() {
 
     const navigate = useNavigate();
     const location = useLocation();
-    const from = location.state?.from?.pathname || "/dashboard";
+    const from = location.state?.from?.pathname || "/workspace";
 
     async function handleLogin(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();

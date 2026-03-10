@@ -1,0 +1,32 @@
+.wrapper {
+    padding: 64px 24px;
+    max-width: 420px;
+    margin: 0 auto;
+    text-align: center;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.icon {
+    color: var(--color-muted);
+    opacity: 0.7;
+}
+
+.title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.description {
+    font-size: 14px;
+    color: var(--color-muted);
+    margin: 0;
+}
+
+.action {
+    margin-top: 8px;
+}

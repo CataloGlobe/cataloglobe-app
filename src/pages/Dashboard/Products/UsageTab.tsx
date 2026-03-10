@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import Text from "@/components/ui/Text/Text";
 import styles from "./UsageTab.module.scss";
 
@@ -20,6 +20,7 @@ interface UsageTabProps {
 }
 
 export function UsageTab({ productId, usageData, usageLoading }: UsageTabProps) {
+    const { businessId } = useParams<{ businessId: string }>();
     console.log("usageData", usageData);
 
     if (usageLoading) {
@@ -71,11 +72,11 @@ export function UsageTab({ productId, usageData, usageLoading }: UsageTabProps) 
             <Text variant="body-sm" colorVariant="muted" className={styles.microcopy}>
                 Questa sezione mostra dove il prodotto è utilizzato nel sistema. Per modificarne
                 l'utilizzo, vai alla sezione{" "}
-                <Link to="/dashboard/cataloghi" className={styles.inlineLink}>
+                <Link to={`/business/${businessId}/catalogs`} className={styles.inlineLink}>
                     Cataloghi
                 </Link>{" "}
                 o{" "}
-                <Link to="/dashboard/programmazione" className={styles.inlineLink}>
+                <Link to={`/business/${businessId}/scheduling`} className={styles.inlineLink}>
                     Programmazione
                 </Link>
                 .
@@ -96,7 +97,7 @@ export function UsageTab({ productId, usageData, usageLoading }: UsageTabProps) 
                         {data.catalogs.map(catalog => (
                             <li key={catalog.id} className={styles.listItem}>
                                 <Link
-                                    to={`/dashboard/cataloghi/${catalog.id}?highlightProduct=${productId}`}
+                                    to={`/business/${businessId}/catalogs/${catalog.id}?highlightProduct=${productId}`}
                                     className={styles.link}
                                 >
                                     {catalog.name}
@@ -124,7 +125,7 @@ export function UsageTab({ productId, usageData, usageLoading }: UsageTabProps) 
                         {data.schedules.map(schedule => (
                             <li key={schedule.id} className={styles.listItem}>
                                 <Link
-                                    to={`/dashboard/programmazione/${schedule.id}`}
+                                    to={`/business/${businessId}/scheduling/${schedule.id}`}
                                     className={styles.link}
                                 >
                                     {schedule.name}
@@ -152,7 +153,7 @@ export function UsageTab({ productId, usageData, usageLoading }: UsageTabProps) 
                         {data.activities.map(activity => (
                             <li key={activity.id} className={styles.listItem}>
                                 <Link
-                                    to={`/dashboard/attivita/${activity.id}`}
+                                    to={`/business/${businessId}/locations/${activity.id}`}
                                     className={styles.link}
                                 >
                                     {activity.name}

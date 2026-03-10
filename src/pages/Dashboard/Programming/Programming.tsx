@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Globe, Building2, Users, AlertCircle, FileText, Loader2 } from "lucide-react";
+import { Globe, Building2, Users, AlertCircle, FileText, Loader2, Calendar } from "lucide-react";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { Button } from "@/components/ui/Button/Button";
@@ -15,11 +15,13 @@ import ModalLayout, {
 } from "@/components/ui/ModalLayout/ModalLayout";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
-import { useAuth } from "@/context/useAuth";
+import { useTenantId } from "@/context/useTenantId";
+import { useTenant } from "@/context/useTenant";
 import {
     createRuleDraft,
     deleteLayoutRule,
@@ -61,7 +63,7 @@ function getRuleTypeLabel(ruleType: RuleType): string {
 
 function getRuleTargetLabel(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>): string {
     if (rule.target_type === "activity_group") {
-        if (rule.target_group?.is_system) return "Tutte le attività";
+        if (rule.target_group?.is_system) return "Tutte le sedi";
         return rule.target_group?.name ?? rule.target_id;
     }
 
@@ -77,10 +79,9 @@ function buildDefaultCreateForm(): CreateRuleForm {
 
 export default function Programming() {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const currentTenantId = useTenantId();
+    const { selectedTenant } = useTenant();
     const { showToast } = useToast();
-
-    const currentTenantId = user?.id ?? null;
 
     const [rules, setRules] = useState<LayoutRule[]>([]);
     const [activities, setActivities] = useState<LayoutRuleOption[]>([]);
@@ -115,16 +116,16 @@ export default function Programming() {
     );
 
     const loadRules = useCallback(async () => {
-        const rulesData = await listLayoutRules();
+        const rulesData = await listLayoutRules(currentTenantId!);
         setRules(rulesData);
-    }, []);
+    }, [currentTenantId]);
 
     const loadInitialData = useCallback(async () => {
         try {
             setIsLoading(true);
             const [rulesData, optionsData] = await Promise.all([
-                listLayoutRules(),
-                listLayoutRuleOptions()
+                listLayoutRules(currentTenantId!),
+                listLayoutRuleOptions(currentTenantId!)
             ]);
             setRules(rulesData);
             setActivities(optionsData.activities);
@@ -439,7 +440,7 @@ export default function Programming() {
                         actions={[
                             {
                                 label: "Modifica",
-                                onClick: () => navigate(`/dashboard/programmazione/${rule.id}`)
+                                onClick: () => navigate(`/business/${currentTenantId}/scheduling/${rule.id}`)
                             },
                             {
                                 label: "Elimina",
@@ -542,7 +543,7 @@ export default function Programming() {
             });
 
             setIsCreateDrawerOpen(false);
-            navigate(`/dashboard/programmazione/${newRuleId}`);
+            navigate(`/business/${currentTenantId}/scheduling/${newRuleId}`);
         } catch (error) {
             console.error("Errore creazione regola:", error);
             showToast({
@@ -560,6 +561,7 @@ export default function Programming() {
             <div className={styles.topArea}>
                 <PageHeader
                     title="Programmazione"
+                    businessName={selectedTenant?.name}
                     subtitle="Gestisci le regole del Rule Engine."
                     actions={
                         <Button
@@ -613,29 +615,42 @@ export default function Programming() {
             />
 
             <div className={styles.tableCard}>
-                <DataTable<LayoutRule>
-                    data={filteredRules}
-                    columns={columns}
-                    isLoading={isLoading}
-                    density={densityView === "list" ? "compact" : "extended"}
-                    selectable
-                    onBulkDelete={handleBulkDelete}
-                    onRowClick={row => navigate(`/dashboard/programmazione/${row.id}`)}
-                    rowClassName={rule => (!rule.enabled ? styles.disabledRow : "")}
-                    loadingState={
-                        <div className={styles.emptyState}>
-                            <Text colorVariant="muted">Caricamento regole...</Text>
-                        </div>
-                    }
-                    emptyState={
-                        <div className={styles.emptyState}>
-                            <Text variant="title-sm">Nessuna regola</Text>
-                            <Text colorVariant="muted">
-                                Crea la prima regola o modifica i filtri di ricerca.
-                            </Text>
-                        </div>
-                    }
-                />
+                {isLoading ? (
+                    <div className={styles.emptyState}>
+                        <Text colorVariant="muted">Caricamento regole...</Text>
+                    </div>
+                ) : filteredRules.length === 0 ? (
+                    <EmptyState
+                        icon={<Calendar size={40} strokeWidth={1.5} />}
+                        title={
+                            searchTerm || ruleTypeFilter !== "all"
+                                ? "Nessuna regola trovata"
+                                : "Non hai ancora configurato la programmazione"
+                        }
+                        description={
+                            searchTerm || ruleTypeFilter !== "all"
+                                ? "Nessuna regola corrisponde ai filtri."
+                                : "La programmazione controlla quando i cataloghi sono visibili."
+                        }
+                        action={
+                            !searchTerm && ruleTypeFilter === "all" ? (
+                                <Button variant="primary" onClick={handleOpenCreate}>
+                                    + Crea la prima regola
+                                </Button>
+                            ) : undefined
+                        }
+                    />
+                ) : (
+                    <DataTable<LayoutRule>
+                        data={filteredRules}
+                        columns={columns}
+                        density={densityView === "list" ? "compact" : "extended"}
+                        selectable
+                        onBulkDelete={handleBulkDelete}
+                        onRowClick={row => navigate(`/business/${currentTenantId}/scheduling/${row.id}`)}
+                        rowClassName={rule => (!rule.enabled ? styles.disabledRow : "")}
+                    />
+                )}
             </div>
 
             <SystemDrawer

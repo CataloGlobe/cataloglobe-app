@@ -1,4 +1,4 @@
-import { supabase } from "./client";
+import { supabase } from "@/services/supabase/client";
 import type { Review } from "@/types/database";
 
 export type AnalyticsReview = Pick<Review, "id" | "rating" | "source" | "created_at">;

@@ -1,5 +1,5 @@
 import { BusinessWithCapabilities } from "@/types/Businesses";
-import { supabase } from "./client";
+import { supabase } from "@/services/supabase/client";
 import type { Business } from "@/types/database";
 import type { CatalogTheme } from "@/types/theme";
 

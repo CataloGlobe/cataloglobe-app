@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import Breadcrumb, { type BreadcrumbItem } from "@/components/ui/Breadcrumb/Breadcrumb";
-import { useAuth } from "@/context/useAuth";
+import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
@@ -273,8 +273,7 @@ export default function CatalogEngine() {
     const { id: catalogId } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const { user } = useAuth();
-    const currentTenantId = user?.id;
+    const currentTenantId = useTenantId();
     const { showToast } = useToast();
 
     const selectedCategoryId = searchParams.get("categoryId");
@@ -339,7 +338,7 @@ export default function CatalogEngine() {
 
     const breadcrumbItems = useMemo<BreadcrumbItem[]>(
         () => [
-            { label: "Cataloghi", to: "/dashboard/cataloghi" },
+            { label: "Cataloghi", to: `/business/${currentTenantId}/catalogs` },
             { label: catalog?.name || "Catalogo" }
         ],
         [catalog?.name]
@@ -537,7 +536,7 @@ export default function CatalogEngine() {
         } catch (error) {
             console.error(error);
             showToast({ message: "Errore durante il caricamento del catalogo.", type: "error" });
-            navigate("/dashboard/cataloghi");
+            navigate(`/business/${currentTenantId}/catalogs`);
         } finally {
             setIsLoading(false);
         }

@@ -1,3 +1,6 @@
+// TODO(phase10): Uses legacy BusinessType enum (restaurant, bar, hotel, hairdresser, beauty, shop, other).
+// Does not align with v2_tenants.vertical_type values (restaurant, bar, retail, hotel, generic).
+// Update this mapping to consume selectedTenant.vertical_type from useTenant() when the V2 catalog pipeline is wired.
 import type { CatalogType } from "@/types/catalog";
 
 export type BusinessType =
