@@ -58,7 +58,7 @@ export default function SelectBusiness() {
                         Le tue aziende
                     </Text>
                     <div style={{ marginTop: "8px" }}>
-                        <Text variant="body-md" colorVariant="muted">
+                        <Text variant="body" colorVariant="muted">
                             Scegli l&apos;azienda con cui vuoi lavorare.
                         </Text>
                     </div>
@@ -79,12 +79,13 @@ export default function SelectBusiness() {
                             }}
                         >
                             <div>
-                                <Text variant="body-md" weight={600}>
+                                <Text variant="body" weight={600}>
                                     {tenant.name}
                                 </Text>
                                 <div style={{ marginTop: "2px" }}>
                                     <Text variant="body-sm" colorVariant="muted">
-                                        {VERTICAL_LABELS[tenant.vertical_type] ?? tenant.vertical_type}
+                                        {VERTICAL_LABELS[tenant.vertical_type] ??
+                                            tenant.vertical_type}
                                     </Text>
                                 </div>
                             </div>
@@ -98,7 +99,7 @@ export default function SelectBusiness() {
 
                 <div style={{ marginTop: "24px" }}>
                     <Link to="/onboarding/create-business" style={{ textDecoration: "none" }}>
-                        <Text variant="body-md" colorVariant="primary">
+                        <Text variant="body" colorVariant="primary">
                             + Aggiungi azienda
                         </Text>
                     </Link>

@@ -50,7 +50,7 @@ export default function WorkspacePage() {
         Promise.all([
             supabase.from("v2_activities").select("tenant_id").in("tenant_id", ids),
             supabase.from("v2_products").select("tenant_id").in("tenant_id", ids),
-            supabase.from("v2_catalogs").select("tenant_id").in("tenant_id", ids),
+            supabase.from("v2_catalogs").select("tenant_id").in("tenant_id", ids)
         ]).then(([loc, prod, cat]) => {
             setLocationCounts(countByTenant(loc.data));
             setProductCounts(countByTenant(prod.data));
@@ -65,8 +65,10 @@ export default function WorkspacePage() {
 
     const header = (
         <div className={styles.header}>
-            <Text variant="title-lg" weight={700}>Workspace</Text>
-            <Text variant="body-md" colorVariant="muted" style={{ marginTop: 6 }}>
+            <Text variant="title-lg" weight={700}>
+                Workspace
+            </Text>
+            <Text variant="body" colorVariant="muted" style={{ marginTop: 6 }}>
                 Gestisci le tue aziende e accedi alle loro dashboard.
             </Text>
         </div>
@@ -101,7 +103,7 @@ export default function WorkspacePage() {
                         <div className={styles.createIconWrapper}>
                             <Plus size={20} />
                         </div>
-                        <Text variant="body-md" weight={600}>
+                        <Text variant="body" weight={600}>
                             Crea azienda
                         </Text>
                     </button>
