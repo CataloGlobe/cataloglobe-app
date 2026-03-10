@@ -1,4 +1,4 @@
-import { supabase } from "./client";
+import { supabase } from "@/services/supabase/client";
 
 export type ScheduleSlot = "primary" | "overlay";
 export type CollectionKind = "standard" | "special";

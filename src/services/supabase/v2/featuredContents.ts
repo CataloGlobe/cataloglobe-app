@@ -1,4 +1,4 @@
-import { supabase } from "../client";
+import { supabase } from "@/services/supabase/client";
 
 export type FeaturedContentStatus = "draft" | "published";
 export type FeaturedContentPricingMode = "none" | "per_item" | "bundle";
@@ -44,7 +44,7 @@ export interface FeaturedContentWithProducts extends FeaturedContent {
     })[];
 }
 
-export async function listFeaturedContents() {
+export async function listFeaturedContents(tenantId: string) {
     const { data, error } = await supabase
         .from("v2_featured_contents")
         .select(
@@ -53,6 +53,7 @@ export async function listFeaturedContents() {
             products:v2_featured_content_products (count)
         `
         )
+        .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -63,11 +64,12 @@ export async function listFeaturedContents() {
     }));
 }
 
-export async function getFeaturedContentById(id: string): Promise<FeaturedContentWithProducts> {
+export async function getFeaturedContentById(id: string, tenantId: string): Promise<FeaturedContentWithProducts> {
     const { data: content, error: contentError } = await supabase
         .from("v2_featured_contents")
         .select(`*`)
         .eq("id", id)
+        .eq("tenant_id", tenantId)
         .single();
 
     if (contentError) throw contentError;
@@ -81,6 +83,7 @@ export async function getFeaturedContentById(id: string): Promise<FeaturedConten
         `
         )
         .eq("featured_content_id", id)
+        .eq("tenant_id", tenantId)
         .order("sort_order", { ascending: true });
 
     if (productsError) throw productsError;
@@ -132,6 +135,7 @@ export async function updateFeaturedContent(
         .from("v2_featured_contents")
         .update(contentData)
         .eq("id", id)
+        .eq("tenant_id", tenantId)
         .select()
         .single();
 
@@ -141,7 +145,8 @@ export async function updateFeaturedContent(
     const { error: delError } = await supabase
         .from("v2_featured_content_products")
         .delete()
-        .eq("featured_content_id", id);
+        .eq("featured_content_id", id)
+        .eq("tenant_id", tenantId);
 
     if (delError) throw delError;
 
@@ -164,8 +169,12 @@ export async function updateFeaturedContent(
     return content;
 }
 
-export async function deleteFeaturedContent(id: string) {
-    const { error } = await supabase.from("v2_featured_contents").delete().eq("id", id);
+export async function deleteFeaturedContent(id: string, tenantId: string) {
+    const { error } = await supabase
+        .from("v2_featured_contents")
+        .delete()
+        .eq("id", id)
+        .eq("tenant_id", tenantId);
 
     if (error) throw error;
 }

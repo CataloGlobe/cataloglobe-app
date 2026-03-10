@@ -1,4 +1,4 @@
-import { supabase } from "../client";
+import { supabase } from "@/services/supabase/client";
 
 export type AttributeType = "text" | "number" | "boolean" | "select" | "multi_select";
 

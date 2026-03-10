@@ -1,4 +1,4 @@
-import { supabase, setRememberMe } from "./client";
+import { supabase, setRememberMe } from "@/services/supabase/client";
 
 type SignInOptions = {
     rememberMe?: boolean;

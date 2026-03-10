@@ -82,8 +82,7 @@ function createSupabaseClient(): SupabaseClient {
     return client;
 }
 
-// ⚠️ export let: così possiamo “rimpiazzare” il client e gli import vedono il nuovo valore
-export let supabase = createSupabaseClient();
+export const supabase = createSupabaseClient();
 
 /**
  * Salva la preferenza e ricrea il client con lo storage corretto.
@@ -92,13 +91,11 @@ export let supabase = createSupabaseClient();
 export function setRememberMe(remember: boolean) {
     if (!isBrowserRuntime) return;
     localStorage.setItem(REMEMBER_KEY, String(remember));
-    supabase = createSupabaseClient();
 }
 
 /**
  * Utile in casi particolari (es. dopo logout forzato / reset).
  */
 export function rebuildSupabaseClient() {
-    supabase = createSupabaseClient();
     return supabase;
 }

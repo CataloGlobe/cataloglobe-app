@@ -1,4 +1,4 @@
-import { supabase } from "./client";
+import { supabase } from "@/services/supabase/client";
 import type { ItemCategory } from "@/types/database";
 import type { CatalogType } from "@/types/catalog";
 

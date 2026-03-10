@@ -1,4 +1,4 @@
-import { supabase } from "./client";
+import { supabase } from "@/services/supabase/client";
 import type { OverrideRowForUI } from "@/types/database";
 
 /**
