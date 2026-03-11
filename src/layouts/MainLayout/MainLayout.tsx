@@ -75,7 +75,7 @@ export default function MainLayout() {
                                     onClick={() => setMobileSidebarOpen(true)}
                                     aria-label="Apri menu"
                                 />
-                                <div className={styles.mobileTitle}>Cataloglobe</div>
+                                <div className={styles.mobileTitle}>CataloGlobe</div>
                             </div>
                         )}
                         <div className={styles.content}>

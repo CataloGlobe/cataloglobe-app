@@ -121,11 +121,12 @@ export default function Programming() {
     }, [currentTenantId]);
 
     const loadInitialData = useCallback(async () => {
+        if (!currentTenantId) return;
         try {
             setIsLoading(true);
             const [rulesData, optionsData] = await Promise.all([
-                listLayoutRules(currentTenantId!),
-                listLayoutRuleOptions(currentTenantId!)
+                listLayoutRules(currentTenantId),
+                listLayoutRuleOptions(currentTenantId)
             ]);
             setRules(rulesData);
             setActivities(optionsData.activities);
@@ -143,7 +144,7 @@ export default function Programming() {
         } finally {
             setIsLoading(false);
         }
-    }, [showToast]);
+    }, [currentTenantId, showToast]);
 
     useEffect(() => {
         void loadInitialData();

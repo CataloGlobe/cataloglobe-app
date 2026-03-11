@@ -14,9 +14,12 @@ export interface User {
 
 export interface Profile {
     id: string;
-    name: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    phone?: string | null;
     avatar_url: string | null;
     created_at: string;
+    updated_at?: string | null;
 }
 
 export interface Review {

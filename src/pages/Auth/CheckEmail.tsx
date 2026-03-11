@@ -31,7 +31,7 @@ export default function CheckEmail() {
 
             <Text as="p" variant="body-sm">
                 Apri l’email e clicca sul link di conferma per attivare il tuo account. Dopo la
-                conferma potrai accedere a Cataloglobe.
+                conferma potrai accedere a CataloGlobe.
             </Text>
 
             <div className={styles.actions}>

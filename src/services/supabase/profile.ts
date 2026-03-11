@@ -2,60 +2,75 @@ import { supabase } from "@/services/supabase/client";
 import type { Profile } from "@/types/database";
 
 export async function getProfile(userId: string): Promise<Profile | null> {
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    const { data, error } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name, phone, avatar_url, created_at, updated_at")
+        .eq("id", userId)
+        .maybeSingle();
 
     if (error) {
         console.error("Errore nel recupero profilo:", error.message);
         return null;
     }
 
-    return data;
+    if (!data) return null;
+
+    return data as Profile;
 }
 
-export async function updateProfile(
-    userId: string,
-    updates: { name?: string; avatar_url?: string }
-) {
-    const { error } = await supabase.from("profiles").update(updates).eq("id", userId);
+type ProfileUpdates = {
+    first_name?: string | null;
+    last_name?: string | null;
+    phone?: string | null;
+    avatar_url?: string | null;
+};
+
+export async function updateProfile(userId: string, updates: ProfileUpdates) {
+    const cleaned = Object.fromEntries(
+        Object.entries(updates).filter(([, value]) => value !== undefined)
+    );
+
+    const payload = {
+        id: userId,
+        ...cleaned,
+        updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
     if (error) throw error;
 }
 
-/** Elimina un file dallo storage (se esiste) */
-export async function deleteAvatar(filePath: string) {
-    try {
-        const { error } = await supabase.storage.from("avatars").remove([filePath]);
-        if (error) console.warn("Errore rimozione avatar:", error.message);
-    } catch (e) {
-        console.error("Impossibile rimuovere avatar:", e);
-    }
-}
-
-/** Carica immagine nel bucket avatars e ritorna l’URL pubblico */
 export async function uploadAvatar(
     userId: string,
-    file: File,
-    previousUrl?: string
+    file: File
 ): Promise<string> {
-    if (previousUrl) {
-        const oldPath = previousUrl.split("/avatars/")[1];
-        if (oldPath) await deleteAvatar(oldPath);
+    const maxSizeMb = 5;
+    const maxSizeBytes = maxSizeMb * 1024 * 1024;
+    const allowedTypes = ["image/png", "image/jpeg"];
+
+    if (!allowedTypes.includes(file.type)) {
+        throw new Error("Formato avatar non supportato. Usa PNG o JPG.");
     }
 
-    const fileExt = file.name.split(".").pop();
-    const filePath = `${userId}-${Date.now()}.${fileExt}`;
+    if (file.size > maxSizeBytes) {
+        throw new Error("File troppo grande. Max 5MB.");
+    }
+
+    const filePath = `${userId}/avatar.jpg`;
 
     const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, file, { upsert: true, contentType: file.type });
 
     if (uploadError) throw uploadError;
 
-    const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
-
-    return data.publicUrl;
+    return filePath;
 }
 
 export async function updateProfileAvatar(userId: string, avatar_url: string) {
-    const { error } = await supabase.from("profiles").update({ avatar_url }).eq("id", userId);
+    const { error } = await supabase
+        .from("profiles")
+        .update({ avatar_url, updated_at: new Date().toISOString() })
+        .eq("id", userId);
     if (error) throw error;
 }

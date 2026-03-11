@@ -4,21 +4,30 @@ type SignInOptions = {
     rememberMe?: boolean;
 };
 
+type SignUpProfile = {
+    first_name?: string;
+    last_name?: string;
+    phone?: string | null;
+};
+
 // Sign-up (registrazione)
-export async function signUp(email: string, password: string, name?: string) {
-    const redirectUrl = `${window.location.origin}/login`;
+export async function signUp(email: string, password: string, profile?: SignUpProfile) {
+    const redirectUrl = `${window.location.origin}/email-confirmed`;
 
     const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-            data: { name },
+            data: {
+                ...(profile?.first_name ? { first_name: profile.first_name } : {}),
+                ...(profile?.last_name ? { last_name: profile.last_name } : {}),
+                ...(profile?.phone ? { phone: profile.phone } : {})
+            },
             emailRedirectTo: redirectUrl
         }
     });
 
-    if (error) throw error;
-    return data;
+    return { data, error };
 }
 
 // Login

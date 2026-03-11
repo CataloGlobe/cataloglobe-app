@@ -1,11 +1,6 @@
 import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "@dnd-kit/sortable";
-import {
-    IconChevronRight,
-    IconFolder,
-    IconGripVertical,
-    IconTrash
-} from "@tabler/icons-react";
+import { IconChevronRight, IconFolder, IconGripVertical, IconTrash } from "@tabler/icons-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import Text from "@/components/ui/Text/Text";
 import styles from "../CatalogEngine.module.scss";
@@ -50,7 +45,7 @@ export function CatalogTreeNode({
                 transition
             }}
         >
-            <div className={styles.treeNodeMain} style={{ paddingLeft: `${12 + depth * 18}px` }}>
+            <div className={styles.treeNodeMain} style={{ paddingLeft: `${8 + depth * 24}px` }}>
                 <button
                     type="button"
                     className={styles.treeDragHandle}

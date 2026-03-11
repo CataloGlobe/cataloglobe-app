@@ -385,12 +385,14 @@ async function selectVisibilityOverridesWithModeFallback(
 }
 
 async function insertVisibilityOverridesWithModeFallback(
+    tenantId: string,
     rows: Array<{ schedule_id: string; product_id: string; mode: VisibilityMode }>
 ): Promise<void> {
     if (rows.length === 0) return;
 
     const withModeRes = await supabase.from("v2_schedule_visibility_overrides").insert(
         rows.map(row => ({
+            tenant_id: tenantId,
             schedule_id: row.schedule_id,
             product_id: row.product_id,
             visible: false,
@@ -410,6 +412,7 @@ async function insertVisibilityOverridesWithModeFallback(
 
     const withoutModeRes = await supabase.from("v2_schedule_visibility_overrides").insert(
         rows.map(row => ({
+            tenant_id: tenantId,
             schedule_id: row.schedule_id,
             product_id: row.product_id,
             visible: false
@@ -840,6 +843,7 @@ export async function createLayoutRule(input: {
     const scheduleId = schedule.id;
 
     const { error: layoutError } = await supabase.from("v2_schedule_layout").insert({
+        tenant_id: input.tenantId,
         schedule_id: scheduleId,
         style_id: input.styleId,
         catalog_id: input.catalogId
@@ -909,6 +913,7 @@ export async function createPriceRule(input: {
 
     const { error: overridesError } = await supabase.from("v2_schedule_price_overrides").insert(
         input.products.map(product => ({
+            tenant_id: input.tenantId,
             schedule_id: scheduleId,
             product_id: product.productId,
             override_price: product.overridePrice,
@@ -963,6 +968,7 @@ export async function createVisibilityRule(input: {
 
     try {
         await insertVisibilityOverridesWithModeFallback(
+            input.tenantId,
             input.products.map(product => ({
                 schedule_id: scheduleId,
                 product_id: product.productId,
@@ -1045,6 +1051,7 @@ export async function updateLayoutRule(input: {
         if (layoutUpdateError) throw layoutUpdateError;
     } else {
         const { error: layoutInsertError } = await supabase.from("v2_schedule_layout").insert({
+            tenant_id: input.tenantId,
             schedule_id: input.scheduleId,
             style_id: input.styleId,
             catalog_id: input.catalogId
@@ -1256,25 +1263,31 @@ export async function updateRule(input: {
 
         if (existingLayoutError) throw existingLayoutError;
 
-        const layoutPatch = {
-            style_id: input.layout?.styleId ?? null,
-            catalog_id: input.layout?.catalogId ?? null
-        };
+        const styleId = input.layout?.styleId ?? null;
 
-        if (existingLayout?.id) {
-            const { error: layoutUpdateError } = await supabase
-                .from("v2_schedule_layout")
-                .update(layoutPatch)
-                .eq("id", existingLayout.id);
+        if (styleId !== null) {
+            const layoutPatch = {
+                style_id: styleId,
+                catalog_id: input.layout?.catalogId ?? null
+            };
 
-            if (layoutUpdateError) throw layoutUpdateError;
-        } else {
-            const { error: layoutInsertError } = await supabase.from("v2_schedule_layout").insert({
-                schedule_id: input.scheduleId,
-                ...layoutPatch
-            });
-            if (layoutInsertError) throw layoutInsertError;
+            if (existingLayout?.id) {
+                const { error: layoutUpdateError } = await supabase
+                    .from("v2_schedule_layout")
+                    .update(layoutPatch)
+                    .eq("id", existingLayout.id);
+
+                if (layoutUpdateError) throw layoutUpdateError;
+            } else {
+                const { error: layoutInsertError } = await supabase.from("v2_schedule_layout").insert({
+                    tenant_id: input.tenantId,
+                    schedule_id: input.scheduleId,
+                    ...layoutPatch
+                });
+                if (layoutInsertError) throw layoutInsertError;
+            }
         }
+        // styleId is null → rule stays draft, skip insert/update silently
 
         const { error: deleteFcError } = await supabase
             .from("v2_schedule_featured_contents")
@@ -1313,6 +1326,7 @@ export async function updateRule(input: {
                 .from("v2_schedule_price_overrides")
                 .insert(
                     products.map(product => ({
+                        tenant_id: input.tenantId,
                         schedule_id: input.scheduleId,
                         product_id: product.productId,
                         override_price: product.overridePrice,
@@ -1338,6 +1352,7 @@ export async function updateRule(input: {
 
     if (visibilityProductOverrides.length > 0) {
         await insertVisibilityOverridesWithModeFallback(
+            input.tenantId,
             visibilityProductOverrides.map(product => ({
                 schedule_id: input.scheduleId,
                 product_id: product.productId,

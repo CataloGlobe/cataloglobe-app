@@ -169,19 +169,53 @@ export function CatalogTree({
                 >
                     <SortableContext items={visibleNodeIds} strategy={verticalListSortingStrategy}>
                         <div className={styles.treeList}>
-                            {visibleNodes.map(flatNode => (
-                                <CatalogTreeNode
-                                    key={flatNode.node.id}
-                                    flatNode={flatNode}
-                                    selected={selectedCategoryId === flatNode.node.id}
-                                    onSelect={onSelectCategory}
-                                    onToggleExpand={onToggleExpand}
-                                    onCreateSubCategory={onCreateSubCategory}
-                                    onEditCategory={onEditCategory}
-                                    onDeleteCategory={onDeleteCategory}
-                                    disabled={isReordering || isDragging}
-                                />
-                            ))}
+                            {useMemo(() => {
+                                const groups: CatalogTreeFlatNode[][] = [];
+                                let currentGroup: CatalogTreeFlatNode[] = [];
+
+                                visibleNodes.forEach(flatNode => {
+                                    if (flatNode.depth === 0) {
+                                        if (currentGroup.length > 0) {
+                                            groups.push(currentGroup);
+                                        }
+                                        currentGroup = [flatNode];
+                                    } else {
+                                        currentGroup.push(flatNode);
+                                    }
+                                });
+
+                                if (currentGroup.length > 0) {
+                                    groups.push(currentGroup);
+                                }
+
+                                return groups.map((group, groupIdx) => (
+                                    <div key={`group-${groupIdx}`} className={styles.treeGroup}>
+                                        {group.map(flatNode => (
+                                            <CatalogTreeNode
+                                                key={flatNode.node.id}
+                                                flatNode={flatNode}
+                                                selected={selectedCategoryId === flatNode.node.id}
+                                                onSelect={onSelectCategory}
+                                                onToggleExpand={onToggleExpand}
+                                                onCreateSubCategory={onCreateSubCategory}
+                                                onEditCategory={onEditCategory}
+                                                onDeleteCategory={onDeleteCategory}
+                                                disabled={isReordering || isDragging}
+                                            />
+                                        ))}
+                                    </div>
+                                ));
+                            }, [
+                                visibleNodes,
+                                selectedCategoryId,
+                                onSelectCategory,
+                                onToggleExpand,
+                                onCreateSubCategory,
+                                onEditCategory,
+                                onDeleteCategory,
+                                isReordering,
+                                isDragging
+                            ])}
                         </div>
                     </SortableContext>
                 </DndContext>

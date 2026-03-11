@@ -25,7 +25,7 @@ export default function WorkspaceSidebar() {
         <aside className={styles.sidebar}>
             <div className={styles.header}>
                 <a href="/" className={styles.appName}>
-                    Cataloglobe
+                    CataloGlobe
                 </a>
                 <span className={styles.badge}>Workspace</span>
             </div>
