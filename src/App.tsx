@@ -1,4 +1,6 @@
-import { Navigate, Routes, Route } from "react-router-dom";
+import { Navigate, Routes, Route, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { supabase } from "@/services/supabase/client";
 import MainLayout from "@layouts/MainLayout/MainLayout";
 import WorkspaceLayout from "@layouts/WorkspaceLayout/WorkspaceLayout";
 import { ProtectedRoute } from "@/components/Routes/ProtectedRoute";
@@ -51,6 +53,22 @@ import Home from "./pages/Home/Home";
 import NotFound from "./pages/NotFound/NotFound";
 
 export default function App() {
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (!window.location.hash) return;
+
+        const params = new URLSearchParams(window.location.hash.slice(1));
+        const accessToken = params.get("access_token");
+        const type = params.get("type");
+
+        if (accessToken && type === "signup") {
+            supabase.auth
+                .getSession()
+                .finally(() => navigate("/login", { replace: true }));
+        }
+    }, [navigate]);
+
     return (
         <Routes>
             {/* Public routes */}
