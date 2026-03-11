@@ -7,29 +7,54 @@ import styles from "./Auth.module.scss";
 
 export default function EmailConfirmed() {
     const navigate = useNavigate();
-    const [status, setStatus] = useState<"redirecting" | "checking" | "success">("checking");
+
+    const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
 
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const confirmationUrl = params.get("confirmation_url");
+        const verify = async () => {
+            const params = new URLSearchParams(window.location.search);
+            const confirmationUrl = params.get("confirmation_url");
 
-        if (confirmationUrl) {
-            const decoded = decodeURIComponent(confirmationUrl);
-            setStatus("redirecting");
-            window.location.href = decoded;
-            return;
-        }
+            if (!confirmationUrl) {
+                setStatus("error");
+                return;
+            }
 
-        supabase.auth
-            .getSession()
-            .then(({ data }) => {
-                if (data.session) {
-                    setStatus("success");
-                } else {
-                    setStatus("checking");
+            try {
+                const decoded = decodeURIComponent(confirmationUrl);
+                const url = new URL(decoded);
+
+                // Supabase può usare token o token_hash
+                const tokenHash =
+                    url.searchParams.get("token_hash") || url.searchParams.get("token");
+
+                const type = url.searchParams.get("type") as
+                    | "signup"
+                    | "magiclink"
+                    | "recovery"
+                    | null;
+
+                if (!tokenHash || !type) {
+                    setStatus("error");
+                    return;
                 }
-            })
-            .catch(() => setStatus("checking"));
+
+                const { error } = await supabase.auth.verifyOtp({
+                    token_hash: tokenHash,
+                    type
+                });
+
+                if (error) {
+                    setStatus("error");
+                } else {
+                    setStatus("success");
+                }
+            } catch {
+                setStatus("error");
+            }
+        };
+
+        verify();
     }, []);
 
     if (status === "success") {
@@ -46,6 +71,20 @@ export default function EmailConfirmed() {
                 <Button variant="primary" fullWidth onClick={() => navigate("/login")}>
                     Accedi
                 </Button>
+            </div>
+        );
+    }
+
+    if (status === "error") {
+        return (
+            <div className={styles.auth}>
+                <Text as="h1" variant="title-md">
+                    Errore nella verifica della email
+                </Text>
+
+                <Text as="p" variant="body-sm" className={styles.subtitle}>
+                    Il link potrebbe essere scaduto. Richiedi una nuova email di conferma.
+                </Text>
             </div>
         );
     }

@@ -58,6 +58,10 @@ export default function App() {
     useEffect(() => {
         if (!window.location.hash) return;
 
+        if (window.location.pathname === "/email-confirmed") {
+            return;
+        }
+
         const params = new URLSearchParams(window.location.hash.slice(1));
         const accessToken = params.get("access_token");
         const type = params.get("type");
