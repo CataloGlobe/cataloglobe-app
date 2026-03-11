@@ -30,6 +30,7 @@ import { ProductDeleteDrawer } from "./ProductDeleteDrawer";
 import ProductGroupsTab from "@/components/Products/ProductGroupsTab/ProductGroupsTab";
 
 type ProductTableRow = {
+    id: string; // Add id for DataTable selection
     kind: "base" | "variant";
     product: V2Product;
     parent?: V2Product;
@@ -133,6 +134,7 @@ export default function Products() {
             const visibleVariants = product.variants || [];
 
             rows.push({
+                id: product.id,
                 kind: "base",
                 product,
                 hasVariants,
@@ -143,6 +145,7 @@ export default function Products() {
             if (isExpanded) {
                 visibleVariants.forEach(variant => {
                     rows.push({
+                        id: variant.id,
                         kind: "variant",
                         product: variant,
                         parent: product,

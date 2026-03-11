@@ -707,27 +707,56 @@ export function ProductForm({
                     }
                 }
 
-                for (const def of attributeDefinitions) {
-                    const value = attributeValues[def.id];
-                    let payload: AttributeValuePayload = {};
-                    if (value !== undefined && value !== "") {
-                        if (def.type === "text" || def.type === "select")
-                            payload.value_text = String(value);
-                        else if (def.type === "number") payload.value_number = parseFloat(value);
-                        else if (def.type === "boolean") payload.value_boolean = Boolean(value);
-                        else if (def.type === "multi_select") payload.value_json = value;
+                try {
+                    for (const def of attributeDefinitions) {
+                        const value = attributeValues[def.id];
+                        let payload: AttributeValuePayload = {};
+                        if (value !== undefined && value !== "") {
+                            if (def.type === "text" || def.type === "select")
+                                payload.value_text = String(value);
+                            else if (def.type === "number")
+                                payload.value_number = parseFloat(value);
+                            else if (def.type === "boolean") payload.value_boolean = Boolean(value);
+                            else if (def.type === "multi_select") payload.value_json = value;
+                        }
+                        await setProductAttributeValue(tenantId, savedProductId, def.id, payload);
                     }
-                    await setProductAttributeValue(tenantId, savedProductId, def.id, payload);
+                } catch (attrError) {
+                    console.error("Errore salvataggio attributi:", attrError);
+                    throw new Error("Errore nel salvataggio degli attributi prodotto.");
                 }
 
-                await setProductAllergens(tenantId, savedProductId, selectedAllergens);
-                const toAdd = selectedGroups.filter(id => !initialSelectedGroups.includes(id));
-                const toRemove = initialSelectedGroups.filter(id => !selectedGroups.includes(id));
-                for (const groupId of toAdd)
-                    await assignProductToGroup({ productId: savedProductId, groupId, tenantId });
-                for (const groupId of toRemove)
-                    await removeProductFromGroup({ productId: savedProductId, groupId });
-                await setProductIngredients(tenantId, savedProductId, selectedIngredients);
+                try {
+                    await setProductAllergens(tenantId, savedProductId, selectedAllergens);
+                } catch (allergenError) {
+                    console.error("Errore salvataggio allergeni:", allergenError);
+                    throw new Error("Errore nel salvataggio degli allergeni.");
+                }
+
+                try {
+                    const toAdd = selectedGroups.filter(id => !initialSelectedGroups.includes(id));
+                    const toRemove = initialSelectedGroups.filter(
+                        id => !selectedGroups.includes(id)
+                    );
+                    for (const groupId of toAdd)
+                        await assignProductToGroup({
+                            productId: savedProductId,
+                            groupId,
+                            tenantId
+                        });
+                    for (const groupId of toRemove)
+                        await removeProductFromGroup({ productId: savedProductId, groupId });
+                } catch (groupError) {
+                    console.error("Errore associazione gruppi:", groupError);
+                    throw new Error("Errore nell'associazione dei gruppi prodotto.");
+                }
+
+                try {
+                    await setProductIngredients(tenantId, savedProductId, selectedIngredients);
+                } catch (ingredientError) {
+                    console.error("Errore salvataggio ingredienti:", ingredientError);
+                    throw new Error("Errore nel salvataggio degli ingredienti.");
+                }
             }
 
             if (isEditing) {
