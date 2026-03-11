@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 type JwtPayload = {
     sub?: string;
     sid?: string;
+    session_id?: string;
     exp?: number;
 };
 
@@ -12,6 +13,7 @@ type JwtPayload = {
 const LOCK_MINUTES = 15;
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OTP_PEPPER = Deno.env.get("OTP_PEPPER")!;
 
@@ -34,9 +36,16 @@ async function sha256(value: string): Promise<string> {
         .join("");
 }
 
-serve(async req => {
-    console.log("HEADERS", Object.fromEntries(req.headers.entries()));
+function getSessionIdFromJwt(jwt: string): string | null {
+    try {
+        const payload = JSON.parse(atob(jwt.split(".")[1])) as JwtPayload;
+        return payload.session_id ?? payload.sid ?? null;
+    } catch {
+        return null;
+    }
+}
 
+serve(async req => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
@@ -59,19 +68,17 @@ serve(async req => {
 
     const jwt = authHeader.replace("Bearer ", "");
 
-    let payload: JwtPayload;
-    try {
-        payload = JSON.parse(atob(jwt.split(".")[1]));
-    } catch {
-        return json(401, { error: "unauthorized" });
-    }
+    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: authHeader } }
+    });
 
-    const userId = payload.sub;
-    const sessionId = payload.session_id;
+    const { data: authData, error: authError } = await supabaseAuth.auth.getUser();
+    const userId = authData?.user?.id;
 
-    if (!userId || !sessionId) {
-        return json(401, { error: "unauthorized" });
-    }
+    if (authError || !userId) return json(401, { error: "unauthorized" });
+
+    const sessionId = getSessionIdFromJwt(jwt);
+    if (!sessionId) return json(401, { error: "unauthorized" });
 
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
@@ -96,6 +103,8 @@ serve(async req => {
         return json(400, { error: "invalid_or_expired" });
     }
 
+    const maxAttempts = challenge.max_attempts ?? 5;
+
     // lock
     if (challenge.locked_until && new Date(challenge.locked_until).getTime() > nowMs) {
         return json(429, {
@@ -105,7 +114,6 @@ serve(async req => {
         });
     }
 
-    const maxAttempts = challenge.max_attempts ?? 5;
     const hash = await sha256(code + OTP_PEPPER);
 
     // mismatch -> attempts++ e forse lock

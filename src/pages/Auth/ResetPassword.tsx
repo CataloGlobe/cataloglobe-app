@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/services/supabase/client";
 import Text from "@/components/ui/Text/Text";
@@ -13,6 +13,12 @@ export default function ResetPassword() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+
+    useEffect(() => {
+        return () => {
+            sessionStorage.removeItem("passwordRecoveryFlow");
+        };
+    }, []);
 
     /* ------------------------------------------------------------------
      * SUBMIT
@@ -57,9 +63,6 @@ export default function ResetPassword() {
             await supabase.auth.signOut();
 
             setSuccess(true);
-
-            // Redirect pulito al login
-            navigate("/login", { replace: true });
         } catch {
             setError(
                 "Non è stato possibile aggiornare la password. Il link potrebbe essere scaduto."
@@ -84,8 +87,8 @@ export default function ResetPassword() {
                 </Text>
 
                 <div className={styles.actions}>
-                    <Button as="a" href="/login" variant="primary" fullWidth>
-                        Vai alla pagina di accesso
+                    <Button variant="primary" fullWidth onClick={() => navigate("/login")}>
+                        Accedi
                     </Button>
                 </div>
             </div>

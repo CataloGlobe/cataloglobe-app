@@ -7,7 +7,7 @@ import {
     type FormEvent,
     useCallback
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -37,6 +37,8 @@ function mapOtpError(error: unknown): OtpErrorCode {
 export default function VerifyOtp() {
     const { refreshOtp } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const from = location.state?.from || "/workspace";
 
     const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
     const [loading, setLoading] = useState(false);
@@ -329,7 +331,7 @@ export default function VerifyOtp() {
             }
 
             await refreshOtp();
-            navigate("/workspace", { replace: true });
+            navigate(from, { replace: true });
         } finally {
             setLoading(false);
             setStatus("idle");

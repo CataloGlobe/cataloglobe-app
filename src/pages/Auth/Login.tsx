@@ -16,7 +16,10 @@ export default function Login() {
 
     const navigate = useNavigate();
     const location = useLocation();
-    const from = location.state?.from?.pathname || "/workspace";
+    const fromLocation = location.state?.from;
+    const from =
+        (fromLocation?.pathname ?? "/workspace") +
+        (fromLocation?.search ?? "");
 
     async function handleLogin(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();

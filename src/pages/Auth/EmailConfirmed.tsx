@@ -8,10 +8,16 @@ import styles from "./Auth.module.scss";
 export default function EmailConfirmed() {
     const navigate = useNavigate();
 
-    const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+    const [status, setStatus] = useState<"loading" | "success" | "error" | "already">("loading");
 
     useEffect(() => {
         const verify = async () => {
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (sessionData.session) {
+                setStatus("already");
+                return;
+            }
+
             const params = new URLSearchParams(window.location.search);
             const confirmationUrl = params.get("confirmation_url");
 
@@ -56,6 +62,24 @@ export default function EmailConfirmed() {
 
         verify();
     }, []);
+
+    if (status === "already") {
+        return (
+            <div className={styles.auth}>
+                <Text as="h1" variant="title-md">
+                    Email già verificata
+                </Text>
+
+                <Text as="p" variant="body-sm" className={styles.subtitle}>
+                    Il tuo account è già attivo.
+                </Text>
+
+                <Button variant="primary" fullWidth onClick={() => navigate("/workspace")}>
+                    Torna alla dashboard
+                </Button>
+            </div>
+        );
+    }
 
     if (status === "success") {
         return (

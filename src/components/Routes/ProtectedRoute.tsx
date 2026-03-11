@@ -20,7 +20,8 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
     if (otpLoading) return <AppLoader message="Verifica accesso in corso..." />;
 
-    if (!otpVerified) return <Navigate to="/verify-otp" replace />;
+    if (!otpVerified)
+        return <Navigate to="/verify-otp" replace state={{ from: location }} />;
 
     return <>{children}</>;
 };
