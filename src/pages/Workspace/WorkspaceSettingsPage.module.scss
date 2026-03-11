@@ -1,0 +1,152 @@
+.page {
+  padding: 48px 40px;
+  background: #f8fafc;
+  min-height: 100%;
+}
+
+.container {
+  max-width: 980px;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.profileRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.profileInfo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.profileMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border, #e5e7eb);
+  background: #ffffff;
+}
+
+.preferencesGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.accountGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.accountField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.accountActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.logoutRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-top: 1rem;
+}
+
+.drawerHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.drawerForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.drawerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.drawerAvatarRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.drawerAvatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border, #e5e7eb);
+  background: #ffffff;
+}
+
+.modalHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modalFeedback {
+  margin-top: 0.25rem;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 32px 20px;
+  }
+
+  .preferencesGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .accountGrid {
+    grid-template-columns: 1fr;
+  }
+}

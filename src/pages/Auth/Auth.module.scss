@@ -29,6 +29,10 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+
+  > * {
+    flex: 1;
+  }
 }
 
 .forgot {
@@ -45,7 +49,7 @@
 
 .feedback {
   margin-top: 0.25rem;
-  display: none;
+  display: block;
 }
 
 .otpInputs {

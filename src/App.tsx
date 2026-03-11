@@ -13,9 +13,9 @@ import Login from "./pages/Auth/Login";
 import VerifyOtp from "./pages/Auth/VerifyOtp";
 import SignUp from "./pages/Auth/SignUp";
 import CheckEmail from "./pages/Auth/CheckEmail";
+import EmailConfirmed from "./pages/Auth/EmailConfirmed";
 import ForgotPassword from "./pages/Auth/ForgotPassword";
 import ResetPassword from "./pages/Auth/ResetPassword";
-import UpdatePassword from "./pages/Auth/UpdatePassword";
 
 // Workspace
 import WorkspacePage from "./pages/Workspace/WorkspacePage";
@@ -44,7 +44,6 @@ import ActivityDetailPage from "./pages/Operativita/Attivita/ActivityDetailPage"
 
 // Onboarding pages
 import CreateBusiness from "./pages/Onboarding/CreateBusiness";
-
 
 // Public pages
 import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
@@ -90,6 +89,7 @@ export default function App() {
                     </GuestRoute>
                 }
             />
+            <Route path="/email-confirmed" element={<EmailConfirmed />} />
             <Route
                 path="/forgot-password"
                 element={
@@ -131,10 +131,7 @@ export default function App() {
                     </ProtectedRoute>
                 }
             />
-            <Route
-                path="/select-business"
-                element={<Navigate to="/workspace" replace />}
-            />
+            <Route path="/select-business" element={<Navigate to="/workspace" replace />} />
 
             {/* Business-level area */}
             <Route
@@ -180,7 +177,6 @@ export default function App() {
                 <Route path="analytics" element={<Analytics />} />
 
                 <Route path="settings" element={<BusinessSettingsPage />} />
-                <Route path="settings/security" element={<UpdatePassword />} />
             </Route>
 
             {/* Legacy backward-compatibility redirects */}
