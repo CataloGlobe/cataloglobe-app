@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/services/supabase/client";
 import { AuthContext } from "./AuthContextBase";
 import type { User } from "@supabase/supabase-js";
@@ -20,6 +21,7 @@ async function withTimeout<T>(p: Promise<T>, ms = 4000): Promise<T> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+    const navigate = useNavigate();
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -56,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         .from("otp_session_verifications")
                         .select("session_id")
                         .eq("session_id", sessionId)
+                        .eq("user_id", session.user.id)
                         .maybeSingle())(),
                 4000
             );
@@ -83,19 +86,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         async function init() {
             try {
-                const { data } = await withTimeout(supabase.auth.getUser(), 4000);
+                const { data: sessionData } = await withTimeout(
+                    supabase.auth.getSession(),
+                    4000
+                );
+                const session = sessionData.session;
+
+                if (!session) {
+                    if (cancelled) return;
+                    setUser(null);
+                    hasSessionRef.current = false;
+                    setOtpVerified(false);
+                    setOtpLoading(false);
+                    return;
+                }
+
+                const { data, error } = await withTimeout(supabase.auth.getUser(), 4000);
                 if (cancelled) return;
 
-                setUser(data.user ?? null);
-                hasSessionRef.current = !!data.user;
+                if (error || !data.user) {
+                    await supabase.auth.signOut();
+                    if (cancelled) return;
+                    hasSessionRef.current = false;
+                    setUser(null);
+                    setOtpVerified(false);
+                    setOtpLoading(false);
+                    navigate("/login", { replace: true, state: { reason: "session-invalid" } });
+                    return;
+                }
+
+                setUser(data.user);
+                hasSessionRef.current = true;
 
                 // IMPORTANTISSIMO:
                 // non bloccare l'app aspettando OTP check
-                if (data.user) void checkOtpForSession();
-                else {
-                    setOtpVerified(false);
-                    setOtpLoading(false);
-                }
+                void checkOtpForSession();
             } catch (e) {
                 console.error("[auth] init failed:", e);
                 if (!cancelled) {
@@ -143,6 +168,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function handleSignOut() {
         await supabase.auth.signOut();
+        if (typeof window !== "undefined") {
+            sessionStorage.removeItem("passwordRecoveryFlow");
+        }
         hasSessionRef.current = false;
         setUser(null);
         setOtpVerified(false);

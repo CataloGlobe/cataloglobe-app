@@ -62,7 +62,9 @@ function createSupabaseClient(): SupabaseClient {
     if (isBrowserRuntime) {
         client.auth.onAuthStateChange(event => {
             if (event === "PASSWORD_RECOVERY") {
-                sessionStorage.setItem("passwordRecoveryFlow", "true");
+                if (window.location.pathname === "/reset-password") {
+                    sessionStorage.setItem("passwordRecoveryFlow", "true");
+                }
             }
         });
 

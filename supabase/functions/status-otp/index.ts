@@ -9,6 +9,7 @@ type JwtPayload = {
 const COOLDOWN_MS = 60 * 1000;
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const corsHeaders = {
@@ -29,17 +30,13 @@ serve(async req => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json(401, { error: "unauthorized" });
 
-    const jwt = authHeader.replace("Bearer ", "");
+    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: authHeader } }
+    });
 
-    let payload: JwtPayload;
-    try {
-        payload = JSON.parse(atob(jwt.split(".")[1]));
-    } catch {
-        return json(401, { error: "unauthorized" });
-    }
-
-    const userId = payload.sub;
-    if (!userId) return json(401, { error: "unauthorized" });
+    const { data: authData, error: authError } = await supabaseAuth.auth.getUser();
+    const userId = authData?.user?.id;
+    if (authError || !userId) return json(401, { error: "unauthorized" });
 
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 

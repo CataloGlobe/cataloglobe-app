@@ -42,6 +42,9 @@ export async function signIn(email: string, password: string, options?: SignInOp
     });
 
     if (error) throw error;
+    if (typeof window !== "undefined") {
+        sessionStorage.removeItem("passwordRecoveryFlow");
+    }
     return data;
 }
 
@@ -49,6 +52,9 @@ export async function signIn(email: string, password: string, options?: SignInOp
 export async function signOut() {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+    if (typeof window !== "undefined") {
+        sessionStorage.removeItem("passwordRecoveryFlow");
+    }
 }
 
 // Recupera sessione corrente

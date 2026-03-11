@@ -6,6 +6,7 @@ import { IconButton } from "@/components/ui/Button/IconButton";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useTenantId } from "@/context/useTenantId";
 import { supabase } from "@/services/supabase/client";
 import { Trash2, GripVertical } from "lucide-react";
 import {
@@ -150,6 +151,7 @@ export default function ProductsManagerCard({
     onOpenProductPicker
 }: ProductsManagerCardProps) {
     const { showToast } = useToast();
+    const tenantId = useTenantId();
 
     // State for existing items
     const [loading, setLoading] = useState(true);
@@ -276,12 +278,22 @@ export default function ProductsManagerCard({
         onOpenProductPicker(
             products.map(p => p.product_id),
             async (selectedProductId: string) => {
+                if (!tenantId) {
+                    showToast({
+                        type: "error",
+                        message: "Tenant non selezionato. Riprova.",
+                        duration: 2500
+                    });
+                    return;
+                }
+
                 try {
                     const maxSortOrder =
                         products.length > 0 ? Math.max(...products.map(p => p.sort_order)) : 0;
                     const newSortOrder = maxSortOrder + 1;
 
                     const { error } = await supabase.from("v2_featured_content_products").insert({
+                        tenant_id: tenantId,
                         featured_content_id: featuredId,
                         product_id: selectedProductId,
                         sort_order: newSortOrder,
