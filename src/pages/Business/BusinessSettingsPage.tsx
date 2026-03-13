@@ -18,7 +18,7 @@ const VERTICAL_OPTIONS = [
 ];
 
 export default function BusinessSettingsPage() {
-    const { selectedTenant, loading } = useTenant();
+    const { selectedTenant, loading, userRole } = useTenant();
     const { showToast } = useToast();
 
     const [name, setName] = useState("");
@@ -57,6 +57,17 @@ export default function BusinessSettingsPage() {
     };
 
     if (loading || !selectedTenant) return null;
+
+    if (userRole === "member") {
+        return (
+            <div className="p-6">
+                <h2 className="text-lg font-semibold">Accesso limitato</h2>
+                <p className="text-sm text-muted-foreground">
+                    Solo il proprietario del business può modificare queste impostazioni.
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className={styles.page}>

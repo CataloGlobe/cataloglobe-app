@@ -52,6 +52,13 @@
   white-space: nowrap;
 }
 
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 /* ===== Footer: quick stats ===== */
 .footer {
   display: flex;

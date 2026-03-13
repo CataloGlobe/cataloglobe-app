@@ -17,6 +17,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
     // Derived state: explicitly derive selected tenant from the URL to be synchronous
     const selectedTenant = businessId ? (tenants.find(t => t.id === businessId) ?? null) : null;
+    const userRole = selectedTenant?.user_role ?? null;
 
     const fetchIdRef = useRef(0);
 
@@ -34,8 +35,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         const fetchTenants = async () => {
             try {
                 const { data, error } = await supabase
-                    .from("v2_tenants")
-                    .select("id, owner_user_id, name, vertical_type, created_at")
+                    .from("v2_user_tenants_view")
+                    .select("id, owner_user_id, name, vertical_type, created_at, user_role")
                     .order("created_at", { ascending: true });
 
                 if (fetchId !== fetchIdRef.current) return;
@@ -93,6 +94,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
                 tenants,
                 selectedTenant,
                 selectedTenantId: selectedTenant?.id ?? null,
+                userRole,
                 loading,
                 selectTenant
             }}

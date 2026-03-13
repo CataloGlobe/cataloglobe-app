@@ -33,8 +33,8 @@ export default function WorkspacePage() {
     useEffect(() => {
         if (!user) return;
         supabase
-            .from("v2_tenants")
-            .select("id, owner_user_id, name, vertical_type, created_at")
+            .from("v2_user_tenants_view")
+            .select("id, owner_user_id, name, vertical_type, created_at, user_role")
             .order("created_at", { ascending: true })
             .then(({ data }) => {
                 setTenants((data as V2Tenant[]) ?? []);

@@ -21,7 +21,6 @@ import ResetPassword from "./pages/Auth/ResetPassword";
 
 // Workspace
 import WorkspacePage from "./pages/Workspace/WorkspacePage";
-import TeamPage from "./pages/Workspace/TeamPage";
 import BillingPage from "./pages/Workspace/BillingPage";
 import WorkspaceSettingsPage from "./pages/Workspace/WorkspaceSettingsPage";
 
@@ -33,6 +32,7 @@ import CatalogEngine from "./pages/Dashboard/Catalogs/CatalogEngine";
 import Reviews from "@pages/Dashboard/Reviews/Reviews";
 import Analytics from "@pages/Dashboard/Analytics/Analytics";
 import BusinessSettingsPage from "./pages/Business/BusinessSettingsPage";
+import BusinessTeamPage from "./pages/Business/TeamPage";
 import Programming from "./pages/Dashboard/Programming/Programming";
 import ProgrammingRuleDetail from "./pages/Dashboard/Programming/ProgrammingRuleDetail";
 import Products from "./pages/Dashboard/Products/Products";
@@ -51,6 +51,7 @@ import CreateBusiness from "./pages/Onboarding/CreateBusiness";
 import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
 import Home from "./pages/Home/Home";
 import NotFound from "./pages/NotFound/NotFound";
+import InvitePage from "./pages/Invite/InvitePage";
 
 export default function App() {
     const navigate = useNavigate();
@@ -139,7 +140,6 @@ export default function App() {
                 }
             >
                 <Route index element={<WorkspacePage />} />
-                <Route path="team" element={<TeamPage />} />
                 <Route path="billing" element={<BillingPage />} />
                 <Route path="settings" element={<WorkspaceSettingsPage />} />
             </Route>
@@ -198,6 +198,7 @@ export default function App() {
                 <Route path="reviews" element={<Reviews />} />
                 <Route path="analytics" element={<Analytics />} />
 
+                <Route path="team" element={<BusinessTeamPage />} />
                 <Route path="settings" element={<BusinessSettingsPage />} />
             </Route>
 
@@ -206,6 +207,9 @@ export default function App() {
                 <Route index element={<DashboardRedirect />} />
                 <Route path="*" element={<DashboardRedirect />} />
             </Route>
+
+            {/* Invite */}
+            <Route path="/invite/:token" element={<InvitePage />} />
 
             {/* PUBLIC BUSINESS */}
             <Route path="/:slug" element={<PublicCollectionPage />} />
