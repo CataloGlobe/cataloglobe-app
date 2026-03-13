@@ -1,0 +1,111 @@
+BEGIN;
+
+CREATE OR REPLACE FUNCTION public.invite_tenant_member(
+  p_tenant_id uuid,
+  p_email text,
+  p_role text
+)
+RETURNS TABLE (
+  membership_id uuid,
+  email text,
+  role text,
+  invite_token uuid,
+  status text
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, vault
+AS $$
+DECLARE
+  v_user_id uuid;
+  v_status text;
+  v_token uuid;
+  v_member_id uuid;
+  v_tenant_name text;
+  v_inviter_email text;
+  v_internal_secret text;
+BEGIN
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.v2_tenant_memberships tm
+    WHERE tm.tenant_id = p_tenant_id
+      AND tm.user_id = auth.uid()
+      AND tm.status = 'active'
+      AND tm.role IN ('owner','admin')
+  ) THEN
+    RAISE EXCEPTION 'not allowed';
+  END IF;
+
+  p_email := lower(trim(p_email));
+
+  SELECT u.id
+  INTO v_user_id
+  FROM auth.users u
+  WHERE lower(u.email) = p_email
+  LIMIT 1;
+
+  v_token := gen_random_uuid();
+
+  SELECT name
+  INTO v_tenant_name
+  FROM public.v2_tenants
+  WHERE id = p_tenant_id;
+
+  SELECT u.email
+  INTO v_inviter_email
+  FROM auth.users u
+  WHERE u.id = auth.uid();
+
+  SELECT decrypted_secret
+  INTO v_internal_secret
+  FROM vault.decrypted_secrets
+  WHERE name = 'internal_edge_secret'
+  LIMIT 1;
+
+  INSERT INTO public.v2_tenant_memberships (
+    tenant_id,
+    user_id,
+    invited_email,
+    role,
+    status,
+    invited_by,
+    invite_token
+  )
+  VALUES (
+    p_tenant_id,
+    v_user_id,
+    CASE WHEN v_user_id IS NULL THEN p_email ELSE NULL END,
+    p_role,
+    'pending',
+    auth.uid(),
+    v_token
+  )
+  RETURNING id INTO v_member_id;
+
+  PERFORM net.http_post(
+    url := 'https://lxeawrpjfphgdspueiag.supabase.co/functions/v1/send-tenant-invite'::text,
+    headers := jsonb_build_object(
+      'Content-Type','application/json',
+      'X-Internal-Secret', coalesce(v_internal_secret,'')
+    ),
+    body := jsonb_build_object(
+      'email', p_email,
+      'tenantName', coalesce(v_tenant_name,''),
+      'inviterEmail', coalesce(v_inviter_email,''),
+      'inviteToken', v_token
+    )::jsonb
+  );
+
+  RETURN QUERY
+  SELECT
+    v_member_id,
+    p_email,
+    p_role,
+    v_token,
+    'pending'::text;
+
+END;
+$$;
+
+COMMIT;
