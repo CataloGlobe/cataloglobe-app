@@ -14,6 +14,7 @@ import {
     Palette,
     BarChart3,
     MessageSquare,
+    Users,
     Briefcase,
     FolderOpen,
     TrendingUp,
@@ -92,6 +93,7 @@ function buildGroups(businessId: string): NavGroup[] {
             icon: <Cpu size={12} />,
             items: [
                 // { to: `${b}/attributes`, label: "Attributi prodotto", icon: <Tags size={18} /> },
+                { to: `${b}/team`, label: "Team", icon: <Users size={18} /> },
                 { to: `${b}/settings`, label: "Impostazioni", icon: <Settings size={18} /> }
             ]
         }
