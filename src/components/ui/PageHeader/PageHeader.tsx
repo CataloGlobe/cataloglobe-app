@@ -9,18 +9,13 @@ export type PageHeaderProps = {
     actions?: React.ReactNode;
 };
 
-export default function PageHeader({ title, subtitle, businessName, actions }: PageHeaderProps) {
+export default function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
     return (
         <header className={styles.header}>
             <div className={styles.content}>
                 <Text variant="title-lg" as="h1">
                     {title}
                 </Text>
-                {businessName && (
-                    <Text variant="caption" colorVariant="muted" className={styles.businessName}>
-                        {businessName}
-                    </Text>
-                )}
                 {subtitle && (
                     <Text variant="body" colorVariant="muted">
                         {subtitle}
