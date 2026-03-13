@@ -7,7 +7,15 @@ import Text from "@/components/ui/Text/Text";
 import BusinessCard from "@/components/Businesses/BusinessCard";
 import { CreateBusinessDrawer } from "@/components/Businesses/CreateBusinessDrawer";
 import type { V2Tenant } from "@/types/v2/tenant";
+import { Button } from "@/components/ui/Button/Button";
 import styles from "./WorkspacePage.module.scss";
+
+type PendingInvite = {
+    id: string;
+    invite_token: string;
+    role: string;
+    tenant_id: string;
+};
 
 const STORAGE_KEY = "cg_v2_selected_tenant_id";
 
@@ -29,6 +37,18 @@ export default function WorkspacePage() {
     const [productCounts, setProductCounts] = useState<Record<string, number>>({});
     const [catalogCounts, setCatalogCounts] = useState<Record<string, number>>({});
     const [drawerOpen, setDrawerOpen] = useState(false);
+    const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+
+    useEffect(() => {
+        if (!user) return;
+        supabase
+            .from("v2_tenant_memberships")
+            .select("id, invite_token, role, tenant_id")
+            .eq("status", "pending")
+            .then(({ data }) => {
+                setPendingInvites((data as PendingInvite[]) ?? []);
+            });
+    }, [user?.id]);
 
     useEffect(() => {
         if (!user) return;
@@ -86,6 +106,30 @@ export default function WorkspacePage() {
         <div className={styles.page}>
             <div className={styles.container}>
                 {header}
+
+                {pendingInvites.length > 0 && (
+                    <div className={styles.pendingSection}>
+                        <Text variant="body" weight={600}>
+                            Hai {pendingInvites.length === 1 ? "un invito in attesa" : `${pendingInvites.length} inviti in attesa`}
+                        </Text>
+                        <div className={styles.pendingList}>
+                            {pendingInvites.map(invite => (
+                                <div key={invite.id} className={styles.pendingCard}>
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        Sei stato invitato come{" "}
+                                        <strong>{invite.role === "admin" ? "Admin" : "Member"}</strong>
+                                    </Text>
+                                    <Button
+                                        variant="primary"
+                                        onClick={() => navigate(`/invite/${invite.invite_token}`)}
+                                    >
+                                        Vedi invito
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 <div className={styles.grid}>
                     {tenants.map(tenant => (

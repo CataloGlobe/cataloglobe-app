@@ -29,10 +29,13 @@ export default function InvitePage() {
     useEffect(() => {
         if (authLoading) return;
 
-        // Not logged in — redirect to login preserving the invite URL
+        // Not logged in — redirect to login preserving the invite URL.
+        // Pass state.from as { pathname } so Login.tsx can reconstruct it correctly.
         if (!user) {
-            const returnTo = encodeURIComponent(`/invite/${token}`);
-            navigate(`/login?returnTo=${returnTo}`, { replace: true });
+            navigate("/login", {
+                replace: true,
+                state: { from: { pathname: `/invite/${token}` } }
+            });
             return;
         }
 
@@ -70,22 +73,28 @@ export default function InvitePage() {
         if (!token) return;
         setAccepting(true);
 
-        const { error } = await supabase.rpc("accept_invite_by_token", {
+        const { data: tenantId, error } = await supabase.rpc("accept_invite_by_token", {
             p_token: token
         });
 
         if (error) {
             console.error("[InvitePage] accept_invite_by_token:", error);
+            const isExpired = error.message?.includes("invite expired");
             showToast({
                 type: "error",
-                message: "Impossibile accettare l'invito. Il link potrebbe essere già stato usato."
+                message: isExpired
+                    ? "Il link di invito è scaduto. Chiedi un nuovo invito."
+                    : "Impossibile accettare l'invito. Il link potrebbe essere già stato usato."
             });
+            if (isExpired) {
+                setInvite(prev => prev ? { ...prev, status: "expired" } : prev);
+            }
             setAccepting(false);
             return;
         }
 
         showToast({ type: "success", message: "Invito accettato. Benvenuto nel team!" });
-        navigate("/workspace", { replace: true });
+        navigate(tenantId ? `/business/${tenantId}/overview` : "/workspace", { replace: true });
     };
 
     // Auth resolving
@@ -141,7 +150,7 @@ export default function InvitePage() {
                             Invito già accettato
                         </Text>
                         <Text variant="body" colorVariant="muted">
-                            This invite has already been accepted.
+                            Hai già accettato questo invito.
                         </Text>
                     </div>
                     <Button variant="primary" onClick={() => navigate("/workspace")}>
@@ -152,7 +161,49 @@ export default function InvitePage() {
         );
     }
 
-    // CASE 3 — valid pending invite
+    // CASE 3 — expired invite
+    if (invite.status === "expired") {
+        return (
+            <div className={styles.page}>
+                <Card className={styles.card}>
+                    <div className={styles.header}>
+                        <Text variant="title-md" weight={700}>
+                            Invito scaduto
+                        </Text>
+                        <Text variant="body" colorVariant="muted">
+                            Il link di invito è scaduto. Chiedi all'amministratore di inviarne uno nuovo.
+                        </Text>
+                    </div>
+                    <Button variant="secondary" onClick={() => navigate("/workspace")}>
+                        Vai al workspace
+                    </Button>
+                </Card>
+            </div>
+        );
+    }
+
+    // CASE 4 — revoked invite
+    if (invite.status === "revoked") {
+        return (
+            <div className={styles.page}>
+                <Card className={styles.card}>
+                    <div className={styles.header}>
+                        <Text variant="title-md" weight={700}>
+                            Invito revocato
+                        </Text>
+                        <Text variant="body" colorVariant="muted">
+                            Questo invito è stato revocato. Contatta l'amministratore.
+                        </Text>
+                    </div>
+                    <Button variant="secondary" onClick={() => navigate("/workspace")}>
+                        Vai al workspace
+                    </Button>
+                </Card>
+            </div>
+        );
+    }
+
+    // CASE 5 — valid pending invite
     return (
         <div className={styles.page}>
             <Card className={styles.card}>
