@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/services/supabase/client";
-import { useAuth } from "@/context/useAuth";
+import { useTenant } from "@/context/useTenant";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { Card } from "@/components/ui/Card/Card";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { InviteMemberDrawer } from "@/components/Businesses/InviteMemberDrawer";
 import styles from "./TeamPage.module.scss";
-
-const STORAGE_KEY = "cg_v2_selected_tenant_id";
 
 type TenantMemberRow = {
     tenant_id: string;
@@ -21,79 +20,48 @@ type TenantMemberRow = {
     created_at: string;
 };
 
-type UserTenantRow = {
-    id: string;
-    name: string;
-    user_role: "owner" | "member" | null;
-};
-
 export default function TeamPage() {
-    const { user } = useAuth();
-    const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null);
-    const [selectedTenantName, setSelectedTenantName] = useState<string | null>(null);
-    const [userRole, setUserRole] = useState<"owner" | "member" | null>(null);
+    const { selectedTenant, selectedTenantId, userRole } = useTenant();
     const [members, setMembers] = useState<TenantMemberRow[]>([]);
     const [loading, setLoading] = useState(true);
+    const [inviteDrawerOpen, setInviteDrawerOpen] = useState(false);
+
+    const [refreshKey, setRefreshKey] = useState(0);
 
     useEffect(() => {
-        setSelectedTenantId(localStorage.getItem(STORAGE_KEY));
-    }, []);
-
-    useEffect(() => {
-        if (!user || !selectedTenantId) {
-            setLoading(false);
-            return;
-        }
-
+        if (!selectedTenantId) return;
         let cancelled = false;
 
-        const fetchData = async () => {
+        const fetchMembers = async () => {
             setLoading(true);
-
-            const [membersRes, tenantRes] = await Promise.all([
-                supabase
-                    .from("v2_tenant_members_view")
-                    .select("tenant_id, user_id, email, role, status, invited_by, created_at")
-                    .eq("tenant_id", selectedTenantId)
-                    .order("created_at", { ascending: true }),
-                supabase
-                    .from("v2_user_tenants_view")
-                    .select("id, name, user_role")
-                    .eq("id", selectedTenantId)
-                    .maybeSingle()
-            ]);
+            const { data, error } = await supabase
+                .from("v2_tenant_members_view")
+                .select("tenant_id, user_id, email, role, status, invited_by, created_at")
+                .eq("tenant_id", selectedTenantId)
+                .order("created_at", { ascending: true });
 
             if (cancelled) return;
 
-            if (membersRes.error) {
-                console.error("[TeamPage] failed to fetch members:", membersRes.error);
+            if (error) {
+                console.error("[BusinessTeamPage] failed to fetch members:", error);
                 setMembers([]);
-            } else {
-                setMembers((membersRes.data as TenantMemberRow[]) ?? []);
+                setLoading(false);
+                return;
             }
 
-            if (tenantRes.error) {
-                console.error("[TeamPage] failed to fetch tenant role:", tenantRes.error);
-                setUserRole(null);
-                setSelectedTenantName(null);
-            } else {
-                const tenant = tenantRes.data as UserTenantRow | null;
-                setUserRole(tenant?.user_role ?? null);
-                setSelectedTenantName(tenant?.name ?? null);
-            }
-
+            setMembers((data as TenantMemberRow[]) ?? []);
             setLoading(false);
         };
 
-        fetchData();
+        fetchMembers();
 
         return () => {
             cancelled = true;
         };
-    }, [user?.id, selectedTenantId]);
+    }, [selectedTenantId, refreshKey]);
 
     const handleRemove = (member: TenantMemberRow) => {
-        console.warn("[TeamPage] remove member not implemented", member);
+        console.warn("[BusinessTeamPage] remove member not implemented", member);
     };
 
     const columns = useMemo<ColumnDefinition<TenantMemberRow>[]>(() => {
@@ -177,12 +145,12 @@ export default function TeamPage() {
     );
 
     return (
-        <div className={styles.page}>
-            <div className={styles.container}>
+        <>
+            <div className={styles.page}>
                 <PageHeader
                     title="Team"
-                    subtitle="Gestisci i membri del tuo business."
-                    businessName={selectedTenantName ?? undefined}
+                    subtitle="Gestisci i membri del team per questo business."
+                    businessName={selectedTenant?.name}
                 />
 
                 <Card className={styles.card}>
@@ -195,13 +163,20 @@ export default function TeamPage() {
                                 Visualizza ruoli e stato degli inviti per questo tenant.
                             </Text>
                         </div>
+                        {userRole === "owner" && selectedTenantId && (
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => setInviteDrawerOpen(true)}
+                            >
+                                Invite member
+                            </Button>
+                        )}
                     </div>
 
                     {!selectedTenantId ? (
                         <div className={styles.emptyState}>
-                            <Text variant="body">
-                                Seleziona un&apos;azienda dal workspace per vedere i membri.
-                            </Text>
+                            <Text variant="body">Seleziona un&apos;azienda per vedere i membri.</Text>
                         </div>
                     ) : (
                         <DataTable<TenantMemberRow>
@@ -214,6 +189,15 @@ export default function TeamPage() {
                     )}
                 </Card>
             </div>
-        </div>
+
+            {selectedTenantId && (
+                <InviteMemberDrawer
+                    open={inviteDrawerOpen}
+                    onClose={() => setInviteDrawerOpen(false)}
+                    tenantId={selectedTenantId}
+                    onSuccess={() => setRefreshKey(k => k + 1)}
+                />
+            )}
+        </>
     );
 }

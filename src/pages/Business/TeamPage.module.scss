@@ -1,0 +1,39 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.cardHeaderText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.actionsCell {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.emailCell {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emptyState {
+  padding: 1.5rem 0.5rem;
+}
