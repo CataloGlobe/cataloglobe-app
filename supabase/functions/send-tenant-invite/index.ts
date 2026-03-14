@@ -55,38 +55,38 @@ serve(async (req: Request) => {
         await resend.emails.send({
             from: "CataloGlobe <noreply@cataloglobe.com>",
             to: email,
-            subject: `You've been invited to join ${tenantName} on Cataloglobe`,
+            subject: `Sei stato invitato a unirti a ${tenantName} su Cataloglobe`,
             html: `
-                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
-                    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
-                        <h1 style="margin:0 0 16px;font-size:22px;color:#111827">
-                            You've been invited to Cataloglobe
-                        </h1>
-                        <p style="margin:0 0 8px;font-size:15px;color:#374151">
-                            <strong>${inviterEmail}</strong> invited you to collaborate on
-                            <strong>${tenantName}</strong>.
-                        </p>
-                        <p style="margin:0 0 32px;font-size:15px;color:#374151">
-                            Click the button below to accept the invitation.
-                        </p>
-                        <div style="text-align:center;margin:0 0 32px">
-                            <a
-                                href="${inviteUrl}"
-                                style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;background:#111827;color:#ffffff;border-radius:8px;text-decoration:none"
-                            >
-                                Accept invitation
-                            </a>
-                        </div>
-                        <p style="margin:0;font-size:13px;color:#6b7280">
-                            If you don't have an account you will be asked to create one.
-                        </p>
-                        <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb" />
-                        <p style="margin:0;font-size:12px;color:#9ca3af">
-                            Or copy this link: ${inviteUrl}
-                        </p>
-                    </div>
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
+            <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
+                <h1 style="margin:0 0 16px;font-size:22px;color:#111827">
+                    Sei stato invitato su Cataloglobe
+                </h1>
+                <p style="margin:0 0 8px;font-size:15px;color:#374151">
+                    <strong>${inviterEmail}</strong> ti ha invitato a collaborare su
+                    <strong>${tenantName}</strong>.
+                </p>
+                <p style="margin:0 0 32px;font-size:15px;color:#374151">
+                    Clicca sul pulsante qui sotto per accettare l’invito.
+                </p>
+                <div style="text-align:center;margin:0 0 32px">
+                    <a
+                        href="${inviteUrl}"
+                        style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;background:#111827;color:#ffffff;border-radius:8px;text-decoration:none"
+                    >
+                        Accetta l’invito
+                    </a>
                 </div>
-            `
+                <p style="margin:0;font-size:13px;color:#6b7280">
+                    Se non hai ancora un account, ti verrà chiesto di crearne uno.
+                </p>
+                <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb" />
+                <p style="margin:0;font-size:12px;color:#9ca3af">
+                    Oppure copia questo link: ${inviteUrl}
+                </p>
+            </div>
+        </div>
+    `
         });
     } catch (err) {
         console.error("[send-tenant-invite] Resend error:", err);

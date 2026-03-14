@@ -5,9 +5,11 @@
 }
 
 .card {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  // Disabilita hover animation della Card — non adatta a data table
+  &:hover {
+    transform: none !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03) !important;
+  }
 }
 
 .cardHeader {
@@ -15,17 +17,36 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  padding-bottom: 1.25rem;
+  margin-bottom: 0.5rem;
 }
 
 .cardHeaderText {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 .actionsCell {
   display: flex;
   justify-content: flex-end;
+}
+
+.statusCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.expiryHint {
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.roleDialogContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .emailCell {
@@ -35,5 +56,5 @@
 }
 
 .emptyState {
-  padding: 1.5rem 0.5rem;
+  padding: 2rem 0.5rem;
 }

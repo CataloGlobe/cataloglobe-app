@@ -24,6 +24,7 @@ export default function InvitePage() {
     const [invite, setInvite] = useState<InviteInfo | null>(null);
     const [loadingInvite, setLoadingInvite] = useState(true);
     const [accepting, setAccepting] = useState(false);
+    const [declining, setDeclining] = useState(false);
     const [notFound, setNotFound] = useState(false);
 
     useEffect(() => {
@@ -95,6 +96,24 @@ export default function InvitePage() {
 
         showToast({ type: "success", message: "Invito accettato. Benvenuto nel team!" });
         navigate(tenantId ? `/business/${tenantId}/overview` : "/workspace", { replace: true });
+    };
+
+    const handleDecline = async () => {
+        if (!token) return;
+        setDeclining(true);
+
+        const { error } = await supabase.rpc("decline_invite_by_token", { p_token: token });
+
+        setDeclining(false);
+
+        if (error) {
+            console.error("[InvitePage] decline_invite_by_token:", error);
+            showToast({ type: "error", message: "Impossibile rifiutare l'invito." });
+            return;
+        }
+
+        showToast({ type: "success", message: "Invito rifiutato." });
+        navigate("/workspace", { replace: true });
     };
 
     // Auth resolving
@@ -237,17 +256,19 @@ export default function InvitePage() {
                         variant="primary"
                         fullWidth
                         loading={accepting}
+                        disabled={declining}
                         onClick={handleAccept}
                     >
                         Accetta invito
                     </Button>
                     <Button
-                        variant="ghost"
+                        variant="danger"
                         fullWidth
+                        loading={declining}
                         disabled={accepting}
-                        onClick={() => navigate("/workspace")}
+                        onClick={handleDecline}
                     >
-                        Rifiuta
+                        Declina invito
                     </Button>
                 </div>
             </Card>

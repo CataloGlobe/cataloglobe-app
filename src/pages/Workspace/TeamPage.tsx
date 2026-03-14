@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
+import { useToast } from "@/context/Toast/ToastContext";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { Card } from "@/components/ui/Card/Card";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import styles from "./TeamPage.module.scss";
 
 const STORAGE_KEY = "cg_v2_selected_tenant_id";
@@ -29,11 +31,14 @@ type UserTenantRow = {
 
 export default function TeamPage() {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null);
     const [selectedTenantName, setSelectedTenantName] = useState<string | null>(null);
     const [userRole, setUserRole] = useState<"owner" | "member" | null>(null);
     const [members, setMembers] = useState<TenantMemberRow[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshKey, setRefreshKey] = useState(0);
+    const [memberToRemove, setMemberToRemove] = useState<TenantMemberRow | null>(null);
 
     useEffect(() => {
         setSelectedTenantId(localStorage.getItem(STORAGE_KEY));
@@ -90,11 +95,29 @@ export default function TeamPage() {
         return () => {
             cancelled = true;
         };
-    }, [user?.id, selectedTenantId]);
+    }, [user?.id, selectedTenantId, refreshKey]);
 
-    const handleRemove = (member: TenantMemberRow) => {
-        console.warn("[TeamPage] remove member not implemented", member);
-    };
+    const handleRemove = useCallback((member: TenantMemberRow) => {
+        setMemberToRemove(member);
+    }, []);
+
+    const handleConfirmRemove = useCallback(async (): Promise<boolean> => {
+        if (!memberToRemove || !selectedTenantId) return false;
+
+        const { error } = await supabase.rpc("remove_tenant_member", {
+            p_tenant_id: selectedTenantId,
+            p_user_id: memberToRemove.user_id,
+        });
+
+        if (error) {
+            console.error("[TeamPage] remove member failed:", error);
+            showToast({ type: "error", message: `Errore: ${error.message}` });
+            return false;
+        }
+
+        setRefreshKey(k => k + 1);
+        return true;
+    }, [memberToRemove, selectedTenantId, showToast]);
 
     const columns = useMemo<ColumnDefinition<TenantMemberRow>[]>(() => {
         const base: ColumnDefinition<TenantMemberRow>[] = [
@@ -162,7 +185,7 @@ export default function TeamPage() {
         }
 
         return base;
-    }, [userRole]);
+    }, [userRole, handleRemove]);
 
     const emptyState = (
         <div className={styles.emptyState}>
@@ -210,10 +233,20 @@ export default function TeamPage() {
                             isLoading={loading}
                             emptyState={emptyState}
                             loadingState={loadingState}
+                            density="extended"
                         />
                     )}
                 </Card>
             </div>
+
+            <ConfirmDialog
+                isOpen={memberToRemove !== null}
+                onClose={() => setMemberToRemove(null)}
+                onConfirm={handleConfirmRemove}
+                title="Rimuovi membro"
+                message={`Rimuovere ${memberToRemove?.email ?? memberToRemove?.user_id} dal team?`}
+                confirmLabel="Rimuovi"
+            />
         </div>
     );
 }
