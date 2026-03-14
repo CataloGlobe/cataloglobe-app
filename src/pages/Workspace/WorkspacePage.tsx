@@ -6,16 +6,10 @@ import { useAuth } from "@/context/useAuth";
 import Text from "@/components/ui/Text/Text";
 import BusinessCard from "@/components/Businesses/BusinessCard";
 import { CreateBusinessDrawer } from "@/components/Businesses/CreateBusinessDrawer";
+import { InviteModal, PendingInviteData } from "@/components/Businesses/InviteModal";
 import type { V2Tenant } from "@/types/v2/tenant";
 import { Button } from "@/components/ui/Button/Button";
 import styles from "./WorkspacePage.module.scss";
-
-type PendingInvite = {
-    id: string;
-    invite_token: string;
-    role: string;
-    tenant_id: string;
-};
 
 const STORAGE_KEY = "cg_v2_selected_tenant_id";
 
@@ -37,17 +31,49 @@ export default function WorkspacePage() {
     const [productCounts, setProductCounts] = useState<Record<string, number>>({});
     const [catalogCounts, setCatalogCounts] = useState<Record<string, number>>({});
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+    const [pendingInvites, setPendingInvites] = useState<PendingInviteData[]>([]);
+    const [activeInvite, setActiveInvite] = useState<PendingInviteData | null>(null);
 
     useEffect(() => {
         if (!user) return;
-        supabase
-            .from("v2_tenant_memberships")
-            .select("id, invite_token, role, tenant_id")
-            .eq("status", "pending")
-            .then(({ data }) => {
-                setPendingInvites((data as PendingInvite[]) ?? []);
-            });
+
+        const fetchInvites = async () => {
+            // Step 1: fetch pending membership rows with inviter info from the view
+            const { data: rows } = await supabase
+                .from("v2_tenant_members_view")
+                .select("membership_id, invite_token, role, tenant_id, inviter_email")
+                .eq("status", "pending");
+
+            if (!rows || rows.length === 0) {
+                setPendingInvites([]);
+                return;
+            }
+
+            // Step 2: batch-fetch tenant names
+            const tenantIds = [...new Set(rows.map((r: any) => r.tenant_id as string))];
+            const { data: tenantRows } = await supabase
+                .from("v2_tenants")
+                .select("id, name")
+                .in("id", tenantIds);
+
+            const nameById: Record<string, string> = {};
+            for (const t of tenantRows ?? []) {
+                nameById[(t as any).id] = (t as any).name;
+            }
+
+            setPendingInvites(
+                rows.map((r: any) => ({
+                    id: r.membership_id as string,
+                    invite_token: r.invite_token as string,
+                    role: r.role as string,
+                    tenant_id: r.tenant_id as string,
+                    tenant_name: nameById[r.tenant_id] ?? "",
+                    inviter_email: (r.inviter_email as string | null) ?? null,
+                }))
+            );
+        };
+
+        fetchInvites();
     }, [user?.id]);
 
     useEffect(() => {
@@ -83,6 +109,17 @@ export default function WorkspacePage() {
         navigate(`/business/${id}/overview`);
     };
 
+    const handleInviteAccepted = (tenantId: string) => {
+        setActiveInvite(null);
+        localStorage.setItem(STORAGE_KEY, tenantId);
+        navigate(`/business/${tenantId}/overview`);
+    };
+
+    const handleInviteDeclined = (inviteId: string) => {
+        setActiveInvite(null);
+        setPendingInvites(prev => prev.filter(i => i.id !== inviteId));
+    };
+
     const header = (
         <div className={styles.header}>
             <Text variant="title-lg" weight={700}>
@@ -110,20 +147,26 @@ export default function WorkspacePage() {
                 {pendingInvites.length > 0 && (
                     <div className={styles.pendingSection}>
                         <Text variant="body" weight={600}>
-                            Hai {pendingInvites.length === 1 ? "un invito in attesa" : `${pendingInvites.length} inviti in attesa`}
+                            {pendingInvites.length === 1
+                                ? "Hai un invito in attesa"
+                                : `Hai ${pendingInvites.length} inviti in attesa`}
                         </Text>
                         <div className={styles.pendingList}>
                             {pendingInvites.map(invite => (
                                 <div key={invite.id} className={styles.pendingCard}>
                                     <Text variant="body-sm" colorVariant="muted">
-                                        Sei stato invitato come{" "}
-                                        <strong>{invite.role === "admin" ? "Admin" : "Member"}</strong>
+                                        Sei stato invitato a partecipare a{" "}
+                                        <strong>{invite.tenant_name}</strong>
+                                        {invite.inviter_email && (
+                                            <> da <strong>{invite.inviter_email}</strong></>
+                                        )}
                                     </Text>
                                     <Button
                                         variant="primary"
-                                        onClick={() => navigate(`/invite/${invite.invite_token}`)}
+                                        size="sm"
+                                        onClick={() => setActiveInvite(invite)}
                                     >
-                                        Vedi invito
+                                        Visualizza invito
                                     </Button>
                                 </div>
                             ))}
@@ -155,6 +198,13 @@ export default function WorkspacePage() {
             </div>
 
             <CreateBusinessDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+
+            <InviteModal
+                invite={activeInvite}
+                onClose={() => setActiveInvite(null)}
+                onAccepted={handleInviteAccepted}
+                onDeclined={handleInviteDeclined}
+            />
         </div>
     );
 }

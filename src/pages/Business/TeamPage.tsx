@@ -17,7 +17,7 @@ import ModalLayout, {
     ModalLayoutFooter,
     ModalLayoutHeader,
 } from "@/components/ui/ModalLayout/ModalLayout";
-import { Ban, Send, UserCog, UserMinus } from "lucide-react";
+import { Ban, Send, Trash2, UserCog, UserMinus } from "lucide-react";
 import styles from "./TeamPage.module.scss";
 
 type TenantMemberRow = {
@@ -35,17 +35,19 @@ type TenantMemberRow = {
 };
 
 const STATUS_BADGE: Record<string, BadgeVariant> = {
-    active: "success",
-    pending: "warning",
-    expired: "danger",
-    revoked: "secondary",
+    active:   "success",
+    pending:  "warning",
+    declined: "danger",
+    revoked:  "secondary",
+    expired:  "secondary",
 };
 
 const STATUS_LABEL: Record<string, string> = {
-    active: "Attivo",
-    pending: "In attesa",
-    expired: "Scaduto",
-    revoked: "Revocato",
+    active:   "Attivo",
+    pending:  "In attesa",
+    declined: "Rifiutato",
+    revoked:  "Annullato",
+    expired:  "Scaduto",
 };
 
 function formatExpiry(expiresAt: string): string {
@@ -177,6 +179,20 @@ export default function TeamPage() {
         setRefreshKey(k => k + 1);
     }, [showToast]);
 
+    const handleDeleteInvite = useCallback(async (member: TenantMemberRow) => {
+        const { error } = await supabase.rpc("delete_invite", {
+            p_membership_id: member.membership_id,
+        });
+
+        if (error) {
+            showToast({ type: "error", message: `Errore: ${error.message}` });
+            return;
+        }
+
+        showToast({ type: "success", message: "Invito eliminato." });
+        setRefreshKey(k => k + 1);
+    }, [showToast]);
+
     const columns = useMemo<ColumnDefinition<TenantMemberRow>[]>(() => {
         const base: ColumnDefinition<TenantMemberRow>[] = [
             {
@@ -270,12 +286,19 @@ export default function TeamPage() {
                             },
                         ];
                     } else {
-                        // expired or revoked
+                        // declined | revoked | expired
                         actions = [
                             {
                                 label: "Reinvia invito",
                                 icon: Send,
                                 onClick: () => handleResendInvite(row),
+                            },
+                            {
+                                label: "Elimina invito",
+                                icon: Trash2,
+                                onClick: () => handleDeleteInvite(row),
+                                variant: "destructive",
+                                separator: true,
                             },
                         ];
                     }
@@ -292,7 +315,7 @@ export default function TeamPage() {
         }
 
         return base;
-    }, [isAdmin, handleChangeRole, handleRemove, handleResendInvite, handleCancelInvite]);
+    }, [isAdmin, handleChangeRole, handleRemove, handleResendInvite, handleCancelInvite, handleDeleteInvite]);
 
     const emptyState = (
         <div className={styles.emptyState}>
