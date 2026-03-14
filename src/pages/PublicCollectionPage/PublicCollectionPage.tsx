@@ -3,26 +3,24 @@ import { useParams } from "react-router-dom";
 import PublicCollectionRenderer from "@/features/public/components/PublicCollectionRenderer";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 
-import { getBusinessBySlug } from "@/services/supabase/businesses";
-import { resolveBusinessCollections } from "@/services/supabase/resolveBusinessCollections";
+import { getActivityBySlug } from "@/services/supabase/v2/activities";
+import { resolveActivityCatalogsV2, ResolvedCollections } from "@/services/supabase/v2/resolveActivityCatalogsV2";
 
-import type { Business } from "@/types/database";
-import { DEFAULT_PUBLIC_STYLE } from "@/utils/getDefaultPublicStyle";
+import type { V2Activity } from "@/types/v2/activity";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import NotFound from "../NotFound/NotFound";
-import { ResolvedCollections } from "@/services/supabase/v2/resolveActivityCatalogsV2";
 
 type PageState =
     | { status: "loading" }
     | { status: "error"; message: string }
     | {
           status: "ready";
-          business: Business;
+          business: V2Activity;
           resolved: ResolvedCollections;
       }
     | {
           status: "empty";
-          business: Business;
+          business: V2Activity;
       };
 
 export default function PublicCollectionPage() {
@@ -48,7 +46,7 @@ export default function PublicCollectionPage() {
                 /* ============================
                    1) BUSINESS
                 ============================ */
-                const business = await getBusinessBySlug(businessSlug);
+                const business = await getActivityBySlug(businessSlug);
 
                 if (!business) {
                     throw new Error("Attività non trovata.");
@@ -57,7 +55,7 @@ export default function PublicCollectionPage() {
                 /* ============================
                    2) RESOLVER
                 ============================ */
-                const resolved = await resolveBusinessCollections(business.id);
+                const resolved = await resolveActivityCatalogsV2(business.id);
 
                 if (
                     !resolved.catalog &&
