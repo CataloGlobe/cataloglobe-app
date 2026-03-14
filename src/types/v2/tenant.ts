@@ -4,5 +4,5 @@ export interface V2Tenant {
     name: string;
     vertical_type: string;
     created_at: string;
-    user_role?: "owner" | "member";
+    user_role?: "owner" | "admin" | "member";
 }
