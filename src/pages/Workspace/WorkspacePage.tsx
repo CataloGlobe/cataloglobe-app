@@ -183,6 +183,8 @@ export default function WorkspacePage() {
                             productCount={productCounts[tenant.id] ?? 0}
                             catalogCount={catalogCounts[tenant.id] ?? 0}
                             onSelect={handleSelect}
+                            onOpenSettings={id => navigate(`/business/${id}/settings`)}
+                            onLeave={_id => { /* Step 2 */ }}
                         />
                     ))}
 

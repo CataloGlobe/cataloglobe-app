@@ -59,6 +59,12 @@
   min-width: 0;
 }
 
+/* ===== Actions: three-dot menu ===== */
+.actions {
+  flex-shrink: 0;
+  margin-top: -2px; // optical alignment with avatar top
+}
+
 /* ===== Footer: quick stats ===== */
 .footer {
   display: flex;

@@ -1,6 +1,7 @@
-import { MapPin, Archive, BookOpen } from "lucide-react";
+import { MapPin, Archive, BookOpen, LayoutDashboard, Settings, LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import type { V2Tenant } from "@/types/v2/tenant";
 import styles from "./BusinessCard.module.scss";
 
@@ -32,12 +33,15 @@ interface BusinessCardProps {
     productCount: number;
     catalogCount: number;
     onSelect: (id: string) => void;
+    onOpenSettings: (id: string) => void;
+    onLeave: (id: string) => void;
 }
 
-export default function BusinessCard({ tenant, locationCount, productCount, catalogCount, onSelect }: BusinessCardProps) {
+export default function BusinessCard({ tenant, locationCount, productCount, catalogCount, onSelect, onOpenSettings, onLeave }: BusinessCardProps) {
     const initial = tenant.name.charAt(0).toUpperCase();
     const verticalLabel = VERTICAL_LABELS[tenant.vertical_type] ?? tenant.vertical_type;
     const { bg, text } = avatarColors(tenant.name);
+    const isOwner = tenant.user_role === "owner";
 
     return (
         <div
@@ -63,6 +67,30 @@ export default function BusinessCard({ tenant, locationCount, productCount, cata
                     <div style={{ marginTop: "5px" }}>
                         <Badge variant="secondary">{verticalLabel}</Badge>
                     </div>
+                </div>
+                <div className={styles.actions} onClick={e => e.stopPropagation()}>
+                    <TableRowActions
+                        actions={[
+                            {
+                                label: "Apri dashboard",
+                                icon: LayoutDashboard,
+                                onClick: () => onSelect(tenant.id),
+                            },
+                            {
+                                label: "Impostazioni azienda",
+                                icon: Settings,
+                                onClick: () => onOpenSettings(tenant.id),
+                            },
+                            {
+                                label: "Lascia azienda",
+                                icon: LogOut,
+                                onClick: () => onLeave(tenant.id),
+                                variant: "destructive",
+                                separator: true,
+                                hidden: isOwner,
+                            },
+                        ]}
+                    />
                 </div>
             </div>
 
