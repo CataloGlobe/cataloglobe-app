@@ -7,6 +7,8 @@ import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
 import { Button } from "@/components/ui/Button/Button";
+import { DeleteTenantDialog } from "@/components/Businesses/DeleteTenantDialog";
+import { deleteTenantSoft } from "@/services/supabase/v2/tenants";
 import styles from "./BusinessSettingsPage.module.scss";
 
 const VERTICAL_OPTIONS = [
@@ -24,6 +26,7 @@ export default function BusinessSettingsPage() {
     const [name, setName] = useState("");
     const [verticalType, setVerticalType] = useState("generic");
     const [saving, setSaving] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
     useEffect(() => {
         if (selectedTenant) {
@@ -52,8 +55,14 @@ export default function BusinessSettingsPage() {
         }
     };
 
-    const handleDelete = () => {
-        console.log("Delete business:", selectedTenant?.id);
+    const handleDeleteConfirm = async (): Promise<void> => {
+        await deleteTenantSoft(selectedTenant!.id);
+        // Rimuove il tenant eliminato dal localStorage prima del reload,
+        // così nessun codice futuro che legga questa chiave troverà un ID stale.
+        localStorage.removeItem("cg_v2_selected_tenant_id");
+        // Reload completo: svuota TenantProvider e WorkspacePage ri-fetcha dati freschi.
+        // replace evita che il back button riporti l'utente sulla pagina del tenant eliminato.
+        window.location.replace("/workspace");
     };
 
     if (loading || !selectedTenant) return null;
@@ -110,27 +119,36 @@ export default function BusinessSettingsPage() {
                 </div>
             </div>
 
-            {/* Section 2 — Danger zone */}
-            <div className={`${styles.section} ${styles.dangerSection}`}>
-                <Text variant="title-sm" weight={600}>
-                    Zona pericolosa
-                </Text>
+            {/* Section 2 — Danger zone (owner only) */}
+            {userRole === "owner" && (
+                <div className={`${styles.section} ${styles.dangerSection}`}>
+                    <Text variant="title-sm" weight={600}>
+                        Zona pericolosa
+                    </Text>
 
-                <div className={styles.dangerRow}>
-                    <div>
-                        <Text variant="body" weight={500}>
+                    <div className={styles.dangerRow}>
+                        <div>
+                            <Text variant="body" weight={500}>
+                                Elimina azienda
+                            </Text>
+                            <Text variant="body-sm" colorVariant="muted">
+                                Questa azione è irreversibile. Tutti i dati associati verranno
+                                eliminati.
+                            </Text>
+                        </div>
+                        <Button variant="danger" onClick={() => setDeleteDialogOpen(true)}>
                             Elimina azienda
-                        </Text>
-                        <Text variant="body-sm" colorVariant="muted">
-                            Questa azione è irreversibile. Tutti i dati associati verranno
-                            eliminati.
-                        </Text>
+                        </Button>
                     </div>
-                    <Button variant="danger" onClick={handleDelete}>
-                        Elimina azienda
-                    </Button>
                 </div>
-            </div>
+            )}
+
+            <DeleteTenantDialog
+                isOpen={deleteDialogOpen}
+                tenantName={selectedTenant.name}
+                onClose={() => setDeleteDialogOpen(false)}
+                onConfirm={handleDeleteConfirm}
+            />
         </div>
     );
 }
