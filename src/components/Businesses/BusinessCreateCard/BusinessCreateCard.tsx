@@ -20,6 +20,7 @@ interface BusinessCreateCardProps {
     formId?: string;
     slugState: SlugInlineState;
     onPickSlugSuggestion: (slug: string) => void;
+    namePlaceholder?: string;
 }
 
 type SlugInlineState =
@@ -36,20 +37,22 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
     previewBaseUrl,
     formId,
     slugState,
-    onPickSlugSuggestion
+    onPickSlugSuggestion,
+    namePlaceholder
 }) => {
     const finalUrl = `${previewBaseUrl}/${values.slug || "<slug>"}`;
 
     return (
-        <section className={styles.createCard} aria-label="Aggiungi nuova attività">
+        <section className={styles.createCard} aria-label="Aggiungi nuova sede">
             <form id={formId} onSubmit={onSubmit} className={styles.formContainer}>
                 {/* Nome */}
                 <TextInput
-                    label="Nome dell'attività"
-                    placeholder="Es. Snoopy Bar"
+                    label="Nome sede"
+                    placeholder={namePlaceholder ?? "Es. McDonald's - Via Certosa"}
                     value={values.name}
                     onChange={e => onFieldChange("name", e.target.value)}
                     error={errors?.name}
+                    required
                 />
 
                 {/* Città */}
@@ -59,6 +62,7 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                     value={values.city}
                     onChange={e => onFieldChange("city", e.target.value)}
                     error={errors?.city}
+                    required
                 />
 
                 {/* Indirizzo */}
@@ -68,6 +72,7 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                     value={values.address}
                     onChange={e => onFieldChange("address", e.target.value)}
                     error={errors?.address}
+                    required
                 />
 
                 {/* Slug */}
@@ -80,6 +85,7 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                         onChange={e => onFieldChange("slug", e.target.value)}
                         error={errors?.slug}
                         helperText={`URL finale: ${finalUrl}`}
+                        required
                     />
 
                     {slugState.type === "warning" && (

@@ -1,10 +1,9 @@
 import React, { useMemo } from "react";
 import Text from "@components/ui/Text/Text";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { BusinessCard } from "../BusinessCard/BusinessCard";
+import { LocationsGrid } from "../LocationsGrid/LocationsGrid";
 import type { BusinessListProps, BusinessWithCapabilities } from "@/types/Businesses";
 import styles from "./BusinessList.module.scss";
-import clsx from "clsx";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { IconButton } from "@/components/ui/Button/IconButton";
@@ -20,6 +19,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
     onDelete,
     onOpenReviews,
     activeCatalogsMap,
+    catalogsLoading,
     onManageAvailability,
     onCreateClick
 }) => {
@@ -177,18 +177,14 @@ export const BusinessList: React.FC<BusinessListProps> = ({
     }
 
     return (
-        <div className={clsx(styles.listWrapper, styles.grid)}>
-            {businesses.map(business => (
-                <BusinessCard
-                    key={business.id}
-                    business={business}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                    onOpenReviews={onOpenReviews}
-                    activeCatalog={activeCatalogsMap?.[business.id]}
-                    onManageAvailability={onManageAvailability}
-                />
-            ))}
-        </div>
+        <LocationsGrid
+            businesses={businesses}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onOpenReviews={onOpenReviews}
+            activeCatalogsMap={activeCatalogsMap}
+            catalogsLoading={catalogsLoading}
+            onManageAvailability={onManageAvailability}
+        />
     );
 };

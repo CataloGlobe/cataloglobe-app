@@ -35,6 +35,7 @@ import { generateRandomSuffix, sanitizeSlugForSave } from "@/utils/slugify";
 
 import styles from "./Businesses.module.scss";
 import { BusinessUpsert } from "@/components/Businesses/BusinessUpsert/BusinessUpsert";
+import { BusinessLocationDrawer } from "@/components/Businesses/BusinessLocationDrawer/BusinessLocationDrawer";
 import { Button } from "@/components/ui";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { RESERVED_SLUGS } from "@/constants/reservedSlugs";
@@ -84,6 +85,7 @@ export default function Businesses() {
     const [activeCatalogsMap, setActiveCatalogsMap] = useState<Record<string, ActiveCatalogMeta>>(
         {}
     );
+    const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true);
 
     // ======================================
     // STATE: form creazione business
@@ -157,7 +159,10 @@ export default function Businesses() {
             if (data.length > 0) {
                 getActiveCatalogForActivities(data.map(b => b.id))
                     .then(map => setActiveCatalogsMap(map))
-                    .catch(() => {});
+                    .catch(() => {})
+                    .finally(() => setIsLoadingCatalogs(false));
+            } else {
+                setIsLoadingCatalogs(false);
             }
         } catch (error) {
             console.error("Error fetching activities:", error);
@@ -695,9 +700,9 @@ export default function Businesses() {
 
             {activeTab === "activities" ? (
                 <>
-                    <BusinessUpsert
+                    <BusinessLocationDrawer
                         open={isCreateOpen}
-                        mode="create"
+                        tenantName={selectedTenant?.name}
                         values={createForm}
                         errors={createErrors}
                         loading={isCreating}
@@ -764,6 +769,7 @@ export default function Businesses() {
                                 onDelete={handleDelete}
                                 onOpenReviews={handleOpenReviews}
                                 activeCatalogsMap={activeCatalogsMap}
+                                catalogsLoading={isLoadingCatalogs}
                                 onManageAvailability={(id, name) =>
                                     setAvailabilityModal({
                                         isOpen: true,

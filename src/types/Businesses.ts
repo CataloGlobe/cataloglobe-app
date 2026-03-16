@@ -19,6 +19,7 @@ export interface BusinessCardProps {
     onDelete: (id: string) => void;
     onOpenReviews: (businessId: string) => void;
     activeCatalog?: ActiveCatalogMeta | null;
+    catalogsLoading?: boolean;
     onManageAvailability?: (id: string, name: string) => void;
 }
 
@@ -29,6 +30,7 @@ export interface BusinessListProps {
     onDelete: (id: string) => void;
     onOpenReviews: (id: string) => void;
     activeCatalogsMap?: Record<string, ActiveCatalogMeta>;
+    catalogsLoading?: boolean;
     onManageAvailability?: (id: string, name: string) => void;
     onCreateClick?: () => void;
 }

@@ -1,23 +1,21 @@
 import React, { useState } from "react";
 import BusinessOverrides from "../BusinessOverrides/BusinessOverrides";
 import Text from "@components/ui/Text/Text";
-import { MoreVertical, ExternalLink, Link, FileText, Edit, Trash2, Calendar } from "lucide-react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { MoreVertical, ExternalLink, Link, FileText, Edit, Trash2, Calendar, Building2 } from "lucide-react";
 import type { BusinessCardProps } from "@/types/Businesses";
 import styles from "./BusinessCard.module.scss";
 import BusinessCollectionSchedule from "../BusinessCollectionSchedule/BusinessCollectionSchedule";
 import { Button } from "@/components/ui";
-import { IconButton } from "@/components/ui/Button/IconButton";
 import { useNavigate, useParams } from "react-router-dom";
 import { Badge } from "@/components/ui/Badge/Badge";
-import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
-import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
-import { DropdownSeparator } from "@/components/ui/DropdownMenu/DropdownSeparator";
 
 export const BusinessCard: React.FC<BusinessCardProps> = ({
     business,
     onEdit,
     onDelete,
     activeCatalog,
+    catalogsLoading,
     onManageAvailability
 }) => {
     const publicUrl = `${window.location.origin}/${business.slug}`;
@@ -42,48 +40,19 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
     return (
         <>
             <article className={styles.card} onClick={handleCardClick}>
-                <div className={styles.cardHeader}>
-                    <div className={styles.thumbnail}>
-                        {business.cover_image ? (
-                            <img src={business.cover_image} alt={`Copertina di ${business.name}`} />
-                        ) : (
-                            <div className={styles.thumbnailPlaceholder} />
-                        )}
+                {business.cover_image ? (
+                    <img
+                        className={styles.thumbnail}
+                        src={business.cover_image}
+                        alt={`Copertina di ${business.name}`}
+                        loading="lazy"
+                        decoding="async"
+                    />
+                ) : (
+                    <div className={styles.thumbnailPlaceholder}>
+                        <Building2 size={32} strokeWidth={1.5} />
                     </div>
-                    <div className={styles.menuWrapper}>
-                        <DropdownMenu
-                            placement="bottom-end"
-                            trigger={
-                                <IconButton
-                                    icon={<MoreVertical size={18} />}
-                                    aria-label="Azioni attività"
-                                    variant="ghost"
-                                />
-                            }
-                        >
-                            <DropdownItem
-                                onClick={() => navigate(`/business/${businessId}/locations/${business.id}`)}
-                            >
-                                Apri dettaglio
-                            </DropdownItem>
-                            <DropdownItem
-                                href={publicUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                Apri URL pubblico
-                            </DropdownItem>
-                            <DropdownItem onClick={handleCopyLink}>Copia link</DropdownItem>
-
-                            <DropdownSeparator />
-
-                            <DropdownItem onClick={() => onEdit(business)}>Modifica</DropdownItem>
-                            <DropdownItem danger onClick={() => onDelete(business.id)}>
-                                Elimina
-                            </DropdownItem>
-                        </DropdownMenu>
-                    </div>
-                </div>
+                )}
 
                 <div className={styles.cardContent}>
                     <div className={styles.mainInfo}>
@@ -99,6 +68,75 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                             <Badge variant={business.status === "active" ? "success" : "secondary"}>
                                 {business.status === "active" ? "Attiva" : "Inattiva"}
                             </Badge>
+                            <DropdownMenu.Root>
+                                <DropdownMenu.Trigger asChild>
+                                    <button
+                                        className={styles.menuTrigger}
+                                        aria-label="Azioni sede"
+                                        onClick={e => e.stopPropagation()}
+                                    >
+                                        <MoreVertical size={16} />
+                                    </button>
+                                </DropdownMenu.Trigger>
+                                <DropdownMenu.Portal>
+                                    <DropdownMenu.Content
+                                        className={styles.menuContent}
+                                        align="end"
+                                        sideOffset={6}
+                                    >
+                                        <DropdownMenu.Item
+                                            className={styles.menuItem}
+                                            onClick={() =>
+                                                navigate(
+                                                    `/business/${businessId}/locations/${business.id}`
+                                                )
+                                            }
+                                        >
+                                            Apri dettaglio
+                                        </DropdownMenu.Item>
+                                        <DropdownMenu.Item
+                                            className={styles.menuItem}
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                window.open(
+                                                    publicUrl,
+                                                    "_blank",
+                                                    "noopener,noreferrer"
+                                                );
+                                            }}
+                                        >
+                                            Apri URL pubblico
+                                        </DropdownMenu.Item>
+                                        <DropdownMenu.Item
+                                            className={styles.menuItem}
+                                            onClick={handleCopyLink}
+                                        >
+                                            Copia link
+                                        </DropdownMenu.Item>
+
+                                        <DropdownMenu.Separator className={styles.menuSeparator} />
+
+                                        <DropdownMenu.Item
+                                            className={styles.menuItem}
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                onEdit(business);
+                                            }}
+                                        >
+                                            Modifica
+                                        </DropdownMenu.Item>
+                                        <DropdownMenu.Item
+                                            className={`${styles.menuItem} ${styles.menuDanger}`}
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                onDelete(business.id);
+                                            }}
+                                        >
+                                            Elimina
+                                        </DropdownMenu.Item>
+                                    </DropdownMenu.Content>
+                                </DropdownMenu.Portal>
+                            </DropdownMenu.Root>
                         </div>
 
                         <Text variant="body-sm" colorVariant="muted" className={styles.address}>
@@ -108,14 +146,36 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
 
                     <div className={styles.catalogInfo}>
                         <div className={styles.catalogLabel}>
-                            <Text variant="caption" colorVariant="muted">
-                                Catalogo attivo
-                            </Text>
-                            <Text variant="caption" weight={600}>
-                                {activeCatalog?.catalogName ?? "—"}
-                            </Text>
+                            {catalogsLoading ? (
+                                <>
+                                    <Text variant="caption" colorVariant="muted">
+                                        Catalogo attivo
+                                    </Text>
+                                    <Text variant="caption" colorVariant="muted">
+                                        Caricamento...
+                                    </Text>
+                                </>
+                            ) : activeCatalog ? (
+                                <>
+                                    <Text variant="caption" colorVariant="muted">
+                                        Catalogo attivo ora
+                                    </Text>
+                                    <Text variant="caption" weight={600}>
+                                        {activeCatalog.catalogName}
+                                    </Text>
+                                </>
+                            ) : (
+                                <>
+                                    <Text variant="caption" colorVariant="muted">
+                                        Catalogo attivo
+                                    </Text>
+                                    <Text variant="caption" colorVariant="muted">
+                                        Nessuno
+                                    </Text>
+                                </>
+                            )}
                         </div>
-                        {activeCatalog && (
+                        {!catalogsLoading && (
                             <Button
                                 variant="secondary"
                                 size="sm"
@@ -124,7 +184,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                                     onManageAvailability?.(business.id, business.name);
                                 }}
                             >
-                                Gestisci
+                                {activeCatalog ? "Gestisci" : "Configura"}
                             </Button>
                         )}
                     </div>

@@ -55,20 +55,20 @@ export const BusinessUpsert: React.FC<Props> = React.memo(
         onClose
     }) => {
         const modalTitle = useMemo(
-            () => (mode === "create" ? "Aggiungi attività" : "Modifica attività"),
+            () => (mode === "create" ? "Aggiungi sede" : "Modifica sede"),
             [mode]
         );
 
         const modalDescription = useMemo(
             () =>
                 mode === "create"
-                    ? "Compila i campi per creare una nuova attività."
-                    : "Aggiorna i dati di questa attività.",
+                    ? "Compila i campi per creare una nuova sede."
+                    : "Aggiorna i dati di questa sede.",
             [mode]
         );
 
         const primaryLabel = useMemo(
-            () => (mode === "create" ? "Crea attività" : "Salva modifiche"),
+            () => (mode === "create" ? "Crea sede" : "Salva modifiche"),
             [mode]
         );
 
