@@ -1,11 +1,9 @@
-import React, { useState } from "react";
-import BusinessOverrides from "../BusinessOverrides/BusinessOverrides";
+import React from "react";
 import Text from "@components/ui/Text/Text";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { MoreVertical, ExternalLink, Link, FileText, Edit, Trash2, Calendar, Building2 } from "lucide-react";
 import type { BusinessCardProps } from "@/types/Businesses";
 import styles from "./BusinessCard.module.scss";
-import BusinessCollectionSchedule from "../BusinessCollectionSchedule/BusinessCollectionSchedule";
 import { Button } from "@/components/ui";
 import { useNavigate, useParams } from "react-router-dom";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -19,8 +17,6 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
     onManageAvailability
 }) => {
     const publicUrl = `${window.location.origin}/${business.slug}`;
-    const [overrideOpen, setOverrideOpen] = useState(false);
-    const [showScheduleModal, setShowScheduleModal] = useState(false);
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
 
@@ -38,8 +34,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
     };
 
     return (
-        <>
-            <article className={styles.card} onClick={handleCardClick}>
+        <article className={styles.card} onClick={handleCardClick}>
                 {business.cover_image ? (
                     <img
                         className={styles.thumbnail}
@@ -189,25 +184,6 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                         )}
                     </div>
                 </div>
-            </article>
-
-            <BusinessOverrides
-                isOpen={overrideOpen}
-                onClose={() => setOverrideOpen(false)}
-                businessId={business.id}
-                title={`${business.name} - Disponibilità e prezzi`}
-            />
-
-            {/* TODO(phase10): BusinessCollectionSchedule receives businessType from activity_type,
-                which is legacy and should not be the primary business vertical.
-                The trigger (setShowScheduleModal) is currently dead — no button calls it.
-                When revived, replace businessType with selectedTenant.vertical_type from useTenant(). */}
-            <BusinessCollectionSchedule
-                isOpen={showScheduleModal}
-                businessId={business.id}
-                businessType={business.activity_type as any}
-                onClose={() => setShowScheduleModal(false)}
-            />
-        </>
+        </article>
     );
 };

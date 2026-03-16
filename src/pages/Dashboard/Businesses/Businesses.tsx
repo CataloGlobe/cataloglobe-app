@@ -182,15 +182,16 @@ export default function Businesses() {
             return;
         }
         if (createSlugTouched) return; // l’utente ha modificato manualmente lo slug → non aggiorniamo più
+        if (!tenantId) return;
 
         async function compute() {
-            const unique = await ensureUniqueBusinessSlug(debouncedName);
+            const unique = await ensureUniqueBusinessSlug(debouncedName, tenantId!);
             if (isReservedSlug(unique)) return;
             setCreateForm(prev => ({ ...prev, slug: unique }));
         }
 
         compute();
-    }, [debouncedName, createSlugTouched]);
+    }, [debouncedName, createSlugTouched, tenantId]);
 
     // ======================================
     // CALLBACK: campo form create
@@ -311,7 +312,7 @@ export default function Businesses() {
             }
 
             // 2. Calcoliamo lo slug univoco
-            const uniqueSlug = await ensureUniqueBusinessSlug(baseSlug);
+            const uniqueSlug = await ensureUniqueBusinessSlug(baseSlug, tenantId);
 
             // 3. Se è diverso → significa che lo slug scelto ESISTE GIÀ
             if (uniqueSlug !== baseSlug) {
