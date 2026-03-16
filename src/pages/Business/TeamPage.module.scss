@@ -58,3 +58,18 @@
 .emptyState {
   padding: 2rem 0.5rem;
 }
+
+.filterBarWrapper {
+  margin-bottom: 1rem;
+}
+
+.filterControls {
+  display: flex;
+  gap: 1rem;
+
+  // Each Select fills available space equally
+  > * {
+    flex: 1;
+    min-width: 140px;
+  }
+}

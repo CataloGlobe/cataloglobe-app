@@ -44,6 +44,59 @@
   gap: 16px;
 }
 
+/* ===== Deleted tenants section ===== */
+.deletedSection {
+  margin-top: 40px;
+}
+
+.deletedSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.deletedToggle {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6366f1;
+  font-family: inherit;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+.deletedTableWrapper {
+  margin-top: 12px;
+}
+
+.rowInProgress {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.purgeNormal {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.purgeUrgent {
+  font-size: 12px;
+  font-weight: 600;
+  color: #c2410c;
+}
+
 /* ===== Create business dashed card ===== */
 .createCard {
   border: 2px dashed var(--border, #e5e7eb);

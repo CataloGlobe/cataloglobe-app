@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { MEMBER_STATUS_LABEL, MEMBER_STATUS_BADGE } from "@/types/v2/memberStatus";
 import styles from "./TeamPage.module.scss";
 
 const STORAGE_KEY = "cg_v2_selected_tenant_id";
@@ -146,8 +147,8 @@ export default function TeamPage() {
                 header: "Status",
                 width: "140px",
                 cell: (_, row) => (
-                    <Badge variant={row.status === "active" ? "success" : "warning"}>
-                        {row.status === "active" ? "Active" : "Pending"}
+                    <Badge variant={MEMBER_STATUS_BADGE[row.status] ?? "secondary"}>
+                        {MEMBER_STATUS_LABEL[row.status] ?? row.status}
                     </Badge>
                 )
             },

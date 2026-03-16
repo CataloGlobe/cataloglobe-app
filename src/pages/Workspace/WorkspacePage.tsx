@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { supabase } from "@/services/supabase/client";
@@ -7,8 +7,14 @@ import Text from "@/components/ui/Text/Text";
 import BusinessCard from "@/components/Businesses/BusinessCard";
 import { CreateBusinessDrawer } from "@/components/Businesses/CreateBusinessDrawer";
 import { InviteModal, PendingInviteData } from "@/components/Businesses/InviteModal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { leaveTenant, restoreTenant, getDeletedTenants, purgeTenantNow } from "@/services/supabase/v2/tenants";
+import type { DeletedTenant } from "@/services/supabase/v2/tenants";
 import type { V2Tenant } from "@/types/v2/tenant";
 import { Button } from "@/components/ui/Button/Button";
+import { useToast } from "@/context/Toast/ToastContext";
+import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import styles from "./WorkspacePage.module.scss";
 
 const STORAGE_KEY = "cg_v2_selected_tenant_id";
@@ -24,6 +30,7 @@ function countByTenant(rows: { tenant_id: string }[] | null): Record<string, num
 export default function WorkspacePage() {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const { showToast } = useToast();
 
     const [tenants, setTenants] = useState<V2Tenant[]>([]);
     const [loading, setLoading] = useState(true);
@@ -33,6 +40,11 @@ export default function WorkspacePage() {
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [pendingInvites, setPendingInvites] = useState<PendingInviteData[]>([]);
     const [activeInvite, setActiveInvite] = useState<PendingInviteData | null>(null);
+    const [leaveTarget, setLeaveTarget] = useState<{ id: string; name: string } | null>(null);
+    const [deletedTenants, setDeletedTenants] = useState<DeletedTenant[]>([]);
+    const [deletedSectionOpen, setDeletedSectionOpen] = useState(false);
+    const [purgeTarget, setPurgeTarget] = useState<{ id: string; name: string } | null>(null);
+    const [actionInProgressId, setActionInProgressId] = useState<string | null>(null);
 
     useEffect(() => {
         if (!user) return;
@@ -76,16 +88,22 @@ export default function WorkspacePage() {
         fetchInvites();
     }, [user?.id]);
 
-    useEffect(() => {
+    const loadTenants = async () => {
         if (!user) return;
-        supabase
-            .from("v2_user_tenants_view")
-            .select("id, owner_user_id, name, vertical_type, created_at, user_role")
-            .order("created_at", { ascending: true })
-            .then(({ data }) => {
-                setTenants((data as V2Tenant[]) ?? []);
-                setLoading(false);
-            });
+        const [activeResult, deletedResult] = await Promise.all([
+            supabase
+                .from("v2_user_tenants_view")
+                .select("id, owner_user_id, name, vertical_type, created_at, user_role")
+                .order("created_at", { ascending: true }),
+            getDeletedTenants().catch(() => [] as DeletedTenant[])
+        ]);
+        setTenants((activeResult.data as V2Tenant[]) ?? []);
+        setDeletedTenants(deletedResult);
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        loadTenants();
     }, [user?.id]);
 
     // Batch-fetch stats for all tenants in parallel
@@ -119,6 +137,123 @@ export default function WorkspacePage() {
         setActiveInvite(null);
         setPendingInvites(prev => prev.filter(i => i.id !== inviteId));
     };
+
+    const handleLeaveRequest = (id: string) => {
+        const tenant = tenants.find(t => t.id === id);
+        if (!tenant) return;
+        setLeaveTarget({ id, name: tenant.name });
+    };
+
+    const getDaysLeft = (deletedAt: string): number => {
+        const purgeDate = new Date(deletedAt);
+        purgeDate.setDate(purgeDate.getDate() + 30);
+        return Math.max(0, Math.ceil((purgeDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+    };
+
+    const formatDeletedAt = (deletedAt: string): string =>
+        new Date(deletedAt).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+
+    const handleRestore = async (tenantId: string) => {
+        setActionInProgressId(tenantId);
+        try {
+            await restoreTenant(tenantId);
+            await loadTenants();
+        } catch (err) {
+            showToast({
+                type: "error",
+                message: err instanceof Error ? err.message : "Errore durante il ripristino."
+            });
+        } finally {
+            setActionInProgressId(null);
+        }
+    };
+
+    const handlePurgeConfirm = async (): Promise<boolean> => {
+        if (!purgeTarget) return false;
+        setActionInProgressId(purgeTarget.id);
+        try {
+            await purgeTenantNow(purgeTarget.id);
+            setDeletedTenants(prev => prev.filter(t => t.id !== purgeTarget.id));
+            return true;
+        } catch (err) {
+            if (err instanceof Error && err.message.includes("Azienda non trovata")) {
+                await loadTenants();
+            }
+            showToast({
+                type: "error",
+                message: err instanceof Error ? err.message : "Errore durante l'eliminazione."
+            });
+            return false;
+        } finally {
+            setActionInProgressId(null);
+        }
+    };
+
+    const handleLeaveConfirm = async (): Promise<boolean> => {
+        if (!leaveTarget) return false;
+        try {
+            await leaveTenant(leaveTarget.id);
+            setTenants(prev => prev.filter(t => t.id !== leaveTarget.id));
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
+    const deletedColumns = useMemo<ColumnDefinition<DeletedTenant>[]>(() => [
+        {
+            id: "name",
+            header: "Azienda",
+            cell: (_, row) => <Text variant="body-sm" weight={600}>{row.name}</Text>,
+        },
+        {
+            id: "deleted_at",
+            header: "Eliminata il",
+            width: "140px",
+            cell: (_, row) => (
+                <Text variant="body-sm" colorVariant="muted">{formatDeletedAt(row.deleted_at)}</Text>
+            ),
+        },
+        {
+            id: "purge_date",
+            header: "Cancellazione definitiva",
+            width: "200px",
+            cell: (_, row) => {
+                const daysLeft = getDaysLeft(row.deleted_at);
+                const isUrgent = daysLeft <= 3;
+                return (
+                    <span className={isUrgent ? styles.purgeUrgent : styles.purgeNormal}>
+                        {isUrgent
+                            ? (daysLeft === 0 ? "⚠ Scaduta" : `⚠ tra ${daysLeft} giorn${daysLeft === 1 ? "o" : "i"}`)
+                            : `In ${daysLeft} giorn${daysLeft === 1 ? "o" : "i"}`}
+                    </span>
+                );
+            },
+        },
+        {
+            id: "actions",
+            header: "",
+            width: "56px",
+            align: "right",
+            cell: (_, row) => (
+                <TableRowActions
+                    actions={[
+                        {
+                            label: "Ripristina",
+                            onClick: () => handleRestore(row.id),
+                        },
+                        {
+                            label: "Elimina definitivamente",
+                            variant: "destructive",
+                            separator: true,
+                            onClick: () => setPurgeTarget({ id: row.id, name: row.name }),
+                        },
+                    ]}
+                />
+            ),
+        },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    ], [handleRestore]);
 
     const header = (
         <div className={styles.header}>
@@ -184,7 +319,7 @@ export default function WorkspacePage() {
                             catalogCount={catalogCounts[tenant.id] ?? 0}
                             onSelect={handleSelect}
                             onOpenSettings={id => navigate(`/business/${id}/settings`)}
-                            onLeave={_id => { /* Step 2 */ }}
+                            onLeave={handleLeaveRequest}
                         />
                     ))}
 
@@ -197,9 +332,58 @@ export default function WorkspacePage() {
                         </Text>
                     </button>
                 </div>
+
+                {deletedTenants.length > 0 && (
+                    <div className={styles.deletedSection}>
+                        <div className={styles.deletedSectionHeader}>
+                            <Text variant="body" weight={600}>
+                                {`Aziende in eliminazione (${deletedTenants.length})`}
+                            </Text>
+                            <button
+                                className={styles.deletedToggle}
+                                onClick={() => setDeletedSectionOpen(o => !o)}
+                            >
+                                {deletedSectionOpen ? "Nascondi" : "Mostra"}
+                            </button>
+                        </div>
+
+                        {deletedSectionOpen && (
+                            <div className={styles.deletedTableWrapper}>
+                                <DataTable<DeletedTenant>
+                                    data={[...deletedTenants].sort((a, b) =>
+                                        new Date(b.deleted_at).getTime() - new Date(a.deleted_at).getTime()
+                                    )}
+                                    columns={deletedColumns}
+                                    density="compact"
+                                    rowClassName={row =>
+                                        actionInProgressId === row.id ? styles.rowInProgress : undefined
+                                    }
+                                />
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             <CreateBusinessDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+
+            <ConfirmDialog
+                isOpen={leaveTarget !== null}
+                onClose={() => setLeaveTarget(null)}
+                onConfirm={handleLeaveConfirm}
+                title={`Lasciare "${leaveTarget?.name}"?`}
+                message="Non avrai più accesso a questa azienda. Potrai essere reinvitato dal proprietario."
+                confirmLabel="Lascia azienda"
+            />
+
+            <ConfirmDialog
+                isOpen={purgeTarget !== null}
+                onClose={() => setPurgeTarget(null)}
+                onConfirm={handlePurgeConfirm}
+                title="Eliminare definitivamente questa azienda?"
+                message="Questa operazione è irreversibile. Tutti i dati dell'azienda verranno cancellati definitivamente."
+                confirmLabel="Elimina definitivamente"
+            />
 
             <InviteModal
                 invite={activeInvite}

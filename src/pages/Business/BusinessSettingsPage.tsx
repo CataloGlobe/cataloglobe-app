@@ -132,8 +132,8 @@ export default function BusinessSettingsPage() {
                                 Elimina azienda
                             </Text>
                             <Text variant="body-sm" colorVariant="muted">
-                                Questa azione è irreversibile. Tutti i dati associati verranno
-                                eliminati.
+                                L&apos;azienda verrà spostata nell&apos;area &ldquo;In eliminazione&rdquo;.
+                                Potrai ripristinarla entro 30 giorni.
                             </Text>
                         </div>
                         <Button variant="danger" onClick={() => setDeleteDialogOpen(true)}>

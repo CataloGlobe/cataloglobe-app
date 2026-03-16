@@ -5,7 +5,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { Card } from "@/components/ui/Card/Card";
 import Text from "@/components/ui/Text/Text";
-import { Badge, BadgeVariant } from "@/components/ui/Badge/Badge";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
 import { Select } from "@/components/ui/Select/Select";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
@@ -18,6 +18,8 @@ import ModalLayout, {
     ModalLayoutHeader,
 } from "@/components/ui/ModalLayout/ModalLayout";
 import { Ban, Send, Trash2, UserCog, UserMinus } from "lucide-react";
+import { MEMBER_STATUS_LABEL, MEMBER_STATUS_BADGE } from "@/types/v2/memberStatus";
+import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import styles from "./TeamPage.module.scss";
 
 type TenantMemberRow = {
@@ -34,21 +36,6 @@ type TenantMemberRow = {
     created_at: string;
 };
 
-const STATUS_BADGE: Record<string, BadgeVariant> = {
-    active:   "success",
-    pending:  "warning",
-    declined: "danger",
-    revoked:  "secondary",
-    expired:  "secondary",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-    active:   "Attivo",
-    pending:  "In attesa",
-    declined: "Rifiutato",
-    revoked:  "Annullato",
-    expired:  "Scaduto",
-};
 
 function formatExpiry(expiresAt: string): string {
     const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000);
@@ -71,7 +58,33 @@ export default function TeamPage() {
     const [pendingRole, setPendingRole] = useState("member");
     const [changingRole, setChangingRole] = useState(false);
 
+    // Filter state — default: show only active + invited members (exclude 'left')
+    const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState("active_invited");
+    const [roleFilter, setRoleFilter] = useState("");
+
     const isAdmin = userRole === "owner" || userRole === "admin";
+
+    const filteredMembers = useMemo(() => {
+        let result = members;
+
+        if (search.trim()) {
+            const q = search.trim().toLowerCase();
+            result = result.filter(m => m.email?.toLowerCase().includes(q));
+        }
+
+        if (statusFilter === "active_invited") {
+            result = result.filter(m => m.status === "active" || m.status === "invited");
+        } else if (statusFilter) {
+            result = result.filter(m => m.status === statusFilter);
+        }
+
+        if (roleFilter) {
+            result = result.filter(m => m.role === roleFilter);
+        }
+
+        return result;
+    }, [members, search, statusFilter, roleFilter]);
 
     useEffect(() => {
         if (!selectedTenantId) return;
@@ -221,8 +234,8 @@ export default function TeamPage() {
                 width: "160px",
                 cell: (_, row) => (
                     <div className={styles.statusCell}>
-                        <Badge variant={STATUS_BADGE[row.status] ?? "secondary"}>
-                            {STATUS_LABEL[row.status] ?? row.status}
+                        <Badge variant={MEMBER_STATUS_BADGE[row.status] ?? "secondary"}>
+                            {MEMBER_STATUS_LABEL[row.status] ?? row.status}
                         </Badge>
                         {row.status === "pending" && row.invite_expires_at && (
                             <Text variant="body-sm" colorVariant="muted" className={styles.expiryHint}>
@@ -364,14 +377,53 @@ export default function TeamPage() {
                             <Text variant="body">Seleziona un&apos;azienda per vedere i membri.</Text>
                         </div>
                     ) : (
+                        <>
+                        <div className={styles.filterBarWrapper}>
+                        <FilterBar
+                            search={{
+                                value: search,
+                                onChange: setSearch,
+                                placeholder: "Cerca per email...",
+                            }}
+                            advancedFilters={
+                                <div className={styles.filterControls}>
+                                    <Select
+                                        label="Stato"
+                                        value={statusFilter}
+                                        onChange={e => setStatusFilter(e.target.value)}
+                                        options={[
+                                            { value: "active_invited", label: "Attivi e invitati" },
+                                            { value: "",               label: "Tutti" },
+                                            { value: "active",         label: "Attivi" },
+                                            { value: "invited",        label: "Invitati" },
+                                            { value: "left",           label: "Ex membri" },
+                                        ]}
+                                    />
+                                    <Select
+                                        label="Ruolo"
+                                        value={roleFilter}
+                                        onChange={e => setRoleFilter(e.target.value)}
+                                        options={[
+                                            { value: "",        label: "Tutti" },
+                                            { value: "owner",   label: "Owner" },
+                                            { value: "admin",   label: "Admin" },
+                                            { value: "manager", label: "Manager" },
+                                            { value: "staff",   label: "Staff" },
+                                        ]}
+                                    />
+                                </div>
+                            }
+                        />
+                        </div>
                         <DataTable<TenantMemberRow>
-                            data={members}
+                            data={filteredMembers}
                             columns={columns}
                             isLoading={loading}
                             emptyState={emptyState}
                             loadingState={loadingState}
                             density="extended"
                         />
+                        </>
                     )}
                 </Card>
             </div>
