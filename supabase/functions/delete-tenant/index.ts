@@ -112,9 +112,17 @@ serve(async req => {
 
         console.log(`delete-tenant: Tenant ${tenantId} soft-deleted by user ${userId}`);
 
+        supabaseAdmin
+            .from("v2_audit_logs")
+            .insert({ tenant_id: tenantId, user_id: userId, event_type: "tenant_deleted" })
+            .then(({ error }) => {
+                if (error) console.error("delete-tenant: audit log insert failed:", error.message);
+            });
+
         return json(200, { success: true });
     } catch (err) {
-        console.error("delete-tenant: Unhandled error:", err);
-        return json(500, { error: "delete_failed" });
+        const message = err instanceof Error ? err.message : String(err);
+        console.error("delete-tenant: Unhandled error:", message);
+        return json(500, { error: "delete_failed", detail: message });
     }
 });
