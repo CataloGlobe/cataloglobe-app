@@ -119,10 +119,13 @@ type OverrideRow = {
     visible_override: boolean | null;
 };
 
-type BusinessRow = {
+type ActivityRow = {
     id: string;
     name: string;
-    user_id: string;
+    tenant_id: string;
+    v2_tenants: {
+        owner_user_id: string;
+    };
 };
 
 const corsHeaders = {
@@ -564,20 +567,27 @@ serve(async req => {
             return json(401, { error: "unauthorized" });
         }
 
-        // 2) Fetch business (activity) and verify ownership
-        const { data: business, error: businessError } = await supabase
-            .from("businesses")
-            .select("id, name, user_id")
+        // 2) Fetch activity and verify ownership
+        const { data: activity, error: activityError } = await supabase
+            .from("v2_activities")
+            .select(`
+                id,
+                name,
+                tenant_id,
+                v2_tenants!inner (
+                    owner_user_id
+                )
+            `)
             .eq("id", activityId)
             .single();
 
-        if (businessError || !business) {
+        if (activityError || !activity) {
             return json(404, { error: "business_not_found" });
         }
 
-        const businessRow = business as BusinessRow;
+        const businessRow = activity as unknown as ActivityRow;
 
-        if (businessRow.user_id !== authData.user.id) {
+        if (businessRow.v2_tenants.owner_user_id !== authData.user.id) {
             return json(403, { error: "forbidden" });
         }
 

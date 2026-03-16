@@ -25,7 +25,7 @@ export interface Profile {
 export interface Review {
     id: string;
     user_id: string;
-    business_id: string | null;
+    activity_id: string | null;
     rating: number;
     comment: string;
     source: string;

@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-import { useAuth } from "@context/useAuth";
+import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
-import { getUserBusinesses } from "@services/supabase/businesses";
+import { getActivities } from "@/services/supabase/v2/activities";
 import { getBusinessReviews, deleteReview } from "@services/supabase/reviews";
 import type { Review } from "@/types/database";
 import type { BusinessWithCapabilities } from "@/types/Businesses";
@@ -32,7 +32,7 @@ const TAG_OPTIONS = [
 ];
 
 export default function Reviews() {
-    const { user } = useAuth();
+    const tenantId = useTenantId();
     const { selectedTenant } = useTenant();
     const location = useLocation();
 
@@ -70,10 +70,10 @@ export default function Reviews() {
     /** ------------------------ FETCH INITIAL ------------------------ */
     useEffect(() => {
         async function init() {
-            if (!user) return;
+            if (!tenantId) return;
             setLoading(true);
 
-            const userBusinesses = await getUserBusinesses(user.id);
+            const userBusinesses = await getActivities(tenantId);
             setBusinesses(userBusinesses);
 
             const first = preselectedBusinessId ?? userBusinesses[0]?.id ?? null;
@@ -85,7 +85,7 @@ export default function Reviews() {
         }
 
         void init();
-    }, [user, preselectedBusinessId, fetchReviews]);
+    }, [tenantId, preselectedBusinessId, fetchReviews]);
 
     /** ------------------------ STATISTICHE ------------------------ */
     const stats = useMemo(() => {

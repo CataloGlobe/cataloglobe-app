@@ -16,13 +16,13 @@ import {
 } from "recharts";
 import { getAnalyticsReviews } from "@services/supabase/reviews";
 import { getAnalyticsQrScans } from "@services/supabase/qrScans";
-import { useAuth } from "@context/useAuth";
+import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import Text from "@components/ui/Text/Text";
 import Skeleton from "@components/ui/Skeleton/Skeleton";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import type { AnalyticsReview } from "@services/supabase/reviews";
-import { getUserBusinesses } from "@services/supabase/businesses";
+import { getActivities } from "@/services/supabase/v2/activities";
 import styles from "./Analytics.module.scss";
 import { Select } from "@/components/ui/Select/Select";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
@@ -33,7 +33,7 @@ const COLORS = ["#ef4444", "#f97316", "#facc15", "#22c55e", "#3b82f6"];
 
 // Estendiamo il tipo per supportare più ristoranti senza rompere nulla
 type ExtendedAnalyticsReview = AnalyticsReview & {
-    business_id?: string | null;
+    activity_id?: string | null;
     restaurant_name?: string | null;
 };
 
@@ -49,7 +49,7 @@ type BusinessOption = {
 };
 
 export default function Analytics() {
-    const { user } = useAuth();
+    const tenantId = useTenantId();
     const { selectedTenant } = useTenant();
 
     const [reviews, setReviews] = useState<ExtendedAnalyticsReview[]>([]);
@@ -66,13 +66,13 @@ export default function Analytics() {
     // 🔹 Caricamento dati reviews + scans
     useEffect(() => {
         async function init() {
-            if (!user?.id) return;
+            if (!tenantId) return;
 
             setIsLoadingReviews(true);
             setIsLoadingScans(true);
 
             // 1. Carico i ristoranti
-            const userBusinesses = await getUserBusinesses(user.id);
+            const userBusinesses = await getActivities(tenantId);
             setBusinesses(userBusinesses);
 
             // 2. Imposto default ristorante
@@ -92,14 +92,14 @@ export default function Analytics() {
         }
 
         void init();
-    }, [user?.id]);
+    }, [tenantId]);
 
     // 🔹 Opzioni ristoranti derivate dai dati (non serve chiamata extra)
     const restaurantOptions = useMemo<BusinessOption[]>(() => {
         const map = new Map<string, BusinessOption>();
 
         reviews.forEach(r => {
-            const id = r.business_id;
+            const id = r.activity_id;
             if (!id) return;
 
             if (!map.has(id)) {
@@ -134,10 +134,10 @@ export default function Analytics() {
             if (created < cutoff) return false;
 
             if (selectedBusinessId !== "all") {
-                return r.business_id === selectedBusinessId;
+                return r.activity_id === selectedBusinessId;
             }
 
-            return selectedBusinessId === "all" || !r.business_id;
+            return selectedBusinessId === "all" || !r.activity_id;
         });
     }, [reviews, cutoff, selectedBusinessId]);
 

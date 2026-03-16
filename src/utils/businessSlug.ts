@@ -1,16 +1,17 @@
 import { supabase } from "@/services/supabase/client";
 import { generateSlug, generateRandomSuffix } from "./slugify";
 
-export async function ensureUniqueBusinessSlug(rawName: string): Promise<string> {
+export async function ensureUniqueBusinessSlug(rawName: string, tenantId: string): Promise<string> {
     const base = generateSlug(rawName || "");
 
     // fallback minimale se il nome è vuoto o slug è vuoto
     const baseSlug = base || "business";
 
-    // 1) recuperiamo tutti gli slug che iniziano con baseSlug
+    // 1) recuperiamo tutti gli slug che iniziano con baseSlug, scoped per tenant
     const { data, error } = await supabase
-        .from("businesses")
+        .from("v2_activities")
         .select("slug")
+        .eq("tenant_id", tenantId)
         .ilike("slug", `${baseSlug}%`);
 
     if (error) {
