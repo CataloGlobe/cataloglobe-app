@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import type { V2Tenant } from "@/types/v2/tenant";
+import type { V2Tenant } from "@/types/tenant";
 
 export interface TenantContextType {
     tenants: V2Tenant[];

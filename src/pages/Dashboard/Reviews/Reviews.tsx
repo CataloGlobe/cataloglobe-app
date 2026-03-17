@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
-import { getActivities } from "@/services/supabase/v2/activities";
+import { getActivities } from "@/services/supabase/activities";
 import { getBusinessReviews, deleteReview } from "@services/supabase/reviews";
 import type { Review } from "@/types/database";
 import type { BusinessWithCapabilities } from "@/types/Businesses";

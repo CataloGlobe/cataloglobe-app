@@ -17,7 +17,7 @@ import {
     updateCatalog,
     deleteCatalog,
     V2Catalog
-} from "@/services/supabase/v2/catalogs";
+} from "@/services/supabase/catalogs";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";

@@ -4,15 +4,15 @@ import {
     V2ActivityGroupInsert,
     V2ActivityGroupUpdate,
     V2ActivityGroupWithCounts
-} from "@/types/v2/activity-group";
+} from "@/types/activity-group";
 
 export async function getActivityGroups(tenantId: string): Promise<V2ActivityGroupWithCounts[]> {
     const { data, error } = await supabase
-        .from("v2_activity_groups")
+        .from("activity_groups")
         .select(
             `
             *,
-            members:v2_activity_group_members(count)
+            members:activity_group_members(count)
         `
         )
         .eq("tenant_id", tenantId)
@@ -32,7 +32,7 @@ export async function getGroupWithMembers(
     tenantId: string
 ): Promise<{ group: V2ActivityGroup; activityIds: string[] }> {
     const { data: group, error: groupError } = await supabase
-        .from("v2_activity_groups")
+        .from("activity_groups")
         .select("*")
         .eq("id", groupId)
         .eq("tenant_id", tenantId)
@@ -41,7 +41,7 @@ export async function getGroupWithMembers(
     if (groupError) throw groupError;
 
     const { data: members, error: membersError } = await supabase
-        .from("v2_activity_group_members")
+        .from("activity_group_members")
         .select("activity_id")
         .eq("group_id", groupId)
         .eq("tenant_id", tenantId);
@@ -56,7 +56,7 @@ export async function getGroupWithMembers(
 
 export async function createActivityGroup(data: V2ActivityGroupInsert): Promise<V2ActivityGroup> {
     const { data: newGroup, error } = await supabase
-        .from("v2_activity_groups")
+        .from("activity_groups")
         .insert({
             tenant_id: data.tenant_id,
             name: data.name,
@@ -75,7 +75,7 @@ export async function updateActivityGroup(
     data: V2ActivityGroupUpdate
 ): Promise<V2ActivityGroup> {
     const { data: updatedGroup, error } = await supabase
-        .from("v2_activity_groups")
+        .from("activity_groups")
         .update(data)
         .eq("id", id)
         .eq("tenant_id", tenantId)
@@ -88,7 +88,7 @@ export async function updateActivityGroup(
 
 export async function deleteActivityGroup(id: string, tenantId: string): Promise<void> {
     const { error } = await supabase
-        .from("v2_activity_groups")
+        .from("activity_groups")
         .delete()
         .eq("id", id)
         .eq("tenant_id", tenantId)
@@ -104,7 +104,7 @@ export async function syncGroupMembers(
 ): Promise<void> {
     // 1. Fetch current members
     const { data: currentMembers, error: fetchError } = await supabase
-        .from("v2_activity_group_members")
+        .from("activity_group_members")
         .select("activity_id")
         .eq("group_id", groupId)
         .eq("tenant_id", tenantId);
@@ -120,7 +120,7 @@ export async function syncGroupMembers(
     // 3. Delete removed
     if (toRemove.length > 0) {
         const { error: deleteError } = await supabase
-            .from("v2_activity_group_members")
+            .from("activity_group_members")
             .delete()
             .eq("group_id", groupId)
             .eq("tenant_id", tenantId)
@@ -138,7 +138,7 @@ export async function syncGroupMembers(
         }));
 
         const { error: insertError } = await supabase
-            .from("v2_activity_group_members")
+            .from("activity_group_members")
             .insert(insertData);
 
         if (insertError) throw insertError;
@@ -147,8 +147,8 @@ export async function syncGroupMembers(
 
 export async function getGroupsForActivity(activityId: string, tenantId: string): Promise<V2ActivityGroup[]> {
     const { data, error } = await supabase
-        .from("v2_activity_group_members")
-        .select("group:v2_activity_groups(*)")
+        .from("activity_group_members")
+        .select("group:activity_groups(*)")
         .eq("activity_id", activityId)
         .eq("tenant_id", tenantId);
 

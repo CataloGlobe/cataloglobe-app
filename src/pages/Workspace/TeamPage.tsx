@@ -9,10 +9,10 @@ import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { MEMBER_STATUS_LABEL, MEMBER_STATUS_BADGE } from "@/types/v2/memberStatus";
+import { MEMBER_STATUS_LABEL, MEMBER_STATUS_BADGE } from "@/types/memberStatus";
 import styles from "./TeamPage.module.scss";
 
-const STORAGE_KEY = "cg_v2_selected_tenant_id";
+import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
 
 type TenantMemberRow = {
     tenant_id: string;
@@ -58,12 +58,12 @@ export default function TeamPage() {
 
             const [membersRes, tenantRes] = await Promise.all([
                 supabase
-                    .from("v2_tenant_members_view")
+                    .from("tenant_members_view")
                     .select("tenant_id, user_id, email, role, status, invited_by, created_at")
                     .eq("tenant_id", selectedTenantId)
                     .order("created_at", { ascending: true }),
                 supabase
-                    .from("v2_user_tenants_view")
+                    .from("user_tenants_view")
                     .select("id, name, user_role")
                     .eq("id", selectedTenantId)
                     .maybeSingle()

@@ -10,7 +10,7 @@ import {
 import { Button, Card } from "@/components/ui";
 import { Badge } from "@/components/ui/Badge/Badge";
 import UIText from "@/components/ui/Text/Text";
-import { V2Activity } from "@/types/v2/activity";
+import { V2Activity } from "@/types/activity";
 import { QRCodeSVG } from "qrcode.react";
 import { downloadMenuPdf } from "@/services/pdf/downloadMenuPdf";
 import { useToast } from "@/context/Toast/ToastContext";

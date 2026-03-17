@@ -4,7 +4,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { Drawer } from "@/components/ui/Drawer/Drawer";
 import { StylePropertiesPanel } from "./StylePropertiesPanel";
 import { StyleTokenModel } from "./StyleTokenModel";
-import { V2Style } from "@/services/supabase/v2/styles";
+import { V2Style } from "@/services/supabase/styles";
 import styles from "../Styles.module.scss";
 
 // Simple hook for media query

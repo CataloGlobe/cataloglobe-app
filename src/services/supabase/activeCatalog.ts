@@ -1,9 +1,9 @@
 import { supabase } from "@/services/supabase/client";
 import {
-    resolveActivityCatalogsV2,
+    resolveActivityCatalogs,
     findLayoutCatalogId,
     loadCatalogById
-} from "./resolveActivityCatalogsV2";
+} from "./resolveActivityCatalogs";
 
 // ==========================================
 // TYPES
@@ -52,7 +52,7 @@ export async function getActiveCatalogForActivities(
     const resolvedList = await Promise.all(
         activityIds.map(async activityId => {
             try {
-                const resolved = await resolveActivityCatalogsV2(activityId, now);
+                const resolved = await resolveActivityCatalogs(activityId, now);
                 // The resolver returns the catalog data if there is an active catalog.
                 // We only need the catalogId — extract it from the returned structure.
                 const catalogId = (resolved as { catalog?: { id?: string } }).catalog?.id ?? null;
@@ -73,7 +73,7 @@ export async function getActiveCatalogForActivities(
 
     if (catalogIds.length > 0) {
         const { data, error } = await supabase
-            .from("v2_catalogs")
+            .from("catalogs")
             .select("id, name")
             .in("id", catalogIds);
 
@@ -157,7 +157,7 @@ export async function updateActivityProductVisibility(
 ): Promise<void> {
     // 1. Get existing record to check current state
     const { data: existing } = await supabase
-        .from("v2_activity_product_overrides")
+        .from("activity_product_overrides")
         .select("id, visible_override, price_override")
         .eq("activity_id", activityId)
         .eq("product_id", productId)
@@ -178,7 +178,7 @@ export async function updateActivityProductVisibility(
 
     if (nextVisibleOverride === null && (!existing || existing.price_override === null)) {
         if (existing) {
-            await supabase.from("v2_activity_product_overrides").delete().eq("id", existing.id);
+            await supabase.from("activity_product_overrides").delete().eq("id", existing.id);
         }
         return;
     }
@@ -192,13 +192,13 @@ export async function updateActivityProductVisibility(
 
     if (existing) {
         const { error } = await supabase
-            .from("v2_activity_product_overrides")
+            .from("activity_product_overrides")
             .update(upsertData)
             .eq("id", existing.id);
         if (error) throw error;
     } else {
         const { error } = await supabase
-            .from("v2_activity_product_overrides")
+            .from("activity_product_overrides")
             .insert([{ ...upsertData, id: crypto.randomUUID() }]);
         if (error) throw error;
     }
@@ -211,7 +211,7 @@ export async function getActivityProductOverrides(
     activityId: string
 ): Promise<Record<string, { visible_override: boolean | null; price_override: number | null }>> {
     const { data, error } = await supabase
-        .from("v2_activity_product_overrides")
+        .from("activity_product_overrides")
         .select("product_id, visible_override, price_override")
         .eq("activity_id", activityId);
 

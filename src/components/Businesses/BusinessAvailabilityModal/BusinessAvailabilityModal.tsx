@@ -14,7 +14,7 @@ import {
     updateActivityProductVisibility,
     type RenderableProduct,
     type RenderableCatalog
-} from "@/services/supabase/v2/activeCatalog";
+} from "@/services/supabase/activeCatalog";
 import styles from "./BusinessAvailabilityModal.module.scss";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 

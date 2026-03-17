@@ -20,7 +20,7 @@ export type V2ProductIngredient = {
 
 export async function getIngredients(tenantId: string): Promise<V2Ingredient[]> {
     const { data, error } = await supabase
-        .from("v2_ingredients")
+        .from("ingredients")
         .select("*")
         .eq("tenant_id", tenantId)
         .order("name", { ascending: true });
@@ -31,7 +31,7 @@ export async function getIngredients(tenantId: string): Promise<V2Ingredient[]> 
 
 export async function createIngredient(tenantId: string, name: string): Promise<V2Ingredient> {
     const { data, error } = await supabase
-        .from("v2_ingredients")
+        .from("ingredients")
         .insert({
             tenant_id: tenantId,
             name: name.trim()
@@ -50,7 +50,7 @@ export async function createIngredient(tenantId: string, name: string): Promise<
 }
 
 export async function deleteIngredient(id: string): Promise<void> {
-    const { error } = await supabase.from("v2_ingredients").delete().eq("id", id);
+    const { error } = await supabase.from("ingredients").delete().eq("id", id);
 
     if (error) throw error;
 }
@@ -61,7 +61,7 @@ export async function deleteIngredient(id: string): Promise<void> {
 
 export async function getProductIngredients(productId: string): Promise<V2ProductIngredient[]> {
     const { data, error } = await supabase
-        .from("v2_product_ingredients")
+        .from("product_ingredients")
         .select("*")
         .eq("product_id", productId);
 
@@ -85,7 +85,7 @@ export async function setProductIngredients(
     // 3. Remove deselected ingredients
     if (toRemove.length > 0) {
         const { error: removeError } = await supabase
-            .from("v2_product_ingredients")
+            .from("product_ingredients")
             .delete()
             .eq("product_id", productId)
             .in("ingredient_id", toRemove);
@@ -102,7 +102,7 @@ export async function setProductIngredients(
         }));
 
         const { error: addError } = await supabase
-            .from("v2_product_ingredients")
+            .from("product_ingredients")
             .insert(insertPayload);
 
         if (addError) throw addError;

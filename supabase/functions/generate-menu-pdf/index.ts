@@ -123,7 +123,7 @@ type ActivityRow = {
     id: string;
     name: string;
     tenant_id: string;
-    v2_tenants: {
+    tenants: {
         owner_user_id: string;
     };
 };
@@ -569,12 +569,12 @@ serve(async req => {
 
         // 2) Fetch activity and verify ownership
         const { data: activity, error: activityError } = await supabase
-            .from("v2_activities")
+            .from("activities")
             .select(`
                 id,
                 name,
                 tenant_id,
-                v2_tenants!inner (
+                tenants!inner (
                     owner_user_id
                 )
             `)
@@ -587,7 +587,7 @@ serve(async req => {
 
         const businessRow = activity as unknown as ActivityRow;
 
-        if (businessRow.v2_tenants.owner_user_id !== authData.user.id) {
+        if (businessRow.tenants.owner_user_id !== authData.user.id) {
             return json(403, { error: "forbidden" });
         }
 
@@ -596,7 +596,7 @@ serve(async req => {
         // 3) Resolve Active Layout Catalog
         const [activityRulesRes, groupMembersRes] = await Promise.all([
             supabase
-                .from("v2_schedules")
+                .from("schedules")
                 .select(
                     `
                 id,
@@ -606,7 +606,7 @@ serve(async req => {
                 days_of_week,
                 time_from,
                 time_to,
-                layout:v2_schedule_layout(catalog_id)
+                layout:schedule_layout(catalog_id)
             `
                 )
                 .eq("rule_type", "layout")
@@ -616,7 +616,7 @@ serve(async req => {
                 .order("priority", { ascending: true })
                 .order("created_at", { ascending: true }),
             supabase
-                .from("v2_activity_group_members")
+                .from("activity_group_members")
                 .select("group_id")
                 .eq("activity_id", activityId)
         ]);
@@ -637,7 +637,7 @@ serve(async req => {
         let activityGroupRows: RawLayoutRuleRow[] = [];
         if (groupIds.length > 0) {
             const { data, error } = await supabase
-                .from("v2_schedules")
+                .from("schedules")
                 .select(
                     `
                 id,
@@ -647,7 +647,7 @@ serve(async req => {
                 days_of_week,
                 time_from,
                 time_to,
-                layout:v2_schedule_layout(catalog_id)
+                layout:schedule_layout(catalog_id)
             `
                 )
                 .eq("rule_type", "layout")
@@ -679,20 +679,20 @@ serve(async req => {
 
         // 4) Load Catalog
         const { data: catalogData, error: catalogError } = await supabase
-            .from("v2_catalogs")
+            .from("catalogs")
             .select(
                 `
             id,
             name,
-            sections:v2_catalog_sections(
+            sections:catalog_sections(
                 id,
                 label,
                 order_index,
-                items:v2_catalog_items(
+                items:catalog_items(
                     id,
                     order_index,
                     visible,
-                    product:v2_products(id, base_price, name)
+                    product:products(id, base_price, name)
                 )
             )
         `
@@ -750,7 +750,7 @@ serve(async req => {
         // Retrieve active visibility rule
         const [visibilityRulesRes] = await Promise.all([
             supabase
-                .from("v2_schedules")
+                .from("schedules")
                 .select("id, priority, created_at, time_mode, days_of_week, time_from, time_to")
                 .eq("rule_type", "visibility")
                 .eq("enabled", true)
@@ -762,7 +762,7 @@ serve(async req => {
 
         // Evaluate Visibility Winner
         const activeVisibilityGroupRows = await supabase
-            .from("v2_schedules")
+            .from("schedules")
             .select("id, priority, created_at, time_mode, days_of_week, time_from, time_to")
             .eq("rule_type", "visibility")
             .eq("enabled", true)
@@ -787,7 +787,7 @@ serve(async req => {
 
         if (activeVisibilityRuleScheduleId && productIds.length > 0) {
             const { data: visibilityOverrideData } = await supabase
-                .from("v2_schedule_visibility_overrides")
+                .from("schedule_visibility_overrides")
                 .select("product_id, visible")
                 .eq("schedule_id", activeVisibilityRuleScheduleId)
                 .in("product_id", productIds);
@@ -819,7 +819,7 @@ serve(async req => {
 
         if (visibleProductIds.length > 0) {
             const { data: overrideData } = await supabase
-                .from("v2_activity_product_overrides")
+                .from("activity_product_overrides")
                 .select("product_id, visible_override")
                 .eq("activity_id", activityId)
                 .in("product_id", visibleProductIds);
@@ -832,7 +832,7 @@ serve(async req => {
         // Retrieve active price rule
         const [priceRulesRes] = await Promise.all([
             supabase
-                .from("v2_schedules")
+                .from("schedules")
                 .select("id, priority, created_at, time_mode, days_of_week, time_from, time_to")
                 .eq("rule_type", "price")
                 .eq("enabled", true)
@@ -843,7 +843,7 @@ serve(async req => {
         ]);
 
         const activePriceGroupRows = await supabase
-            .from("v2_schedules")
+            .from("schedules")
             .select("id, priority, created_at, time_mode, days_of_week, time_from, time_to")
             .eq("rule_type", "price")
             .eq("enabled", true)
@@ -868,7 +868,7 @@ serve(async req => {
 
         if (activePriceRuleScheduleId && visibleProductIds.length > 0) {
             const { data: priceOverrideData } = await supabase
-                .from("v2_schedule_price_overrides")
+                .from("schedule_price_overrides")
                 .select("product_id, override_price, show_original_price")
                 .eq("schedule_id", activePriceRuleScheduleId)
                 .in("product_id", visibleProductIds);

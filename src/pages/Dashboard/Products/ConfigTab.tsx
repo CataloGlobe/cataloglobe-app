@@ -14,7 +14,7 @@ import {
     createOptionValue,
     updateOptionValue,
     deleteOptionValue
-} from "@/services/supabase/v2/productOptions";
+} from "@/services/supabase/productOptions";
 import styles from "./ConfigTab.module.scss";
 
 interface ConfigTabProps {

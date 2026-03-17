@@ -19,7 +19,7 @@ import {
     updateFeaturedContent,
     FeaturedContentPricingMode,
     FeaturedContentStatus
-} from "@/services/supabase/v2/featuredContents";
+} from "@/services/supabase/featuredContents";
 import { useTenantId } from "@/context/useTenantId";
 import styles from "./Highlights.module.scss";
 
@@ -134,7 +134,7 @@ export default function FeaturedContentDetailPage() {
 
             // Dati minimi richiesti al backend
             const { data, error: fetchError } = await supabase
-                .from("v2_featured_contents")
+                .from("featured_contents")
                 .select(
                     "id, title, status, pricing_mode, bundle_price, subtitle, description, cta_text, cta_url, media_id, internal_name"
                 )

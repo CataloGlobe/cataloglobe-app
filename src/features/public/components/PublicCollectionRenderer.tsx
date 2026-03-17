@@ -1,6 +1,6 @@
 import React from "react";
 import type { Business } from "@/types/database";
-import { ResolvedCollections } from "@/services/supabase/v2/resolveActivityCatalogsV2";
+import { ResolvedCollections } from "@/services/supabase/resolveActivityCatalogs";
 import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 import PublicCatalogTree from "@/components/PublicCollectionView/PublicCatalogTree/PublicCatalogTree";

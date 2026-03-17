@@ -1,6 +1,6 @@
 import React from "react";
 import styles from "./FeaturedBlock.module.scss";
-import type { V2FeaturedContent } from "@/services/supabase/v2/resolveActivityCatalogsV2";
+import type { V2FeaturedContent } from "@/services/supabase/resolveActivityCatalogs";
 import Text from "@/components/ui/Text/Text";
 
 type Props = {

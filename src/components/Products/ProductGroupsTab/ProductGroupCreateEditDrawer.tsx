@@ -10,7 +10,7 @@ import {
     createProductGroup,
     updateProductGroup,
     ProductGroup
-} from "@/services/supabase/v2/productGroups";
+} from "@/services/supabase/productGroups";
 import styles from "./ProductGroupsTab.module.scss";
 
 export type GroupFormMode = "create" | "edit";

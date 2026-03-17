@@ -23,7 +23,7 @@ export type V2ProductAllergen = {
 
 export async function listAllergens(): Promise<V2SystemAllergen[]> {
     const { data, error } = await supabase
-        .from("v2_allergens")
+        .from("allergens")
         .select("*")
         .order("sort_order", { ascending: true });
 
@@ -39,7 +39,7 @@ export async function listAllergens(): Promise<V2SystemAllergen[]> {
 
 export async function getProductAllergens(productId: string, tenantId: string): Promise<number[]> {
     const { data, error } = await supabase
-        .from("v2_product_allergens")
+        .from("product_allergens")
         .select("allergen_id")
         .eq("product_id", productId)
         .eq("tenant_id", tenantId);
@@ -58,7 +58,7 @@ export async function setProductAllergens(
 
     // 1. Delete all existing allergens for this product
     const { error: deleteError } = await supabase
-        .from("v2_product_allergens")
+        .from("product_allergens")
         .delete()
         .eq("product_id", productId)
         .eq("tenant_id", tenantId);
@@ -75,7 +75,7 @@ export async function setProductAllergens(
         }));
 
         const { error: insertError } = await supabase
-            .from("v2_product_allergens")
+            .from("product_allergens")
             .insert(insertPayload);
 
         if (insertError) throw insertError;

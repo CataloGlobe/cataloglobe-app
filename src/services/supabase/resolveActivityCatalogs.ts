@@ -439,58 +439,58 @@ function normalizeCatalog(
 
 export async function loadCatalogById(catalogId: string): Promise<ResolvedCatalog | undefined> {
     const { data, error } = await supabase
-        .from("v2_catalogs")
+        .from("catalogs")
         .select(
             `
             id,
             name,
-            categories:v2_catalog_categories(
+            categories:catalog_categories(
               id,
               name,
               level,
               sort_order,
               parent_category_id,
-              products:v2_catalog_category_products(
+              products:catalog_category_products(
                 id,
                 sort_order,
-                product:v2_products(
+                product:products(
                   id,
                   name,
                   description,
                   base_price,
                   image_url,
-                  option_groups:v2_product_option_groups(
+                  option_groups:product_option_groups(
                     id,
                     name,
                     group_kind,
                     pricing_mode,
                     is_required,
                     max_selectable,
-                    values:v2_product_option_values(
+                    values:product_option_values(
                       id,
                       name,
                       absolute_price,
                       price_modifier
                     )
                   ),
-                  variants:v2_products(
+                  variants:products(
                     id,
                     name,
                     base_price,
-                    attributes:v2_product_attribute_values(
+                    attributes:product_attribute_values(
                         attribute_definition_id,
                         value_text,
                         value_number,
                         value_boolean,
                         value_json,
-                        definition:v2_product_attribute_definitions(
+                        definition:product_attribute_definitions(
                             code,
                             label,
                             type
                         )
                     ),
-                    allergens:v2_product_allergens(
-                        allergen:v2_allergens(
+                    allergens:product_allergens(
+                        allergen:allergens(
                             id,
                             code,
                             label_it,
@@ -498,20 +498,20 @@ export async function loadCatalogById(catalogId: string): Promise<ResolvedCatalo
                         )
                     )
                   ),
-                  attributes:v2_product_attribute_values(
+                  attributes:product_attribute_values(
                       attribute_definition_id,
                       value_text,
                       value_number,
                       value_boolean,
                       value_json,
-                      definition:v2_product_attribute_definitions(
+                      definition:product_attribute_definitions(
                           code,
                           label,
                           type
                       )
                   ),
-                  allergens:v2_product_allergens(
-                      allergen:v2_allergens(
+                  allergens:product_allergens(
+                      allergen:allergens(
                           id,
                           code,
                           label_it,
@@ -531,7 +531,7 @@ export async function loadCatalogById(catalogId: string): Promise<ResolvedCatalo
     const normalizedCatalog = normalizeCatalog((data as unknown as RawCatalogRow | null) ?? null);
 
     // DEBUG START
-    console.log("[resolveActivityCatalogsV2][loadCatalogById] catalog counts", {
+    console.log("[resolveActivityCatalogs][loadCatalogById] catalog counts", {
         catalogId,
         categoriesCount: normalizedCatalog?.categories?.length ?? 0
     });
@@ -572,7 +572,7 @@ export async function findLayoutCatalogId(
 ): Promise<{ catalogId: string | null; scheduleId: string | null; styleData?: ResolvedStyle }> {
     const [activityRulesRes, groupMembersRes] = await Promise.all([
         supabase
-            .from("v2_schedules")
+            .from("schedules")
             .select(
                 `
                 id,
@@ -582,12 +582,12 @@ export async function findLayoutCatalogId(
                 days_of_week,
                 time_from,
                 time_to,
-                layout:v2_schedule_layout(
+                layout:schedule_layout(
                     catalog_id,
-                    style:v2_styles(
+                    style:styles(
                         id,
                         name,
-                        current_version:v2_style_versions!v2_styles_current_version_id_fkey(
+                        current_version:style_versions!styles_current_version_id_fkey(
                             config
                         )
                     )
@@ -600,7 +600,7 @@ export async function findLayoutCatalogId(
             .eq("target_id", activityId)
             .order("priority", { ascending: true })
             .order("created_at", { ascending: true }),
-        supabase.from("v2_activity_group_members").select("group_id").eq("activity_id", activityId)
+        supabase.from("activity_group_members").select("group_id").eq("activity_id", activityId)
     ]);
 
     if (activityRulesRes.error) throw activityRulesRes.error;
@@ -616,7 +616,7 @@ export async function findLayoutCatalogId(
     let activityGroupRows: RawLayoutRuleRow[] = [];
     if (groupIds.length > 0) {
         const { data, error } = await supabase
-            .from("v2_schedules")
+            .from("schedules")
             .select(
                 `
                 id,
@@ -626,12 +626,12 @@ export async function findLayoutCatalogId(
                 days_of_week,
                 time_from,
                 time_to,
-                layout:v2_schedule_layout(
+                layout:schedule_layout(
                     catalog_id,
-                    style:v2_styles(
+                    style:styles(
                         id,
                         name,
-                        current_version:v2_style_versions!v2_styles_current_version_id_fkey(
+                        current_version:style_versions!styles_current_version_id_fkey(
                             config
                         )
                     )
@@ -671,7 +671,7 @@ export async function findLayoutCatalogId(
         : undefined;
 
     // DEBUG START
-    console.log("[resolveActivityCatalogsV2][findLayoutCatalogId] candidates", {
+    console.log("[resolveActivityCatalogs][findLayoutCatalogId] candidates", {
         activityId,
         fromActivity: activityRows.length,
         fromActivityGroup: activityGroupRows.length,
@@ -679,11 +679,11 @@ export async function findLayoutCatalogId(
         valid: validRows.length,
         now: now.toISOString()
     });
-    console.log("[resolveActivityCatalogsV2][findLayoutCatalogId] valid rules", {
+    console.log("[resolveActivityCatalogs][findLayoutCatalogId] valid rules", {
         activityId,
         ruleIds: validRows.map(row => row.id)
     });
-    console.log("[resolveActivityCatalogsV2][findLayoutCatalogId] selected", {
+    console.log("[resolveActivityCatalogs][findLayoutCatalogId] selected", {
         activityId,
         selectedRuleId: selectedRule?.id ?? null,
         catalogId
@@ -703,7 +703,7 @@ export async function findActivePriceRuleScheduleId(
 ): Promise<string | null> {
     const [activityRulesRes, groupMembersRes] = await Promise.all([
         supabase
-            .from("v2_schedules")
+            .from("schedules")
             .select(
                 `
                 id,
@@ -721,7 +721,7 @@ export async function findActivePriceRuleScheduleId(
             .eq("target_id", activityId)
             .order("priority", { ascending: true })
             .order("created_at", { ascending: true }),
-        supabase.from("v2_activity_group_members").select("group_id").eq("activity_id", activityId)
+        supabase.from("activity_group_members").select("group_id").eq("activity_id", activityId)
     ]);
 
     if (activityRulesRes.error) throw activityRulesRes.error;
@@ -737,7 +737,7 @@ export async function findActivePriceRuleScheduleId(
     let activityGroupRows: RawPriceRuleRow[] = [];
     if (groupIds.length > 0) {
         const { data, error } = await supabase
-            .from("v2_schedules")
+            .from("schedules")
             .select(
                 `
                 id,
@@ -772,7 +772,7 @@ export async function findActivePriceRuleScheduleId(
     console.log("PRICE winning rule:", winningPriceRule?.id);
 
     // DEBUG START
-    console.log("[resolveActivityCatalogsV2][findActivePriceRuleScheduleId] candidates", {
+    console.log("[resolveActivityCatalogs][findActivePriceRuleScheduleId] candidates", {
         activityId,
         fromActivity: activityRows.length,
         fromActivityGroup: activityGroupRows.length,
@@ -780,7 +780,7 @@ export async function findActivePriceRuleScheduleId(
         valid: validRows.length,
         now: now.toISOString()
     });
-    console.log("[resolveActivityCatalogsV2][findActivePriceRuleScheduleId] selected", {
+    console.log("[resolveActivityCatalogs][findActivePriceRuleScheduleId] selected", {
         activityId,
         selectedScheduleId: selectedRule?.id ?? null
     });
@@ -791,7 +791,7 @@ export async function findActivePriceRuleScheduleId(
 
 async function getVisibilityModeForSchedule(scheduleId: string): Promise<VisibilityMode> {
     const { data, error } = await supabase
-        .from("v2_schedules")
+        .from("schedules")
         .select("visibility_mode")
         .eq("id", scheduleId)
         .maybeSingle();
@@ -811,7 +811,7 @@ async function findActiveVisibilityRule(
 ): Promise<ActiveVisibilityRule | null> {
     const [activityRulesRes, groupMembersRes] = await Promise.all([
         supabase
-            .from("v2_schedules")
+            .from("schedules")
             .select(
                 `
                 id,
@@ -829,7 +829,7 @@ async function findActiveVisibilityRule(
             .eq("target_id", activityId)
             .order("priority", { ascending: true })
             .order("created_at", { ascending: true }),
-        supabase.from("v2_activity_group_members").select("group_id").eq("activity_id", activityId)
+        supabase.from("activity_group_members").select("group_id").eq("activity_id", activityId)
     ]);
 
     if (activityRulesRes.error) throw activityRulesRes.error;
@@ -845,7 +845,7 @@ async function findActiveVisibilityRule(
     let activityGroupRows: RawVisibilityRuleRow[] = [];
     if (groupIds.length > 0) {
         const { data, error } = await supabase
-            .from("v2_schedules")
+            .from("schedules")
             .select(
                 `
                 id,
@@ -879,7 +879,7 @@ async function findActiveVisibilityRule(
         ? await getVisibilityModeForSchedule(selectedRule.id)
         : "hide";
 
-    console.log("[resolveActivityCatalogsV2][findActiveVisibilityRule] selected", {
+    console.log("[resolveActivityCatalogs][findActiveVisibilityRule] selected", {
         activityId,
         selectedScheduleId: selectedRule?.id ?? null,
         fallbackVisibilityMode,
@@ -902,7 +902,7 @@ async function selectVisibilityOverridesWithModeFallback(
     if (productIds.length === 0) return [];
 
     const withModeRes = await supabase
-        .from("v2_schedule_visibility_overrides")
+        .from("schedule_visibility_overrides")
         .select("product_id, mode, visible")
         .eq("schedule_id", scheduleId)
         .in("product_id", productIds);
@@ -916,7 +916,7 @@ async function selectVisibilityOverridesWithModeFallback(
     }
 
     const withoutModeRes = await supabase
-        .from("v2_schedule_visibility_overrides")
+        .from("schedule_visibility_overrides")
         .select("product_id, visible")
         .eq("schedule_id", scheduleId)
         .in("product_id", productIds);
@@ -1272,20 +1272,20 @@ function hasRenderableItems(
     return false;
 }
 
-export async function resolveActivityCatalogsV2(
+export async function resolveActivityCatalogs(
     activityId: string,
     now: Date = new Date()
 ): Promise<ResolvedCollections> {
     // ── Pre-flight check: Verify activity exists ──────────────────────────
     const { data: activityExists, error: activityCheckError } = await supabase
-        .from("v2_activities")
+        .from("activities")
         .select("id")
         .eq("id", activityId)
         .maybeSingle();
 
     if (activityCheckError) throw activityCheckError;
     if (!activityExists) {
-        console.warn(`[resolveActivityCatalogsV2] Activity not found: ${activityId}`);
+        console.warn(`[resolveActivityCatalogs] Activity not found: ${activityId}`);
         return {
             featured: { hero: [], before_catalog: [], after_catalog: [] }
         };
@@ -1298,7 +1298,7 @@ export async function resolveActivityCatalogsV2(
     } = await findLayoutCatalogId(activityId, now);
 
     // DEBUG START
-    console.log("[resolveActivityCatalogsV2] layoutCatalogId", {
+    console.log("[resolveActivityCatalogs] layoutCatalogId", {
         activityId,
         layoutCatalogId,
         layoutScheduleId
@@ -1313,12 +1313,12 @@ export async function resolveActivityCatalogsV2(
 
     if (layoutScheduleId) {
         const { data: featuredData, error: featuredError } = await supabase
-            .from("v2_schedule_featured_contents")
+            .from("schedule_featured_contents")
             .select(
                 `
                 slot,
                 sort_order,
-                featured_content:v2_featured_contents(
+                featured_content:featured_contents(
                     id,
                     internal_name,
                     title,
@@ -1334,10 +1334,10 @@ export async function resolveActivityCatalogsV2(
                     show_original_total,
                     created_at,
                     updated_at,
-                    products:v2_featured_content_products(
+                    products:featured_content_products(
                         sort_order,
                         note,
-                        product:v2_products(
+                        product:products(
                             id,
                             name,
                             description,
@@ -1351,7 +1351,7 @@ export async function resolveActivityCatalogsV2(
 
         if (featuredError) {
             console.error(
-                "[resolveActivityCatalogsV2] error fetching featured contents",
+                "[resolveActivityCatalogs] error fetching featured contents",
                 featuredError
             );
         } else if (featuredData) {
@@ -1423,7 +1423,7 @@ export async function resolveActivityCatalogsV2(
         ) ?? 0;
 
     // DEBUG START
-    console.log("[resolveActivityCatalogsV2] layoutCatalog loaded", {
+    console.log("[resolveActivityCatalogs] layoutCatalog loaded", {
         activityId,
         sectionsCount: categoriesCount,
         itemsCount
@@ -1504,7 +1504,7 @@ export async function resolveActivityCatalogsV2(
 
     if (allBaseProductIds.length > 0) {
         const { data: activityOverrideData, error: activityOverrideError } = await supabase
-            .from("v2_activity_product_overrides")
+            .from("activity_product_overrides")
             .select("product_id, visible_override")
             .eq("activity_id", activityId)
             .in("product_id", allBaseProductIds);
@@ -1520,7 +1520,7 @@ export async function resolveActivityCatalogsV2(
 
     if (activePriceRuleScheduleId && visibleProductIds.length > 0) {
         const { data: priceOverrideData, error: priceOverrideError } = await supabase
-            .from("v2_schedule_price_overrides")
+            .from("schedule_price_overrides")
             .select("product_id, override_price, show_original_price")
             .eq("schedule_id", activePriceRuleScheduleId)
             .in("product_id", visibleProductIds);
@@ -1561,7 +1561,7 @@ export async function resolveActivityCatalogsV2(
     const finalPrimary = activePrimary ?? fallbackPrimary;
 
     // DEBUG START
-    console.log("[resolveActivityCatalogsV2] final state before return", {
+    console.log("[resolveActivityCatalogs] final state before return", {
         activityId,
         finalPrimary,
         schedulesLength: schedules.length,

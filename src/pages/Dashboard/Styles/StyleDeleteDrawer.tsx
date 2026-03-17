@@ -6,7 +6,7 @@ import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
-import { deleteStyle, V2Style } from "@/services/supabase/v2/styles";
+import { deleteStyle, V2Style } from "@/services/supabase/styles";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import styles from "./Styles.module.scss";
 

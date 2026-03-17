@@ -13,8 +13,8 @@ export interface DeletedTenant {
  * Soft-deletes a tenant via the delete-tenant edge function.
  *
  * The edge function verifies that the caller is the tenant owner, then sets
- * deleted_at on v2_tenants via service_role. The tenant disappears immediately
- * from all RLS-guarded queries (get_my_tenant_ids, v2_user_tenants_view).
+ * deleted_at on tenants via service_role. The tenant disappears immediately
+ * from all RLS-guarded queries (get_my_tenant_ids, user_tenants_view).
  *
  * Only the owner can call this. Throws on any error.
  */
@@ -41,7 +41,7 @@ export async function deleteTenantSoft(tenantId: string): Promise<void> {
  * Returns all soft-deleted tenants owned by the calling user.
  *
  * Calls the get_my_deleted_tenants() SECURITY DEFINER RPC which bypasses the
- * v2_tenants SELECT policy (that filters out deleted rows) while still
+ * tenants SELECT policy (that filters out deleted rows) while still
  * restricting results to owner_user_id = auth.uid().
  */
 export async function getDeletedTenants(): Promise<DeletedTenant[]> {

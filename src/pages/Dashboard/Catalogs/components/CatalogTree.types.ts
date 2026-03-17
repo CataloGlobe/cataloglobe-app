@@ -1,4 +1,4 @@
-import { V2CatalogCategory } from "@/services/supabase/v2/catalogs";
+import { V2CatalogCategory } from "@/services/supabase/catalogs";
 
 export type CatalogTreeNodeData = V2CatalogCategory & {
     children: CatalogTreeNodeData[];

@@ -40,7 +40,7 @@ export type ProductOptionsResult = {
 
 export async function getProductOptionGroups(productId: string): Promise<V2ProductOptionGroup[]> {
     const { data, error } = await supabase
-        .from("v2_product_option_groups")
+        .from("product_option_groups")
         .select("*")
         .eq("product_id", productId)
         .order("created_at", { ascending: true });
@@ -53,7 +53,7 @@ export async function getPrimaryPriceGroup(
     productId: string
 ): Promise<V2ProductOptionGroup | null> {
     const { data, error } = await supabase
-        .from("v2_product_option_groups")
+        .from("product_option_groups")
         .select("*")
         .eq("product_id", productId)
         .eq("group_kind", "PRIMARY_PRICE")
@@ -67,7 +67,7 @@ export async function getPrimaryPriceGroup(
 
 export async function getAddonGroups(productId: string): Promise<V2ProductOptionGroup[]> {
     const { data, error } = await supabase
-        .from("v2_product_option_groups")
+        .from("product_option_groups")
         .select("*")
         .eq("product_id", productId)
         .eq("group_kind", "ADDON")
@@ -106,7 +106,7 @@ export async function createProductOptionGroup(data: {
     pricing_mode?: OptionPricingMode;
 }): Promise<V2ProductOptionGroup> {
     const { data: newGroup, error } = await supabase
-        .from("v2_product_option_groups")
+        .from("product_option_groups")
         .insert({
             tenant_id: data.tenant_id,
             product_id: data.product_id,
@@ -147,7 +147,7 @@ export async function updateProductOptionGroup(
     if (data.pricing_mode !== undefined) updatePayload.pricing_mode = data.pricing_mode;
 
     const { data: updatedGroup, error } = await supabase
-        .from("v2_product_option_groups")
+        .from("product_option_groups")
         .update(updatePayload)
         .eq("id", id)
         .select()
@@ -158,7 +158,7 @@ export async function updateProductOptionGroup(
 }
 
 export async function deleteProductOptionGroup(id: string): Promise<void> {
-    const { error } = await supabase.from("v2_product_option_groups").delete().eq("id", id);
+    const { error } = await supabase.from("product_option_groups").delete().eq("id", id);
 
     if (error) throw error;
 }
@@ -169,7 +169,7 @@ export async function deleteProductOptionGroup(id: string): Promise<void> {
 
 export async function getOptionValues(groupId: string): Promise<V2ProductOptionValue[]> {
     const { data, error } = await supabase
-        .from("v2_product_option_values")
+        .from("product_option_values")
         .select("*")
         .eq("option_group_id", groupId)
         .order("created_at", { ascending: true });
@@ -186,7 +186,7 @@ export async function createOptionValue(data: {
     absolute_price?: number | null;
 }): Promise<V2ProductOptionValue> {
     const { data: newValue, error } = await supabase
-        .from("v2_product_option_values")
+        .from("product_option_values")
         .insert({
             tenant_id: data.tenant_id,
             option_group_id: data.option_group_id,
@@ -219,7 +219,7 @@ export async function updateOptionValue(
     if (data.absolute_price !== undefined) updatePayload.absolute_price = data.absolute_price;
 
     const { data: updatedValue, error } = await supabase
-        .from("v2_product_option_values")
+        .from("product_option_values")
         .update(updatePayload)
         .eq("id", id)
         .select()
@@ -230,7 +230,7 @@ export async function updateOptionValue(
 }
 
 export async function deleteOptionValue(id: string): Promise<void> {
-    const { error } = await supabase.from("v2_product_option_values").delete().eq("id", id);
+    const { error } = await supabase.from("product_option_values").delete().eq("id", id);
 
     if (error) throw error;
 }

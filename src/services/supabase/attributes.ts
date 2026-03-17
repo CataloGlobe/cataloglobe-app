@@ -44,7 +44,7 @@ export async function listAttributeDefinitions(
     vertical?: string
 ): Promise<V2ProductAttributeDefinition[]> {
     let query = supabase
-        .from("v2_product_attribute_definitions")
+        .from("product_attribute_definitions")
         .select("*")
         .eq("tenant_id", tenantId);
 
@@ -70,7 +70,7 @@ export async function createAttributeDefinition(
     }
 ): Promise<V2ProductAttributeDefinition> {
     const { data: newDef, error } = await supabase
-        .from("v2_product_attribute_definitions")
+        .from("product_attribute_definitions")
         .insert({
             tenant_id: tenantId,
             code: data.code,
@@ -105,7 +105,7 @@ export async function updateAttributeDefinition(
     }
 ): Promise<V2ProductAttributeDefinition> {
     const { data: updatedDef, error } = await supabase
-        .from("v2_product_attribute_definitions")
+        .from("product_attribute_definitions")
         .update({
             ...(data.label !== undefined && { label: data.label }),
             ...(data.is_required !== undefined && { is_required: data.is_required }),
@@ -122,7 +122,7 @@ export async function updateAttributeDefinition(
 
 export async function deleteAttributeDefinition(id: string, tenantId: string): Promise<void> {
     const { error } = await supabase
-        .from("v2_product_attribute_definitions")
+        .from("product_attribute_definitions")
         .delete()
         .eq("id", id)
         .eq("tenant_id", tenantId);
@@ -141,7 +141,7 @@ export async function getProductAttributes(
     tenantId: string
 ): Promise<V2ProductAttributeValue[]> {
     const { data, error } = await supabase
-        .from("v2_product_attribute_values")
+        .from("product_attribute_values")
         .select("*")
         .eq("product_id", productId)
         .eq("tenant_id", tenantId);
@@ -161,7 +161,7 @@ export async function setProductAttributeValue(
 
     // Check if value already exists to do a clean update/insert
     const { data: existing, error: checkError } = await supabase
-        .from("v2_product_attribute_values")
+        .from("product_attribute_values")
         .select("id")
         .eq("product_id", productId)
         .eq("attribute_definition_id", attributeDefinitionId)
@@ -172,7 +172,7 @@ export async function setProductAttributeValue(
     if (existing) {
         // Update
         const { error: updateError } = await supabase
-            .from("v2_product_attribute_values")
+            .from("product_attribute_values")
             .update({
                 value_text: payload.value_text ?? null,
                 value_number: payload.value_number ?? null,
@@ -197,7 +197,7 @@ export async function setProductAttributeValue(
 
         if (isEmpty) return; // Don't create empty rows
 
-        const { error: insertError } = await supabase.from("v2_product_attribute_values").insert({
+        const { error: insertError } = await supabase.from("product_attribute_values").insert({
             tenant_id: tenantId,
             product_id: productId,
             attribute_definition_id: attributeDefinitionId,
@@ -218,7 +218,7 @@ export async function removeProductAttributeValue(
     attributeDefinitionId: string
 ): Promise<void> {
     const { error } = await supabase
-        .from("v2_product_attribute_values")
+        .from("product_attribute_values")
         .delete()
         .eq("product_id", productId)
         .eq("attribute_definition_id", attributeDefinitionId)

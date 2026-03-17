@@ -62,12 +62,12 @@ export async function getProductListMetadata(
 
     const [groupsRes, catalogItemsRes] = await Promise.all([
         supabase
-            .from("v2_product_option_groups")
+            .from("product_option_groups")
             .select("id, product_id, group_kind")
             .eq("tenant_id", tenantId)
             .in("product_id", uniqueProductIds),
         supabase
-            .from("v2_catalog_items")
+            .from("catalog_items")
             .select("product_id, catalog_id")
             .eq("tenant_id", tenantId)
             .in("product_id", uniqueProductIds)
@@ -94,7 +94,7 @@ export async function getProductListMetadata(
     if (primaryGroupToProductId.size > 0) {
         const primaryGroupIds = Array.from(primaryGroupToProductId.keys());
         const { data: values, error: valuesError } = await supabase
-            .from("v2_product_option_values")
+            .from("product_option_values")
             .select("option_group_id, absolute_price")
             .eq("tenant_id", tenantId)
             .in("option_group_id", primaryGroupIds);
@@ -145,7 +145,7 @@ async function validateParentBeforeSave(tenantId: string, parentId?: string | nu
     if (!parentId) return;
 
     const { data: parent, error } = await supabase
-        .from("v2_products")
+        .from("products")
         .select("tenant_id, parent_product_id")
         .eq("id", parentId)
         .single();
@@ -170,11 +170,11 @@ async function validateParentBeforeSave(tenantId: string, parentId?: string | nu
 
 export async function listBaseProductsWithVariants(tenantId: string): Promise<V2Product[]> {
     const { data, error } = await supabase
-        .from("v2_products")
+        .from("products")
         .select(
             `
             *,
-            variants:v2_products!parent_product_id(*)
+            variants:products!parent_product_id(*)
         `
         )
         .eq("tenant_id", tenantId)
@@ -187,11 +187,11 @@ export async function listBaseProductsWithVariants(tenantId: string): Promise<V2
 
 export async function getProduct(id: string, tenantId: string): Promise<V2Product> {
     const { data, error } = await supabase
-        .from("v2_products")
+        .from("products")
         .select(
             `
             *,
-            variants:v2_products!parent_product_id(*)
+            variants:products!parent_product_id(*)
         `
         )
         .eq("id", id)
@@ -215,7 +215,7 @@ export async function createProduct(
     await validateParentBeforeSave(tenantId, parentId);
 
     const { data: newProduct, error } = await supabase
-        .from("v2_products")
+        .from("products")
         .insert({
             id: crypto.randomUUID(),
             tenant_id: tenantId,
@@ -255,7 +255,7 @@ export async function updateProduct(
     if (parentId !== undefined) updatePayload.parent_product_id = parentId;
 
     const { data: updatedProduct, error } = await supabase
-        .from("v2_products")
+        .from("products")
         .update(updatePayload)
         .eq("id", id)
         .eq("tenant_id", tenantId)
@@ -273,7 +273,7 @@ export async function updateProduct(
  */
 export async function deleteProduct(id: string, tenantId: string): Promise<void> {
     const { error } = await supabase
-        .from("v2_products")
+        .from("products")
         .delete()
         .eq("id", id)
         .eq("tenant_id", tenantId);

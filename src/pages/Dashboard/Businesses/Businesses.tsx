@@ -8,8 +8,8 @@ import {
     updateActivity,
     uploadActivityCover,
     deleteActivityAtomic
-} from "@/services/supabase/v2/activities";
-import { getActiveCatalogForActivities } from "@/services/supabase/v2/activeCatalog";
+} from "@/services/supabase/activities";
+import { getActiveCatalogForActivities } from "@/services/supabase/activeCatalog";
 import type {
     ActiveCatalogMeta,
     BusinessWithCapabilities,

@@ -1,7 +1,7 @@
 import React from "react";
 import { IconPhoto, IconPlus, IconTrash, IconCheck, IconEdit } from "@tabler/icons-react";
 import { Button, Card } from "@/components/ui";
-import { V2Activity } from "@/types/v2/activity";
+import { V2Activity } from "@/types/activity";
 import styles from "../ActivityDetailPage.module.scss";
 
 interface ActivityMediaTabProps {

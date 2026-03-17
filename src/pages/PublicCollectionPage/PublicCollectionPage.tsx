@@ -3,10 +3,10 @@ import { useParams } from "react-router-dom";
 import PublicCollectionRenderer from "@/features/public/components/PublicCollectionRenderer";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 
-import { getActivityBySlug } from "@/services/supabase/v2/activities";
-import { resolveActivityCatalogsV2, ResolvedCollections } from "@/services/supabase/v2/resolveActivityCatalogsV2";
+import { getActivityBySlug } from "@/services/supabase/activities";
+import { resolveActivityCatalogs, ResolvedCollections } from "@/services/supabase/resolveActivityCatalogs";
 
-import type { V2Activity } from "@/types/v2/activity";
+import type { V2Activity } from "@/types/activity";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import NotFound from "../NotFound/NotFound";
 
@@ -55,7 +55,7 @@ export default function PublicCollectionPage() {
                 /* ============================
                    2) RESOLVER
                 ============================ */
-                const resolved = await resolveActivityCatalogsV2(business.id);
+                const resolved = await resolveActivityCatalogs(business.id);
 
                 if (
                     !resolved.catalog &&

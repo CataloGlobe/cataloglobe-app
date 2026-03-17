@@ -10,9 +10,9 @@ import {
     updateActivityGroup,
     getGroupWithMembers,
     syncGroupMembers
-} from "@/services/supabase/v2/activity-groups";
-import { getActivities } from "@/services/supabase/v2/activities";
-import { V2Activity } from "@/types/v2/activity";
+} from "@/services/supabase/activity-groups";
+import { getActivities } from "@/services/supabase/activities";
+import { V2Activity } from "@/types/activity";
 import styles from "./ActivityGroupDrawer.module.scss";
 
 interface ActivityGroupDrawerProps {

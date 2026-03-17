@@ -8,7 +8,8 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
 import { Button } from "@/components/ui/Button/Button";
 import { DeleteTenantDialog } from "@/components/Businesses/DeleteTenantDialog";
-import { deleteTenantSoft } from "@/services/supabase/v2/tenants";
+import { deleteTenantSoft } from "@/services/supabase/tenants";
+import { TENANT_KEY } from "@/constants/storageKeys";
 import styles from "./BusinessSettingsPage.module.scss";
 
 const VERTICAL_OPTIONS = [
@@ -43,7 +44,7 @@ export default function BusinessSettingsPage() {
 
         setSaving(true);
         const { error } = await supabase
-            .from("v2_tenants")
+            .from("tenants")
             .update({ name: trimmed, vertical_type: verticalType })
             .eq("id", selectedTenant.id);
         setSaving(false);
@@ -59,7 +60,7 @@ export default function BusinessSettingsPage() {
         await deleteTenantSoft(selectedTenant!.id);
         // Rimuove il tenant eliminato dal localStorage prima del reload,
         // così nessun codice futuro che legga questa chiave troverà un ID stale.
-        localStorage.removeItem("cg_v2_selected_tenant_id");
+        localStorage.removeItem(TENANT_KEY);
         // Reload completo: svuota TenantProvider e WorkspacePage ri-fetcha dati freschi.
         // replace evita che il back button riporti l'utente sulla pagina del tenant eliminato.
         window.location.replace("/workspace");

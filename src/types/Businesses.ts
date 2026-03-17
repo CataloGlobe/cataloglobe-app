@@ -1,5 +1,5 @@
-import type { V2Activity } from "./v2/activity";
-import type { ActiveCatalogMeta } from "@/services/supabase/v2/activeCatalog";
+import type { V2Activity } from "./activity";
+import type { ActiveCatalogMeta } from "@/services/supabase/activeCatalog";
 
 export type { ActiveCatalogMeta, V2Activity };
 

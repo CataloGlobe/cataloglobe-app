@@ -4,9 +4,9 @@ import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import type { V2Tenant } from "@/types/v2/tenant";
+import type { V2Tenant } from "@/types/tenant";
 
-const STORAGE_KEY = "cg_v2_selected_tenant_id";
+import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
 
 const VERTICAL_LABELS: Record<string, string> = {
     restaurant: "Ristorante",
@@ -26,7 +26,7 @@ export default function SelectBusiness() {
     useEffect(() => {
         if (!user) return;
         supabase
-            .from("v2_tenants")
+            .from("tenants")
             .select("id, owner_user_id, name, vertical_type, created_at")
             .order("created_at", { ascending: true })
             .then(({ data }) => {

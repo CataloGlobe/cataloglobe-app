@@ -4,7 +4,7 @@ import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
-import { deleteProductGroup, ProductGroup } from "@/services/supabase/v2/productGroups";
+import { deleteProductGroup, ProductGroup } from "@/services/supabase/productGroups";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import styles from "./ProductGroupsTab.module.scss";
 

@@ -4,7 +4,7 @@ import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
-import { V2Product } from "@/services/supabase/v2/products";
+import { V2Product } from "@/services/supabase/products";
 import { ProductForm } from "./components/ProductForm";
 
 export type ProductFormMode = "create_base" | "create_variant" | "edit";

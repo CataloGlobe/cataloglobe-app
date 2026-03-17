@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import { useToast } from "@/context/Toast/ToastContext";
-import { createStyle, getStyle, V2Style } from "@/services/supabase/v2/styles";
+import { createStyle, getStyle, V2Style } from "@/services/supabase/styles";
 import styles from "./Styles.module.scss";
 
 type StyleCreateDrawerProps = {

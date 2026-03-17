@@ -1,5 +1,5 @@
 import { supabase } from "@/services/supabase/client";
-import { resolveActivityCatalogsV2 } from "./resolveActivityCatalogsV2"; // Using for types or potential cache invalidation
+import { resolveActivityCatalogs } from "./resolveActivityCatalogs"; // Using for types or potential cache invalidation
 
 export type V2StyleVersion = {
     id: string;
@@ -27,11 +27,11 @@ export type V2Style = {
 
 export async function listStyles(tenantId: string): Promise<V2Style[]> {
     const { data: stylesData, error: stylesError } = await supabase
-        .from("v2_styles")
+        .from("styles")
         .select(
             `
             *,
-            current_version:v2_style_versions!current_version_id (
+            current_version:style_versions!current_version_id (
                 id, tenant_id, style_id, version, config, created_at
             )
         `
@@ -43,7 +43,7 @@ export async function listStyles(tenantId: string): Promise<V2Style[]> {
 
     // Fetch usage counts directly
     const { data: layoutsData, error: layoutsError } = await supabase
-        .from("v2_schedule_layout")
+        .from("schedule_layout")
         .select("style_id")
         .eq("tenant_id", tenantId);
 
@@ -71,11 +71,11 @@ export async function listStyles(tenantId: string): Promise<V2Style[]> {
 
 export async function getStyle(styleId: string, tenantId: string): Promise<V2Style | null> {
     const { data, error } = await supabase
-        .from("v2_styles")
+        .from("styles")
         .select(
             `
             *,
-            current_version:v2_style_versions!current_version_id (
+            current_version:style_versions!current_version_id (
                 id, tenant_id, style_id, version, config, created_at
             )
         `
@@ -103,7 +103,7 @@ export async function getStyle(styleId: string, tenantId: string): Promise<V2Sty
 export async function createStyle(tenant_id: string, name: string, config: any): Promise<V2Style> {
     // 1. Create the base style
     const { data: styleData, error: styleError } = await supabase
-        .from("v2_styles")
+        .from("styles")
         .insert({
             tenant_id,
             name,
@@ -117,7 +117,7 @@ export async function createStyle(tenant_id: string, name: string, config: any):
 
     // 2. Create the first version
     const { data: versionData, error: versionError } = await supabase
-        .from("v2_style_versions")
+        .from("style_versions")
         .insert({
             tenant_id,
             style_id: styleData.id,
@@ -129,13 +129,13 @@ export async function createStyle(tenant_id: string, name: string, config: any):
 
     if (versionError) {
         // Cleanup if version creation fails
-        await supabase.from("v2_styles").delete().eq("id", styleData.id);
+        await supabase.from("styles").delete().eq("id", styleData.id);
         throw versionError;
     }
 
     // 3. Update style with current_version_id
     const { data: updatedStyle, error: updateError } = await supabase
-        .from("v2_styles")
+        .from("styles")
         .update({
             current_version_id: versionData.id
         })
@@ -167,7 +167,7 @@ export async function updateStyle(
         const nextVersionNum = (currentStyle.current_version?.version || 0) + 1;
 
         const { data: versionData, error: versionError } = await supabase
-            .from("v2_style_versions")
+            .from("style_versions")
             .insert({
                 tenant_id,
                 style_id: styleId,
@@ -193,14 +193,14 @@ export async function updateStyle(
     updatePayload.updated_at = new Date().toISOString();
 
     const { data: updatedStyle, error: updateError } = await supabase
-        .from("v2_styles")
+        .from("styles")
         .update(updatePayload)
         .eq("id", styleId)
         .eq("tenant_id", tenant_id)
         .select(
             `
             *,
-            current_version:v2_style_versions!current_version_id (
+            current_version:style_versions!current_version_id (
                 id, tenant_id, style_id, version, config, created_at
             )
         `
@@ -238,7 +238,7 @@ export async function deleteStyle(styleId: string, tenantId: string, replaceWith
 
     // Check usage
     const { data: usages, error: usageError } = await supabase
-        .from("v2_schedule_layout")
+        .from("schedule_layout")
         .select("id")
         .eq("style_id", styleId)
         .eq("tenant_id", tenantId);
@@ -258,7 +258,7 @@ export async function deleteStyle(styleId: string, tenantId: string, replaceWith
 
         // Update all references
         const { error: updateError } = await supabase
-            .from("v2_schedule_layout")
+            .from("schedule_layout")
             .update({ style_id: replaceWithStyleId })
             .eq("style_id", styleId)
             .eq("tenant_id", tenantId);
@@ -268,7 +268,7 @@ export async function deleteStyle(styleId: string, tenantId: string, replaceWith
 
     // Delete the style (cascade will delete versions)
     const { error: deleteError } = await supabase
-        .from("v2_styles")
+        .from("styles")
         .delete()
         .eq("id", styleId)
         .eq("tenant_id", tenantId);

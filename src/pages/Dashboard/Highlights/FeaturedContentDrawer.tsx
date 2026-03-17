@@ -11,7 +11,7 @@ import {
     FeaturedContentWithProducts,
     FeaturedContentPricingMode,
     FeaturedContentStatus
-} from "@/services/supabase/v2/featuredContents";
+} from "@/services/supabase/featuredContents";
 
 interface DrawerProps {
     onClose: () => void;

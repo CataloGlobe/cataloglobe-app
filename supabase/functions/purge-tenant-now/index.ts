@@ -80,7 +80,7 @@ serve(async req => {
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
         const { data: tenantRow, error: fetchError } = await supabaseAdmin
-            .from("v2_tenants")
+            .from("tenants")
             .select("id, owner_user_id, deleted_at")
             .eq("id", tenantId)
             .maybeSingle();
@@ -114,7 +114,7 @@ serve(async req => {
 
         // Step 8: audit log (fire-and-forget — must not block or fail the response)
         supabaseAdmin
-            .from("v2_audit_logs")
+            .from("audit_logs")
             .insert({ tenant_id: null, user_id: userId, event_type: "tenant_purged", metadata: { tenantId, ...deleted, storageFilesRemoved } })
             .then(({ error }) => {
                 if (error) console.error("purge-tenant-now: audit log insert failed:", error.message);

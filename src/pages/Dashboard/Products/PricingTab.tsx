@@ -3,7 +3,7 @@ import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
-import { V2Product, updateProduct } from "@/services/supabase/v2/products";
+import { V2Product, updateProduct } from "@/services/supabase/products";
 import {
     GroupWithValues,
     V2ProductOptionValue,
@@ -11,7 +11,7 @@ import {
     deleteOptionValue,
     deleteProductOptionGroup,
     createPrimaryPriceFormat
-} from "@/services/supabase/v2/productOptions";
+} from "@/services/supabase/productOptions";
 import styles from "./PricingTab.module.scss";
 
 interface PricingTabProps {

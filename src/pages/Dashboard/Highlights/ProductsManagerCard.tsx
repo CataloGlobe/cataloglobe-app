@@ -38,7 +38,7 @@ interface FeaturedContentProductRow {
     product_id: string;
     sort_order: number;
     note: string | null;
-    v2_products: {
+    products: {
         id: string;
         name: string;
         base_price: number | null;
@@ -101,7 +101,7 @@ function SortableProductRow({ product, onNoteChange, onDelete }: SortableProduct
             {/* Nome Prodotto */}
             <div>
                 <Text variant="body-sm" weight={600}>
-                    {product.v2_products?.name || "Sconosciuto"}
+                    {product.products?.name || "Sconosciuto"}
                 </Text>
             </div>
 
@@ -123,9 +123,9 @@ function SortableProductRow({ product, onNoteChange, onDelete }: SortableProduct
             {/* Prezzo */}
             <div>
                 <Text variant="body-sm" colorVariant="muted">
-                    {product.v2_products?.base_price !== null &&
-                    product.v2_products?.base_price !== undefined
-                        ? `€${product.v2_products.base_price.toFixed(2)}`
+                    {product.products?.base_price !== null &&
+                    product.products?.base_price !== undefined
+                        ? `€${product.products.base_price.toFixed(2)}`
                         : "—"}
                 </Text>
             </div>
@@ -162,15 +162,15 @@ export default function ProductsManagerCard({
         try {
             setLoading(true);
             const { data, error } = await supabase
-                .from("v2_featured_content_products")
+                .from("featured_content_products")
                 .select(
                     `
-                    id, 
-                    featured_content_id, 
-                    product_id, 
-                    sort_order, 
+                    id,
+                    featured_content_id,
+                    product_id,
+                    sort_order,
                     note,
-                    v2_products (id, name, base_price)
+                    products (id, name, base_price)
                 `
                 )
                 .eq("featured_content_id", featuredId)
@@ -194,7 +194,7 @@ export default function ProductsManagerCard({
     const handleNoteChange = async (dbId: string, newNote: string) => {
         try {
             const { error } = await supabase
-                .from("v2_featured_content_products")
+                .from("featured_content_products")
                 .update({ note: newNote })
                 .eq("id", dbId);
 
@@ -234,7 +234,7 @@ export default function ProductsManagerCard({
             // Using sequential updates for simplicity with current supabase client:
             const updates = updatedProducts.map(p =>
                 supabase
-                    .from("v2_featured_content_products")
+                    .from("featured_content_products")
                     .update({ sort_order: p.sort_order })
                     .eq("id", p.id)
             );
@@ -258,7 +258,7 @@ export default function ProductsManagerCard({
     const handleDelete = async (dbId: string) => {
         try {
             const { error } = await supabase
-                .from("v2_featured_content_products")
+                .from("featured_content_products")
                 .delete()
                 .eq("id", dbId);
 
@@ -292,7 +292,7 @@ export default function ProductsManagerCard({
                         products.length > 0 ? Math.max(...products.map(p => p.sort_order)) : 0;
                     const newSortOrder = maxSortOrder + 1;
 
-                    const { error } = await supabase.from("v2_featured_content_products").insert({
+                    const { error } = await supabase.from("featured_content_products").insert({
                         tenant_id: tenantId,
                         featured_content_id: featuredId,
                         product_id: selectedProductId,

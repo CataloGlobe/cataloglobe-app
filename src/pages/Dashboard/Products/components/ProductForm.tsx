@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { useToast } from "@/context/Toast/ToastContext";
-import { createProduct, updateProduct, V2Product } from "@/services/supabase/v2/products";
+import { createProduct, updateProduct, V2Product } from "@/services/supabase/products";
 import {
     listAttributeDefinitions,
     getProductAttributes,
@@ -13,27 +13,27 @@ import {
     V2ProductAttributeDefinition,
     V2ProductAttributeValue,
     AttributeValuePayload
-} from "@/services/supabase/v2/attributes";
+} from "@/services/supabase/attributes";
 import {
     listAllergens,
     getProductAllergens,
     setProductAllergens,
     V2SystemAllergen
-} from "@/services/supabase/v2/allergens";
+} from "@/services/supabase/allergens";
 import {
     getProductGroups,
     getProductGroupAssignments,
     assignProductToGroup,
     removeProductFromGroup,
     ProductGroup
-} from "@/services/supabase/v2/productGroups";
+} from "@/services/supabase/productGroups";
 import {
     getIngredients,
     getProductIngredients,
     setProductIngredients,
     createIngredient,
     V2Ingredient
-} from "@/services/supabase/v2/ingredients";
+} from "@/services/supabase/ingredients";
 import {
     getProductOptions,
     createProductOptionGroup,
@@ -41,7 +41,7 @@ import {
     createOptionValue,
     deleteOptionValue,
     GroupWithValues
-} from "@/services/supabase/v2/productOptions";
+} from "@/services/supabase/productOptions";
 import { Select } from "@/components/ui/Select/Select";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Pill } from "@/components/ui/Pill/Pill";

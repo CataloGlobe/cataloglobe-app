@@ -7,8 +7,8 @@ import { Card } from "@/components/ui/Card/Card";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import Text from "@/components/ui/Text/Text";
 import { useTenantId } from "@/context/useTenantId";
-import { getProduct, V2Product } from "@/services/supabase/v2/products";
-import { getProductOptions, GroupWithValues } from "@/services/supabase/v2/productOptions";
+import { getProduct, V2Product } from "@/services/supabase/products";
+import { getProductOptions, GroupWithValues } from "@/services/supabase/productOptions";
 import { supabase } from "@/services/supabase/client";
 import { GeneralTab } from "./GeneralTab";
 import { PricingTab } from "./PricingTab";
@@ -61,7 +61,7 @@ export default function ProductPage() {
             // Step 1: catalog IDs that contain this product
             console.log("[usage] step1 start", productId);
             const { data: catalogItems, error: ciError } = await supabase
-                .from("v2_catalog_category_products")
+                .from("catalog_category_products")
                 .select("catalog_id")
                 .eq("product_id", productId);
             if (ciError) throw new Error(`step1: ${ciError.message}`);
@@ -75,7 +75,7 @@ export default function ProductPage() {
             let catalogs: { id: string; name: string }[] = [];
             if (catalogIds.length > 0) {
                 const { data: catalogsData, error: cError } = await supabase
-                    .from("v2_catalogs")
+                    .from("catalogs")
                     .select("id, name")
                     .in("id", catalogIds);
                 if (cError) throw new Error(`step2: ${cError.message}`);
@@ -83,12 +83,12 @@ export default function ProductPage() {
                 console.log("[usage] step2 catalogs", catalogs);
             }
 
-            // Step 3: schedules that reference those catalogs via v2_schedule_layout
+            // Step 3: schedules that reference those catalogs via schedule_layout
             let schedules: { id: string; name: string }[] = [];
             let activities: { id: string; name: string }[] = [];
             if (catalogIds.length > 0) {
                 const { data: layoutData, error: layoutError } = await supabase
-                    .from("v2_schedule_layout")
+                    .from("schedule_layout")
                     .select("schedule_id")
                     .in("catalog_id", catalogIds);
                 if (layoutError) throw new Error(`step3 layout: ${layoutError.message}`);
@@ -104,14 +104,14 @@ export default function ProductPage() {
 
                 if (scheduleIds.length > 0) {
                     const { data: schedulesData, error: sError } = await supabase
-                        .from("v2_schedules")
+                        .from("schedules")
                         .select("id, name, target_type, target_id")
                         .in("id", scheduleIds);
                     if (sError) throw new Error(`step3 schedules: ${sError.message}`);
                     schedules = (schedulesData ?? []).map((s: any) => ({ id: s.id, name: s.name }));
                     console.log("[usage] step3 schedules", schedules);
 
-                    // Step 4: activities – read directly from v2_schedules.target_type/target_id
+                    // Step 4: activities – read directly from schedules.target_type/target_id
                     const activityIds = [
                         ...new Set(
                             (schedulesData ?? [])
@@ -123,7 +123,7 @@ export default function ProductPage() {
 
                     if (activityIds.length > 0) {
                         const { data: activitiesData, error: aError } = await supabase
-                            .from("v2_activities")
+                            .from("activities")
                             .select("id, name")
                             .in("id", activityIds)
                             .order("name", { ascending: true });

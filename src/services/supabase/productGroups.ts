@@ -33,7 +33,7 @@ export type ProductGroupItem = {
 
 export async function getProductGroups(tenantId: string): Promise<ProductGroup[]> {
     const { data, error } = await supabase
-        .from("v2_product_groups")
+        .from("product_groups")
         .select("*")
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: true });
@@ -44,7 +44,7 @@ export async function getProductGroups(tenantId: string): Promise<ProductGroup[]
 
 export async function createProductGroup(data: ProductGroupInsert): Promise<ProductGroup> {
     const { data: newGroup, error } = await supabase
-        .from("v2_product_groups")
+        .from("product_groups")
         .insert({
             tenant_id: data.tenant_id,
             name: data.name,
@@ -66,7 +66,7 @@ export async function updateProductGroup(
     if (data.parent_group_id !== undefined) updatePayload.parent_group_id = data.parent_group_id;
 
     const { data: updatedGroup, error } = await supabase
-        .from("v2_product_groups")
+        .from("product_groups")
         .update(updatePayload)
         .eq("id", id)
         .select()
@@ -77,7 +77,7 @@ export async function updateProductGroup(
 }
 
 export async function deleteProductGroup(id: string): Promise<void> {
-    const { error } = await supabase.from("v2_product_groups").delete().eq("id", id);
+    const { error } = await supabase.from("product_groups").delete().eq("id", id);
 
     if (error) throw error;
 }
@@ -88,7 +88,7 @@ export async function deleteProductGroup(id: string): Promise<void> {
 
 export async function getProductGroupAssignments(productId: string): Promise<ProductGroupItem[]> {
     const { data, error } = await supabase
-        .from("v2_product_group_items")
+        .from("product_group_items")
         .select("*")
         .eq("product_id", productId);
 
@@ -102,7 +102,7 @@ export async function assignProductToGroup(params: {
     groupId: string;
 }): Promise<ProductGroupItem> {
     const { data, error } = await supabase
-        .from("v2_product_group_items")
+        .from("product_group_items")
         .insert({
             tenant_id: params.tenantId,
             product_id: params.productId,
@@ -120,7 +120,7 @@ export async function removeProductFromGroup(params: {
     groupId: string;
 }): Promise<void> {
     const { error } = await supabase
-        .from("v2_product_group_items")
+        .from("product_group_items")
         .delete()
         .eq("product_id", params.productId)
         .eq("group_id", params.groupId);

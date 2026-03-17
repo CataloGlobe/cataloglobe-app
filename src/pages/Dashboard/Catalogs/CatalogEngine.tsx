@@ -41,10 +41,10 @@ import {
     V2Catalog,
     V2CatalogCategory,
     V2CatalogCategoryProduct
-} from "@/services/supabase/v2/catalogs";
-import { listBaseProductsWithVariants, V2Product } from "@/services/supabase/v2/products";
-import { getProductGroups, ProductGroup } from "@/services/supabase/v2/productGroups";
-import { listAttributeDefinitions } from "@/services/supabase/v2/attributes";
+} from "@/services/supabase/catalogs";
+import { listBaseProductsWithVariants, V2Product } from "@/services/supabase/products";
+import { getProductGroups, ProductGroup } from "@/services/supabase/productGroups";
+import { listAttributeDefinitions } from "@/services/supabase/attributes";
 import { supabase } from "@/services/supabase/client";
 import { CatalogSplitLayout } from "./components/CatalogSplitLayout";
 import { CatalogTree } from "./components/CatalogTree";
@@ -458,7 +458,7 @@ export default function CatalogEngine() {
 
             if (targetDefIds.length > 0) {
                 const { data: valueRows, error: valueError } = await supabase
-                    .from("v2_product_attribute_values")
+                    .from("product_attribute_values")
                     .select("product_id, attribute_definition_id, value_text")
                     .eq("tenant_id", currentTenantId)
                     .in("attribute_definition_id", targetDefIds);
@@ -497,7 +497,7 @@ export default function CatalogEngine() {
                 loadedGroupItems
             ] = await Promise.all([
                 supabase
-                    .from("v2_catalogs")
+                    .from("catalogs")
                     .select("*")
                     .eq("id", catalogId)
                     .eq("tenant_id", currentTenantId)
@@ -507,7 +507,7 @@ export default function CatalogEngine() {
                 listBaseProductsWithVariants(currentTenantId),
                 getProductGroups(currentTenantId),
                 supabase
-                    .from("v2_product_group_items")
+                    .from("product_group_items")
                     .select("product_id, group_id")
                     .eq("tenant_id", currentTenantId)
             ]);

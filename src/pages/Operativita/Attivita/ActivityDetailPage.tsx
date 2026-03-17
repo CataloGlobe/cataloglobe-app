@@ -13,10 +13,10 @@ import {
     getActivityById,
     updateActivity,
     uploadActivityCover
-} from "@/services/supabase/v2/activities";
-import { getGroupsForActivity } from "@/services/supabase/v2/activity-groups";
-import { V2Activity } from "@/types/v2/activity";
-import { V2ActivityGroup } from "@/types/v2/activity-group";
+} from "@/services/supabase/activities";
+import { getGroupsForActivity } from "@/services/supabase/activity-groups";
+import { V2Activity } from "@/types/activity";
+import { V2ActivityGroup } from "@/types/activity-group";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./ActivityDetailPage.module.scss";
 

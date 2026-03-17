@@ -3,7 +3,7 @@ import { PillGroupMultiple } from "@/components/ui/PillGroup/PillGroupMultiple";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { TimeInput } from "@/components/ui/Input/TimeInput";
 import Text from "@/components/ui/Text/Text";
-import { LayoutTimeMode } from "@/services/supabase/v2/layoutScheduling";
+import { LayoutTimeMode } from "@/services/supabase/layoutScheduling";
 import styles from "../ProgrammingRuleDetail.module.scss";
 
 const DAY_OPTIONS = [

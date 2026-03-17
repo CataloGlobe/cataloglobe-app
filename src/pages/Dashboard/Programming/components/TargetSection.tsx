@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
 import Text from "@/components/ui/Text/Text";
-import { RuleType, LayoutRuleOption } from "@/services/supabase/v2/layoutScheduling";
+import { RuleType, LayoutRuleOption } from "@/services/supabase/layoutScheduling";
 import styles from "../ProgrammingRuleDetail.module.scss";
 
 export type TargetMode = "all" | "activities" | "groups";

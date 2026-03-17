@@ -3,7 +3,7 @@ import type {
     ResolvedCollections,
     ResolvedCategory,
     ResolvedProduct
-} from "@/services/supabase/v2/resolveActivityCatalogsV2";
+} from "@/services/supabase/resolveActivityCatalogs";
 
 type MockPublicCollection = {
     business: Pick<Business, "name" | "cover_image">;

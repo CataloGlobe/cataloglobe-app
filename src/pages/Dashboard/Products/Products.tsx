@@ -23,7 +23,7 @@ import {
     deleteProduct,
     getProductListMetadata,
     ProductListMetadata
-} from "@/services/supabase/v2/products";
+} from "@/services/supabase/products";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ProductCreateEditDrawer, ProductFormMode } from "./ProductCreateEditDrawer";
 import { ProductDeleteDrawer } from "./ProductDeleteDrawer";

@@ -36,7 +36,7 @@ export type V2CatalogCategoryProduct = {
 // ==========================================
 export async function listCatalogs(tenantId: string): Promise<V2Catalog[]> {
     const { data, error } = await supabase
-        .from("v2_catalogs")
+        .from("catalogs")
         .select("*")
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
@@ -47,7 +47,7 @@ export async function listCatalogs(tenantId: string): Promise<V2Catalog[]> {
 
 export async function createCatalog(tenantId: string, name: string): Promise<V2Catalog> {
     const { data, error } = await supabase
-        .from("v2_catalogs")
+        .from("catalogs")
         .insert([{ tenant_id: tenantId, name }])
         .select()
         .single();
@@ -62,7 +62,7 @@ export async function updateCatalog(
     updates: { name?: string }
 ): Promise<V2Catalog> {
     const { data, error } = await supabase
-        .from("v2_catalogs")
+        .from("catalogs")
         .update(updates)
         .eq("id", catalogId)
         .eq("tenant_id", tenantId)
@@ -75,7 +75,7 @@ export async function updateCatalog(
 
 export async function deleteCatalog(catalogId: string, tenantId: string): Promise<void> {
     const { error } = await supabase
-        .from("v2_catalogs")
+        .from("catalogs")
         .delete()
         .eq("id", catalogId)
         .eq("tenant_id", tenantId);
@@ -91,7 +91,7 @@ export async function listCategories(
     catalogId: string
 ): Promise<V2CatalogCategory[]> {
     const { data, error } = await supabase
-        .from("v2_catalog_categories")
+        .from("catalog_categories")
         .select("*")
         .eq("tenant_id", tenantId)
         .eq("catalog_id", catalogId)
@@ -116,7 +116,7 @@ export async function createCategory(
     }
 
     const { data, error } = await supabase
-        .from("v2_catalog_categories")
+        .from("catalog_categories")
         .insert([
             {
                 tenant_id: tenantId,
@@ -145,7 +145,7 @@ export async function updateCategory(
     }
 ): Promise<V2CatalogCategory> {
     const { data, error } = await supabase
-        .from("v2_catalog_categories")
+        .from("catalog_categories")
         .update(updates)
         .eq("id", categoryId)
         .eq("tenant_id", tenantId)
@@ -158,7 +158,7 @@ export async function updateCategory(
 
 export async function deleteCategory(categoryId: string, tenantId: string): Promise<void> {
     const { error } = await supabase
-        .from("v2_catalog_categories")
+        .from("catalog_categories")
         .delete()
         .eq("id", categoryId)
         .eq("tenant_id", tenantId);
@@ -174,7 +174,7 @@ export async function listCategoryProducts(
     catalogId: string
 ): Promise<V2CatalogCategoryProduct[]> {
     const { data, error } = await supabase
-        .from("v2_catalog_category_products")
+        .from("catalog_category_products")
         .select("*")
         .eq("tenant_id", tenantId)
         .eq("catalog_id", catalogId)
@@ -263,7 +263,7 @@ export async function addProductToCategory(
     // ---------------------------------------------------------------------------------
 
     const { data, error } = await supabase
-        .from("v2_catalog_category_products")
+        .from("catalog_category_products")
         .insert([
             {
                 tenant_id: tenantId,
@@ -289,7 +289,7 @@ export async function addProductToCategory(
 
 export async function removeProductFromCategory(tenantId: string, linkId: string): Promise<void> {
     const { error } = await supabase
-        .from("v2_catalog_category_products")
+        .from("catalog_category_products")
         .delete()
         .eq("id", linkId)
         .eq("tenant_id", tenantId);
@@ -303,7 +303,7 @@ export async function updateProductSortOrder(
     sortOrder: number
 ): Promise<V2CatalogCategoryProduct> {
     const { data, error } = await supabase
-        .from("v2_catalog_category_products")
+        .from("catalog_category_products")
         .update({ sort_order: sortOrder })
         .eq("id", linkId)
         .eq("tenant_id", tenantId)
