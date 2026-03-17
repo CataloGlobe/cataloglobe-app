@@ -377,3 +377,27 @@ export async function duplicateProduct(productId: string, tenantId: string): Pro
 
     return newProduct;
 }
+
+export type ProductPickerItem = {
+    id: string;
+    name: string;
+    image_url: string | null;
+};
+
+/**
+ * Lightweight fetch for the product-group picker.
+ * Returns only base products (no variants) with minimal fields.
+ */
+export async function listBaseProductsForPicker(
+    tenantId: string
+): Promise<ProductPickerItem[]> {
+    const { data, error } = await supabase
+        .from("products")
+        .select("id, name, image_url")
+        .eq("tenant_id", tenantId)
+        .is("parent_product_id", null)
+        .order("name", { ascending: true });
+
+    if (error) throw error;
+    return data ?? [];
+}
