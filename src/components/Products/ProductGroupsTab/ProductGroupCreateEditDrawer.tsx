@@ -83,6 +83,7 @@ export function ProductGroupCreateEditDrawer({
 
         setIsSaving(false);
         setProductSearch("");
+        setSelectedProductIds(new Set());
 
         if (isEditing && groupData) {
             setName(groupData.name);
@@ -90,7 +91,6 @@ export function ProductGroupCreateEditDrawer({
         } else {
             setName("");
             setParentGroupId(null);
-            setSelectedProductIds(new Set());
         }
 
         if (!tenantId) return;
