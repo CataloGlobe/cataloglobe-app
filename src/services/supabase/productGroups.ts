@@ -33,7 +33,7 @@ export type ProductGroupItem = {
 
 export async function getProductGroups(tenantId: string): Promise<ProductGroup[]> {
     const { data, error } = await supabase
-        .from("product_groups")
+        .from("v2_product_groups")
         .select("*")
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: true });
@@ -44,7 +44,7 @@ export async function getProductGroups(tenantId: string): Promise<ProductGroup[]
 
 export async function createProductGroup(data: ProductGroupInsert): Promise<ProductGroup> {
     const { data: newGroup, error } = await supabase
-        .from("product_groups")
+        .from("v2_product_groups")
         .insert({
             tenant_id: data.tenant_id,
             name: data.name,
@@ -66,7 +66,7 @@ export async function updateProductGroup(
     if (data.parent_group_id !== undefined) updatePayload.parent_group_id = data.parent_group_id;
 
     const { data: updatedGroup, error } = await supabase
-        .from("product_groups")
+        .from("v2_product_groups")
         .update(updatePayload)
         .eq("id", id)
         .select()
@@ -77,7 +77,7 @@ export async function updateProductGroup(
 }
 
 export async function deleteProductGroup(id: string): Promise<void> {
-    const { error } = await supabase.from("product_groups").delete().eq("id", id);
+    const { error } = await supabase.from("v2_product_groups").delete().eq("id", id);
 
     if (error) throw error;
 }
@@ -88,7 +88,7 @@ export async function deleteProductGroup(id: string): Promise<void> {
 
 export async function getProductGroupAssignments(productId: string): Promise<ProductGroupItem[]> {
     const { data, error } = await supabase
-        .from("product_group_items")
+        .from("v2_product_group_items")
         .select("*")
         .eq("product_id", productId);
 
@@ -102,7 +102,7 @@ export async function assignProductToGroup(params: {
     groupId: string;
 }): Promise<ProductGroupItem> {
     const { data, error } = await supabase
-        .from("product_group_items")
+        .from("v2_product_group_items")
         .insert({
             tenant_id: params.tenantId,
             product_id: params.productId,
@@ -120,10 +120,74 @@ export async function removeProductFromGroup(params: {
     groupId: string;
 }): Promise<void> {
     const { error } = await supabase
-        .from("product_group_items")
+        .from("v2_product_group_items")
         .delete()
         .eq("product_id", params.productId)
         .eq("group_id", params.groupId);
 
     if (error) throw error;
+}
+
+// =========================================
+// GROUP PRODUCT SYNC
+// =========================================
+
+/**
+ * Returns the product IDs currently assigned to a group.
+ */
+export async function getGroupProducts(
+    groupId: string,
+    tenantId: string
+): Promise<string[]> {
+    const { data, error } = await supabase
+        .from("v2_product_group_items")
+        .select("product_id")
+        .eq("group_id", groupId)
+        .eq("tenant_id", tenantId);
+
+    if (error) throw error;
+    return (data ?? []).map(row => row.product_id);
+}
+
+/**
+ * Syncs the product assignments for a group.
+ * Deletes rows no longer selected; inserts newly selected rows.
+ * Uses a diff to avoid redundant writes.
+ */
+export async function syncGroupProducts(
+    groupId: string,
+    tenantId: string,
+    newProductIds: string[]
+): Promise<void> {
+    const currentIds = await getGroupProducts(groupId, tenantId);
+
+    const currentSet = new Set(currentIds);
+    const newSet = new Set(newProductIds);
+
+    const toDelete = currentIds.filter(id => !newSet.has(id));
+    const toInsert = newProductIds.filter(id => !currentSet.has(id));
+
+    // Delete removed assignments
+    if (toDelete.length > 0) {
+        const { error } = await supabase
+            .from("v2_product_group_items")
+            .delete()
+            .eq("group_id", groupId)
+            .eq("tenant_id", tenantId)
+            .in("product_id", toDelete);
+        if (error) throw error;
+    }
+
+    // Insert new assignments
+    if (toInsert.length > 0) {
+        const rows = toInsert.map(productId => ({
+            tenant_id: tenantId,
+            group_id: groupId,
+            product_id: productId
+        }));
+        const { error } = await supabase
+            .from("v2_product_group_items")
+            .insert(rows);
+        if (error) throw error;
+    }
 }
