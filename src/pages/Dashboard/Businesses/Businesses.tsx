@@ -22,7 +22,7 @@ import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
-import { BusinessAvailabilityModal } from "@/components/Businesses/BusinessAvailabilityModal/BusinessAvailabilityModal";
+import { ActivityVisibilityDrawer } from "@/components/Businesses/ActivityVisibilityDrawer/ActivityVisibilityDrawer";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ActivityGroupsSection } from "@/components/Businesses/ActivityGroupsSection/ActivityGroupsSection";
 
@@ -34,7 +34,6 @@ import { generateRandomSuffix, sanitizeSlugForSave } from "@/utils/slugify";
 // Tipi importati da "@/types/Businesses"
 
 import styles from "./Businesses.module.scss";
-import { BusinessUpsert } from "@/components/Businesses/BusinessUpsert/BusinessUpsert";
 import { BusinessLocationDrawer } from "@/components/Businesses/BusinessLocationDrawer/BusinessLocationDrawer";
 import { Button } from "@/components/ui";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
@@ -119,17 +118,12 @@ export default function Businesses() {
     const [isDeleting, setIsDeleting] = useState(false);
 
     // ======================================
-    // STATE: Modale Disponibilità (Step 3)
+    // STATE: Drawer visibilità prodotti
     // ======================================
-    const [availabilityModal, setAvailabilityModal] = useState<{
-        isOpen: boolean;
-        activityId: string | null;
-        activityName: string | null;
-    }>({
-        isOpen: false,
-        activityId: null,
-        activityName: null
-    });
+    const [visibilityDrawerTarget, setVisibilityDrawerTarget] = useState<{
+        activityId: string;
+        activityName: string;
+    } | null>(null);
 
     // ======================================
     // SLUGS
@@ -703,6 +697,7 @@ export default function Businesses() {
                 <>
                     <BusinessLocationDrawer
                         open={isCreateOpen}
+                        mode="create"
                         tenantName={selectedTenant?.name}
                         values={createForm}
                         errors={createErrors}
@@ -723,7 +718,7 @@ export default function Businesses() {
                         }}
                     />
 
-                    <BusinessUpsert
+                    <BusinessLocationDrawer
                         open={isEditOpen}
                         mode="edit"
                         values={editForm}
@@ -735,7 +730,6 @@ export default function Businesses() {
                         slugState={editSlugState}
                         onPickSlugSuggestion={slug => {
                             setEditForm(prev => (prev ? { ...prev, slug } : prev));
-                            // aggiorna warning: se slug scelto è diverso dall’originale, warning rimane (ci sta)
                             if (editingBusiness && slug !== editingBusiness.slug) {
                                 setEditSlugState({ type: "warning" });
                             } else {
@@ -772,26 +766,17 @@ export default function Businesses() {
                                 activeCatalogsMap={activeCatalogsMap}
                                 catalogsLoading={isLoadingCatalogs}
                                 onManageAvailability={(id, name) =>
-                                    setAvailabilityModal({
-                                        isOpen: true,
-                                        activityId: id,
-                                        activityName: name
-                                    })
+                                    setVisibilityDrawerTarget({ activityId: id, activityName: name })
                                 }
                                 onCreateClick={() => setIsCreateOpen(true)}
                             />
 
-                            {/* MODALE DISPONIBILITÀ (STEP 3) */}
-                            {availabilityModal.activityId && (
-                                <BusinessAvailabilityModal
-                                    isOpen={availabilityModal.isOpen}
-                                    onClose={() =>
-                                        setAvailabilityModal(prev => ({ ...prev, isOpen: false }))
-                                    }
-                                    activityId={availabilityModal.activityId}
-                                    activityName={availabilityModal.activityName || ""}
-                                />
-                            )}
+                            <ActivityVisibilityDrawer
+                                open={visibilityDrawerTarget !== null}
+                                onClose={() => setVisibilityDrawerTarget(null)}
+                                activityId={visibilityDrawerTarget?.activityId ?? ""}
+                                activityName={visibilityDrawerTarget?.activityName ?? ""}
+                            />
                         </>
                     )}
                 </>

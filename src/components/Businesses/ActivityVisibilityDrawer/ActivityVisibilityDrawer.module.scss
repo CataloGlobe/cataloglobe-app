@@ -1,10 +1,11 @@
-.container {
-  padding: 1rem;
-}
-
 .header {
   display: flex;
   flex-direction: column;
+  gap: 0.15rem;
+}
+
+.container {
+  padding: 0.25rem 0;
 }
 
 .loading,
@@ -17,12 +18,7 @@
 }
 
 .tableWrapper {
-  margin-top: 1rem;
-  border: 1px solid var(--border, #e2e8f0);
-  border-radius: var(--radius-md);
   overflow: hidden;
-  max-height: 400px;
-  overflow-y: auto;
 
   // Header sticky logic
   :global(.table-header) {

@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import ModalLayout, {
-    ModalLayoutContent,
-    ModalLayoutHeader
-} from "@/components/ui/ModalLayout/ModalLayout";
+import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui";
 import { Switch } from "@/components/ui/Switch/Switch";
@@ -15,18 +13,18 @@ import {
     type RenderableProduct,
     type RenderableCatalog
 } from "@/services/supabase/activeCatalog";
-import styles from "./BusinessAvailabilityModal.module.scss";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import styles from "./ActivityVisibilityDrawer.module.scss";
 
-interface Props {
-    isOpen: boolean;
+type Props = {
+    open: boolean;
     onClose: () => void;
     activityId: string;
     activityName: string;
-}
+};
 
-export const BusinessAvailabilityModal: React.FC<Props> = ({
-    isOpen,
+export const ActivityVisibilityDrawer: React.FC<Props> = ({
+    open,
     onClose,
     activityId,
     activityName
@@ -48,24 +46,23 @@ export const BusinessAvailabilityModal: React.FC<Props> = ({
             setCatalog(cat);
             setOverrides(ovs);
         } catch (error) {
-            console.error("Error loading availability data:", error);
+            console.error("Error loading visibility data:", error);
         } finally {
             setIsLoading(false);
         }
     }, [activityId]);
 
     useEffect(() => {
-        if (isOpen) {
+        if (open) {
             loadData();
         }
-    }, [isOpen, loadData]);
+    }, [open, loadData]);
 
     const handleToggleVisibility = async (productId: string, currentEffectiveVisible: boolean) => {
         setIsSavingRecord(productId);
         try {
             await updateActivityProductVisibility(activityId, productId, !currentEffectiveVisible);
 
-            // Ricarichiamo i dati
             const [cat, ovs] = await Promise.all([
                 getRenderableCatalogForActivity(activityId),
                 getActivityProductOverrides(activityId)
@@ -143,23 +140,25 @@ export const BusinessAvailabilityModal: React.FC<Props> = ({
     const hasNoProducts = !isLoading && catalog && catalog.products.length === 0;
 
     return (
-        <ModalLayout isOpen={isOpen} onClose={onClose} width="md" height="fit">
-            <ModalLayoutHeader>
-                <div className={styles.header}>
-                    <Text as="h2" variant="title-md" weight={700}>
-                        Gestisci disponibilità
-                    </Text>
-                    <Text variant="caption" colorVariant="muted">
-                        Attività: {activityName}{" "}
-                        {catalog?.catalogName && `• Catalogo: ${catalog.catalogName}`}
-                    </Text>
-                </div>
-                <Button variant="secondary" onClick={onClose} size="sm">
-                    Chiudi
-                </Button>
-            </ModalLayoutHeader>
-
-            <ModalLayoutContent>
+        <SystemDrawer open={open} onClose={onClose} width={600}>
+            <DrawerLayout
+                header={
+                    <div className={styles.header}>
+                        <Text variant="title-sm" weight={700}>
+                            Gestisci visibilità
+                        </Text>
+                        <Text variant="body-sm" colorVariant="muted">
+                            {activityName}
+                            {catalog?.catalogName && ` • Catalogo: ${catalog.catalogName}`}
+                        </Text>
+                    </div>
+                }
+                footer={
+                    <Button variant="secondary" onClick={onClose}>
+                        Chiudi
+                    </Button>
+                }
+            >
                 <div className={styles.container}>
                     {isLoading ? (
                         <div className={styles.loading}>
@@ -189,7 +188,7 @@ export const BusinessAvailabilityModal: React.FC<Props> = ({
                         </div>
                     )}
                 </div>
-            </ModalLayoutContent>
-        </ModalLayout>
+            </DrawerLayout>
+        </SystemDrawer>
     );
 };

@@ -14,6 +14,7 @@ type SlugInlineState =
 
 type Props = {
     open: boolean;
+    mode: "create" | "edit";
     tenantName?: string;
 
     values: BusinessFormValues | null;
@@ -33,11 +34,10 @@ type Props = {
     onClose: () => void;
 };
 
-const FORM_ID = "create-business-form";
-
 export const BusinessLocationDrawer: React.FC<Props> = React.memo(
     ({
         open,
+        mode,
         tenantName,
         values,
         errors,
@@ -50,6 +50,9 @@ export const BusinessLocationDrawer: React.FC<Props> = React.memo(
         onSubmit,
         onClose
     }) => {
+        const isEdit = mode === "edit";
+        const formId = isEdit ? "edit-business-form" : "create-business-form";
+
         const safeClose = useCallback(() => {
             if (!loading) onClose();
         }, [loading, onClose]);
@@ -58,14 +61,16 @@ export const BusinessLocationDrawer: React.FC<Props> = React.memo(
             () => (
                 <div className={styles.header}>
                     <Text variant="title-sm" weight={700}>
-                        Nuova sede
+                        {isEdit ? "Modifica sede" : "Nuova sede"}
                     </Text>
                     <Text variant="body-sm" colorVariant="muted">
-                        Inserisci le informazioni principali della sede.
+                        {isEdit
+                            ? "Aggiorna i dati di questa sede."
+                            : "Inserisci le informazioni principali della sede."}
                     </Text>
                 </div>
             ),
-            []
+            [isEdit]
         );
 
         const footer = useMemo(
@@ -77,15 +82,15 @@ export const BusinessLocationDrawer: React.FC<Props> = React.memo(
                     <Button
                         variant="primary"
                         type="submit"
-                        form={FORM_ID}
+                        form={formId}
                         loading={loading}
                         disabled={loading}
                     >
-                        Crea sede
+                        {isEdit ? "Salva modifiche" : "Crea sede"}
                     </Button>
                 </>
             ),
-            [loading, safeClose]
+            [loading, safeClose, isEdit, formId]
         );
 
         if (!values) return null;
@@ -94,7 +99,7 @@ export const BusinessLocationDrawer: React.FC<Props> = React.memo(
             <SystemDrawer open={open} onClose={safeClose} width={520}>
                 <DrawerLayout header={header} footer={footer}>
                     <BusinessCreateCard
-                        formId={FORM_ID}
+                        formId={formId}
                         values={values}
                         errors={errors}
                         onFieldChange={onFieldChange}
@@ -104,9 +109,11 @@ export const BusinessLocationDrawer: React.FC<Props> = React.memo(
                         slugState={slugState}
                         onPickSlugSuggestion={onPickSlugSuggestion}
                         namePlaceholder={
-                            tenantName
-                                ? `Es. ${tenantName} - Via Certosa`
-                                : "Es. McDonald's - Via Certosa"
+                            !isEdit
+                                ? tenantName
+                                    ? `Es. ${tenantName} - Via Certosa`
+                                    : "Es. McDonald's - Via Certosa"
+                                : undefined
                         }
                     />
                 </DrawerLayout>

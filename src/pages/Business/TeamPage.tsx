@@ -11,29 +11,13 @@ import { Select } from "@/components/ui/Select/Select";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions, TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
 import { InviteMemberDrawer } from "@/components/Businesses/InviteMemberDrawer";
+import { MemberDrawer } from "@/components/Businesses/MemberDrawer/MemberDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import ModalLayout, {
-    ModalLayoutContent,
-    ModalLayoutFooter,
-    ModalLayoutHeader,
-} from "@/components/ui/ModalLayout/ModalLayout";
 import { Send, UserCog, UserMinus, X } from "lucide-react";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import styles from "./TeamPage.module.scss";
 
-type TenantMemberRow = {
-    membership_id: string;
-    tenant_id: string;
-    user_id: string | null;
-    email: string | null;
-    role: string;
-    status: string;
-    invited_by: string | null;
-    inviter_email: string | null;
-    invite_token: string | null;
-    invite_expires_at: string | null;
-    created_at: string;
-};
+import type { TenantMemberRow } from "@/types/team";
 
 function formatExpiry(expiresAt: string): string {
     const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000);
@@ -52,9 +36,7 @@ export default function TeamPage() {
 
     const [inviteDrawerOpen, setInviteDrawerOpen] = useState(false);
     const [memberToRemove, setMemberToRemove] = useState<TenantMemberRow | null>(null);
-    const [memberToChangeRole, setMemberToChangeRole] = useState<TenantMemberRow | null>(null);
-    const [pendingRole, setPendingRole] = useState("member");
-    const [changingRole, setChangingRole] = useState(false);
+    const [memberDrawerTarget, setMemberDrawerTarget] = useState<TenantMemberRow | null>(null);
 
     const [search, setSearch] = useState("");
     const [roleFilter, setRoleFilter] = useState("");
@@ -134,31 +116,8 @@ export default function TeamPage() {
     }, [memberToRemove, selectedTenantId, showToast]);
 
     const handleChangeRole = useCallback((member: TenantMemberRow) => {
-        setPendingRole(member.role === "owner" ? "admin" : member.role);
-        setMemberToChangeRole(member);
+        setMemberDrawerTarget(member);
     }, []);
-
-    const handleConfirmChangeRole = useCallback(async () => {
-        if (!memberToChangeRole || !selectedTenantId) return;
-        setChangingRole(true);
-
-        const { error } = await supabase.rpc("change_member_role", {
-            p_tenant_id: selectedTenantId,
-            p_user_id: memberToChangeRole.user_id,
-            p_role: pendingRole,
-        });
-
-        setChangingRole(false);
-
-        if (error) {
-            showToast({ type: "error", message: `Errore: ${error.message}` });
-            return;
-        }
-
-        showToast({ type: "success", message: "Ruolo aggiornato." });
-        setMemberToChangeRole(null);
-        setRefreshKey(k => k + 1);
-    }, [memberToChangeRole, selectedTenantId, pendingRole, showToast]);
 
     const handleCancelInvite = useCallback(async (member: TenantMemberRow) => {
         const { error } = await supabase.rpc("revoke_invite", {
@@ -460,52 +419,13 @@ export default function TeamPage() {
                 confirmLabel="Rimuovi"
             />
 
-            <ModalLayout
-                isOpen={memberToChangeRole !== null}
-                onClose={() => setMemberToChangeRole(null)}
-                width="sm"
-                height="fit"
-            >
-                <ModalLayoutHeader>
-                    <Text variant="title-sm" weight={600}>
-                        Cambia ruolo
-                    </Text>
-                </ModalLayoutHeader>
-                <ModalLayoutContent>
-                    <div className={styles.roleDialogContent}>
-                        <Text variant="body-sm" colorVariant="muted">
-                            {memberToChangeRole?.email}
-                        </Text>
-                        <Select
-                            label="Nuovo ruolo"
-                            value={pendingRole}
-                            onChange={e => setPendingRole(e.target.value)}
-                            options={[
-                                { value: "admin", label: "Admin" },
-                                { value: "member", label: "Member" },
-                            ]}
-                        />
-                    </div>
-                </ModalLayoutContent>
-                <ModalLayoutFooter>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setMemberToChangeRole(null)}
-                        disabled={changingRole}
-                    >
-                        Annulla
-                    </Button>
-                    <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={handleConfirmChangeRole}
-                        loading={changingRole}
-                    >
-                        Salva
-                    </Button>
-                </ModalLayoutFooter>
-            </ModalLayout>
+            <MemberDrawer
+                open={memberDrawerTarget !== null}
+                member={memberDrawerTarget}
+                tenantId={selectedTenantId ?? ""}
+                onClose={() => setMemberDrawerTarget(null)}
+                onSuccess={() => setRefreshKey(k => k + 1)}
+            />
         </>
     );
 }
