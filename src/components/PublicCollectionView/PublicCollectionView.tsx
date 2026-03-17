@@ -1,5 +1,5 @@
 import type { Business } from "@/types/database";
-import { ResolvedCollections } from "@/services/supabase/v2/resolveActivityCatalogsV2";
+import { ResolvedCollections } from "@/services/supabase/resolveActivityCatalogs";
 import PublicCollectionRenderer from "@/features/public/components/PublicCollectionRenderer";
 
 type Props = {

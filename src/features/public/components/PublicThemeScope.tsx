@@ -3,7 +3,7 @@ import {
     parseTokens,
     type StyleTokenModel
 } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import type { ResolvedStyle } from "@/services/supabase/v2/resolveActivityCatalogsV2";
+import type { ResolvedStyle } from "@/services/supabase/resolveActivityCatalogs";
 import { mapStyleTokensToCssVars } from "@/features/public/utils/mapStyleTokensToCssVars";
 
 type Props = {

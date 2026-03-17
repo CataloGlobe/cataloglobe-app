@@ -18,7 +18,7 @@ import {
     getFeaturedContentById,
     deleteFeaturedContent,
     FeaturedContentWithProducts
-} from "@/services/supabase/v2/featuredContents";
+} from "@/services/supabase/featuredContents";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import FeaturedContentDrawer from "./FeaturedContentDrawer";
 import styles from "./Highlights.module.scss";

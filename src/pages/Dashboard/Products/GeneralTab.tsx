@@ -3,14 +3,14 @@ import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
-import { V2Product, updateProduct } from "@/services/supabase/v2/products";
+import { V2Product, updateProduct } from "@/services/supabase/products";
 import {
     ProductGroup,
     getProductGroups,
     getProductGroupAssignments,
     assignProductToGroup,
     removeProductFromGroup
-} from "@/services/supabase/v2/productGroups";
+} from "@/services/supabase/productGroups";
 import styles from "./GeneralTab.module.scss";
 
 interface GeneralTabProps {

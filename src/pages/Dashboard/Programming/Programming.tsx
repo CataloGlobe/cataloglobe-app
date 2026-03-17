@@ -31,7 +31,7 @@ import {
     type LayoutRule,
     type LayoutRuleOption,
     type RuleType
-} from "@/services/supabase/v2/layoutScheduling";
+} from "@/services/supabase/layoutScheduling";
 import { buildRuleSummary, isRuleCurrentlyActive } from "@/utils/ruleHelpers";
 import styles from "./Programming.module.scss";
 

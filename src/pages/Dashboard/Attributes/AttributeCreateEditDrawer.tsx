@@ -12,7 +12,7 @@ import {
     updateAttributeDefinition,
     V2ProductAttributeDefinition,
     AttributeType
-} from "@/services/supabase/v2/attributes";
+} from "@/services/supabase/attributes";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import styles from "./Attributes.module.scss";
 

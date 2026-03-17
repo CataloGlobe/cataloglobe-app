@@ -14,7 +14,7 @@ import styles from "./Attributes.module.scss";
 import {
     listAttributeDefinitions,
     V2ProductAttributeDefinition
-} from "@/services/supabase/v2/attributes";
+} from "@/services/supabase/attributes";
 import { AttributeCreateEditDrawer } from "./AttributeCreateEditDrawer";
 import { AttributeDeleteDrawer } from "./AttributeDeleteDrawer";
 

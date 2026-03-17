@@ -1,5 +1,5 @@
-import { resolveActivityCatalogsV2 } from "./v2/resolveActivityCatalogsV2";
+import { resolveActivityCatalogs } from "./resolveActivityCatalogs";
 
 export async function resolveBusinessCollections(businessId: string, now: Date = new Date()) {
-    return resolveActivityCatalogsV2(businessId, now);
+    return resolveActivityCatalogs(businessId, now);
 }

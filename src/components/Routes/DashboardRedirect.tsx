@@ -1,6 +1,5 @@
 import { Navigate, useLocation } from "react-router-dom";
-
-const STORAGE_KEY = "cg_v2_selected_tenant_id";
+import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
 
 /**
  * Legacy backward-compatibility redirect.

@@ -9,8 +9,8 @@ import {
     IconLoader2
 } from "@tabler/icons-react";
 import { Button, Card } from "@/components/ui";
-import { V2Activity } from "@/types/v2/activity";
-import { V2ActivityGroup } from "@/types/v2/activity-group";
+import { V2Activity } from "@/types/activity";
+import { V2ActivityGroup } from "@/types/activity-group";
 import styles from "../ActivityDetailPage.module.scss";
 
 interface ActivityInfoTabProps {

@@ -13,7 +13,7 @@ import {
     getProductGroups,
     deleteProductGroup,
     ProductGroup
-} from "@/services/supabase/v2/productGroups";
+} from "@/services/supabase/productGroups";
 import { ProductGroupCreateEditDrawer, GroupFormMode } from "./ProductGroupCreateEditDrawer";
 import { ProductGroupDeleteDrawer } from "./ProductGroupDeleteDrawer";
 import { useToast } from "@/context/Toast/ToastContext";

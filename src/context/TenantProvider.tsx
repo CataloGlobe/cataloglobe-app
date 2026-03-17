@@ -3,9 +3,17 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/services/supabase/client";
 import { TenantContext } from "./TenantContext";
 import { useAuth } from "./useAuth";
-import type { V2Tenant } from "@/types/v2/tenant";
+import type { V2Tenant } from "@/types/tenant";
+import { TENANT_KEY, LEGACY_TENANT_KEY } from "@/constants/storageKeys";
 
-const STORAGE_KEY = "cg_v2_selected_tenant_id";
+// One-time migration: copy legacy key to new key if present.
+const legacyValue = localStorage.getItem(LEGACY_TENANT_KEY);
+if (legacyValue !== null && localStorage.getItem(TENANT_KEY) === null) {
+    localStorage.setItem(TENANT_KEY, legacyValue);
+}
+if (legacyValue !== null) {
+    localStorage.removeItem(LEGACY_TENANT_KEY);
+}
 
 export function TenantProvider({ children }: { children: ReactNode }) {
     const { user, loading: authLoading } = useAuth();
@@ -35,7 +43,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         const fetchTenants = async () => {
             try {
                 const { data, error } = await supabase
-                    .from("v2_user_tenants_view")
+                    .from("user_tenants_view")
                     .select("id, owner_user_id, name, vertical_type, created_at, user_role")
                     .order("created_at", { ascending: true });
 
@@ -77,14 +85,14 @@ export function TenantProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        localStorage.setItem(STORAGE_KEY, selectedTenant.id);
+        localStorage.setItem(TENANT_KEY, selectedTenant.id);
     }, [tenants.length, selectedTenant, loading, navigate]);
 
     // Optimistically update context when switching businesses (BusinessSwitcher calls this
     // before navigate(), so the UI responds immediately without waiting for the effect).
     function selectTenant(id: string) {
         if (id) {
-            localStorage.setItem(STORAGE_KEY, id);
+            localStorage.setItem(TENANT_KEY, id);
         }
     }
 

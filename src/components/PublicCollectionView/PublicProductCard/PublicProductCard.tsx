@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import styles from "./PublicProductCard.module.scss";
-import type { ResolvedProduct } from "@/services/supabase/v2/resolveActivityCatalogsV2";
+import type { ResolvedProduct } from "@/services/supabase/resolveActivityCatalogs";
 import Text from "@/components/ui/Text/Text";
 import ModalLayout, {
     ModalLayoutContent,

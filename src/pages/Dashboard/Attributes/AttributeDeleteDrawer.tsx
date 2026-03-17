@@ -7,7 +7,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import {
     deleteAttributeDefinition,
     V2ProductAttributeDefinition
-} from "@/services/supabase/v2/attributes";
+} from "@/services/supabase/attributes";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import styles from "./Attributes.module.scss";
 

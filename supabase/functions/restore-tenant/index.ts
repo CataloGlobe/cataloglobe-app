@@ -83,13 +83,13 @@ serve(async req => {
         console.log(`restore-tenant: Authenticated request for user ${userId}, tenant ${tenantId}`);
 
         // Step 4: fetch the tenant via service_role so we can see soft-deleted rows.
-        // We cannot use the user client here: the SELECT policy on v2_tenants filters
+        // We cannot use the user client here: the SELECT policy on tenants filters
         // out rows where deleted_at IS NOT NULL, so a deleted tenant is invisible
         // to the user's JWT. service_role bypasses RLS entirely.
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
         const { data: tenantRow, error: fetchError } = await supabaseAdmin
-            .from("v2_tenants")
+            .from("tenants")
             .select("id, owner_user_id, deleted_at")
             .eq("id", tenantId)
             .maybeSingle();
@@ -122,7 +122,7 @@ serve(async req => {
         // Step 5: restore — set deleted_at = NULL via service_role.
         // trg_protect_tenant_deleted_at permits this because current_user = 'service_role'.
         const { error: restoreError } = await supabaseAdmin
-            .from("v2_tenants")
+            .from("tenants")
             .update({ deleted_at: null })
             .eq("id", tenantId);
 
@@ -134,7 +134,7 @@ serve(async req => {
         console.log(`restore-tenant: Tenant ${tenantId} restored by user ${userId}`);
 
         supabaseAdmin
-            .from("v2_audit_logs")
+            .from("audit_logs")
             .insert({ tenant_id: tenantId, user_id: userId, event_type: "tenant_restored" })
             .then(({ error }) => {
                 if (error) console.error("restore-tenant: audit log insert failed:", error.message);

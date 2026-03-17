@@ -8,16 +8,16 @@ import BusinessCard from "@/components/Businesses/BusinessCard";
 import { CreateBusinessDrawer } from "@/components/Businesses/CreateBusinessDrawer";
 import { InviteModal, PendingInviteData } from "@/components/Businesses/InviteModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { leaveTenant, restoreTenant, getDeletedTenants, purgeTenantNow } from "@/services/supabase/v2/tenants";
-import type { DeletedTenant } from "@/services/supabase/v2/tenants";
-import type { V2Tenant } from "@/types/v2/tenant";
+import { leaveTenant, restoreTenant, getDeletedTenants, purgeTenantNow } from "@/services/supabase/tenants";
+import type { DeletedTenant } from "@/services/supabase/tenants";
+import type { V2Tenant } from "@/types/tenant";
 import { Button } from "@/components/ui/Button/Button";
 import { useToast } from "@/context/Toast/ToastContext";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import styles from "./WorkspacePage.module.scss";
 
-const STORAGE_KEY = "cg_v2_selected_tenant_id";
+import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
 
 function countByTenant(rows: { tenant_id: string }[] | null): Record<string, number> {
     const counts: Record<string, number> = {};
@@ -52,7 +52,7 @@ export default function WorkspacePage() {
         const fetchInvites = async () => {
             // Step 1: fetch pending membership rows with inviter info from the view
             const { data: rows } = await supabase
-                .from("v2_tenant_members_view")
+                .from("tenant_members_view")
                 .select("membership_id, invite_token, role, tenant_id, inviter_email")
                 .eq("status", "pending");
 
@@ -64,7 +64,7 @@ export default function WorkspacePage() {
             // Step 2: batch-fetch tenant names
             const tenantIds = [...new Set(rows.map((r: any) => r.tenant_id as string))];
             const { data: tenantRows } = await supabase
-                .from("v2_tenants")
+                .from("tenants")
                 .select("id, name")
                 .in("id", tenantIds);
 
@@ -92,7 +92,7 @@ export default function WorkspacePage() {
         if (!user) return;
         const [activeResult, deletedResult] = await Promise.all([
             supabase
-                .from("v2_user_tenants_view")
+                .from("user_tenants_view")
                 .select("id, owner_user_id, name, vertical_type, created_at, user_role")
                 .order("created_at", { ascending: true }),
             getDeletedTenants().catch(() => [] as DeletedTenant[])
@@ -112,9 +112,9 @@ export default function WorkspacePage() {
         const ids = tenants.map(t => t.id);
 
         Promise.all([
-            supabase.from("v2_activities").select("tenant_id").in("tenant_id", ids),
-            supabase.from("v2_products").select("tenant_id").in("tenant_id", ids),
-            supabase.from("v2_catalogs").select("tenant_id").in("tenant_id", ids)
+            supabase.from("activities").select("tenant_id").in("tenant_id", ids),
+            supabase.from("products").select("tenant_id").in("tenant_id", ids),
+            supabase.from("catalogs").select("tenant_id").in("tenant_id", ids)
         ]).then(([loc, prod, cat]) => {
             setLocationCounts(countByTenant(loc.data));
             setProductCounts(countByTenant(prod.data));

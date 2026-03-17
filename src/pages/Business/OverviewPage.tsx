@@ -53,11 +53,11 @@ export default function OverviewPage() {
         async function loadStats() {
             setLoadingStats(true);
             const [locations, products, catalogs, featuredContents, schedules] = await Promise.all([
-                supabase.from("v2_activities").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId!),
-                supabase.from("v2_products").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId!),
-                supabase.from("v2_catalogs").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId!),
-                supabase.from("v2_featured_contents").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId!),
-                supabase.from("v2_schedules").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId!)
+                supabase.from("activities").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId!),
+                supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId!),
+                supabase.from("catalogs").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId!),
+                supabase.from("featured_contents").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId!),
+                supabase.from("schedules").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId!)
             ]);
             setStats({
                 locations: locations.count ?? 0,

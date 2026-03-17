@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 
-const STORAGE_KEY = "cg_v2_selected_tenant_id";
+import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
 
 const VERTICAL_OPTIONS = [
     { value: "restaurant", label: "Ristorante" },
@@ -59,7 +59,7 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
             setSubmitting(true);
 
             const { data, error } = await supabase
-                .from("v2_tenants")
+                .from("tenants")
                 .insert({ owner_user_id: user.id, name: name.trim(), vertical_type: verticalType })
                 .select("id")
                 .single();

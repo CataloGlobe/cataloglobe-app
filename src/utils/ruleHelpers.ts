@@ -1,4 +1,4 @@
-import { LayoutRule } from "@/services/supabase/v2/layoutScheduling";
+import { LayoutRule } from "@/services/supabase/layoutScheduling";
 
 const DAY_LABELS: Record<number, string> = {
     1: "Lun",

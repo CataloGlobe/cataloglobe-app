@@ -1,5 +1,5 @@
 import { supabase } from "@/services/supabase/client";
-import type { V2Activity } from "@/types/v2/activity";
+import type { V2Activity } from "@/types/activity";
 
 const BUSINESS_COVERS_BUCKET = "business-covers";
 const AUTH_SESSION_MISSING_MESSAGE =
@@ -153,7 +153,7 @@ function buildCoverPath(slug: string, activityId: string, extension: string) {
  */
 export async function getActivities(tenantId: string): Promise<V2Activity[]> {
     const { data, error } = await supabase
-        .from("v2_activities")
+        .from("activities")
         .select("*")
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: true });
@@ -167,7 +167,7 @@ export async function getActivities(tenantId: string): Promise<V2Activity[]> {
  */
 export async function getActivityBySlug(slug: string): Promise<V2Activity | null> {
     const { data, error } = await supabase
-        .from("v2_activities")
+        .from("activities")
         .select("*")
         .eq("slug", slug)
         .single();
@@ -181,7 +181,7 @@ export async function getActivityBySlug(slug: string): Promise<V2Activity | null
  */
 export async function getActivityById(id: string, tenantId: string): Promise<V2Activity | null> {
     const { data, error } = await supabase
-        .from("v2_activities")
+        .from("activities")
         .select("*")
         .eq("id", id)
         .eq("tenant_id", tenantId)
@@ -206,7 +206,7 @@ export async function createActivity(
     }
 ): Promise<V2Activity> {
     const { data, error } = await supabase
-        .from("v2_activities")
+        .from("activities")
         .insert([
             {
                 id: crypto.randomUUID(),
@@ -228,7 +228,7 @@ export async function updateActivity(
     updates: Partial<Omit<V2Activity, "id" | "tenant_id" | "created_at">>
 ): Promise<V2Activity> {
     const { data, error } = await supabase
-        .from("v2_activities")
+        .from("activities")
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq("id", id)
         .eq("tenant_id", tenantId)
@@ -243,7 +243,7 @@ export async function deleteActivity(id: string, tenantId: string) {
     // Nota: l'eliminazione atomica (bucket + db) è gestita via Edge Function
     // o manualmente chiamando prima deleteActivityAssets.
     const { error } = await supabase
-        .from("v2_activities")
+        .from("activities")
         .delete()
         .eq("id", id)
         .eq("tenant_id", tenantId);

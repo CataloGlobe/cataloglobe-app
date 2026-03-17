@@ -13,7 +13,7 @@ import {
     RuleType,
     type ProductGroupAssignmentOption,
     type VisibilityMode
-} from "@/services/supabase/v2/layoutScheduling";
+} from "@/services/supabase/layoutScheduling";
 import styles from "../ProgrammingRuleDetail.module.scss";
 
 interface FeaturedContentItem {

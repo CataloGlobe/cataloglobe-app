@@ -9,8 +9,8 @@ import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import styles from "./ActivityGroupsSection.module.scss";
 
-import { getActivityGroups, deleteActivityGroup } from "@/services/supabase/v2/activity-groups";
-import { V2ActivityGroupWithCounts } from "@/types/v2/activity-group";
+import { getActivityGroups, deleteActivityGroup } from "@/services/supabase/activity-groups";
+import { V2ActivityGroupWithCounts } from "@/types/activity-group";
 import { useDrawer } from "@/context/Drawer/useDrawer";
 import { ActivityGroupDrawer } from "../ActivityGroupDrawer";
 import { useSearchParams } from "react-router-dom";
@@ -40,7 +40,7 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
             setGroups(data);
 
             if (highlightActivityId) {
-                const activityGroups = await import("@/services/supabase/v2/activity-groups").then(
+                const activityGroups = await import("@/services/supabase/activity-groups").then(
                     m => m.getGroupsForActivity(highlightActivityId, tenantId!)
                 );
                 setHighlightedGroupIds(activityGroups.map(g => g.id));

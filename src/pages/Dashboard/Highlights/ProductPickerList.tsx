@@ -27,7 +27,7 @@ export default function ProductPickerList({
         try {
             setLoading(true);
             const { data, error } = await supabase
-                .from("v2_products")
+                .from("products")
                 .select("id, name, base_price")
                 .order("name");
 

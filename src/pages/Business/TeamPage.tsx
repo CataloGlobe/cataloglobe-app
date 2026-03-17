@@ -18,7 +18,7 @@ import ModalLayout, {
     ModalLayoutHeader,
 } from "@/components/ui/ModalLayout/ModalLayout";
 import { Ban, Send, Trash2, UserCog, UserMinus } from "lucide-react";
-import { MEMBER_STATUS_LABEL, MEMBER_STATUS_BADGE } from "@/types/v2/memberStatus";
+import { MEMBER_STATUS_LABEL, MEMBER_STATUS_BADGE } from "@/types/memberStatus";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import styles from "./TeamPage.module.scss";
 
@@ -93,7 +93,7 @@ export default function TeamPage() {
         const fetchMembers = async () => {
             setLoading(true);
             const { data, error } = await supabase
-                .from("v2_tenant_members_view")
+                .from("tenant_members_view")
                 .select("membership_id, tenant_id, user_id, email, role, status, invited_by, inviter_email, invite_token, invite_expires_at, created_at")
                 .eq("tenant_id", selectedTenantId)
                 .order("created_at", { ascending: true });

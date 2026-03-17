@@ -55,7 +55,7 @@ async function purgeTenant(
         });
 
         supabaseAdmin
-            .from("v2_audit_logs")
+            .from("audit_logs")
             .insert({ tenant_id: null, event_type: "tenant_purged", metadata: { tenantId, ...result.deleted, storageFilesRemoved: result.storageFilesRemoved } })
             .then(({ error }) => {
                 if (error) console.error(`purge-tenants: audit log insert failed for ${tenantId}:`, error.message);
@@ -97,7 +97,7 @@ serve(async req => {
     const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
     const { data: expiredTenants, error: fetchErr } = await supabaseAdmin
-        .from("v2_tenants")
+        .from("tenants")
         .select("id, name, deleted_at")
         .not("deleted_at", "is", null)
         .lt("deleted_at", cutoff)

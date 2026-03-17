@@ -22,7 +22,7 @@ import Text from "@components/ui/Text/Text";
 import Skeleton from "@components/ui/Skeleton/Skeleton";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import type { AnalyticsReview } from "@services/supabase/reviews";
-import { getActivities } from "@/services/supabase/v2/activities";
+import { getActivities } from "@/services/supabase/activities";
 import styles from "./Analytics.module.scss";
 import { Select } from "@/components/ui/Select/Select";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";

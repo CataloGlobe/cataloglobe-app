@@ -8,7 +8,7 @@ import styles from "./ItemDetail.module.scss";
 import type { CollectionViewSectionItem } from "../CollectionView/CollectionView";
 import { Button } from "@/components/ui";
 import ProductDetailOptions from "@/components/catalog-renderer/ProductDetailOptions";
-import type { ResolvedOptionGroup } from "@/services/supabase/v2/resolveActivityCatalogsV2";
+import type { ResolvedOptionGroup } from "@/services/supabase/resolveActivityCatalogs";
 
 type Props = {
     item: CollectionViewSectionItem | null;

@@ -9,7 +9,7 @@ export async function ensureUniqueBusinessSlug(rawName: string, tenantId: string
 
     // 1) recuperiamo tutti gli slug che iniziano con baseSlug, scoped per tenant
     const { data, error } = await supabase
-        .from("v2_activities")
+        .from("activities")
         .select("slug")
         .eq("tenant_id", tenantId)
         .ilike("slug", `${baseSlug}%`);

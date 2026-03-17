@@ -62,12 +62,12 @@ serve(async req => {
         console.log(`delete-tenant: Authenticated request for user ${userId}, tenant ${tenantId}`);
 
         // Step 4: ownership check via the user's JWT (RLS-guarded).
-        // The SELECT policy on v2_tenants allows owners to read their own rows
+        // The SELECT policy on tenants allows owners to read their own rows
         // (owner_user_id = auth.uid() AND deleted_at IS NULL). If the query
         // returns null, the tenant either doesn't exist, is already soft-deleted,
         // or doesn't belong to this user.
         const { data: tenantData, error: ownershipError } = await supabaseUser
-            .from("v2_tenants")
+            .from("tenants")
             .select("id, owner_user_id")
             .eq("id", tenantId)
             .maybeSingle();
@@ -96,12 +96,12 @@ serve(async req => {
 
         // Step 6: soft delete via service_role (bypasses RLS).
         // Sets deleted_at to now(). All RLS policies that rely on
-        // get_my_tenant_ids() or the v2_user_tenants_view will immediately
+        // get_my_tenant_ids() or the user_tenants_view will immediately
         // stop returning this tenant to any client.
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
         const { error: deleteError } = await supabaseAdmin
-            .from("v2_tenants")
+            .from("tenants")
             .update({ deleted_at: new Date().toISOString() })
             .eq("id", tenantId);
 
@@ -113,7 +113,7 @@ serve(async req => {
         console.log(`delete-tenant: Tenant ${tenantId} soft-deleted by user ${userId}`);
 
         supabaseAdmin
-            .from("v2_audit_logs")
+            .from("audit_logs")
             .insert({ tenant_id: tenantId, user_id: userId, event_type: "tenant_deleted" })
             .then(({ error }) => {
                 if (error) console.error("delete-tenant: audit log insert failed:", error.message);

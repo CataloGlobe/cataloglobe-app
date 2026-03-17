@@ -6,7 +6,7 @@ import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
 import { Button } from "@/components/ui/Button/Button";
 import { useToast } from "@/context/Toast/ToastContext";
 import { IconLayoutSidebarRightCollapse } from "@tabler/icons-react";
-import { getStyle, updateStyle, V2Style } from "@/services/supabase/v2/styles";
+import { getStyle, updateStyle, V2Style } from "@/services/supabase/styles";
 import { StylePreview } from "./Editor/StylePreview";
 import { StyleSettingsDrawer } from "./Editor/StyleSettingsDrawer";
 import {

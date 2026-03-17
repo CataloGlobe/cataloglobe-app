@@ -2,7 +2,7 @@ import { MapPin, Archive, BookOpen, LayoutDashboard, Settings, LogOut } from "lu
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
-import type { V2Tenant } from "@/types/v2/tenant";
+import type { V2Tenant } from "@/types/tenant";
 import styles from "./BusinessCard.module.scss";
 
 const VERTICAL_LABELS: Record<string, string> = {

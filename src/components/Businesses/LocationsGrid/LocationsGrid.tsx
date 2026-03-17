@@ -1,7 +1,7 @@
 import React from "react";
 import { BusinessCard } from "../BusinessCard/BusinessCard";
 import type { BusinessWithCapabilities } from "@/types/Businesses";
-import type { ActiveCatalogMeta } from "@/services/supabase/v2/activeCatalog";
+import type { ActiveCatalogMeta } from "@/services/supabase/activeCatalog";
 import styles from "./LocationsGrid.module.scss";
 
 interface LocationsGridProps {

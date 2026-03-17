@@ -15,7 +15,7 @@ import {
     type RuleType,
     type VisibilityMode,
     type ProductGroupAssignmentOption
-} from "@/services/supabase/v2/layoutScheduling";
+} from "@/services/supabase/layoutScheduling";
 import { buildRuleSummary } from "@/utils/ruleHelpers";
 import styles from "./ProgrammingRuleDetail.module.scss";
 

@@ -66,7 +66,7 @@ export async function getAnalyticsReviews() {
             created_at,
             source,
             activity_id,
-            v2_activities:activity_id (
+            activities:activity_id (
                 name,
                 tenant_id
             )
@@ -81,7 +81,7 @@ export async function getAnalyticsReviews() {
 
     // Normalizzazione
     return data.map(r => {
-        const activity = r.v2_activities?.[0];
+        const activity = r.activities?.[0];
 
         return {
             ...r,

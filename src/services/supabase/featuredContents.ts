@@ -46,11 +46,11 @@ export interface FeaturedContentWithProducts extends FeaturedContent {
 
 export async function listFeaturedContents(tenantId: string) {
     const { data, error } = await supabase
-        .from("v2_featured_contents")
+        .from("featured_contents")
         .select(
             `
             *,
-            products:v2_featured_content_products (count)
+            products:featured_content_products (count)
         `
         )
         .eq("tenant_id", tenantId)
@@ -66,7 +66,7 @@ export async function listFeaturedContents(tenantId: string) {
 
 export async function getFeaturedContentById(id: string, tenantId: string): Promise<FeaturedContentWithProducts> {
     const { data: content, error: contentError } = await supabase
-        .from("v2_featured_contents")
+        .from("featured_contents")
         .select(`*`)
         .eq("id", id)
         .eq("tenant_id", tenantId)
@@ -75,7 +75,7 @@ export async function getFeaturedContentById(id: string, tenantId: string): Prom
     if (contentError) throw contentError;
 
     const { data: products, error: productsError } = await supabase
-        .from("v2_featured_content_products")
+        .from("featured_content_products")
         .select(
             `
             *,
@@ -97,7 +97,7 @@ export async function createFeaturedContent(
     productsData: Partial<FeaturedContentProduct>[] = []
 ) {
     const { data: content, error: contentError } = await supabase
-        .from("v2_featured_contents")
+        .from("featured_contents")
         .insert({
             ...contentData,
             tenant_id: tenantId
@@ -116,7 +116,7 @@ export async function createFeaturedContent(
         }));
 
         const { error: productsError } = await supabase
-            .from("v2_featured_content_products")
+            .from("featured_content_products")
             .insert(productsToInsert);
 
         if (productsError) throw productsError;
@@ -132,7 +132,7 @@ export async function updateFeaturedContent(
     productsData: Partial<FeaturedContentProduct>[] = []
 ) {
     const { data: content, error: contentError } = await supabase
-        .from("v2_featured_contents")
+        .from("featured_contents")
         .update(contentData)
         .eq("id", id)
         .eq("tenant_id", tenantId)
@@ -143,7 +143,7 @@ export async function updateFeaturedContent(
 
     // Delete all and re-insert logic
     const { error: delError } = await supabase
-        .from("v2_featured_content_products")
+        .from("featured_content_products")
         .delete()
         .eq("featured_content_id", id)
         .eq("tenant_id", tenantId);
@@ -160,7 +160,7 @@ export async function updateFeaturedContent(
         }));
 
         const { error: productsError } = await supabase
-            .from("v2_featured_content_products")
+            .from("featured_content_products")
             .insert(productsToInsert);
 
         if (productsError) throw productsError;
@@ -171,7 +171,7 @@ export async function updateFeaturedContent(
 
 export async function deleteFeaturedContent(id: string, tenantId: string) {
     const { error } = await supabase
-        .from("v2_featured_contents")
+        .from("featured_contents")
         .delete()
         .eq("id", id)
         .eq("tenant_id", tenantId);

@@ -1,7 +1,7 @@
 import type { BadgeVariant } from "@/components/ui/Badge/Badge";
 
 /**
- * Human-readable labels for v2_tenant_memberships.status values.
+ * Human-readable labels for tenant_memberships.status values.
  * Use MEMBER_STATUS_LABEL[member.status] ?? member.status as a safe fallback.
  */
 export const MEMBER_STATUS_LABEL: Record<string, string> = {
@@ -15,7 +15,7 @@ export const MEMBER_STATUS_LABEL: Record<string, string> = {
 };
 
 /**
- * Badge variant for each v2_tenant_memberships.status value.
+ * Badge variant for each tenant_memberships.status value.
  * Use MEMBER_STATUS_BADGE[member.status] ?? "secondary" as a safe fallback.
  */
 export const MEMBER_STATUS_BADGE: Record<string, BadgeVariant> = {

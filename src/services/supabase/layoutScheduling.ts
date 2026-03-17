@@ -217,7 +217,7 @@ async function selectSchedulesWithNameFallback(tenantId: string): Promise<RawSch
         ].join(", ");
 
         const result = await supabase
-            .from("v2_schedules")
+            .from("schedules")
             .select(selectColumns)
             .eq("tenant_id", tenantId)
             .order("priority", { ascending: true })
@@ -242,7 +242,7 @@ async function selectSchedulesWithNameFallback(tenantId: string): Promise<RawSch
         if (missingVisibilityMode) includeVisibilityMode = false;
     }
 
-    throw new Error("Impossibile leggere v2_schedules con lo schema corrente.");
+    throw new Error("Impossibile leggere schedules con lo schema corrente.");
 }
 
 async function insertScheduleWithNameFallback(
@@ -263,7 +263,7 @@ async function insertScheduleWithNameFallback(
     const normalizedName = name?.trim() ?? "";
     if (normalizedName.length > 0) {
         const withNameRes = await supabase
-            .from("v2_schedules")
+            .from("schedules")
             .insert({
                 ...payload,
                 name: normalizedName
@@ -276,7 +276,7 @@ async function insertScheduleWithNameFallback(
     }
 
     const withoutNameRes = await supabase
-        .from("v2_schedules")
+        .from("schedules")
         .insert(payload)
         .select("id")
         .single();
@@ -306,7 +306,7 @@ async function updateScheduleWithNameFallback(input: {
     };
 
     const withNameRes = await supabase
-        .from("v2_schedules")
+        .from("schedules")
         .update(patchWithName)
         .eq("id", input.scheduleId);
 
@@ -314,7 +314,7 @@ async function updateScheduleWithNameFallback(input: {
     if (!isMissingColumnError(withNameRes.error, "name")) throw withNameRes.error;
 
     const withoutNameRes = await supabase
-        .from("v2_schedules")
+        .from("schedules")
         .update(input.patch)
         .eq("id", input.scheduleId);
 
@@ -326,7 +326,7 @@ async function updateScheduleVisibilityModeFallback(
     visibilityMode: VisibilityMode
 ): Promise<void> {
     const { error } = await supabase
-        .from("v2_schedules")
+        .from("schedules")
         .update({ visibility_mode: visibilityMode })
         .eq("id", scheduleId);
 
@@ -341,14 +341,14 @@ async function selectVisibilityOverridesWithModeFallback(
     if (scheduleIds.length === 0) return [];
 
     const withModeRes = await supabase
-        .from("v2_schedule_visibility_overrides")
+        .from("schedule_visibility_overrides")
         .select(
             `
             schedule_id,
             product_id,
             visible,
             mode,
-            product:v2_products(
+            product:products(
                 name
             )
             `
@@ -364,13 +364,13 @@ async function selectVisibilityOverridesWithModeFallback(
     }
 
     const withoutModeRes = await supabase
-        .from("v2_schedule_visibility_overrides")
+        .from("schedule_visibility_overrides")
         .select(
             `
             schedule_id,
             product_id,
             visible,
-            product:v2_products(
+            product:products(
                 name
             )
             `
@@ -390,7 +390,7 @@ async function insertVisibilityOverridesWithModeFallback(
 ): Promise<void> {
     if (rows.length === 0) return;
 
-    const withModeRes = await supabase.from("v2_schedule_visibility_overrides").insert(
+    const withModeRes = await supabase.from("schedule_visibility_overrides").insert(
         rows.map(row => ({
             tenant_id: tenantId,
             schedule_id: row.schedule_id,
@@ -410,7 +410,7 @@ async function insertVisibilityOverridesWithModeFallback(
         );
     }
 
-    const withoutModeRes = await supabase.from("v2_schedule_visibility_overrides").insert(
+    const withoutModeRes = await supabase.from("schedule_visibility_overrides").insert(
         rows.map(row => ({
             tenant_id: tenantId,
             schedule_id: row.schedule_id,
@@ -427,7 +427,7 @@ export async function getSystemActivityGroupId(tenantId: string): Promise<string
     if (cached) return cached;
 
     const { data, error } = await supabase
-        .from("v2_activity_groups")
+        .from("activity_groups")
         .select("id")
         .eq("tenant_id", tenantId)
         .eq("is_system", true)
@@ -487,7 +487,7 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
     >();
     if (layoutRuleIds.length > 0) {
         const { data: layoutsData, error: layoutsError } = await supabase
-            .from("v2_schedule_layout")
+            .from("schedule_layout")
             .select("schedule_id, style_id, catalog_id")
             .in("schedule_id", layoutRuleIds);
 
@@ -509,14 +509,14 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
     const priceOverridesByScheduleId = new Map<string, PriceRuleProductOverride[]>();
     if (priceRuleIds.length > 0) {
         const { data: priceOverridesData, error: priceOverridesError } = await supabase
-            .from("v2_schedule_price_overrides")
+            .from("schedule_price_overrides")
             .select(
                 `
                 schedule_id,
                 product_id,
                 override_price,
                 show_original_price,
-                product:v2_products(
+                product:products(
                     name
                 )
                 `
@@ -559,7 +559,7 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
     const scheduleTargetsByScheduleId = new Map<string, RawScheduleTargetRow[]>();
     if (allRuleIds.length > 0) {
         const { data: targetsData, error: targetsError } = await supabase
-            .from("v2_schedule_targets")
+            .from("schedule_targets")
             .select("schedule_id, target_type, target_id")
             .in("schedule_id", allRuleIds);
 
@@ -570,7 +570,7 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
                 scheduleTargetsByScheduleId.set(row.schedule_id, arr);
             }
         }
-        // If v2_schedule_targets doesn't exist yet (pre-migration), silently fall back
+        // If schedule_targets doesn't exist yet (pre-migration), silently fall back
     }
 
     // Determine apply_to_all from DB column OR legacy system-group detection
@@ -586,7 +586,7 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
     let groupById = new Map<string, ActivityGroupRow>();
     if (activityGroupIds.length > 0) {
         const { data: groupsData, error: groupsError } = await supabase
-            .from("v2_activity_groups")
+            .from("activity_groups")
             .select("id, name, is_system")
             .in("id", activityGroupIds);
 
@@ -600,14 +600,14 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
     const featuredContentsByScheduleId = new Map<string, LayoutRuleFeaturedContent[]>();
     if (layoutRuleIds.length > 0) {
         const { data: fcData, error: fcError } = await supabase
-            .from("v2_schedule_featured_contents")
+            .from("schedule_featured_contents")
             .select(
                 `
                 schedule_id,
                 featured_content_id,
                 slot,
                 sort_order,
-                featured_content:v2_featured_contents(title)
+                featured_content:featured_contents(title)
             `
             )
             .in("schedule_id", layoutRuleIds)
@@ -732,42 +732,42 @@ export async function listLayoutRuleOptions(tenantId: string): Promise<{
     ] =
         await Promise.all([
             supabase
-                .from("v2_activities")
+                .from("activities")
                 .select("id, name, tenant_id")
                 .eq("tenant_id", tenantId)
                 .order("name", { ascending: true }),
             supabase
-                .from("v2_activity_groups")
+                .from("activity_groups")
                 .select("id, name, tenant_id, is_system")
                 .eq("tenant_id", tenantId)
                 .order("name", { ascending: true }),
             supabase
-                .from("v2_catalogs")
+                .from("catalogs")
                 .select("id, name, tenant_id")
                 .eq("tenant_id", tenantId)
                 .order("name", { ascending: true }),
             supabase
-                .from("v2_styles")
+                .from("styles")
                 .select(
-                    "id, name, tenant_id, is_system, current_version:v2_style_versions!current_version_id(version)"
+                    "id, name, tenant_id, is_system, current_version:style_versions!current_version_id(version)"
                 )
                 .eq("tenant_id", tenantId)
                 .eq("is_active", true)
                 .order("name", { ascending: true }),
             supabase
-                .from("v2_products")
+                .from("products")
                 .select("id, name, tenant_id")
                 .eq("tenant_id", tenantId)
                 .order("name", { ascending: true }),
             supabase
-                .from("v2_product_groups")
+                .from("product_groups")
                 .select("id, name, tenant_id")
                 .order("name", { ascending: true }),
             supabase
-                .from("v2_product_group_items")
+                .from("product_group_items")
                 .select("product_id, group_id, tenant_id"),
             supabase
-                .from("v2_featured_contents")
+                .from("featured_contents")
                 .select("id, title, tenant_id")
                 .eq("tenant_id", tenantId)
                 .eq("status", "published")
@@ -842,7 +842,7 @@ export async function createLayoutRule(input: {
 
     const scheduleId = schedule.id;
 
-    const { error: layoutError } = await supabase.from("v2_schedule_layout").insert({
+    const { error: layoutError } = await supabase.from("schedule_layout").insert({
         tenant_id: input.tenantId,
         schedule_id: scheduleId,
         style_id: input.styleId,
@@ -850,12 +850,12 @@ export async function createLayoutRule(input: {
     });
 
     if (layoutError) {
-        await supabase.from("v2_schedules").delete().eq("id", scheduleId);
+        await supabase.from("schedules").delete().eq("id", scheduleId);
         throw layoutError;
     }
 
     if (input.featuredContents && input.featuredContents.length > 0) {
-        const { error: fcError } = await supabase.from("v2_schedule_featured_contents").insert(
+        const { error: fcError } = await supabase.from("schedule_featured_contents").insert(
             input.featuredContents.map(fc => ({
                 tenant_id: input.tenantId,
                 schedule_id: scheduleId,
@@ -866,7 +866,7 @@ export async function createLayoutRule(input: {
         );
 
         if (fcError) {
-            await supabase.from("v2_schedules").delete().eq("id", scheduleId);
+            await supabase.from("schedules").delete().eq("id", scheduleId);
             throw fcError;
         }
     }
@@ -911,7 +911,7 @@ export async function createPriceRule(input: {
 
     const scheduleId = schedule.id;
 
-    const { error: overridesError } = await supabase.from("v2_schedule_price_overrides").insert(
+    const { error: overridesError } = await supabase.from("schedule_price_overrides").insert(
         input.products.map(product => ({
             tenant_id: input.tenantId,
             schedule_id: scheduleId,
@@ -923,7 +923,7 @@ export async function createPriceRule(input: {
 
     if (!overridesError) return;
 
-    await supabase.from("v2_schedules").delete().eq("id", scheduleId);
+    await supabase.from("schedules").delete().eq("id", scheduleId);
     throw overridesError;
 }
 
@@ -977,7 +977,7 @@ export async function createVisibilityRule(input: {
         );
         return;
     } catch (error) {
-        await supabase.from("v2_schedules").delete().eq("id", scheduleId);
+        await supabase.from("schedules").delete().eq("id", scheduleId);
         throw error;
     }
 }
@@ -1032,7 +1032,7 @@ export async function updateLayoutRule(input: {
     });
 
     const { data: existingLayout, error: existingLayoutError } = await supabase
-        .from("v2_schedule_layout")
+        .from("schedule_layout")
         .select("id")
         .eq("schedule_id", input.scheduleId)
         .maybeSingle();
@@ -1041,7 +1041,7 @@ export async function updateLayoutRule(input: {
 
     if (existingLayout?.id) {
         const { error: layoutUpdateError } = await supabase
-            .from("v2_schedule_layout")
+            .from("schedule_layout")
             .update({
                 style_id: input.styleId,
                 catalog_id: input.catalogId
@@ -1050,7 +1050,7 @@ export async function updateLayoutRule(input: {
 
         if (layoutUpdateError) throw layoutUpdateError;
     } else {
-        const { error: layoutInsertError } = await supabase.from("v2_schedule_layout").insert({
+        const { error: layoutInsertError } = await supabase.from("schedule_layout").insert({
             tenant_id: input.tenantId,
             schedule_id: input.scheduleId,
             style_id: input.styleId,
@@ -1062,7 +1062,7 @@ export async function updateLayoutRule(input: {
     if (input.featuredContents !== undefined) {
         // Delete existing
         const { error: delError } = await supabase
-            .from("v2_schedule_featured_contents")
+            .from("schedule_featured_contents")
             .delete()
             .eq("schedule_id", input.scheduleId);
 
@@ -1071,7 +1071,7 @@ export async function updateLayoutRule(input: {
         // Insert new
         if (input.featuredContents.length > 0) {
             const { error: fcInsertError } = await supabase
-                .from("v2_schedule_featured_contents")
+                .from("schedule_featured_contents")
                 .insert(
                     input.featuredContents.map(fc => ({
                         tenant_id: input.tenantId,
@@ -1120,7 +1120,7 @@ export async function createRuleDraft(input: {
     );
 
     const { error: applyToAllError } = await supabase
-        .from("v2_schedules")
+        .from("schedules")
         .update({ apply_to_all: true })
         .eq("id", schedule.id);
     if (applyToAllError && !isMissingColumnError(applyToAllError, "apply_to_all")) {
@@ -1128,11 +1128,11 @@ export async function createRuleDraft(input: {
     }
 
     const { error: deleteTargetsError } = await supabase
-        .from("v2_schedule_targets")
+        .from("schedule_targets")
         .delete()
         .eq("schedule_id", schedule.id);
-    if (deleteTargetsError && !isMissingColumnError(deleteTargetsError, "v2_schedule_targets")) {
-        console.warn("v2_schedule_targets delete failed:", deleteTargetsError);
+    if (deleteTargetsError && !isMissingColumnError(deleteTargetsError, "schedule_targets")) {
+        console.warn("schedule_targets delete failed:", deleteTargetsError);
     }
 
     if (input.ruleType === "visibility") {
@@ -1179,9 +1179,9 @@ export async function updateRule(input: {
         mode: VisibilityMode;
     }>;
 }): Promise<void> {
-    // Update v2_schedules (legacy target fields kept in sync + apply_to_all)
+    // Update schedules (legacy target fields kept in sync + apply_to_all)
     const { error: scheduleUpdateError } = await supabase
-        .from("v2_schedules")
+        .from("schedules")
         .update({
             apply_to_all: input.applyToAll,
             target_type: input.targetType,
@@ -1194,7 +1194,7 @@ export async function updateRule(input: {
         }
 
         const { error: legacyTargetUpdateError } = await supabase
-            .from("v2_schedules")
+            .from("schedules")
             .update({
                 target_type: input.targetType,
                 target_id: input.targetId
@@ -1219,12 +1219,12 @@ export async function updateRule(input: {
 
     // Sync join table: delete existing targets, then insert new ones
     const { error: deleteTargetsError } = await supabase
-        .from("v2_schedule_targets")
+        .from("schedule_targets")
         .delete()
         .eq("schedule_id", input.scheduleId);
-    if (deleteTargetsError && !isMissingColumnError(deleteTargetsError, "v2_schedule_targets")) {
+    if (deleteTargetsError && !isMissingColumnError(deleteTargetsError, "schedule_targets")) {
         // Silently ignore if table doesn't exist yet (pre-migration)
-        console.warn("v2_schedule_targets delete failed (pre-migration?):", deleteTargetsError);
+        console.warn("schedule_targets delete failed (pre-migration?):", deleteTargetsError);
     }
 
     if (!input.applyToAll) {
@@ -1243,20 +1243,20 @@ export async function updateRule(input: {
 
         if (targetRows.length > 0) {
             const { error: insertTargetsError } = await supabase
-                .from("v2_schedule_targets")
+                .from("schedule_targets")
                 .insert(targetRows);
             if (
                 insertTargetsError &&
-                !isMissingColumnError(insertTargetsError, "v2_schedule_targets")
+                !isMissingColumnError(insertTargetsError, "schedule_targets")
             ) {
-                console.warn("v2_schedule_targets insert failed:", insertTargetsError);
+                console.warn("schedule_targets insert failed:", insertTargetsError);
             }
         }
     }
 
     if (input.ruleType === "layout") {
         const { data: existingLayout, error: existingLayoutError } = await supabase
-            .from("v2_schedule_layout")
+            .from("schedule_layout")
             .select("id")
             .eq("schedule_id", input.scheduleId)
             .maybeSingle();
@@ -1273,13 +1273,13 @@ export async function updateRule(input: {
 
             if (existingLayout?.id) {
                 const { error: layoutUpdateError } = await supabase
-                    .from("v2_schedule_layout")
+                    .from("schedule_layout")
                     .update(layoutPatch)
                     .eq("id", existingLayout.id);
 
                 if (layoutUpdateError) throw layoutUpdateError;
             } else {
-                const { error: layoutInsertError } = await supabase.from("v2_schedule_layout").insert({
+                const { error: layoutInsertError } = await supabase.from("schedule_layout").insert({
                     tenant_id: input.tenantId,
                     schedule_id: input.scheduleId,
                     ...layoutPatch
@@ -1290,7 +1290,7 @@ export async function updateRule(input: {
         // styleId is null → rule stays draft, skip insert/update silently
 
         const { error: deleteFcError } = await supabase
-            .from("v2_schedule_featured_contents")
+            .from("schedule_featured_contents")
             .delete()
             .eq("schedule_id", input.scheduleId);
         if (deleteFcError) throw deleteFcError;
@@ -1298,7 +1298,7 @@ export async function updateRule(input: {
         const featuredContents = input.layout?.featuredContents ?? [];
         if (featuredContents.length > 0) {
             const { error: insertFcError } = await supabase
-                .from("v2_schedule_featured_contents")
+                .from("schedule_featured_contents")
                 .insert(
                     featuredContents.map(fc => ({
                         tenant_id: input.tenantId,
@@ -1315,7 +1315,7 @@ export async function updateRule(input: {
 
     if (input.ruleType === "price") {
         const { error: deleteError } = await supabase
-            .from("v2_schedule_price_overrides")
+            .from("schedule_price_overrides")
             .delete()
             .eq("schedule_id", input.scheduleId);
         if (deleteError) throw deleteError;
@@ -1323,7 +1323,7 @@ export async function updateRule(input: {
         const products = input.priceProducts ?? [];
         if (products.length > 0) {
             const { error: insertError } = await supabase
-                .from("v2_schedule_price_overrides")
+                .from("schedule_price_overrides")
                 .insert(
                     products.map(product => ({
                         tenant_id: input.tenantId,
@@ -1345,7 +1345,7 @@ export async function updateRule(input: {
     );
 
     const { error: deleteError } = await supabase
-        .from("v2_schedule_visibility_overrides")
+        .from("schedule_visibility_overrides")
         .delete()
         .eq("schedule_id", input.scheduleId);
     if (deleteError) throw deleteError;
@@ -1363,13 +1363,13 @@ export async function updateRule(input: {
 }
 
 export async function deleteLayoutRule(scheduleId: string): Promise<void> {
-    const { error } = await supabase.from("v2_schedules").delete().eq("id", scheduleId);
+    const { error } = await supabase.from("schedules").delete().eq("id", scheduleId);
 
     if (error) throw error;
 }
 
 export async function updateScheduleEnabled(scheduleId: string, enabled: boolean): Promise<void> {
-    const { error } = await supabase.from("v2_schedules").update({ enabled }).eq("id", scheduleId);
+    const { error } = await supabase.from("schedules").update({ enabled }).eq("id", scheduleId);
 
     if (error) throw error;
 }

@@ -15,7 +15,7 @@ import styles from "./Styles.module.scss";
 
 import { useNavigate } from "react-router-dom";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { listStyles, duplicateStyle, deleteStyle, V2Style } from "@/services/supabase/v2/styles";
+import { listStyles, duplicateStyle, deleteStyle, V2Style } from "@/services/supabase/styles";
 import { StyleDeleteDrawer } from "./StyleDeleteDrawer";
 import { StyleCreateDrawer } from "./StyleCreateDrawer";
 
