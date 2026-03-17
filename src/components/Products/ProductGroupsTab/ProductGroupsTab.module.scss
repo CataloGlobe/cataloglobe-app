@@ -31,3 +31,106 @@
 .emptyIcon {
   color: var(--color-gray-300);
 }
+
+.formBody {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.formSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sectionDivider {
+  height: 1px;
+  background: var(--border, #e2e8f0);
+  margin: 0;
+}
+
+.pickerSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pickerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pickerList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+}
+
+.pickerItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  cursor: pointer;
+  transition: background 0.1s ease;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: var(--surface-hover, #f8fafc);
+  }
+
+  &.pickerItemSelected {
+    background: var(--brand-primary-10, rgba(99, 102, 241, 0.06));
+  }
+}
+
+.pickerItemThumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.pickerItemThumbPlaceholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--surface-2, #f1f5f9);
+  flex-shrink: 0;
+}
+
+.pickerItemName {
+  flex: 1;
+  min-width: 0;
+}
+
+.pickerEmptyState {
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pickerLoading {
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
