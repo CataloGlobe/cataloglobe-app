@@ -143,6 +143,7 @@ export function ProductGroupCreateEditDrawer({
         setIsSaving(true);
         try {
             let savedGroupId: string;
+            let successMessage: string;
 
             if (isEditing && groupData) {
                 await updateProductGroup(groupData.id, {
@@ -150,7 +151,7 @@ export function ProductGroupCreateEditDrawer({
                     parent_group_id: parentGroupId || null
                 });
                 savedGroupId = groupData.id;
-                showToast({ message: "Gruppo aggiornato con successo.", type: "success" });
+                successMessage = "Gruppo aggiornato con successo.";
             } else {
                 const newGroup = await createProductGroup({
                     tenant_id: tenantId,
@@ -158,12 +159,13 @@ export function ProductGroupCreateEditDrawer({
                     parent_group_id: parentGroupId || null
                 });
                 savedGroupId = newGroup.id;
-                showToast({ message: "Gruppo creato con successo.", type: "success" });
+                successMessage = "Gruppo creato con successo.";
             }
 
             // tenantId is guaranteed non-undefined here due to the early return guard above
             await syncGroupProducts(savedGroupId, tenantId!, Array.from(selectedProductIds));
 
+            showToast({ message: successMessage, type: "success" });
             onSuccess();
             onClose();
         } catch (error: unknown) {
