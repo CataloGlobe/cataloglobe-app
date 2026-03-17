@@ -60,8 +60,8 @@ export default function BusinessCard({ tenant, locationCount, productCount, cata
                         <Text variant="title-sm" weight={600} className={styles.name}>
                             {tenant.name}
                         </Text>
-                        <Badge variant={tenant.user_role === "member" ? "secondary" : "primary"}>
-                            {tenant.user_role === "member" ? "Member" : "Owner"}
+                        <Badge variant={tenant.user_role === "owner" ? "primary" : "secondary"}>
+                            {tenant.user_role === "owner" ? "Owner" : tenant.user_role === "admin" ? "Admin" : tenant.user_role === "member" ? "Member" : tenant.user_role ?? "Unknown"}
                         </Badge>
                     </div>
                     <div style={{ marginTop: "5px" }}>

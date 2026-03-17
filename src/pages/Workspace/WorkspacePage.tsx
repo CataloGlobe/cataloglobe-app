@@ -52,9 +52,8 @@ export default function WorkspacePage() {
         const fetchInvites = async () => {
             // Step 1: fetch pending membership rows with inviter info from the view
             const { data: rows } = await supabase
-                .from("tenant_members_view")
-                .select("membership_id, invite_token, role, tenant_id, inviter_email")
-                .eq("status", "pending");
+                .from("my_pending_invites_view")
+                .select("membership_id, invite_token, role, tenant_id, inviter_email");
 
             if (!rows || rows.length === 0) {
                 setPendingInvites([]);
