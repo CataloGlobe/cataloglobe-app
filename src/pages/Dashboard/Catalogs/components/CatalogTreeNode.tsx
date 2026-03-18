@@ -39,13 +39,21 @@ export function CatalogTreeNode({
             ref={setNodeRef}
             className={`${styles.treeNodeRow} ${selected ? styles.treeNodeRowActive : ""} ${
                 isDragging ? styles.treeNodeRowDragging : ""
-            }`}
+            } ${depth === 0 ? styles.treeNodeDepth0 : ""}`}
             style={{
                 transform: CSS.Transform.toString(transform),
                 transition
             }}
         >
-            <div className={styles.treeNodeMain} style={{ paddingLeft: `${8 + depth * 24}px` }}>
+            {/* data-depth drives the ::before guide-line in SCSS; --tree-depth feeds the depth-aware calc() */}
+            <div
+                className={styles.treeNodeMain}
+                data-depth={depth}
+                style={{
+                    paddingLeft: `${8 + depth * 20}px`,
+                    "--tree-depth": depth
+                } as React.CSSProperties}
+            >
                 <button
                     type="button"
                     className={styles.treeDragHandle}

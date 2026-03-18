@@ -89,6 +89,22 @@
   flex-direction: column;
   gap: 6px;
   padding: var(--spacing-3, 12px) var(--spacing-3, 12px) var(--spacing-4, 16px);
+
+  /* ── Separator: faint inset line between tree groups ─────────────── */
+  > * + * {
+    position: relative;
+    &::before {
+      content: "";
+      position: absolute;
+      top: -3px;
+      left: 8px;
+      right: 8px;
+      height: 1px;
+      background: var(--color-gray-200, #e2e8f0);
+      opacity: 0.6;
+      pointer-events: none;
+    }
+  }
 }
 
 .treeEmptyState {
@@ -101,31 +117,35 @@
   color: var(--color-gray-500, #64748b);
 }
 
+/* ── Tree group: each root-level category and its visible children ──────── */
 .treeGroup {
-  background: rgba(248, 250, 252, 0.4);
-  border: 1px solid var(--color-gray-100, #f1f5f9);
+  /* Slightly stronger surface to lift each group from the pane background */
+  background: rgba(247, 249, 253, 0.75);
+  /* Stronger border than before (gray-100 → gray-200) for clear separation */
+  border: 1px solid var(--color-gray-200, #e2e8f0);
   border-radius: 12px;
   padding: 4px;
   margin-bottom: 4px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 
   &:last-child {
     margin-bottom: 0;
   }
 }
 
+/* ── Tree node row ─────────────────────────────────────────────────────── */
 .treeNodeRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-2, 8px);
-  min-height: 40px;
-  border-left: 3px solid transparent;
+  min-height: 38px;
   border-radius: 10px;
   padding-right: 6px;
   background: transparent;
+  /* Single border declaration (overrides the conflicting border-left shorthand) */
   border: 1px solid transparent;
   transition:
     background-color 0.15s ease,
@@ -133,23 +153,29 @@
     box-shadow 0.15s ease;
 }
 
+/* ── Hover / focus state: white surface + visible border ────────────────── */
 .treeNodeRow:hover,
 .treeNodeRow:focus-within {
   background: #ffffff;
-  border-color: #e4e9f2;
+  /* Stronger hover border than before (#e4e9f2 → #cfd7e8) */
+  border-color: #cfd7e8;
+  box-shadow: 0 1px 4px rgba(100, 116, 139, 0.08);
 }
 
+/* ── Selected / active state ────────────────────────────────────────────── */
 .treeNodeRowActive {
-  border-left-color: var(--brand-primary, #6366f1);
-  background: linear-gradient(90deg, #eef2ff 0%, #f8faff 100%);
-  border-color: #d8e2ff;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.12);
+  /* Left accent line indicating the selected item */
+  background: linear-gradient(90deg, #eef2ff 0%, #f6f8ff 100%);
+  border-color: #c7d4ff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
 }
 
 .treeNodeRowDragging {
-  opacity: 0.7;
+  opacity: 0.65;
+  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.2);
 }
 
+/* ── Node main content area: contains drag handle, expand btn, select btn ── */
 .treeNodeMain {
   display: flex;
   align-items: center;
@@ -157,19 +183,50 @@
   min-width: 0;
   flex: 1;
   position: relative;
+
+  /* ── Nested row indicator ────────────────────────────────────────────────
+     Short (2px × 16px) pill anchored to the parent's drag-handle column.
+     Layout per row: [ paddingLeft = 8 + D×20 ] [ grab 24px ] [ chevron ] …
+     Parent drag-handle center = 8 + (D-1)×20 + 12 = D×20
+     Subtract 1px to visually center the 2px pill on that column.
+     --tree-depth is set as an inline CSS variable by CatalogTreeNode.tsx.
+  ─────────────────────────────────────────────────────────────────────── */
+  &[data-depth]:not([data-depth="0"])::before {
+    content: "";
+    position: absolute;
+    left: calc(var(--tree-depth, 1) * 20px - 1px);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 16px;
+    border-radius: 2px;
+    background: rgba(120, 130, 160, 0.25);
+    pointer-events: none;
+  }
 }
 
+/* ── Drag handle: slightly more visible at rest ─────────────────────────── */
 .treeDragHandle {
   width: 24px;
   height: 24px;
   border: none;
   border-radius: var(--radius-sm, 8px);
   background: transparent;
-  color: var(--color-gray-400, #94a3b8);
+  /* Resting: gray-300 instead of gray-400 — faintly visible without hover */
+  color: var(--color-gray-300, #cbd5e1);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: grab;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease;
+
+  /* Show at full strength and background on hover */
+  .treeNodeRow:hover &,
+  .treeNodeRow:focus-within & {
+    color: var(--color-gray-500, #64748b);
+  }
 
   &:hover {
     color: var(--color-gray-600, #475569);
@@ -218,6 +275,7 @@
   cursor: pointer;
 }
 
+/* ── Folder icon container ──────────────────────────────────────────────── */
 .treeLabelIcon {
   width: 20px;
   height: 20px;
@@ -225,9 +283,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Nested items use the neutral muted style */
   color: #7a88a1;
   background: #edf2f8;
   flex-shrink: 0;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease;
+}
+
+/* Root-level icon: slightly more saturated to signal parent rank */
+.treeNodeDepth0 .treeLabelIcon {
+  color: #5b6bd8;
+  background: #e8eeff;
 }
 
 .treeLabelText {
@@ -239,6 +307,7 @@
   text-overflow: ellipsis;
 }
 
+/* Active state overrides all depth-based icon styles */
 .treeNodeRowActive .treeLabelIcon {
   color: var(--brand-primary, #6366f1);
   background: #e2e9ff;
