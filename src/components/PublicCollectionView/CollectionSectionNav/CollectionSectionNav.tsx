@@ -1,5 +1,4 @@
 import Text from "@/components/ui/Text/Text";
-import { getPillColors } from "@/utils/pillColors";
 import styles from "./CollectionSectionNav.module.scss";
 
 export type CollectionSectionNavProps = {
@@ -8,8 +7,8 @@ export type CollectionSectionNavProps = {
     onSelect?: (sectionId: string) => void;
     variant?: "preview" | "public";
     style?: {
-        color?: string;
         shape?: "rounded" | "pill" | "square";
+        navStyle?: "pill" | "tabs" | "minimal";
     };
 };
 
@@ -22,14 +21,22 @@ export default function CollectionSectionNav({
 }: CollectionSectionNavProps) {
     if (sections.length === 0) return null;
 
-    const pillColors = style?.color ? getPillColors(style.color) : null;
-
-    const pillRadius = style?.shape === "square" ? 6 : style?.shape === "rounded" ? 12 : 999;
+    const navStyle = style?.navStyle ?? "pill";
+    // radius only meaningful for pill style; tabs/minimal control it via CSS
+    const pillRadius =
+        navStyle !== "pill"
+            ? undefined
+            : style?.shape === "square"
+              ? 6
+              : style?.shape === "rounded"
+                ? 12
+                : 999;
 
     return (
         <nav
             className={styles.nav}
             data-variant={variant}
+            data-nav-style={navStyle}
             aria-label="Navigazione sezioni del catalogo"
         >
             <ul className={styles.list} role="tablist">
@@ -45,31 +52,7 @@ export default function CollectionSectionNav({
                                 className={styles.pill}
                                 data-active={isActive}
                                 onClick={() => onSelect?.(section.id)}
-                                style={
-                                    pillColors
-                                        ? {
-                                              backgroundColor: isActive
-                                                  ? pillColors.activeBg
-                                                  : pillColors.normalBg,
-                                              color: isActive
-                                                  ? pillColors.activeText
-                                                  : pillColors.normalText,
-                                              borderRadius: pillRadius
-                                          }
-                                        : {
-                                              borderRadius: pillRadius
-                                          }
-                                }
-                                onMouseEnter={e => {
-                                    if (!pillColors || isActive) return;
-                                    e.currentTarget.style.backgroundColor = pillColors.hoverBg;
-                                    e.currentTarget.style.color = pillColors.hoverText;
-                                }}
-                                onMouseLeave={e => {
-                                    if (!pillColors || isActive) return;
-                                    e.currentTarget.style.backgroundColor = pillColors.normalBg;
-                                    e.currentTarget.style.color = pillColors.normalText;
-                                }}
+                                style={{ borderRadius: pillRadius }}
                             >
                                 <Text variant="body" weight={500}>
                                     {section.name}

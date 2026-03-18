@@ -15,9 +15,10 @@
 }
 
 .placeholderImage {
-    background-color: lightgray;
-
-    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
 }
 
 /* CONTENUTO */
@@ -36,7 +37,7 @@
 
 .priceOriginal {
     text-decoration: line-through;
-    opacity: 0.7;
+    color: var(--pub-text-muted);
 }
 
 .priceCurrent {

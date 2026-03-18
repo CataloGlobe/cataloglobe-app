@@ -6,50 +6,45 @@ export type CollectionHeroProps = {
     imageUrl?: string | null;
     subtitle?: string;
     variant?: "preview" | "public";
-    style?: {
-        backgroundColor?: string;
-        imageRadius?: number;
-    };
 };
 
 export default function CollectionHero({
     title,
     imageUrl,
     subtitle,
-    variant = "public",
-    style
+    variant = "public"
 }: CollectionHeroProps) {
     return (
         <header
             className={styles.hero}
             data-variant={variant}
             aria-label="Intestazione del catalogo"
-            style={{ backgroundColor: style?.backgroundColor }}
         >
-            <div className={styles.imageWrapper}>
-                {imageUrl ? (
-                    <img
-                        src={imageUrl}
-                        alt=""
-                        role="presentation"
-                        className={styles.image}
-                        style={{ borderRadius: style?.imageRadius }}
-                    />
-                ) : (
-                    <div className={styles.placeholder} aria-hidden />
-                )}
-            </div>
+            <div className={styles.inner}>
+                <div className={styles.imageWrapper}>
+                    {imageUrl ? (
+                        <img
+                            src={imageUrl}
+                            alt=""
+                            role="presentation"
+                            className={styles.image}
+                        />
+                    ) : (
+                        <div className={styles.placeholder} aria-hidden />
+                    )}
+                </div>
 
-            <div className={styles.textWrapper}>
-                <Text as="h1" variant="title-lg" weight={700}>
-                    {title}
-                </Text>
-
-                {subtitle && (
-                    <Text variant="body" colorVariant="muted">
-                        {subtitle}
+                <div className={styles.textWrapper}>
+                    <Text as="h1" variant="title-lg" weight={700}>
+                        {title}
                     </Text>
-                )}
+
+                    {subtitle && (
+                        <span className={styles.subtitle}>
+                            <Text variant="body">{subtitle}</Text>
+                        </span>
+                    )}
+                </div>
             </div>
         </header>
     );

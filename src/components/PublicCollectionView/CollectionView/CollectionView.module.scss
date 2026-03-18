@@ -85,8 +85,8 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  /* offset for the sticky nav so section headings are not hidden under it */
-  scroll-margin-top: 4rem;
+  /* offset for the sticky nav: nav height ~3.5rem + 1rem breathing space */
+  scroll-margin-top: 4.5rem;
 }
 
 /* ----------------------------------------------------
@@ -137,9 +137,50 @@
   }
 }
 
+/* Grid: preview mobile → sempre 1 colonna */
+:global(.preview-mobile) .container[data-card-layout="grid"] .grid {
+  grid-template-columns: 1fr !important;
+}
+
+/* Grid: preview tablet → 2 colonne */
+:global(.preview-tablet) .container[data-card-layout="grid"] .grid {
+  grid-template-columns: repeat(2, 1fr) !important;
+}
+
 /* Grid: preview desktop → 2 colonne */
 :global(.preview-desktop) .container[data-card-layout="grid"] .grid {
   grid-template-columns: repeat(2, 1fr) !important;
+}
+
+/* ----------------------------------------------------
+   GRID CARD — vertical layout (image top, body below)
+---------------------------------------------------- */
+
+.container[data-card-layout="grid"] .card {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  overflow: hidden; /* clips image to card border-radius */
+}
+
+.container[data-card-layout="grid"] .cardImage {
+  width: 100%;
+  height: 140px;
+  border-radius: 0;
+  object-fit: contain;
+  padding: 0.5rem;
+  background: color-mix(in srgb, var(--pub-text) 4%, var(--pub-surface));
+}
+
+.container[data-card-layout="grid"] .imagePlaceholder {
+  width: 100%;
+  height: 160px;
+  border-radius: 0;
+}
+
+.container[data-card-layout="grid"] .cardBody {
+  padding: 0.75rem;
 }
 
 /* ----------------------------------------------------
@@ -222,7 +263,6 @@
   background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
   border-radius: 10px;
 
-  font-size: 0.75rem;
   color: var(--pub-text-secondary);
 }
 

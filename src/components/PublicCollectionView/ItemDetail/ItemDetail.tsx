@@ -1,3 +1,4 @@
+import { Package } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import ModalLayout, {
     ModalLayoutContent,
@@ -14,6 +15,7 @@ type Props = {
     item: CollectionViewSectionItem | null;
     isOpen: boolean;
     onClose: () => void;
+    mode: "public" | "preview";
 };
 
 /**
@@ -40,11 +42,12 @@ function mapToResolvedGroups(
     }));
 }
 
-export default function ItemDetail({ item, isOpen, onClose }: Props) {
+export default function ItemDetail({ item, isOpen, onClose, mode }: Props) {
     if (!item) return null;
 
     const resolvedGroups = mapToResolvedGroups(item.optionGroups);
     const hasOptions = resolvedGroups.length > 0;
+    const shouldShowImage = mode === "public" && !!item.image;
 
     return (
         <ModalLayout isOpen={isOpen} onClose={onClose} width="sm" height="sm">
@@ -65,15 +68,21 @@ export default function ItemDetail({ item, isOpen, onClose }: Props) {
             <ModalLayoutContent>
                 <div className={styles.root}>
                     {/* IMMAGINE */}
-                    {item.image ? (
+                    {shouldShowImage ? (
                         <img
-                            src={item.image}
+                            src={item.image!}
                             alt={item.name}
                             className={styles.image}
                             loading="lazy"
                         />
                     ) : (
-                        <div className={styles.placeholderImage} />
+                        <div className={styles.placeholderImage} aria-hidden="true">
+                            <Package
+                                size={40}
+                                strokeWidth={1.5}
+                                color="var(--pub-text-muted, var(--pub-text-secondary))"
+                            />
+                        </div>
                     )}
 
                     {/* CONTENUTO */}
