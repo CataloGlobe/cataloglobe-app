@@ -16,9 +16,21 @@
   --pub-primary: #6366f1;
   --pub-header-bg: #ffffff;
 
+  // Text
+  --pub-text: #0f172a;
+  --pub-text-secondary: #64748b;
+  --pub-text-muted: color-mix(in srgb, #64748b 60%, transparent);
+
+  // Surfaces
+  --pub-surface: #ffffff;
+  --pub-card-bg: #ffffff; // backward compat alias for --pub-surface
+  --pub-border: #f1f5f9;
+
+  // Derived accent
+  --pub-primary-soft: color-mix(in srgb, #6366f1 10%, transparent);
+
   // Shape
   --pub-header-radius: 12px;
-  --pub-card-bg: #ffffff;
   --pub-card-radius: 9px;
 
   // Layout signals (consumed via data-* attributes in CSS, not directly)

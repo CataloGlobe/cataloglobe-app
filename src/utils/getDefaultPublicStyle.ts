@@ -8,7 +8,9 @@ export const DEFAULT_PUBLIC_STYLE: Required<CollectionStyle> = {
     heroImageRadius: 16,
     sectionNavColor: "#000000",
     sectionNavShape: "pill",
+    sectionNavStyle: "pill",
     cardTemplate: "left",
     cardRadius: 16,
-    cardBackgroundColor: "#ffffff"
+    cardBackgroundColor: "#ffffff",
+    cardLayout: "list"
 };

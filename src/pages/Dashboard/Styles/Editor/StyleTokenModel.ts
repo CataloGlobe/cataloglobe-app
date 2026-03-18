@@ -8,6 +8,10 @@ export interface StyleTokenModel {
         pageBackground: string;
         primary: string;
         headerBackground: string;
+        textPrimary: string;
+        textSecondary: string;
+        surface: string;
+        border: string;
     };
     typography: {
         fontFamily: FontFamily;
@@ -33,7 +37,11 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
     colors: {
         pageBackground: "#f3f4f6",
         primary: "#6366f1",
-        headerBackground: "#ffffff"
+        headerBackground: "#ffffff",
+        textPrimary: "#0f172a",
+        textSecondary: "#64748b",
+        surface: "#ffffff",
+        border: "#f1f5f9"
     },
     typography: {
         fontFamily: "inter"
@@ -82,7 +90,11 @@ export function parseTokens(rawJson: any): StyleTokenModel {
             headerBackground:
                 rawColors.headerBackground ||
                 rawHeader.background ||
-                DEFAULT_STYLE_TOKENS.colors.headerBackground
+                DEFAULT_STYLE_TOKENS.colors.headerBackground,
+            textPrimary: rawColors.textPrimary || DEFAULT_STYLE_TOKENS.colors.textPrimary,
+            textSecondary: rawColors.textSecondary || DEFAULT_STYLE_TOKENS.colors.textSecondary,
+            surface: rawColors.surface || DEFAULT_STYLE_TOKENS.colors.surface,
+            border: rawColors.border || DEFAULT_STYLE_TOKENS.colors.border
         },
         typography: {
             fontFamily: ["inter", "poppins", "playfair"].includes(
@@ -133,7 +145,11 @@ export function serializeTokens(model: StyleTokenModel): any {
         colors: {
             pageBackground: model.colors.pageBackground,
             primary: model.colors.primary,
-            headerBackground: model.colors.headerBackground
+            headerBackground: model.colors.headerBackground,
+            textPrimary: model.colors.textPrimary,
+            textSecondary: model.colors.textSecondary,
+            surface: model.colors.surface,
+            border: model.colors.border
         },
         typography: {
             fontFamily: model.typography.fontFamily

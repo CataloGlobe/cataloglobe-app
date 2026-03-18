@@ -28,6 +28,9 @@ export default function StyleEditorPage() {
 
     // Layout State
     const [isDrawerOpen, setIsDrawerOpen] = useState(true);
+    // Callback ref: state-based so that CollectionView re-detects the scroll
+    // container after the canvas div mounts (plain refs don't trigger re-renders).
+    const [canvasAreaEl, setCanvasAreaEl] = useState<HTMLDivElement | null>(null);
 
     const [styleData, setStyleData] = useState<V2Style | null>(null);
     const [name, setName] = useState("");
@@ -189,7 +192,7 @@ export default function StyleEditorPage() {
 
             <div className={styles.editorLayout}>
                 {/* CENTRAL CANVAS PREVIEW */}
-                <div className={styles.canvasArea}>
+                <div className={styles.canvasArea} ref={setCanvasAreaEl}>
                     {!isDrawerOpen && (
                         <button
                             className={styles.toggleDrawerBtn}
@@ -199,7 +202,7 @@ export default function StyleEditorPage() {
                             Proprietà Stile
                         </button>
                     )}
-                    <StylePreview model={tokenModel} />
+                    <StylePreview model={tokenModel} scrollContainerEl={canvasAreaEl} />
                 </div>
 
                 {/* RIGHT DRAWER SETTINGS */}

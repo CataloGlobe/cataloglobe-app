@@ -1,5 +1,7 @@
 export type CardTemplate = "left" | "right" | "no-image";
 export type SectionNavShape = "pill" | "rounded" | "square";
+export type SectionNavStyle = "pill" | "tabs" | "minimal";
+export type CardLayout = "grid" | "list";
 
 export type CollectionStyle = {
     /* =========================
@@ -22,6 +24,8 @@ export type CollectionStyle = {
 
     sectionNavColor?: string;
     sectionNavShape?: SectionNavShape;
+    /** Visual style of the section navigation: pill / tabs / minimal */
+    sectionNavStyle?: SectionNavStyle;
 
     /* =========================
      CARDS
@@ -30,6 +34,8 @@ export type CollectionStyle = {
     cardTemplate?: CardTemplate;
     cardBackgroundColor?: string;
     cardRadius?: number; // px
+    /** Whether items are displayed in a multi-column grid or a single-column list */
+    cardLayout?: CardLayout;
 };
 
 /* =========================
@@ -45,10 +51,12 @@ export const DEFAULT_COLLECTION_STYLE: Required<CollectionStyle> = {
 
     sectionNavColor: "#6366f1",
     sectionNavShape: "pill",
+    sectionNavStyle: "pill",
 
     cardTemplate: "left",
     cardBackgroundColor: "#ffffff",
-    cardRadius: 12
+    cardRadius: 12,
+    cardLayout: "list"
 };
 
 /* =========================
@@ -112,6 +120,14 @@ export function safeCollectionStyle(style: unknown): CollectionStyle {
         out.sectionNavShape = style.sectionNavShape;
     }
 
+    if (
+        style.sectionNavStyle === "pill" ||
+        style.sectionNavStyle === "tabs" ||
+        style.sectionNavStyle === "minimal"
+    ) {
+        out.sectionNavStyle = style.sectionNavStyle;
+    }
+
     // CARD
     if (
         style.cardTemplate === "left" ||
@@ -127,6 +143,10 @@ export function safeCollectionStyle(style: unknown): CollectionStyle {
 
     if (typeof style.cardRadius === "number" && Number.isFinite(style.cardRadius)) {
         out.cardRadius = style.cardRadius;
+    }
+
+    if (style.cardLayout === "grid" || style.cardLayout === "list") {
+        out.cardLayout = style.cardLayout;
     }
 
     return out;

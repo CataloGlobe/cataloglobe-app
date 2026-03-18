@@ -1,37 +1,166 @@
-import React, { useState } from "react";
-import Text from "@/components/ui/Text/Text";
-import { Button } from "@/components/ui/Button/Button";
+import { useState } from "react";
 import { StyleTokenModel } from "./StyleTokenModel";
-import { IconSearch, IconShoppingBag, IconHome, IconHeart, IconUser } from "@tabler/icons-react";
+import CollectionView, {
+    type CollectionViewSection
+} from "@/components/PublicCollectionView/CollectionView/CollectionView";
+import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
+import PublicThemeScope from "@/features/public/components/PublicThemeScope";
+import {
+    DEFAULT_COLLECTION_STYLE,
+    type SectionNavShape
+} from "@/types/collectionStyle";
+import { useTenant } from "@/context/useTenant";
+import type { V2FeaturedContent } from "@/services/supabase/resolveActivityCatalogs";
 
 type StylePreviewProps = {
     model: StyleTokenModel;
+    scrollContainerEl?: HTMLElement | null;
 };
 
-export const StylePreview = ({ model }: StylePreviewProps) => {
-    const { colors, typography, header, navigation, card } = model;
+const MOCK_FEATURED: V2FeaturedContent[] = [
+    {
+        id: "f1",
+        internal_name: "preview-featured",
+        title: "In evidenza",
+        subtitle: "Una selezione pensata per te",
+        description: null,
+        media_id: null,
+        cta_text: null,
+        cta_url: null,
+        status: "published",
+        layout_style: null,
+        pricing_mode: "per_item",
+        bundle_price: null,
+        show_original_total: false,
+        products: [
+            {
+                sort_order: 0,
+                note: null,
+                product: { id: "fp1", name: "Elemento in evidenza", description: null, base_price: 14.0 }
+            },
+            {
+                sort_order: 1,
+                note: null,
+                product: { id: "fp2", name: "Offerta speciale", description: null, base_price: 9.5 }
+            },
+            {
+                sort_order: 2,
+                note: null,
+                product: { id: "fp3", name: "Selezione del mese", description: null, base_price: 18.0 }
+            }
+        ],
+        created_at: "",
+        updated_at: ""
+    }
+];
 
-    // Toggle for desktop/mobile mock canvas width
+const MOCK_SECTIONS: CollectionViewSection[] = [
+    {
+        id: "s1",
+        name: "Categoria 1",
+        items: [
+            {
+                id: "i1",
+                name: "Elemento Base",
+                description: "Descrizione breve del prodotto o servizio.",
+                price: 12.0,
+                image: null
+            },
+            {
+                id: "i2",
+                name: "Prodotto Premium",
+                description: "Versione avanzata con caratteristiche aggiuntive.",
+                price: 24.0,
+                image: null
+            },
+            {
+                id: "i3",
+                name: "Articolo Standard",
+                description: "Adatto a diversi contesti e necessità.",
+                price: 9.0,
+                image: null
+            }
+        ]
+    },
+    {
+        id: "s2",
+        name: "Categoria 2",
+        items: [
+            {
+                id: "i4",
+                name: "Offerta Speciale",
+                description: "Disponibile per un periodo limitato.",
+                price: 15.0,
+                original_price: 22.0,
+                effective_price: 15.0,
+                image: null
+            },
+            {
+                id: "i5",
+                name: "Versione Compatta",
+                description: "Ideale per un utilizzo quotidiano.",
+                price: 8.0,
+                image: null
+            },
+            {
+                id: "i6",
+                name: "Proposta Stagionale",
+                description: "Disponibilità limitata alla stagione in corso.",
+                price: 11.0,
+                image: null
+            }
+        ]
+    },
+    {
+        id: "s3",
+        name: "Categoria 3",
+        items: [
+            {
+                id: "i7",
+                name: "Confezione Speciale",
+                description: "Formato pensato per più persone.",
+                price: 32.0,
+                image: null
+            },
+            {
+                id: "i8",
+                name: "Articolo Esclusivo",
+                description: "Produzione limitata, disponibile su richiesta.",
+                price: 45.0,
+                image: null
+            }
+        ]
+    }
+];
+
+const NAV_SHAPE_MAP: Record<string, SectionNavShape> = {
+    pill: "pill",
+    tabs: "square",
+    minimal: "rounded"
+};
+
+export const StylePreview = ({ model, scrollContainerEl }: StylePreviewProps) => {
+    const { selectedTenant } = useTenant();
     const [viewMode, setViewMode] = useState<"mobile" | "desktop">("mobile");
 
-    // CSS Variables for the preview scope
-    const previewStyle = {
-        "--preview-bg": colors.pageBackground,
-        "--preview-primary": colors.primary,
-        "--preview-header-bg": colors.headerBackground,
-        "--preview-header-radius": `${header.imageBorderRadiusPx}px`,
-        "--preview-font-family":
-            typography.fontFamily === "poppins"
-                ? "'Poppins', sans-serif"
-                : typography.fontFamily === "playfair"
-                  ? "'Playfair Display', serif"
-                  : "'Inter', sans-serif",
-        "--preview-card-radius": card.radius === "sharp" ? "0px" : "14px",
-        // Dynamic text colors based on background perceived lightness could be added,
-        // using simple defaults for now.
-        "--preview-text-main": "#111827",
-        "--preview-text-muted": "#6b7280",
-        fontFamily: "var(--preview-font-family, sans-serif)"
+    const businessName = selectedTenant?.name ?? "Nome attività";
+
+    const sectionNavShape: SectionNavShape =
+        NAV_SHAPE_MAP[model.navigation.style] ?? "pill";
+
+    const cardTemplate: "no-image" | "left" | "right" =
+        model.card.image.mode === "hide"
+            ? "no-image"
+            : model.card.image.position === "right"
+              ? "right"
+              : "left";
+
+    const collectionStyle = {
+        ...DEFAULT_COLLECTION_STYLE,
+        sectionNavShape,
+        sectionNavStyle: model.navigation.style,
+        cardTemplate,
+        cardLayout: model.card.layout
     };
 
     return (
@@ -67,7 +196,9 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                             viewMode === "mobile" ? "var(--color-bg-subtle)" : "transparent",
                         fontWeight: viewMode === "mobile" ? 600 : 400,
                         color:
-                            viewMode === "mobile" ? "var(--color-text)" : "var(--color-text-muted)",
+                            viewMode === "mobile"
+                                ? "var(--color-text)"
+                                : "var(--color-text-muted)",
                         cursor: "pointer",
                         fontSize: "14px"
                     }}
@@ -95,297 +226,36 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                 </button>
             </div>
 
-            {/* Neutral Canvas Container */}
-            <div
-                style={{
-                    ...previewStyle,
-                    width: "100%",
-                    maxWidth: viewMode === "mobile" ? "390px" : "900px",
-                    backgroundColor: "var(--preview-bg, #ffffff)",
-                    borderRadius: "16px",
-                    boxShadow:
-                        "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-                    overflow: "hidden",
-                    display: "flex",
-                    flexDirection: "column",
-                    transition: "max-width 0.3s ease-in-out"
-                }}
-            >
-                {/* Scrollable Content Engine */}
+            {/* Themed Canvas */}
+            <PublicThemeScope tokens={model}>
                 <div
+                    className={
+                        viewMode === "mobile" ? "preview-mobile" : "preview-desktop"
+                    }
                     style={{
-                        minHeight: "600px",
-                        display: "flex",
-                        flexDirection: "column",
-                        backgroundColor: "transparent"
+                        width: "100%",
+                        maxWidth: viewMode === "mobile" ? "390px" : "900px",
+                        borderRadius: "16px",
+                        boxShadow:
+                            "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)",
+                        overflow: "clip",
+                        transition: "max-width 0.3s ease-in-out"
                     }}
                 >
-                    {/* Simple Header */}
-                    <header
-                        style={{
-                            backgroundColor: "var(--preview-header-bg)",
-                            padding: "24px 20px",
-                            borderBottomLeftRadius: "var(--preview-header-radius)",
-                            borderBottomRightRadius: "var(--preview-header-radius)",
-                            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                            zIndex: 10
-                        }}
-                    >
-                        <Text
-                            variant="title-md"
-                            weight={700}
-                            style={{ color: "var(--preview-text-main)" }}
-                        >
-                            Catalogo di esempio
-                        </Text>
-                    </header>
-
-                    {/* Scrollable Content Engine */}
-                    <div
-                        style={{
-                            padding: "24px 20px",
-                            flex: 1,
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "32px"
-                        }}
-                    >
-                        {/* Featured Block */}
-                        <div
-                            style={{
-                                backgroundColor: "var(--preview-primary)",
-                                backgroundImage:
-                                    "radial-gradient(circle at top right, rgba(255,255,255,0.15), transparent)",
-                                padding: "32px 24px",
-                                borderRadius: "12px",
-                                color: "#ffffff",
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "12px"
-                            }}
-                        >
-                            <Text variant="title-sm" weight={700} style={{ color: "inherit" }}>
-                                Contenuto in evidenza
-                            </Text>
-                            <Text variant="body-sm" style={{ color: "inherit", opacity: 0.9 }}>
-                                Questa è un'anteprima. I contenuti reali dipendono dal tuo catalogo.
-                            </Text>
-                            <div style={{ marginTop: "8px" }}>
-                                <button
-                                    style={{
-                                        backgroundColor: "#ffffff",
-                                        color: "var(--preview-primary)",
-                                        border: "none",
-                                        borderRadius: "6px",
-                                        padding: "8px 16px",
-                                        fontWeight: 600,
-                                        fontSize: "14px",
-                                        cursor: "pointer"
-                                    }}
-                                >
-                                    Azione primaria
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Navigation Section */}
-                        <div
-                            style={{
-                                display: "flex",
-                                gap: "12px",
-                                overflowX: "auto",
-                                paddingBottom: "4px"
-                            }}
-                        >
-                            {["Sezione A", "Sezione B", "Sezione C"].map((cat, i) => {
-                                const isActive = i === 0;
-
-                                if (navigation.style === "pill") {
-                                    return (
-                                        <div
-                                            key={cat}
-                                            style={{
-                                                padding: "8px 20px",
-                                                backgroundColor: isActive
-                                                    ? "var(--preview-primary)"
-                                                    : "#f3f4f6",
-                                                color: isActive
-                                                    ? "#ffffff"
-                                                    : "var(--preview-text-main)",
-                                                borderRadius: "999px",
-                                                fontSize: "14px",
-                                                fontWeight: isActive ? 600 : 400,
-                                                whiteSpace: "nowrap"
-                                            }}
-                                        >
-                                            {cat}
-                                        </div>
-                                    );
-                                } else if (navigation.style === "tabs") {
-                                    return (
-                                        <div
-                                            key={cat}
-                                            style={{
-                                                padding: "8px 16px",
-                                                borderBottom: isActive
-                                                    ? "2px solid var(--preview-primary)"
-                                                    : "2px solid transparent",
-                                                color: isActive
-                                                    ? "var(--preview-primary)"
-                                                    : "var(--preview-text-muted)",
-                                                fontSize: "14px",
-                                                fontWeight: isActive ? 600 : 400,
-                                                whiteSpace: "nowrap"
-                                            }}
-                                        >
-                                            {cat}
-                                        </div>
-                                    );
-                                } else {
-                                    // minimal
-                                    return (
-                                        <div
-                                            key={cat}
-                                            style={{
-                                                padding: "8px 12px",
-                                                color: isActive
-                                                    ? "var(--preview-text-main)"
-                                                    : "var(--preview-text-muted)",
-                                                fontSize: "16px",
-                                                fontWeight: isActive ? 700 : 400,
-                                                whiteSpace: "nowrap"
-                                            }}
-                                        >
-                                            {cat}
-                                        </div>
-                                    );
-                                }
-                            })}
-                        </div>
-
-                        {/* Card Layout Section */}
-                        <div
-                            style={{
-                                display: card.layout === "grid" ? "grid" : "flex",
-                                gridTemplateColumns:
-                                    card.layout === "grid"
-                                        ? viewMode === "desktop"
-                                            ? "repeat(3, 1fr)"
-                                            : "repeat(2, 1fr)"
-                                        : "none",
-                                flexDirection: card.layout === "grid" ? "row" : "column",
-                                gap: "20px"
-                            }}
-                        >
-                            {[1, 2, 3, 4].map(item => (
-                                <div
-                                    key={item}
-                                    style={{
-                                        backgroundColor: "#ffffff",
-                                        borderRadius: "var(--preview-card-radius)",
-                                        overflow: "hidden",
-                                        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                                        display: card.layout === "list" ? "flex" : "block",
-                                        flexDirection:
-                                            card.layout === "list" &&
-                                            card.image.position === "right"
-                                                ? "row-reverse"
-                                                : "row",
-                                        border: "1px solid #f3f4f6"
-                                    }}
-                                >
-                                    {card.image.mode === "show" && (
-                                        <div
-                                            style={{
-                                                height: card.layout === "grid" ? "140px" : "auto",
-                                                width: card.layout === "grid" ? "100%" : "120px",
-                                                backgroundColor: "#e5e7eb",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                                flexShrink: 0
-                                            }}
-                                        >
-                                            <div
-                                                style={{
-                                                    width: "40px",
-                                                    height: "40px",
-                                                    backgroundColor: "#d1d5db",
-                                                    borderRadius: "4px"
-                                                }}
-                                            />
-                                        </div>
-                                    )}
-                                    <div
-                                        style={{
-                                            padding: "16px",
-                                            flex: 1,
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: "8px"
-                                        }}
-                                    >
-                                        <div>
-                                            <div
-                                                style={{
-                                                    fontSize: "15px",
-                                                    fontWeight: 600,
-                                                    color: "#111827"
-                                                }}
-                                            >
-                                                Elemento {item}
-                                            </div>
-                                            <div
-                                                style={{
-                                                    fontSize: "13px",
-                                                    color: "#6b7280",
-                                                    marginTop: "2px"
-                                                }}
-                                            >
-                                                Descrizione breve...
-                                            </div>
-                                        </div>
-
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
-                                                alignItems: "center",
-                                                marginTop: "auto",
-                                                paddingTop: "8px"
-                                            }}
-                                        >
-                                            <div
-                                                style={{
-                                                    fontSize: "14px",
-                                                    fontWeight: 600,
-                                                    color: "var(--preview-text-main)"
-                                                }}
-                                            >
-                                                Valore
-                                            </div>
-
-                                            <div
-                                                style={{
-                                                    padding: "4px 12px",
-                                                    borderRadius: "4px",
-                                                    backgroundColor: "transparent",
-                                                    color: "var(--preview-primary)",
-                                                    border: "1px solid var(--preview-primary)",
-                                                    fontSize: "12px",
-                                                    fontWeight: 600
-                                                }}
-                                            >
-                                                Dettagli
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    <CollectionView
+                        businessName={businessName}
+                        businessImage={null}
+                        collectionTitle="Catalogo digitale"
+                        sections={MOCK_SECTIONS}
+                        style={collectionStyle}
+                        mode="preview"
+                        scrollContainerEl={scrollContainerEl}
+                        featuredBeforeCatalogSlot={
+                            <FeaturedBlock blocks={MOCK_FEATURED} />
+                        }
+                    />
                 </div>
-            </div>
+            </PublicThemeScope>
         </div>
     );
 };

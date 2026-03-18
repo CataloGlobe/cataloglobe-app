@@ -1,14 +1,76 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import PublicCollectionRenderer from "@/features/public/components/PublicCollectionRenderer";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
+import CollectionView, {
+    type CollectionViewSection,
+    type CollectionViewSectionItem
+} from "@/components/PublicCollectionView/CollectionView/CollectionView";
+import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 
 import { getActivityBySlug } from "@/services/supabase/activities";
-import { resolveActivityCatalogs, ResolvedCollections } from "@/services/supabase/resolveActivityCatalogs";
+import {
+    resolveActivityCatalogs,
+    type ResolvedCollections,
+    type ResolvedProduct,
+    type ResolvedCategory
+} from "@/services/supabase/resolveActivityCatalogs";
+import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
+import { DEFAULT_COLLECTION_STYLE } from "@/types/collectionStyle";
 
 import type { V2Activity } from "@/types/activity";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import NotFound from "../NotFound/NotFound";
+
+/* ===============================================
+   DATA MAPPING
+   ResolvedCollections → CollectionViewSection[]
+=============================================== */
+
+function mapProductToItem(p: ResolvedProduct): CollectionViewSectionItem {
+    return {
+        id: p.id,
+        name: p.name,
+        description: p.description ?? null,
+        price: p.price ?? null,
+        effective_price: p.effective_price ?? null,
+        original_price: p.original_price ?? null,
+        from_price: p.from_price ?? null,
+        image: p.image_url ?? null,
+        optionGroups: p.optionGroups?.map(g => ({
+            id: g.id,
+            name: g.name,
+            group_kind: g.group_kind,
+            pricing_mode: g.pricing_mode,
+            isRequired: g.is_required,
+            maxSelectable: g.max_selectable,
+            values: g.values.map(v => ({
+                id: v.id,
+                name: v.name,
+                absolutePrice: v.absolute_price,
+                priceModifier: v.price_modifier
+            }))
+        }))
+    };
+}
+
+function mapCategoryToSection(cat: ResolvedCategory): CollectionViewSection {
+    return {
+        id: cat.id,
+        name: cat.name,
+        items: cat.products.filter(p => p.is_visible).map(mapProductToItem)
+    };
+}
+
+function mapCatalogToSections(resolved: ResolvedCollections): CollectionViewSection[] {
+    if (!resolved.catalog?.categories) return [];
+    return resolved.catalog.categories
+        .map(mapCategoryToSection)
+        .filter(s => s.items.length > 0);
+}
+
+/* ===============================================
+   PAGE
+=============================================== */
 
 type PageState =
     | { status: "loading" }
@@ -29,10 +91,7 @@ export default function PublicCollectionPage() {
 
     useEffect(() => {
         if (!slug) {
-            setState({
-                status: "error",
-                message: "Link non valido."
-            });
+            setState({ status: "error", message: "Link non valido." });
             return;
         }
 
@@ -43,18 +102,9 @@ export default function PublicCollectionPage() {
             try {
                 setState({ status: "loading" });
 
-                /* ============================
-                   1) BUSINESS
-                ============================ */
                 const business = await getActivityBySlug(businessSlug);
+                if (!business) throw new Error("Attività non trovata.");
 
-                if (!business) {
-                    throw new Error("Attività non trovata.");
-                }
-
-                /* ============================
-                   2) RESOLVER
-                ============================ */
                 const resolved = await resolveActivityCatalogs(business.id);
 
                 if (
@@ -65,25 +115,16 @@ export default function PublicCollectionPage() {
                     (!resolved.featured?.after_catalog ||
                         resolved.featured.after_catalog.length === 0)
                 ) {
-                    setState({
-                        status: "empty",
-                        business
-                    });
+                    setState({ status: "empty", business });
                     return;
                 }
 
                 if (cancelled) return;
 
-                setState({
-                    status: "ready",
-                    business,
-                    resolved
-                });
+                setState({ status: "ready", business, resolved });
             } catch (err) {
                 if (cancelled) return;
-
                 console.error("[PublicCollectionPage] loading error:", err);
-
                 setState({
                     status: "error",
                     message: err instanceof Error ? err.message : "Errore di caricamento."
@@ -92,10 +133,7 @@ export default function PublicCollectionPage() {
         }
 
         load();
-
-        return () => {
-            cancelled = true;
-        };
+        return () => { cancelled = true; };
     }, [slug]);
 
     useEffect(() => {
@@ -135,9 +173,61 @@ export default function PublicCollectionPage() {
         );
     }
 
+    const { business, resolved } = state;
+
+    // Derive CollectionStyle from stored tokens so runtime matches preview
+    const tokens = parseTokens(resolved.style?.config ?? null);
+    const navStyle = tokens.navigation.style; // "pill" | "tabs" | "minimal"
+    const sectionNavShape =
+        navStyle === "tabs" ? "square" : navStyle === "minimal" ? "rounded" : "pill";
+    const cardTemplate: "no-image" | "left" | "right" =
+        tokens.card.image.mode === "hide"
+            ? "no-image"
+            : tokens.card.image.position === "right"
+              ? "right"
+              : "left";
+
+    const collectionStyle = {
+        ...DEFAULT_COLLECTION_STYLE,
+        sectionNavShape,
+        sectionNavStyle: navStyle,
+        cardTemplate,
+        cardLayout: tokens.card.layout
+    } as const;
+
+    const sections = mapCatalogToSections(resolved);
+    const emptyState =
+        sections.length === 0
+            ? { title: "Nessun prodotto disponibile al momento" }
+            : undefined;
+
     return (
-        <PublicThemeScope style={state.resolved.style}>
-            <PublicCollectionRenderer business={state.business} resolved={state.resolved} />
+        <PublicThemeScope style={resolved.style}>
+            <CollectionView
+                businessName={business.name}
+                businessImage={business.cover_image}
+                collectionTitle={resolved.catalog?.name ?? ""}
+                sections={sections}
+                style={collectionStyle}
+                mode="public"
+                emptyState={emptyState}
+                featuredHeroSlot={
+                    resolved.featured?.hero && resolved.featured.hero.length > 0 ? (
+                        <FeaturedBlock blocks={resolved.featured.hero} />
+                    ) : null
+                }
+                featuredBeforeCatalogSlot={
+                    resolved.featured?.before_catalog &&
+                    resolved.featured.before_catalog.length > 0 ? (
+                        <FeaturedBlock blocks={resolved.featured.before_catalog} />
+                    ) : null
+                }
+            />
+
+            {resolved.featured?.after_catalog &&
+                resolved.featured.after_catalog.length > 0 && (
+                    <FeaturedBlock blocks={resolved.featured.after_catalog} />
+                )}
         </PublicThemeScope>
     );
 }

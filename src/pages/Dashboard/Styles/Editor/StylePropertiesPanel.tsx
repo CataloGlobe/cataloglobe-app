@@ -111,52 +111,6 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                 />
             </section>
 
-            {/* TIPOGRAFIA */}
-            <section className={styles.panelSection}>
-                <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
-                    Tipografia
-                </Text>
-
-                <div className={styles.controlField}>
-                    <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Font family
-                    </Text>
-                    <div
-                        className={`${styles.buttonGroup} ${styles.threeColumns}`}
-                        role="radiogroup"
-                    >
-                        {fontOptions.map(option => {
-                            const isActive = model.typography.fontFamily === option.value;
-                            let ff = "'Inter', sans-serif";
-                            if (option.value === "poppins") ff = "'Poppins', sans-serif";
-                            if (option.value === "playfair") ff = "'Playfair Display', serif";
-
-                            return (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    role="radio"
-                                    aria-checked={isActive}
-                                    className={`${styles.optionButton} ${
-                                        isActive ? styles.optionButtonActive : ""
-                                    }`}
-                                    onClick={() => updateTypography(option.value)}
-                                >
-                                    <Text
-                                        as="span"
-                                        variant="body"
-                                        weight={600}
-                                        style={{ fontFamily: ff }}
-                                    >
-                                        {option.label}
-                                    </Text>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            </section>
-
             {/* HEADER */}
             <section className={styles.panelSection}>
                 <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
@@ -356,6 +310,80 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                             })}
                         </div>
                     )}
+                </div>
+            </section>
+
+            {/* TESTI E SUPERFICI */}
+            <section className={styles.panelSection}>
+                <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
+                    Testi e superfici
+                </Text>
+
+                <StyleColorPicker
+                    label="Colore testo principale"
+                    value={model.colors.textPrimary}
+                    onChange={val => updateColor("textPrimary", val)}
+                />
+                <StyleColorPicker
+                    label="Colore testo secondario"
+                    value={model.colors.textSecondary}
+                    onChange={val => updateColor("textSecondary", val)}
+                />
+                <StyleColorPicker
+                    label="Sfondo contenuti (card / liste)"
+                    value={model.colors.surface}
+                    onChange={val => updateColor("surface", val)}
+                />
+                <StyleColorPicker
+                    label="Colore bordi"
+                    value={model.colors.border}
+                    onChange={val => updateColor("border", val)}
+                />
+            </section>
+
+            {/* TIPOGRAFIA */}
+            <section className={styles.panelSection}>
+                <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
+                    Tipografia
+                </Text>
+
+                <div className={styles.controlField}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Font family
+                    </Text>
+                    <div
+                        className={`${styles.buttonGroup} ${styles.threeColumns}`}
+                        role="radiogroup"
+                    >
+                        {fontOptions.map(option => {
+                            const isActive = model.typography.fontFamily === option.value;
+                            let ff = "'Inter', sans-serif";
+                            if (option.value === "poppins") ff = "'Poppins', sans-serif";
+                            if (option.value === "playfair") ff = "'Playfair Display', serif";
+
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={isActive}
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateTypography(option.value)}
+                                >
+                                    <Text
+                                        as="span"
+                                        variant="body"
+                                        weight={600}
+                                        style={{ fontFamily: ff }}
+                                    >
+                                        {option.label}
+                                    </Text>
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
             </section>
         </div>
