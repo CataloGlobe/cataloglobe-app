@@ -22,7 +22,7 @@ import {
     Archive,
     Tags
 } from "lucide-react";
-import logoPng from "@/assets/logo.png";
+import logoPng from "@/assets/logo-V2.png";
 import styles from "./Sidebar.module.scss";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
