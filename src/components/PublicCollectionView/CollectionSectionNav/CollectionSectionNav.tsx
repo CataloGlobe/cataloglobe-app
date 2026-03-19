@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import Text from "@/components/ui/Text/Text";
 import styles from "./CollectionSectionNav.module.scss";
 
@@ -19,6 +20,34 @@ export default function CollectionSectionNav({
     variant = "public",
     style
 }: CollectionSectionNavProps) {
+    const listRef = useRef<HTMLUListElement | null>(null);
+    const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+    useEffect(() => {
+        if (!activeSectionId) return;
+
+        const listEl = listRef.current;
+        const activeButton = buttonRefs.current[activeSectionId];
+        if (!listEl || !activeButton) return;
+
+        const listRect = listEl.getBoundingClientRect();
+        const buttonRect = activeButton.getBoundingClientRect();
+        const horizontalMargin = 24;
+        const isFullyVisible =
+            buttonRect.left >= listRect.left + horizontalMargin &&
+            buttonRect.right <= listRect.right - horizontalMargin;
+
+        if (isFullyVisible) return;
+
+        const buttonCenter = activeButton.offsetLeft + activeButton.offsetWidth / 2;
+        const targetScrollLeft = Math.max(0, buttonCenter - listEl.clientWidth / 2);
+
+        listEl.scrollTo({
+            left: targetScrollLeft,
+            behavior: "smooth"
+        });
+    }, [activeSectionId]);
+
     if (sections.length === 0) return null;
 
     const navStyle = style?.navStyle ?? "pill";
@@ -39,7 +68,7 @@ export default function CollectionSectionNav({
             data-nav-style={navStyle}
             aria-label="Navigazione sezioni del catalogo"
         >
-            <ul className={styles.list} role="tablist">
+            <ul className={styles.list} role="tablist" ref={listRef}>
                 {sections.map(section => {
                     const isActive = section.id === activeSectionId;
 
@@ -53,6 +82,9 @@ export default function CollectionSectionNav({
                                 data-active={isActive}
                                 onClick={() => onSelect?.(section.id)}
                                 style={{ borderRadius: pillRadius }}
+                                ref={element => {
+                                    buttonRefs.current[section.id] = element;
+                                }}
                             >
                                 <Text variant="body" weight={500}>
                                     {section.name}
