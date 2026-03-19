@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import Text from "@/components/ui/Text/Text";
@@ -11,6 +11,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
+import { Tabs } from "@/components/ui/Tabs/Tabs";
 import ProductPickerList from "./ProductPickerList";
 import ProductsManagerCard from "./ProductsManagerCard";
 import { supabase } from "@/services/supabase/client";
@@ -32,12 +33,10 @@ export default function FeaturedContentDetailPage() {
     const [content, setContent] = useState<FeaturedContentWithProducts | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<"info" | "products">("info");
 
-    // Inline edit state
-    const [isEditingInfo, setIsEditingInfo] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
+    const [isSavingInfo, setIsSavingInfo] = useState(false);
 
-    // Form state
     const [editInternalName, setEditInternalName] = useState("");
     const [editTitle, setEditTitle] = useState("");
     const [editSubtitle, setEditSubtitle] = useState("");
@@ -49,80 +48,180 @@ export default function FeaturedContentDetailPage() {
     const [editPricingMode, setEditPricingMode] = useState<FeaturedContentPricingMode>("none");
     const [editBundlePrice, setEditBundlePrice] = useState<string>("");
 
-    // Product Picker state
     const [isProductPickerOpen, setIsProductPickerOpen] = useState(false);
     const [linkedProductIds, setLinkedProductIds] = useState<string[]>([]);
-    const onAddProductRef = useRef<((id: string) => void) | null>(null);
+    const [pendingSelectedProductIds, setPendingSelectedProductIds] = useState<string[]>([]);
+    const onApplyProductsRef = useRef<((ids: string[]) => Promise<void>) | null>(null);
 
-    const startEditing = () => {
-        if (!content) return;
-        setEditInternalName(content.internal_name || "");
-        setEditTitle(content.title || "");
-        setEditSubtitle(content.subtitle || "");
-        setEditDescription(content.description || "");
-        setEditCtaText(content.cta_text || "");
-        setEditCtaUrl(content.cta_url || "");
-        setEditStatus(content.status || "published");
-        setEditHasPrice(content.pricing_mode === "bundle");
-        setEditPricingMode(content.pricing_mode || "none");
-        setEditBundlePrice(content.bundle_price != null ? String(content.bundle_price) : "");
-        setIsEditingInfo(true);
+    const syncInfoFormFromContent = useCallback((source: FeaturedContentWithProducts | null) => {
+        if (!source) return;
+
+        setEditInternalName(source.internal_name || "");
+        setEditTitle(source.title || "");
+        setEditSubtitle(source.subtitle || "");
+        setEditDescription(source.description || "");
+        setEditCtaText(source.cta_text || "");
+        setEditCtaUrl(source.cta_url || "");
+        setEditStatus(source.status || "published");
+        setEditHasPrice(source.pricing_mode === "bundle");
+        setEditPricingMode(source.pricing_mode || "none");
+        setEditBundlePrice(source.bundle_price != null ? String(source.bundle_price) : "");
+    }, []);
+
+    const normalizeNullable = (value: string) => {
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : null;
+    };
+
+    const resolvedInfoDraft = useMemo(() => {
+        const internalName = editInternalName.trim() || editTitle.trim();
+        const subtitle = normalizeNullable(editSubtitle);
+        const description = normalizeNullable(editDescription);
+        const ctaText = normalizeNullable(editCtaText);
+        const ctaUrl = normalizeNullable(editCtaUrl);
+
+        let pricingMode = editPricingMode;
+        let bundlePrice: number | null = null;
+
+        if (editHasPrice) {
+            pricingMode = "bundle";
+            const parsed = parseFloat(editBundlePrice);
+            bundlePrice = Number.isFinite(parsed) ? parsed : null;
+        } else if (pricingMode === "bundle") {
+            pricingMode = "none";
+        }
+
+        return {
+            internal_name: internalName,
+            title: editTitle.trim(),
+            subtitle,
+            description,
+            cta_text: ctaText,
+            cta_url: ctaUrl,
+            status: editStatus,
+            pricing_mode: pricingMode,
+            bundle_price: bundlePrice
+        };
+    }, [
+        editBundlePrice,
+        editCtaText,
+        editCtaUrl,
+        editDescription,
+        editHasPrice,
+        editInternalName,
+        editPricingMode,
+        editStatus,
+        editSubtitle,
+        editTitle
+    ]);
+
+    const hasInfoChanges = useMemo(() => {
+        if (!content) return false;
+
+        const current = {
+            internal_name: content.internal_name ?? "",
+            title: content.title ?? "",
+            subtitle: content.subtitle ?? null,
+            description: content.description ?? null,
+            cta_text: content.cta_text ?? null,
+            cta_url: content.cta_url ?? null,
+            status: content.status ?? "published",
+            pricing_mode: content.pricing_mode ?? "none",
+            bundle_price: content.bundle_price ?? null
+        };
+
+        return (
+            current.internal_name !== resolvedInfoDraft.internal_name ||
+            current.title !== resolvedInfoDraft.title ||
+            current.subtitle !== resolvedInfoDraft.subtitle ||
+            current.description !== resolvedInfoDraft.description ||
+            current.cta_text !== resolvedInfoDraft.cta_text ||
+            current.cta_url !== resolvedInfoDraft.cta_url ||
+            current.status !== resolvedInfoDraft.status ||
+            current.pricing_mode !== resolvedInfoDraft.pricing_mode ||
+            current.bundle_price !== resolvedInfoDraft.bundle_price
+        );
+    }, [content, resolvedInfoDraft]);
+
+    const handleCancelInfoChanges = () => {
+        syncInfoFormFromContent(content);
     };
 
     const handleSaveInfo = async () => {
         if (!content || !tenantId) return;
 
-        if (!editTitle.trim()) {
+        if (!resolvedInfoDraft.title) {
             showToast({ type: "error", message: "Il titolo è obbligatorio" });
             return;
         }
 
-        let resolvedPricingMode = editPricingMode;
-        let resolvedBundlePrice = null;
-
-        if (editHasPrice) {
-            resolvedPricingMode = "bundle";
-            const parsed = parseFloat(editBundlePrice);
-            if (editBundlePrice.trim() === "" || isNaN(parsed) || parsed <= 0) {
+        if (resolvedInfoDraft.pricing_mode === "bundle") {
+            const parsed = resolvedInfoDraft.bundle_price;
+            if (parsed === null || Number.isNaN(parsed) || parsed <= 0) {
                 showToast({
                     type: "error",
                     message: "Inserisci un prezzo fisso valido (maggiore di 0)"
                 });
                 return;
             }
-            resolvedBundlePrice = parsed;
-        } else {
-            // Restore back from bundle to a sensible default if they turn it off
-            if (resolvedPricingMode === "bundle") {
-                // For now fallback to none, the products card handles switching to per_item
-                resolvedPricingMode = "none";
-            }
         }
 
         try {
-            setIsSaving(true);
+            setIsSavingInfo(true);
+
             const updateData = {
-                internal_name: editInternalName.trim() || editTitle.trim(),
-                title: editTitle.trim(),
-                subtitle: editSubtitle.trim() || null,
-                description: editDescription.trim() || null,
-                cta_text: editCtaText.trim() || null,
-                cta_url: editCtaUrl.trim() || null,
-                status: editStatus,
-                pricing_mode: resolvedPricingMode,
-                bundle_price: resolvedBundlePrice
+                internal_name: resolvedInfoDraft.internal_name,
+                title: resolvedInfoDraft.title,
+                subtitle: resolvedInfoDraft.subtitle,
+                description: resolvedInfoDraft.description,
+                cta_text: resolvedInfoDraft.cta_text,
+                cta_url: resolvedInfoDraft.cta_url,
+                status: resolvedInfoDraft.status,
+                pricing_mode: resolvedInfoDraft.pricing_mode,
+                bundle_price: resolvedInfoDraft.bundle_price
             };
 
             await updateFeaturedContent(content.id, tenantId, updateData);
 
+            const nextContent = { ...content, ...updateData } as FeaturedContentWithProducts;
+            setContent(nextContent);
+            syncInfoFormFromContent(nextContent);
+
             showToast({ type: "success", message: "Informazioni aggiornate" });
-            setContent(prev => (prev ? { ...prev, ...updateData } : null));
-            setIsEditingInfo(false);
-        } catch (error) {
-            console.error(error);
+        } catch (saveError) {
+            console.error(saveError);
             showToast({ type: "error", message: "Errore durante il salvataggio" });
         } finally {
-            setIsSaving(false);
+            setIsSavingInfo(false);
+        }
+    };
+
+    const closeProductPicker = () => {
+        setIsProductPickerOpen(false);
+        setPendingSelectedProductIds([]);
+    };
+
+    const hasPendingProductChanges = useCallback(() => {
+        const originalSet = new Set(linkedProductIds);
+        const pendingSet = new Set(pendingSelectedProductIds);
+        if (originalSet.size !== pendingSet.size) return true;
+        for (const id of originalSet) {
+            if (!pendingSet.has(id)) return true;
+        }
+        return false;
+    }, [linkedProductIds, pendingSelectedProductIds]);
+
+    const applyProductSelection = async () => {
+        if (!onApplyProductsRef.current) return;
+        try {
+            await onApplyProductsRef.current(pendingSelectedProductIds);
+            closeProductPicker();
+        } catch (applyError) {
+            console.error(applyError);
+            showToast({
+                type: "error",
+                message: "Errore durante il salvataggio della selezione prodotti."
+            });
         }
     };
 
@@ -132,7 +231,6 @@ export default function FeaturedContentDetailPage() {
             setLoading(true);
             setError(null);
 
-            // Dati minimi richiesti al backend
             const { data, error: fetchError } = await supabase
                 .from("featured_contents")
                 .select(
@@ -143,7 +241,9 @@ export default function FeaturedContentDetailPage() {
 
             if (fetchError) throw fetchError;
 
-            setContent(data as FeaturedContentWithProducts);
+            const loaded = data as FeaturedContentWithProducts;
+            setContent(loaded);
+            syncInfoFormFromContent(loaded);
         } catch (err) {
             console.error(err);
             setError("Errore durante il caricamento del contenuto in evidenza.");
@@ -154,13 +254,12 @@ export default function FeaturedContentDetailPage() {
         } finally {
             setLoading(false);
         }
-    }, [featuredId, showToast]);
+    }, [featuredId, showToast, syncInfoFormFromContent]);
 
     useEffect(() => {
         loadContent();
     }, [loadContent]);
 
-    // Breadcrumb mapping
     const breadcrumbItems = [
         { label: "Contenuti in evidenza", to: `/business/${tenantId}/featured` },
         {
@@ -225,141 +324,55 @@ export default function FeaturedContentDetailPage() {
                 }
             />
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                {/* 1. Informazioni Card */}
-                <Card>
-                    <div
-                        style={{
-                            padding: "20px 24px",
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "16px"
-                        }}
-                    >
-                        {/* Card Header */}
+            <Tabs value={activeTab} onChange={value => setActiveTab(value as "info" | "products") }>
+                <Tabs.List>
+                    <Tabs.Tab value="info">Informazioni</Tabs.Tab>
+                    <Tabs.Tab value="products">Prodotti inclusi</Tabs.Tab>
+                </Tabs.List>
+
+                <Tabs.Panel value="info">
+                    <Card>
                         <div
                             style={{
+                                padding: "20px 24px",
                                 display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center"
+                                flexDirection: "column",
+                                gap: "16px"
                             }}
                         >
-                            <Text variant="title-sm" weight={600}>
-                                Informazioni
-                            </Text>
-                            {!loading && !isEditingInfo && (
-                                <Button variant="secondary" onClick={startEditing}>
-                                    Modifica
-                                </Button>
-                            )}
-                        </div>
-
-                        {loading ? (
-                            <Text colorVariant="muted">Caricamento...</Text>
-                        ) : (
-                            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                                {/* Row 1: Titolo pubblico + Nome interno */}
-                                <div
-                                    style={{
-                                        display: "grid",
-                                        gridTemplateColumns: "1fr 1fr",
-                                        gap: "16px"
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: "4px"
-                                        }}
+                            <div
+                                style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center"
+                                }}
+                            >
+                                <Text variant="title-sm" weight={600}>
+                                    Informazioni
+                                </Text>
+                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={handleCancelInfoChanges}
+                                        disabled={!hasInfoChanges || isSavingInfo}
                                     >
-                                        <Text variant="caption" weight={600} colorVariant="muted">
-                                            Titolo
-                                        </Text>
-                                        {isEditingInfo ? (
-                                            <TextInput
-                                                value={editTitle}
-                                                onChange={e => setEditTitle(e.target.value)}
-                                                placeholder="Titolo pubblico *"
-                                            />
-                                        ) : (
-                                            <Text variant="body-sm">{content?.title || "—"}</Text>
-                                        )}
-                                    </div>
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: "4px"
-                                        }}
+                                        Annulla
+                                    </Button>
+                                    <Button
+                                        variant="primary"
+                                        onClick={handleSaveInfo}
+                                        disabled={!hasInfoChanges}
+                                        loading={isSavingInfo}
                                     >
-                                        <Text variant="caption" weight={600} colorVariant="muted">
-                                            Nome interno
-                                        </Text>
-                                        {isEditingInfo ? (
-                                            <TextInput
-                                                value={editInternalName}
-                                                onChange={e => setEditInternalName(e.target.value)}
-                                                placeholder="Nome interno"
-                                            />
-                                        ) : (
-                                            <Text variant="body-sm" colorVariant="muted">
-                                                {content?.internal_name || "—"}
-                                            </Text>
-                                        )}
-                                    </div>
+                                        Salva
+                                    </Button>
                                 </div>
+                            </div>
 
-                                {/* Row 2: Sottotitolo — shown only if present (view) or always in edit */}
-                                {(isEditingInfo || content?.subtitle) && (
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: "4px"
-                                        }}
-                                    >
-                                        <Text variant="caption" weight={600} colorVariant="muted">
-                                            Sottotitolo
-                                        </Text>
-                                        {isEditingInfo ? (
-                                            <TextInput
-                                                value={editSubtitle}
-                                                onChange={e => setEditSubtitle(e.target.value)}
-                                                placeholder="Sottotitolo"
-                                            />
-                                        ) : (
-                                            <Text variant="body-sm">{content?.subtitle}</Text>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Row 3: Descrizione — shown only if present (view) or always in edit */}
-                                {(isEditingInfo || content?.description) && (
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: "4px"
-                                        }}
-                                    >
-                                        <Text variant="caption" weight={600} colorVariant="muted">
-                                            Descrizione
-                                        </Text>
-                                        {isEditingInfo ? (
-                                            <TextInput
-                                                value={editDescription}
-                                                onChange={e => setEditDescription(e.target.value)}
-                                                placeholder="Descrizione"
-                                            />
-                                        ) : (
-                                            <Text variant="body-sm">{content?.description}</Text>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Row 4: CTA — shown only if present (view) or always in edit */}
-                                {(isEditingInfo || content?.cta_text || content?.cta_url) && (
+                            {loading ? (
+                                <Text colorVariant="muted">Caricamento...</Text>
+                            ) : (
+                                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                                     <div
                                         style={{
                                             display: "grid",
@@ -367,122 +380,80 @@ export default function FeaturedContentDetailPage() {
                                             gap: "16px"
                                         }}
                                     >
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                flexDirection: "column",
-                                                gap: "4px"
-                                            }}
-                                        >
-                                            <Text
-                                                variant="caption"
-                                                weight={600}
-                                                colorVariant="muted"
-                                            >
-                                                Pulsante CTA
-                                            </Text>
-                                            {isEditingInfo ? (
-                                                <TextInput
-                                                    value={editCtaText}
-                                                    onChange={e => setEditCtaText(e.target.value)}
-                                                    placeholder="Testo pulsante"
-                                                />
-                                            ) : (
-                                                <Text variant="body-sm">
-                                                    {content?.cta_text || "—"}
-                                                </Text>
-                                            )}
-                                        </div>
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                flexDirection: "column",
-                                                gap: "4px"
-                                            }}
-                                        >
-                                            <Text
-                                                variant="caption"
-                                                weight={600}
-                                                colorVariant="muted"
-                                            >
-                                                Link CTA
-                                            </Text>
-                                            {isEditingInfo ? (
-                                                <TextInput
-                                                    value={editCtaUrl}
-                                                    onChange={e => setEditCtaUrl(e.target.value)}
-                                                    placeholder="https://..."
-                                                />
-                                            ) : (
-                                                <Text variant="body-sm" colorVariant="muted">
-                                                    {content?.cta_url || "—"}
-                                                </Text>
-                                            )}
-                                        </div>
+                                        <TextInput
+                                            label="Titolo"
+                                            value={editTitle}
+                                            onChange={e => setEditTitle(e.target.value)}
+                                            placeholder="Titolo pubblico *"
+                                        />
+                                        <TextInput
+                                            label="Nome interno"
+                                            value={editInternalName}
+                                            onChange={e => setEditInternalName(e.target.value)}
+                                            placeholder="Nome interno"
+                                        />
                                     </div>
-                                )}
 
-                                {/* Row 5: Prezzo — shown only if bundle (view) or always in edit */}
-                                {(isEditingInfo || content?.pricing_mode === "bundle") && (
+                                    <TextInput
+                                        label="Sottotitolo"
+                                        value={editSubtitle}
+                                        onChange={e => setEditSubtitle(e.target.value)}
+                                        placeholder="Sottotitolo"
+                                    />
+
+                                    <TextInput
+                                        label="Descrizione"
+                                        value={editDescription}
+                                        onChange={e => setEditDescription(e.target.value)}
+                                        placeholder="Descrizione"
+                                    />
+
                                     <div
                                         style={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: "4px"
+                                            display: "grid",
+                                            gridTemplateColumns: "1fr 1fr",
+                                            gap: "16px"
                                         }}
                                     >
+                                        <TextInput
+                                            label="Pulsante CTA"
+                                            value={editCtaText}
+                                            onChange={e => setEditCtaText(e.target.value)}
+                                            placeholder="Testo pulsante"
+                                        />
+                                        <TextInput
+                                            label="Link CTA"
+                                            value={editCtaUrl}
+                                            onChange={e => setEditCtaUrl(e.target.value)}
+                                            placeholder="https://..."
+                                        />
+                                    </div>
+
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                                         <Text variant="caption" weight={600} colorVariant="muted">
                                             Prezzo
                                         </Text>
-                                        {isEditingInfo ? (
-                                            <div
-                                                style={{
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    gap: "8px"
-                                                }}
-                                            >
-                                                <CheckboxInput
-                                                    label="Questo contenuto ha un prezzo fisso"
-                                                    checked={editHasPrice}
-                                                    onChange={e => {
-                                                        setEditHasPrice(e.target.checked);
-                                                        if (!e.target.checked)
-                                                            setEditBundlePrice("");
-                                                    }}
-                                                />
-                                                {editHasPrice && (
-                                                    <TextInput
-                                                        type="number"
-                                                        min="0.01"
-                                                        step="0.01"
-                                                        value={editBundlePrice}
-                                                        onChange={e =>
-                                                            setEditBundlePrice(e.target.value)
-                                                        }
-                                                        placeholder="Es: 25.00"
-                                                    />
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <Text variant="body-sm">
-                                                {content?.pricing_mode === "bundle"
-                                                    ? `€${content.bundle_price?.toFixed(2) ?? "0.00"}`
-                                                    : "—"}
-                                            </Text>
+                                        <CheckboxInput
+                                            label="Questo contenuto ha un prezzo fisso"
+                                            checked={editHasPrice}
+                                            onChange={e => {
+                                                setEditHasPrice(e.target.checked);
+                                                if (!e.target.checked) setEditBundlePrice("");
+                                            }}
+                                        />
+                                        {editHasPrice && (
+                                            <TextInput
+                                                type="number"
+                                                min="0.01"
+                                                step="0.01"
+                                                value={editBundlePrice}
+                                                onChange={e => setEditBundlePrice(e.target.value)}
+                                                placeholder="Es: 25.00"
+                                            />
                                         )}
                                     </div>
-                                )}
 
-                                {/* Row 6: Stato — always in edit  */}
-                                {isEditingInfo && (
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: "4px"
-                                        }}
-                                    >
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                                         <Text variant="caption" weight={600} colorVariant="muted">
                                             Stato
                                         </Text>
@@ -491,109 +462,87 @@ export default function FeaturedContentDetailPage() {
                                             description="Il contenuto è attivo e visibile"
                                             checked={editStatus === "published"}
                                             onChange={e =>
-                                                setEditStatus(
-                                                    e.target.checked ? "published" : "draft"
-                                                )
+                                                setEditStatus(e.target.checked ? "published" : "draft")
                                             }
                                         />
                                     </div>
-                                )}
 
-                                {/* Media Preview — only if media_id is set */}
-                                {content?.media_id && (
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: "4px"
-                                        }}
-                                    >
-                                        <Text variant="caption" weight={600} colorVariant="muted">
-                                            Media
-                                        </Text>
+                                    {content?.media_id && (
                                         <div
                                             style={{
-                                                width: "100%",
-                                                maxWidth: "320px",
-                                                aspectRatio: "16/9",
-                                                background: "var(--surface-tertiary)",
-                                                borderRadius: "8px",
                                                 display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                                border: "1px solid var(--border-subtle, #e5e7eb)",
-                                                overflow: "hidden"
+                                                flexDirection: "column",
+                                                gap: "4px"
                                             }}
                                         >
-                                            <Text colorVariant="muted" variant="caption">
-                                                Media ID: {content.media_id}
+                                            <Text variant="caption" weight={600} colorVariant="muted">
+                                                Media
                                             </Text>
+                                            <div
+                                                style={{
+                                                    width: "100%",
+                                                    maxWidth: "320px",
+                                                    aspectRatio: "16/9",
+                                                    background: "var(--surface-tertiary)",
+                                                    borderRadius: "8px",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    border: "1px solid var(--border-subtle, #e5e7eb)",
+                                                    overflow: "hidden"
+                                                }}
+                                            >
+                                                <Text colorVariant="muted" variant="caption">
+                                                    Media ID: {content.media_id}
+                                                </Text>
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+                </Tabs.Panel>
 
-                                {/* Save / Cancel actions */}
-                                {isEditingInfo && (
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            justifyContent: "flex-end",
-                                            gap: "12px",
-                                            paddingTop: "4px"
-                                        }}
-                                    >
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() => setIsEditingInfo(false)}
-                                            disabled={isSaving}
-                                        >
-                                            Annulla
-                                        </Button>
-                                        <Button
-                                            variant="primary"
-                                            onClick={handleSaveInfo}
-                                            loading={isSaving}
-                                        >
-                                            Salva
-                                        </Button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </Card>
+                <Tabs.Panel value="products">
+                    <ProductsManagerCard
+                        featuredId={featuredId as string}
+                        onOpenProductPicker={(linkedIds, onApply) => {
+                            setLinkedProductIds(linkedIds);
+                            setPendingSelectedProductIds(linkedIds);
+                            onApplyProductsRef.current = onApply;
+                            setIsProductPickerOpen(true);
+                        }}
+                    />
+                </Tabs.Panel>
+            </Tabs>
 
-                {/* 2. Prodotti inclusi Card */}
-
-                <ProductsManagerCard
-                    featuredId={featuredId as string}
-                    onOpenProductPicker={(linkedIds, onAdd) => {
-                        setLinkedProductIds(linkedIds);
-                        onAddProductRef.current = onAdd;
-                        setIsProductPickerOpen(true);
-                    }}
-                />
-            </div>
-
-            <SystemDrawer
-                open={isProductPickerOpen}
-                onClose={() => setIsProductPickerOpen(false)}
-                width={420}
-            >
+            <SystemDrawer open={isProductPickerOpen} onClose={closeProductPicker} width={640}>
                 <DrawerLayout
                     header={
                         <Text variant="title-sm" weight={700}>
                             Aggiungi prodotto
                         </Text>
                     }
+                    footer={
+                        <>
+                            <Button variant="secondary" onClick={closeProductPicker}>
+                                Annulla
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={applyProductSelection}
+                                disabled={!hasPendingProductChanges()}
+                            >
+                                Applica
+                            </Button>
+                        </>
+                    }
                 >
-                    <div style={{ padding: "0 24px", height: "100%", flex: 1, overflow: "hidden" }}>
+                    <div style={{ height: "100%", minHeight: 0 }}>
                         <ProductPickerList
-                            excludedProductIds={linkedProductIds}
-                            onSelect={id => {
-                                onAddProductRef.current?.(id);
-                                setIsProductPickerOpen(false);
-                            }}
+                            selectedProductIds={pendingSelectedProductIds}
+                            onSelectionChange={setPendingSelectedProductIds}
                         />
                     </div>
                 </DrawerLayout>

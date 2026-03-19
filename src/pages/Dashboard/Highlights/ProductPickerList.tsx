@@ -1,150 +1,174 @@
-import React, { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { SearchInput } from "@/components/ui/Input/SearchInput";
+import { Select } from "@/components/ui/Select/Select";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useTenantId } from "@/context/useTenantId";
 import { supabase } from "@/services/supabase/client";
+import styles from "./ProductPickerList.module.scss";
 
 interface ProductPickerListProps {
-    excludedProductIds?: string[];
-    onSelect: (productId: string) => void;
+    selectedProductIds: string[];
+    onSelectionChange: (productIds: string[]) => void;
 }
 
+type ProductRow = {
+    id: string;
+    name: string;
+    base_price: number | null;
+};
+
+type ProductGroupOption = {
+    id: string;
+    name: string;
+};
+
+type ProductGroupItemRow = {
+    product_id: string;
+    group_id: string;
+};
+
 export default function ProductPickerList({
-    excludedProductIds = [],
-    onSelect
+    selectedProductIds,
+    onSelectionChange
 }: ProductPickerListProps) {
     const { showToast } = useToast();
+    const tenantId = useTenantId();
     const [loading, setLoading] = useState(false);
-    const [availableProducts, setAvailableProducts] = useState<
-        { id: string; name: string; base_price: number | null }[]
-    >([]);
+    const [products, setProducts] = useState<ProductRow[]>([]);
+    const [groupOptions, setGroupOptions] = useState<ProductGroupOption[]>([]);
+    const [groupProductMap, setGroupProductMap] = useState<Map<string, Set<string>>>(new Map());
+    const [selectedGroupId, setSelectedGroupId] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
 
     useEffect(() => {
+        const loadProducts = async () => {
+            try {
+                setLoading(true);
+                const [{ data: productsData, error: productsError }, groupsRes, groupItemsRes] =
+                    await Promise.all([
+                        supabase
+                            .from("products")
+                            .select("id, name, base_price")
+                            .order("name", { ascending: true }),
+                        tenantId
+                            ? supabase
+                                  .from("product_groups")
+                                  .select("id, name")
+                                  .eq("tenant_id", tenantId)
+                                  .order("name", { ascending: true })
+                            : Promise.resolve({ data: [], error: null } as any),
+                        tenantId
+                            ? supabase
+                                  .from("product_group_items")
+                                  .select("product_id, group_id")
+                                  .eq("tenant_id", tenantId)
+                            : Promise.resolve({ data: [], error: null } as any)
+                    ]);
+
+                if (productsError) throw productsError;
+                if (groupsRes.error) throw groupsRes.error;
+                if (groupItemsRes.error) throw groupItemsRes.error;
+
+                setProducts((productsData ?? []) as ProductRow[]);
+                setGroupOptions((groupsRes.data ?? []) as ProductGroupOption[]);
+
+                const nextMap = new Map<string, Set<string>>();
+                for (const row of (groupItemsRes.data ?? []) as ProductGroupItemRow[]) {
+                    const current = nextMap.get(row.group_id) ?? new Set<string>();
+                    current.add(row.product_id);
+                    nextMap.set(row.group_id, current);
+                }
+                setGroupProductMap(nextMap);
+            } catch (error) {
+                console.error("Error loading products for picker", error);
+                showToast({ type: "error", message: "Impossibile caricare la lista prodotti." });
+            } finally {
+                setLoading(false);
+            }
+        };
+
         loadProducts();
-    }, []);
-
-    const loadProducts = async () => {
-        try {
-            setLoading(true);
-            const { data, error } = await supabase
-                .from("products")
-                .select("id, name, base_price")
-                .order("name");
-
-            if (error) throw error;
-            setAvailableProducts(data || []);
-        } catch (error) {
-            console.error("Error loading products for picker", error);
-            showToast({ type: "error", message: "Impossibile caricare la lista prodotti." });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const unselectedProducts = useMemo(() => {
-        return availableProducts.filter(p => !excludedProductIds.includes(p.id));
-    }, [availableProducts, excludedProductIds]);
+    }, [showToast, tenantId]);
 
     const filteredProducts = useMemo(() => {
-        if (!searchTerm) return unselectedProducts;
-        return unselectedProducts.filter(p =>
-            p.name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [unselectedProducts, searchTerm]);
+        const normalizedSearch = searchTerm.trim().toLowerCase();
+        const allowedProductIds =
+            selectedGroupId.length > 0 ? groupProductMap.get(selectedGroupId) : null;
 
-    if (loading) {
-        return (
-            <div style={{ padding: "32px", textAlign: "center" }}>
-                <Text variant="body-sm" colorVariant="muted">
-                    Caricamento prodotti disponibili...
-                </Text>
-            </div>
-        );
-    }
+        return products.filter(product => {
+            if (allowedProductIds && !allowedProductIds.has(product.id)) return false;
+            if (!normalizedSearch) return true;
+            return product.name.toLowerCase().includes(normalizedSearch);
+        });
+    }, [products, searchTerm, selectedGroupId, groupProductMap]);
 
-    if (availableProducts.length > 0 && unselectedProducts.length === 0) {
-        return (
-            <div style={{ padding: "32px", textAlign: "center" }}>
-                <Text variant="body-sm" colorVariant="muted">
-                    Hai già aggiunto tutti i prodotti disponibili nel catalogo.
-                </Text>
-            </div>
-        );
-    }
+    const columns = useMemo<ColumnDefinition<ProductRow>[]>(
+        () => [
+            {
+                id: "name",
+                header: "Prodotto",
+                accessor: row => row.name,
+                cell: value => (
+                    <div className={styles.nameCell}>
+                        <Text variant="body-sm" weight={600}>
+                            {String(value)}
+                        </Text>
+                    </div>
+                )
+            },
+            {
+                id: "price",
+                header: "Prezzo base",
+                accessor: row => row.base_price,
+                align: "right",
+                width: "140px",
+                cell: value => (
+                    <Text variant="body-sm" colorVariant="muted">
+                        {typeof value === "number" ? `€${value.toFixed(2)}` : "-"}
+                    </Text>
+                )
+            }
+        ],
+        []
+    );
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px", height: "100%" }}>
-            <div style={{ padding: "0 4px" }}>
-                <input
-                    type="search"
-                    placeholder="Cerca prodotto..."
+        <div className={styles.container}>
+            <div className={styles.filtersBlock}>
+                <Select
+                    label="Gruppo prodotto"
+                    value={selectedGroupId}
+                    onChange={event => setSelectedGroupId(event.target.value)}
+                    options={[
+                        { value: "", label: "Tutti i gruppi" },
+                        ...groupOptions.map(group => ({ value: group.id, label: group.name }))
+                    ]}
+                />
+
+                <SearchInput
                     value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        border: "1px solid var(--border-base, #ccc)",
-                        borderRadius: "8px",
-                        background: "var(--surface-primary)",
-                        fontFamily: "inherit",
-                        fontSize: "14px"
-                    }}
+                    onChange={event => setSearchTerm(event.target.value)}
+                    onClear={() => setSearchTerm("")}
+                    placeholder="Cerca prodotto..."
+                    allowClear
                 />
             </div>
 
-            <div
-                style={{
-                    flex: 1,
-                    overflowY: "auto",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "4px",
-                    paddingBottom: "24px"
-                }}
-            >
-                {filteredProducts.length === 0 ? (
-                    <Text
-                        variant="body-sm"
-                        colorVariant="muted"
-                        style={{ textAlign: "center", marginTop: "16px" }}
-                    >
-                        Nessun prodotto trovato.
-                    </Text>
-                ) : (
-                    filteredProducts.map(p => (
-                        <button
-                            key={p.id}
-                            onClick={() => onSelect(p.id)}
-                            style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                padding: "12px 16px",
-                                border: "1px solid var(--border-subtle, #e5e7eb)",
-                                borderRadius: "8px",
-                                background: "var(--surface-primary)",
-                                cursor: "pointer",
-                                textAlign: "left",
-                                transition: "background 0.2s"
-                            }}
-                            onMouseOver={e => {
-                                e.currentTarget.style.background = "var(--surface-secondary)";
-                            }}
-                            onMouseOut={e => {
-                                e.currentTarget.style.background = "var(--surface-primary)";
-                            }}
-                        >
-                            <Text variant="body-sm" weight={600}>
-                                {p.name}
-                            </Text>
-                            {p.base_price !== null && (
-                                <Text variant="body-sm" colorVariant="muted">
-                                    €{p.base_price.toFixed(2)}
-                                </Text>
-                            )}
-                        </button>
-                    ))
-                )}
+            <div className={styles.tableWrap}>
+                <DataTable<ProductRow>
+                    data={filteredProducts}
+                    columns={columns}
+                    isLoading={loading}
+                    loadingState="Caricamento prodotti disponibili..."
+                    emptyState="Nessun prodotto trovato con i filtri attuali."
+                    rowsPerPage={8}
+                    selectable
+                    selectedRowIds={selectedProductIds}
+                    onSelectedRowsChange={onSelectionChange}
+                    showSelectionBar={false}
+                />
             </div>
         </div>
     );

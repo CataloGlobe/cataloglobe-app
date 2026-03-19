@@ -498,6 +498,10 @@
   gap: var(--spacing-2, 8px);
 }
 
+.assignTableWrap {
+  margin-top: var(--spacing-3, 12px);
+}
+
 .assignRow {
   display: flex;
   align-items: center;

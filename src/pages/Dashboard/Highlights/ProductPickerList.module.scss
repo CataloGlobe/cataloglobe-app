@@ -1,0 +1,25 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  min-height: 0;
+}
+
+.filtersBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tableWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.nameCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}

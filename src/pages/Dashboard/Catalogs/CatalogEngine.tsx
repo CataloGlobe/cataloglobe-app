@@ -434,6 +434,11 @@ export default function CatalogEngine() {
         productGroupMap
     ]);
 
+    const assignableSelectedIds = useMemo(
+        () => Array.from(selectedAssignProductIds),
+        [selectedAssignProductIds]
+    );
+
     const getNextSortOrder = useCallback(
         (parentId: string | null) => {
             const siblings = categories.filter(
@@ -828,18 +833,6 @@ export default function CatalogEngine() {
         });
     }, []);
 
-    const toggleAssignProduct = useCallback((productId: string) => {
-        setSelectedAssignProductIds(prev => {
-            const next = new Set(prev);
-            if (next.has(productId)) {
-                next.delete(productId);
-            } else {
-                next.add(productId);
-            }
-            return next;
-        });
-    }, []);
-
     const handleReorderProducts = useCallback(
         (event: DragEndEvent) => {
             const { active, over } = event;
@@ -1177,6 +1170,42 @@ export default function CatalogEngine() {
         []
     );
 
+    const assignableColumns = useMemo<ColumnDefinition<V2Product>[]>(
+        () => [
+            {
+                id: "name",
+                header: "Prodotto",
+                accessor: row => row.name,
+                width: "2fr",
+                cell: (value, row) => (
+                    <div className={styles.assignMeta}>
+                        <Text variant="body-sm" weight={600}>
+                            {String(value)}
+                        </Text>
+                        {row.parent_product_id && (
+                            <Text variant="caption" colorVariant="muted">
+                                Variante
+                            </Text>
+                        )}
+                    </div>
+                )
+            },
+            {
+                id: "price",
+                header: "Prezzo base",
+                accessor: row => row.base_price,
+                width: "130px",
+                align: "right",
+                cell: value => (
+                    <Text variant="body-sm" colorVariant="muted">
+                        {formatPrice((value as number | null) ?? null)}
+                    </Text>
+                )
+            }
+        ],
+        []
+    );
+
     const renderRightPane = () => {
         if (!selectedCategory) {
             return (
@@ -1449,7 +1478,7 @@ export default function CatalogEngine() {
                     // Reset mode for next time
                     setAddProductMode("existing");
                 }}
-                width={addProductMode === "new" ? 500 : 460}
+                width={addProductMode === "new" ? 500 : 560}
             >
                 <DrawerLayout
                     header={
@@ -1520,45 +1549,23 @@ export default function CatalogEngine() {
                                     onChange={event => setAssignProductSearch(event.target.value)}
                                     onClear={() => setAssignProductSearch("")}
                                     placeholder="Cerca prodotto..."
+                                    allowClear
                                 />
                             </div>
 
-                            <div className={styles.assignResults}>
-                                {assignableProducts.slice(0, 50).map(product => (
-                                    <div
-                                        key={product.id}
-                                        className={styles.assignRow}
-                                        onClick={() => toggleAssignProduct(product.id)}
-                                        style={{ cursor: "pointer" }}
-                                    >
-                                        <div className={styles.assignMeta}>
-                                            <Text variant="body-sm" weight={600}>
-                                                {product.name}
-                                            </Text>
-                                            {product.parent_product_id && (
-                                                <Text variant="caption" colorVariant="muted">
-                                                    Variante
-                                                </Text>
-                                            )}
-                                        </div>
-                                        <div className={styles.checkboxCell}>
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedAssignProductIds.has(product.id)}
-                                                onChange={() => {}} // Handled by row click
-                                                className={styles.tableCheckbox}
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {assignableProducts.length === 0 && (
-                                    <div style={{ padding: "0 4px" }}>
-                                        <Text variant="body-sm" colorVariant="muted">
-                                            Nessun prodotto disponibile da associare.
-                                        </Text>
-                                    </div>
-                                )}
+                            <div className={styles.assignTableWrap}>
+                                <DataTable<V2Product>
+                                    data={assignableProducts}
+                                    columns={assignableColumns}
+                                    selectable
+                                    selectedRowIds={assignableSelectedIds}
+                                    onSelectedRowsChange={ids =>
+                                        setSelectedAssignProductIds(new Set(ids))
+                                    }
+                                    showSelectionBar={false}
+                                    rowsPerPage={8}
+                                    emptyState="Nessun prodotto disponibile da associare."
+                                />
                             </div>
                         </div>
                     ) : (

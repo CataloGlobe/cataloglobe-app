@@ -35,6 +35,9 @@ interface DataTableProps<T> {
     rowsPerPage?: number;
     selectable?: boolean;
     onBulkDelete?: (selectedIds: string[]) => void;
+    selectedRowIds?: string[];
+    onSelectedRowsChange?: (selectedIds: string[]) => void;
+    showSelectionBar?: boolean;
 }
 
 function getRowKey<T>(row: T, index: number): string | number {
@@ -147,20 +150,37 @@ export function DataTable<T>({
     rowWrapper,
     rowsPerPage = DEFAULT_ROWS_PER_PAGE,
     selectable = false,
-    onBulkDelete
+    onBulkDelete,
+    selectedRowIds,
+    onSelectedRowsChange,
+    showSelectionBar = true
 }: DataTableProps<T>) {
     const [currentPage, setCurrentPage] = useState(1);
-    const [selectedRows, setSelectedRows] = useState<string[]>([]);
+    const [internalSelectedRows, setInternalSelectedRows] = useState<string[]>([]);
+    const isSelectionControlled = selectedRowIds !== undefined;
+    const selectedRows = isSelectionControlled ? (selectedRowIds ?? []) : internalSelectedRows;
+
+    const setSelectedRows = (updater: (prev: string[]) => string[]) => {
+        const nextRows = updater(selectedRows);
+        if (!isSelectionControlled) {
+            setInternalSelectedRows(nextRows);
+        }
+        onSelectedRowsChange?.(nextRows);
+    };
 
     useEffect(() => {
         setCurrentPage(1);
-        setSelectedRows([]);
-    }, [data]);
+        if (!isSelectionControlled) {
+            setInternalSelectedRows([]);
+        }
+    }, [data, isSelectionControlled]);
 
     // Reset selection when navigating between pages
     useEffect(() => {
-        setSelectedRows([]);
-    }, [currentPage]);
+        if (!isSelectionControlled) {
+            setInternalSelectedRows([]);
+        }
+    }, [currentPage, isSelectionControlled]);
 
     const gridStyle = useMemo<CSSProperties>(() => {
         const columnWidths = columns.map(column => column.width ?? "minmax(0, 1fr)");
@@ -212,7 +232,10 @@ export function DataTable<T>({
         currentPageIds.some(id => selectedRows.includes(id));
 
     const handleSelectRow = (id: string, checked: boolean) => {
-        setSelectedRows(prev => (checked ? [...prev, id] : prev.filter(r => r !== id)));
+        setSelectedRows(prev => {
+            if (checked) return prev.includes(id) ? prev : [...prev, id];
+            return prev.filter(r => r !== id);
+        });
     };
 
     const handleSelectAll = (checked: boolean) => {
@@ -226,11 +249,11 @@ export function DataTable<T>({
         }
     };
 
-    const handleClearSelection = () => setSelectedRows([]);
+    const handleClearSelection = () => setSelectedRows(() => []);
 
     const handleBulkDelete = () => {
         onBulkDelete?.(selectedRows);
-        setSelectedRows([]);
+        setSelectedRows(() => []);
     };
 
     const renderState = () => {
@@ -334,6 +357,7 @@ export function DataTable<T>({
             </div>
 
             {selectable &&
+                showSelectionBar &&
                 selectedRows.length > 0 &&
                 createPortal(
                     <div className={styles.bulkBar}>
