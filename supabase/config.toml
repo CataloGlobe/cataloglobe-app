@@ -1,4 +1,22 @@
 
+[functions.delete-account]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/delete-account/index.ts"
+
+[functions.recover-account]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/recover-account/index.ts"
+
+[functions.purge-accounts]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/purge-accounts/index.ts"
+
 [functions.delete-business]
 enabled = true
 verify_jwt = false
