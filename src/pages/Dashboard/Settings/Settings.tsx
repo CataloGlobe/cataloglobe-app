@@ -14,6 +14,7 @@ import ModalLayout, {
     ModalLayoutFooter,
     ModalLayoutHeader
 } from "@/components/ui/ModalLayout/ModalLayout";
+import { DeleteAccountDrawer } from "./DeleteAccountDrawer";
 
 export default function Settings() {
     const { user } = useAuth();
@@ -22,6 +23,7 @@ export default function Settings() {
     const [notifications, setNotifications] = useState(true);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [isDeleteAccountDrawerOpen, setIsDeleteAccountDrawerOpen] = useState(false);
 
     const handleLogout = async () => {
         try {
@@ -91,6 +93,32 @@ export default function Settings() {
                     </Button>
                 </div>
             </div>
+
+            <div className={styles.section}>
+                <Text variant="title-sm">Eliminazione account</Text>
+                <div className={styles.dangerZone}>
+                    <div>
+                        <Text variant="body-sm" weight={600}>
+                            Elimina account
+                        </Text>
+                        <Text variant="body-sm" colorVariant="muted">
+                            Questa azione eliminerà definitivamente il tuo account e tutti i dati
+                            associati. Avrai 30 giorni per recuperarlo.
+                        </Text>
+                    </div>
+                    <Button
+                        variant="danger"
+                        onClick={() => setIsDeleteAccountDrawerOpen(true)}
+                    >
+                        Elimina account
+                    </Button>
+                </div>
+            </div>
+
+            <DeleteAccountDrawer
+                open={isDeleteAccountDrawerOpen}
+                onClose={() => setIsDeleteAccountDrawerOpen(false)}
+            />
 
             <ModalLayout
                 isOpen={showLogoutModal}

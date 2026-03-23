@@ -1,5 +1,10 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { signIn } from "@services/supabase/auth";
+import {
+    recoverAccount,
+    DELETED_ACCOUNT_HANDOFF_KEY,
+    type DeletedAccountHandoff
+} from "@/services/supabase/account";
 import { Button } from "@components/ui";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -13,6 +18,33 @@ export default function Login() {
     const [rememberMe, setRememberMe] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [isBanned, setIsBanned] = useState(false);
+    const [isRecovering, setIsRecovering] = useState(false);
+    const [recoveryError, setRecoveryError] = useState<string | null>(null);
+    const [recoverySuccess, setRecoverySuccess] = useState(false);
+
+    // On mount, check for a forced-logout handoff written by AuthProvider.
+    // This covers the case where account_deleted_at was set but the user
+    // was not banned, allowing them to log in. The handoff pre-fills the
+    // email and activates the existing recovery UI.
+    useEffect(() => {
+        const raw = sessionStorage.getItem(DELETED_ACCOUNT_HANDOFF_KEY);
+        if (!raw) return;
+        sessionStorage.removeItem(DELETED_ACCOUNT_HANDOFF_KEY);
+        try {
+            const handoff = JSON.parse(raw) as DeletedAccountHandoff;
+            if (
+                handoff &&
+                handoff.reason === "account_deleted" &&
+                typeof handoff.email === "string"
+            ) {
+                if (handoff.email) setEmail(handoff.email);
+                setIsBanned(true);
+            }
+        } catch {
+            // Malformed entry — silently ignore
+        }
+    }, []);
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -24,6 +56,9 @@ export default function Login() {
     async function handleLogin(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setError(null);
+        setIsBanned(false);
+        setRecoveryError(null);
+        setRecoverySuccess(false);
         setLoading(true);
 
         try {
@@ -38,10 +73,36 @@ export default function Login() {
                 state: { from }
             });
         } catch (err) {
-            if (err instanceof Error) setError(err.message);
-            else setError("Errore sconosciuto durante il login.");
+            const message = err instanceof Error ? err.message : "Errore sconosciuto durante il login.";
+            if (message.toLowerCase().includes("banned")) {
+                setIsBanned(true);
+            } else {
+                setError(message);
+            }
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function handleRecover() {
+        setRecoveryError(null);
+        setIsRecovering(true);
+
+        try {
+            await recoverAccount(email.trim());
+            setRecoverySuccess(true);
+            setIsBanned(false);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "";
+            if (message === "recovery_window_expired") {
+                setRecoveryError(
+                    "Il periodo di recupero è scaduto. L\u2019account è stato eliminato definitivamente."
+                );
+            } else {
+                setRecoveryError("Impossibile recuperare l'account. Riprova.");
+            }
+        } finally {
+            setIsRecovering(false);
         }
     }
 
@@ -84,6 +145,44 @@ export default function Login() {
                         </Link>
                     </Text>
                 </div>
+
+                {isBanned && !recoverySuccess && (
+                    <div style={{
+                        padding: "0.875rem 1rem",
+                        border: "1px solid var(--color-warning-300, #fcd34d)",
+                        borderRadius: "8px",
+                        background: "var(--color-warning-50, #fffbeb)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.625rem"
+                    }}>
+                        <Text variant="body-sm" weight={600}>
+                            Account in fase di eliminazione
+                        </Text>
+                        <Text variant="body-sm" colorVariant="muted">
+                            Hai richiesto l&apos;eliminazione del tuo account. Hai 30 giorni per annullare questa operazione.
+                        </Text>
+                        {recoveryError && (
+                            <Text variant="caption" colorVariant="error" as="p">
+                                {recoveryError}
+                            </Text>
+                        )}
+                        <Button
+                            variant="primary"
+                            onClick={handleRecover}
+                            loading={isRecovering}
+                            disabled={isRecovering}
+                        >
+                            {isRecovering ? "Recupero in corso..." : "Recupera account"}
+                        </Button>
+                    </div>
+                )}
+
+                {recoverySuccess && (
+                    <Text as="p" colorVariant="success" variant="caption" className={styles.feedback}>
+                        Account ripristinato con successo. Puoi effettuare di nuovo l&apos;accesso.
+                    </Text>
+                )}
 
                 {error && (
                     <Text as="p" colorVariant="error" variant="caption" className={styles.feedback}>

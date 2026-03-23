@@ -3,6 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/services/supabase/client";
 import { AuthContext } from "./AuthContextBase";
 import type { User } from "@supabase/supabase-js";
+import {
+    getProfileDeletionStatus,
+    DELETED_ACCOUNT_HANDOFF_KEY,
+    type DeletedAccountHandoff
+} from "@/services/supabase/account";
 
 function getSessionIdFromJwt(token: string): string | null {
     try {
@@ -32,6 +37,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const otpReqIdRef = useRef(0);
     // distingue un vero login da eventi auth "di mantenimento" (es. ritorno focus tab)
     const hasSessionRef = useRef(false);
+    // previene deletion check concorrenti
+    const isCheckingRef = useRef(false);
+
+    // Returns true if the account is deleted (and the user has been signed out).
+    // Returns false if the account is clean — caller should continue normally.
+    // Fails open on network/query errors to avoid blocking legitimate users.
+    async function enforceAccountNotDeleted(user: User): Promise<boolean> {
+        if (isCheckingRef.current) return false;
+        isCheckingRef.current = true;
+
+        try {
+            const deletedAt = await getProfileDeletionStatus(user.id);
+            if (!deletedAt) return false;
+
+            if (user.email) {
+                const handoff: DeletedAccountHandoff = {
+                    email: user.email,
+                    reason: "account_deleted"
+                };
+                sessionStorage.setItem(
+                    DELETED_ACCOUNT_HANDOFF_KEY,
+                    JSON.stringify(handoff)
+                );
+            }
+
+            hasSessionRef.current = false;
+            await supabase.auth.signOut();
+            return true;
+        } catch (e) {
+            console.error("[auth] deletion check failed, failing open:", e);
+            return false;
+        } finally {
+            isCheckingRef.current = false;
+        }
+    }
 
     async function checkOtpForSession() {
         const reqId = ++otpReqIdRef.current;
@@ -115,6 +155,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     return;
                 }
 
+                const deleted = await enforceAccountNotDeleted(data.user);
+                if (cancelled || deleted) {
+                    setUser(null);
+                    return;
+                }
+
                 setUser(data.user);
                 hasSessionRef.current = true;
 
@@ -144,14 +190,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 hasSessionRef.current = true;
                 const nextUser = session.user ?? null;
 
-                // Evita update inutili su TOKEN_REFRESHED/focus tab quando l'utente non cambia.
-                setUser(prev => (prev?.id === nextUser?.id ? prev : nextUser));
+                // Run the deletion check before exposing the user to the app.
+                // Wrapping in an async IIFE because onAuthStateChange callbacks are synchronous.
+                void (async () => {
+                    if (nextUser) {
+                        const deleted = await enforceAccountNotDeleted(nextUser);
+                        if (cancelled || deleted) return;
+                    }
 
-                // Recheck OTP solo quando passiamo da "nessuna sessione" a "sessione attiva".
-                // In questo modo un refocus tab non resetta la UI (modali/drawer inclusi).
-                if (!hadSession) {
-                    void checkOtpForSession();
-                }
+                    // Evita update inutili su TOKEN_REFRESHED/focus tab quando l'utente non cambia.
+                    setUser(prev => (prev?.id === nextUser?.id ? prev : nextUser));
+
+                    // Recheck OTP solo quando passiamo da "nessuna sessione" a "sessione attiva".
+                    // In questo modo un refocus tab non resetta la UI (modali/drawer inclusi).
+                    if (!hadSession) {
+                        void checkOtpForSession();
+                    }
+                })();
             } else {
                 hasSessionRef.current = false;
                 setUser(null);

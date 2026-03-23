@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { supabase } from "@/services/supabase/client";
@@ -45,6 +45,7 @@ export default function WorkspacePage() {
     const [deletedSectionOpen, setDeletedSectionOpen] = useState(false);
     const [purgeTarget, setPurgeTarget] = useState<{ id: string; name: string } | null>(null);
     const [actionInProgressId, setActionInProgressId] = useState<string | null>(null);
+    const shownNotificationIdsRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         if (!user) return;
@@ -84,7 +85,35 @@ export default function WorkspacePage() {
             );
         };
 
+        const fetchNotifications = async () => {
+            const { data: notifications } = await supabase
+                .from("v2_notifications")
+                .select("*")
+                .is("read_at", null)
+                .order("created_at", { ascending: false });
+
+            if (!notifications || notifications.length === 0) return;
+
+            notifications.forEach((n) => {
+                if (n.event_type === "ownership_received") {
+                    if (shownNotificationIdsRef.current.has(n.id)) return;
+                    shownNotificationIdsRef.current.add(n.id);
+                    showToast({
+                        type: "info",
+                        message: `Sei diventato proprietario di ${(n.data as { tenant_name?: string })?.tenant_name ?? "un tenant"}`,
+                    });
+                }
+            });
+
+            const ids = notifications.map((n) => n.id);
+            await supabase
+                .from("v2_notifications")
+                .update({ read_at: new Date().toISOString() })
+                .in("id", ids);
+        };
+
         fetchInvites();
+        fetchNotifications();
     }, [user?.id]);
 
     const loadTenants = async () => {

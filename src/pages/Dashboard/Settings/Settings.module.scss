@@ -59,6 +59,17 @@
   gap: 0.25rem;
 }
 /* ----------------------------------------------------
+   DANGER ZONE
+---------------------------------------------------- */
+.dangerZone {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* ----------------------------------------------------
    DARK MODE TWEAKS (SOLO MICRO-COSMETICA)
 ---------------------------------------------------- */
 [data-theme="dark"] {

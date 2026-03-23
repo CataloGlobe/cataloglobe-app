@@ -20,6 +20,7 @@ import ModalLayout, {
     ModalLayoutHeader
 } from "@/components/ui/ModalLayout/ModalLayout";
 import { supabase } from "@/services/supabase/client";
+import { DeleteAccountDrawer } from "@/pages/Dashboard/Settings/DeleteAccountDrawer";
 import styles from "./WorkspaceSettingsPage.module.scss";
 
 export default function WorkspaceSettingsPage() {
@@ -39,6 +40,7 @@ export default function WorkspaceSettingsPage() {
     const [loggingOut, setLoggingOut] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [isDeleteAccountDrawerOpen, setIsDeleteAccountDrawerOpen] = useState(false);
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -326,8 +328,28 @@ export default function WorkspaceSettingsPage() {
                             </Button>
                         </div>
                     </Card>
+
+                    <Card title="Eliminazione account" className={styles.card}>
+                        <div className={styles.logoutRow}>
+                            <Text variant="body-sm" colorVariant="muted">
+                                Questa azione è irreversibile. Il tuo account verrà eliminato
+                                definitivamente dopo 30 giorni.
+                            </Text>
+                            <Button
+                                variant="danger"
+                                onClick={() => setIsDeleteAccountDrawerOpen(true)}
+                            >
+                                Elimina account
+                            </Button>
+                        </div>
+                    </Card>
                 </div>
             </div>
+
+            <DeleteAccountDrawer
+                open={isDeleteAccountDrawerOpen}
+                onClose={() => setIsDeleteAccountDrawerOpen(false)}
+            />
 
             <SystemDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} width={480}>
                 <DrawerLayout
