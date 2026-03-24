@@ -254,19 +254,50 @@ export async function deleteActivity(id: string, tenantId: string) {
 /**
  * Eliminazione atomica tramite Edge Function (replica logica legacy)
  */
-export async function deleteActivityAtomic(activityId: string) {
-    const { error, response } = await supabase.functions.invoke("delete-business", {
+export class DeleteActivityError extends Error {
+    code: string;
+    constructor(message: string, code: string) {
+        super(message);
+        this.code = code;
+    }
+}
+
+export async function deleteActivityAtomic(activityId: string): Promise<void> {
+    const { error } = await supabase.functions.invoke("delete-business", {
         body: { businessId: activityId }
     });
 
-    if (error) {
-        if (response?.status === 401) {
-            throw new Error(
-                "Autenticazione non valida per l'eliminazione (401 Invalid JWT). Verifica ambiente Supabase e rifai login."
-            );
+    if (!error) return;
+
+    // FunctionsHttpError exposes the raw Response as .context.
+    // Read the JSON body to extract structured error codes returned by the function.
+    const rawResponse = (error as unknown as { context?: Response }).context;
+    if (rawResponse) {
+        try {
+            const body = (await rawResponse.json()) as {
+                error?: string;
+                code?: string;
+                message?: string;
+            };
+            if (rawResponse.status === 401) {
+                throw new DeleteActivityError(
+                    "Autenticazione non valida. Effettua di nuovo il login.",
+                    "AUTH_EXPIRED"
+                );
+            }
+            if (body.code) {
+                throw new DeleteActivityError(
+                    body.message ?? "Operazione non consentita.",
+                    body.code
+                );
+            }
+        } catch (inner) {
+            if (inner instanceof DeleteActivityError) throw inner;
+            // JSON parse failed — fall through to generic error below
         }
-        throw error;
     }
+
+    throw error;
 }
 
 /* =====================================================
