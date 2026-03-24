@@ -59,10 +59,9 @@ serve(async req => {
             return json(401, { error: "unauthorized" });
         }
 
-        console.log("user", userId);
         console.log(`delete-business: Authenticated request for user ${userId}, activity ${businessId}`);
 
-        // Step 4: look up the activity via service_role (bypasses RLS for the lookup)
+        // Step 4: look up the activity via service_role (bypasses RLS)
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
         const { data: activity, error: activityError } = await supabaseAdmin
@@ -70,8 +69,6 @@ serve(async req => {
             .select("id, tenant_id, slug")
             .eq("id", businessId)
             .maybeSingle();
-
-        console.log("business", activity);
 
         if (activityError) {
             console.error("delete-business: Activity lookup failed:", activityError);
@@ -83,26 +80,50 @@ serve(async req => {
             return json(404, { error: "not_found" });
         }
 
-        // Step 5: verify the calling user owns the tenant that owns this activity
-        const { data: tenant, error: tenantError } = await supabaseAdmin
-            .from("tenants")
-            .select("id, owner_user_id")
-            .eq("id", activity.tenant_id)
+        // Step 5: verify the caller has an active owner or admin membership.
+        //
+        // We fetch role+status without pre-filtering so we can return a
+        // precise error code for each failure mode instead of a generic 403.
+        const { data: membership, error: membershipError } = await supabaseAdmin
+            .from("tenant_memberships")
+            .select("role, status")
+            .eq("tenant_id", activity.tenant_id)
+            .eq("user_id", userId)
             .maybeSingle();
 
-        console.log("tenant check", tenant);
-
-        if (tenantError) {
-            console.error("delete-business: Tenant lookup failed:", tenantError);
+        if (membershipError) {
+            console.error("delete-business: Membership lookup failed:", membershipError);
             return json(500, { error: "ownership_check_failed" });
         }
 
-        if (!tenant || tenant.owner_user_id !== userId) {
-            console.warn(
-                `delete-business: User ${userId} is not the owner of tenant ${activity.tenant_id}`
-            );
-            return json(403, { error: "forbidden" });
+        if (!membership) {
+            console.warn(`delete-business: User ${userId} has no membership in tenant ${activity.tenant_id}`);
+            return json(403, {
+                error: "forbidden",
+                code: "NOT_MEMBER",
+                message: "Non appartieni a questa organizzazione"
+            });
         }
+
+        if (membership.status !== "active") {
+            console.warn(`delete-business: User ${userId} membership status is "${membership.status}"`);
+            return json(403, {
+                error: "forbidden",
+                code: "INACTIVE_MEMBERSHIP",
+                message: "Il tuo accesso a questa organizzazione non è attivo"
+            });
+        }
+
+        if (!["owner", "admin"].includes(membership.role)) {
+            console.warn(`delete-business: User ${userId} has role "${membership.role}" — insufficient`);
+            return json(403, {
+                error: "forbidden",
+                code: "INSUFFICIENT_ROLE",
+                message: "Non hai i permessi per eliminare questa sede"
+            });
+        }
+
+        console.log(`delete-business: User ${userId} authorized as ${membership.role} for tenant ${activity.tenant_id}`);
 
         // Step 6: clean up storage files for this activity
         const safeSlug = (activity.slug || "activity")
@@ -136,7 +157,7 @@ serve(async req => {
             throw deleteError;
         }
 
-        console.log(`delete-business: Activity ${businessId} deleted by user ${userId}`);
+        console.log(`delete-business: Activity ${businessId} deleted by user ${userId} (role: ${membership.role})`);
 
         return json(200, { success: true });
     } catch (err) {
