@@ -6,6 +6,7 @@ import type { BusinessFormValues } from "@/types/Businesses";
 import styles from "./BusinessCreateCard.module.scss";
 import { FileInput } from "@/components/ui/Input/FileInput";
 import { Button } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/Tooltip/InfoTooltip";
 
 interface BusinessCreateCardProps {
     values: BusinessFormValues;
@@ -48,6 +49,9 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                 {/* Nome */}
                 <TextInput
                     label="Nome sede"
+                    tooltip={
+                        <InfoTooltip content="Questo nome sarà visibile ai clienti nel catalogo pubblico" />
+                    }
                     placeholder={namePlaceholder ?? "Es. McDonald's - Via Certosa"}
                     value={values.name}
                     onChange={e => onFieldChange("name", e.target.value)}
@@ -68,6 +72,9 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                 {/* Indirizzo */}
                 <TextInput
                     label="Indirizzo"
+                    tooltip={
+                        <InfoTooltip content="Utilizzato per la visualizzazione e per eventuali integrazioni con mappe" />
+                    }
                     placeholder="Es. Via Roma 10"
                     value={values.address}
                     onChange={e => onFieldChange("address", e.target.value)}
