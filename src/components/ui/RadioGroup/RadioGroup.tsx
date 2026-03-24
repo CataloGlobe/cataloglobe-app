@@ -12,6 +12,7 @@ export interface RadioOption {
 export interface RadioGroupProps {
     id?: string;
     label?: string;
+    tooltip?: React.ReactNode;
     helperText?: string;
     error?: string;
 
@@ -28,6 +29,7 @@ export interface RadioGroupProps {
 export const RadioGroup: React.FC<RadioGroupProps> = ({
     id,
     label,
+    tooltip,
     helperText,
     error,
     value,
@@ -41,14 +43,15 @@ export const RadioGroup: React.FC<RadioGroupProps> = ({
         <InputBase
             id={id}
             label={label}
+            tooltip={tooltip}
             helperText={helperText}
             error={error}
             required={required}
             disabled={disabled}
             className={containerClassName}
         >
-            {({ inputId, describedById, isDisabled }) => (
-                <div className={styles.group} role="radiogroup" aria-describedby={describedById}>
+            {({ inputId, describedById, hasError, isDisabled }) => (
+                <div className={styles.group} role="radiogroup" aria-invalid={hasError || undefined} aria-describedby={describedById}>
                     {options.map(opt => {
                         const radioId = `${inputId}-${opt.value}`;
 

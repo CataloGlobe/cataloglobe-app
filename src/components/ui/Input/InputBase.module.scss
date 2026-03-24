@@ -7,6 +7,12 @@
   width: 100%;
 }
 
+.labelRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .required {
   color: var(--text-muted, #94a3b8);
   font-weight: 600;

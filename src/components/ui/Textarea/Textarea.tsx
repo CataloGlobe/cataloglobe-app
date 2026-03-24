@@ -4,6 +4,7 @@ import styles from "./Textarea.module.scss";
 
 export type TextareaProps = Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "size"> & {
     label?: string;
+    tooltip?: React.ReactNode;
     helperText?: string;
     error?: string;
 
@@ -16,6 +17,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         {
             id,
             label,
+            tooltip,
             helperText,
             error,
             required,
@@ -34,6 +36,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             <InputBase
                 id={id}
                 label={label}
+                tooltip={tooltip}
                 helperText={helperText}
                 error={error}
                 required={required}

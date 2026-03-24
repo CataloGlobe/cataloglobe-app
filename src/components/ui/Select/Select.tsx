@@ -9,6 +9,7 @@ export interface SelectOption {
 
 export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "size"> {
     label?: string;
+    tooltip?: React.ReactNode;
     helperText?: string;
     error?: string;
     options?: SelectOption[];
@@ -23,6 +24,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         {
             id,
             label,
+            tooltip,
             helperText,
             error,
             required,
@@ -40,6 +42,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             <InputBase
                 id={id}
                 label={label}
+                tooltip={tooltip}
                 helperText={helperText}
                 error={error}
                 required={required}

@@ -5,6 +5,7 @@ import styles from "./TextInput.module.scss";
 /* 👇 DEVE stare sopra */
 export type TextInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> & {
     label?: string;
+    tooltip?: React.ReactNode;
     helperText?: string;
     error?: string;
 
@@ -23,6 +24,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
         {
             id,
             label,
+            tooltip,
             helperText,
             error,
             required,
@@ -45,6 +47,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
             <InputBase
                 id={id}
                 label={label}
+                tooltip={tooltip}
                 helperText={helperText}
                 error={error}
                 required={required}

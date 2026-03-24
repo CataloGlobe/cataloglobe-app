@@ -13,6 +13,7 @@ export type InputBaseProps = {
     id?: string;
 
     label?: string;
+    tooltip?: React.ReactNode;
     helperText?: string;
     error?: string;
 
@@ -31,6 +32,7 @@ export type InputBaseProps = {
 export const InputBase: React.FC<InputBaseProps> = ({
     id,
     label,
+    tooltip,
     helperText,
     error,
     required = false,
@@ -60,25 +62,27 @@ export const InputBase: React.FC<InputBaseProps> = ({
         >
             {/* LABEL */}
             {label && (
-                <Text
-                    as="label"
-                    variant="caption"
-                    weight={600}
-                    className={styles.label}
-                    htmlFor={inputId}
-                >
-                    {label}
-                    {required && (
-                        <Text
-                            as="span"
-                            variant="caption"
-                            className={styles.required}
-                            aria-hidden="true"
-                        >
-                            {" *"}
-                        </Text>
-                    )}
-                </Text>
+                <div className={styles.labelRow}>
+                    <Text
+                        as="label"
+                        variant="caption"
+                        weight={600}
+                        htmlFor={inputId}
+                    >
+                        {label}
+                        {required && (
+                            <Text
+                                as="span"
+                                variant="caption"
+                                className={styles.required}
+                                aria-hidden="true"
+                            >
+                                {" *"}
+                            </Text>
+                        )}
+                    </Text>
+                    {tooltip}
+                </div>
             )}
 
             {/* CONTROL */}

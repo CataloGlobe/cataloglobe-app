@@ -5,6 +5,7 @@ import styles from "./TextInput.module.scss";
 export type ColorInputProps = {
     id?: string;
     label?: string;
+    tooltip?: React.ReactNode;
     helperText?: string;
     error?: string;
     required?: boolean;
@@ -24,6 +25,7 @@ export const ColorInput = forwardRef<HTMLInputElement, ColorInputProps>(
         {
             id,
             label,
+            tooltip,
             helperText,
             error,
             required,
@@ -42,6 +44,7 @@ export const ColorInput = forwardRef<HTMLInputElement, ColorInputProps>(
             <InputBase
                 id={id}
                 label={label}
+                tooltip={tooltip}
                 helperText={helperText}
                 error={error}
                 required={required}

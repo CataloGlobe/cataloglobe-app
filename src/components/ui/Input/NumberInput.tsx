@@ -7,6 +7,7 @@ export type NumberInputProps = Omit<
     "type" | "size"
 > & {
     label?: string;
+    tooltip?: React.ReactNode;
     helperText?: string;
     error?: string;
 
@@ -24,6 +25,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
         {
             id,
             label,
+            tooltip,
             helperText,
             error,
             required,
@@ -47,6 +49,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
             <InputBase
                 id={id}
                 label={label}
+                tooltip={tooltip}
                 helperText={helperText}
                 error={error}
                 required={required}

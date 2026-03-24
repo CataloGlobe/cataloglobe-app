@@ -6,6 +6,7 @@ import styles from "./Switch.module.scss";
 export interface SwitchProps {
     id?: string;
     label?: string;
+    tooltip?: React.ReactNode;
     description?: string;
     helperText?: string;
     error?: string;
@@ -22,6 +23,7 @@ export interface SwitchProps {
 export const Switch: React.FC<SwitchProps> = ({
     id,
     label,
+    tooltip,
     description,
     helperText,
     error,
@@ -35,13 +37,14 @@ export const Switch: React.FC<SwitchProps> = ({
         <InputBase
             id={id}
             label={label}
+            tooltip={tooltip}
             helperText={helperText}
             error={error}
             required={required}
             disabled={disabled}
             className={containerClassName}
         >
-            {({ inputId, describedById, isDisabled }) => (
+            {({ inputId, describedById, hasError, isDisabled }) => (
                 <label
                     htmlFor={inputId}
                     className={`${styles.wrapper} ${isDisabled ? styles.disabled : ""}`}
@@ -52,6 +55,7 @@ export const Switch: React.FC<SwitchProps> = ({
                         role="switch"
                         checked={checked}
                         disabled={isDisabled}
+                        aria-invalid={hasError || undefined}
                         aria-describedby={describedById}
                         onChange={e => onChange(e.target.checked)}
                         className={styles.input}

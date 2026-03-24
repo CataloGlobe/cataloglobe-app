@@ -5,6 +5,7 @@ import styles from "./CheckboxInput.module.scss";
 
 export type CheckboxProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type" | "size"> & {
     label?: string;
+    tooltip?: React.ReactNode;
     helperText?: string;
     error?: string;
 
@@ -19,6 +20,7 @@ export const CheckboxInput = forwardRef<HTMLInputElement, CheckboxProps>(
         {
             id,
             label,
+            tooltip,
             description,
             helperText,
             error,
@@ -34,6 +36,7 @@ export const CheckboxInput = forwardRef<HTMLInputElement, CheckboxProps>(
             <InputBase
                 id={id}
                 label={label}
+                tooltip={tooltip}
                 helperText={helperText}
                 error={error}
                 required={required}

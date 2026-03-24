@@ -1,15 +1,76 @@
+/* -------------------------------------------------------
+   Tooltip — allineato al design system CataloGlobe
+   - Background: #111827 (stesso del toast neutral, non nero puro)
+   - Testo: #f9fafb (alto contrasto, WCAG AA ✓)
+   - Shadow: coerente con dropdown/popover
+   - Radius: 8px (compatto, inferiore a dropdown 10px)
+   - Tipografia: caption scale (0.825rem / lh 1.4), no font-family hardcoded
+   - Motion: fade + scale via Radix data-state
+------------------------------------------------------- */
+
 .tooltip {
-  background: black;
-  color: white;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  /* Surface */
+  background: #111827;
+  color: #f9fafb;
+
+  /* Spacing */
+  padding: 7px 11px;
+  max-width: 260px;
+
+  /* Shape */
+  border-radius: 8px;
+
+  /* Typography — caption scale */
+  font-size: 0.825rem;
+  line-height: 1.4;
+  font-weight: 400;
+
+  /* Elevation — coerente con dropdown (0 4px 12px .08) e toast (0 8px 24px .15) */
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+
+  /* UX */
   user-select: none;
   z-index: 1000;
+
+  /* Motion — Radix fornisce data-state e data-side */
+  transform-origin: var(--radix-tooltip-content-transform-origin);
+
+  &[data-state="delayed-open"] {
+    animation: tooltip-in 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  &[data-state="closed"] {
+    animation: tooltip-out 100ms ease-in forwards;
+  }
 }
 
 .arrow {
-  fill: black;
+  /* Deve matchare esattamente il background del tooltip */
+  fill: #111827;
+}
+
+/* -------------------------------------------------------
+   Keyframes
+------------------------------------------------------- */
+
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes tooltip-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
 }

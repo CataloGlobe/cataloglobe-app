@@ -4,6 +4,7 @@ import styles from "./TextInput.module.scss";
 
 export type DateInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type" | "size"> & {
     label?: string;
+    tooltip?: React.ReactNode;
     helperText?: string;
     error?: string;
 
@@ -21,6 +22,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
         {
             id,
             label,
+            tooltip,
             helperText,
             error,
             required,
@@ -44,6 +46,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
             <InputBase
                 id={id}
                 label={label}
+                tooltip={tooltip}
                 helperText={helperText}
                 error={error}
                 required={required}

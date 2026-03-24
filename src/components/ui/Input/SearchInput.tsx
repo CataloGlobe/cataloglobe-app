@@ -8,6 +8,7 @@ export type SearchInputProps = Omit<
     "type" | "size"
 > & {
     label?: string;
+    tooltip?: React.ReactNode;
     helperText?: string;
     error?: string;
 
@@ -27,6 +28,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
         {
             id,
             label,
+            tooltip,
             helperText,
             error,
             required,
@@ -50,6 +52,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
             <InputBase
                 id={id}
                 label={label}
+                tooltip={tooltip}
                 helperText={helperText}
                 error={error}
                 required={required}
