@@ -78,7 +78,7 @@ export function StyleCreateDrawer({
     // Filter to only usable base styles
     const duplicateOptions = allStyles.map(s => ({
         value: s.id,
-        label: s.is_system ? `${s.name} (Sistema)` : s.name
+        label: s.is_system ? `${s.name} (Default)` : s.name
     }));
 
     return (

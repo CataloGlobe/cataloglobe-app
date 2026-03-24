@@ -220,7 +220,7 @@ export default function Sidebar({
                                                 }}
                                             >
                                                 {!isMobile && collapsed ? (
-                                                    <Tooltip content={link.label}>
+                                                    <Tooltip content={link.label} side="right">
                                                         <span className={styles.icon}>
                                                             {link.icon}
                                                         </span>

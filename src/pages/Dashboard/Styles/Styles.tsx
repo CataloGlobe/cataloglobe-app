@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconPalette } from "@tabler/icons-react";
-import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { TableRowActions, type TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
 import styles from "./Styles.module.scss";
 
 import { useNavigate } from "react-router-dom";
@@ -139,12 +139,19 @@ export default function Styles() {
     }, [loadData]);
 
     const filteredStyles = useMemo(() => {
-        return allStyles.filter(style => {
-            if (searchQuery && !style.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-                return false;
-            }
-            return true;
-        });
+        const normalizedQuery = searchQuery.trim().toLowerCase();
+
+        return allStyles
+            .filter(style => {
+                if (normalizedQuery && !style.name.toLowerCase().includes(normalizedQuery)) {
+                    return false;
+                }
+                return true;
+            })
+            .sort((a, b) => {
+                if (a.is_system !== b.is_system) return a.is_system ? -1 : 1;
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            });
     }, [allStyles, searchQuery]);
 
     const handleCreateClick = useCallback(() => {
@@ -179,10 +186,29 @@ export default function Styles() {
 
     const handleBulkDelete = async (selectedIds: string[]) => {
         if (selectedIds.length === 0) return;
-        try {
-            await Promise.all(selectedIds.map(id => deleteStyle(id, currentTenantId!)));
+
+        const protectedIds = new Set(allStyles.filter(style => style.is_system).map(style => style.id));
+        const deletableIds = selectedIds.filter(id => !protectedIds.has(id));
+
+        if (deletableIds.length === 0) {
             showToast({
-                message: `${selectedIds.length} stili eliminati con successo.`,
+                message: "Lo stile predefinito non può essere eliminato.",
+                type: "error"
+            });
+            return;
+        }
+
+        if (deletableIds.length < selectedIds.length) {
+            showToast({
+                message: "Lo stile predefinito è stato escluso dall'eliminazione.",
+                type: "info"
+            });
+        }
+
+        try {
+            await Promise.all(deletableIds.map(id => deleteStyle(id, currentTenantId!)));
+            showToast({
+                message: `${deletableIds.length} stili eliminati con successo.`,
                 type: "success"
             });
             loadData();
@@ -193,20 +219,23 @@ export default function Styles() {
     };
 
     const renderRowActions = useCallback(
-        (style: V2Style) => (
-            <TableRowActions
-                actions={[
-                    { label: "Modifica", onClick: () => handleEditClick(style) },
-                    { label: "Duplica", onClick: () => handleDuplicateClick(style) },
-                    {
-                        label: "Elimina",
-                        onClick: () => handleDeleteClick(style),
-                        variant: "destructive",
-                        separator: true
-                    }
-                ]}
-            />
-        ),
+        (style: V2Style) => {
+            const actions: TableRowAction[] = [
+                { label: "Modifica", onClick: () => handleEditClick(style) },
+                { label: "Duplica", onClick: () => handleDuplicateClick(style) }
+            ];
+
+            if (!style.is_system) {
+                actions.push({
+                    label: "Elimina",
+                    onClick: () => handleDeleteClick(style),
+                    variant: "destructive",
+                    separator: true
+                });
+            }
+
+            return <TableRowActions actions={actions} />;
+        },
         [handleDeleteClick, handleDuplicateClick, handleEditClick]
     );
 
@@ -235,7 +264,7 @@ export default function Styles() {
                                 <Text variant="body-sm" weight={600}>
                                     {style.name}
                                 </Text>
-                                {style.is_system && <Badge variant="primary">Sistema</Badge>}
+                                {style.is_system && <Badge variant="primary">Default</Badge>}
                             </div>
                             <Text variant="caption" colorVariant="muted">
                                 Versione {style.current_version?.version || "0"}
@@ -377,7 +406,7 @@ export default function Styles() {
                                                             {style.name}
                                                         </Text>
                                                         {style.is_system && (
-                                                            <Badge variant="primary">Sistema</Badge>
+                                                            <Badge variant="primary">Default</Badge>
                                                         )}
                                                     </div>
                                                     <Text variant="caption" colorVariant="muted">

@@ -122,9 +122,9 @@ export function StyleDeleteDrawer({
                                     Impossibile eliminare
                                 </Text>
                                 <Text variant="body-sm">
-                                    Lo stile <strong>{styleData.name}</strong> è uno stile di
-                                    Sistema e non può essere rimosso, in quanto garantisce il
-                                    funzionamento base dell'interfaccia.
+                                    Lo stile <strong>{styleData.name}</strong> è lo stile
+                                    predefinito del tenant e non può essere rimosso. Per
+                                    personalizzarlo, duplicalo e modifica la copia.
                                 </Text>
                             </div>
                         </div>

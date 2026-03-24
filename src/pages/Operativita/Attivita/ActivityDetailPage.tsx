@@ -202,7 +202,12 @@ const ActivityDetailPage: React.FC = () => {
                         </Tabs.Panel>
 
                         <Tabs.Panel value="media">
-                            <ActivityMediaTab activity={activity} />
+                            <ActivityMediaTab
+                                activity={activity}
+                                onCoverUpdate={url =>
+                                    setActivity(a => (a ? { ...a, cover_image: url } : a))
+                                }
+                            />
                         </Tabs.Panel>
 
                         <Tabs.Panel value="contacts">

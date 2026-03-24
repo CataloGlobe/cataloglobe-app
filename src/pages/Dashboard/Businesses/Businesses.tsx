@@ -7,7 +7,8 @@ import {
     createActivity,
     updateActivity,
     uploadActivityCover,
-    deleteActivityAtomic
+    deleteActivityAtomic,
+    DeleteActivityError
 } from "@/services/supabase/activities";
 import { getActiveCatalogForActivities } from "@/services/supabase/activeCatalog";
 import type {
@@ -383,11 +384,19 @@ export default function Businesses() {
             });
         } catch (e) {
             console.error("Errore durante l'eliminazione della sede:", e);
-            showToast({
-                message: "Errore durante l'eliminazione della sede.",
-                type: "error",
-                duration: 2500
-            });
+            let message = "Errore durante l'eliminazione della sede.";
+            if (e instanceof DeleteActivityError) {
+                if (e.code === "INSUFFICIENT_ROLE") {
+                    message = "Solo owner o admin possono eliminare una sede.";
+                } else if (e.code === "INACTIVE_MEMBERSHIP") {
+                    message = "Il tuo accesso a questa organizzazione non è attivo.";
+                } else if (e.code === "NOT_MEMBER") {
+                    message = "Non appartieni a questa organizzazione.";
+                } else if (e.code === "AUTH_EXPIRED") {
+                    message = "Sessione scaduta. Effettua di nuovo il login.";
+                }
+            }
+            showToast({ message, type: "error", duration: 3500 });
         } finally {
             setIsDeleting(false);
             setShowDeleteModal(false);

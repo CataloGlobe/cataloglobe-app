@@ -81,8 +81,8 @@ export const StyleSettingsDrawer = ({
                                 colorVariant="error"
                                 style={{ display: "block", marginTop: "4px" }}
                             >
-                                Questo è uno stile di sistema. Non può essere modificato, ma puoi
-                                duplicarlo per creare una tua versione.
+                                Questo è lo stile predefinito del tenant. Non può essere
+                                modificato: duplicalo per creare una variante personalizzata.
                             </Text>
                         )}
                     </div>
