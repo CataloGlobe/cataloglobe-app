@@ -1,0 +1,120 @@
+@use "@/styles/variables" as v;
+
+.drawerTitle {
+    // typography handled by Text component
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.previewWrapper {
+    position: relative;
+    width: 100%;
+    height: 220px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid v.$gray-200;
+    background: v.$gray-100;
+}
+
+.previewImage {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.previewEmpty {
+    width: 100%;
+    height: 140px;
+    border-radius: 10px;
+    border: 1px solid v.$gray-200;
+    background: v.$gray-100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: v.$gray-400;
+    font-size: 0.875rem;
+}
+
+.removeBtn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: v.$white;
+    transition: background 0.15s;
+
+    &:hover {
+        background: rgba(0, 0, 0, 0.75);
+    }
+}
+
+.uploadArea {
+    width: 100%;
+    padding: 2rem 1.5rem;
+    border: 2px dashed v.$gray-300;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    text-align: center;
+    color: v.$gray-500;
+
+    &:hover {
+        border-color: v.$brand-primary;
+        background: rgba(99, 102, 241, 0.03);
+    }
+
+    &.dragging {
+        border-color: v.$brand-primary;
+        background: rgba(99, 102, 241, 0.06);
+        color: v.$brand-primary;
+    }
+}
+
+.uploadLabel {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: v.$text-color;
+
+    span {
+        color: v.$brand-primary;
+        text-decoration: underline;
+    }
+}
+
+.uploadHint {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: v.$gray-400;
+}
+
+.hiddenInput {
+    display: none;
+}
+
+.hint {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: v.$gray-400;
+    line-height: 1.5;
+}

@@ -1,0 +1,152 @@
+@use "@/styles/variables" as v;
+
+.drawerTitle {
+    // typography handled by Text component
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.dropZone {
+    width: 100%;
+    padding: 2.5rem 1.5rem;
+    border: 2px dashed v.$gray-300;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    text-align: center;
+    color: v.$gray-500;
+    transition: border-color 0.2s, background 0.2s, color 0.2s;
+
+    &:hover {
+        border-color: v.$brand-primary;
+        background: rgba(99, 102, 241, 0.03);
+    }
+
+    &.dragging {
+        border-color: v.$brand-primary;
+        background: rgba(99, 102, 241, 0.07);
+        color: v.$brand-primary;
+    }
+}
+
+.dropLabel {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: v.$text-color;
+
+    span {
+        color: v.$brand-primary;
+        text-decoration: underline;
+    }
+}
+
+.dropHint {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: v.$gray-400;
+}
+
+.hiddenInput {
+    display: none;
+}
+
+.previewSection {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.previewCount {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: v.$gray-600;
+}
+
+.previewGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+
+    @media (max-width: 480px) {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.previewItem {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid v.$gray-200;
+    background: v.$gray-100;
+}
+
+.previewImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.removeBtn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: v.$white;
+    transition: background 0.15s;
+
+    &:hover:not(:disabled) {
+        background: rgba(0, 0, 0, 0.75);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.addMoreBtn {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    border: 1.5px dashed v.$gray-300;
+    background: v.$gray-100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    cursor: pointer;
+    color: v.$gray-400;
+    font-size: 0.75rem;
+    font-weight: 500;
+    transition: border-color 0.2s, color 0.2s;
+
+    &:hover:not(:disabled) {
+        border-color: v.$brand-primary;
+        color: v.$brand-primary;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}

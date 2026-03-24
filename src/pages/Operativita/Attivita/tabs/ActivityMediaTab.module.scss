@@ -1,0 +1,273 @@
+@use "@/styles/variables" as v;
+
+// ── Cover ─────────────────────────────────────────────────────────────────────
+
+.coverPreview {
+    position: relative;
+    width: 100%;
+    max-width: 560px;
+    height: 220px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid v.$gray-200;
+    cursor: pointer;
+    background: v.$gray-100;
+
+    &:focus-visible {
+        outline: 2px solid v.$brand-primary;
+        outline-offset: 2px;
+    }
+}
+
+.coverImage {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.25s ease;
+
+    .coverPreview:hover & {
+        transform: scale(1.02);
+    }
+}
+
+.coverOverlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.38);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    color: v.$white;
+    font-size: 0.875rem;
+    font-weight: 500;
+
+    .coverPreview:hover & {
+        opacity: 1;
+    }
+}
+
+.coverEmpty {
+    width: 100%;
+    max-width: 560px;
+    height: 200px;
+    border-radius: 10px;
+    border: 2px dashed v.$gray-300;
+    background: v.$gray-100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    color: v.$gray-400;
+    transition: border-color 0.2s, background 0.2s, color 0.2s;
+
+    &:hover {
+        border-color: v.$brand-primary;
+        background: rgba(99, 102, 241, 0.04);
+        color: v.$brand-primary;
+    }
+}
+
+.coverEmptyLabel {
+    // typography handled by Text component
+}
+
+.coverEmptyHint {
+    // typography handled by Text component
+}
+
+// ── Gallery ───────────────────────────────────────────────────────────────────
+
+.galleryGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+
+    @media (max-width: 1024px) {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    @media (max-width: 640px) {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.addTile {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    border: 2px dashed v.$gray-300;
+    background: v.$gray-100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    color: v.$gray-400;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+
+    &:hover {
+        border-color: v.$brand-primary;
+        color: v.$brand-primary;
+        background: rgba(99, 102, 241, 0.04);
+    }
+}
+
+.mediaTile {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid v.$gray-200;
+    background: v.$gray-100;
+
+    &:hover .mediaTileOverlay {
+        opacity: 1;
+    }
+}
+
+.mediaTileImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.25s ease;
+
+    .mediaTile:hover & {
+        transform: scale(1.04);
+    }
+}
+
+.coverBadge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: v.$brand-primary;
+    color: v.$white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+.mediaTileOverlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.48);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    padding: 0.5rem;
+}
+
+.overlayAction {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    border: 1.5px solid rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.15);
+    color: v.$white;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+
+    &:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.28);
+        border-color: v.$white;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.overlayActionDanger {
+    border-color: rgba(220, 38, 38, 0.7);
+    background: rgba(220, 38, 38, 0.2);
+
+    &:hover:not(:disabled) {
+        background: rgba(220, 38, 38, 0.4);
+        border-color: #dc2626;
+    }
+}
+
+// ── Loading skeleton ──────────────────────────────────────────────────────────
+
+.galleryLoading {
+    padding: 0.25rem 0;
+}
+
+.gallerySkeletonGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+
+    @media (max-width: 1024px) {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    @media (max-width: 640px) {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.skeletonItem {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    background: linear-gradient(90deg, v.$gray-100 25%, v.$gray-200 50%, v.$gray-100 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+
+.galleryEmpty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1.5rem;
+    gap: 0.75rem;
+    color: v.$gray-400;
+    text-align: center;
+}
+
+.galleryEmptyTitle {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: v.$gray-600;
+}
+
+.galleryEmptyHint {
+    margin: 0;
+    font-size: 0.875rem;
+    color: v.$gray-400;
+    max-width: 320px;
+    line-height: 1.5;
+}
