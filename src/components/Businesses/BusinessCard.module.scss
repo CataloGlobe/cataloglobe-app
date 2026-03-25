@@ -40,6 +40,14 @@
   /* bg and color provided via inline style for per-business tint */
 }
 
+.avatarImg {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
 .meta {
   flex: 1;
   min-width: 0;

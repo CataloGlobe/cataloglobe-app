@@ -121,7 +121,7 @@ export default function WorkspacePage() {
         const [activeResult, deletedResult] = await Promise.all([
             supabase
                 .from("user_tenants_view")
-                .select("id, owner_user_id, name, vertical_type, created_at, user_role")
+                .select("id, owner_user_id, name, vertical_type, created_at, user_role, logo_url")
                 .order("created_at", { ascending: true }),
             getDeletedTenants().catch(() => [] as DeletedTenant[])
         ]);

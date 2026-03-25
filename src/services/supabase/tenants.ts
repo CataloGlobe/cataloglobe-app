@@ -1,6 +1,55 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
 
+/**
+ * Uploads a logo file to the tenant-assets bucket.
+ * Returns the storage path (not the full public URL).
+ */
+export async function uploadTenantLogo(tenantId: string, file: File): Promise<string> {
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
+    if (!allowedTypes.includes(file.type)) throw new Error("Formato non supportato. Usa PNG, JPG o WEBP.");
+    if (file.size > 5 * 1024 * 1024) throw new Error("File troppo grande. Max 5MB.");
+
+    const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+    const filePath = `${tenantId}/logo.${ext}`;
+
+    const { error } = await supabase.storage
+        .from("tenant-assets")
+        .upload(filePath, file, { upsert: true, contentType: file.type });
+    if (error) throw error;
+
+    return filePath;
+}
+
+/**
+ * Updates (or removes) the tenant logo_url via the SECURITY DEFINER RPC.
+ * Pass null to remove the logo.
+ */
+export async function updateTenantLogoUrl(tenantId: string, logoPath: string | null): Promise<void> {
+    const { error } = await supabase.rpc("update_tenant_logo", {
+        p_tenant_id: tenantId,
+        p_logo_url: logoPath
+    });
+    if (error) throw error;
+}
+
+/**
+ * Returns the public URL for a tenant logo path.
+ */
+export function getTenantLogoPublicUrl(path: string): string {
+    return supabase.storage.from("tenant-assets").getPublicUrl(path).data.publicUrl;
+}
+
+/**
+ * Fetches public tenant info (name + logo_url) via the anon-accessible RPC.
+ * Used on the public collection page.
+ */
+export async function getTenantPublicInfo(tenantId: string): Promise<{ logo_url: string | null; name: string } | null> {
+    const { data, error } = await supabase.rpc("get_tenant_public_info", { p_tenant_id: tenantId });
+    if (error || !data) return null;
+    return data as { logo_url: string | null; name: string };
+}
+
 export interface DeletedTenant {
     id: string;
     name: string;

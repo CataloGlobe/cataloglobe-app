@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ChevronDown, Check, ArrowLeft } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
+import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
 import styles from "./BusinessSwitcher.module.scss";
 
 interface BusinessSwitcherProps {
@@ -44,7 +45,15 @@ export default function BusinessSwitcher({ collapsed }: BusinessSwitcherProps) {
             aria-expanded={open}
             aria-haspopup="listbox"
         >
-            <span className={styles.initial}>{initial}</span>
+            {selectedTenant?.logo_url ? (
+                <img
+                    src={getTenantLogoPublicUrl(selectedTenant.logo_url)}
+                    alt=""
+                    className={styles.logo}
+                />
+            ) : (
+                <span className={styles.initial}>{initial}</span>
+            )}
 
             {!collapsed && (
                 <>

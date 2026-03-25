@@ -14,6 +14,7 @@ import {
     type ResolvedProduct,
     type ResolvedCategory
 } from "@/services/supabase/resolveActivityCatalogs";
+import { getTenantLogoPublicUrl, getTenantPublicInfo } from "@/services/supabase/tenants";
 import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { DEFAULT_COLLECTION_STYLE } from "@/types/collectionStyle";
 
@@ -79,10 +80,12 @@ type PageState =
           status: "ready";
           business: V2Activity;
           resolved: ResolvedCollections;
+          tenantLogoUrl: string | null;
       }
     | {
           status: "empty";
           business: V2Activity;
+          tenantLogoUrl: string | null;
       };
 
 export default function PublicCollectionPage() {
@@ -105,7 +108,14 @@ export default function PublicCollectionPage() {
                 const business = await getActivityBySlug(businessSlug);
                 if (!business) throw new Error("Attività non trovata.");
 
-                const resolved = await resolveActivityCatalogs(business.id);
+                const [resolved, tenantInfo] = await Promise.all([
+                    resolveActivityCatalogs(business.id),
+                    getTenantPublicInfo(business.tenant_id)
+                ]);
+
+                const tenantLogoUrl = tenantInfo?.logo_url
+                    ? getTenantLogoPublicUrl(tenantInfo.logo_url)
+                    : null;
 
                 if (
                     !resolved.catalog &&
@@ -115,13 +125,13 @@ export default function PublicCollectionPage() {
                     (!resolved.featured?.after_catalog ||
                         resolved.featured.after_catalog.length === 0)
                 ) {
-                    setState({ status: "empty", business });
+                    setState({ status: "empty", business, tenantLogoUrl });
                     return;
                 }
 
                 if (cancelled) return;
 
-                setState({ status: "ready", business, resolved });
+                setState({ status: "ready", business, resolved, tenantLogoUrl });
             } catch (err) {
                 if (cancelled) return;
                 console.error("[PublicCollectionPage] loading error:", err);
@@ -173,7 +183,7 @@ export default function PublicCollectionPage() {
         );
     }
 
-    const { business, resolved } = state;
+    const { business, resolved, tenantLogoUrl } = state;
 
     // Derive CollectionStyle from stored tokens so runtime matches preview
     const tokens = parseTokens(resolved.style?.config ?? null);
@@ -210,6 +220,7 @@ export default function PublicCollectionPage() {
                 sections={sections}
                 style={collectionStyle}
                 mode="public"
+                tenantLogoUrl={tenantLogoUrl}
                 emptyState={emptyState}
                 featuredHeroSlot={
                     resolved.featured?.hero && resolved.featured.hero.length > 0 ? (

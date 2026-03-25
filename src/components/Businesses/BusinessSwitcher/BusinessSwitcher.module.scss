@@ -45,6 +45,15 @@
   flex-shrink: 0;
 }
 
+/* ===== Business logo image ===== */
+.logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 /* ===== Business name ===== */
 .name {
   flex: 1;

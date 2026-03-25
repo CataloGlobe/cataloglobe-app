@@ -34,6 +34,14 @@
   flex-shrink: 0;
 }
 
+.businessAvatarImg {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
 .businessInfo {
   display: flex;
   flex-direction: column;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/services/supabase/client";
 import { TenantContext } from "./TenantContext";
@@ -29,6 +29,41 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
     const fetchIdRef = useRef(0);
 
+    const fetchTenants = useCallback(async () => {
+        if (!user) {
+            setTenants([]);
+            setLoading(false);
+            return;
+        }
+
+        const fetchId = ++fetchIdRef.current;
+        setLoading(true);
+
+        try {
+            const { data, error } = await supabase
+                .from("user_tenants_view")
+                .select("id, owner_user_id, name, vertical_type, created_at, user_role, logo_url")
+                .order("created_at", { ascending: true });
+
+            if (fetchId !== fetchIdRef.current) return;
+
+            if (error) {
+                console.error("[TenantProvider] failed to fetch tenants:", error);
+                setTenants([]);
+                setLoading(false);
+                return;
+            }
+
+            setTenants(data ?? []);
+            setLoading(false);
+        } catch (err) {
+            if (fetchId !== fetchIdRef.current) return;
+            console.error("[TenantProvider] unexpected error:", err);
+            setTenants([]);
+            setLoading(false);
+        }
+    }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
     // Effect 1: fetch the tenant list when the authenticated user changes.
     useEffect(() => {
         if (!user) {
@@ -37,37 +72,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        const fetchId = ++fetchIdRef.current;
-        setLoading(true);
-
-        const fetchTenants = async () => {
-            try {
-                const { data, error } = await supabase
-                    .from("user_tenants_view")
-                    .select("id, owner_user_id, name, vertical_type, created_at, user_role")
-                    .order("created_at", { ascending: true });
-
-                if (fetchId !== fetchIdRef.current) return;
-
-                if (error) {
-                    console.error("[TenantProvider] failed to fetch tenants:", error);
-                    setTenants([]);
-                    setLoading(false);
-                    return;
-                }
-
-                setTenants(data ?? []);
-                setLoading(false);
-            } catch (err) {
-                if (fetchId !== fetchIdRef.current) return;
-                console.error("[TenantProvider] unexpected error:", err);
-                setTenants([]);
-                setLoading(false);
-            }
-        };
-
         fetchTenants();
-    }, [user?.id, authLoading]);
+    }, [user?.id, authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Effect 2: sync selected tenant to local storage and perform final fallback redirects.
     // Runs whenever the tenant list or the route businessId changes.
@@ -104,7 +110,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
                 selectedTenantId: selectedTenant?.id ?? null,
                 userRole,
                 loading,
-                selectTenant
+                selectTenant,
+                refreshTenants: fetchTenants
             }}
         >
             {children}

@@ -8,6 +8,7 @@ import { supabase } from "@/services/supabase/client";
 import Text from "@/components/ui/Text/Text";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { Badge } from "@/components/ui/Badge/Badge";
+import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
 import styles from "./OverviewPage.module.scss";
 
 const VERTICAL_LABELS: Record<string, string> = {
@@ -128,9 +129,17 @@ export default function OverviewPage() {
             {/* ===== Section 1 — Business Header ===== */}
             <div className={styles.section}>
                 <div className={styles.businessHeader}>
-                    <div className={styles.businessAvatar} style={{ background: bg, color: text }}>
-                        {initial}
-                    </div>
+                    {selectedTenant.logo_url ? (
+                        <img
+                            src={getTenantLogoPublicUrl(selectedTenant.logo_url)}
+                            alt={`Logo ${selectedTenant.name}`}
+                            className={styles.businessAvatarImg}
+                        />
+                    ) : (
+                        <div className={styles.businessAvatar} style={{ background: bg, color: text }}>
+                            {initial}
+                        </div>
+                    )}
                     <div className={styles.businessInfo}>
                         <Text variant="title-md" weight={700}>{selectedTenant.name}</Text>
                         <div style={{ marginTop: 6 }}>

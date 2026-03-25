@@ -8,6 +8,7 @@ export interface TenantContextType {
     userRole: "owner" | "admin" | "member" | null;
     loading: boolean;
     selectTenant: (id: string) => void;
+    refreshTenants: () => Promise<void>;
 }
 
 export const TenantContext = createContext<TenantContextType>({
@@ -16,5 +17,6 @@ export const TenantContext = createContext<TenantContextType>({
     selectedTenantId: null,
     userRole: null,
     loading: true,
-    selectTenant: () => {}
+    selectTenant: () => {},
+    refreshTenants: async () => {}
 });

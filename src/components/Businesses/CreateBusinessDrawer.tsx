@@ -7,8 +7,10 @@ import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
 import { Button } from "@/components/ui/Button/Button";
+import { FileInput } from "@/components/ui/Input/FileInput";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
+import { uploadTenantLogo, updateTenantLogoUrl } from "@/services/supabase/tenants";
 
 import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
 
@@ -32,12 +34,14 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
 
     const [name, setName] = useState("");
     const [verticalType, setVerticalType] = useState("generic");
+    const [logoFile, setLogoFile] = useState<File | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
     const handleClose = () => {
         if (submitting) return;
         setName("");
         setVerticalType("generic");
+        setLogoFile(null);
         onClose();
     };
 
@@ -65,6 +69,15 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
                 .single();
 
             if (error) throw error;
+
+            if (logoFile) {
+                try {
+                    const logoPath = await uploadTenantLogo(data.id, logoFile);
+                    await updateTenantLogoUrl(data.id, logoPath);
+                } catch {
+                    // logo upload failure is non-blocking — tenant is created
+                }
+            }
 
             localStorage.setItem(STORAGE_KEY, data.id);
             navigate(`/business/${data.id}/overview`);
@@ -119,6 +132,14 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
                         onChange={e => setVerticalType(e.target.value)}
                         options={VERTICAL_OPTIONS}
                         disabled={submitting}
+                    />
+
+                    <FileInput
+                        label="Logo (opzionale)"
+                        accept="image/png,image/jpeg,image/webp"
+                        helperText="PNG, JPG o WEBP, max 5MB."
+                        maxSizeMb={5}
+                        onChange={setLogoFile}
                     />
                 </form>
             </DrawerLayout>

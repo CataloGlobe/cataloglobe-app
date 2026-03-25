@@ -37,3 +37,32 @@ export async function uploadCatalogItemImage(itemId: string, file: File): Promis
 
     return publicUrl;
 }
+
+export async function uploadProductImage(
+    tenantId: string,
+    productId: string,
+    file: File
+): Promise<string> {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const filePath = `${tenantId}/products/${productId}.${ext}`;
+
+    const { error } = await supabase.storage
+        .from("product-images")
+        .upload(filePath, file, { upsert: true, contentType: file.type });
+
+    if (error) throw new Error("Upload fallito");
+
+    const { data } = supabase.storage.from("product-images").getPublicUrl(filePath);
+
+    return data.publicUrl;
+}
+
+export async function deleteProductImage(
+    tenantId: string,
+    productId: string,
+    ext: string
+): Promise<void> {
+    const filePath = `${tenantId}/products/${productId}.${ext}`;
+    const { error } = await supabase.storage.from("product-images").remove([filePath]);
+    if (error) throw error;
+}

@@ -27,6 +27,15 @@
   padding-top: 0.5rem;
 }
 
+.logoPreview {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: var(--surface, #f8fafc);
+}
+
 /* Danger zone */
 .dangerSection {
   border-color: #fecaca;

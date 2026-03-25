@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import type { V2Tenant } from "@/types/tenant";
+import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
 import styles from "./BusinessCard.module.scss";
 
 const VERTICAL_LABELS: Record<string, string> = {
@@ -52,9 +53,17 @@ export default function BusinessCard({ tenant, locationCount, productCount, cata
             onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onSelect(tenant.id); }}
         >
             <div className={styles.header}>
-                <div className={styles.avatar} style={{ background: bg, color: text }}>
-                    {initial}
-                </div>
+                {tenant.logo_url ? (
+                    <img
+                        src={getTenantLogoPublicUrl(tenant.logo_url)}
+                        alt={`Logo ${tenant.name}`}
+                        className={styles.avatarImg}
+                    />
+                ) : (
+                    <div className={styles.avatar} style={{ background: bg, color: text }}>
+                        {initial}
+                    </div>
+                )}
                 <div className={styles.meta}>
                     <div className={styles.nameRow}>
                         <Text variant="title-sm" weight={600} className={styles.name}>

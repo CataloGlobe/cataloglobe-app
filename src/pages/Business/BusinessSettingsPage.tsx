@@ -7,8 +7,9 @@ import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
 import { Button } from "@/components/ui/Button/Button";
+import { FileInput } from "@/components/ui/Input/FileInput";
 import { DeleteTenantDialog } from "@/components/Businesses/DeleteTenantDialog";
-import { deleteTenantSoft } from "@/services/supabase/tenants";
+import { deleteTenantSoft, getTenantLogoPublicUrl, updateTenantLogoUrl, uploadTenantLogo } from "@/services/supabase/tenants";
 import { TENANT_KEY } from "@/constants/storageKeys";
 import styles from "./BusinessSettingsPage.module.scss";
 
@@ -21,13 +22,17 @@ const VERTICAL_OPTIONS = [
 ];
 
 export default function BusinessSettingsPage() {
-    const { selectedTenant, loading, userRole } = useTenant();
+    const { selectedTenant, loading, userRole, refreshTenants } = useTenant();
     const { showToast } = useToast();
 
     const [name, setName] = useState("");
     const [verticalType, setVerticalType] = useState("generic");
     const [saving, setSaving] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    const [isSavingLogo, setIsSavingLogo] = useState(false);
 
     useEffect(() => {
         if (selectedTenant) {
@@ -53,6 +58,47 @@ export default function BusinessSettingsPage() {
             showToast({ message: "Errore durante il salvataggio. Riprova.", type: "error" });
         } else {
             showToast({ message: "Informazioni aggiornate.", type: "success" });
+        }
+    };
+
+    const handleLogoFileChange = (file: File | null) => {
+        setLogoFile(file);
+        if (file) {
+            setLogoPreview(URL.createObjectURL(file));
+        } else {
+            setLogoPreview(null);
+        }
+    };
+
+    const handleSaveLogo = async () => {
+        if (!selectedTenant || !logoFile) return;
+        setIsSavingLogo(true);
+        try {
+            const path = await uploadTenantLogo(selectedTenant.id, logoFile);
+            await updateTenantLogoUrl(selectedTenant.id, path);
+            await refreshTenants();
+            setLogoFile(null);
+            setLogoPreview(null);
+            showToast({ message: "Logo aggiornato.", type: "success" });
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Errore durante il salvataggio. Riprova.";
+            showToast({ message, type: "error" });
+        } finally {
+            setIsSavingLogo(false);
+        }
+    };
+
+    const handleRemoveLogo = async () => {
+        if (!selectedTenant) return;
+        setIsSavingLogo(true);
+        try {
+            await updateTenantLogoUrl(selectedTenant.id, null);
+            await refreshTenants();
+            showToast({ message: "Logo rimosso.", type: "success" });
+        } catch {
+            showToast({ message: "Errore durante la rimozione. Riprova.", type: "error" });
+        } finally {
+            setIsSavingLogo(false);
         }
     };
 
@@ -120,7 +166,53 @@ export default function BusinessSettingsPage() {
                 </div>
             </div>
 
-            {/* Section 2 — Danger zone (owner only) */}
+            {/* Section 2 — Logo (owner only) */}
+            {userRole === "owner" && (
+                <div className={styles.section}>
+                    <Text variant="title-sm" weight={600}>
+                        Identità visiva
+                    </Text>
+
+                    {(logoPreview ?? selectedTenant?.logo_url) && (
+                        <img
+                            src={logoPreview ?? getTenantLogoPublicUrl(selectedTenant!.logo_url!)}
+                            alt="Logo azienda"
+                            className={styles.logoPreview}
+                        />
+                    )}
+
+                    <FileInput
+                        label="Logo azienda"
+                        accept="image/png,image/jpeg,image/webp"
+                        helperText="PNG, JPG o WEBP, max 5MB."
+                        maxSizeMb={5}
+                        onChange={handleLogoFileChange}
+                    />
+
+                    <div className={styles.sectionFooter}>
+                        {selectedTenant?.logo_url && !logoFile && (
+                            <Button
+                                variant="danger"
+                                onClick={handleRemoveLogo}
+                                disabled={isSavingLogo}
+                            >
+                                {isSavingLogo ? "Rimozione..." : "Rimuovi logo"}
+                            </Button>
+                        )}
+                        {logoFile && (
+                            <Button
+                                variant="primary"
+                                onClick={handleSaveLogo}
+                                disabled={isSavingLogo}
+                            >
+                                {isSavingLogo ? "Salvataggio..." : "Salva logo"}
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Section 3 — Danger zone (owner only) */}
             {userRole === "owner" && (
                 <div className={`${styles.section} ${styles.dangerSection}`}>
                     <Text variant="title-sm" weight={600}>

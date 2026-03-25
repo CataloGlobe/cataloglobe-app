@@ -8,8 +8,8 @@
   flex-direction: column;
   min-height: 100vh;
 
-  background: var(--bg, #f8fafc);
-  color: var(--text, #0f172a);
+  background: #07070e;
+  color: #ede9f8;
 
   transition: background 0.3s ease, color 0.3s ease;
 }
@@ -24,16 +24,29 @@
 
   padding: 1rem 2rem;
 
-  background: var(--card-bg, #ffffff);
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  background: rgba(7, 7, 14, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 
   position: sticky;
   top: 0;
   z-index: 10;
 
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(12px);
 
   transition: background 0.3s ease, border 0.3s ease;
+}
+
+/* ----------------------------------------------------
+   LOGO
+---------------------------------------------------- */
+.logo {
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f0ecff;          /* near-white, always readable */
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  user-select: none;
 }
 
 /* ----------------------------------------------------
@@ -42,26 +55,27 @@
 .nav {
   display: flex;
   align-items: center;
-  padding: 1rem 0;
+  gap: 0;
   flex: none;
 }
 
 .nav a {
-  margin-left: 1.5rem;
+  margin-left: 1.75rem;
   text-decoration: none;
-
-  color: var(--text, #0f172a);
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  font-size: 0.9rem;
   font-weight: 500;
+  color: rgba(255, 255, 255, 0.70);   /* clearly visible on dark */
 
-  transition: color 0.2s ease;
+  transition: color 0.15s ease;
 
   &:hover {
-    color: var(--brand-primary, #2563eb);
+    color: #ffffff;                   /* pure white on hover */
   }
 
   &:focus-visible {
-    outline: 2px solid var(--brand-primary, #2563eb);
-    outline-offset: 2px;
+    outline: 2px solid #7c7fff;
+    outline-offset: 4px;
     border-radius: 4px;
   }
 }
@@ -73,19 +87,9 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-
-  background: var(--bg, #f8fafc);
+  background: #07070e;              /* match landing background */
 }
 
 /* ----------------------------------------------------
-   DARK MODE COSMETICS
+   DARK MODE — no overrides needed (already dark-first)
 ---------------------------------------------------- */
-[data-theme="dark"] {
-  .header {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-  }
-
-  .nav a:hover {
-    color: var(--brand-primary, #2563eb);
-  }
-}

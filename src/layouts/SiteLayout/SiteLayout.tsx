@@ -11,25 +11,11 @@ export default function SiteLayout({ children }: SiteLayoutProps) {
     return (
         <div className={styles.layout}>
             <header className={styles.header}>
-                <Text variant="title-md" as={"h1"} colorVariant="dark">
-                    CataloGlobe
-                </Text>
+                <span className={styles.logo}>CataloGlobe</span>
                 <nav className={styles.nav}>
-                    <a href="#features">
-                        <Text colorVariant="dark" weight={500}>
-                            Funzionalità
-                        </Text>
-                    </a>
-                    <a href="#pricing">
-                        <Text colorVariant="dark" weight={500}>
-                            Prezzi
-                        </Text>
-                    </a>
-                    <a href="/dashboard">
-                        <Text colorVariant="dark" weight={500}>
-                            Accedi
-                        </Text>
-                    </a>
+                    <a href="#come-funziona">Come funziona</a>
+                    <a href="#benefici">Benefici</a>
+                    <a href="/login">Accedi</a>
                 </nav>
             </header>
 

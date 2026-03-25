@@ -5,4 +5,5 @@ export interface V2Tenant {
     vertical_type: string;
     created_at: string;
     user_role?: "owner" | "admin" | "member";
+    logo_url?: string | null;
 }

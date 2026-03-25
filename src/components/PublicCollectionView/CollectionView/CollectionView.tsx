@@ -4,6 +4,7 @@ import { Package } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import CollectionHero from "../CollectionHero/CollectionHero";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
+import PublicBrandHeader from "../PublicBrandHeader/PublicBrandHeader";
 import type { CardTemplate, CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
 import ItemDetail from "../ItemDetail/ItemDetail";
@@ -68,6 +69,8 @@ type Props = {
     };
     featuredHeroSlot?: ReactNode;
     featuredBeforeCatalogSlot?: ReactNode;
+    /** Tenant logo URL to display above the hero in public mode. */
+    tenantLogoUrl?: string | null;
     /** Explicit scroll container. Use when the component lives inside a custom
      *  scrollable element (e.g. the style-editor canvas). If omitted, the nearest
      *  scrollable ancestor is detected automatically; falls back to window. */
@@ -85,6 +88,7 @@ export default function CollectionView({
     emptyState,
     featuredHeroSlot,
     featuredBeforeCatalogSlot,
+    tenantLogoUrl,
     scrollContainerEl
 }: Props) {
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
@@ -242,6 +246,11 @@ export default function CollectionView({
                 <a className={styles.skipLink} href={`#${contentId}`}>
                     <Text variant="caption">Salta al contenuto</Text>
                 </a>
+            )}
+
+            {/* BRAND HEADER – logo sopra la hero (solo public, se presente) */}
+            {mode === "public" && tenantLogoUrl && (
+                <PublicBrandHeader logoUrl={tenantLogoUrl} brandName={businessName} />
             )}
 
             {/* HERO – full-bleed, fuori dal frame */}
