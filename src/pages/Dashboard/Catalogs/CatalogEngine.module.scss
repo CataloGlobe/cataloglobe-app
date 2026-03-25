@@ -418,6 +418,13 @@
   gap: 2px;
 }
 
+.productNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .productNameMain {
   white-space: nowrap;
   overflow: hidden;
@@ -567,6 +574,29 @@
     background-color: var(--color-red-50, #fef2f2);
     color: var(--color-red-700, #b91c1c);
   }
+}
+
+/* ── Newly-added product row: flash highlight then fade ──────────────────── */
+@keyframes rowFlash {
+  0% {
+    background-color: rgba(99, 102, 241, 0.12);
+    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.3);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.rowNewlyAdded {
+  animation: rowFlash 2s ease-out forwards;
+}
+
+/* ── "Crea e configura" + "Crea e associa" side-by-side ──────────────────── */
+.newProductActions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2, 8px);
 }
 
 @media (max-width: 1023px) {

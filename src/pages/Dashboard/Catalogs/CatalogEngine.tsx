@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import Breadcrumb, { type BreadcrumbItem } from "@/components/ui/Breadcrumb/Breadcrumb";
@@ -6,6 +6,7 @@ import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
 import { Select } from "@/components/ui/Select/Select";
@@ -50,8 +51,11 @@ import { CatalogSplitLayout } from "./components/CatalogSplitLayout";
 import { CatalogTree } from "./components/CatalogTree";
 import { CatalogTreeNodeData } from "./components/CatalogTree.types";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { SplitButton } from "@/components/ui/Button/SplitButton";
 import { ProductForm } from "@/pages/Dashboard/Products/components/ProductForm";
 import styles from "./CatalogEngine.module.scss";
+
+type CreateIntent = "associate" | "configure";
 
 const LOCAL_LINK_PREFIX = "loc_";
 
@@ -303,8 +307,12 @@ export default function CatalogEngine() {
 
     // Unified Add Product Drawer
     const [isUnifiedAddProductDrawerOpen, setIsUnifiedAddProductDrawerOpen] = useState(false);
-    const [addProductMode, setAddProductMode] = useState<"existing" | "new">("existing");
+    const [addProductMode, setAddProductMode] = useState<"existing" | "new">("new");
     const [isSavingProduct, setIsSavingProduct] = useState(false);
+    const [createIntent, setCreateIntent] = useState<CreateIntent>("associate");
+    const [lastCreatedProduct, setLastCreatedProduct] = useState<V2Product | null>(null);
+    const [newlyAddedProductId, setNewlyAddedProductId] = useState<string | null>(null);
+    const productListRef = useRef<HTMLDivElement>(null);
 
     const [isSavingCategory, setIsSavingCategory] = useState(false);
     const [categoryToDelete, setCategoryToDelete] = useState<V2CatalogCategory | null>(null);
@@ -1019,10 +1027,60 @@ export default function CatalogEngine() {
             setAllProducts(prev => [...prev, createdProduct]);
             setCategoryProducts(prev => [...prev, localLink]);
             setIsDirty(true);
-            showToast({ message: "Prodotto creato e assegnato alla categoria.", type: "success" });
+            setLastCreatedProduct(createdProduct);
+            setIsUnifiedAddProductDrawerOpen(false);
         },
-        [catalogId, categoryProducts, currentTenantId, loadData, selectedCategoryId, showToast]
+        [catalogId, categoryProducts, currentTenantId, loadData, selectedCategoryId]
     );
+
+    // Post-create: show toast (associate only) or navigate (configure)
+    useEffect(() => {
+        if (!lastCreatedProduct) return;
+        const product = lastCreatedProduct;
+        const intent = createIntent;
+        setLastCreatedProduct(null);
+        setCreateIntent("associate");
+
+        if (intent === "configure") {
+            navigate(`/business/${currentTenantId}/products/${product.id}?tab=pricing`, {
+                state: { from: "catalog", categoryId: selectedCategoryId }
+            });
+        } else {
+            setNewlyAddedProductId(product.id);
+            showToast({
+                message: "Prodotto creato. Completa prezzi e configurazioni quando vuoi.",
+                type: "success",
+                actionLabel: "Configura ora",
+                onAction: () =>
+                    navigate(`/business/${currentTenantId}/products/${product.id}`, {
+                        state: { from: "catalog", categoryId: selectedCategoryId }
+                    })
+            });
+        }
+    }, [
+        lastCreatedProduct,
+        createIntent,
+        navigate,
+        showToast,
+        currentTenantId,
+        selectedCategoryId
+    ]);
+
+    // Auto-clear row highlight after 2 s
+    useEffect(() => {
+        if (!newlyAddedProductId) return;
+        const timer = setTimeout(() => setNewlyAddedProductId(null), 2000);
+        return () => clearTimeout(timer);
+    }, [newlyAddedProductId]);
+
+    // Scroll newly added product row into view
+    useEffect(() => {
+        if (!newlyAddedProductId) return;
+        requestAnimationFrame(() => {
+            const el = productListRef.current?.querySelector(`.${styles.rowNewlyAdded}`);
+            el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        });
+    }, [newlyAddedProductId]);
 
     const handleBulkRemoveSelected = useCallback((selectedIds: string[]) => {
         if (selectedIds.length === 0) return;
@@ -1148,9 +1206,12 @@ export default function CatalogEngine() {
                 width: "2fr",
                 cell: (_value, row) => (
                     <div className={styles.productNameCell}>
-                        <Text variant="body-sm" weight={600} className={styles.productNameMain}>
-                            {row.name}
-                        </Text>
+                        <div className={styles.productNameRow}>
+                            <Text variant="body-sm" weight={600} className={styles.productNameMain}>
+                                {row.name}
+                            </Text>
+                            {row.price === null && <Badge variant="warning">Da configurare</Badge>}
+                        </div>
                         {row.sku && (
                             <Text variant="caption" className={styles.productSku}>
                                 {row.sku}
@@ -1241,7 +1302,12 @@ export default function CatalogEngine() {
                             <Button
                                 variant="primary"
                                 onClick={() => {
-                                    setAddProductMode("existing");
+                                    const saved = localStorage.getItem(
+                                        `cg_product_drawer_last_tab_${currentTenantId}`
+                                    );
+                                    setAddProductMode(
+                                        saved === "existing" || saved === "new" ? saved : "new"
+                                    );
                                     setIsUnifiedAddProductDrawerOpen(true);
                                 }}
                             >
@@ -1262,7 +1328,7 @@ export default function CatalogEngine() {
                     </div>
                 </div>
 
-                <div className={styles.tableCard}>
+                <div ref={productListRef} className={styles.tableCard}>
                     <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
@@ -1285,6 +1351,11 @@ export default function CatalogEngine() {
                                                 : "Nessun prodotto associato a questa categoria."}
                                         </Text>
                                     </div>
+                                }
+                                rowClassName={row =>
+                                    row.productId === newlyAddedProductId
+                                        ? styles.rowNewlyAdded
+                                        : undefined
                                 }
                                 rowWrapper={(row, rowData) => (
                                     <SortableProductRow key={rowData.id} id={rowData.id}>
@@ -1475,10 +1546,8 @@ export default function CatalogEngine() {
                     setSelectedAssignProductIds(new Set());
                     setAssignGroupId(null);
                     setAssignProductSearch("");
-                    // Reset mode for next time
-                    setAddProductMode("existing");
                 }}
-                width={addProductMode === "new" ? 500 : 560}
+                width={520}
             >
                 <DrawerLayout
                     header={
@@ -1493,11 +1562,18 @@ export default function CatalogEngine() {
                             </div>
                             <Tabs
                                 value={addProductMode}
-                                onChange={v => setAddProductMode(v as "existing" | "new")}
+                                onChange={v => {
+                                    const tab = v as "existing" | "new";
+                                    setAddProductMode(tab);
+                                    localStorage.setItem(
+                                        `cg_product_drawer_last_tab_${currentTenantId}`,
+                                        tab
+                                    );
+                                }}
                             >
                                 <Tabs.List>
-                                    <Tabs.Tab value="existing">Esistente</Tabs.Tab>
                                     <Tabs.Tab value="new">Nuovo</Tabs.Tab>
+                                    <Tabs.Tab value="existing">Esistente</Tabs.Tab>
                                 </Tabs.List>
                             </Tabs>
                         </div>
@@ -1519,14 +1595,29 @@ export default function CatalogEngine() {
                                     Associa selezionati ({selectedAssignProductIds.size})
                                 </Button>
                             ) : (
-                                <Button
-                                    variant="primary"
-                                    type="submit"
-                                    form="product-form-unified"
+                                <SplitButton
+                                    primaryLabel="Crea e associa"
                                     loading={isSavingProduct}
-                                >
-                                    Crea e associa
-                                </Button>
+                                    onPrimaryClick={() => {
+                                        setCreateIntent("associate");
+                                        const form = document.getElementById(
+                                            "product-form-unified"
+                                        ) as HTMLFormElement | null;
+                                        form?.requestSubmit();
+                                    }}
+                                    options={[
+                                        {
+                                            label: "Crea e configura",
+                                            onClick: () => {
+                                                setCreateIntent("configure");
+                                                const form = document.getElementById(
+                                                    "product-form-unified"
+                                                ) as HTMLFormElement | null;
+                                                form?.requestSubmit();
+                                            }
+                                        }
+                                    ]}
+                                />
                             )}
                         </>
                     }
@@ -1575,11 +1666,9 @@ export default function CatalogEngine() {
                             productData={null}
                             parentProduct={null}
                             tenantId={currentTenantId ?? null}
-                            onSuccess={p => {
-                                handleProductCreated(p);
-                                setIsUnifiedAddProductDrawerOpen(false);
-                            }}
+                            onSuccess={handleProductCreated}
                             onSavingChange={setIsSavingProduct}
+                            skipAutoNavigate
                         />
                     )}
                 </DrawerLayout>
