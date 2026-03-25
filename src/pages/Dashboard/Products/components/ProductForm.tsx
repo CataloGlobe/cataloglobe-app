@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Button } from "@/components/ui/Button/Button";
@@ -6,6 +6,8 @@ import Text from "@/components/ui/Text/Text";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { useToast } from "@/context/Toast/ToastContext";
 import { createProduct, updateProduct, V2Product } from "@/services/supabase/products";
+import { uploadProductImage } from "@/services/supabase/upload";
+import { FileInput } from "@/components/ui/Input/FileInput";
 import {
     listAttributeDefinitions,
     getProductAttributes,
@@ -57,6 +59,7 @@ export interface ProductFormProps {
     onSuccess: (savedProduct?: V2Product) => void | Promise<void>;
     onSavingChange?: (isSaving: boolean) => void;
     formId?: string;
+    skipAutoNavigate?: boolean;
 }
 
 type DraftFormat = {
@@ -88,16 +91,27 @@ export function ProductForm({
     tenantId,
     onSuccess,
     onSavingChange,
-    formId = "product-form"
+    formId = "product-form",
+    skipAutoNavigate = false
 }: ProductFormProps) {
     const { showToast } = useToast();
     const navigate = useNavigate();
     const isEditing = mode === "edit";
 
+    const nameInputRef = useRef<HTMLInputElement>(null);
+
+    // Auto-focus name field on create
+    useEffect(() => {
+        if (!isEditing) {
+            const timer = setTimeout(() => nameInputRef.current?.focus(), 80);
+            return () => clearTimeout(timer);
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
     const [isSaving, setIsSaving] = useState(false);
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
-    const [imageUrl, setImageUrl] = useState("");
+    const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
     const [basePrice, setBasePrice] = useState<string>("");
 
     // Attributes state
@@ -177,18 +191,16 @@ export function ProductForm({
         setHasAddonOptions(false);
         setDraftFormats([]);
         setDraftAddonGroups([]);
-        setImageUrl("");
+        setPendingImageFile(null);
 
         if (isEditing && productData) {
             setName(productData.name);
             setDescription(productData.description || "");
             setBasePrice(productData.base_price ? productData.base_price.toString() : "");
-            setImageUrl(productData.image_url || "");
         } else {
             setName("");
             setDescription("");
             setBasePrice("");
-            setImageUrl("");
         }
 
         // Load Attributes, Allergens & Groups & Ingredients
@@ -631,6 +643,14 @@ export function ProductForm({
             let savedProduct: V2Product | undefined;
 
             if (isEditing && productData) {
+                let imageUrl: string | null = productData.image_url ?? null;
+                if (pendingImageFile) {
+                    imageUrl = await uploadProductImage(
+                        productData.tenant_id,
+                        productData.id,
+                        pendingImageFile
+                    );
+                }
                 const updatedProduct = await updateProduct(
                     productData.id,
                     productData.tenant_id,
@@ -638,7 +658,7 @@ export function ProductForm({
                         name,
                         description: description || null,
                         base_price: shouldUseBasePrice ? price : null,
-                        image_url: imageUrl || null
+                        image_url: imageUrl
                     },
                     productData.parent_product_id
                 );
@@ -654,12 +674,17 @@ export function ProductForm({
                         name,
                         description: description || null,
                         base_price: shouldUseBasePrice ? price : null,
-                        image_url: imageUrl || null
+                        image_url: null
                     },
                     parentId
                 );
                 savedProductId = newProduct.id;
                 savedProduct = newProduct;
+
+                if (pendingImageFile) {
+                    const imageUrl = await uploadProductImage(tenantId, newProduct.id, pendingImageFile);
+                    savedProduct = await updateProduct(newProduct.id, tenantId, { image_url: imageUrl });
+                }
             }
 
             if (savedProductId && tenantId) {
@@ -773,7 +798,7 @@ export function ProductForm({
             }
 
             // If it's a new product creation, navigate automatically to the product page with pricing tab hint
-            if (!isEditing && savedProductId) {
+            if (!isEditing && savedProductId && !skipAutoNavigate) {
                 navigate(`/business/${tenantId}/products/${savedProductId}?tab=pricing`);
             }
 
@@ -813,11 +838,18 @@ export function ProductForm({
                 </Text>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     <TextInput
+                        ref={nameInputRef}
                         label="Nome"
                         required
                         value={name}
                         onChange={e => setName(e.target.value)}
                         placeholder="Es: Margherita, T-Shirt Rossa..."
+                        onKeyDown={e => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                (e.currentTarget as HTMLInputElement).form?.requestSubmit();
+                            }
+                        }}
                     />
                     <TextInput
                         label="Descrizione"
@@ -826,24 +858,20 @@ export function ProductForm({
                         placeholder="Breve descrizione (opzionale)"
                     />
 
-                    {isEditing && (
-                        <TextInput
-                            label="Immagine (URL)"
-                            placeholder="https://example.com/image.jpg"
-                            value={imageUrl}
-                            onChange={e => setImageUrl(e.target.value)}
-                        />
-                    )}
+                    <FileInput
+                        label="Immagine"
+                        accept="image/*"
+                        maxSizeMb={5}
+                        preview="auto"
+                        value={pendingImageFile}
+                        onChange={file => setPendingImageFile(file)}
+                    />
 
                     <div style={{ marginTop: 8 }}>
-                        <Text
-                            variant="body-sm"
-                            colorVariant="muted"
-                            style={{ fontStyle: "italic" }}
-                        >
+                        <Text variant="body-sm" colorVariant="muted">
                             {isEditing
                                 ? "Per prezzi, formati, opzioni e utilizzo apri la pagina prodotto."
-                                : "Crea il prodotto, poi completa prezzi e configurazioni nella pagina prodotto."}
+                                : "Crea rapidamente il prodotto. Prezzi, varianti e configurazioni avanzate possono essere aggiunti successivamente."}
                         </Text>
                     </div>
                 </div>

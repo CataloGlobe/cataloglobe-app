@@ -3,7 +3,9 @@ import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
+import { FileInput } from "@/components/ui/Input/FileInput";
 import { V2Product, updateProduct } from "@/services/supabase/products";
+import { uploadProductImage } from "@/services/supabase/upload";
 import {
     ProductGroup,
     getProductGroups,
@@ -24,7 +26,8 @@ export function GeneralTab({ product, tenantId, onProductUpdated }: GeneralTabPr
     const [isEditingInfo, setIsEditingInfo] = useState(false);
     const [editName, setEditName] = useState(product.name);
     const [editDescription, setEditDescription] = useState(product.description ?? "");
-    const [editImageUrl, setEditImageUrl] = useState(product.image_url ?? "");
+    const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+    const [removeImage, setRemoveImage] = useState(false);
     const [savingInfo, setSavingInfo] = useState(false);
     const [infoError, setInfoError] = useState<string | null>(null);
 
@@ -66,12 +69,15 @@ export function GeneralTab({ product, tenantId, onProductUpdated }: GeneralTabPr
     const handleStartEdit = () => {
         setEditName(product.name);
         setEditDescription(product.description ?? "");
-        setEditImageUrl(product.image_url ?? "");
+        setPendingImageFile(null);
+        setRemoveImage(false);
         setInfoError(null);
         setIsEditingInfo(true);
     };
 
     const handleCancelEdit = () => {
+        setPendingImageFile(null);
+        setRemoveImage(false);
         setIsEditingInfo(false);
         setInfoError(null);
     };
@@ -85,12 +91,22 @@ export function GeneralTab({ product, tenantId, onProductUpdated }: GeneralTabPr
         try {
             setSavingInfo(true);
             setInfoError(null);
+
+            let imageUrl: string | null = product.image_url ?? null;
+            if (removeImage) {
+                imageUrl = null;
+            } else if (pendingImageFile) {
+                imageUrl = await uploadProductImage(tenantId, product.id, pendingImageFile);
+            }
+
             const updated = await updateProduct(product.id, tenantId, {
                 name,
                 description: editDescription.trim() || null,
-                image_url: editImageUrl.trim() || null
+                image_url: imageUrl
             });
             onProductUpdated(updated);
+            setPendingImageFile(null);
+            setRemoveImage(false);
             setIsEditingInfo(false);
         } catch (err) {
             console.error(err);
@@ -180,13 +196,33 @@ export function GeneralTab({ product, tenantId, onProductUpdated }: GeneralTabPr
                                 placeholder="Descrizione del prodotto..."
                             />
                         </div>
-                        <TextInput
-                            label="URL immagine"
-                            value={editImageUrl}
-                            onChange={e => setEditImageUrl(e.target.value)}
+                        <FileInput
+                            label="Immagine"
+                            accept="image/*"
+                            maxSizeMb={5}
+                            preview="auto"
+                            value={pendingImageFile}
+                            onChange={file => {
+                                setPendingImageFile(file);
+                                if (file) setRemoveImage(false);
+                            }}
                             disabled={savingInfo}
-                            placeholder="https://..."
                         />
+                        {product.image_url && !removeImage && !pendingImageFile && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setRemoveImage(true)}
+                                disabled={savingInfo}
+                            >
+                                Rimuovi immagine
+                            </Button>
+                        )}
+                        {removeImage && (
+                            <Text variant="body-sm" colorVariant="muted">
+                                L&apos;immagine verrà rimossa al salvataggio.
+                            </Text>
+                        )}
                         {infoError && (
                             <Text variant="body-sm" colorVariant="error">
                                 {infoError}
@@ -232,9 +268,17 @@ export function GeneralTab({ product, tenantId, onProductUpdated }: GeneralTabPr
                             <Text variant="body-sm" colorVariant="muted">
                                 Immagine
                             </Text>
-                            <Text variant="body" colorVariant={product.image_url ? undefined : "muted"}>
-                                {product.image_url || "Nessuna immagine"}
-                            </Text>
+                            {product.image_url ? (
+                                <img
+                                    src={product.image_url}
+                                    alt="Immagine prodotto"
+                                    style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 4 }}
+                                />
+                            ) : (
+                                <Text variant="body" colorVariant="muted">
+                                    Nessuna immagine
+                                </Text>
+                            )}
                         </div>
                     </div>
                 )}
