@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>CataloGlobe — Deep Product Analysis</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  :root {
+    --color-primary: #1a56db;
+    --color-primary-light: #e8eefb;
+    --color-accent: #0d9488;
+    --color-accent-light: #e6f7f5;
+    --color-dark: #111827;
+    --color-gray-700: #374151;
+    --color-gray-500: #6b7280;
+    --color-gray-300: #d1d5db;
+    --color-gray-100: #f3f4f6;
+    --color-white: #ffffff;
+    --color-red: #dc2626;
+    --color-amber: #d97706;
+    --color-green: #059669;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--color-dark);
+    line-height: 1.7;
+    font-size: 10.5pt;
+    background: var(--color-white);
+  }
+
+  /* Cover Page */
+  .cover {
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    text-align: center;
+    padding: 60px 80px;
+    background: linear-gradient(135deg, #f8faff 0%, #eef2ff 50%, #e8eefb 100%);
+    position: relative;
+  }
+
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  }
+
+  .cover-badge {
+    display: inline-block;
+    background: var(--color-primary);
+    color: white;
+    padding: 6px 20px;
+    border-radius: 20px;
+    font-size: 9pt;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 40px;
+  }
+
+  .cover h1 {
+    font-size: 42pt;
+    font-weight: 800;
+    color: var(--color-dark);
+    letter-spacing: -1.5px;
+    line-height: 1.1;
+    margin-bottom: 16px;
+  }
+
+  .cover h1 span {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .cover .subtitle {
+    font-size: 14pt;
+    color: var(--color-gray-500);
+    font-weight: 400;
+    max-width: 500px;
+    margin-bottom: 60px;
+  }
+
+  .cover .tagline {
+    font-size: 12pt;
+    color: var(--color-gray-700);
+    font-weight: 500;
+    font-style: italic;
+    border-left: 3px solid var(--color-primary);
+    padding-left: 16px;
+    text-align: left;
+  }
+
+  .cover-meta {
+    position: absolute;
+    bottom: 50px;
+    font-size: 9pt;
+    color: var(--color-gray-500);
+  }
+
+  /* TOC */
+  .toc {
+    page-break-after: always;
+    padding: 80px 70px;
+  }
+
+  .toc h2 {
+    font-size: 20pt;
+    font-weight: 700;
+    color: var(--color-dark);
+    margin-bottom: 30px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--color-gray-300);
+  }
+
+  .toc-list {
+    list-style: none;
+    counter-reset: toc-counter;
+  }
+
+  .toc-list li {
+    counter-increment: toc-counter;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--color-gray-100);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  .toc-list li::before {
+    content: counter(toc-counter, decimal-leading-zero);
+    font-size: 11pt;
+    font-weight: 700;
+    color: var(--color-primary);
+    min-width: 28px;
+  }
+
+  .toc-list li a {
+    color: var(--color-dark);
+    text-decoration: none;
+    font-size: 11pt;
+    font-weight: 500;
+  }
+
+  /* Sections */
+  .content {
+    padding: 50px 70px;
+  }
+
+  .section {
+    margin-bottom: 50px;
+  }
+
+  .section-number {
+    font-size: 9pt;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  h2 {
+    font-size: 20pt;
+    font-weight: 700;
+    color: var(--color-dark);
+    margin-bottom: 20px;
+    letter-spacing: -0.5px;
+  }
+
+  h3 {
+    font-size: 13pt;
+    font-weight: 600;
+    color: var(--color-dark);
+    margin-top: 28px;
+    margin-bottom: 10px;
+  }
+
+  h4 {
+    font-size: 11pt;
+    font-weight: 600;
+    color: var(--color-gray-700);
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+
+  p {
+    margin-bottom: 12px;
+    color: var(--color-gray-700);
+  }
+
+  strong { color: var(--color-dark); }
+
+  /* Callout boxes */
+  .callout {
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 18px 0;
+    font-size: 10pt;
+  }
+
+  .callout-blue {
+    background: var(--color-primary-light);
+    border-left: 4px solid var(--color-primary);
+  }
+
+  .callout-green {
+    background: var(--color-accent-light);
+    border-left: 4px solid var(--color-accent);
+  }
+
+  .callout-amber {
+    background: #fef3c7;
+    border-left: 4px solid var(--color-amber);
+  }
+
+  .callout-red {
+    background: #fef2f2;
+    border-left: 4px solid var(--color-red);
+  }
+
+  .callout p { margin-bottom: 0; }
+  .callout strong { font-weight: 600; }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 18px 0;
+    font-size: 9.5pt;
+  }
+
+  thead th {
+    background: var(--color-gray-100);
+    color: var(--color-dark);
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--color-gray-300);
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--color-gray-100);
+    color: var(--color-gray-700);
+    vertical-align: top;
+  }
+
+  tbody tr:hover { background: #fafbfc; }
+
+  /* Code */
+  code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 9pt;
+    background: var(--color-gray-100);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--color-primary);
+  }
+
+  pre {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 18px 22px;
+    border-radius: 8px;
+    font-size: 9pt;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+  }
+
+  /* Lists */
+  ul, ol {
+    margin: 10px 0 16px 20px;
+    color: var(--color-gray-700);
+  }
+
+  li { margin-bottom: 6px; }
+
+  /* Diagram-like boxes */
+  .layer-diagram {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  .layer-box {
+    background: var(--color-gray-100);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .layer-box.highlight {
+    background: var(--color-primary-light);
+    border: 2px solid var(--color-primary);
+  }
+
+  .layer-box h5 {
+    font-size: 9pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    color: var(--color-primary);
+  }
+
+  .layer-box p {
+    font-size: 9pt;
+    margin-bottom: 0;
+  }
+
+  /* Formula */
+  .formula {
+    background: var(--color-dark);
+    color: white;
+    padding: 20px 30px;
+    border-radius: 10px;
+    text-align: center;
+    margin: 24px 0;
+    font-size: 11pt;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+
+  .formula span {
+    color: #60a5fa;
+    font-weight: 600;
+  }
+
+  /* Flow steps */
+  .flow-steps {
+    counter-reset: flow-counter;
+    list-style: none;
+    margin-left: 0;
+    padding-left: 0;
+  }
+
+  .flow-steps li {
+    counter-increment: flow-counter;
+    padding: 12px 16px 12px 52px;
+    position: relative;
+    margin-bottom: 8px;
+    background: var(--color-gray-100);
+    border-radius: 8px;
+  }
+
+  .flow-steps li::before {
+    content: counter(flow-counter);
+    position: absolute;
+    left: 16px;
+    top: 12px;
+    width: 24px;
+    height: 24px;
+    background: var(--color-primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9pt;
+    font-weight: 700;
+  }
+
+  /* Risk items */
+  .risk-item {
+    background: #fef2f2;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    border-left: 4px solid var(--color-red);
+  }
+
+  .risk-item h4 {
+    color: var(--color-red);
+    margin-top: 0;
+    font-size: 10.5pt;
+  }
+
+  .risk-item p { font-size: 9.5pt; margin-bottom: 0; }
+
+  /* Feature grid */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0;
+  }
+
+  .feature-card {
+    background: var(--color-gray-100);
+    border-radius: 8px;
+    padding: 18px;
+  }
+
+  .feature-card h4 {
+    margin-top: 0;
+    font-size: 10.5pt;
+    color: var(--color-primary);
+  }
+
+  .feature-card p {
+    font-size: 9.5pt;
+    margin-bottom: 0;
+  }
+
+  /* Page breaks */
+  .page-break { page-break-before: always; }
+
+  /* Print */
+  @media print {
+    body { font-size: 10pt; }
+    .cover { min-height: auto; padding: 120px 60px; }
+    .content { padding: 40px 50px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== COVER ==================== -->
+<div class="cover">
+  <div class="cover-badge">Deep Product Analysis</div>
+  <h1>Catalo<span>Globe</span></h1>
+  <p class="subtitle">Analisi approfondita del prodotto, dell'architettura e della visione di piattaforma</p>
+  <div class="tagline">
+    "Cataloghi digitali dinamici che sanno dove, quando e cosa mostrare — automaticamente."
+  </div>
+  <div class="cover-meta">Marzo 2026 &middot; Documento interno &middot; v1.0</div>
+</div>
+
+<!-- ==================== TOC ==================== -->
+<div class="toc">
+  <h2>Indice</h2>
+  <ol class="toc-list">
+    <li><a href="#s1">Panoramica di alto livello</a></li>
+    <li><a href="#s2">Problema e Soluzione</a></li>
+    <li><a href="#s3">Concetti fondamentali</a></li>
+    <li><a href="#s4">Come funziona il sistema</a></li>
+    <li><a href="#s5">Funzionalità chiave</a></li>
+    <li><a href="#s6">Architettura e insight tecnici</a></li>
+    <li><a href="#s7">Cosa rende speciale CataloGlobe</a></li>
+    <li><a href="#s8">Rischi e aree incomplete</a></li>
+  </ol>
+</div>
+
+<!-- ==================== CONTENT ==================== -->
+<div class="content">
+
+<!-- Section 1 -->
+<div class="section" id="s1">
+  <div class="section-number">Sezione 01</div>
+  <h2>Panoramica di alto livello</h2>
+
+  <p>CataloGlobe è una <strong>piattaforma SaaS multi-tenant</strong> per la gestione di cataloghi digitali pensata per ristoranti, hotel, retail e altri settori. A differenza dei generatori di menu statici, CataloGlobe tratta i cataloghi come <strong>sistemi viventi</strong>.</p>
+
+  <p>Un singolo database prodotti alimenta molteplici cataloghi, che vengono assegnati a sedi specifiche tramite regole di programmazione basate sul tempo. Una catena di ristoranti può mostrare il menu pranzo dalle 11 alle 15, passare al catalogo cena alle 18 e promuovere un bundle weekend — il tutto senza intervento manuale.</p>
+
+  <div class="callout callout-blue">
+    <p><strong>La separazione fondamentale:</strong> La piattaforma separa <strong>contenuto</strong> (prodotti, cataloghi, highlight) da <strong>presentazione</strong> (stili, token) e <strong>distribuzione</strong> (sedi, programmazione). Ogni livello è indipendentemente modificabile.</p>
+  </div>
+
+  <div class="formula">
+    <span>Prodotti</span> (cosa) &nbsp;&times;&nbsp; <span>Cataloghi</span> (come organizzati) &nbsp;&times;&nbsp; <span>Stili</span> (come appare) &nbsp;&times;&nbsp; <span>Programmazione</span> (dove + quando) &nbsp;=&nbsp; <strong>Pagina Pubblica</strong>
+  </div>
+</div>
+
+<!-- Section 2 -->
+<div class="section page-break" id="s2">
+  <div class="section-number">Sezione 02</div>
+  <h2>Problema e Soluzione</h2>
+
+  <h3>Il problema</h3>
+  <p>Le aziende multi-sede affrontano un incubo di content management:</p>
+  <ul>
+    <li><strong>Fatica del menu:</strong> Aggiornare prezzi, prodotti o promozioni su 5, 50 o 500 sedi è manuale, soggetto a errori e lento.</li>
+    <li><strong>Cecità al contesto:</strong> Un singolo menu statico non può riflettere che la Sede A ha uno speciale a pranzo, la Sede B un bundle weekend e la Sede C disabilita certi prodotti per problemi di fornitura.</li>
+    <li><strong>Frammentazione del design:</strong> Ogni sede finisce con branding inconsistente — font diversi, layout diversi, template obsoleti.</li>
+    <li><strong>Sprawl di strumenti:</strong> Le aziende combinano Canva per il design, fogli di calcolo per i prezzi, WhatsApp per la distribuzione e un website builder. Niente è connesso.</li>
+  </ul>
+
+  <h3>Perché le soluzioni esistenti non bastano</h3>
+  <table>
+    <thead>
+      <tr><th>Soluzione</th><th>Limiti</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Generatori PDF (Canva, MustHaveMenus)</td><td>Output statico. Nessuna programmazione, nessuna multi-sede, nessun database prodotti.</td></tr>
+      <tr><td>QR Menu SaaS (Menufy, GloriaFood)</td><td>Solo ristoranti, liste piatte, nessun catalogo strutturato, nessuno scheduling.</td></tr>
+      <tr><td>CMS generici (WordPress + WooCommerce)</td><td>Troppo generici. Nessun concetto nativo di sedi, programmazione o isolamento tenant.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>L'approccio CataloGlobe</h3>
+  <p>CataloGlobe introduce una <strong>separazione delle responsabilità</strong> che nessuno di questi strumenti offre:</p>
+  <table>
+    <thead>
+      <tr><th>Livello</th><th>Responsabilità</th><th>Esempio</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Contenuto</strong></td><td>Prodotti, varianti, gruppi opzione, attributi</td><td>"Pizza Margherita, taglie S/M/L, add-on: mozzarella extra"</td></tr>
+      <tr><td><strong>Struttura</strong></td><td>Cataloghi con categorie gerarchiche (3 livelli)</td><td>"Menu Pranzo → Antipasti → Insalate"</td></tr>
+      <tr><td><strong>Presentazione</strong></td><td>Token di stile con versionamento immutabile</td><td>"Navigazione a pill, card con immagine a sinistra, colori brand"</td></tr>
+      <tr><td><strong>Distribuzione</strong></td><td>Regole di scheduling per sedi/gruppi</td><td>"Mostra Menu Pranzo a Via Roma dalle 11–15, Lun–Ven"</td></tr>
+      <tr><td><strong>Promozione</strong></td><td>Contenuti in evidenza con slot flessibili</td><td>"Hero banner: Bundle Brunch Weekend a €19.90"</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Section 3 -->
+<div class="section page-break" id="s3">
+  <div class="section-number">Sezione 03</div>
+  <h2>Concetti fondamentali</h2>
+
+  <h3>Tenant (Azienda / Brand)</h3>
+  <p>L'unità organizzativa di primo livello — un'azienda o un brand. Ogni dato in CataloGlobe è <strong>tenant-scoped</strong>. Un tenant possiede tutti i prodotti, cataloghi, stili, programmazioni e sedi.</p>
+  <ul>
+    <li><code>vertical_type</code>: ristorante, bar, retail, hotel o generico</li>
+    <li>Supporta ruoli <code>owner</code>, <code>admin</code> e <code>member</code> con sistema di inviti tramite token</li>
+    <li>Soft-delete con 30 giorni di grazia prima della cancellazione definitiva</li>
+    <li>Gestione logo tramite RPC sicura (SECURITY DEFINER)</li>
+  </ul>
+
+  <h3>Attività / Sede (Activity)</h3>
+  <p>Una sede fisica appartenente a un tenant. Le attività sono gli <strong>endpoint di distribuzione</strong> — il "dove" della consegna dei contenuti.</p>
+  <ul>
+    <li>Slug unico per URL pubblico (<code>/collections/{slug}</code>)</li>
+    <li>Supporto immagini di copertina in Supabase Storage</li>
+    <li>Raggruppabili in <code>activity_groups</code> per targeting massivo</li>
+    <li>Stato: attivo/inattivo</li>
+  </ul>
+
+  <h3>Prodotto (Product)</h3>
+  <p>L'unità atomica di contenuto. I prodotti esistono <strong>una volta</strong> e vengono referenziati ovunque. Un aggiornamento di prezzo si propaga a tutti i cataloghi (a meno che non sia sovrascritto da una regola).</p>
+
+  <table>
+    <thead>
+      <tr><th>Caratteristica</th><th>Dettaglio</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Varianti</strong></td><td>Prodotti figli via <code>parent_product_id</code> (es. "Margherita → Classica, Bufala"). No nested variants.</td></tr>
+      <tr><td><strong>Gruppi opzione</strong></td><td><code>PRIMARY_PRICE</code> (taglie con prezzo assoluto) e <code>ADDON</code> (modificatori con prezzo delta)</td></tr>
+      <tr><td><strong>Attributi</strong></td><td>Tipizzati (text/number/boolean/json). Platform attrs = <code>tenant_id NULL</code></td></tr>
+      <tr><td><strong>Allergeni e ingredienti</strong></td><td>Collegati per compliance normativa</td></tr>
+      <tr><td><strong>fromPrice</strong></td><td>Minimo tra le opzioni PRIMARY_PRICE, mostrato come "da X€"</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Catalogo (Catalog)</h3>
+  <p>Una collezione strutturata di prodotti organizzati in categorie gerarchiche. I cataloghi sono il <strong>livello strutturale</strong>.</p>
+  <ul>
+    <li>Fino a <strong>3 livelli</strong> di gerarchia (es. "Food → Antipasti → Antipasti Freddi")</li>
+    <li>Ordinamento esplicito tramite <code>sort_order</code></li>
+    <li>Constraint UNIQUE: un prodotto può apparire una sola volta per categoria</li>
+    <li>Drag-and-drop con <code>@dnd-kit</code></li>
+    <li><strong>Nessun riferimento diretto allo stile</strong> — il binding avviene nelle regole di scheduling</li>
+  </ul>
+
+  <h3>Contenuto in Evidenza (Featured Content)</h3>
+  <p>Un blocco promozionale — banner, hero section o bundle — che si inserisce nelle pagine catalogo come <strong>contenuto overlay</strong>.</p>
+  <ul>
+    <li><strong>Slot:</strong> <code>hero</code> (top), <code>before_catalog</code>, <code>after_catalog</code></li>
+    <li><strong>Modalità prezzo:</strong> <code>none</code> (solo editoriale), <code>per_item</code> (somma prodotti), <code>bundle</code> (prezzo fisso)</li>
+    <li><strong>Campi:</strong> titolo, sottotitolo, descrizione, media, CTA (testo + URL)</li>
+    <li><strong>Stato:</strong> draft / published</li>
+  </ul>
+
+  <h3>Programmazione / Scheduling</h3>
+  <p>Il motore a regole che controlla <strong>cosa</strong> viene mostrato, <strong>dove</strong>, <strong>quando</strong> e <strong>come</strong> — il sistema nervoso della piattaforma e il <strong>differenziatore chiave</strong>.</p>
+
+  <table>
+    <thead>
+      <tr><th>Tipo regola</th><th>Funzione</th><th>Esempio</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Layout</strong></td><td>Assegna catalogo + stile a sedi target</td><td>"Menu Pranzo con Stile Estate a tutte le sedi in città"</td></tr>
+      <tr><td><strong>Visibilità</strong></td><td>Nasconde o disabilita prodotti specifici</td><td>"Nascondi 'Ostriche Fresche' il lunedì"</td></tr>
+      <tr><td><strong>Prezzo</strong></td><td>Sovrascrive i prezzi per promozioni</td><td>"Tutti i cocktail €5 dalle 17–19, mostra prezzo originale barrato"</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-green">
+    <p><strong>Modalità temporali:</strong> <code>always</code> (sempre attivo), <code>daily</code> (finestra oraria ricorrente), <code>weekly</code> (giorni specifici + orario), <code>date_range</code> (basato su evento/periodo).</p>
+  </div>
+
+  <h3>Stili / Temi (Styles)</h3>
+  <p>Un sistema di theming basato su token che controlla il rendering dei cataloghi. Decoupled dai cataloghi — lo stesso catalogo può apparire diversamente a seconda dello stile attivo.</p>
+  <ul>
+    <li><strong>Versionamento immutabile:</strong> Ogni modifica crea una nuova <code>style_version</code>. Rollback immediato.</li>
+    <li><strong>Token:</strong> navigazione (pill/tabs/minimal), card image (show/hide + posizione), layout (grid/flex)</li>
+    <li><strong>Stili di sistema:</strong> <code>is_system = true</code>, forniti dalla piattaforma, non eliminabili</li>
+    <li><strong>Tracking utilizzo:</strong> <code>usage_count</code> calcolato da referenze in <code>schedule_layout</code></li>
+  </ul>
+</div>
+
+<!-- Section 4 -->
+<div class="section page-break" id="s4">
+  <div class="section-number">Sezione 04</div>
+  <h2>Come funziona il sistema</h2>
+
+  <h3>Come si costruisce un catalogo</h3>
+  <ol class="flow-steps">
+    <li><strong>Crea prodotti</strong> nel database globale con varianti, gruppi opzione, attributi, allergeni, ingredienti e immagini.</li>
+    <li><strong>Crea un catalogo</strong> e definisci la gerarchia di categorie (fino a 3 livelli).</li>
+    <li><strong>Aggiungi prodotti alle categorie</strong> tramite l'editor split-pane del CatalogEngine. Drag-and-drop per l'ordinamento.</li>
+    <li>Il catalogo è ora un pacchetto di contenuto strutturato e riutilizzabile — ma non è ancora visibile.</li>
+  </ol>
+
+  <h3>Come il contenuto raggiunge una sede</h3>
+  <ol class="flow-steps">
+    <li><strong>Crea un'attività</strong> (sede) con nome, indirizzo e slug.</li>
+    <li><strong>Crea una regola di scheduling</strong> (tipo: layout) che assegna catalogo + stile alla sede.</li>
+    <li><strong>Imposta la modalità temporale</strong> (es. daily 11:00–15:00) e attiva la regola.</li>
+    <li>Il catalogo è ora <strong>live</strong> in quella sede durante quelle ore.</li>
+  </ol>
+
+  <h3>Come lo scheduling sovrascrive il comportamento</h3>
+  <ol class="flow-steps">
+    <li><strong>Regole di visibilità</strong> nascondono prodotti specifici in sedi/orari specifici.</li>
+    <li><strong>Regole di prezzo</strong> sovrascrivono i prezzi per promozioni (happy hour, sconti, ecc.).</li>
+    <li><strong>Contenuti in evidenza</strong> iniettano blocchi promozionali (hero banner, bundle) in slot specifici.</li>
+    <li>Le regole sono valutate per <strong>priorità</strong> — quelle con priorità più alta vincono i conflitti.</li>
+  </ol>
+
+  <h3>Come viene generata la pagina pubblica</h3>
+  <ol class="flow-steps">
+    <li>Un cliente visita <code>/collections/{slug}</code>.</li>
+    <li><code>resolveActivityCatalogs(activityId)</code> esegue: recupera regole attive → valuta condizioni temporali → seleziona la regola layout vincente → determina catalogo + stile.</li>
+    <li>Applica override di visibilità (filtra prodotti nascosti) e override di prezzo (calcola <code>effective_price</code>).</li>
+    <li>Risolve slot dei contenuti in evidenza.</li>
+    <li>Restituisce <code>ResolvedCollections</code>: <code>{catalog, style, featured}</code>.</li>
+    <li><code>CollectionView</code> renderizza: header brand, hero, navigazione sezioni (sincronizzata con scroll), card prodotti stilizzate, modale dettaglio prodotto.</li>
+  </ol>
+</div>
+
+<!-- Section 5 -->
+<div class="section page-break" id="s5">
+  <div class="section-number">Sezione 05</div>
+  <h2>Funzionalità chiave</h2>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <h4>Distribuzione cataloghi time-aware</h4>
+      <p>I cataloghi si alternano automaticamente basandosi su giorno, ora o intervallo di date. Una sede può servire menu diversi durante la giornata senza azione dell'operatore.</p>
+    </div>
+    <div class="feature-card">
+      <h4>Override granulari per prodotto</h4>
+      <p>Senza toccare il database prodotti, le regole possono nascondere, disabilitare o cambiare il prezzo di specifici articoli — per sede, per finestra temporale.</p>
+    </div>
+    <div class="feature-card">
+      <h4>Versionamento stili immutabile</h4>
+      <p>Ogni modifica crea una nuova versione. Rollback immediato. Regole multiple possono referenziare versioni diverse dello stesso stile.</p>
+    </div>
+    <div class="feature-card">
+      <h4>Catalog Engine gerarchico</h4>
+      <p>Alberi di categorie a 3 livelli con drag-and-drop, guardie anti-duplicazione ed editor split-pane. I prodotti sono aggiunti una volta e referenziati ovunque.</p>
+    </div>
+    <div class="feature-card">
+      <h4>Slot contenuti in evidenza</h4>
+      <p>Blocchi promozionali (hero, before/after-catalog) con pricing flessibile (editoriale, somma per item, bundle fisso). Iniettati via regole di scheduling.</p>
+    </div>
+    <div class="feature-card">
+      <h4>Targeting multi-sede</h4>
+      <p>Le regole possono targetizzare sedi individuali, gruppi di sedi o tutte le sedi. I gruppi attività permettono "applica a tutte le sedi in città" senza elencarle una per una.</p>
+    </div>
+    <div class="feature-card">
+      <h4>Sistema varianti e opzioni</h4>
+      <p>Prodotti base con varianti (es. taglie), gruppi PRIMARY_PRICE (prezzo assoluto per taglia) e gruppi ADDON (prezzo delta per modificatore). <code>fromPrice</code> mostra "da X€".</p>
+    </div>
+    <div class="feature-card">
+      <h4>Multi-tenancy sicura</h4>
+      <p>PostgreSQL RLS con <code>get_my_tenant_ids()</code>. SECURITY DEFINER RPC per operazioni sensibili. Soft-delete con 30 giorni di recupero.</p>
+    </div>
+    <div class="feature-card">
+      <h4>Autenticazione OTP</h4>
+      <p>Due livelli: sessione Supabase + verifica OTP con hashing SHA-256, lockout brute-force (15 min) e record di verifica session-scoped.</p>
+    </div>
+    <div class="feature-card">
+      <h4>Importazione menu con AI</h4>
+      <p>Edge function <code>menu-ai-import</code> con integrazione OpenAI per parsing di menu esistenti in dati prodotto strutturati — accelera l'onboarding.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section 6 -->
+<div class="section page-break" id="s6">
+  <div class="section-number">Sezione 06</div>
+  <h2>Architettura e insight tecnici</h2>
+
+  <h3>Isolamento multi-tenant come primitiva del database</h3>
+  <p>L'isolamento tenant non è una responsabilità applicativa — è una <strong>primitiva PostgreSQL</strong>. Ogni tabella tenant-scoped ha policy RLS che usano <code>get_my_tenant_ids()</code>, una funzione STABLE SECURITY INVOKER che si cache all'interno di una statement. Le funzioni di servizio fanno double-check con <code>.eq("tenant_id", tenantId)</code> come difesa in profondità.</p>
+  <div class="callout callout-blue">
+    <p><strong>Implicazione:</strong> Anche un bug frontend non può far trapelare dati cross-tenant.</p>
+  </div>
+
+  <h3>Scheduling come livello di orchestrazione</h3>
+  <p>La maggior parte delle piattaforme usa flag booleani (<code>is_active</code>, <code>is_visible</code>) sulle singole entità. CataloGlobe usa <strong>regole di scheduling come piano di controllo separato</strong>:</p>
+  <ul>
+    <li>Il contenuto (prodotti, cataloghi) è <strong>stateless</strong> — non sa quando o dove viene mostrato.</li>
+    <li>Le regole di scheduling <strong>possiedono tutta la logica di distribuzione</strong>.</li>
+    <li>Questa separazione permette di autore il contenuto indipendentemente dalla distribuzione.</li>
+  </ul>
+
+  <h3>Disaccoppiamento catalogo-stile</h3>
+  <p>I cataloghi <strong>non hanno</strong> una colonna <code>style_id</code>. Il binding tra catalogo e stile avviene <strong>nella regola di scheduling</strong> (<code>schedule_layout.catalog_id + style_id</code>).</p>
+  <div class="callout callout-green">
+    <p><strong>Questo significa:</strong> Lo stesso catalogo può renderizzare con stili diversi in sedi diverse e in orari diversi. Un cambio tema stagionale è un cambio alla regola, non una migrazione del catalogo.</p>
+  </div>
+
+  <h3>Versionamento immutabile degli stili</h3>
+  <p>Le config degli stili non vengono mai mutate in-place. Ogni modifica crea una nuova <code>style_version</code> con numero versione incrementale. L'entità stile punta a <code>current_version_id</code>. Questo fornisce: audit trail completo, rollback a rischio zero, e capacità futura di pin su versione specifica.</p>
+
+  <h3>Riuso contenuti via database prodotti condiviso</h3>
+  <p>I prodotti esistono una volta e sono referenziati ovunque. Una "Pizza Margherita" con varianti, opzioni, allergeni e immagini può apparire in "Menu Pranzo", "Menu Cena", "Catalogo Catering" e "Speciale Weekend" — tutto per riferimento. Un aggiornamento al prezzo base si propaga istantaneamente (a meno che non sia sovrascritto da una regola).</p>
+
+  <h3>Accesso pubblico senza buchi nel RLS</h3>
+  <p>Le pagine catalogo pubbliche non autenticano. Invece di aprire falle nel RLS, la piattaforma usa <strong>RPC SECURITY DEFINER</strong> (<code>get_tenant_public_info</code>, <code>resolveActivityCatalogs</code>) che espongono solo i dati esatti necessari.</p>
+
+  <h3>Edge Functions per operazioni sensibili</h3>
+  <p>Le operazioni distruttive (delete/restore/purge tenant, eliminazione account) sono gestite da Supabase Edge Functions che validano ownership via JWT, eseguono con privilegi <code>service_role</code> e gestiscono cascade delete atomiche (storage + tutte le tabelle figlie).</p>
+</div>
+
+<!-- Section 7 -->
+<div class="section page-break" id="s7">
+  <div class="section-number">Sezione 07</div>
+  <h2>Cosa rende speciale CataloGlobe</h2>
+
+  <h3>Non è un menu builder — è un content distribution engine</h3>
+  <p>L'insight fondamentale è che <strong>un catalogo digitale non è un documento statico</strong>. È una <strong>funzione del contesto</strong>: quali prodotti esistono, come sono organizzati, che stile indossano, quale sede servono e che ora è.</p>
+  <p>La maggior parte degli strumenti tratta un menu come un file da progettare ed esportare. CataloGlobe lo tratta come un <strong>output computato</strong> di un motore a regole che opera su un database di contenuti condiviso.</p>
+
+  <h3>L'astrazione dello scheduling cambia tutto</h3>
+  <p>Rendendo lo scheduling un'entità first-class tra contenuto e distribuzione, CataloGlobe abilita comportamenti impossibili nei menu builder tradizionali:</p>
+  <ul>
+    <li><strong>Dayparting automatico:</strong> Menu pranzo → bevande pomeridiane → menu cena → snack notturni, nella stessa sede fisica.</li>
+    <li><strong>Promozioni location-aware:</strong> Un'happy hour si applica solo alle sedi del centro, nei giorni feriali.</li>
+    <li><strong>Flessibilità stagionale:</strong> Passare da "Menu Estate" a "Menu Autunno" cambiando un date range, non ricostruendo cataloghi.</li>
+    <li><strong>Potenziale A/B testing:</strong> Due regole layout con stili diversi su gruppi di sedi diversi = A/B test visuale.</li>
+  </ul>
+
+  <h3>Separazione delle responsabilità come filosofia di prodotto</h3>
+  <p>La maggior parte dei SaaS confonde contenuto, struttura, presentazione e distribuzione. CataloGlobe li <strong>separa in livelli componibili</strong>. È lo stesso insight architetturale che ha reso potente il CSS (separazione del contenuto dalla presentazione) — applicato alla gestione di cataloghi digitali.</p>
+
+  <h3>Enterprise-ready dal giorno uno</h3>
+  <p>L'architettura multi-tenant con PostgreSQL RLS, accesso role-based (owner/admin/member), onboarding basato su inviti, verifica OTP e soft-delete con periodo di grazia non è tipica di un SaaS in fase iniziale. Questa fondazione supporta lo scaling da un singolo ristorante a una rete di franchising senza cambi architetturali.</p>
+</div>
+
+<!-- Section 8 -->
+<div class="section page-break" id="s8">
+  <div class="section-number">Sezione 08</div>
+  <h2>Rischi e aree incomplete</h2>
+
+  <div class="risk-item">
+    <h4>Gap di sicurezza: v2_schedule_targets</h4>
+    <p>La tabella <code>v2_schedule_targets</code> non ha colonna <code>tenant_id</code> né policy RLS. Il join a <code>v2_schedules</code> (che ha RLS) fornisce protezione indiretta, ma una query diretta potrebbe esporre dati di targeting cross-tenant.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>Nessuna strategia di cache per le pagine pubbliche</h4>
+    <p>La funzione <code>resolveActivityCatalogs</code> (54KB — il modulo di servizio più grande) esegue query live ad ogni caricamento. Non c'è layer di caching, CDN integration o strategia di pre-rendering. Per sedi ad alto traffico, questo potrebbe diventare un collo di bottiglia.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>Sistema token stili minimale</h4>
+    <p>I token attuali controllano forma navigazione, posizione immagine card e layout. Non ci sono token per colori, tipografia o spaziatura. L'architettura supporta personalizzazione ricca ma la copertura effettiva è limitata.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>Analytics e Recensioni non implementati</h4>
+    <p>La sidebar ha voci di navigazione "Analytics" e "Recensioni", le route esistono, ma non c'è servizio analytics né raccolta dati visibile nel codebase. Sono placeholder.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>Interazione Featured Content + Scheduling</h4>
+    <p>I contenuti in evidenza hanno <code>status</code> (draft/published) ma la loro iniezione nelle pagine pubbliche dipende dalle regole di scheduling. L'interazione tra lo stato del contenuto e quello della regola può creare edge case confusi (es. contenuto pubblicato referenziato da regola disabilitata).</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>Complessità di resolveActivityCatalogs</h4>
+    <p>A 54KB, è di gran lunga il modulo più grande. Gestisce risoluzione catalogo, valutazione schedule, filtraggio visibilità, override prezzi e assembly contenuti in evidenza in un singolo file. Candidato per decomposizione.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>Confine Edge Functions inconsistente</h4>
+    <p>Alcune operazioni usano edge functions (tenant delete/restore/purge, business delete) mentre operazioni simili usano chiamate di servizio dirette. Il confine di "cosa necessita un'edge function" non è sempre chiaro.</p>
+  </div>
+</div>
+
+</div><!-- /content -->
+</body>
+</html>
