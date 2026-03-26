@@ -45,7 +45,10 @@ export const ActivityGalleryUploadDrawer: React.FC<ActivityGalleryUploadDrawerPr
     const addFiles = (incoming: FileList | File[]) => {
         const valid = Array.from(incoming).filter(f => f.type.startsWith("image/"));
         if (valid.length < Array.from(incoming).length) {
-            showToast({ message: "Alcuni file non sono immagini e sono stati ignorati.", type: "warning" });
+            showToast({
+                message: "Alcuni file non sono immagini e sono stati ignorati.",
+                type: "info"
+            });
         }
         const previews: FilePreview[] = valid.map(f => ({
             file: f,
@@ -119,7 +122,11 @@ export const ActivityGalleryUploadDrawer: React.FC<ActivityGalleryUploadDrawerPr
     return (
         <SystemDrawer open={open} onClose={handleClose} width={520}>
             <DrawerLayout
-                header={<Text as="span" variant="title-sm">Carica immagini</Text>}
+                header={
+                    <Text as="span" variant="title-sm">
+                        Carica immagini
+                    </Text>
+                }
                 footer={
                     <>
                         <Button variant="secondary" onClick={handleClose} disabled={isUploading}>
@@ -154,7 +161,9 @@ export const ActivityGalleryUploadDrawer: React.FC<ActivityGalleryUploadDrawerPr
                         <Text variant="body" weight={500} className={styles.dropLabel}>
                             Trascina le immagini qui, oppure <span>sfoglia</span>
                         </Text>
-                        <Text variant="caption" colorVariant="muted" className={styles.dropHint}>PNG, JPG, WEBP — più file supportati</Text>
+                        <Text variant="caption" colorVariant="muted" className={styles.dropHint}>
+                            PNG, JPG, WEBP — più file supportati
+                        </Text>
                         <input
                             ref={inputRef}
                             type="file"
@@ -168,13 +177,23 @@ export const ActivityGalleryUploadDrawer: React.FC<ActivityGalleryUploadDrawerPr
                     {/* Preview list */}
                     {files.length > 0 && (
                         <div className={styles.previewSection}>
-                            <Text variant="body-sm" weight={500} colorVariant="muted" className={styles.previewCount}>
-                                {files.length} immagin{files.length === 1 ? "e" : "i"} selezionat{files.length === 1 ? "a" : "e"}
+                            <Text
+                                variant="body-sm"
+                                weight={500}
+                                colorVariant="muted"
+                                className={styles.previewCount}
+                            >
+                                {files.length} immagin{files.length === 1 ? "e" : "i"} selezionat
+                                {files.length === 1 ? "a" : "e"}
                             </Text>
                             <div className={styles.previewGrid}>
                                 {files.map(({ previewUrl, file }, i) => (
                                     <div key={previewUrl} className={styles.previewItem}>
-                                        <img src={previewUrl} alt={file.name} className={styles.previewImg} />
+                                        <img
+                                            src={previewUrl}
+                                            alt={file.name}
+                                            className={styles.previewImg}
+                                        />
                                         <button
                                             className={styles.removeBtn}
                                             onClick={() => handleRemove(i)}
@@ -194,7 +213,9 @@ export const ActivityGalleryUploadDrawer: React.FC<ActivityGalleryUploadDrawerPr
                                     disabled={isUploading}
                                 >
                                     <IconPhoto size={20} stroke={1.5} />
-                                    <Text as="span" variant="caption">Aggiungi</Text>
+                                    <Text as="span" variant="caption">
+                                        Aggiungi
+                                    </Text>
                                 </button>
                             </div>
                         </div>
