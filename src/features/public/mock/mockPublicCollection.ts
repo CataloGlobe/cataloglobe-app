@@ -26,6 +26,7 @@ const antipasti: ResolvedCategory = {
                 "Tre varianti di bruschetta: pomodoro e basilico, ricotta e olive, pesto di rucola.",
             price: 7.5,
             is_visible: true,
+            parentSelected: true,
             image_url: "https://placehold.co/80x80/fef3c7/92400e?text=B"
         },
         {
@@ -37,8 +38,9 @@ const antipasti: ResolvedCategory = {
             price: 11.0,
             original_price: 14.0,
             is_visible: true,
+            parentSelected: true,
             image_url: undefined,
-            allergens: [{ label_it: "Latte" }]
+            allergens: [{ id: 7, code: "milk", label_it: "Latte", label_en: "Milk" }]
         },
         {
             // Caso: immagine + descrizione lunga + attributo flag
@@ -48,6 +50,7 @@ const antipasti: ResolvedCategory = {
                 "Polpette di manzo e maiale cotte lentamente nel sugo di pomodoro con basilico fresco e un tocco di peperoncino. Servite con fette di pane casereccio tostato.",
             price: 9.0,
             is_visible: true,
+            parentSelected: true,
             image_url: "https://placehold.co/80x80/fde68a/92400e?text=P",
             attributes: [{ definition: { label: "Piccante" }, value_boolean: true }]
         }
@@ -69,6 +72,7 @@ const pizze: ResolvedCategory = {
             description: "Pomodoro San Marzano, mozzarella fior di latte e basilico fresco.",
             price: 10.0,
             is_visible: true,
+            parentSelected: true,
             image_url: "https://placehold.co/80x80/fee2e2/991b1b?text=M",
             attributes: [{ definition: { label: "Disponibile" }, value_text: "Vegano su richiesta" }]
         },
@@ -80,6 +84,7 @@ const pizze: ResolvedCategory = {
             price: 12.0,
             is_visible: true,
             is_disabled: true,
+            parentSelected: true,
             image_url: "https://placehold.co/80x80/fecaca/7f1d1d?text=D",
             attributes: [{ definition: { label: "Piccante" }, value_boolean: true }]
         },
@@ -91,8 +96,13 @@ const pizze: ResolvedCategory = {
                 "Pomodoro, mozzarella, prosciutto cotto, funghi trifolati, carciofi e olive taggiasche.",
             price: 13.0,
             is_visible: true,
+            parentSelected: true,
             image_url: undefined,
-            allergens: [{ label_it: "Cereali" }, { label_it: "Latte" }, { label_it: "Uova" }]
+            allergens: [
+                { id: 1, code: "gluten", label_it: "Cereali", label_en: "Gluten" },
+                { id: 7, code: "milk", label_it: "Latte", label_en: "Milk" },
+                { id: 3, code: "eggs", label_it: "Uova", label_en: "Eggs" }
+            ]
         },
         {
             // Caso: from_price + varianti (taglia)
@@ -101,6 +111,7 @@ const pizze: ResolvedCategory = {
             description:
                 "Senza pomodoro, mozzarella, funghi porcini freschi e scaglie di tartufo nero.",
             is_visible: true,
+            parentSelected: true,
             image_url: "https://placehold.co/80x80/d1fae5/065f46?text=BF",
             from_price: 10.0,
             variants: [
@@ -127,8 +138,13 @@ const dolci: ResolvedCategory = {
                 "Savoiardi imbevuti di caffè espresso, crema di mascarpone e cacao amaro. Ricetta originale tramandata.",
             price: 7.0,
             is_visible: true,
+            parentSelected: true,
             image_url: "https://placehold.co/80x80/e0e7ff/3730a3?text=Ti",
-            allergens: [{ label_it: "Uova" }, { label_it: "Latte" }, { label_it: "Cereali" }]
+            allergens: [
+                { id: 3, code: "eggs", label_it: "Uova", label_en: "Eggs" },
+                { id: 7, code: "milk", label_it: "Latte", label_en: "Milk" },
+                { id: 1, code: "gluten", label_it: "Cereali", label_en: "Gluten" }
+            ]
         },
         {
             // Caso: senza immagine + descrizione lunga + attributo testo
@@ -138,6 +154,7 @@ const dolci: ResolvedCategory = {
                 "Cremosa panna cotta con coulis di lamponi, mirtilli e ribes freschi di stagione, decorata con foglioline di menta e zucchero a velo.",
             price: 6.5,
             is_visible: true,
+            parentSelected: true,
             image_url: undefined,
             attributes: [{ definition: { label: "Dieta" }, value_text: "Senza Glutine" }]
         },
@@ -150,6 +167,7 @@ const dolci: ResolvedCategory = {
             effective_price: 5.5,
             original_price: 7.0,
             is_visible: true,
+            parentSelected: true,
             image_url: "https://placehold.co/80x80/fce7f3/9d174d?text=C"
         }
     ] satisfies ResolvedProduct[]

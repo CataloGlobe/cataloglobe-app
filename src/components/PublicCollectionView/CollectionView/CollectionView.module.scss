@@ -153,150 +153,167 @@
 }
 
 /* ----------------------------------------------------
-   GRID CARD — vertical layout (image top, body below)
+   CARD — visual container only, no layout decisions
 ---------------------------------------------------- */
 
-.container[data-card-layout="grid"] .card {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0;
-  padding: 0;
-  overflow: hidden; /* clips image to card border-radius */
+.disabledCard {
+  opacity: 0.6;
+  pointer-events: none;
 }
 
-.container[data-card-layout="grid"] .cardImage {
-  width: 100%;
-  height: 140px;
-  border-radius: 0;
-  object-fit: contain;
-  padding: 0.5rem;
-  background: color-mix(in srgb, var(--pub-text) 4%, var(--pub-surface));
+.unavailableBadge {
+  display: inline-block;
+  font-size: 0.7rem;
+  color: var(--color-error, #dc2626);
+  background: color-mix(in srgb, var(--color-error, #dc2626) 10%, transparent);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 500;
+  margin: 0.5rem 0.75rem 0;
 }
-
-.container[data-card-layout="grid"] .imagePlaceholder {
-  width: 100%;
-  height: 160px;
-  border-radius: 0;
-}
-
-.container[data-card-layout="grid"] .cardBody {
-  padding: 0.75rem;
-}
-
-/* ----------------------------------------------------
-   CARD
----------------------------------------------------- */
 
 .card {
   display: flex;
-  align-items: flex-start;
-  gap: 1rem;
+  flex-direction: column;
+  overflow: hidden; /* clips ProductRow hover bg to card radius */
 
   background: var(--pub-surface);
   border: 1px solid var(--pub-border);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
   border-radius: var(--pub-card-radius);
-  padding: 1rem;
 
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
-
-  &[data-template="left"] {
-    flex-direction: row;
-  }
-
-  &[data-template="right"] {
-    flex-direction: row-reverse;
-  }
-
-  &[data-template="no-image"] {
-    padding-left: 1.1rem;
-    padding-right: 1.1rem;
-  }
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
   }
 }
 
 /* ----------------------------------------------------
-   CARD IMAGE
+   PRODUCT ROW — shared layout: image left + body right
+   Used identically for parent products and variants.
 ---------------------------------------------------- */
 
-.cardImage {
-  width: 112px;
-  height: 112px;
+.productRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  cursor: pointer;
+  transition: background 0.12s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-text) 4%, var(--pub-surface));
+  }
+}
+
+.rowImage {
+  width: 96px;
+  height: 96px;
   flex-shrink: 0;
   object-fit: cover;
   border-radius: 10px;
 }
 
-/* preview mobile / tablet → immagini più compatte */
-:global(.preview-mobile) .cardImage,
-:global(.preview-tablet) .cardImage {
+.rowPlaceholder {
   width: 96px;
   height: 96px;
-}
-
-/* public mobile */
-@media (max-width: 640px) {
-  .cardImage {
-    width: 96px;
-    height: 96px;
-  }
-}
-
-/* ----------------------------------------------------
-   IMAGE PLACEHOLDER
----------------------------------------------------- */
-
-.imagePlaceholder {
-  width: 112px;
-  height: 112px;
   flex-shrink: 0;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
   border-radius: 10px;
-
   color: var(--pub-text-secondary);
 }
 
-/* preview mobile / tablet */
-:global(.preview-mobile) .imagePlaceholder,
-:global(.preview-tablet) .imagePlaceholder {
-  width: 96px;
-  height: 96px;
-}
-
-/* public mobile */
+/* compact on small screens */
 @media (max-width: 640px) {
-  .imagePlaceholder {
-    width: 96px;
-    height: 96px;
+  .rowImage,
+  .rowPlaceholder {
+    width: 80px;
+    height: 80px;
   }
 }
 
-/* ----------------------------------------------------
-   CARD BODY
----------------------------------------------------- */
+:global(.preview-mobile) .rowImage,
+:global(.preview-mobile) .rowPlaceholder,
+:global(.preview-tablet) .rowImage,
+:global(.preview-tablet) .rowPlaceholder {
+  width: 80px;
+  height: 80px;
+}
 
-.cardBody {
+.rowBody {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
   flex: 1;
+  min-width: 0;
 }
+
+/* ----------------------------------------------------
+   VARIANTS DIVIDER — single line + label between parent and variants
+---------------------------------------------------- */
+
+.variantsDivider {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  margin-top: -0.25rem; /* close the gap left by productRow's bottom padding */
+
+  &::before {
+    content: "";
+    flex: 0 0 auto;
+    height: 1px;
+    width: 1rem;
+    background: var(--pub-border);
+  }
+
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--pub-border);
+  }
+}
+
+.variantsLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pub-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ----------------------------------------------------
+   CARD BODY TEXT STYLES (shared)
+---------------------------------------------------- */
 
 .titleRow {
   display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.titleRowLeft {
+  display: flex;
   align-items: baseline;
   gap: 4px;
-  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.infoIcon {
+  flex-shrink: 0;
+  color: var(--pub-text-muted);
+  display: flex;
+  align-items: center;
+  opacity: 0.5;
 }
 
 .title {
@@ -353,6 +370,27 @@
   margin-left: 4px;
 }
 
+.allergenEmojis {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.allergenEmoji {
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: default;
+}
+
+.allergenMore {
+  font-size: 0.65rem;
+  color: var(--pub-text-muted);
+  font-weight: 600;
+  margin-left: 2px;
+}
+
 /* ----------------------------------------------------
    CARD TOP (TITLE + PRICE)
 ---------------------------------------------------- */
@@ -382,7 +420,8 @@
     padding: 1.25rem 1rem;
   }
 
-  .card {
-    padding: 0.9rem;
+  .productRow {
+    padding: 0.75rem;
+    gap: 0.75rem;
   }
 }

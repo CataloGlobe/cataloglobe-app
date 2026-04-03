@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Package } from "lucide-react";
+import { Info, Package } from "lucide-react";
+import type { ResolvedAllergen, ResolvedIngredient } from "@/services/supabase/resolveActivityCatalogs";
 import Text from "@/components/ui/Text/Text";
+import { Pill } from "@/components/ui/Pill/Pill";
 import CollectionHero from "../CollectionHero/CollectionHero";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
 import PublicBrandHeader from "../PublicBrandHeader/PublicBrandHeader";
@@ -33,8 +35,27 @@ export type CollectionViewSectionItem = {
             name: string;
             absolutePrice: number | null;
             priceModifier: number | null;
+            /** Set when a value-level price override is active with show_original_price = true. */
+            originalPrice?: number;
         }[];
     }[];
+    /** Pre-computed attribute label/value pairs — only those with a value. */
+    attributes?: { label: string; value: string }[];
+    allergens?: ResolvedAllergen[];
+    ingredients?: ResolvedIngredient[];
+    /** Child variants (products with parent_product_id = this.id). */
+    variants?: {
+        id: string;
+        name: string;
+        price?: number;
+        original_price?: number;
+        from_price?: number;
+        image?: string;
+        description?: string;
+        optionGroups?: CollectionViewSectionItem["optionGroups"];
+    }[];
+    parentSelected: boolean;
+    is_disabled?: boolean;
 };
 
 export type CollectionViewSection = {
@@ -43,16 +64,221 @@ export type CollectionViewSection = {
     items: CollectionViewSectionItem[];
 };
 
+// ─── getDisplayPrice — single pricing rule for all product types ─────────────
+// If a product has more than one active price (from_price set) → "da €MIN"
+// If it has exactly one active price → "€PRICE"
+// Handles both parent products and variants identically.
+
+type DisplayPrice =
+    | { type: "from"; price: number; originalPrice?: number }
+    | { type: "single"; price: number; originalPrice?: number }
+    | { type: "none" };
+
+function getDisplayPrice(opts: {
+    fromPrice?: number | null;
+    price?: number | null;
+    effectivePrice?: number | null;
+    originalPrice?: number | null;
+}): DisplayPrice {
+    if (opts.fromPrice != null) {
+        return {
+            type: "from",
+            price: opts.fromPrice,
+            ...(opts.originalPrice != null ? { originalPrice: opts.originalPrice } : {})
+        };
+    }
+    const single = opts.effectivePrice ?? opts.price;
+    if (single != null) {
+        return {
+            type: "single",
+            price: single,
+            ...(opts.originalPrice != null ? { originalPrice: opts.originalPrice } : {})
+        };
+    }
+    return { type: "none" };
+}
+
+// ─── ProductRow — shared layout for parent products and variants ──────────────
+
+const ALLERGEN_EMOJI: Record<string, string> = {
+    gluten: "🌾",
+    eggs: "🥚",
+    fish: "🐟",
+    crustaceans: "🦐",
+    shellfish: "🦐",
+    peanuts: "🥜",
+    soybeans: "🫘",
+    soy: "🫘",
+    milk: "🥛",
+    dairy: "🥛",
+    nuts: "🌰",
+    tree_nuts: "🌰",
+    celery: "🌿",
+    mustard: "🌱",
+    sesame: "🫙",
+    sulphites: "❗",
+    sulfur_dioxide: "❗",
+    lupin: "🌸",
+    molluscs: "🐚",
+    mollusks: "🐚"
+};
+
+type ProductRowProps = {
+    name: string;
+    fromPrice?: number | null;
+    price?: number | null;
+    effectivePrice?: number | null;
+    originalPrice?: number | null;
+    description?: string | null;
+    image?: string | null;
+    showImage: boolean;
+    mode: "public" | "preview";
+    onClick: (e: React.MouseEvent) => void;
+    optionGroups?: CollectionViewSectionItem["optionGroups"];
+    attributes?: CollectionViewSectionItem["attributes"];
+    allergens?: ResolvedAllergen[];
+};
+
+function ProductRow({
+    name,
+    fromPrice,
+    price,
+    effectivePrice,
+    originalPrice,
+    description,
+    image,
+    showImage,
+    mode,
+    onClick,
+    optionGroups,
+    attributes,
+    allergens
+}: ProductRowProps) {
+    const hasConfigurations = optionGroups?.some(g => g.group_kind === "ADDON") ?? false;
+    const hasAttributes = (attributes?.length ?? 0) > 0;
+    const hasAllergens = (allergens?.length ?? 0) > 0;
+    const MAX_ALLERGEN_EMOJIS = 6;
+    const visibleAllergens = hasAllergens ? allergens!.slice(0, MAX_ALLERGEN_EMOJIS) : [];
+    const hiddenCount = hasAllergens ? Math.max(0, allergens!.length - MAX_ALLERGEN_EMOJIS) : 0;
+    const dp = getDisplayPrice({ fromPrice, price, effectivePrice, originalPrice });
+    return (
+        <div className={styles.productRow} onClick={onClick}>
+            {showImage &&
+                (mode === "preview" || !image ? (
+                    <div className={styles.rowPlaceholder} aria-hidden="true">
+                        <Package
+                            size={24}
+                            strokeWidth={1.5}
+                            color="var(--pub-text-muted, var(--pub-text-secondary))"
+                        />
+                    </div>
+                ) : (
+                    <img src={image} alt={name} className={styles.rowImage} loading="lazy" />
+                ))}
+            <div className={styles.rowBody}>
+                <div className={styles.titleRow}>
+                    <div className={styles.titleRowLeft}>
+                        <Text variant="body" weight={700} className={styles.title}>
+                            {name}
+                        </Text>
+                        {dp.type !== "none" && dp.originalPrice != null && (
+                            <span className={styles.promoBadge}>Promo</span>
+                        )}
+                    </div>
+                    <span className={styles.infoIcon} aria-hidden="true">
+                        <Info size={14} strokeWidth={2} />
+                    </span>
+                </div>
+
+                {dp.type === "from" ? (
+                    <Text variant="caption" colorVariant="muted" className={styles.price}>
+                        {dp.originalPrice != null && (
+                            <span className={styles.priceOriginal}>
+                                da € {dp.originalPrice.toFixed(2)}
+                            </span>
+                        )}
+                        <span
+                            className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
+                        >
+                            da € {dp.price.toFixed(2)}
+                        </span>
+                    </Text>
+                ) : dp.type === "single" ? (
+                    <Text variant="caption" colorVariant="muted" className={styles.price}>
+                        {dp.originalPrice != null && (
+                            <span className={styles.priceOriginal}>
+                                € {dp.originalPrice.toFixed(2)}
+                            </span>
+                        )}
+                        <span
+                            className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
+                        >
+                            € {dp.price.toFixed(2)}
+                        </span>
+                    </Text>
+                ) : null}
+
+                {description && (
+                    <Text variant="caption" colorVariant="muted" className={styles.description}>
+                        {description}
+                    </Text>
+                )}
+                {hasConfigurations && (
+                    <div
+                        style={{
+                            marginTop: 4,
+                            width: "fit-content",
+                            transform: "scale(0.85)",
+                            transformOrigin: "left"
+                        }}
+                    >
+                        {hasConfigurations && <Pill label="Configurazioni" />}
+                    </div>
+                )}
+                {hasAttributes && (
+                    <div
+                        style={{
+                            marginTop: 4,
+                            width: "fit-content",
+                            transform: "scale(0.85)",
+                            transformOrigin: "left"
+                        }}
+                    >
+                        {hasAttributes && <Pill label="Attributi" />}
+                    </div>
+                )}
+                {hasAllergens && (
+                    <div className={styles.allergenEmojis}>
+                        {visibleAllergens.map(a => (
+                            <span
+                                key={a.id}
+                                className={styles.allergenEmoji}
+                                title={a.label_it}
+                                aria-label={a.label_it}
+                            >
+                                {ALLERGEN_EMOJI[a.code] ?? "⚠️"}
+                            </span>
+                        ))}
+                        {hiddenCount > 0 && (
+                            <span className={styles.allergenMore}>+{hiddenCount}</span>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 // ─── Scroll-offset constants — single source of truth ───────────────────────
 // SCROLL_OFFSET: how far from the container top a section title lands after a
 //   click-triggered scroll.  Matches CSS scroll-margin-top: 4.5rem (72px).
 // STICKY_OFFSET: the threshold at which a section is considered "active" during
 //   manual scrolling.  Must be ≥ SCROLL_OFFSET so a section is always detected
 //   as active once a programmatic scroll settles.
-const NAV_HEIGHT   = 56;                       // CollectionSectionNav (~3.5rem)
-const VISUAL_GAP   = 16;                       // breathing room below sticky bar
+const NAV_HEIGHT = 56; // CollectionSectionNav (~3.5rem)
+const VISUAL_GAP = 16; // breathing room below sticky bar
 const SCROLL_OFFSET = NAV_HEIGHT + VISUAL_GAP; // 72 px — heading fully visible
-const STICKY_OFFSET = SCROLL_OFFSET + 4;       // 76 px — detection threshold
+const STICKY_OFFSET = SCROLL_OFFSET + 4; // 76 px — detection threshold
 // ─────────────────────────────────────────────────────────────────────────────
 
 type Props = {
@@ -139,9 +365,7 @@ export default function CollectionView({
         function computeActiveSection() {
             // Compute which section is naturally active based on scroll position.
             const containerTop =
-                container === window
-                    ? 0
-                    : (container as HTMLElement).getBoundingClientRect().top;
+                container === window ? 0 : (container as HTMLElement).getBoundingClientRect().top;
 
             let naturalActive = sections[0].id;
             for (const section of sections) {
@@ -319,109 +543,114 @@ export default function CollectionView({
                                         </Text>
 
                                         <div className={styles.grid} role="list">
-                                            {section.items.map(item => (
+                                            {section.items.map(item => {
+                                                const isDisabled = item.is_disabled === true;
+                                                return (
                                                 <article
                                                     key={item.id}
                                                     role="listitem"
-                                                    className={styles.card}
-                                                    data-template={
-                                                        style.cardTemplate as CardTemplate
-                                                    }
-                                                    onClick={() => setSelectedItem(item)}
+                                                    className={`${styles.card}${isDisabled ? ` ${styles.disabledCard}` : ""}`}
                                                 >
-                                                    {style.cardTemplate !== "no-image" &&
-                                                        (mode === "preview" || !item.image ? (
-                                                            <div
-                                                                className={styles.imagePlaceholder}
-                                                                aria-hidden="true"
-                                                            >
-                                                                <Package
-                                                                    size={24}
-                                                                    strokeWidth={1.5}
-                                                                    color="var(--pub-text-muted, var(--pub-text-secondary))"
-                                                                />
-                                                            </div>
-                                                        ) : (
-                                                            <img
-                                                                src={item.image}
-                                                                alt={item.name}
-                                                                className={styles.cardImage}
-                                                                loading="lazy"
-                                                            />
-                                                        ))}
+                                                    {isDisabled && (
+                                                        <span className={styles.unavailableBadge}>
+                                                            Non disponibile
+                                                        </span>
+                                                    )}
+                                                    {/* Case A/B: parent row — only if parentSelected */}
+                                                    {item.parentSelected && (
+                                                        <ProductRow
+                                                            name={item.name}
+                                                            fromPrice={item.from_price}
+                                                            price={item.price}
+                                                            effectivePrice={item.effective_price}
+                                                            originalPrice={item.original_price}
+                                                            description={item.description}
+                                                            image={item.image}
+                                                            showImage={
+                                                                style.cardTemplate !== "no-image"
+                                                            }
+                                                            mode={mode}
+                                                            onClick={() => setSelectedItem(item)}
+                                                            optionGroups={item.optionGroups}
+                                                            attributes={item.attributes}
+                                                            allergens={item.allergens}
+                                                        />
+                                                    )}
 
-                                                    <div className={styles.cardBody}>
-                                                        <div className={styles.titleRow}>
-                                                            <Text
-                                                                variant="body"
-                                                                weight={700}
-                                                                className={styles.title}
-                                                            >
-                                                                {item.name}
-                                                            </Text>
-                                                            {item.original_price != null && (
-                                                                <span className={styles.promoBadge}>
-                                                                    Promo
-                                                                </span>
-                                                            )}
-                                                        </div>
-
-                                                        {item.from_price != null ? (
-                                                            <Text
-                                                                variant="caption"
-                                                                colorVariant="muted"
-                                                                className={styles.price}
-                                                            >
-                                                                <span
-                                                                    className={styles.priceCurrent}
-                                                                >
-                                                                    da {item.from_price.toFixed(2)}{" "}
-                                                                    €
-                                                                </span>
-                                                            </Text>
-                                                        ) : (item.effective_price ?? item.price) !=
-                                                          null ? (
-                                                            <Text
-                                                                variant="caption"
-                                                                colorVariant="muted"
-                                                                className={styles.price}
-                                                            >
-                                                                {item.original_price != null && (
+                                                    {/* Divider + variants: only if there are variants to show */}
+                                                    {(item.variants?.length ?? 0) > 0 && (
+                                                        <>
+                                                            {/* Divider with label only in Case A (parent + variants).
+                                                                Case B (no parent): still render divider but without label */}
+                                                            <div className={styles.variantsDivider}>
+                                                                {item.parentSelected && (
                                                                     <span
                                                                         className={
-                                                                            styles.priceOriginal
+                                                                            styles.variantsLabel
                                                                         }
                                                                     >
-                                                                        €{" "}
-                                                                        {item.original_price.toFixed(
-                                                                            2
-                                                                        )}
+                                                                        Varianti
                                                                     </span>
                                                                 )}
-                                                                <span
-                                                                    className={`${styles.priceCurrent}${item.original_price != null ? ` ${styles.promoPrice}` : ""}`}
-                                                                >
-                                                                    €{" "}
-                                                                    {(
-                                                                        item.effective_price ??
-                                                                        item.price
-                                                                    )?.toFixed(2)}
-                                                                </span>
-                                                            </Text>
-                                                        ) : null}
+                                                            </div>
 
-                                                        {item.description && (
-                                                            <Text
-                                                                variant="caption"
-                                                                colorVariant="muted"
-                                                                className={styles.description}
-                                                            >
-                                                                {item.description}
-                                                            </Text>
-                                                        )}
-                                                    </div>
+                                                            {item.variants!.map(v => (
+                                                                <ProductRow
+                                                                    key={v.id}
+                                                                    name={v.name}
+                                                                    price={v.price}
+                                                                    originalPrice={v.original_price}
+                                                                    fromPrice={v.from_price}
+                                                                    description={v.description}
+                                                                    image={v.image}
+                                                                    showImage={
+                                                                        style.cardTemplate !==
+                                                                        "no-image"
+                                                                    }
+                                                                    mode={mode}
+                                                                    optionGroups={v.optionGroups}
+                                                                    onClick={e => {
+                                                                        e.stopPropagation();
+                                                                        setSelectedItem({
+                                                                            id: v.id,
+                                                                            name: v.name,
+                                                                            parentSelected: true,
+                                                                            price: v.price ?? null,
+                                                                            original_price:
+                                                                                v.original_price ??
+                                                                                null,
+                                                                            from_price:
+                                                                                v.from_price ??
+                                                                                null,
+                                                                            image: v.image ?? null,
+                                                                            description:
+                                                                                v.description ??
+                                                                                null,
+                                                                            ...(v.optionGroups &&
+                                                                            v.optionGroups.length >
+                                                                                0
+                                                                                ? {
+                                                                                      optionGroups:
+                                                                                          v.optionGroups
+                                                                                  }
+                                                                                : {}),
+                                                                            ...(item.ingredients &&
+                                                                            item.ingredients.length >
+                                                                                0
+                                                                                ? {
+                                                                                      ingredients:
+                                                                                          item.ingredients
+                                                                                  }
+                                                                                : {})
+                                                                        });
+                                                                    }}
+                                                                />
+                                                            ))}
+                                                        </>
+                                                    )}
                                                 </article>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </section>
                                 );

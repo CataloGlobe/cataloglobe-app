@@ -48,6 +48,77 @@
     margin-top: 0.5rem;
 }
 
+.formatPrices {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    border-top: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
+    padding-top: 0.5rem;
+}
+
+.formatPriceRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.formatPriceValue {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+}
+
+/* ALLERGENI */
+.allergenSection {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
+}
+
+.allergenSectionLabel {
+    color: var(--pub-text);
+}
+
+.allergenBadges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.allergenBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--pub-text) 8%, var(--pub-surface));
+    color: var(--pub-text);
+    border: 1px solid color-mix(in srgb, var(--pub-text) 14%, var(--pub-surface));
+}
+
+/* INGREDIENTI */
+.ingredientSection {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
+}
+
+.ingredientSectionLabel {
+    color: var(--pub-text);
+}
+
+.ingredientList {
+    line-height: 1.5;
+}
+
 /* DESKTOP */
 @media (min-width: 768px) {
     .root {

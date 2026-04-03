@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import CollectionView, {
     type CollectionViewSection,
@@ -8,6 +8,7 @@ import CollectionView, {
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 
 import { getActivityBySlug } from "@/services/supabase/activities";
+import { supabase } from "@/services/supabase/client";
 import {
     resolveActivityCatalogs,
     type ResolvedCollections,
@@ -21,16 +22,67 @@ import { DEFAULT_COLLECTION_STYLE } from "@/types/collectionStyle";
 import type { V2Activity } from "@/types/activity";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import NotFound from "../NotFound/NotFound";
+import { getDisplayValue } from "@/utils/attributes";
 
 /* ===============================================
    DATA MAPPING
    ResolvedCollections → CollectionViewSection[]
 =============================================== */
 
+type RawAttr = {
+    value_text?: string | null;
+    value_number?: number | null;
+    value_boolean?: boolean | null;
+    value_json?: unknown;
+    definition?: { label?: string | null; show_in_public_channels?: boolean | null } | null;
+};
+
 function mapProductToItem(p: ResolvedProduct): CollectionViewSectionItem {
+    const attributes = (p.attributes as RawAttr[] | undefined)
+        ?.filter(a => a.definition?.show_in_public_channels === true)
+        .map(a => {
+            const value = getDisplayValue(
+                a.value_text ?? a.value_number ?? a.value_boolean ?? a.value_json
+            );
+            return value ? { label: a.definition?.label ?? "—", value } : null;
+        })
+        .filter((x): x is { label: string; value: string } => x !== null);
+
+    const variants = p.variants?.map(v => ({
+        id: v.id,
+        name: v.name,
+        ...(typeof v.price === "number" ? { price: v.price } : {}),
+        ...(typeof v.original_price === "number" ? { original_price: v.original_price } : {}),
+        ...(typeof v.from_price === "number" ? { from_price: v.from_price } : {}),
+        ...(v.image_url ? { image: v.image_url } : {}),
+        ...(v.description ? { description: v.description } : {}),
+        ...(v.optionGroups && v.optionGroups.length > 0
+            ? {
+                  optionGroups: v.optionGroups.map(g => ({
+                      id: g.id,
+                      name: g.name,
+                      group_kind: g.group_kind,
+                      pricing_mode: g.pricing_mode,
+                      isRequired: g.is_required,
+                      maxSelectable: g.max_selectable,
+                      values: g.values.map(val => ({
+                          id: val.id,
+                          name: val.name,
+                          absolutePrice: val.absolute_price,
+                          priceModifier: val.price_modifier,
+                          ...(typeof val.original_price === "number"
+                              ? { originalPrice: val.original_price }
+                              : {})
+                      }))
+                  }))
+              }
+            : {})
+    }));
+
     return {
         id: p.id,
         name: p.name,
+        parentSelected: p.parentSelected ?? true,
         description: p.description ?? null,
         price: p.price ?? null,
         effective_price: p.effective_price ?? null,
@@ -48,9 +100,15 @@ function mapProductToItem(p: ResolvedProduct): CollectionViewSectionItem {
                 id: v.id,
                 name: v.name,
                 absolutePrice: v.absolute_price,
-                priceModifier: v.price_modifier
+                priceModifier: v.price_modifier,
+                ...(typeof v.original_price === "number" ? { originalPrice: v.original_price } : {})
             }))
-        }))
+        })),
+        ...(attributes && attributes.length > 0 ? { attributes } : {}),
+        ...(variants && variants.length > 0 ? { variants } : {}),
+        ...(p.allergens && p.allergens.length > 0 ? { allergens: p.allergens } : {}),
+        ...(p.ingredients && p.ingredients.length > 0 ? { ingredients: p.ingredients } : {}),
+        is_disabled: p.is_disabled ?? false
     };
 }
 
@@ -64,9 +122,7 @@ function mapCategoryToSection(cat: ResolvedCategory): CollectionViewSection {
 
 function mapCatalogToSections(resolved: ResolvedCollections): CollectionViewSection[] {
     if (!resolved.catalog?.categories) return [];
-    return resolved.catalog.categories
-        .map(mapCategoryToSection)
-        .filter(s => s.items.length > 0);
+    return resolved.catalog.categories.map(mapCategoryToSection).filter(s => s.items.length > 0);
 }
 
 /* ===============================================
@@ -90,6 +146,10 @@ type PageState =
 
 export default function PublicCollectionPage() {
     const { slug } = useParams<{ slug: string }>();
+    const [searchParams] = useSearchParams();
+    const simulateParam = searchParams.get("simulate");
+    const [simulatedAt, setSimulatedAt] = useState<Date | undefined>(undefined);
+    const isSimulation = simulatedAt && !Number.isNaN(simulatedAt.getTime());
     const [state, setState] = useState<PageState>({ status: "loading" });
 
     useEffect(() => {
@@ -105,13 +165,29 @@ export default function PublicCollectionPage() {
             try {
                 setState({ status: "loading" });
 
+                let effectiveSimulatedAt: Date | undefined = undefined;
+                if (simulateParam) {
+                    const {
+                        data: { session }
+                    } = await supabase.auth.getSession();
+                    if (session) {
+                        const parsed = new Date(simulateParam);
+                        if (!Number.isNaN(parsed.getTime())) {
+                            effectiveSimulatedAt = parsed;
+                        }
+                    }
+                }
+                setSimulatedAt(effectiveSimulatedAt);
+
                 const business = await getActivityBySlug(businessSlug);
                 if (!business) throw new Error("Attività non trovata.");
 
                 const [resolved, tenantInfo] = await Promise.all([
-                    resolveActivityCatalogs(business.id),
+                    resolveActivityCatalogs(business.id, effectiveSimulatedAt),
                     getTenantPublicInfo(business.tenant_id)
                 ]);
+                console.log("simulatedAt:", effectiveSimulatedAt);
+                console.log("resolved catalog:", JSON.stringify(resolved?.catalog?.name));
 
                 const tenantLogoUrl = tenantInfo?.logo_url
                     ? getTenantLogoPublicUrl(tenantInfo.logo_url)
@@ -143,8 +219,10 @@ export default function PublicCollectionPage() {
         }
 
         load();
-        return () => { cancelled = true; };
-    }, [slug]);
+        return () => {
+            cancelled = true;
+        };
+    }, [slug, simulateParam]);
 
     useEffect(() => {
         if (state.status === "ready") {
@@ -178,7 +256,11 @@ export default function PublicCollectionPage() {
                 }}
             >
                 <h2>{state.business.name}</h2>
-                <p>Nessun menu disponibile al momento.</p>
+                <p>
+                    {isSimulation
+                        ? "Nessun contenuto attivo per la data e l'ora simulata."
+                        : "Nessun contenuto disponibile al momento."}
+                </p>
             </div>
         );
     }
@@ -207,12 +289,32 @@ export default function PublicCollectionPage() {
 
     const sections = mapCatalogToSections(resolved);
     const emptyState =
-        sections.length === 0
-            ? { title: "Nessun prodotto disponibile al momento" }
-            : undefined;
+        sections.length === 0 ? { title: "Nessun prodotto disponibile al momento" } : undefined;
 
     return (
         <PublicThemeScope style={resolved.style}>
+            {isSimulation && (
+                <div
+                    style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 9999,
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                        padding: "0.5rem 1rem",
+                        background: "#fef3c7",
+                        color: "#92400e",
+                        fontSize: "0.8rem",
+                        fontWeight: 500,
+                        borderBottom: "1px solid #fde68a"
+                    }}
+                >
+                    <span>Anteprima simulazione</span>
+                    <span>{simulatedAt!.toLocaleString("it-IT")}</span>
+                </div>
+            )}
             <CollectionView
                 businessName={business.name}
                 businessImage={business.cover_image}
@@ -235,10 +337,9 @@ export default function PublicCollectionPage() {
                 }
             />
 
-            {resolved.featured?.after_catalog &&
-                resolved.featured.after_catalog.length > 0 && (
-                    <FeaturedBlock blocks={resolved.featured.after_catalog} />
-                )}
+            {resolved.featured?.after_catalog && resolved.featured.after_catalog.length > 0 && (
+                <FeaturedBlock blocks={resolved.featured.after_catalog} />
+            )}
         </PublicThemeScope>
     );
 }

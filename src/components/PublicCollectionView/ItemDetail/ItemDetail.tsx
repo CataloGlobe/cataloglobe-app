@@ -8,8 +8,6 @@ import styles from "./ItemDetail.module.scss";
 
 import type { CollectionViewSectionItem } from "../CollectionView/CollectionView";
 import { Button } from "@/components/ui";
-import ProductDetailOptions from "@/components/catalog-renderer/ProductDetailOptions";
-import type { ResolvedOptionGroup } from "@/services/supabase/resolveActivityCatalogs";
 
 type Props = {
     item: CollectionViewSectionItem | null;
@@ -18,36 +16,18 @@ type Props = {
     mode: "public" | "preview";
 };
 
-/**
- * Map CollectionViewSectionItem.optionGroups to ResolvedOptionGroup[]
- * so we can pass them to ProductDetailOptions (which uses the richer type).
- */
-function mapToResolvedGroups(
-    optionGroups: CollectionViewSectionItem["optionGroups"]
-): ResolvedOptionGroup[] {
-    if (!optionGroups) return [];
-    return optionGroups.map(g => ({
-        id: g.id,
-        name: g.name,
-        group_kind: g.group_kind ?? "ADDON",
-        pricing_mode: g.pricing_mode ?? "DELTA",
-        is_required: g.isRequired,
-        max_selectable: g.maxSelectable,
-        values: g.values.map(v => ({
-            id: v.id,
-            name: v.name,
-            absolute_price: v.absolutePrice ?? null,
-            price_modifier: v.priceModifier
-        }))
-    }));
-}
-
 export default function ItemDetail({ item, isOpen, onClose, mode }: Props) {
     if (!item) return null;
 
-    const resolvedGroups = mapToResolvedGroups(item.optionGroups);
-    const hasOptions = resolvedGroups.length > 0;
     const shouldShowImage = mode === "public" && !!item.image;
+    const displayPrice = item.effective_price ?? item.price;
+
+    const primaryPriceGroup = item.optionGroups?.find(
+        g => g.group_kind?.toUpperCase() === "PRIMARY_PRICE"
+    );
+    const nonPrimaryGroups =
+        item.optionGroups?.filter(g => g.group_kind?.toUpperCase() !== "PRIMARY_PRICE") ?? [];
+    const hasNonPrimaryOptions = nonPrimaryGroups.length > 0;
 
     return (
         <ModalLayout isOpen={isOpen} onClose={onClose} width="sm" height="sm">
@@ -87,8 +67,19 @@ export default function ItemDetail({ item, isOpen, onClose, mode }: Props) {
 
                     {/* CONTENUTO */}
                     <div className={styles.content}>
-                        {/* Price header — static display (before interactive calc) */}
-                        {!hasOptions && (item.effective_price ?? item.price) != null && (
+                        {/* Prezzo */}
+                        {item.from_price != null ? (
+                            <Text variant="body" weight={600} className={styles.price}>
+                                {item.original_price != null && (
+                                    <span className={styles.priceOriginal}>
+                                        da € {item.original_price.toFixed(2)}
+                                    </span>
+                                )}
+                                <span className={styles.priceCurrent}>
+                                    da € {item.from_price.toFixed(2)}
+                                </span>
+                            </Text>
+                        ) : displayPrice != null ? (
                             <Text variant="body" weight={600} className={styles.price}>
                                 {item.original_price != null && (
                                     <span className={styles.priceOriginal}>
@@ -96,18 +87,32 @@ export default function ItemDetail({ item, isOpen, onClose, mode }: Props) {
                                     </span>
                                 )}
                                 <span className={styles.priceCurrent}>
-                                    € {(item.effective_price ?? item.price)?.toFixed(2)}
+                                    € {displayPrice.toFixed(2)}
                                 </span>
                             </Text>
-                        )}
+                        ) : null}
 
-                        {/* "da X€" header for products with formats */}
-                        {!hasOptions && item.from_price != null && (
-                            <Text variant="body" weight={600} className={styles.price}>
-                                <span className={styles.priceCurrent}>
-                                    da {item.from_price.toFixed(2)} €
-                                </span>
-                            </Text>
+                        {/* FORMAT PRICES — PRIMARY_PRICE option group below the main price */}
+                        {primaryPriceGroup && (
+                            <div className={styles.formatPrices}>
+                                {primaryPriceGroup.values.map(v => (
+                                    <div key={v.id} className={styles.formatPriceRow}>
+                                        <Text variant="body-sm">{v.name}</Text>
+                                        {v.absolutePrice != null && (
+                                            <div className={styles.formatPriceValue}>
+                                                {v.originalPrice != null && (
+                                                    <span className={styles.priceOriginal}>
+                                                        € {v.originalPrice.toFixed(2)}
+                                                    </span>
+                                                )}
+                                                <Text variant="body-sm" weight={600}>
+                                                    € {v.absolutePrice.toFixed(2)}
+                                                </Text>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
                         )}
 
                         {item.description && (
@@ -120,19 +125,87 @@ export default function ItemDetail({ item, isOpen, onClose, mode }: Props) {
                             </Text>
                         )}
 
-                        {/* INTERACTIVE OPTIONS + LIVE PRICE CALC */}
-                        {hasOptions && (
-                            <div className={styles.optionsSection}>
-                                <ProductDetailOptions optionGroups={resolvedGroups} />
+                        {/* ADDON / extra option groups (non-PRIMARY_PRICE) */}
+                        {hasNonPrimaryOptions && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                                {nonPrimaryGroups.map(group => (
+                                    <div key={group.id}>
+                                        <Text variant="body-sm" weight={700}>
+                                            {group.name}
+                                        </Text>
+                                        <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+                                            {group.values.map(v => (
+                                                <div
+                                                    key={v.id}
+                                                    style={{
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center"
+                                                    }}
+                                                >
+                                                    <Text variant="body-sm">{v.name}</Text>
+                                                    {v.priceModifier != null && (
+                                                        <Text
+                                                            variant="body-sm"
+                                                            weight={v.priceModifier === 0 ? 400 : 600}
+                                                            colorVariant={v.priceModifier === 0 ? "muted" : undefined}
+                                                        >
+                                                            {v.priceModifier === 0
+                                                                ? "incluso"
+                                                                : v.priceModifier > 0
+                                                                    ? `+${v.priceModifier.toFixed(2)} €`
+                                                                    : `${v.priceModifier.toFixed(2)} €`}
+                                                        </Text>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
 
-                        {/* 🔮 SLOT FUTURI
-                        - allergeni
-                        - ingredienti
-                        - CTA
-                        - badge
-                    */}
+                        {/* ATTRIBUTI */}
+                        {item.attributes && item.attributes.length > 0 && (
+                            <div style={{ marginTop: 12 }}>
+                                {item.attributes.map((a, idx) => {
+                                    if (!a.value || a.value.trim() === "") return null;
+                                    return (
+                                        <Text key={idx} variant="body-sm" colorVariant="muted">
+                                            <strong>{a.label}:</strong> {a.value}
+                                        </Text>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* ALLERGENI */}
+                        {item.allergens && item.allergens.length > 0 && (
+                            <div className={styles.allergenSection}>
+                                <Text variant="body-sm" weight={700} className={styles.allergenSectionLabel}>
+                                    Allergeni
+                                </Text>
+                                <div className={styles.allergenBadges}>
+                                    {item.allergens.map(a => (
+                                        <span key={a.id} className={styles.allergenBadge}>
+                                            {a.label_it}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* INGREDIENTI */}
+                        {item.ingredients && item.ingredients.length > 0 && (
+                            <div className={styles.ingredientSection}>
+                                <Text variant="body-sm" weight={700} className={styles.ingredientSectionLabel}>
+                                    Ingredienti
+                                </Text>
+                                <Text variant="body-sm" colorVariant="muted" className={styles.ingredientList}>
+                                    {item.ingredients.map(i => i.name).join(", ")}
+                                </Text>
+                            </div>
+                        )}
                     </div>
                 </div>
             </ModalLayoutContent>
