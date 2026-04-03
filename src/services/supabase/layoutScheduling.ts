@@ -1,4 +1,6 @@
 import { supabase } from "@/services/supabase/client";
+import { computePriority, levelFromPriority } from "@utils/priorityUtils";
+import type { PriorityLevel } from "@utils/priorityUtils";
 
 export type LayoutTimeMode = "always" | "window";
 export type RuleType = "layout" | "price" | "visibility";
@@ -10,6 +12,7 @@ export type PriceRuleProductOverride = {
     product_name: string | null;
     override_price: number;
     show_original_price: boolean;
+    option_value_id: string | null;
 };
 
 export type VisibilityRuleProductOverride = {
@@ -44,6 +47,8 @@ export type LayoutRule = {
     groupIds: string[];
     visibility_mode: VisibilityMode;
     priority: number;
+    priority_level: PriorityLevel;
+    display_order: number;
     enabled: boolean;
     time_mode: LayoutTimeMode;
     days_of_week: number[] | null;
@@ -65,8 +70,13 @@ export type LayoutRuleOption = {
     id: string;
     name: string;
     tenant_id: string;
+    slug?: string;
     is_system?: boolean;
     current_version?: { version: number } | null;
+    /** Set for variant products (parent_product_id IS NOT NULL). */
+    parent_product_id?: string | null;
+    /** Set for products with PRIMARY_PRICE option groups (format-based pricing). */
+    format_values?: Array<{ id: string; name: string }>;
 };
 
 type RawScheduleRow = {
@@ -79,6 +89,8 @@ type RawScheduleRow = {
     apply_to_all?: boolean | null;
     visibility_mode?: VisibilityMode | null;
     priority: number;
+    priority_level?: string | null;
+    display_order?: number | null;
     enabled: boolean;
     time_mode: LayoutTimeMode;
     days_of_week: number[] | null;
@@ -98,6 +110,7 @@ type RawScheduleLayoutRow = {
 type RawPriceOverrideRow = {
     schedule_id: string;
     product_id: string;
+    option_value_id: string | null;
     override_price: number;
     show_original_price: boolean;
     product:
@@ -107,6 +120,17 @@ type RawPriceOverrideRow = {
         | {
               name: string | null;
           }[]
+        | null;
+};
+
+type RawProductOptionRow = {
+    id: string;
+    name: string;
+    tenant_id: string;
+    parent_product_id: string | null;
+    option_groups:
+        | Array<{ group_kind: string; values: Array<{ id: string; name: string }> }>
+        | { group_kind: string; values: Array<{ id: string; name: string }> }
         | null;
 };
 
@@ -176,6 +200,12 @@ function normalizeVisibilityMode(value: string | null | undefined): VisibilityMo
     return null;
 }
 
+function normalizePriority(value: number): number {
+    if (!Number.isFinite(value)) return 21; // default: 'medium' base
+    const rounded = Math.trunc(value);
+    return Math.min(40, Math.max(1, rounded));
+}
+
 const systemActivityGroupIdByTenant = new Map<string, string>();
 
 function isMissingColumnError(error: unknown, column: string): boolean {
@@ -206,6 +236,8 @@ async function selectSchedulesWithNameFallback(tenantId: string): Promise<RawSch
             ...(includeApplyToAll ? ["apply_to_all"] : []),
             ...(includeVisibilityMode ? ["visibility_mode"] : []),
             "priority",
+            "priority_level",
+            "display_order",
             "enabled",
             "time_mode",
             "days_of_week",
@@ -249,9 +281,11 @@ async function insertScheduleWithNameFallback(
     payload: {
         tenant_id: string;
         rule_type: RuleType;
-        target_type: string;
-        target_id: string;
+        target_type: string | null;
+        target_id: string | null;
         priority: number;
+        priority_level: PriorityLevel;
+        display_order: number;
         enabled: boolean;
         time_mode: LayoutTimeMode;
         days_of_week: number[] | null;
@@ -260,12 +294,16 @@ async function insertScheduleWithNameFallback(
     },
     name?: string | null
 ): Promise<{ id: string }> {
+    const normalizedPayload = {
+        ...payload,
+        priority: normalizePriority(payload.priority)
+    };
     const normalizedName = name?.trim() ?? "";
     if (normalizedName.length > 0) {
         const withNameRes = await supabase
             .from("schedules")
             .insert({
-                ...payload,
+                ...normalizedPayload,
                 name: normalizedName
             })
             .select("id")
@@ -277,7 +315,7 @@ async function insertScheduleWithNameFallback(
 
     const withoutNameRes = await supabase
         .from("schedules")
-        .insert(payload)
+        .insert(normalizedPayload)
         .select("id")
         .single();
 
@@ -289,19 +327,27 @@ async function updateScheduleWithNameFallback(input: {
     scheduleId: string;
     patch: {
         priority: number;
+        priority_level: PriorityLevel;
+        display_order: number;
         enabled: boolean;
         time_mode: LayoutTimeMode;
         days_of_week: number[] | null;
         time_from: string | null;
         time_to: string | null;
+        start_at?: string | null;
+        end_at?: string | null;
         target_type?: RuleTargetType;
         target_id?: string;
     };
     name?: string | null;
 }): Promise<void> {
     const normalizedName = input.name?.trim() ?? "";
-    const patchWithName = {
+    const normalizedPatch = {
         ...input.patch,
+        priority: normalizePriority(input.patch.priority)
+    };
+    const patchWithName = {
+        ...normalizedPatch,
         name: normalizedName.length > 0 ? normalizedName : null
     };
 
@@ -315,7 +361,7 @@ async function updateScheduleWithNameFallback(input: {
 
     const withoutNameRes = await supabase
         .from("schedules")
-        .update(input.patch)
+        .update(normalizedPatch)
         .eq("id", input.scheduleId);
 
     if (withoutNameRes.error) throw withoutNameRes.error;
@@ -463,6 +509,8 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
         groupIds: [] as string[],
         visibility_mode: row.visibility_mode ?? "hide",
         priority: row.priority,
+        priority_level: (row.priority_level as PriorityLevel | null | undefined) ?? levelFromPriority(row.priority),
+        display_order: row.display_order ?? 0,
         enabled: row.enabled,
         time_mode: row.time_mode,
         days_of_week: row.days_of_week,
@@ -514,6 +562,7 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
                 `
                 schedule_id,
                 product_id,
+                option_value_id,
                 override_price,
                 show_original_price,
                 product:products(
@@ -531,7 +580,8 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
                 product_id: row.product_id,
                 product_name: normalizeOne(row.product)?.name ?? null,
                 override_price: Number(row.override_price),
-                show_original_price: row.show_original_price
+                show_original_price: row.show_original_price,
+                option_value_id: row.option_value_id ?? null
             });
             priceOverridesByScheduleId.set(row.schedule_id, current);
         }
@@ -733,7 +783,7 @@ export async function listLayoutRuleOptions(tenantId: string): Promise<{
         await Promise.all([
             supabase
                 .from("activities")
-                .select("id, name, tenant_id")
+                .select("id, name, tenant_id, slug")
                 .eq("tenant_id", tenantId)
                 .order("name", { ascending: true }),
             supabase
@@ -756,16 +806,20 @@ export async function listLayoutRuleOptions(tenantId: string): Promise<{
                 .order("name", { ascending: true }),
             supabase
                 .from("products")
-                .select("id, name, tenant_id")
+                .select(
+                    "id, name, tenant_id, parent_product_id, option_groups:product_option_groups(group_kind, values:product_option_values(id, name))"
+                )
                 .eq("tenant_id", tenantId)
                 .order("name", { ascending: true }),
             supabase
                 .from("product_groups")
                 .select("id, name, tenant_id")
+                .eq("tenant_id", tenantId)
                 .order("name", { ascending: true }),
             supabase
                 .from("product_group_items")
-                .select("product_id, group_id, tenant_id"),
+                .select("product_id, group_id, tenant_id")
+                .eq("tenant_id", tenantId),
             supabase
                 .from("featured_contents")
                 .select("id, title, tenant_id")
@@ -796,7 +850,25 @@ export async function listLayoutRuleOptions(tenantId: string): Promise<{
                 ? s.current_version[0]
                 : s.current_version
         })),
-        products: (productsRes.data ?? []) as LayoutRuleOption[],
+        products: ((productsRes.data ?? []) as RawProductOptionRow[]).map(p => {
+            const groups = Array.isArray(p.option_groups)
+                ? p.option_groups
+                : p.option_groups
+                ? [p.option_groups]
+                : [];
+            const primaryGroup = groups.find(g => g.group_kind === "PRIMARY_PRICE");
+            const format_values =
+                primaryGroup && primaryGroup.values.length > 0
+                    ? primaryGroup.values.map(v => ({ id: v.id, name: v.name }))
+                    : undefined;
+            return {
+                id: p.id,
+                name: p.name,
+                tenant_id: p.tenant_id,
+                parent_product_id: p.parent_product_id,
+                ...(format_values ? { format_values } : {})
+            };
+        }),
         productGroups: (productGroupsRes.data ?? []) as LayoutRuleOption[],
         productGroupItems: (productGroupItemsRes.data ?? []) as ProductGroupAssignmentOption[],
         featuredContents: (
@@ -812,7 +884,8 @@ export async function createLayoutRule(input: {
     targetId: string;
     catalogId: string;
     styleId: string;
-    priority: number;
+    priorityLevel: PriorityLevel;
+    displayOrder: number;
     enabled: boolean;
     timeMode: LayoutTimeMode;
     daysOfWeek: number[] | null;
@@ -830,7 +903,9 @@ export async function createLayoutRule(input: {
             rule_type: "layout",
             target_type: input.targetType,
             target_id: input.targetId,
-            priority: input.priority,
+            priority: computePriority(input.priorityLevel, input.displayOrder),
+            priority_level: input.priorityLevel,
+            display_order: input.displayOrder,
             enabled: input.enabled,
             time_mode: input.timeMode,
             days_of_week: input.daysOfWeek,
@@ -877,7 +952,8 @@ export async function createPriceRule(input: {
     name?: string;
     targetType: "activity" | "activity_group";
     targetId: string;
-    priority: number;
+    priorityLevel: PriorityLevel;
+    displayOrder: number;
     enabled: boolean;
     timeMode: LayoutTimeMode;
     daysOfWeek: number[] | null;
@@ -899,7 +975,9 @@ export async function createPriceRule(input: {
             rule_type: "price",
             target_type: input.targetType,
             target_id: input.targetId,
-            priority: input.priority,
+            priority: computePriority(input.priorityLevel, input.displayOrder),
+            priority_level: input.priorityLevel,
+            display_order: input.displayOrder,
             enabled: input.enabled,
             time_mode: input.timeMode,
             days_of_week: input.daysOfWeek,
@@ -932,7 +1010,8 @@ export async function createVisibilityRule(input: {
     name?: string;
     targetType: "activity" | "activity_group";
     targetId: string;
-    priority: number;
+    priorityLevel: PriorityLevel;
+    displayOrder: number;
     enabled: boolean;
     timeMode: LayoutTimeMode;
     daysOfWeek: number[] | null;
@@ -953,7 +1032,9 @@ export async function createVisibilityRule(input: {
             rule_type: "visibility",
             target_type: input.targetType,
             target_id: input.targetId,
-            priority: input.priority,
+            priority: computePriority(input.priorityLevel, input.displayOrder),
+            priority_level: input.priorityLevel,
+            display_order: input.displayOrder,
             enabled: input.enabled,
             time_mode: input.timeMode,
             days_of_week: input.daysOfWeek,
@@ -990,7 +1071,8 @@ export async function updateLayoutRule(input: {
     targetId?: string;
     catalogId: string;
     styleId: string;
-    priority: number;
+    priorityLevel: PriorityLevel;
+    displayOrder: number;
     enabled: boolean;
     timeMode: LayoutTimeMode;
     daysOfWeek: number[] | null;
@@ -1004,6 +1086,8 @@ export async function updateLayoutRule(input: {
 }): Promise<void> {
     const schedulePatch: {
         priority: number;
+        priority_level: PriorityLevel;
+        display_order: number;
         enabled: boolean;
         time_mode: LayoutTimeMode;
         days_of_week: number[] | null;
@@ -1012,7 +1096,9 @@ export async function updateLayoutRule(input: {
         target_type?: "activity" | "activity_group";
         target_id?: string;
     } = {
-        priority: input.priority,
+        priority: computePriority(input.priorityLevel, input.displayOrder),
+        priority_level: input.priorityLevel,
+        display_order: input.displayOrder,
         enabled: input.enabled,
         time_mode: input.timeMode,
         days_of_week: input.daysOfWeek,
@@ -1096,21 +1182,27 @@ export async function createRuleDraft(input: {
     tenantId: string;
     ruleType: RuleType;
     name: string;
-    priority?: number;
+    priorityLevel?: PriorityLevel;
+    displayOrder?: number;
 }): Promise<string> {
     const systemGroupId = await getSystemActivityGroupId(input.tenantId);
     if (!systemGroupId) {
         throw new Error("Gruppo di sistema 'Tutte le sedi' mancante.");
     }
 
+    const level = input.priorityLevel ?? 'medium';
+    const order = input.displayOrder ?? 0;
+
     const schedule = await insertScheduleWithNameFallback(
         {
             tenant_id: input.tenantId,
             rule_type: input.ruleType,
-            target_type: "activity_group",
-            target_id: systemGroupId,
-            priority: input.priority ?? 10,
-            enabled: false,
+            target_type: null,
+            target_id: null,
+            priority: computePriority(level, order),
+            priority_level: level,
+            display_order: order,
+            enabled: true,
             time_mode: "always",
             days_of_week: null,
             time_from: null,
@@ -1151,15 +1243,18 @@ export async function updateRule(input: {
     applyToAll: boolean;
     activityIds: string[];
     groupIds: string[];
-    // Legacy fallback target (kept for backward compat with Edge Functions)
-    targetType: RuleTargetType;
-    targetId: string;
-    priority: number;
+    // Legacy fallback target (deprecated — derived automatically from activityIds/groupIds)
+    targetType?: RuleTargetType;
+    targetId?: string;
+    priorityLevel: PriorityLevel;
+    displayOrder: number;
     enabled: boolean;
     timeMode: LayoutTimeMode;
     daysOfWeek: number[] | null;
     timeFrom: string | null;
     timeTo: string | null;
+    startAt: string | null;
+    endAt: string | null;
     layout?: {
         catalogId: string | null;
         styleId: string | null;
@@ -1171,6 +1266,7 @@ export async function updateRule(input: {
     };
     priceProducts?: Array<{
         productId: string;
+        optionValueId?: string | null;
         overridePrice: number;
         showOriginalPrice: boolean;
     }>;
@@ -1179,40 +1275,51 @@ export async function updateRule(input: {
         mode: VisibilityMode;
     }>;
 }): Promise<void> {
-    // Update schedules (legacy target fields kept in sync + apply_to_all)
+    // Derive legacy target fields from activityIds/groupIds (source of truth).
+    // These must be kept in sync so the runtime resolver (which queries target_type/target_id
+    // directly) can find the rule.
+    let effectiveApplyToAll = input.applyToAll;
+    let legacyTargetType: "activity" | "activity_group" | null = null;
+    let legacyTargetId: string | null = null;
+
+    if (!input.applyToAll) {
+        if (input.activityIds.length > 0) {
+            legacyTargetType = "activity";
+            legacyTargetId = input.activityIds[0];
+        } else if (input.groupIds.length > 0) {
+            legacyTargetType = "activity_group";
+            legacyTargetId = input.groupIds[0];
+        } else {
+            // No target selected — force global so the resolver can still find the rule
+            effectiveApplyToAll = true;
+        }
+    }
+
+    const targetPayload = {
+        apply_to_all: effectiveApplyToAll,
+        target_type: legacyTargetType,
+        target_id: legacyTargetId
+    };
+
     const { error: scheduleUpdateError } = await supabase
         .from("schedules")
-        .update({
-            apply_to_all: input.applyToAll,
-            target_type: input.targetType,
-            target_id: input.targetId
-        })
+        .update(targetPayload)
         .eq("id", input.scheduleId);
-    if (scheduleUpdateError) {
-        if (!isMissingColumnError(scheduleUpdateError, "apply_to_all")) {
-            throw scheduleUpdateError;
-        }
-
-        const { error: legacyTargetUpdateError } = await supabase
-            .from("schedules")
-            .update({
-                target_type: input.targetType,
-                target_id: input.targetId
-            })
-            .eq("id", input.scheduleId);
-
-        if (legacyTargetUpdateError) throw legacyTargetUpdateError;
-    }
+    if (scheduleUpdateError) throw scheduleUpdateError;
 
     await updateScheduleWithNameFallback({
         scheduleId: input.scheduleId,
         patch: {
-            priority: input.priority,
+            priority: computePriority(input.priorityLevel, input.displayOrder),
+            priority_level: input.priorityLevel,
+            display_order: input.displayOrder,
             enabled: input.enabled,
             time_mode: input.timeMode,
             days_of_week: input.daysOfWeek,
             time_from: input.timeFrom,
-            time_to: input.timeTo
+            time_to: input.timeTo,
+            start_at: input.startAt,
+            end_at: input.endAt
         },
         name: input.name
     });
@@ -1329,6 +1436,7 @@ export async function updateRule(input: {
                         tenant_id: input.tenantId,
                         schedule_id: input.scheduleId,
                         product_id: product.productId,
+                        option_value_id: product.optionValueId ?? null,
                         override_price: product.overridePrice,
                         show_original_price: product.showOriginalPrice
                     }))
@@ -1372,4 +1480,24 @@ export async function updateScheduleEnabled(scheduleId: string, enabled: boolean
     const { error } = await supabase.from("schedules").update({ enabled }).eq("id", scheduleId);
 
     if (error) throw error;
+}
+
+export async function reorderSchedulesInLevel(
+    tenantId: string,
+    updates: Array<{ id: string; display_order: number; priority_level: PriorityLevel }>
+): Promise<void> {
+    if (updates.length === 0) return;
+
+    for (const u of updates) {
+        const { error } = await supabase
+            .from("schedules")
+            .update({
+                display_order: u.display_order,
+                priority: computePriority(u.priority_level, u.display_order)
+            })
+            .eq("id", u.id)
+            .eq("tenant_id", tenantId);
+
+        if (error) throw error;
+    }
 }
