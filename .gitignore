@@ -42,5 +42,4 @@ tsconfig.tsbuildinfo
 # Agent
 .agent/
 .agents/
-supabase/.temp/
 skills-lock.json
