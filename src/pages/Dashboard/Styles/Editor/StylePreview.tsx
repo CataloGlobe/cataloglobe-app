@@ -64,21 +64,24 @@ const MOCK_SECTIONS: CollectionViewSection[] = [
                 name: "Elemento Base",
                 description: "Descrizione breve del prodotto o servizio.",
                 price: 12.0,
-                image: null
+                image: null,
+                parentSelected: true
             },
             {
                 id: "i2",
                 name: "Prodotto Premium",
                 description: "Versione avanzata con caratteristiche aggiuntive.",
                 price: 24.0,
-                image: null
+                image: null,
+                parentSelected: true
             },
             {
                 id: "i3",
                 name: "Articolo Standard",
                 description: "Adatto a diversi contesti e necessità.",
                 price: 9.0,
-                image: null
+                image: null,
+                parentSelected: true
             }
         ]
     },
@@ -93,21 +96,24 @@ const MOCK_SECTIONS: CollectionViewSection[] = [
                 price: 15.0,
                 original_price: 22.0,
                 effective_price: 15.0,
-                image: null
+                image: null,
+                parentSelected: true
             },
             {
                 id: "i5",
                 name: "Versione Compatta",
                 description: "Ideale per un utilizzo quotidiano.",
                 price: 8.0,
-                image: null
+                image: null,
+                parentSelected: true
             },
             {
                 id: "i6",
                 name: "Proposta Stagionale",
                 description: "Disponibilità limitata alla stagione in corso.",
                 price: 11.0,
-                image: null
+                image: null,
+                parentSelected: true
             }
         ]
     },
@@ -120,14 +126,16 @@ const MOCK_SECTIONS: CollectionViewSection[] = [
                 name: "Confezione Speciale",
                 description: "Formato pensato per più persone.",
                 price: 32.0,
-                image: null
+                image: null,
+                parentSelected: true
             },
             {
                 id: "i8",
                 name: "Articolo Esclusivo",
                 description: "Produzione limitata, disponibile su richiesta.",
                 price: 45.0,
-                image: null
+                image: null,
+                parentSelected: true
             }
         ]
     }

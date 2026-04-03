@@ -13,9 +13,18 @@
   flex: 1;
 }
 
-.nameCell {
+// Name cell with depth-based indentation
+.groupName {
   display: flex;
   align-items: center;
+
+  &[data-depth="1"] {
+    padding-left: 24px;
+  }
+
+  &[data-depth="2"] {
+    padding-left: 48px;
+  }
 }
 
 .emptyState {
@@ -32,6 +41,7 @@
   color: var(--color-gray-300);
 }
 
+// ── Drawer shared ──────────────────────────────────────────
 .formBody {
   display: flex;
   flex-direction: column;
@@ -56,6 +66,15 @@
   margin: 0;
 }
 
+.drawerSubtitle {
+  margin-top: 4px;
+}
+
+.captionHint {
+  margin-top: 4px;
+}
+
+// ── Product picker (DataTable in drawer) ───────────────────
 .pickerSection {
   display: flex;
   flex-direction: column;
@@ -68,39 +87,7 @@
   justify-content: space-between;
 }
 
-.pickerList {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  max-height: 280px;
-  overflow-y: auto;
-  border: 1px solid var(--border, #e2e8f0);
-  border-radius: 8px;
-}
-
-.pickerItem {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border, #e2e8f0);
-  cursor: pointer;
-  transition: background 0.1s ease;
-
-  &:last-child {
-    border-bottom: none;
-  }
-
-  &:hover {
-    background: var(--surface-hover, #f8fafc);
-  }
-
-  &.pickerItemSelected {
-    background: var(--brand-primary-10, rgba(99, 102, 241, 0.06));
-  }
-}
-
-.pickerItemThumb {
+.pickerThumb {
   width: 32px;
   height: 32px;
   border-radius: 6px;
@@ -108,7 +95,7 @@
   flex-shrink: 0;
 }
 
-.pickerItemThumbPlaceholder {
+.pickerThumbPlaceholder {
   width: 32px;
   height: 32px;
   border-radius: 6px;
@@ -116,21 +103,22 @@
   flex-shrink: 0;
 }
 
-.pickerItemName {
-  flex: 1;
-  min-width: 0;
+// ── Delete drawer ──────────────────────────────────────────
+.deleteContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
 }
 
-.pickerEmptyState {
-  padding: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.deleteIcon {
+  color: var(--color-warning-500, #f59e0b);
 }
 
-.pickerLoading {
-  padding: 24px;
+.deleteTextBlock {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
 }

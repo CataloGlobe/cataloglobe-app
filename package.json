@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test": "vitest run --config vitest.config.ts",
+    "test:watch": "vitest --config vitest.config.ts",
     "preview": "vite preview",
     "parity:check": "node --loader ./scripts/ts-loader.mjs scripts/parity-check.ts",
     "test:activity-overrides": "node --loader ./scripts/ts-loader.mjs scripts/test-activity-overrides.ts"
@@ -44,6 +46,7 @@
     "sass-embedded": "^1.93.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.45.0",
-    "vite": "^7.1.7"
+    "vite": "^7.1.7",
+    "vitest": "^4.1.2"
   }
 }

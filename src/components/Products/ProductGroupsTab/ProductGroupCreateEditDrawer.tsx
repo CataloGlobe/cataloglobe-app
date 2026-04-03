@@ -1,19 +1,19 @@
-import React, { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
-import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
+import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
     createProductGroup,
     updateProductGroup,
     getGroupProducts,
     syncGroupProducts,
-    ProductGroup
+    ProductGroupWithCount
 } from "@/services/supabase/productGroups";
 import {
     listBaseProductsForPicker,
@@ -27,10 +27,11 @@ type ProductGroupCreateEditDrawerProps = {
     open: boolean;
     onClose: () => void;
     mode: GroupFormMode;
-    groupData: ProductGroup | null;
-    allGroups: ProductGroup[];
+    groupData: ProductGroupWithCount | null;
+    allGroups: ProductGroupWithCount[];
     onSuccess: () => void;
     tenantId?: string;
+    defaultParentId?: string;
 };
 
 export function ProductGroupCreateEditDrawer({
@@ -40,10 +41,12 @@ export function ProductGroupCreateEditDrawer({
     groupData,
     allGroups,
     onSuccess,
-    tenantId
+    tenantId,
+    defaultParentId
 }: ProductGroupCreateEditDrawerProps) {
     const { showToast } = useToast();
     const isEditing = mode === "edit";
+    const isParentLocked = !isEditing && !!defaultParentId;
 
     // ── Group form state ─────────────────────────────────────────────────────
     const [isSaving, setIsSaving] = useState(false);
@@ -53,7 +56,7 @@ export function ProductGroupCreateEditDrawer({
     // ── Product picker state ─────────────────────────────────────────────────
     const [allProducts, setAllProducts] = useState<ProductPickerItem[]>([]);
     const [isLoadingProducts, setIsLoadingProducts] = useState(false);
-    const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+    const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
     const [productSearch, setProductSearch] = useState("");
 
     // ── Parent group options ─────────────────────────────────────────────────
@@ -66,7 +69,7 @@ export function ProductGroupCreateEditDrawer({
     }, [allGroups, isEditing, groupData]);
 
     const selectOptions = [
-        { value: "", label: "Nessun gruppo padre (Root)" },
+        { value: "", label: "Nessun gruppo padre" },
         ...parentOptions.map(g => ({ value: g.id, label: g.name }))
     ];
 
@@ -83,14 +86,14 @@ export function ProductGroupCreateEditDrawer({
 
         setIsSaving(false);
         setProductSearch("");
-        setSelectedProductIds(new Set());
+        setSelectedProductIds([]);
 
         if (isEditing && groupData) {
             setName(groupData.name);
             setParentGroupId(groupData.parent_group_id);
         } else {
             setName("");
-            setParentGroupId(null);
+            setParentGroupId(defaultParentId ?? null);
         }
 
         if (!tenantId) return;
@@ -105,7 +108,7 @@ export function ProductGroupCreateEditDrawer({
                         : Promise.resolve([] as string[])
                 ]);
                 setAllProducts(products);
-                setSelectedProductIds(new Set(assignedIds));
+                setSelectedProductIds(assignedIds);
             } catch {
                 showToast({ message: "Errore nel caricamento dei prodotti.", type: "error" });
             } finally {
@@ -114,20 +117,7 @@ export function ProductGroupCreateEditDrawer({
         };
 
         loadPickerData();
-    }, [open, isEditing, groupData, tenantId, showToast]);
-
-    // ── Toggle single product ────────────────────────────────────────────────
-    const toggleProduct = (productId: string) => {
-        setSelectedProductIds(prev => {
-            const next = new Set(prev);
-            if (next.has(productId)) {
-                next.delete(productId);
-            } else {
-                next.add(productId);
-            }
-            return next;
-        });
-    };
+    }, [open, isEditing, groupData, tenantId, showToast, defaultParentId]);
 
     // ── Save ─────────────────────────────────────────────────────────────────
     const handleSave = async () => {
@@ -162,20 +152,45 @@ export function ProductGroupCreateEditDrawer({
                 successMessage = "Gruppo creato con successo.";
             }
 
-            // tenantId is guaranteed non-undefined here due to the early return guard above
-            await syncGroupProducts(savedGroupId, tenantId!, Array.from(selectedProductIds));
+            await syncGroupProducts(savedGroupId, tenantId, selectedProductIds);
 
             showToast({ message: successMessage, type: "success" });
             onSuccess();
             onClose();
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : "Errore durante il salvataggio.";
-            console.error("Errore salvataggio gruppo:", error);
-            showToast({ message, type: "error" });
+        } catch {
+            showToast({ message: "Errore nel salvataggio del gruppo.", type: "error" });
         } finally {
             setIsSaving(false);
         }
     };
+
+    // ── Product picker columns ───────────────────────────────────────────────
+    const pickerColumns: ColumnDefinition<ProductPickerItem>[] = [
+        {
+            id: "thumbnail",
+            header: "",
+            width: "40px",
+            cell: (_value, row) =>
+                row.image_url ? (
+                    <img
+                        src={row.image_url}
+                        alt=""
+                        className={styles.pickerThumb}
+                    />
+                ) : (
+                    <div className={styles.pickerThumbPlaceholder} />
+                )
+        },
+        {
+            id: "name",
+            header: "Prodotto",
+            width: "1fr",
+            accessor: row => row.name,
+            cell: value => (
+                <Text variant="body-sm">{value}</Text>
+            )
+        }
+    ];
 
     // ── Render ────────────────────────────────────────────────────────────────
     const header = (
@@ -183,7 +198,7 @@ export function ProductGroupCreateEditDrawer({
             <Text variant="title-sm" weight={600}>
                 {isEditing ? "Modifica gruppo" : "Crea nuovo gruppo"}
             </Text>
-            <Text variant="body-sm" colorVariant="muted" style={{ marginTop: 4 }}>
+            <Text variant="body-sm" colorVariant="muted" className={styles.drawerSubtitle}>
                 {isEditing
                     ? "Modifica i dettagli del gruppo di prodotti."
                     : "Aggiungi un nuovo gruppo per organizzare i tuoi prodotti."}
@@ -224,10 +239,12 @@ export function ProductGroupCreateEditDrawer({
                                 value={parentGroupId || ""}
                                 onChange={e => setParentGroupId(e.target.value || null)}
                                 options={selectOptions}
+                                disabled={isParentLocked}
                             />
-                            <Text variant="caption" colorVariant="muted" style={{ marginTop: 4 }}>
-                                Solo i gruppi principali possono avere sottogruppi. Massima
-                                profondità: 1 livello.
+                            <Text variant="caption" colorVariant="muted" className={styles.captionHint}>
+                                {isParentLocked
+                                    ? "Il gruppo padre è stato pre-selezionato."
+                                    : "Solo i gruppi principali possono avere sottogruppi. Massima profondità: 1 livello."}
                             </Text>
                         </div>
                     </div>
@@ -241,10 +258,10 @@ export function ProductGroupCreateEditDrawer({
                             <Text variant="body" weight={600}>
                                 Prodotti inclusi
                             </Text>
-                            {selectedProductIds.size > 0 && (
+                            {selectedProductIds.length > 0 && (
                                 <Text variant="caption" colorVariant="muted">
-                                    {selectedProductIds.size}{" "}
-                                    {selectedProductIds.size === 1 ? "prodotto selezionato" : "prodotti selezionati"}
+                                    {selectedProductIds.length}{" "}
+                                    {selectedProductIds.length === 1 ? "prodotto selezionato" : "prodotti selezionati"}
                                 </Text>
                             )}
                         </div>
@@ -257,63 +274,28 @@ export function ProductGroupCreateEditDrawer({
                             allowClear
                         />
 
-                        <div className={styles.pickerList}>
-                            {isLoadingProducts ? (
-                                <div className={styles.pickerLoading}>
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        Caricamento prodotti...
-                                    </Text>
-                                </div>
-                            ) : filteredProducts.length === 0 ? (
-                                <div className={styles.pickerEmptyState}>
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        {productSearch
-                                            ? "Nessun prodotto corrisponde alla ricerca."
-                                            : "Nessun prodotto disponibile."}
-                                    </Text>
-                                </div>
-                            ) : (
-                                filteredProducts.map(product => {
-                                    const isSelected = selectedProductIds.has(product.id);
-                                    return (
-                                        <div
-                                            key={product.id}
-                                            className={`${styles.pickerItem} ${isSelected ? styles.pickerItemSelected : ""}`}
-                                            onClick={() => toggleProduct(product.id)}
-                                        >
-                                            {product.image_url ? (
-                                                <img
-                                                    src={product.image_url}
-                                                    alt=""
-                                                    className={styles.pickerItemThumb}
-                                                />
-                                            ) : (
-                                                <div className={styles.pickerItemThumbPlaceholder} />
-                                            )}
-
-                                            <Text
-                                                variant="body-sm"
-                                                weight={isSelected ? 600 : 400}
-                                                className={styles.pickerItemName}
-                                            >
-                                                {product.name}
-                                            </Text>
-
-                                            {/* Stop-propagation wrapper prevents double-toggle:
-                                                the row div's onClick already handles toggling;
-                                                if the click reaches the CheckboxInput's label,
-                                                its onChange would fire a second toggle. */}
-                                            <div onClick={e => e.stopPropagation()}>
-                                                <CheckboxInput
-                                                    checked={isSelected}
-                                                    onChange={() => toggleProduct(product.id)}
-                                                />
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
+                        <DataTable<ProductPickerItem>
+                            data={filteredProducts}
+                            columns={pickerColumns}
+                            isLoading={isLoadingProducts}
+                            selectable
+                            selectedRowIds={selectedProductIds}
+                            onSelectedRowsChange={setSelectedProductIds}
+                            showSelectionBar={false}
+                            density="compact"
+                            emptyState={
+                                <Text variant="body-sm" colorVariant="muted">
+                                    {productSearch
+                                        ? "Nessun prodotto corrisponde alla ricerca."
+                                        : "Nessun prodotto disponibile."}
+                                </Text>
+                            }
+                            loadingState={
+                                <Text variant="body-sm" colorVariant="muted">
+                                    Caricamento prodotti...
+                                </Text>
+                            }
+                        />
                     </div>
                 </div>
             </DrawerLayout>

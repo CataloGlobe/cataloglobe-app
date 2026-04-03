@@ -13,6 +13,7 @@ import {
     type RenderableProduct,
     type RenderableCatalog
 } from "@/services/supabase/activeCatalog";
+import { getDisplayPrice } from "@/utils/priceDisplay";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import styles from "./ActivityVisibilityDrawer.module.scss";
 
@@ -111,7 +112,7 @@ export const ActivityVisibilityDrawer: React.FC<Props> = ({
                 align: "right",
                 cell: (_, product) => (
                     <Text variant="body-sm" weight={500}>
-                        € {product.final_price.toFixed(2)}
+                        {getDisplayPrice({ base_price: product.final_price, from_price: product.from_price }).label}
                     </Text>
                 )
             },

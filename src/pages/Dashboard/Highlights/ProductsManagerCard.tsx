@@ -9,6 +9,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
 import { supabase } from "@/services/supabase/client";
 import { GripVertical, Trash2 } from "lucide-react";
+import { getDisplayPrice } from "@/utils/priceDisplay";
 import {
     DndContext,
     closestCenter,
@@ -45,6 +46,10 @@ interface FeaturedContentProductRow {
         id: string;
         name: string;
         base_price: number | null;
+        option_groups: Array<{
+            group_kind: string;
+            values: Array<{ absolute_price: number | null }>;
+        }> | null;
     } | null;
 }
 
@@ -138,7 +143,7 @@ export default function ProductsManagerCard({
                     product_id,
                     sort_order,
                     note,
-                    products (id, name, base_price)
+                    products (id, name, base_price, option_groups:product_option_groups(group_kind, values:product_option_values(absolute_price)))
                 `
                 )
                 .eq("featured_content_id", featuredId)
@@ -246,7 +251,8 @@ export default function ProductsManagerCard({
                             ? {
                                   id: fetched.id,
                                   name: fetched.name,
-                                  base_price: fetched.base_price
+                                  base_price: fetched.base_price,
+                                  option_groups: null
                               }
                             : null
                     });
@@ -385,12 +391,12 @@ export default function ProductsManagerCard({
             },
             {
                 id: "price",
-                header: "Prezzo base",
-                accessor: row => row.products?.base_price,
+                header: "Prezzo",
+                accessor: row => row.id,
                 width: "140px",
-                cell: value => (
+                cell: (_value, row) => (
                     <Text variant="body-sm" colorVariant="muted">
-                        {typeof value === "number" ? `€${value.toFixed(2)}` : "-"}
+                        {getDisplayPrice(row.products ?? {}).label}
                     </Text>
                 )
             },

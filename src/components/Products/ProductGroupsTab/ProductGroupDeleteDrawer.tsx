@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
-import { deleteProductGroup, ProductGroup } from "@/services/supabase/productGroups";
+import { deleteProductGroup, ProductGroupWithCount } from "@/services/supabase/productGroups";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import styles from "./ProductGroupsTab.module.scss";
 
 type ProductGroupDeleteDrawerProps = {
     open: boolean;
     onClose: () => void;
-    groupData: ProductGroup | null;
+    groupData: ProductGroupWithCount | null;
     onSuccess: () => void;
 };
 
@@ -39,12 +39,9 @@ export function ProductGroupDeleteDrawer({
             showToast({ message: "Gruppo eliminato con successo.", type: "success" });
             onSuccess();
             onClose();
-        } catch (error: any) {
-            console.error("Errore nell'eliminazione del gruppo:", error);
+        } catch {
             showToast({
-                message:
-                    error.message ||
-                    "Impossibile eliminare il gruppo. Verifica che non abbia sottogruppi o prodotti associati.",
+                message: "Impossibile eliminare il gruppo. Verifica che non abbia sottogruppi o prodotti associati.",
                 type: "error"
             });
         } finally {
@@ -82,20 +79,13 @@ export function ProductGroupDeleteDrawer({
         <SystemDrawer open={open} onClose={onClose}>
             <DrawerLayout header={header} footer={footer}>
                 <div className={styles.formBody}>
-                    <div className={styles.modalContent}>
-                        <div className={styles.modalIcon}>
+                    <div className={styles.deleteContent}>
+                        <div className={styles.deleteIcon}>
                             <IconAlertTriangle size={48} stroke={1} />
                         </div>
-                        <div
-                            style={{
-                                textAlign: "center",
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: 12
-                            }}
-                        >
+                        <div className={styles.deleteTextBlock}>
                             <Text variant="body" weight={600}>
-                                Vuoi davvero eliminare il gruppo "{groupData.name}"?
+                                Vuoi davvero eliminare il gruppo &ldquo;{groupData.name}&rdquo;?
                             </Text>
                             <Text variant="body-sm" colorVariant="muted">
                                 Questa operazione è irreversibile. I sottogruppi e i prodotti

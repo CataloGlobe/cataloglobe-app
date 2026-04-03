@@ -42,6 +42,33 @@ export async function getProductGroups(tenantId: string): Promise<ProductGroup[]
     return data || [];
 }
 
+export type ProductGroupWithCount = ProductGroup & { productsCount: number };
+
+export async function getProductGroupsWithCounts(
+    tenantId: string
+): Promise<ProductGroupWithCount[]> {
+    const { data, error } = await supabase
+        .from("product_groups")
+        .select("*, product_group_items(count)")
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: true });
+
+    if (error) throw error;
+
+    return (data ?? []).map(row => {
+        const countArr = row.product_group_items as unknown as { count: number }[];
+        return {
+            id: row.id,
+            tenant_id: row.tenant_id,
+            name: row.name,
+            parent_group_id: row.parent_group_id,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            productsCount: countArr?.[0]?.count ?? 0,
+        };
+    });
+}
+
 export async function createProductGroup(data: ProductGroupInsert): Promise<ProductGroup> {
     const { data: newGroup, error } = await supabase
         .from("product_groups")

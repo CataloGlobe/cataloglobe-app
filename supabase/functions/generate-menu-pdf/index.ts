@@ -2,6 +2,8 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1?target=deno";
+import { resolveRulesForActivity } from "../_shared/scheduleResolver.ts";
+import { getNowInRome } from "../_shared/schedulingNow.ts";
 
 type V2CatalogItem = {
     id: string;
@@ -62,45 +64,6 @@ type RawCatalogRow = {
     id: string;
     name: string | null;
     sections: RawCatalogSectionRow[] | RawCatalogSectionRow | null;
-};
-
-type RawScheduleLayoutRow = {
-    catalog_id: string | null;
-};
-
-type RawLayoutRuleRow = {
-    id: string;
-    priority: number;
-    created_at: string;
-    time_mode: "always" | "window";
-    days_of_week: number[] | null;
-    time_from: string | null;
-    time_to: string | null;
-    layout: RawScheduleLayoutRow[] | RawScheduleLayoutRow | null;
-};
-
-type RawActivityGroupMemberRow = {
-    group_id: string;
-};
-
-type RawPriceRuleRow = {
-    id: string;
-    priority: number;
-    created_at: string;
-    time_mode: "always" | "window";
-    days_of_week: number[] | null;
-    time_from: string | null;
-    time_to: string | null;
-};
-
-type RawVisibilityRuleRow = {
-    id: string;
-    priority: number;
-    created_at: string;
-    time_mode: "always" | "window";
-    days_of_week: number[] | null;
-    time_from: string | null;
-    time_to: string | null;
 };
 
 type PriceOverrideRow = {
@@ -167,68 +130,16 @@ function scheduleIncludesDay(days: number[] | null, day: number) {
     return days.includes(day);
 }
 
-function isScheduleActive(schedule: V2ActivityScheduleRow, now: Date) {
-    if (!schedule.is_active) return false;
-
-    const day = now.getDay();
-    const time = toMinutes(now.toTimeString().slice(0, 5));
-    if (time === null) return false;
-
-    const start = toMinutes(schedule.start_time);
-    const end = toMinutes(schedule.end_time);
-
-    if (start === null || end === null) {
-        return scheduleIncludesDay(schedule.days_of_week, day);
-    }
-
-    if (start === end) {
-        return scheduleIncludesDay(schedule.days_of_week, day);
-    }
-
-    if (start < end) {
-        if (!scheduleIncludesDay(schedule.days_of_week, day)) return false;
-        return start <= time && time < end;
-    }
-
-    const isStartDayActive = scheduleIncludesDay(schedule.days_of_week, day) && time >= start;
-    const isNextDayActive = scheduleIncludesDay(schedule.days_of_week, prevDay(day)) && time < end;
-
-    return isStartDayActive || isNextDayActive;
-}
-
-function isTimeRuleActiveNow(
-    rule: Pick<RawLayoutRuleRow, "time_mode" | "days_of_week" | "time_from" | "time_to">,
-    now: Date
-): boolean {
-    if (rule.time_mode === "always") return true;
-
-    const day = now.getDay();
-    const nowMinutes = toMinutes(now.toTimeString().slice(0, 5));
-    if (nowMinutes === null) return false;
-
-    if (rule.days_of_week !== null && !rule.days_of_week.includes(day)) {
-        return false;
-    }
-
-    if (!rule.time_from || !rule.time_to) {
-        return true;
-    }
-
-    const from = toMinutes(rule.time_from);
-    const to = toMinutes(rule.time_to);
-    if (from === null || to === null) return false;
-
-    return from <= nowMinutes && nowMinutes < to;
-}
-
 function compareScheduleWinner(a: V2ActivityScheduleRow, b: V2ActivityScheduleRow) {
-    if (a.priority !== b.priority) return b.priority - a.priority;
+    if (a.priority !== b.priority) return a.priority - b.priority;
 
     const aStart = toMinutes(a.start_time) ?? -1;
     const bStart = toMinutes(b.start_time) ?? -1;
-    if (aStart !== bStart) return bStart - aStart;
+    if (aStart !== bStart) return aStart - bStart;
 
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    const createdDelta = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    if (createdDelta !== 0) return createdDelta;
+    return a.id.localeCompare(b.id);
 }
 
 function pickWinner(schedules: V2ActivityScheduleRow[]): V2ActivityScheduleRow | null {
@@ -443,34 +354,6 @@ function normalizeCatalog(raw: RawCatalogRow | RawCatalogRow[] | null): V2Catalo
     };
 }
 
-function getNowInTimeZone(timeZone: string) {
-    const formatter = new Intl.DateTimeFormat("en-GB", {
-        timeZone,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false
-    });
-
-    const parts = formatter.formatToParts(new Date());
-    const map: Record<string, string> = {};
-    for (const part of parts) {
-        if (part.type !== "literal") map[part.type] = part.value;
-    }
-
-    const year = Number(map.year);
-    const month = Number(map.month);
-    const day = Number(map.day);
-    const hour = Number(map.hour);
-    const minute = Number(map.minute);
-    const second = Number(map.second);
-
-    return new Date(year, month - 1, day, hour, minute, second);
-}
-
 function wrapText(
     text: string,
     maxWidth: number,
@@ -591,87 +474,16 @@ serve(async req => {
             return json(403, { error: "forbidden" });
         }
 
-        const now = getNowInTimeZone("Europe/Rome");
+        const now = getNowInRome();
 
-        // 3) Resolve Active Layout Catalog
-        const [activityRulesRes, groupMembersRes] = await Promise.all([
-            supabase
-                .from("schedules")
-                .select(
-                    `
-                id,
-                priority,
-                created_at,
-                time_mode,
-                days_of_week,
-                time_from,
-                time_to,
-                layout:schedule_layout(catalog_id)
-            `
-                )
-                .eq("rule_type", "layout")
-                .eq("enabled", true)
-                .eq("target_type", "activity")
-                .eq("target_id", activityId)
-                .order("priority", { ascending: true })
-                .order("created_at", { ascending: true }),
-            supabase
-                .from("activity_group_members")
-                .select("group_id")
-                .eq("activity_id", activityId)
-        ]);
-
-        if (activityRulesRes.error) {
-            return json(500, { error: "schedule_fetch_failed" });
-        }
-
-        const activityRows = (activityRulesRes.data ?? []) as RawLayoutRuleRow[];
-        const groupIds = Array.from(
-            new Set(
-                ((groupMembersRes?.data ?? []) as RawActivityGroupMemberRow[]).map(
-                    row => row.group_id
-                )
-            )
-        );
-
-        let activityGroupRows: RawLayoutRuleRow[] = [];
-        if (groupIds.length > 0) {
-            const { data, error } = await supabase
-                .from("schedules")
-                .select(
-                    `
-                id,
-                priority,
-                created_at,
-                time_mode,
-                days_of_week,
-                time_from,
-                time_to,
-                layout:schedule_layout(catalog_id)
-            `
-                )
-                .eq("rule_type", "layout")
-                .eq("enabled", true)
-                .eq("target_type", "activity_group")
-                .in("target_id", groupIds)
-                .order("priority", { ascending: true })
-                .order("created_at", { ascending: true });
-
-            if (!error) {
-                activityGroupRows = (data ?? []) as RawLayoutRuleRow[];
-            }
-        }
-
-        const sortedRules = [...activityRows, ...activityGroupRows].sort((a, b) => {
-            if (a.priority !== b.priority) return a.priority - b.priority;
-            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        // 3) Resolve active scheduling rules through shared resolver.
+        const ruleResolution = await resolveRulesForActivity({
+            supabase,
+            activityId,
+            now,
+            includeLayoutStyle: false
         });
-
-        const validRules = sortedRules.filter(row => isTimeRuleActiveNow(row, now));
-        const selectedRule = validRules.find(
-            row => (normalizeOne(row.layout)?.catalog_id ?? null) !== null
-        );
-        const layoutCatalogId = normalizeOne(selectedRule?.layout)?.catalog_id ?? null;
+        const layoutCatalogId = ruleResolution.layout.catalogId;
 
         if (!layoutCatalogId) {
             return json(404, { error: "no_active_collection" });
@@ -748,42 +560,7 @@ serve(async req => {
         const priceOverridesByProductId: Record<string, PriceOverrideRow> = {};
 
         // Retrieve active visibility rule
-        const [visibilityRulesRes] = await Promise.all([
-            supabase
-                .from("schedules")
-                .select("id, priority, created_at, time_mode, days_of_week, time_from, time_to")
-                .eq("rule_type", "visibility")
-                .eq("enabled", true)
-                .eq("target_type", "activity")
-                .eq("target_id", activityId)
-                .order("priority", { ascending: true })
-                .order("created_at", { ascending: true })
-        ]);
-
-        // Evaluate Visibility Winner
-        const activeVisibilityGroupRows = await supabase
-            .from("schedules")
-            .select("id, priority, created_at, time_mode, days_of_week, time_from, time_to")
-            .eq("rule_type", "visibility")
-            .eq("enabled", true)
-            .eq("target_type", "activity_group")
-            .in(
-                "target_id",
-                groupIds.length > 0 ? groupIds : ["00000000-0000-0000-0000-000000000000"]
-            )
-            .order("priority", { ascending: true })
-            .order("created_at", { ascending: true });
-
-        const visRows = [
-            ...(visibilityRulesRes.data ?? []),
-            ...(activeVisibilityGroupRows.data ?? [])
-        ] as RawVisibilityRuleRow[];
-        visRows.sort((a, b) => {
-            if (a.priority !== b.priority) return a.priority - b.priority;
-            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        });
-        const validVisRows = visRows.filter(row => isTimeRuleActiveNow(row, now));
-        const activeVisibilityRuleScheduleId = validVisRows[0]?.id ?? null;
+        const activeVisibilityRuleScheduleId = ruleResolution.visibilityRule?.scheduleId ?? null;
 
         if (activeVisibilityRuleScheduleId && productIds.length > 0) {
             const { data: visibilityOverrideData } = await supabase
@@ -830,41 +607,7 @@ serve(async req => {
         }
 
         // Retrieve active price rule
-        const [priceRulesRes] = await Promise.all([
-            supabase
-                .from("schedules")
-                .select("id, priority, created_at, time_mode, days_of_week, time_from, time_to")
-                .eq("rule_type", "price")
-                .eq("enabled", true)
-                .eq("target_type", "activity")
-                .eq("target_id", activityId)
-                .order("priority", { ascending: true })
-                .order("created_at", { ascending: true })
-        ]);
-
-        const activePriceGroupRows = await supabase
-            .from("schedules")
-            .select("id, priority, created_at, time_mode, days_of_week, time_from, time_to")
-            .eq("rule_type", "price")
-            .eq("enabled", true)
-            .eq("target_type", "activity_group")
-            .in(
-                "target_id",
-                groupIds.length > 0 ? groupIds : ["00000000-0000-0000-0000-000000000000"]
-            )
-            .order("priority", { ascending: true })
-            .order("created_at", { ascending: true });
-
-        const priceRows = [
-            ...(priceRulesRes.data ?? []),
-            ...(activePriceGroupRows.data ?? [])
-        ] as RawPriceRuleRow[];
-        priceRows.sort((a, b) => {
-            if (a.priority !== b.priority) return a.priority - b.priority;
-            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        });
-        const validPriceRows = priceRows.filter(row => isTimeRuleActiveNow(row, now));
-        const activePriceRuleScheduleId = validPriceRows[0]?.id ?? null;
+        const activePriceRuleScheduleId = ruleResolution.priceRuleId;
 
         if (activePriceRuleScheduleId && visibleProductIds.length > 0) {
             const { data: priceOverrideData } = await supabase

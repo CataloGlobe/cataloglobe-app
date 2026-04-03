@@ -1,7 +1,5 @@
-import React, { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
-import { Card } from "@/components/ui/Card/Card";
-import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TablePagination } from "@/components/ui/TablePagination/TablePagination";
@@ -10,17 +8,19 @@ import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions
 import styles from "./ProductGroupsTab.module.scss";
 
 import {
-    getProductGroups,
+    getProductGroupsWithCounts,
     deleteProductGroup,
-    ProductGroup
+    ProductGroupWithCount
 } from "@/services/supabase/productGroups";
 import { ProductGroupCreateEditDrawer, GroupFormMode } from "./ProductGroupCreateEditDrawer";
 import { ProductGroupDeleteDrawer } from "./ProductGroupDeleteDrawer";
 import { useToast } from "@/context/Toast/ToastContext";
 
-type FlatGroup = ProductGroup & { depth: number };
+type FlatGroup = ProductGroupWithCount & { depth: number; parentName: string | null };
 
-function buildFlatTree(groups: ProductGroup[]): FlatGroup[] {
+function buildFlatTree(groups: ProductGroupWithCount[]): FlatGroup[] {
+    const nameById = new Map(groups.map(g => [g.id, g.name]));
+
     const parents = groups
         .filter(g => g.parent_group_id === null)
         .sort((a, b) => a.name.localeCompare(b.name, "it"));
@@ -29,7 +29,7 @@ function buildFlatTree(groups: ProductGroup[]): FlatGroup[] {
     const addedIds = new Set<string>();
 
     parents.forEach(parent => {
-        result.push({ ...parent, depth: 0 });
+        result.push({ ...parent, depth: 0, parentName: null });
         addedIds.add(parent.id);
 
         const children = groups
@@ -37,7 +37,7 @@ function buildFlatTree(groups: ProductGroup[]): FlatGroup[] {
             .sort((a, b) => a.name.localeCompare(b.name, "it"));
 
         children.forEach(child => {
-            result.push({ ...child, depth: 1 });
+            result.push({ ...child, depth: 1, parentName: parent.name });
             addedIds.add(child.id);
         });
     });
@@ -45,7 +45,8 @@ function buildFlatTree(groups: ProductGroup[]): FlatGroup[] {
     // Orphans: parent_group_id set but parent not found
     groups.forEach(g => {
         if (!addedIds.has(g.id)) {
-            result.push({ ...g, depth: 0 });
+            const pName = g.parent_group_id ? (nameById.get(g.parent_group_id) ?? null) : null;
+            result.push({ ...g, depth: 0, parentName: pName });
         }
     });
 
@@ -68,7 +69,7 @@ export default function ProductGroupsTab({
     const { showToast } = useToast();
 
     const [isLoading, setIsLoading] = useState(true);
-    const [allGroups, setAllGroups] = useState<ProductGroup[]>([]);
+    const [allGroups, setAllGroups] = useState<ProductGroupWithCount[]>([]);
 
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -77,49 +78,58 @@ export default function ProductGroupsTab({
 
     const [isCreateEditOpen, setIsCreateEditOpen] = useState(false);
     const [createEditMode, setCreateEditMode] = useState<GroupFormMode>("create");
-    const [groupToEdit, setGroupToEdit] = useState<ProductGroup | null>(null);
+    const [groupToEdit, setGroupToEdit] = useState<ProductGroupWithCount | null>(null);
+    const [defaultParentId, setDefaultParentId] = useState<string | undefined>(undefined);
 
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [groupToDelete, setGroupToDelete] = useState<ProductGroup | null>(null);
+    const [groupToDelete, setGroupToDelete] = useState<ProductGroupWithCount | null>(null);
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
+        if (!tenantId) return;
         try {
             setIsLoading(true);
-            const data = await getProductGroups(tenantId!);
+            const data = await getProductGroupsWithCounts(tenantId);
             setAllGroups(data);
-        } catch (error) {
-            console.error("Errore nel caricamento dei gruppi:", error);
+        } catch {
             showToast({
-                message: "Non è stato possibile caricare i gruppi di prodotti.",
+                message: "Errore nel caricamento dei gruppi",
                 type: "error"
             });
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [tenantId, showToast]);
 
     useEffect(() => {
-        if (tenantId) {
-            loadData();
-        }
-    }, [tenantId]);
+        loadData();
+    }, [loadData]);
 
     useEffect(() => {
         if (isCreateOpen) {
             setCreateEditMode("create");
             setGroupToEdit(null);
+            setDefaultParentId(undefined);
         }
     }, [isCreateOpen]);
+
+    const groupNameById = useMemo(
+        () => new Map(allGroups.map(g => [g.id, g.name])),
+        [allGroups]
+    );
 
     const flatTree = useMemo(() => {
         if (searchQuery) {
             return allGroups
                 .filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()))
                 .sort((a, b) => a.name.localeCompare(b.name, "it"))
-                .map(g => ({ ...g, depth: 0 }));
+                .map(g => ({
+                    ...g,
+                    depth: 0,
+                    parentName: g.parent_group_id ? (groupNameById.get(g.parent_group_id) ?? null) : null
+                }));
         }
         return buildFlatTree(allGroups);
-    }, [allGroups, searchQuery]);
+    }, [allGroups, searchQuery, groupNameById]);
 
     useEffect(() => {
         setPage(1);
@@ -130,15 +140,22 @@ export default function ProductGroupsTab({
         return flatTree.slice(offset, offset + pageSize);
     }, [flatTree, page, pageSize]);
 
-    const handleEdit = (group: ProductGroup) => {
+    const handleEdit = (group: ProductGroupWithCount) => {
         setCreateEditMode("edit");
         setGroupToEdit(group);
         setIsCreateEditOpen(true);
     };
 
-    const handleDelete = (group: ProductGroup) => {
+    const handleDelete = (group: ProductGroupWithCount) => {
         setGroupToDelete(group);
         setIsDeleteOpen(true);
+    };
+
+    const handleCreateSubgroup = (parentGroup: ProductGroupWithCount) => {
+        setCreateEditMode("create");
+        setGroupToEdit(null);
+        setDefaultParentId(parentGroup.id);
+        setIsCreateEditOpen(true);
     };
 
     const handleBulkDelete = async (selectedIds: string[]) => {
@@ -150,10 +167,9 @@ export default function ProductGroupsTab({
                 type: "success"
             });
             loadData();
-        } catch (error) {
-            console.error("Errore eliminazione multipla gruppi:", error);
+        } catch {
             showToast({
-                message: "Errore durante l'eliminazione di alcuni gruppi prodotto.",
+                message: "Errore nell'eliminazione dei gruppi.",
                 type: "error"
             });
         }
@@ -166,7 +182,7 @@ export default function ProductGroupsTab({
             width: "2fr",
             accessor: row => row.name,
             cell: (_value, row) => (
-                <div className={styles.nameCell} style={{ paddingLeft: row.depth * 24 }}>
+                <div data-depth={row.depth} className={styles.groupName}>
                     <Text variant="body-sm" weight={row.depth === 0 ? 600 : 500}>
                         {row.name}
                     </Text>
@@ -174,30 +190,31 @@ export default function ProductGroupsTab({
             )
         },
         {
-            id: "hierarchy",
-            header: "Gerarchia",
+            id: "parent",
+            header: "Gruppo padre",
             width: "1fr",
             cell: (_value, row) =>
-                row.depth === 0 ? (
-                    <Badge variant="secondary">Principale</Badge>
+                row.parentName ? (
+                    <Text variant="body-sm">{row.parentName}</Text>
                 ) : (
-                    <Badge variant="secondary">Sottogruppo</Badge>
+                    <Text variant="body-sm" colorVariant="muted">—</Text>
                 )
         },
         {
-            id: "created_at",
-            header: "Creato il",
+            id: "products",
+            header: "Prodotti",
             width: "1fr",
-            accessor: row => row.created_at,
-            cell: value => (
-                <Text variant="body-sm" colorVariant="muted">
-                    {new Date(value).toLocaleDateString("it-IT", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric"
-                    })}
-                </Text>
-            )
+            accessor: row => row.productsCount,
+            cell: (_value, row) =>
+                row.productsCount > 0 ? (
+                    <Text variant="body-sm">
+                        {row.productsCount} {row.productsCount === 1 ? "prodotto" : "prodotti"}
+                    </Text>
+                ) : (
+                    <Text variant="body-sm" colorVariant="muted">
+                        —
+                    </Text>
+                )
         },
         {
             id: "actions",
@@ -209,6 +226,11 @@ export default function ProductGroupsTab({
                     <TableRowActions
                         actions={[
                             { label: "Modifica", onClick: () => handleEdit(row) },
+                            {
+                                label: "Crea sottogruppo",
+                                onClick: () => handleCreateSubgroup(row),
+                                hidden: row.parent_group_id !== null
+                            },
                             {
                                 label: "Elimina",
                                 onClick: () => handleDelete(row),
@@ -278,6 +300,7 @@ export default function ProductGroupsTab({
                 open={isCreateOpen || isCreateEditOpen}
                 onClose={() => {
                     setIsCreateEditOpen(false);
+                    setDefaultParentId(undefined);
                     onCloseCreate();
                 }}
                 mode={createEditMode}
@@ -285,6 +308,7 @@ export default function ProductGroupsTab({
                 allGroups={allGroups}
                 onSuccess={loadData}
                 tenantId={tenantId}
+                defaultParentId={defaultParentId}
             />
 
             <ProductGroupDeleteDrawer

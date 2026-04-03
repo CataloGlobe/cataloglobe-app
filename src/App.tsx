@@ -68,9 +68,7 @@ export default function App() {
         const type = params.get("type");
 
         if (accessToken && type === "signup") {
-            supabase.auth
-                .getSession()
-                .finally(() => navigate("/login", { replace: true }));
+            supabase.auth.getSession().finally(() => navigate("/login", { replace: true }));
         }
     }, [navigate]);
 

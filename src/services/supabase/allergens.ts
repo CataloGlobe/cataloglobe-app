@@ -31,11 +31,52 @@ export async function listAllergens(): Promise<V2SystemAllergen[]> {
     return data || [];
 }
 
+export type ResolvedProductAllergen = {
+    allergen_id: number;
+    code: string;
+    label_it: string;
+};
+
 /**
  * ----------------------------------------------------
  * PRODUCT ALLERGENS
  * ----------------------------------------------------
  */
+
+/**
+ * Batch-load allergens for multiple products in a single query.
+ * Returns a map of productId → resolved allergens.
+ */
+export async function getProductsAllergens(
+    productIds: string[],
+    tenantId: string
+): Promise<Record<string, ResolvedProductAllergen[]>> {
+    if (productIds.length === 0) return {};
+
+    const { data, error } = await supabase
+        .from("product_allergens")
+        .select("product_id, allergen_id, allergens(code, label_it)")
+        .in("product_id", productIds)
+        .eq("tenant_id", tenantId);
+
+    if (error) throw error;
+
+    const result: Record<string, ResolvedProductAllergen[]> = {};
+    for (const row of data ?? []) {
+        const allergen = row.allergens as unknown as { code: string; label_it: string } | null;
+        if (!allergen) continue;
+        const entry: ResolvedProductAllergen = {
+            allergen_id: row.allergen_id,
+            code: allergen.code,
+            label_it: allergen.label_it,
+        };
+        if (!result[row.product_id]) {
+            result[row.product_id] = [];
+        }
+        result[row.product_id].push(entry);
+    }
+    return result;
+}
 
 export async function getProductAllergens(productId: string, tenantId: string): Promise<number[]> {
     const { data, error } = await supabase

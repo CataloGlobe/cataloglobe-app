@@ -6,6 +6,7 @@ import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
 import { supabase } from "@/services/supabase/client";
+import { getDisplayPrice } from "@/utils/priceDisplay";
 import styles from "./ProductPickerList.module.scss";
 
 interface ProductPickerListProps {
@@ -17,6 +18,10 @@ type ProductRow = {
     id: string;
     name: string;
     base_price: number | null;
+    option_groups: Array<{
+        group_kind: string;
+        values: Array<{ absolute_price: number | null }>;
+    }> | null;
 };
 
 type ProductGroupOption = {
@@ -48,10 +53,13 @@ export default function ProductPickerList({
                 setLoading(true);
                 const [{ data: productsData, error: productsError }, groupsRes, groupItemsRes] =
                     await Promise.all([
-                        supabase
-                            .from("products")
-                            .select("id, name, base_price")
-                            .order("name", { ascending: true }),
+                        tenantId
+                            ? supabase
+                                  .from("products")
+                                  .select("id, name, base_price, option_groups:product_option_groups(group_kind, values:product_option_values(absolute_price))")
+                                  .eq("tenant_id", tenantId)
+                                  .order("name", { ascending: true })
+                            : Promise.resolve({ data: [], error: null } as any),
                         tenantId
                             ? supabase
                                   .from("product_groups")
@@ -120,13 +128,13 @@ export default function ProductPickerList({
             },
             {
                 id: "price",
-                header: "Prezzo base",
-                accessor: row => row.base_price,
+                header: "Prezzo",
+                accessor: row => row.id,
                 align: "right",
                 width: "140px",
-                cell: value => (
+                cell: (_value, row) => (
                     <Text variant="body-sm" colorVariant="muted">
-                        {typeof value === "number" ? `€${value.toFixed(2)}` : "-"}
+                        {getDisplayPrice(row).label}
                     </Text>
                 )
             }
