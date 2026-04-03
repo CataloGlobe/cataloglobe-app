@@ -1,15 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { Select } from "@/components/ui/Select/Select";
 import Text from "@/components/ui/Text/Text";
-import { RuleType, LayoutRuleOption } from "@/services/supabase/layoutScheduling";
+import { LayoutRuleOption } from "@/services/supabase/layoutScheduling";
 import styles from "../ProgrammingRuleDetail.module.scss";
 
 export type TargetMode = "all" | "activities" | "groups";
 
 interface TargetSectionProps {
     name: string;
-    ruleType: RuleType;
     targetMode: TargetMode;
     activityIds: string[];
     groupIds: string[];
@@ -144,7 +142,6 @@ function MultiSelectChip({
 
 export function TargetSection({
     name,
-    ruleType,
     targetMode,
     activityIds,
     groupIds,
@@ -206,25 +203,12 @@ export function TargetSection({
                 Target
             </Text>
 
-            <div className={styles.sectionGrid}>
-                <TextInput
-                    label="Nome regola"
-                    value={name}
-                    onChange={event => onFormChange({ name: event.target.value })}
-                    required
-                />
-
-                <Select
-                    label="Tipo"
-                    value={ruleType}
-                    options={[
-                        { value: "layout", label: "Layout" },
-                        { value: "price", label: "Prezzi" },
-                        { value: "visibility", label: "Visibilità" }
-                    ]}
-                    disabled
-                />
-            </div>
+            <TextInput
+                label="Nome regola"
+                value={name}
+                onChange={event => onFormChange({ name: event.target.value })}
+                required
+            />
 
             {/* Mode selector */}
             <div className={styles.targetModeGroup}>

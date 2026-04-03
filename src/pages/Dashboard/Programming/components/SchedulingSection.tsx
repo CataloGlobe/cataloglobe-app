@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { DateInput } from "@/components/ui/Input/DateInput";
 import { PillGroupMultiple } from "@/components/ui/PillGroup/PillGroupMultiple";
 import { Switch } from "@/components/ui/Switch/Switch";
@@ -18,19 +19,17 @@ const DAY_OPTIONS = [
 
 interface SchedulingSectionProps {
     alwaysActive: boolean;
-    timeMode: LayoutTimeMode;
-    dateFrom: string;
-    dateTo: string;
+    startAt: string;
+    endAt: string;
     daysOfWeek: string[];
     timeFrom: string;
     timeTo: string;
-    summary: string;
     onFormChange: (
         updates: Partial<{
             alwaysActive: boolean;
             timeMode: LayoutTimeMode;
-            dateFrom: string;
-            dateTo: string;
+            startAt: string;
+            endAt: string;
             daysOfWeek: string[];
             timeFrom: string;
             timeTo: string;
@@ -40,15 +39,44 @@ interface SchedulingSectionProps {
 
 export function SchedulingSection({
     alwaysActive,
-    timeMode,
-    dateFrom,
-    dateTo,
+    startAt,
+    endAt,
     daysOfWeek,
     timeFrom,
     timeTo,
-    summary,
     onFormChange
 }: SchedulingSectionProps) {
+    const [startAtError, setStartAtError] = useState("");
+    const [endAtError, setEndAtError] = useState("");
+    const [timeFromTouched, setTimeFromTouched] = useState(false);
+    const [timeToTouched, setTimeToTouched] = useState(false);
+
+    const today = new Date().toISOString().split("T")[0];
+    const timeOrderError =
+        timeFromTouched && timeToTouched && timeFrom && timeTo && timeTo <= timeFrom
+            ? "L'orario di fine deve essere successivo all'orario di inizio"
+            : null;
+
+    const validateEndAt = (end: string, start: string) => {
+        if (!end) { setEndAtError(""); return; }
+        if (end < today) { setEndAtError("La data di fine non può essere nel passato"); return; }
+        if (start && end < start) { setEndAtError("La data di fine deve essere successiva alla data di inizio"); return; }
+        setEndAtError("");
+    };
+
+    const handleStartAtBlur = () => {
+        if (startAt && startAt < today) {
+            setStartAtError("La data di inizio non può essere nel passato");
+        } else {
+            setStartAtError("");
+        }
+        if (endAt) validateEndAt(endAt, startAt);
+    };
+
+    const handleEndAtBlur = () => {
+        validateEndAt(endAt, startAt);
+    };
+
     const handleToggleAlways = (checked: boolean) => {
         onFormChange({
             alwaysActive: checked,
@@ -71,30 +99,54 @@ export function SchedulingSection({
             {!alwaysActive && (
                 <div className={styles.schedulingGrid}>
                     <div className={styles.sectionGrid}>
-                        <DateInput
-                            label="Data inizio"
-                            value={dateFrom}
-                            onChange={event => onFormChange({ dateFrom: event.target.value })}
-                        />
-                        <DateInput
-                            label="Data fine"
-                            value={dateTo}
-                            onChange={event => onFormChange({ dateTo: event.target.value })}
-                        />
+                        <div>
+                            <DateInput
+                                label="Data inizio"
+                                value={startAt}
+                                onChange={event => onFormChange({ startAt: event.target.value })}
+                                onBlur={handleStartAtBlur}
+                            />
+                            {startAtError && (
+                                <Text variant="caption" colorVariant="error">{startAtError}</Text>
+                            )}
+                        </div>
+                        <div>
+                            <DateInput
+                                label="Data fine"
+                                value={endAt}
+                                onChange={event => onFormChange({ endAt: event.target.value })}
+                                onBlur={handleEndAtBlur}
+                            />
+                            {endAtError && (
+                                <Text variant="caption" colorVariant="error">{endAtError}</Text>
+                            )}
+                        </div>
                     </div>
+                    <Text variant="caption" colorVariant="muted">
+                        Se impostata, la regola si attiva e disattiva automaticamente nelle date indicate.
+                    </Text>
+
+                    <div className={styles.schedulingSeparator} />
 
                     <div className={styles.sectionGrid}>
                         <TimeInput
-                            label="Dalle ore"
+                            label="Orario inizio"
                             value={timeFrom}
                             onChange={event => onFormChange({ timeFrom: event.target.value })}
+                            onBlur={() => setTimeFromTouched(true)}
                         />
                         <TimeInput
-                            label="Alle ore"
+                            label="Orario fine"
                             value={timeTo}
                             onChange={event => onFormChange({ timeTo: event.target.value })}
+                            onBlur={() => setTimeToTouched(true)}
                         />
                     </div>
+                    {timeOrderError && (
+                        <Text variant="caption" colorVariant="error">
+                            {timeOrderError}
+                        </Text>
+                    )}
 
                     <div className={styles.inlineBlock}>
                         <Text variant="caption" colorVariant="muted">
@@ -111,19 +163,6 @@ export function SchedulingSection({
                 </div>
             )}
 
-            <div className={styles.summaryBox}>
-                <Text
-                    variant="caption"
-                    colorVariant="muted"
-                    weight={600}
-                    className={styles.summaryTitle}
-                >
-                    RIEPILOGO
-                </Text>
-                <Text variant="body-sm" colorVariant="muted">
-                    {summary}
-                </Text>
-            </div>
         </section>
     );
 }

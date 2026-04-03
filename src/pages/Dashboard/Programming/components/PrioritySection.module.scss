@@ -1,0 +1,57 @@
+@use "@styles/variables" as *;
+
+.optionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.optionCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border: 1.5px solid var(--color-gray-200, #e2e8f0);
+  border-radius: var(--radius-md, 8px);
+  background: var(--card-bg, #fff);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
+  user-select: none;
+
+  &:hover:not(.optionCardSelected) {
+    border-color: var(--color-gray-400, #94a3b8);
+    background: var(--hover-bg, #f1f5f9);
+  }
+}
+
+.optionCardSelected {
+  border-color: var(--color-primary, #6366f1);
+  background: color-mix(in srgb, var(--color-primary, #6366f1) 6%, white 94%);
+  box-shadow: 0 0 0 1px var(--color-primary, #6366f1);
+}
+
+.optionCardLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text, #0f172a);
+  line-height: 1.3;
+}
+
+.optionCardLabelSelected {
+  color: var(--color-primary, #6366f1);
+}
+
+.optionCardDescription {
+  font-size: 0.75rem;
+  color: var(--color-gray-500, #6b7280);
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .optionGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
 import { Button } from "@/components/ui/Button/Button";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
     getLayoutRuleById,
@@ -16,12 +17,14 @@ import {
     type VisibilityMode,
     type ProductGroupAssignmentOption
 } from "@/services/supabase/layoutScheduling";
-import { buildRuleSummary } from "@/utils/ruleHelpers";
+import { parseDecimalPrice } from "@/utils/priceParser";
+import { computePriority } from "@utils/priorityUtils";
+import type { PriorityLevel } from "@utils/priorityUtils";
 import styles from "./ProgrammingRuleDetail.module.scss";
 
 // Componentes
 import { TargetSection, type TargetMode } from "./components/TargetSection";
-import { AssociatedContentSection } from "./components/AssociatedContentSection";
+import { AssociatedContentSection, type FeaturedContentItem } from "./components/AssociatedContentSection";
 import { SchedulingSection } from "./components/SchedulingSection";
 import { PrioritySection } from "./components/PrioritySection";
 
@@ -33,26 +36,24 @@ type RuleDetailForm = {
     groupIds: string[];
     catalogId: string;
     styleId: string;
-    featuredContents: Array<{
-        featuredContentId: string;
-        slot: "hero" | "before_catalog" | "after_catalog";
-        sortOrder: number;
-    }>;
+    featuredContents: FeaturedContentItem[];
     selectedProductIds: string[];
     productOverrides: Record<
         string,
         {
             overridePrice: string;
             showOriginalPrice: boolean;
+            valueOverrides?: Record<string, { overridePrice: string; showOriginalPrice: boolean }>;
         }
     >;
     visibilityProductModes: Record<string, VisibilityMode>;
-    priority: string;
+    priorityLevel: PriorityLevel;
+    displayOrder: number;
     enabled: boolean;
     alwaysActive: boolean;
     timeMode: LayoutTimeMode;
-    dateFrom: string;
-    dateTo: string;
+    startAt: string;
+    endAt: string;
     daysOfWeek: string[];
     timeFrom: string;
     timeTo: string;
@@ -64,18 +65,40 @@ function getRuleTypeLabel(ruleType: RuleType): string {
     return "Visibilità";
 }
 
+function getRuleTypeBadgeColor(ruleType: RuleType): string {
+    if (ruleType === "layout") return "var(--brand-primary)";
+    if (ruleType === "price") return "var(--color-warning-500, #f59e0b)";
+    return "#16a34a";
+}
+
 function buildForm(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>): RuleDetailForm {
     const productOverrides: RuleDetailForm["productOverrides"] = {};
     const visibilityProductModes: RuleDetailForm["visibilityProductModes"] = {};
     const selectedProductIds: string[] = [];
 
     if (rule.rule_type === "price") {
-        for (const product of rule.price_overrides) {
-            selectedProductIds.push(product.product_id);
-            productOverrides[product.product_id] = {
-                overridePrice: String(product.override_price ?? ""),
-                showOriginalPrice: product.show_original_price
-            };
+        for (const override of rule.price_overrides) {
+            if (!selectedProductIds.includes(override.product_id)) {
+                selectedProductIds.push(override.product_id);
+            }
+            if (override.option_value_id) {
+                const existing = productOverrides[override.product_id] ?? {
+                    overridePrice: "",
+                    showOriginalPrice: false
+                };
+                const valueOverrides = { ...existing.valueOverrides };
+                valueOverrides[override.option_value_id] = {
+                    overridePrice: String(override.override_price),
+                    showOriginalPrice: override.show_original_price
+                };
+                productOverrides[override.product_id] = { ...existing, valueOverrides };
+            } else {
+                productOverrides[override.product_id] = {
+                    overridePrice: String(override.override_price ?? ""),
+                    showOriginalPrice: override.show_original_price,
+                    valueOverrides: productOverrides[override.product_id]?.valueOverrides
+                };
+            }
         }
     }
 
@@ -125,95 +148,25 @@ function buildForm(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>
         selectedProductIds,
         productOverrides,
         visibilityProductModes,
-        priority: String(rule.priority),
+        priorityLevel: rule.priority_level,
+        displayOrder: rule.display_order,
         enabled: rule.enabled,
         alwaysActive: rule.time_mode === "always",
         timeMode: rule.time_mode,
-        dateFrom: "",
-        dateTo: "",
+        startAt: rule.start_at ? new Date(rule.start_at).toISOString().split("T")[0] : "",
+        endAt: rule.end_at ? new Date(rule.end_at).toISOString().split("T")[0] : "",
         daysOfWeek: (rule.days_of_week ?? []).map(day => String(day)),
         timeFrom: rule.time_from?.slice(0, 5) ?? "",
         timeTo: rule.time_to?.slice(0, 5) ?? ""
     };
 }
 
-function toSummary(input: {
-    form: RuleDetailForm;
-    activityById: Map<string, LayoutRuleOption>;
-    groupById: Map<string, LayoutRuleOption>;
-    catalogById: Map<string, LayoutRuleOption>;
-    styleById: Map<string, LayoutRuleOption>;
-    productById: Map<string, LayoutRuleOption>;
-}): string {
-    const { form, activityById, groupById, catalogById, styleById, productById } = input;
-
-    let targetLabel: string;
-    if (form.targetMode === "all") {
-        targetLabel = "tutte le sedi";
-    } else if (form.targetMode === "activities") {
-        const names = form.activityIds.map(id => activityById.get(id)?.name ?? id);
-        if (names.length === 0) {
-            targetLabel = "nessuna sede";
-        } else {
-            targetLabel = names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`;
-        }
-    } else {
-        const names = form.groupIds.map(id => groupById.get(id)?.name ?? id);
-        if (names.length === 0) {
-            targetLabel = "nessun gruppo";
-        } else {
-            targetLabel = names.length === 1 ? `gruppo ${names[0]}` : `${names.length} gruppi`;
-        }
-    }
-
-    const scheduleLabel = buildRuleSummary({
-        time_mode: form.timeMode,
-        days_of_week: form.daysOfWeek.map(Number),
-        time_from: form.timeFrom,
-        time_to: form.timeTo,
-        enabled: form.enabled
-    });
-
-    if (form.ruleType === "layout") {
-        const catalogLabel = form.catalogId
-            ? catalogById.get(form.catalogId)?.name ?? form.catalogId
-            : "nessun catalogo";
-        const styleLabel = form.styleId
-            ? styleById.get(form.styleId)?.name ?? form.styleId
-            : "nessuno stile";
-        return `Regola: tipo layout su ${targetLabel}, catalogo ${catalogLabel}, stile ${styleLabel}, priorità ${form.priority}, ${scheduleLabel}.`;
-    }
-
-    if (form.ruleType === "price") {
-        const productsLabel =
-            form.selectedProductIds.length > 0
-                ? form.selectedProductIds.map(id => productById.get(id)?.name ?? id).join(", ")
-                : "nessun prodotto";
-        return `Regola: override prezzi su ${targetLabel} per ${productsLabel}, priorità ${form.priority}, ${scheduleLabel}.`;
-    }
-
-    const productsLabel =
-        form.selectedProductIds.length > 0
-            ? form.selectedProductIds.map(id => productById.get(id)?.name ?? id).join(", ")
-            : "nessun prodotto";
-
-    const hideCount = form.selectedProductIds.filter(
-        id => (form.visibilityProductModes[id] ?? "hide") === "hide"
-    ).length;
-    const disableCount = form.selectedProductIds.length - hideCount;
-    const behaviorLabel =
-        hideCount > 0 && disableCount > 0
-            ? `${hideCount} nascosti, ${disableCount} non disponibili`
-            : disableCount > 0
-            ? "mostra come non disponibile"
-            : "nascondi";
-
-    return `Regola: visibilità su ${targetLabel} per ${productsLabel} (${behaviorLabel}), priorità ${form.priority}, ${scheduleLabel}.`;
-}
 
 export default function ProgrammingRuleDetail() {
     const { ruleId, businessId } = useParams<{ ruleId: string; businessId: string }>();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const fromType = searchParams.get("fromType");
     const { showToast } = useToast();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -233,27 +186,6 @@ export default function ProgrammingRuleDetail() {
 
     const [form, setForm] = useState<RuleDetailForm | null>(null);
     const [initialSnapshot, setInitialSnapshot] = useState<string | null>(null);
-
-    const activityById = useMemo(
-        () => new Map(activities.map((item: LayoutRuleOption) => [item.id, item])),
-        [activities]
-    );
-    const groupById = useMemo(
-        () => new Map(activityGroups.map((item: LayoutRuleOption) => [item.id, item])),
-        [activityGroups]
-    );
-    const catalogById = useMemo(
-        () => new Map(catalogs.map((item: LayoutRuleOption) => [item.id, item])),
-        [catalogs]
-    );
-    const styleById = useMemo(
-        () => new Map(stylesOptions.map((item: LayoutRuleOption) => [item.id, item])),
-        [stylesOptions]
-    );
-    const productById = useMemo(
-        () => new Map(productsOptions.map((item: LayoutRuleOption) => [item.id, item])),
-        [productsOptions]
-    );
 
     const tenantId = rule?.tenant_id ?? null;
 
@@ -317,21 +249,9 @@ export default function ProgrammingRuleDetail() {
     const snapshot = useMemo(() => (form ? JSON.stringify(form) : null), [form]);
     const isDirty = Boolean(form && initialSnapshot && snapshot !== initialSnapshot);
 
-    const summary = useMemo(() => {
-        if (!form) return "";
-        return toSummary({
-            form,
-            activityById,
-            groupById,
-            catalogById,
-            styleById,
-            productById
-        });
-    }, [activityById, catalogById, form, groupById, productById, styleById]);
-
     const loadData = useCallback(async () => {
         if (!ruleId) {
-            navigate(`/business/${businessId}/scheduling`);
+            navigate(`/business/${businessId}/scheduling${fromType ? `?type=${fromType}` : ""}`);
             return;
         }
 
@@ -344,7 +264,7 @@ export default function ProgrammingRuleDetail() {
 
             if (!ruleData) {
                 showToast({ type: "error", message: "Regola non trovata.", duration: 3000 });
-                navigate(`/business/${businessId}/scheduling`);
+                navigate(`/business/${businessId}/scheduling${fromType ? `?type=${fromType}` : ""}`);
                 return;
             }
 
@@ -400,11 +320,7 @@ export default function ProgrammingRuleDetail() {
             return;
         }
 
-        const priority = Number(form.priority);
-        if (Number.isNaN(priority)) {
-            showToast({ type: "error", message: "La priorità non è valida.", duration: 2600 });
-            return;
-        }
+        const priority = computePriority(form.priorityLevel, form.displayOrder);
 
         const hasDays = form.daysOfWeek.length > 0;
         const hasBothTimes = Boolean(form.timeFrom && form.timeTo);
@@ -483,9 +399,59 @@ export default function ProgrammingRuleDetail() {
             targetId = systemGroupId;
         }
 
+        const today = new Date().toISOString().split("T")[0];
+
+        if (form.startAt && form.startAt < today) {
+            showToast({
+                type: "error",
+                message: "La data di inizio non può essere nel passato.",
+                duration: 2800
+            });
+            return;
+        }
+
+        if (form.endAt) {
+            if (form.endAt < today) {
+                showToast({
+                    type: "error",
+                    message: "La data di fine non può essere nel passato.",
+                    duration: 2800
+                });
+                return;
+            }
+            if (form.startAt && form.endAt < form.startAt) {
+                showToast({
+                    type: "error",
+                    message: "La data di fine non può essere precedente alla data di inizio.",
+                    duration: 2800
+                });
+                return;
+            }
+        }
+
+        if (form.timeFrom && form.timeTo && form.timeTo <= form.timeFrom) {
+            showToast({
+                type: "error",
+                message: "L'orario di fine deve essere successivo all'orario di inizio.",
+                duration: 2800
+            });
+            return;
+        }
+
         if (form.ruleType === "price") {
             const invalidOverride = form.selectedProductIds.some(productId => {
-                const price = Number(form.productOverrides[productId]?.overridePrice ?? "");
+                const product = productsOptions.find(p => p.id === productId);
+                const hasFormats = (product?.format_values?.length ?? 0) > 0;
+                if (hasFormats) {
+                    const valueOverrides = form.productOverrides[productId]?.valueOverrides ?? {};
+                    return (product!.format_values ?? []).some(fv => {
+                        const price = parseDecimalPrice(valueOverrides[fv.id]?.overridePrice ?? "");
+                        return Number.isNaN(price) || price <= 0;
+                    });
+                }
+                const price = parseDecimalPrice(
+                    form.productOverrides[productId]?.overridePrice ?? ""
+                );
                 return Number.isNaN(price) || price <= 0;
             });
 
@@ -512,13 +478,16 @@ export default function ProgrammingRuleDetail() {
                 groupIds: form.groupIds,
                 targetType,
                 targetId,
-                priority,
+                priorityLevel: form.priorityLevel,
+                displayOrder: form.displayOrder,
                 enabled: form.enabled,
                 timeMode: form.timeMode,
                 daysOfWeek:
                     form.timeMode === "window" && hasDays ? form.daysOfWeek.map(Number) : null,
                 timeFrom: form.timeMode === "window" && hasBothTimes ? form.timeFrom : null,
                 timeTo: form.timeMode === "window" && hasBothTimes ? form.timeTo : null,
+                startAt: form.startAt ? new Date(form.startAt).toISOString() : null,
+                endAt: form.endAt ? new Date(form.endAt).toISOString() : null,
                 layout:
                     form.ruleType === "layout"
                         ? {
@@ -529,14 +498,35 @@ export default function ProgrammingRuleDetail() {
                         : undefined,
                 priceProducts:
                     form.ruleType === "price"
-                        ? form.selectedProductIds.map(productId => ({
-                              productId,
-                              overridePrice: Number(
-                                  form.productOverrides[productId]?.overridePrice ?? "0"
-                              ),
-                              showOriginalPrice:
-                                  form.productOverrides[productId]?.showOriginalPrice ?? false
-                          }))
+                        ? form.selectedProductIds.flatMap(productId => {
+                              const product = productsOptions.find(p => p.id === productId);
+                              const hasFormats = (product?.format_values?.length ?? 0) > 0;
+                              if (hasFormats) {
+                                  const valueOverrides =
+                                      form.productOverrides[productId]?.valueOverrides ?? {};
+                                  return (product!.format_values ?? []).map(fv => ({
+                                      productId,
+                                      optionValueId: fv.id as string | null,
+                                      overridePrice: parseDecimalPrice(
+                                          valueOverrides[fv.id]?.overridePrice ?? "0"
+                                      ),
+                                      showOriginalPrice:
+                                          valueOverrides[fv.id]?.showOriginalPrice ?? false
+                                  }));
+                              }
+                              return [
+                                  {
+                                      productId,
+                                      optionValueId: null,
+                                      overridePrice: parseDecimalPrice(
+                                          form.productOverrides[productId]?.overridePrice ?? "0"
+                                      ),
+                                      showOriginalPrice:
+                                          form.productOverrides[productId]?.showOriginalPrice ??
+                                          false
+                                  }
+                              ];
+                          })
                         : undefined,
                 visibilityProductOverrides:
                     form.ruleType === "visibility"
@@ -565,8 +555,9 @@ export default function ProgrammingRuleDetail() {
         );
     }
 
+    const backToList = `/business/${businessId}/scheduling?type=${fromType ?? form.ruleType}`;
     const breadcrumbItems = [
-        { label: "Programmazione", to: `/business/${businessId}/scheduling` },
+        { label: "Programmazione", to: backToList },
         { label: form.name || "Regola" }
     ];
 
@@ -576,7 +567,11 @@ export default function ProgrammingRuleDetail() {
                 <Breadcrumb items={breadcrumbItems} />
                 <PageHeader
                     title={form.name || "Regola"}
-                    subtitle={`${getRuleTypeLabel(form.ruleType)} · Workspace regola`}
+                    titleAddon={
+                        <Badge color={getRuleTypeBadgeColor(form.ruleType)}>
+                            {getRuleTypeLabel(form.ruleType)}
+                        </Badge>
+                    }
                     actions={
                         <div className={styles.topActions}>
                             <Button
@@ -601,51 +596,52 @@ export default function ProgrammingRuleDetail() {
             </div>
 
             <form id="rule-detail-form" className={styles.layout} onSubmit={handleSubmit}>
-                <TargetSection
-                    name={form.name}
-                    ruleType={form.ruleType}
-                    targetMode={form.targetMode}
-                    activityIds={form.activityIds}
-                    groupIds={form.groupIds}
-                    tenantActivities={tenantActivities}
-                    tenantGroups={tenantGroups}
-                    onFormChange={handleFormChange}
-                />
+                <div className={styles.formColumnLeft}>
+                    <TargetSection
+                        name={form.name}
+                        targetMode={form.targetMode}
+                        activityIds={form.activityIds}
+                        groupIds={form.groupIds}
+                        tenantActivities={tenantActivities}
+                        tenantGroups={tenantGroups}
+                        onFormChange={handleFormChange}
+                    />
 
-                <AssociatedContentSection
-                    ruleType={form.ruleType}
-                    catalogId={form.catalogId}
-                    styleId={form.styleId}
-                    featuredContents={form.featuredContents}
-                    selectedProductIds={form.selectedProductIds}
-                    productOverrides={form.productOverrides}
-                    visibilityProductModes={form.visibilityProductModes}
-                    tenantCatalogs={tenantCatalogs}
-                    tenantStyles={tenantStyles}
-                    tenantFeaturedContents={tenantFeaturedContents}
-                    tenantProducts={tenantProducts}
-                    tenantProductGroups={tenantProductGroups}
-                    tenantProductGroupItems={tenantProductGroupItems}
-                    onFormChange={handleFormChange}
-                />
+                    <AssociatedContentSection
+                        ruleType={form.ruleType}
+                        catalogId={form.catalogId}
+                        styleId={form.styleId}
+                        featuredContents={form.featuredContents}
+                        selectedProductIds={form.selectedProductIds}
+                        productOverrides={form.productOverrides}
+                        visibilityProductModes={form.visibilityProductModes}
+                        tenantCatalogs={tenantCatalogs}
+                        tenantStyles={tenantStyles}
+                        tenantFeaturedContents={tenantFeaturedContents}
+                        tenantProducts={tenantProducts}
+                        tenantProductGroups={tenantProductGroups}
+                        tenantProductGroupItems={tenantProductGroupItems}
+                        onFormChange={handleFormChange}
+                    />
+                </div>
 
-                <SchedulingSection
-                    alwaysActive={form.alwaysActive}
-                    timeMode={form.timeMode}
-                    dateFrom={form.dateFrom}
-                    dateTo={form.dateTo}
-                    daysOfWeek={form.daysOfWeek}
-                    timeFrom={form.timeFrom}
-                    timeTo={form.timeTo}
-                    summary={summary}
-                    onFormChange={handleFormChange}
-                />
+                <div className={styles.formColumnRight}>
+                    <SchedulingSection
+                        alwaysActive={form.alwaysActive}
+                        startAt={form.startAt}
+                        endAt={form.endAt}
+                        daysOfWeek={form.daysOfWeek}
+                        timeFrom={form.timeFrom}
+                        timeTo={form.timeTo}
+                        onFormChange={handleFormChange}
+                    />
 
-                <PrioritySection
-                    priority={form.priority}
-                    enabled={form.enabled}
-                    onFormChange={handleFormChange}
-                />
+                    <PrioritySection
+                        priorityLevel={form.priorityLevel}
+                        enabled={form.enabled}
+                        onFormChange={handleFormChange}
+                    />
+                </div>
             </form>
         </section>
     );
