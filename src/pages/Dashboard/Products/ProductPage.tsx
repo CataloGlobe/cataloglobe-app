@@ -10,7 +10,7 @@ import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { getProduct, V2Product } from "@/services/supabase/products";
-import { getProductOptions } from "@/services/supabase/productOptions";
+import { getProductOptions, GroupWithValues } from "@/services/supabase/productOptions";
 import { getVariantMatrixConfig, VariantMatrixConfig } from "@/services/supabase/productVariants";
 import { getProductUsage, ProductUsageData } from "@/services/supabase/productUsage";
 import { GeneralTab } from "./GeneralTab";
