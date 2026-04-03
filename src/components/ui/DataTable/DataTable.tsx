@@ -1,8 +1,8 @@
 import { CSSProperties, ReactNode, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
-import { IconChevronLeft, IconChevronRight, IconTrash, IconX } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import styles from "./DataTable.module.scss";
 import Text from "@/components/ui/Text/Text";
+import { BulkBar } from "@/components/ui/BulkBar/BulkBar";
 
 export type ColumnDefinition<T> = {
     id: string;
@@ -356,32 +356,13 @@ export function DataTable<T>({
                 {footerContent ? <div className={styles.footer}>{footerContent}</div> : null}
             </div>
 
-            {selectable &&
-                showSelectionBar &&
-                selectedRows.length > 0 &&
-                createPortal(
-                    <div className={styles.bulkBar}>
-                        <span className={styles.bulkCount}>{selectedRows.length} selezionati</span>
-                        <div className={styles.bulkSeparator} />
-                        {onBulkDelete && (
-                            <button
-                                className={`${styles.bulkAction} ${styles.bulkActionDanger}`}
-                                onClick={handleBulkDelete}
-                            >
-                                <IconTrash size={16} />
-                                Elimina selezionati
-                            </button>
-                        )}
-                        <button
-                            className={styles.bulkClose}
-                            onClick={handleClearSelection}
-                            aria-label="Annulla selezione"
-                        >
-                            <IconX size={16} />
-                        </button>
-                    </div>,
-                    document.body
-                )}
+            {selectable && showSelectionBar && (
+                <BulkBar
+                    selectedCount={selectedRows.length}
+                    onDelete={onBulkDelete ? handleBulkDelete : undefined}
+                    onClearSelection={handleClearSelection}
+                />
+            )}
         </>
     );
 }

@@ -17,6 +17,12 @@
   gap: 0.25rem;
 }
 
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .businessName {
   opacity: 0.65;
   letter-spacing: 0.01em;

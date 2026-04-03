@@ -8,6 +8,19 @@
   --brand-primary-hover: #4648c6;
   --skeleton-base: #e5e7eb;
   --skeleton-highlight: #f3f4f6;
+
+  // Warning palette (amber)
+  --color-warning-50:  #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-200: #fde68a;
+  --color-warning-300: #fcd34d;
+  --color-warning-500: #f59e0b;
+  --color-warning-700: #b45309;
+
+  // Red / danger palette
+  --color-red-50:  #fff1f2;
+  --color-red-200: #fecdd3;
+  --color-red-900: #450a0a;
 }
 
 [data-theme="dark"] {
