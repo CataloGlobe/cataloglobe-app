@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import { useToast } from "@/context/Toast/ToastContext";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
-import { Switch } from "@/components/ui/Switch/Switch";
-import { Badge } from "@/components/ui/Badge/Badge";
+import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import {
     GroupWithValues,
     V2ProductOptionValue,
@@ -37,23 +40,21 @@ export function ConfigTab({
     optionsLoading,
     onRefreshOptions
 }: ConfigTabProps) {
+    const { showToast } = useToast();
+
     // --- Create group form ---
     const [newGroupName, setNewGroupName] = useState("");
-    const [newGroupRequired, setNewGroupRequired] = useState(false);
-    const [newGroupMaxSel, setNewGroupMaxSel] = useState("");
     const [savingNewGroup, setSavingNewGroup] = useState(false);
     const [newGroupError, setNewGroupError] = useState<string | null>(null);
 
     // --- Edit group ---
     const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
     const [editGroupName, setEditGroupName] = useState("");
-    const [editGroupRequired, setEditGroupRequired] = useState(false);
-    const [editGroupMaxSel, setEditGroupMaxSel] = useState("");
     const [savingGroupId, setSavingGroupId] = useState<string | null>(null);
     const [groupEditError, setGroupEditError] = useState<string | null>(null);
 
-    // --- Delete group ---
-    const [confirmDeleteGroupId, setConfirmDeleteGroupId] = useState<string | null>(null);
+    // --- Delete group dialog ---
+    const [deleteGroup, setDeleteGroup] = useState<GroupWithValues | null>(null);
     const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null);
 
     // --- Edit value ---
@@ -79,14 +80,6 @@ export function ConfigTab({
             setNewGroupError("Il nome del gruppo è obbligatorio");
             return;
         }
-        const maxSel = newGroupMaxSel.trim();
-        if (maxSel !== "") {
-            const parsed = parseInt(maxSel, 10);
-            if (isNaN(parsed) || parsed < 1) {
-                setNewGroupError("Selezione massima deve essere un intero >= 1");
-                return;
-            }
-        }
         try {
             setSavingNewGroup(true);
             setNewGroupError(null);
@@ -94,18 +87,16 @@ export function ConfigTab({
                 tenant_id: tenantId,
                 product_id: productId,
                 name,
-                is_required: newGroupRequired,
-                max_selectable: maxSel !== "" ? parseInt(maxSel, 10) : null,
+                is_required: false,
+                max_selectable: null,
                 group_kind: "ADDON",
                 pricing_mode: "DELTA"
             });
             await onRefreshOptions();
             setNewGroupName("");
-            setNewGroupRequired(false);
-            setNewGroupMaxSel("");
-        } catch (err) {
-            console.error(err);
+        } catch {
             setNewGroupError("Errore nella creazione del gruppo");
+            showToast({ message: "Errore nella creazione del gruppo", type: "error" });
         } finally {
             setSavingNewGroup(false);
         }
@@ -115,10 +106,7 @@ export function ConfigTab({
     const handleStartEditGroup = (group: GroupWithValues) => {
         setEditingGroupId(group.id);
         setEditGroupName(group.name);
-        setEditGroupRequired(group.is_required);
-        setEditGroupMaxSel(group.max_selectable !== null ? String(group.max_selectable) : "");
         setGroupEditError(null);
-        setConfirmDeleteGroupId(null);
     };
 
     const handleCancelEditGroup = () => {
@@ -132,40 +120,29 @@ export function ConfigTab({
             setGroupEditError("Il nome del gruppo è obbligatorio");
             return;
         }
-        const maxSel = editGroupMaxSel.trim();
-        if (maxSel !== "") {
-            const parsed = parseInt(maxSel, 10);
-            if (isNaN(parsed) || parsed < 1) {
-                setGroupEditError("Selezione massima deve essere un intero >= 1");
-                return;
-            }
-        }
         try {
             setSavingGroupId(groupId);
-            await updateProductOptionGroup(groupId, {
-                name,
-                is_required: editGroupRequired,
-                max_selectable: maxSel !== "" ? parseInt(maxSel, 10) : null
-            });
+            await updateProductOptionGroup(groupId, { name });
             await onRefreshOptions();
             setEditingGroupId(null);
-        } catch (err) {
-            console.error(err);
+        } catch {
             setGroupEditError("Errore nel salvataggio del gruppo");
+            showToast({ message: "Errore nel salvataggio del gruppo", type: "error" });
         } finally {
             setSavingGroupId(null);
         }
     };
 
-    // --- Delete group handlers ---
-    const handleConfirmDeleteGroup = async (groupId: string) => {
+    // --- Delete group handler (called by ConfirmDialog) ---
+    const handleConfirmDeleteGroup = async (groupId: string): Promise<boolean> => {
         try {
             setDeletingGroupId(groupId);
             await deleteProductOptionGroup(groupId);
             await onRefreshOptions();
-            setConfirmDeleteGroupId(null);
-        } catch (err) {
-            console.error(err);
+            return true;
+        } catch {
+            showToast({ message: "Errore nell'eliminazione del gruppo", type: "error" });
+            return false;
         } finally {
             setDeletingGroupId(null);
         }
@@ -200,9 +177,9 @@ export function ConfigTab({
             await updateOptionValue(valueId, { name, price_modifier: parsed });
             await onRefreshOptions();
             setEditingValueId(null);
-        } catch (err) {
-            console.error(err);
+        } catch {
             setValueEditError("Errore nel salvataggio del valore");
+            showToast({ message: "Errore nel salvataggio del valore", type: "error" });
         } finally {
             setSavingValueId(null);
         }
@@ -214,8 +191,8 @@ export function ConfigTab({
             setDeletingValueId(valueId);
             await deleteOptionValue(valueId);
             await onRefreshOptions();
-        } catch (err) {
-            console.error(err);
+        } catch {
+            showToast({ message: "Errore nell'eliminazione del valore", type: "error" });
         } finally {
             setDeletingValueId(null);
         }
@@ -250,9 +227,9 @@ export function ConfigTab({
             await onRefreshOptions();
             setNewValueNames(prev => ({ ...prev, [groupId]: "" }));
             setNewValuePrices(prev => ({ ...prev, [groupId]: "" }));
-        } catch (err) {
-            console.error(err);
+        } catch {
             setNewValueErrors(prev => ({ ...prev, [groupId]: "Errore nell'aggiunta del valore" }));
+            showToast({ message: "Errore nell'aggiunta del valore", type: "error" });
         } finally {
             setSavingNewValueGroupId(null);
         }
@@ -264,6 +241,92 @@ export function ConfigTab({
     const isValueBusy = (valueId: string) =>
         savingValueId === valueId || deletingValueId === valueId;
 
+    // Value table columns — close over editing state
+    const valueColumns: ColumnDefinition<V2ProductOptionValue>[] = [
+        {
+            id: "name",
+            header: "Nome",
+            cell: (_, val: V2ProductOptionValue) =>
+                editingValueId === val.id ? (
+                    <div className={styles.cellStack}>
+                        <TextInput
+                            value={editValueName}
+                            onChange={e => setEditValueName(e.target.value)}
+                            placeholder="Nome valore"
+                            disabled={savingValueId === val.id}
+                        />
+                        {valueEditError && (
+                            <Text variant="body-sm" colorVariant="error">
+                                {valueEditError}
+                            </Text>
+                        )}
+                    </div>
+                ) : (
+                    <Text variant="body">{val.name}</Text>
+                ),
+        },
+        {
+            id: "delta",
+            header: "Delta €",
+            width: "140px",
+            cell: (_, val: V2ProductOptionValue) =>
+                editingValueId === val.id ? (
+                    <NumberInput
+                        value={editValuePrice}
+                        onChange={e => setEditValuePrice(e.target.value)}
+                        placeholder="Delta €"
+                        step="0.01"
+                        disabled={savingValueId === val.id}
+                    />
+                ) : (
+                    <Text variant="body">{formatDelta(val.price_modifier)}</Text>
+                ),
+        },
+        {
+            id: "actions",
+            header: "",
+            width: "80px",
+            align: "right",
+            cell: (_, val: V2ProductOptionValue) =>
+                editingValueId === val.id ? (
+                    <div className={styles.rowActions}>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => handleSaveValue(val.id)}
+                            disabled={savingValueId === val.id}
+                            loading={savingValueId === val.id}
+                        >
+                            Salva
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCancelEditValue}
+                            disabled={savingValueId === val.id}
+                        >
+                            Annulla
+                        </Button>
+                    </div>
+                ) : (
+                    <TableRowActions
+                        actions={[
+                            {
+                                label: "Modifica",
+                                onClick: () => handleStartEditValue(val),
+                            },
+                            {
+                                label: "Elimina",
+                                onClick: () => handleDeleteValue(val.id),
+                                variant: "destructive",
+                                separator: true,
+                            },
+                        ]}
+                    />
+                ),
+        },
+    ];
+
     if (optionsLoading) {
         return (
             <Text variant="body-sm" colorVariant="muted">
@@ -274,44 +337,36 @@ export function ConfigTab({
 
     return (
         <div className={styles.root}>
-            {/* Create group form */}
+            {/* Create group form — invariato */}
             <section className={styles.createSection}>
-                <Text variant="title-sm" weight={600} style={{ marginBottom: "12px" }}>
-                    Nuovo gruppo opzioni
+                <Text variant="title-sm" weight={600} className={styles.createTitle}>
+                    Nuova configurazione
+                </Text>
+                <Text variant="body-sm" colorVariant="muted" className={styles.createDescription}>
+                    Le configurazioni sono opzioni extra selezionabili (es. aggiunte, personalizzazioni). Non sostituiscono le varianti.
                 </Text>
                 <div className={styles.createGroupForm}>
-                    <TextInput
-                        placeholder="Nome gruppo (es. Aggiunte)"
-                        value={newGroupName}
-                        onChange={e => setNewGroupName(e.target.value)}
-                        disabled={savingNewGroup}
-                    />
-                    <NumberInput
-                        placeholder="Max selezionabili"
-                        value={newGroupMaxSel}
-                        onChange={e => setNewGroupMaxSel(e.target.value)}
-                        min="1"
-                        step="1"
-                        disabled={savingNewGroup}
-                    />
-                    <Switch
-                        label="Obbligatorio"
-                        checked={newGroupRequired}
-                        onChange={setNewGroupRequired}
-                        disabled={savingNewGroup}
-                    />
-                    <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={handleCreateGroup}
-                        disabled={savingNewGroup}
-                        loading={savingNewGroup}
-                    >
-                        Crea gruppo
-                    </Button>
+                    <div className={styles.inputGroup}>
+                        <TextInput
+                            label="Nome gruppo"
+                            placeholder="Es. Aggiunte, Cottura, Extra..."
+                            value={newGroupName}
+                            onChange={e => setNewGroupName(e.target.value)}
+                            disabled={savingNewGroup}
+                        />
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleCreateGroup}
+                            disabled={savingNewGroup}
+                            loading={savingNewGroup}
+                        >
+                            Crea
+                        </Button>
+                    </div>
                 </div>
                 {newGroupError && (
-                    <Text variant="body-sm" colorVariant="error" style={{ marginTop: "6px" }}>
+                    <Text variant="body-sm" colorVariant="error" className={styles.createError}>
                         {newGroupError}
                     </Text>
                 )}
@@ -319,7 +374,7 @@ export function ConfigTab({
 
             {addonGroups.length === 0 ? (
                 <Text variant="body-sm" colorVariant="muted">
-                    Nessun gruppo configurato
+                    Nessuna configurazione aggiunta. Crea un gruppo per definire opzioni extra del prodotto.
                 </Text>
             ) : (
                 <div className={styles.groupList}>
@@ -334,22 +389,6 @@ export function ConfigTab({
                                         onChange={e => setEditGroupName(e.target.value)}
                                         disabled={savingGroupId === group.id}
                                     />
-                                    <div className={styles.groupEditRow}>
-                                        <NumberInput
-                                            label="Max selezionabili"
-                                            value={editGroupMaxSel}
-                                            onChange={e => setEditGroupMaxSel(e.target.value)}
-                                            min="1"
-                                            step="1"
-                                            disabled={savingGroupId === group.id}
-                                        />
-                                        <Switch
-                                            label="Obbligatorio"
-                                            checked={editGroupRequired}
-                                            onChange={setEditGroupRequired}
-                                            disabled={savingGroupId === group.id}
-                                        />
-                                    </div>
                                     {groupEditError && (
                                         <Text variant="body-sm" colorVariant="error">
                                             {groupEditError}
@@ -360,7 +399,7 @@ export function ConfigTab({
                                             variant="primary"
                                             size="sm"
                                             onClick={() => handleSaveGroup(group.id)}
-                                            disabled={savingGroupId === group.id}
+                                            disabled={isGroupBusy(group.id)}
                                             loading={savingGroupId === group.id}
                                         >
                                             Salva
@@ -369,33 +408,7 @@ export function ConfigTab({
                                             variant="ghost"
                                             size="sm"
                                             onClick={handleCancelEditGroup}
-                                            disabled={savingGroupId === group.id}
-                                        >
-                                            Annulla
-                                        </Button>
-                                    </div>
-                                </div>
-                            ) : confirmDeleteGroupId === group.id ? (
-                                <div className={styles.deleteConfirm}>
-                                    <Text variant="body-sm">
-                                        Eliminare il gruppo "{group.name}"? Verranno eliminati anche
-                                        tutti i valori.
-                                    </Text>
-                                    <div className={styles.deleteConfirmActions}>
-                                        <Button
-                                            variant="danger"
-                                            size="sm"
-                                            onClick={() => handleConfirmDeleteGroup(group.id)}
-                                            disabled={deletingGroupId === group.id}
-                                            loading={deletingGroupId === group.id}
-                                        >
-                                            Elimina
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setConfirmDeleteGroupId(null)}
-                                            disabled={deletingGroupId === group.id}
+                                            disabled={isGroupBusy(group.id)}
                                         >
                                             Annulla
                                         </Button>
@@ -407,153 +420,42 @@ export function ConfigTab({
                                         <Text variant="body" weight={600}>
                                             {group.name}
                                         </Text>
-                                        <div className={styles.groupBadges}>
-                                            {group.is_required && (
-                                                <Badge variant="warning">Obbligatorio</Badge>
-                                            )}
-                                            {group.max_selectable !== null && (
-                                                <Badge variant="secondary">
-                                                    Max: {group.max_selectable}
-                                                </Badge>
-                                            )}
-                                        </div>
+                                        <Badge variant="secondary">
+                                            {group.values.length}{" "}
+                                            {group.values.length === 1 ? "opzione" : "opzioni"}
+                                        </Badge>
                                     </div>
                                     <div className={styles.groupActions}>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => handleStartEditGroup(group)}
-                                            disabled={isGroupBusy(group.id)}
-                                        >
-                                            Modifica
-                                        </Button>
-                                        <Button
-                                            variant="danger"
-                                            size="sm"
-                                            onClick={() => setConfirmDeleteGroupId(group.id)}
-                                            disabled={isGroupBusy(group.id)}
-                                        >
-                                            Elimina
-                                        </Button>
+                                        <TableRowActions
+                                            actions={[
+                                                {
+                                                    label: "Rinomina",
+                                                    onClick: () => handleStartEditGroup(group),
+                                                },
+                                                {
+                                                    label: "Elimina",
+                                                    onClick: () => setDeleteGroup(group),
+                                                    variant: "destructive",
+                                                    separator: true,
+                                                },
+                                            ]}
+                                        />
                                     </div>
                                 </div>
                             )}
 
                             {/* Values table */}
                             <div className={styles.valueSection}>
-                                {group.values.length > 0 && (
-                                    <div className={styles.valueTable}>
-                                        <div className={styles.valueHeader}>
-                                            <Text variant="body-sm" weight={600}>
-                                                Nome
-                                            </Text>
-                                            <Text variant="body-sm" weight={600}>
-                                                Delta €
-                                            </Text>
-                                            <div />
-                                        </div>
-
-                                        {group.values.map(val =>
-                                            editingValueId === val.id ? (
-                                                <div
-                                                    key={val.id}
-                                                    className={styles.valueEditRow}
-                                                >
-                                                    <TextInput
-                                                        value={editValueName}
-                                                        onChange={e =>
-                                                            setEditValueName(e.target.value)
-                                                        }
-                                                        placeholder="Nome valore"
-                                                        disabled={savingValueId === val.id}
-                                                    />
-                                                    <NumberInput
-                                                        value={editValuePrice}
-                                                        onChange={e =>
-                                                            setEditValuePrice(e.target.value)
-                                                        }
-                                                        placeholder="Delta €"
-                                                        step="0.01"
-                                                        disabled={savingValueId === val.id}
-                                                    />
-                                                    <div className={styles.rowActions}>
-                                                        <Button
-                                                            variant="primary"
-                                                            size="sm"
-                                                            onClick={() =>
-                                                                handleSaveValue(val.id)
-                                                            }
-                                                            disabled={savingValueId === val.id}
-                                                            loading={savingValueId === val.id}
-                                                        >
-                                                            Salva
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={handleCancelEditValue}
-                                                            disabled={savingValueId === val.id}
-                                                        >
-                                                            Annulla
-                                                        </Button>
-                                                    </div>
-                                                    {valueEditError && (
-                                                        <Text
-                                                            variant="body-sm"
-                                                            colorVariant="error"
-                                                            className={styles.rowError}
-                                                        >
-                                                            {valueEditError}
-                                                        </Text>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <div key={val.id} className={styles.valueRow}>
-                                                    <Text variant="body">{val.name}</Text>
-                                                    <Text variant="body">
-                                                        {formatDelta(val.price_modifier)}
-                                                    </Text>
-                                                    <div className={styles.rowActions}>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() =>
-                                                                handleStartEditValue(val)
-                                                            }
-                                                            disabled={
-                                                                isValueBusy(val.id) ||
-                                                                savingNewValueGroupId === group.id
-                                                            }
-                                                        >
-                                                            Modifica
-                                                        </Button>
-                                                        <Button
-                                                            variant="danger"
-                                                            size="sm"
-                                                            onClick={() =>
-                                                                handleDeleteValue(val.id)
-                                                            }
-                                                            disabled={isValueBusy(val.id)}
-                                                            loading={deletingValueId === val.id}
-                                                        >
-                                                            Elimina
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            )
-                                        )}
-                                    </div>
-                                )}
-
-                                {group.values.length === 0 && (
-                                    <Text
-                                        variant="body-sm"
-                                        colorVariant="muted"
-                                        style={{ marginBottom: "12px" }}
-                                    >
-                                        Nessun valore configurato
-                                    </Text>
-                                )}
+                                <DataTable
+                                    data={group.values}
+                                    columns={valueColumns}
+                                    density="compact"
+                                    emptyState={
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Nessun valore configurato
+                                        </Text>
+                                    }
+                                />
 
                                 {/* Add value form */}
                                 <div className={styles.addValueForm}>
@@ -569,33 +471,35 @@ export function ConfigTab({
                                             }
                                             disabled={savingNewValueGroupId === group.id}
                                         />
-                                        <NumberInput
-                                            placeholder="Delta € (es. 0.50)"
-                                            value={newValuePrices[group.id] ?? ""}
-                                            onChange={e =>
-                                                setNewValuePrices(prev => ({
-                                                    ...prev,
-                                                    [group.id]: e.target.value
-                                                }))
-                                            }
-                                            step="0.01"
-                                            disabled={savingNewValueGroupId === group.id}
-                                        />
-                                        <Button
-                                            variant="primary"
-                                            size="sm"
-                                            onClick={() => handleAddValue(group.id)}
-                                            disabled={savingNewValueGroupId === group.id}
-                                            loading={savingNewValueGroupId === group.id}
-                                        >
-                                            Aggiungi
-                                        </Button>
+                                        <div className={styles.inputGroup}>
+                                            <NumberInput
+                                                placeholder="Delta € (es. 0.50)"
+                                                value={newValuePrices[group.id] ?? ""}
+                                                onChange={e =>
+                                                    setNewValuePrices(prev => ({
+                                                        ...prev,
+                                                        [group.id]: e.target.value
+                                                    }))
+                                                }
+                                                step="0.01"
+                                                disabled={savingNewValueGroupId === group.id}
+                                            />
+                                            <Button
+                                                variant="primary"
+                                                size="sm"
+                                                onClick={() => handleAddValue(group.id)}
+                                                disabled={savingNewValueGroupId === group.id}
+                                                loading={savingNewValueGroupId === group.id}
+                                            >
+                                                Aggiungi
+                                            </Button>
+                                        </div>
                                     </div>
                                     {newValueErrors[group.id] && (
                                         <Text
                                             variant="body-sm"
                                             colorVariant="error"
-                                            style={{ marginTop: "4px" }}
+                                            className={styles.addValueError}
                                         >
                                             {newValueErrors[group.id]}
                                         </Text>
@@ -605,6 +509,18 @@ export function ConfigTab({
                         </div>
                     ))}
                 </div>
+            )}
+
+            {/* Delete group confirmation dialog */}
+            {deleteGroup && (
+                <ConfirmDialog
+                    isOpen={true}
+                    onClose={() => setDeleteGroup(null)}
+                    onConfirm={() => handleConfirmDeleteGroup(deleteGroup.id)}
+                    title={`Elimina "${deleteGroup.name}"`}
+                    message="Sei sicuro di voler eliminare questo gruppo? Tutti i valori associati verranno eliminati."
+                    confirmLabel="Elimina"
+                />
             )}
         </div>
     );

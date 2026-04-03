@@ -1,4 +1,5 @@
 import { Link, useParams } from "react-router-dom";
+import { IconChevronRight } from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
 import styles from "./UsageTab.module.scss";
 
@@ -21,7 +22,6 @@ interface UsageTabProps {
 
 export function UsageTab({ productId, usageData, usageLoading }: UsageTabProps) {
     const { businessId } = useParams<{ businessId: string }>();
-    console.log("usageData", usageData);
 
     if (usageLoading) {
         return (
@@ -44,29 +44,16 @@ export function UsageTab({ productId, usageData, usageLoading }: UsageTabProps) 
         <div className={styles.root}>
             {/* Summary */}
             <div className={styles.summary}>
-                <Text variant="body-sm" weight={600} style={{ marginBottom: "8px" }}>
+                <Text variant="body-sm" weight={600} className={styles.summaryTitle}>
                     Questo prodotto è utilizzato in:
                 </Text>
-                <ul className={styles.summaryList}>
-                    <li className={styles.summaryItem}>
-                        <span className={styles.summaryDot} />
-                        <Text variant="body-sm">
-                            <strong>{activityCount}</strong> attività
-                        </Text>
-                    </li>
-                    <li className={styles.summaryItem}>
-                        <span className={styles.summaryDot} />
-                        <Text variant="body-sm">
-                            <strong>{catalogCount}</strong> {catalogLabel}
-                        </Text>
-                    </li>
-                    <li className={styles.summaryItem}>
-                        <span className={styles.summaryDot} />
-                        <Text variant="body-sm">
-                            <strong>{scheduleCount}</strong> {scheduleLabel}
-                        </Text>
-                    </li>
-                </ul>
+                <div className={styles.summaryBadges}>
+                    <span className={styles.summaryBadge}>{activityCount} attività</span>
+                    <span className={styles.badgeSeparator}>·</span>
+                    <span className={styles.summaryBadge}>{catalogCount} {catalogLabel}</span>
+                    <span className={styles.badgeSeparator}>·</span>
+                    <span className={styles.summaryBadge}>{scheduleCount} regole</span>
+                </div>
             </div>
 
             <Text variant="body-sm" colorVariant="muted" className={styles.microcopy}>
@@ -101,14 +88,13 @@ export function UsageTab({ productId, usageData, usageLoading }: UsageTabProps) 
                                     className={styles.link}
                                 >
                                     {catalog.name}
+                                    <IconChevronRight size={14} />
                                 </Link>
                             </li>
                         ))}
                     </ul>
                 )}
             </section>
-
-            <div className={styles.divider} />
 
             {/* Schedules */}
             <section className={styles.section}>
@@ -129,14 +115,13 @@ export function UsageTab({ productId, usageData, usageLoading }: UsageTabProps) 
                                     className={styles.link}
                                 >
                                     {schedule.name}
+                                    <IconChevronRight size={14} />
                                 </Link>
                             </li>
                         ))}
                     </ul>
                 )}
             </section>
-
-            <div className={styles.divider} />
 
             {/* Activities */}
             <section className={styles.section}>
@@ -157,6 +142,7 @@ export function UsageTab({ productId, usageData, usageLoading }: UsageTabProps) 
                                     className={styles.link}
                                 >
                                     {activity.name}
+                                    <IconChevronRight size={14} />
                                 </Link>
                             </li>
                         ))}

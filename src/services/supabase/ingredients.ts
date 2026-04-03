@@ -49,8 +49,38 @@ export async function createIngredient(tenantId: string, name: string): Promise<
     return data;
 }
 
-export async function deleteIngredient(id: string): Promise<void> {
-    const { error } = await supabase.from("ingredients").delete().eq("id", id);
+export async function listIngredients(tenantId: string): Promise<V2Ingredient[]> {
+    return getIngredients(tenantId);
+}
+
+export async function updateIngredient(
+    id: string,
+    tenantId: string,
+    data: { name: string }
+): Promise<V2Ingredient> {
+    const { data: updated, error } = await supabase
+        .from("ingredients")
+        .update({ name: data.name.trim() })
+        .eq("id", id)
+        .eq("tenant_id", tenantId)
+        .select()
+        .single();
+
+    if (error) {
+        if (error.code === "23505") {
+            throw new Error("Un ingrediente con questo nome esiste già.");
+        }
+        throw error;
+    }
+    return updated;
+}
+
+export async function deleteIngredient(id: string, tenantId: string): Promise<void> {
+    const { error } = await supabase
+        .from("ingredients")
+        .delete()
+        .eq("id", id)
+        .eq("tenant_id", tenantId);
 
     if (error) throw error;
 }

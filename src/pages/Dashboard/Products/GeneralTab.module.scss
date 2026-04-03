@@ -88,6 +88,15 @@
   align-items: center;
 }
 
+/* Thumbnail immagine in view mode */
+.productThumbnail {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+}
+
 /* Groups */
 .groupSearch {
   max-width: 280px;
@@ -125,5 +134,134 @@
   display: flex;
   gap: 8px;
   align-items: center;
+  margin-top: 4px;
+}
+
+.groupsDisplay {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.groupBadge {
+  @extend %staticBadge;
+  background-color: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  color: var(--text, #0f172a);
+
+  [data-theme="dark"] & {
+    background-color: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+  }
+}
+
+.emptyGroups {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.emptyLink {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--brand-primary, #6366f1);
+  text-align: left;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary, #6366f1);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+/* Specs */
+.specsDisplay {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.specsRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.specsBadgeList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+// Static read-only badge shared base
+%staticBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.allergenBadge {
+  @extend %staticBadge;
+  background-color: var(--color-warning-50, #fffbeb);
+  border: 1px solid var(--color-warning-200, #fde68a);
+  color: var(--color-warning-700, #b45309);
+}
+
+.ingredientBadge {
+  @extend %staticBadge;
+  background-color: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  color: var(--text, #0f172a);
+
+  [data-theme="dark"] & {
+    background-color: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+  }
+}
+
+.specsEditForm {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 560px;
+}
+
+.specsField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.allergenGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.specsActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.fieldError {
   margin-top: 4px;
 }

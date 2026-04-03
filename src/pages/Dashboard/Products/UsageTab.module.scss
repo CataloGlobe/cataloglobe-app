@@ -1,44 +1,49 @@
 .root {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 12px;
 }
 
-/* Summary block */
+// ─── Summary block ────────────────────────────────────────────────────────────
+
 .summary {
   padding: 16px;
   background-color: var(--color-surface-secondary, #f9fafb);
   border: 1px solid var(--color-border, #e5e7eb);
   border-radius: 8px;
-  margin-bottom: 20px;
 }
 
-.summaryList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.summaryTitle {
+  margin-bottom: 10px;
 }
 
-.summaryItem {
+.summaryBadges {
   display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
-.summaryDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: var(--color-primary, #6366f1);
-  flex-shrink: 0;
+.summaryBadge {
+  background: var(--surface-subtle, #f3f4f6);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 13px;
+  color: var(--text, #111827);
+  white-space: nowrap;
 }
+
+.badgeSeparator {
+  font-size: 13px;
+  color: var(--text-muted, #9ca3af);
+  user-select: none;
+}
+
+// ─── Microcopy ────────────────────────────────────────────────────────────────
 
 .microcopy {
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  padding-bottom: 4px;
 }
 
 .inlineLink {
@@ -50,22 +55,23 @@
   }
 }
 
+// ─── Sections ─────────────────────────────────────────────────────────────────
+
 .section {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 20px 0;
+  padding: 16px;
+  background-color: #fff;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
 }
 
 .sectionTitle {
   margin: 0;
 }
 
-.divider {
-  height: 1px;
-  background-color: var(--color-border, #e5e7eb);
-  margin: 0;
-}
+// ─── List ─────────────────────────────────────────────────────────────────────
 
 .list {
   list-style: none;
@@ -82,6 +88,9 @@
 }
 
 .link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 14px;
   color: var(--color-primary, #6366f1);
   text-decoration: none;

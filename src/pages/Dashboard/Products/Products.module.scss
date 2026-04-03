@@ -10,6 +10,14 @@
   margin: 0 auto;
 }
 
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
 .filterBar {
   flex: 1;
 }
@@ -206,6 +214,21 @@
   }
   .listRowVariant {
     padding: 16px 24px 16px 64px;
+  }
+}
+
+// ----------------------------------------------------
+// PRODUCT GRID
+// ----------------------------------------------------
+
+.productGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: stretch;
+
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(5, 1fr);
   }
 }
 

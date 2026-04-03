@@ -10,10 +10,49 @@
   padding: 24px 0;
 }
 
+.sectionLabel {
+  margin-bottom: 12px;
+}
+
+.sectionTitle {
+  margin-bottom: 12px;
+}
+
+.sectionTitleTight {
+  margin-bottom: 4px;
+}
+
+.segmentedWrapper {
+  width: fit-content;
+}
+
 .divider {
   height: 1px;
   background-color: var(--color-border, #e5e7eb);
   margin: 0;
+}
+
+.inheritSubLabel {
+  margin-bottom: 6px;
+}
+
+.inheritParentName {
+  color: var(--text, #111827);
+}
+
+.inheritFormatsLabel {
+  margin-top: 14px;
+  margin-bottom: 6px;
+}
+
+/* Inherit box */
+.inheritBox {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background-color: var(--color-surface-secondary, #f9fafb);
+  border: 1px solid var(--color-border, #e5e7eb);
 }
 
 /* Base price */
@@ -37,7 +76,8 @@
 }
 
 .microcopy {
-  margin-top: 6px;
+  margin-top: 4px;
+  margin-bottom: 12px;
 }
 
 /* Format table */
@@ -99,9 +139,21 @@
   padding-top: 2px;
 }
 
+.formatsEmpty {
+  margin-bottom: 16px;
+}
+
 /* Add format form */
 .addForm {
   margin-top: 8px;
+}
+
+.addFormTitle {
+  margin-bottom: 8px;
+}
+
+.addFormError {
+  margin-top: 4px;
 }
 
 .addFormInputs {

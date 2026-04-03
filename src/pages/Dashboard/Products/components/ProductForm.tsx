@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { useToast } from "@/context/Toast/ToastContext";
-import { createProduct, updateProduct, V2Product } from "@/services/supabase/products";
+import { createProduct, updateProduct, getProduct, V2Product, ProductType } from "@/services/supabase/products";
 import { uploadProductImage } from "@/services/supabase/upload";
 import { FileInput } from "@/components/ui/Input/FileInput";
 import {
@@ -39,15 +39,19 @@ import {
 import {
     getProductOptions,
     createProductOptionGroup,
+    updateProductOptionGroup,
     deleteProductOptionGroup,
     createOptionValue,
+    updateOptionValue,
     deleteOptionValue,
     GroupWithValues
 } from "@/services/supabase/productOptions";
 import { Select } from "@/components/ui/Select/Select";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Pill } from "@/components/ui/Pill/Pill";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import styles from "../Products.module.scss";
+import { IngredientCombobox } from "./IngredientCombobox";
 
 export type ProductFormMode = "create_base" | "create_variant" | "edit";
 
@@ -83,6 +87,147 @@ type DraftAddonGroup = {
 };
 
 const makeDraftId = () => `draft-${Math.random().toString(36).slice(2, 10)}`;
+const normalizePrice = (v?: number | null) => v ?? 0;
+
+async function syncFormatsInEditMode({
+    tenantId,
+    productId,
+    primaryPriceGroup,
+    draftFormats
+}: {
+    tenantId: string;
+    productId: string;
+    primaryPriceGroup: GroupWithValues | null;
+    draftFormats: DraftFormat[];
+}): Promise<void> {
+    const originalFormats = primaryPriceGroup?.values ?? [];
+    const originalMap = new Map(originalFormats.map(f => [f.id, f]));
+    const draftMap = new Map(draftFormats.map(f => [f.id, f]));
+
+    const toDelete = originalFormats.filter(f => !draftMap.has(f.id));
+    const toUpdate = draftFormats.filter(f => {
+        const orig = originalMap.get(f.id);
+        if (!orig) return false;
+        return orig.name !== f.name || normalizePrice(orig.absolute_price) !== normalizePrice(f.absolute_price);
+    });
+    const toCreate = draftFormats.filter(f => !originalMap.has(f.id));
+
+    for (const f of toDelete) await deleteOptionValue(f.id);
+    for (const f of toUpdate) await updateOptionValue(f.id, { name: f.name, absolute_price: f.absolute_price });
+
+    if (toCreate.length > 0) {
+        const groupId = primaryPriceGroup
+            ? primaryPriceGroup.id
+            : (await createProductOptionGroup({
+                  tenant_id: tenantId,
+                  product_id: productId,
+                  name: "Formato",
+                  is_required: true,
+                  max_selectable: 1,
+                  group_kind: "PRIMARY_PRICE",
+                  pricing_mode: "ABSOLUTE"
+              })).id;
+        for (const f of toCreate) {
+            await createOptionValue({
+                tenant_id: tenantId,
+                option_group_id: groupId,
+                name: f.name,
+                price_modifier: null,
+                absolute_price: f.absolute_price
+            });
+        }
+    }
+}
+
+async function syncAddonGroupsInEditMode({
+    tenantId,
+    productId,
+    addonGroups,
+    draftAddonGroups
+}: {
+    tenantId: string;
+    productId: string;
+    addonGroups: GroupWithValues[];
+    draftAddonGroups: DraftAddonGroup[];
+}): Promise<void> {
+    const originalGroupMap = new Map(addonGroups.map(g => [g.id, g]));
+    const draftGroupMap = new Map(draftAddonGroups.map(g => [g.id, g]));
+
+    // 1. DELETE groups removed from draft
+    const groupsToDelete = addonGroups.filter(g => !draftGroupMap.has(g.id));
+    for (const g of groupsToDelete) await deleteProductOptionGroup(g.id);
+
+    // 2. UPDATE groups that changed
+    const groupsToUpdate = draftAddonGroups.filter(g => {
+        const orig = originalGroupMap.get(g.id);
+        if (!orig) return false;
+        return orig.name !== g.name || orig.is_required !== g.is_required || orig.max_selectable !== g.max_selectable;
+    });
+    for (const g of groupsToUpdate) {
+        await updateProductOptionGroup(g.id, { name: g.name, is_required: g.is_required, max_selectable: g.max_selectable });
+    }
+
+    // 3. CREATE new groups; build mapping draftId → realId
+    const groupsToCreate = draftAddonGroups.filter(g => !originalGroupMap.has(g.id));
+    const createdGroupIdMap = new Map<string, string>();
+    for (const g of groupsToCreate) {
+        const newGroup = await createProductOptionGroup({
+            tenant_id: tenantId,
+            product_id: productId,
+            name: g.name,
+            is_required: g.is_required,
+            max_selectable: g.max_selectable,
+            group_kind: "ADDON",
+            pricing_mode: "DELTA"
+        });
+        createdGroupIdMap.set(g.id, newGroup.id);
+    }
+
+    // 4. Sync VALUES for each existing or newly created group
+    const groupsToSyncValues = draftAddonGroups.filter(
+        g => originalGroupMap.has(g.id) || createdGroupIdMap.has(g.id)
+    );
+    for (const g of groupsToSyncValues) {
+        if (groupsToDelete.some(d => d.id === g.id)) continue; // defensive guard
+
+        const realGroupId = createdGroupIdMap.get(g.id) ?? g.id;
+        const originalValues = originalGroupMap.get(g.id)?.values ?? [];
+        const originalValueMap = new Map(originalValues.map(v => [v.id, v]));
+        const draftValueMap = new Map(g.values.map(v => [v.id, v]));
+
+        const valuesToDelete = originalValues.filter(v => !draftValueMap.has(v.id));
+        const valuesToUpdate = g.values.filter(v => {
+            const orig = originalValueMap.get(v.id);
+            if (!orig) return false;
+            return orig.name !== v.name || normalizePrice(orig.price_modifier) !== normalizePrice(v.price_modifier);
+        });
+        const valuesToCreate = g.values.filter(v => !originalValueMap.has(v.id));
+
+        for (const v of valuesToDelete) await deleteOptionValue(v.id);
+        for (const v of valuesToUpdate) await updateOptionValue(v.id, { name: v.name, price_modifier: v.price_modifier });
+        for (const v of valuesToCreate) {
+            await createOptionValue({
+                tenant_id: tenantId,
+                option_group_id: realGroupId,
+                name: v.name,
+                price_modifier: v.price_modifier ?? null
+            });
+        }
+    }
+}
+
+type PriceMode = "inherit" | "single" | "formats";
+
+const PRICE_MODE_OPTIONS: { value: PriceMode; label: string }[] = [
+    { value: "single", label: "Prezzo singolo" },
+    { value: "formats", label: "Prezzi per formato" }
+];
+
+const VARIANT_PRICE_MODE_OPTIONS: { value: PriceMode; label: string }[] = [
+    { value: "inherit", label: "Eredita" },
+    { value: "single", label: "Prezzo singolo" },
+    { value: "formats", label: "Formati" }
+];
 
 export function ProductForm({
     mode,
@@ -113,6 +258,13 @@ export function ProductForm({
     const [description, setDescription] = useState("");
     const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
     const [basePrice, setBasePrice] = useState<string>("");
+    const [productType, setProductType] = useState<ProductType>("simple");
+    const [priceMode, setPriceMode] = useState<PriceMode>("single");
+    const [submitError, setSubmitError] = useState<string | null>(null);
+
+    // Parent product for edit mode (fetched when editing a variant)
+    const [editParent, setEditParent] = useState<V2Product | null>(null);
+    const [isLoadingEditParent, setIsLoadingEditParent] = useState(false);
 
     // Attributes state
     const [attributeDefinitions, setAttributeDefinitions] = useState<
@@ -138,9 +290,6 @@ export function ProductForm({
     const [systemIngredients, setSystemIngredients] = useState<V2Ingredient[]>([]);
     const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
     const [isLoadingIngredients, setIsLoadingIngredients] = useState(false);
-    const [ingredientSearchQuery, setIngredientSearchQuery] = useState("");
-    const [newIngredientName, setNewIngredientName] = useState("");
-    const [isCreatingIngredient, setIsCreatingIngredient] = useState(false);
 
     // Product Options state — split by kind
     const [primaryPriceGroup, setPrimaryPriceGroup] = useState<GroupWithValues | null>(null);
@@ -171,13 +320,46 @@ export function ProductForm({
         onSavingChange?.(isSaving);
     }, [isSaving, onSavingChange]);
 
+    // Fetch parent product when editing a variant (for the banner link)
+    useEffect(() => {
+        if (isEditing && productData?.parent_product_id && tenantId) {
+            setEditParent(null);
+            setIsLoadingEditParent(true);
+            getProduct(productData.parent_product_id, tenantId)
+                .then(p => setEditParent(p))
+                .catch(() => setEditParent(null))
+                .finally(() => setIsLoadingEditParent(false));
+        } else {
+            setEditParent(null);
+        }
+    }, [isEditing, productData?.parent_product_id, tenantId]);
+
+    // Dedicated effect for per-product allergen/ingredient selections.
+    // Uses productData?.id (not the full object) to avoid spurious re-runs.
+    useEffect(() => {
+        if (!isEditing || !productData?.id || !tenantId) {
+            setSelectedAllergens([]);
+            setSelectedIngredients([]);
+            return;
+        }
+        const productId = productData.id;
+        const tid = tenantId;
+        let cancelled = false;
+        getProductAllergens(productId, tid)
+            .then(ids => { if (!cancelled) setSelectedAllergens(ids); })
+            .catch(() => {});
+        getProductIngredients(productId)
+            .then(rows => { if (!cancelled) setSelectedIngredients(rows.map(r => r.ingredient_id)); })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [isEditing, productData?.id, tenantId]);
+
     useEffect(() => {
         setIsSaving(false);
 
         // Reset all search queries
         setAllergenSearchQuery("");
         setGroupSearchQuery("");
-        setIngredientSearchQuery("");
 
         // Reset options state
         setPrimaryPriceGroup(null);
@@ -197,10 +379,21 @@ export function ProductForm({
             setName(productData.name);
             setDescription(productData.description || "");
             setBasePrice(productData.base_price ? productData.base_price.toString() : "");
+            setProductType(productData.product_type);
+        } else if (mode === "create_variant" && parentProduct) {
+            setName(parentProduct.name);
+            setDescription(parentProduct.description || "");
+            setBasePrice("");
+            setProductType("simple");
+            setPriceMode("inherit");
+            setSubmitError(null);
         } else {
             setName("");
             setDescription("");
             setBasePrice("");
+            setPriceMode("single");
+            setProductType("simple");
+            setSubmitError(null);
         }
 
         // Load Attributes, Allergens & Groups & Ingredients
@@ -258,13 +451,6 @@ export function ProductForm({
         try {
             const allAllergens = await listAllergens();
             setSystemAllergens(allAllergens);
-
-            if (isEditing && productData && tenantId) {
-                const assignedAllergenIds = await getProductAllergens(productData.id, tenantId);
-                setSelectedAllergens(assignedAllergenIds);
-            } else {
-                setSelectedAllergens([]);
-            }
         } catch (error) {
             console.error("Errore nel caricamento degli allergeni:", error);
             showToast({ message: "Non è stato possibile caricare gli allergeni.", type: "error" });
@@ -311,14 +497,6 @@ export function ProductForm({
         try {
             const allIngredients = await getIngredients(tenantId);
             setSystemIngredients(allIngredients);
-
-            if (isEditing && productData) {
-                const assignedIngredients = await getProductIngredients(productData.id);
-                const assignedIds = assignedIngredients.map(i => i.ingredient_id);
-                setSelectedIngredients(assignedIds);
-            } else {
-                setSelectedIngredients([]);
-            }
         } catch (error) {
             console.error("Errore nel caricamento degli ingredienti:", error);
             showToast({
@@ -337,10 +515,32 @@ export function ProductForm({
             const result = await getProductOptions(productData.id);
             setPrimaryPriceGroup(result.primaryPriceGroup);
             setAddonGroups(result.addonGroups);
-            setHasFormatPricing(
-                Boolean(result.primaryPriceGroup && result.primaryPriceGroup.values.length > 0)
-            );
-            setHasAddonOptions(result.addonGroups.length > 0);
+
+            if (result.primaryPriceGroup && result.primaryPriceGroup.values.length > 0) {
+                const formats: DraftFormat[] = result.primaryPriceGroup.values.map(v => ({
+                    id: v.id,
+                    name: v.name,
+                    absolute_price: v.absolute_price ?? 0
+                }));
+                setDraftFormats(formats);
+                setHasFormatPricing(true);
+            }
+
+            if (result.addonGroups.length > 0) {
+                const groups: DraftAddonGroup[] = result.addonGroups.map(g => ({
+                    id: g.id,
+                    name: g.name,
+                    is_required: g.is_required,
+                    max_selectable: g.max_selectable,
+                    values: g.values.map(v => ({
+                        id: v.id,
+                        name: v.name,
+                        price_modifier: v.price_modifier
+                    }))
+                }));
+                setDraftAddonGroups(groups);
+                setHasAddonOptions(true);
+            }
         } catch (error) {
             console.error("Errore caricamento opzioni:", error);
             showToast({ message: "Impossibile caricare le opzioni prodotto.", type: "error" });
@@ -373,26 +573,14 @@ export function ProductForm({
         );
     };
 
-    const handleCreateIngredient = async () => {
-        if (!newIngredientName.trim() || !tenantId) return;
-        setIsCreatingIngredient(true);
-        try {
-            const newIngredient = await createIngredient(tenantId, newIngredientName);
-            setSystemIngredients(prev =>
-                [...prev, newIngredient].sort((a, b) => a.name.localeCompare(b.name))
-            );
-            setSelectedIngredients(prev => [...prev, newIngredient.id]);
-            setNewIngredientName("");
-            showToast({ message: "Ingrediente creato con successo.", type: "success" });
-        } catch (error: any) {
-            console.error("Errore creazione ingrediente:", error);
-            showToast({
-                message: error.message || "Impossibile creare l'ingrediente.",
-                type: "error"
-            });
-        } finally {
-            setIsCreatingIngredient(false);
-        }
+    const handleCreateIngredientInline = async (name: string): Promise<string> => {
+        if (!tenantId) throw new Error("Tenant mancante");
+        const newIngredient = await createIngredient(tenantId, name);
+        setSystemIngredients(prev =>
+            [...prev, newIngredient].sort((a, b) => a.name.localeCompare(b.name))
+        );
+        showToast({ message: "Ingrediente creato con successo.", type: "success" });
+        return newIngredient.id;
     };
 
     const handleCreateFormat = async () => {
@@ -624,6 +812,8 @@ export function ProductForm({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSaving) return;
+        setSubmitError(null);
 
         if (!name.trim()) {
             showToast({ message: "Il nome del prodotto è obbligatorio.", type: "error" });
@@ -635,6 +825,13 @@ export function ProductForm({
         if (price !== null && isNaN(price)) {
             showToast({ message: "Il prezzo inserito non è valido.", type: "error" });
             return;
+        }
+
+        if (!isEditing) {
+            if (priceMode === "formats" && draftFormats.length === 0) {
+                setSubmitError("Aggiungi almeno un formato prima di salvare il prodotto");
+                return;
+            }
         }
 
         setIsSaving(true);
@@ -668,13 +865,15 @@ export function ProductForm({
                 if (!tenantId) throw new Error("Tenant ID mancante");
                 const parentId =
                     mode === "create_variant" && parentProduct ? parentProduct.id : null;
+                const resolvedProductType: ProductType = priceMode === "formats" ? "formats" : "simple";
                 const newProduct = await createProduct(
                     tenantId,
                     {
                         name,
                         description: description || null,
-                        base_price: shouldUseBasePrice ? price : null,
-                        image_url: null
+                        base_price: priceMode !== "formats" ? price : null,
+                        image_url: null,
+                        product_type: resolvedProductType
                     },
                     parentId
                 );
@@ -688,6 +887,16 @@ export function ProductForm({
             }
 
             if (savedProductId && tenantId) {
+                if (isEditing && productType === "formats") {
+                    await syncFormatsInEditMode({ tenantId, productId: savedProductId, primaryPriceGroup, draftFormats });
+                    setHasFormatPricing(draftFormats.length > 0);
+                }
+
+                if (isEditing && productType === "configurable") {
+                    await syncAddonGroupsInEditMode({ tenantId, productId: savedProductId, addonGroups, draftAddonGroups });
+                    setHasAddonOptions(draftAddonGroups.length > 0);
+                }
+
                 if (!isEditing) {
                     if (hasFormatPricing && draftFormats.length > 0) {
                         const newPrimaryGroup = await createProductOptionGroup({
@@ -755,7 +964,7 @@ export function ProductForm({
                     await setProductAllergens(tenantId, savedProductId, selectedAllergens);
                 } catch (allergenError) {
                     console.error("Errore salvataggio allergeni:", allergenError);
-                    throw new Error("Errore nel salvataggio degli allergeni.");
+                    showToast({ message: "Impossibile salvare gli allergeni del prodotto.", type: "info" });
                 }
 
                 try {
@@ -780,7 +989,7 @@ export function ProductForm({
                     await setProductIngredients(tenantId, savedProductId, selectedIngredients);
                 } catch (ingredientError) {
                     console.error("Errore salvataggio ingredienti:", ingredientError);
-                    throw new Error("Errore nel salvataggio degli ingredienti.");
+                    showToast({ message: "Impossibile salvare gli ingredienti del prodotto.", type: "info" });
                 }
             }
 
@@ -827,11 +1036,24 @@ export function ProductForm({
             {isEditing && productData?.parent_product_id && (
                 <div style={{ marginBottom: 8 }}>
                     <Text variant="body-sm" colorVariant="muted" weight={500}>
-                        Questo prodotto è una variante.
+                        Variante di:{" "}
+                        {isLoadingEditParent ? (
+                            <span>Caricamento...</span>
+                        ) : editParent ? (
+                            <span
+                                style={{ color: "var(--brand-primary)", cursor: "pointer", textDecoration: "underline" }}
+                                onClick={() => navigate(`/business/${tenantId}/products/${editParent.id}`)}
+                            >
+                                {editParent.name}
+                            </span>
+                        ) : (
+                            <span style={{ color: "var(--text)" }}>{productData.parent_product_id}</span>
+                        )}
                     </Text>
                 </div>
             )}
 
+            {/* ── Informazioni base ─────────────────────────────────── */}
             <div>
                 <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
                     Informazioni base
@@ -857,7 +1079,6 @@ export function ProductForm({
                         onChange={e => setDescription(e.target.value)}
                         placeholder="Breve descrizione (opzionale)"
                     />
-
                     <FileInput
                         label="Immagine"
                         accept="image/*"
@@ -866,16 +1087,151 @@ export function ProductForm({
                         value={pendingImageFile}
                         onChange={file => setPendingImageFile(file)}
                     />
+                </div>
+            </div>
 
-                    <div style={{ marginTop: 8 }}>
+            {/* ── Prezzo ────────────────────────────────────────────── */}
+            {!isEditing && (
+                <div>
+                    <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
+                        Prezzo
+                    </Text>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div style={{ width: "fit-content" }}>
+                            <SegmentedControl<PriceMode>
+                                value={priceMode}
+                                onChange={newPriceMode => {
+                                    setPriceMode(newPriceMode);
+                                    setProductType(newPriceMode === "formats" ? "formats" : "simple");
+                                    setDraftFormats([]);
+                                    setHasFormatPricing(false);
+                                    if (newPriceMode !== "single") setBasePrice("");
+                                }}
+                                options={mode === "create_variant" ? VARIANT_PRICE_MODE_OPTIONS : PRICE_MODE_OPTIONS}
+                            />
+                        </div>
+
+                        {priceMode === "inherit" && parentProduct && (
+                            <div style={{
+                                padding: "10px 14px",
+                                borderRadius: "8px",
+                                backgroundColor: "var(--color-gray-50)",
+                                border: "1px solid var(--color-gray-200)"
+                            }}>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    Usa il prezzo di:{" "}
+                                    <span style={{ color: "var(--text)" }}>{parentProduct.name}</span>
+                                    {" — "}
+                                    {parentProduct.product_type === "formats"
+                                        ? "prezzi per formato"
+                                        : parentProduct.base_price !== null
+                                            ? `€${parentProduct.base_price.toFixed(2)}`
+                                            : "nessun prezzo"}
+                                </Text>
+                            </div>
+                        )}
+
+                        {priceMode === "single" && (
+                            <TextInput
+                                label="Prezzo base (€)"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={basePrice}
+                                onChange={e => setBasePrice(e.target.value)}
+                                placeholder="Es: 10.50"
+                            />
+                        )}
+
+                        {priceMode === "formats" && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                {draftFormats.length > 0 && (
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                        {draftFormats.map(fmt => (
+                                            <div key={fmt.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", borderRadius: "6px", backgroundColor: "var(--color-gray-50)", border: "1px solid var(--color-gray-200)" }}>
+                                                <Text variant="body-sm">{fmt.name}</Text>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                                    <Text variant="body-sm" colorVariant="muted">€{fmt.absolute_price.toFixed(2)}</Text>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setDraftFormats(prev => {
+                                                                const next = prev.filter(f => f.id !== fmt.id);
+                                                                if (next.length === 0) setHasFormatPricing(false);
+                                                                return next;
+                                                            });
+                                                        }}
+                                                    >
+                                                        Rimuovi
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                                    <div style={{ flex: 1 }}>
+                                        <TextInput
+                                            label="Nome formato"
+                                            value={newFormatName}
+                                            onChange={e => setNewFormatName(e.target.value)}
+                                            placeholder="Es. 33cl"
+                                        />
+                                    </div>
+                                    <div style={{ width: 110 }}>
+                                        <TextInput
+                                            label="Prezzo (€)"
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={newFormatPrice}
+                                            onChange={e => setNewFormatPrice(e.target.value)}
+                                            placeholder="Es. 3.50"
+                                        />
+                                    </div>
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => {
+                                            const fmtName = newFormatName.trim();
+                                            const fmtPrice = parseFloat(newFormatPrice);
+                                            if (!fmtName || isNaN(fmtPrice) || fmtPrice < 0) return;
+                                            setDraftFormats(prev => [
+                                                ...prev,
+                                                { id: makeDraftId(), name: fmtName, absolute_price: fmtPrice }
+                                            ]);
+                                            setHasFormatPricing(true);
+                                            setNewFormatName("");
+                                            setNewFormatPrice("");
+                                        }}
+                                    >
+                                        Aggiungi formato
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {submitError && (
+                            <div style={{
+                                padding: "8px 12px",
+                                borderRadius: "6px",
+                                backgroundColor: "var(--color-red-50)",
+                                border: "1px solid var(--color-red-200)"
+                            }}>
+                                <Text variant="body-sm" colorVariant="error">
+                                    {submitError}
+                                </Text>
+                            </div>
+                        )}
+
                         <Text variant="body-sm" colorVariant="muted">
-                            {isEditing
-                                ? "Per prezzi, formati, opzioni e utilizzo apri la pagina prodotto."
-                                : "Crea rapidamente il prodotto. Prezzi, varianti e configurazioni avanzate possono essere aggiunti successivamente."}
+                            Puoi aggiungere varianti, configurazioni e attributi dopo la creazione del prodotto.
                         </Text>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* Render advanced sections ONLY if we want to (requirement: hide them) */}
             {false && (
@@ -1492,76 +1848,13 @@ export function ProductForm({
                             <Text variant="body-sm" weight={600} style={{ marginBottom: 4 }}>
                                 Ingredienti
                             </Text>
-                            <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
-                                <div style={{ flex: 1 }}>
-                                    <TextInput
-                                        placeholder="Nuovo ingrediente..."
-                                        value={newIngredientName}
-                                        onChange={e => setNewIngredientName(e.target.value)}
-                                        onKeyDown={e => {
-                                            if (e.key === "Enter") {
-                                                e.preventDefault();
-                                                handleCreateIngredient();
-                                            }
-                                        }}
-                                    />
-                                </div>
-                                <Button
-                                    variant="secondary"
-                                    onClick={e => {
-                                        e.preventDefault();
-                                        handleCreateIngredient();
-                                    }}
-                                    disabled={isCreatingIngredient || !newIngredientName.trim()}
-                                    loading={isCreatingIngredient}
-                                >
-                                    Crea
-                                </Button>
-                            </div>
-                            {systemIngredients.length > 0 && (
-                                <>
-                                    <TextInput
-                                        placeholder="Cerca ingrediente..."
-                                        value={ingredientSearchQuery}
-                                        onChange={e => setIngredientSearchQuery(e.target.value)}
-                                    />
-                                    {isLoadingIngredients ? (
-                                        <Text variant="body-sm" colorVariant="muted">
-                                            Caricamento ingredienti...
-                                        </Text>
-                                    ) : (
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                flexWrap: "wrap",
-                                                gap: 8,
-                                                marginTop: 8
-                                            }}
-                                        >
-                                            {systemIngredients
-                                                .filter(i =>
-                                                    i.name
-                                                        .toLowerCase()
-                                                        .includes(
-                                                            ingredientSearchQuery.toLowerCase()
-                                                        )
-                                                )
-                                                .map(ingredient => (
-                                                    <Pill
-                                                        key={ingredient.id}
-                                                        label={ingredient.name}
-                                                        active={selectedIngredients.includes(
-                                                            ingredient.id
-                                                        )}
-                                                        onClick={() =>
-                                                            handleIngredientToggle(ingredient.id)
-                                                        }
-                                                    />
-                                                ))}
-                                        </div>
-                                    )}
-                                </>
-                            )}
+                            <IngredientCombobox
+                                ingredients={systemIngredients}
+                                selectedIds={selectedIngredients}
+                                onToggle={handleIngredientToggle}
+                                onCreate={handleCreateIngredientInline}
+                                isLoadingIngredients={isLoadingIngredients}
+                            />
                         </div>
 
                         {attributeDefinitions.length > 0 && (
@@ -1678,6 +1971,64 @@ export function ProductForm({
                     </div>
                 </>
             )}
+
+            {/* ── Specifiche prodotto ────────────────────────────────── */}
+            <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
+
+            <div>
+                <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
+                    Specifiche prodotto
+                </Text>
+
+                {/* Allergeni */}
+                {(isLoadingAllergens || systemAllergens.length > 0) && (
+                    <div style={{ marginBottom: 20 }}>
+                        <Text variant="body-sm" weight={600} style={{ marginBottom: 8 }}>
+                            Allergeni
+                        </Text>
+                        {isLoadingAllergens ? (
+                            <Text variant="body-sm" colorVariant="muted">Caricamento allergeni...</Text>
+                        ) : (
+                            <>
+                                <TextInput
+                                    placeholder="Cerca allergene..."
+                                    value={allergenSearchQuery}
+                                    onChange={e => setAllergenSearchQuery(e.target.value)}
+                                />
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                                    {systemAllergens
+                                        .filter(a =>
+                                            a.label_it.toLowerCase().includes(allergenSearchQuery.toLowerCase()) ||
+                                            a.label_en.toLowerCase().includes(allergenSearchQuery.toLowerCase())
+                                        )
+                                        .map(allergen => (
+                                            <Pill
+                                                key={allergen.id}
+                                                label={allergen.label_it}
+                                                active={selectedAllergens.includes(allergen.id)}
+                                                onClick={() => handleAllergenToggle(allergen.id)}
+                                            />
+                                        ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+
+                {/* Ingredienti */}
+                <div>
+                    <Text variant="body-sm" weight={600} style={{ marginBottom: 8 }}>
+                        Ingredienti
+                    </Text>
+                    <IngredientCombobox
+                        ingredients={systemIngredients}
+                        selectedIds={selectedIngredients}
+                        onToggle={handleIngredientToggle}
+                        onCreate={handleCreateIngredientInline}
+                        isLoadingIngredients={isLoadingIngredients}
+                    />
+                </div>
+            </div>
 
             <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
         </form>

@@ -105,6 +105,17 @@ export async function createProductOptionGroup(data: {
     group_kind?: OptionGroupKind;
     pricing_mode?: OptionPricingMode;
 }): Promise<V2ProductOptionGroup> {
+    if (data.group_kind === "PRIMARY_PRICE") {
+        // Side effect: nullify base_price and set product_type = 'formats'.
+        // Formats are authoritative — base_price is cleared to prevent dual-pricing.
+        const { error: updateErr } = await supabase
+            .from("products")
+            .update({ base_price: null, product_type: "formats" })
+            .eq("id", data.product_id)
+            .eq("tenant_id", data.tenant_id);
+        if (updateErr) throw updateErr;
+    }
+
     const { data: newGroup, error } = await supabase
         .from("product_option_groups")
         .insert({
@@ -157,10 +168,44 @@ export async function updateProductOptionGroup(
     return updatedGroup;
 }
 
-export async function deleteProductOptionGroup(id: string): Promise<void> {
-    const { error } = await supabase.from("product_option_groups").delete().eq("id", id);
+export async function deleteProductOptionGroup(id: string, tenantId?: string): Promise<void> {
+    // When tenantId is provided, fetch the group first so we can sync product_type afterward.
+    let productId: string | undefined;
+    let groupKind: string | undefined;
 
+    if (tenantId) {
+        const { data: group, error: fetchErr } = await supabase
+            .from("product_option_groups")
+            .select("product_id, group_kind")
+            .eq("id", id)
+            .single();
+        if (fetchErr) throw fetchErr;
+        productId = group?.product_id;
+        groupKind = group?.group_kind;
+    }
+
+    const { error } = await supabase.from("product_option_groups").delete().eq("id", id);
     if (error) throw error;
+
+    // If a PRIMARY_PRICE group was deleted, check whether any remain.
+    // If none remain, revert product_type to 'simple'.
+    if (tenantId && productId && groupKind === "PRIMARY_PRICE") {
+        const { count: remaining, error: countErr } = await supabase
+            .from("product_option_groups")
+            .select("id", { count: "exact", head: true })
+            .eq("product_id", productId)
+            .eq("group_kind", "PRIMARY_PRICE");
+        if (countErr) throw countErr;
+
+        if ((remaining ?? 0) === 0) {
+            const { error: updateErr } = await supabase
+                .from("products")
+                .update({ product_type: "simple" })
+                .eq("id", productId)
+                .eq("tenant_id", tenantId);
+            if (updateErr) throw updateErr;
+        }
+    }
 }
 
 // =========================================

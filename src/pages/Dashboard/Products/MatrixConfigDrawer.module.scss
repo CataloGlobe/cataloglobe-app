@@ -1,0 +1,104 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 24px;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+
+.dimensionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--card-bg);
+}
+
+.dimensionHeader {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.dimNameInput {
+  flex: 1;
+}
+
+.valueList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+}
+
+.valueRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.valueInput {
+  flex: 1;
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background-color: var(--hover-bg);
+  border-radius: 8px;
+}
+
+.previewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.previewList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.previewChip {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.addValueBtn {
+  all: unset;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--brand-primary);
+  padding: 2px 0;
+  width: fit-content;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}

@@ -3,6 +3,10 @@ import { getProductAttributes, setProductAttributeValue } from "./attributes";
 import { getProductAllergens, setProductAllergens } from "./allergens";
 import { getProductGroupAssignments, assignProductToGroup } from "./productGroups";
 
+export type ProductType = "simple" | "formats" | "configurable";
+
+export type VariantStrategy = "manual" | "matrix";
+
 export type V2Product = {
     id: string;
     tenant_id: string;
@@ -11,6 +15,8 @@ export type V2Product = {
     base_price: number | null;
     parent_product_id: string | null;
     image_url: string | null;
+    product_type: ProductType;
+    variant_strategy?: VariantStrategy;
     created_at: string;
     updated_at: string;
     // Joined
@@ -168,6 +174,49 @@ async function validateParentBeforeSave(tenantId: string, parentId?: string | nu
     }
 }
 
+/**
+ * Recomputes and persists product_type for a base product based on its actual data:
+ *   - "configurable" if it has child variants
+ *   - "formats"      if it has a PRIMARY_PRICE option group
+ *   - "simple"       otherwise
+ *
+ * Must only be called on base products (parent_product_id IS NULL).
+ * Not exported — called internally after every write that changes pricing structure.
+ */
+async function recomputeProductType(productId: string, tenantId: string): Promise<void> {
+    const { count: variantCount, error: vcErr } = await supabase
+        .from("products")
+        .select("id", { count: "exact", head: true })
+        .eq("parent_product_id", productId)
+        .eq("tenant_id", tenantId);
+    if (vcErr) throw vcErr;
+
+    if ((variantCount ?? 0) > 0) {
+        const { error } = await supabase
+            .from("products")
+            .update({ product_type: "configurable" as ProductType })
+            .eq("id", productId)
+            .eq("tenant_id", tenantId);
+        if (error) throw error;
+        return;
+    }
+
+    const { count: fmtCount, error: fmtErr } = await supabase
+        .from("product_option_groups")
+        .select("id", { count: "exact", head: true })
+        .eq("product_id", productId)
+        .eq("group_kind", "PRIMARY_PRICE");
+    if (fmtErr) throw fmtErr;
+
+    const newType: ProductType = (fmtCount ?? 0) > 0 ? "formats" : "simple";
+    const { error } = await supabase
+        .from("products")
+        .update({ product_type: newType })
+        .eq("id", productId)
+        .eq("tenant_id", tenantId);
+    if (error) throw error;
+}
+
 export async function listBaseProductsWithVariants(tenantId: string): Promise<V2Product[]> {
     const { data, error } = await supabase
         .from("products")
@@ -209,10 +258,13 @@ export async function createProduct(
         description?: string | null;
         base_price?: number | null;
         image_url?: string | null;
+        product_type?: ProductType;
     },
     parentId?: string | null
 ): Promise<V2Product> {
     await validateParentBeforeSave(tenantId, parentId);
+
+    const resolvedProductType: ProductType = data.product_type ?? "simple";
 
     const { data: newProduct, error } = await supabase
         .from("products")
@@ -223,12 +275,19 @@ export async function createProduct(
             description: data.description || null,
             base_price: data.base_price ?? null,
             parent_product_id: parentId || null,
-            image_url: data.image_url ?? null
+            image_url: data.image_url ?? null,
+            product_type: resolvedProductType
         })
         .select()
         .single();
 
     if (error) throw error;
+
+    // When a variant is created, the parent transitions to "configurable".
+    if (parentId) {
+        await recomputeProductType(parentId, tenantId);
+    }
+
     return newProduct;
 }
 
@@ -240,18 +299,46 @@ export async function updateProduct(
         description?: string | null;
         base_price?: number | null;
         image_url?: string | null;
+        product_type?: ProductType;
     },
     parentId?: string | null
 ): Promise<V2Product> {
     await validateParentBeforeSave(tenantId, parentId);
 
-    const updatePayload: any = {
+    // When base_price is being set to a real value, formats become invalid —
+    // delete any existing PRIMARY_PRICE group so only one pricing mode remains.
+    if (data.base_price !== undefined && data.base_price !== null) {
+        const { data: primaryGroups, error: pgErr } = await supabase
+            .from("product_option_groups")
+            .select("id")
+            .eq("product_id", id)
+            .eq("group_kind", "PRIMARY_PRICE");
+        if (pgErr) throw pgErr;
+        for (const g of primaryGroups ?? []) {
+            const { error: delErr } = await supabase
+                .from("product_option_groups")
+                .delete()
+                .eq("id", g.id);
+            if (delErr) throw delErr;
+        }
+    }
+
+    const updatePayload: Partial<{
+        name: string;
+        description: string | null;
+        base_price: number | null;
+        image_url: string | null;
+        product_type: ProductType;
+        parent_product_id: string | null;
+        updated_at: string;
+    }> = {
         updated_at: new Date().toISOString()
     };
     if (data.name !== undefined) updatePayload.name = data.name;
     if (data.description !== undefined) updatePayload.description = data.description;
     if (data.base_price !== undefined) updatePayload.base_price = data.base_price;
     if (data.image_url !== undefined) updatePayload.image_url = data.image_url;
+    if (data.product_type !== undefined) updatePayload.product_type = data.product_type;
     if (parentId !== undefined) updatePayload.parent_product_id = parentId;
 
     const { data: updatedProduct, error } = await supabase
@@ -263,6 +350,13 @@ export async function updateProduct(
         .single();
 
     if (error) throw error;
+
+    // Keep product_type in sync whenever base_price or product structure changes.
+    // Only applies to base products (variants are always "simple").
+    if (!updatedProduct.parent_product_id) {
+        await recomputeProductType(id, tenantId);
+    }
+
     return updatedProduct;
 }
 
@@ -272,6 +366,14 @@ export async function updateProduct(
  * activity overrides, schedule overrides, allergens, attributes, ingredients.
  */
 export async function deleteProduct(id: string, tenantId: string): Promise<void> {
+    // Fetch before delete so we can recompute the parent's product_type afterward.
+    const { data: existing } = await supabase
+        .from("products")
+        .select("parent_product_id")
+        .eq("id", id)
+        .eq("tenant_id", tenantId)
+        .single();
+
     const { error } = await supabase
         .from("products")
         .delete()
@@ -283,6 +385,11 @@ export async function deleteProduct(id: string, tenantId: string): Promise<void>
             throw new Error("Cannot delete product because it is referenced by another record.");
         }
         throw error;
+    }
+
+    // If a variant was deleted, the parent may revert from "configurable" to "simple"/"formats".
+    if (existing?.parent_product_id) {
+        await recomputeProductType(existing.parent_product_id, tenantId);
     }
 }
 
@@ -308,7 +415,8 @@ export async function duplicateProduct(productId: string, tenantId: string): Pro
             name: `${original.name} (Copia)`,
             description: original.description,
             base_price: original.base_price,
-            image_url: original.image_url
+            image_url: original.image_url,
+            product_type: original.product_type
         },
         null // parent_product_id = null
     );
@@ -388,9 +496,7 @@ export type ProductPickerItem = {
  * Lightweight fetch for the product-group picker.
  * Returns only base products (no variants) with minimal fields.
  */
-export async function listBaseProductsForPicker(
-    tenantId: string
-): Promise<ProductPickerItem[]> {
+export async function listBaseProductsForPicker(tenantId: string): Promise<ProductPickerItem[]> {
     const { data, error } = await supabase
         .from("products")
         .select("id, name, image_url")

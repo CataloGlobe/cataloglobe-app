@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
-import { Card } from "@/components/ui/Card/Card";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
@@ -14,6 +14,7 @@ import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import { Package } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { Link } from "react-router-dom";
+import ProductCard from "./components/ProductCard";
 import styles from "./Products.module.scss";
 
 import {
@@ -24,10 +25,13 @@ import {
     getProductListMetadata,
     ProductListMetadata
 } from "@/services/supabase/products";
+
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ProductCreateEditDrawer, ProductFormMode } from "./ProductCreateEditDrawer";
 import { ProductDeleteDrawer } from "./ProductDeleteDrawer";
 import ProductGroupsTab from "@/components/Products/ProductGroupsTab/ProductGroupsTab";
+import { ProductsAttributesTab } from "./ProductsAttributesTab";
+import { Ingredients } from "./Ingredients/Ingredients";
 
 type ProductTableRow = {
     id: string; // Add id for DataTable selection
@@ -48,11 +52,8 @@ const EMPTY_PRODUCT_METADATA: ProductListMetadata = {
 
 const formatCurrency = (value: number) => `${value.toFixed(2)} €`;
 
-const getAllProductIds = (products: V2Product[]): string[] =>
-    products.flatMap(product => [
-        product.id,
-        ...(product.variants?.map(variant => variant.id) ?? [])
-    ]);
+const getEffectiveProductId = (row: ProductTableRow) =>
+    row.product.parent_product_id ?? row.product.id;
 
 export default function Products() {
     const currentTenantId = useTenantId();
@@ -64,12 +65,27 @@ export default function Products() {
     const [productMetadata, setProductMetadata] = useState<Record<string, ProductListMetadata>>({});
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-    const [activeTab, setActiveTab] = useState<"products" | "groups">("products");
+    const [searchParams] = useSearchParams();
+    const initialTab = (searchParams.get("tab") ?? "products") as
+        | "products"
+        | "groups"
+        | "attributes"
+        | "ingredients";
+    const [activeTab, setActiveTab] = useState<"products" | "groups" | "attributes" | "ingredients">(
+        ["products", "groups", "attributes", "ingredients"].includes(initialTab)
+            ? initialTab
+            : "products"
+    );
     const [isCreateGroupOpen, setCreateGroupOpen] = useState(false);
+    const [attrCreateSeq, setAttrCreateSeq] = useState(0);
+    const [ingredientCreateSeq, setIngredientCreateSeq] = useState(0);
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState("");
-    const [density, setDensity] = useState<"compact" | "extended">("compact");
+    const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
+        const saved = localStorage.getItem("products_view_mode");
+        return saved === "grid" ? "grid" : "list";
+    });
 
     // Drawer States
     const [isCreateEditOpen, setIsCreateEditOpen] = useState(false);
@@ -86,21 +102,19 @@ export default function Products() {
             setIsLoading(true);
             const data = await listBaseProductsWithVariants(currentTenantId);
             setAllProducts(data);
-            const productIds = getAllProductIds(data);
+            const baseProductIds = data.map(p => p.id);
 
             try {
-                const metadata = await getProductListMetadata(currentTenantId, productIds);
+                const metadata = await getProductListMetadata(currentTenantId, baseProductIds);
                 setProductMetadata(metadata);
-            } catch (metadataError) {
-                console.error("Errore nel caricamento dei metadati prodotto:", metadataError);
+            } catch {
                 setProductMetadata({});
                 showToast({
                     message: "Alcuni dati prodotto non sono disponibili al momento.",
                     type: "info"
                 });
             }
-        } catch (error) {
-            console.error("Errore nel caricamento dei prodotti:", error);
+        } catch {
             showToast({ message: "Non è stato possibile caricare i prodotti.", type: "error" });
         } finally {
             setIsLoading(false);
@@ -193,8 +207,7 @@ export default function Products() {
             await duplicateProduct(product.id, currentTenantId!);
             showToast({ message: "Prodotto duplicato con successo.", type: "success" });
             loadData();
-        } catch (error) {
-            console.error("Errore durante la duplicazione del prodotto:", error);
+        } catch {
             showToast({ message: "Errore durante la duplicazione del prodotto.", type: "error" });
         }
     };
@@ -213,13 +226,17 @@ export default function Products() {
                 type: "success"
             });
             loadData();
-        } catch (error) {
-            console.error("Errore durante l'eliminazione multipla:", error);
+        } catch {
             showToast({
                 message: "Errore durante l'eliminazione di alcuni prodotti.",
                 type: "error"
             });
         }
+    };
+
+    const handleViewChange = (v: "list" | "grid") => {
+        setViewMode(v);
+        localStorage.setItem("products_view_mode", v);
     };
 
     const toggleRow = (id: string) => {
@@ -288,83 +305,22 @@ export default function Products() {
             width: "1fr",
             accessor: row => row.product.id,
             cell: (_value, row) => {
-                const meta = productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA;
-                const hasFormats = meta.formatsCount > 0;
+                const meta = productMetadata[getEffectiveProductId(row)] ?? EMPTY_PRODUCT_METADATA;
 
-                if (hasFormats) {
-                    const fromPrice = meta.fromPrice ?? row.product.base_price;
-                    return fromPrice !== null ? (
-                        <Text variant="body-sm">da {formatCurrency(fromPrice)}</Text>
+                if (meta.formatsCount > 1) {
+                    return meta.fromPrice !== null ? (
+                        <Text variant="body-sm">da {formatCurrency(meta.fromPrice)}</Text>
                     ) : (
                         <Text variant="body-sm" colorVariant="muted">
                             —
                         </Text>
                     );
                 }
-
+                if (meta.formatsCount === 1 && meta.fromPrice !== null) {
+                    return <Text variant="body-sm">{formatCurrency(meta.fromPrice)}</Text>;
+                }
                 return row.product.base_price !== null ? (
                     <Text variant="body-sm">{formatCurrency(row.product.base_price)}</Text>
-                ) : (
-                    <Text variant="body-sm" colorVariant="muted">
-                        —
-                    </Text>
-                );
-            }
-        },
-        {
-            id: "formats",
-            header: "Formati",
-            width: "1fr",
-            accessor: row => row.product.id,
-            cell: (_value, row) => {
-                const formatsCount = (productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA)
-                    .formatsCount;
-
-                return formatsCount > 0 ? (
-                    <Text variant="body-sm">
-                        {formatsCount} {formatsCount === 1 ? "formato" : "formati"}
-                    </Text>
-                ) : (
-                    <Text variant="body-sm" colorVariant="muted">
-                        —
-                    </Text>
-                );
-            }
-        },
-        {
-            id: "configurations",
-            header: "Configurazioni",
-            width: "1fr",
-            accessor: row => row.product.id,
-            cell: (_value, row) => {
-                const configurationsCount = (
-                    productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA
-                ).configurationsCount;
-
-                return configurationsCount > 0 ? (
-                    <Text variant="body-sm">
-                        {configurationsCount} {configurationsCount === 1 ? "opzione" : "opzioni"}
-                    </Text>
-                ) : (
-                    <Text variant="body-sm" colorVariant="muted">
-                        —
-                    </Text>
-                );
-            }
-        },
-        {
-            id: "catalogs",
-            header: "Cataloghi",
-            width: "1fr",
-            accessor: row => row.product.id,
-            cell: (_value, row) => {
-                const catalogsCount = (productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA)
-                    .catalogsCount;
-
-                return catalogsCount > 0 ? (
-                    <Text variant="body-sm">
-                        {catalogsCount} {catalogsCount === 1 ? "catalogo" : "cataloghi"}
-                    </Text>
                 ) : (
                     <Text variant="body-sm" colorVariant="muted">
                         —
@@ -416,31 +372,38 @@ export default function Products() {
                         <Button variant="primary" onClick={handleCreateBase}>
                             Crea prodotto
                         </Button>
-                    ) : (
+                    ) : activeTab === "groups" ? (
                         <Button variant="primary" onClick={() => setCreateGroupOpen(true)}>
                             Crea gruppo
                         </Button>
-                    )
+                    ) : activeTab === "attributes" ? (
+                        <Button variant="primary" onClick={() => setAttrCreateSeq(s => s + 1)}>
+                            Nuovo attributo
+                        </Button>
+                    ) : activeTab === "ingredients" ? (
+                        <Button variant="primary" onClick={() => setIngredientCreateSeq(s => s + 1)}>
+                            Crea ingrediente
+                        </Button>
+                    ) : null
                 }
             />
 
-            <Tabs value={activeTab} onChange={val => setActiveTab(val as "products" | "groups")}>
+            <Tabs
+                value={activeTab}
+                onChange={val =>
+                    setActiveTab(val as "products" | "groups" | "attributes" | "ingredients")
+                }
+            >
                 <Tabs.List>
                     <Tabs.Tab value="products">Prodotti</Tabs.Tab>
                     <Tabs.Tab value="groups">Gruppi Prodotti</Tabs.Tab>
+                    <Tabs.Tab value="attributes">Attributi</Tabs.Tab>
+                    <Tabs.Tab value="ingredients">Ingredienti</Tabs.Tab>
                 </Tabs.List>
 
                 <Tabs.Panel value="products">
                     <div className={styles.content}>
-                        <div
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "16px",
-                                marginBottom: "24px",
-                                flexWrap: "wrap"
-                            }}
-                        >
+                        <div className={styles.filterRow}>
                             <FilterBar
                                 search={{
                                     value: searchQuery,
@@ -448,8 +411,8 @@ export default function Products() {
                                     placeholder: "Cerca piatto o variante..."
                                 }}
                                 view={{
-                                    value: density === "compact" ? "list" : "grid",
-                                    onChange: v => setDensity(v === "list" ? "compact" : "extended")
+                                    value: viewMode,
+                                    onChange: handleViewChange
                                 }}
                                 className={styles.filterBar}
                             />
@@ -482,17 +445,34 @@ export default function Products() {
                                     ) : undefined
                                 }
                             />
-                        ) : (
+                        ) : viewMode === "list" ? (
                             <DataTable<ProductTableRow>
                                 data={tableRows}
                                 columns={columns}
-                                density={density}
+                                density="compact"
                                 selectable
                                 onBulkDelete={handleBulkDelete}
                                 rowClassName={row =>
                                     row.kind === "variant" ? styles.variantTableRow : undefined
                                 }
                             />
+                        ) : (
+                            <div className={styles.productGrid}>
+                                {tableRows
+                                    .filter(row => row.kind === "base")
+                                    .map(row => (
+                                        <ProductCard
+                                            key={row.product.id}
+                                            product={row.product}
+                                            metadata={
+                                                productMetadata[row.product.id] ??
+                                                EMPTY_PRODUCT_METADATA
+                                            }
+                                            onEdit={() => handleEdit(row.product)}
+                                            onDelete={() => handleDelete(row.product)}
+                                        />
+                                    ))}
+                            </div>
                         )}
                     </div>
 
@@ -520,6 +500,16 @@ export default function Products() {
                         isCreateOpen={isCreateGroupOpen}
                         onCloseCreate={() => setCreateGroupOpen(false)}
                     />
+                </Tabs.Panel>
+                <Tabs.Panel value="attributes">
+                    <ProductsAttributesTab
+                        tenantId={currentTenantId ?? undefined}
+                        vertical={selectedTenant?.vertical_type}
+                        createTrigger={attrCreateSeq}
+                    />
+                </Tabs.Panel>
+                <Tabs.Panel value="ingredients">
+                    <Ingredients createTrigger={ingredientCreateSeq} />
                 </Tabs.Panel>
             </Tabs>
         </section>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
@@ -7,13 +7,20 @@ import { Card } from "@/components/ui/Card/Card";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import Text from "@/components/ui/Text/Text";
 import { useTenantId } from "@/context/useTenantId";
+import { useTenant } from "@/context/useTenant";
+import { useToast } from "@/context/Toast/ToastContext";
 import { getProduct, V2Product } from "@/services/supabase/products";
-import { getProductOptions, GroupWithValues } from "@/services/supabase/productOptions";
-import { supabase } from "@/services/supabase/client";
+import { getProductOptions } from "@/services/supabase/productOptions";
+import { getVariantMatrixConfig, VariantMatrixConfig } from "@/services/supabase/productVariants";
+import { getProductUsage, ProductUsageData } from "@/services/supabase/productUsage";
 import { GeneralTab } from "./GeneralTab";
 import { PricingTab } from "./PricingTab";
 import { ConfigTab } from "./ConfigTab";
 import { UsageTab } from "./UsageTab";
+import { VariantsTab } from "./VariantsTab";
+import { AttributesTab } from "./AttributesTab";
+import { ProductCreateEditDrawer } from "./ProductCreateEditDrawer";
+import { MatrixConfigDrawer } from "./MatrixConfigDrawer";
 import styles from "./ProductPage.module.scss";
 
 export default function ProductPage() {
@@ -21,148 +28,94 @@ export default function ProductPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const tenantId = useTenantId();
+    const { selectedTenant } = useTenant();
     const queryTab = new URLSearchParams(location.search).get("tab");
 
     const [product, setProduct] = useState<V2Product | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState(queryTab || "general");
+    // Map legacy "variants" deep-links to "pricing" (tab no longer exists separately).
+    const initialTab = queryTab === "variants" ? "pricing" : (queryTab || "general");
+    const [activeTab, setActiveTab] = useState(initialTab);
 
     const [optionsLoading, setOptionsLoading] = useState(true);
     const [primaryPriceGroup, setPrimaryPriceGroup] = useState<GroupWithValues | null>(null);
     const [addonGroups, setAddonGroups] = useState<GroupWithValues[]>([]);
 
-    const [usageLoading, setUsageLoading] = useState(true);
-    const [usageData, setUsageData] = useState<{
-        catalogs: { id: string; name: string }[];
-        schedules: { id: string; name: string }[];
-        activities: { id: string; name: string }[];
-    } | null>(null);
+    const [isVariantDrawerOpen, setIsVariantDrawerOpen] = useState(false);
 
-    const loadOptions = async () => {
+    const [matrixConfig, setMatrixConfig] = useState<VariantMatrixConfig | null>(null);
+    const [matrixLoading, setMatrixLoading] = useState(false);
+    const [isMatrixDrawerOpen, setIsMatrixDrawerOpen] = useState(false);
+
+    const [usageLoading, setUsageLoading] = useState(true);
+    const [usageData, setUsageData] = useState<ProductUsageData | null>(null);
+
+    const { showToast } = useToast();
+
+    const loadOptions = useCallback(async () => {
         if (!productId) return;
         try {
             setOptionsLoading(true);
             const opts = await getProductOptions(productId);
             setPrimaryPriceGroup(opts.primaryPriceGroup);
             setAddonGroups(opts.addonGroups);
-        } catch (err) {
-            console.error("Errore caricamento opzioni:", err);
+        } catch {
+            showToast({ message: "Errore caricamento opzioni", type: "error" });
         } finally {
             setOptionsLoading(false);
         }
-    };
+    }, [productId, showToast]);
 
-    const loadUsage = async () => {
-        if (!productId) return;
+    const loadUsage = useCallback(async () => {
+        if (!productId || !tenantId) return;
         try {
             setUsageLoading(true);
-
-            // Step 1: catalog IDs that contain this product
-            console.log("[usage] step1 start", productId);
-            const { data: catalogItems, error: ciError } = await supabase
-                .from("catalog_category_products")
-                .select("catalog_id")
-                .eq("product_id", productId);
-            if (ciError) throw new Error(`step1: ${ciError.message}`);
-
-            const catalogIds = (catalogItems ?? [])
-                .map((r: any) => r.catalog_id)
-                .filter(Boolean) as string[];
-            console.log("[usage] step1 catalogIds", catalogIds);
-
-            // Step 2: catalog names
-            let catalogs: { id: string; name: string }[] = [];
-            if (catalogIds.length > 0) {
-                const { data: catalogsData, error: cError } = await supabase
-                    .from("catalogs")
-                    .select("id, name")
-                    .in("id", catalogIds);
-                if (cError) throw new Error(`step2: ${cError.message}`);
-                catalogs = (catalogsData ?? []) as { id: string; name: string }[];
-                console.log("[usage] step2 catalogs", catalogs);
-            }
-
-            // Step 3: schedules that reference those catalogs via schedule_layout
-            let schedules: { id: string; name: string }[] = [];
-            let activities: { id: string; name: string }[] = [];
-            if (catalogIds.length > 0) {
-                const { data: layoutData, error: layoutError } = await supabase
-                    .from("schedule_layout")
-                    .select("schedule_id")
-                    .in("catalog_id", catalogIds);
-                if (layoutError) throw new Error(`step3 layout: ${layoutError.message}`);
-
-                const scheduleIds = [
-                    ...new Set(
-                        (layoutData ?? [])
-                            .map((r: any) => r.schedule_id)
-                            .filter(Boolean) as string[]
-                    )
-                ];
-                console.log("[usage] step3 scheduleIds", scheduleIds);
-
-                if (scheduleIds.length > 0) {
-                    const { data: schedulesData, error: sError } = await supabase
-                        .from("schedules")
-                        .select("id, name, target_type, target_id")
-                        .in("id", scheduleIds);
-                    if (sError) throw new Error(`step3 schedules: ${sError.message}`);
-                    schedules = (schedulesData ?? []).map((s: any) => ({ id: s.id, name: s.name }));
-                    console.log("[usage] step3 schedules", schedules);
-
-                    // Step 4: activities – read directly from schedules.target_type/target_id
-                    const activityIds = [
-                        ...new Set(
-                            (schedulesData ?? [])
-                                .filter((s: any) => s.target_type === "activity" && s.target_id)
-                                .map((s: any) => s.target_id as string)
-                        )
-                    ];
-                    console.log("[usage] step4 activityIds", activityIds);
-
-                    if (activityIds.length > 0) {
-                        const { data: activitiesData, error: aError } = await supabase
-                            .from("activities")
-                            .select("id, name")
-                            .in("id", activityIds)
-                            .order("name", { ascending: true });
-                        if (aError) throw new Error(`step4 activities: ${aError.message}`);
-                        activities = (activitiesData ?? []) as { id: string; name: string }[];
-                        console.log("[usage] step4 activities", activities);
-                    }
-                }
-            }
-
-            setUsageData({ catalogs, schedules, activities });
-        } catch (err) {
-            console.error("[usage] ERRORE:", err);
+            const data = await getProductUsage(productId, tenantId);
+            setUsageData(data);
+        } catch {
             setUsageData({ catalogs: [], schedules: [], activities: [] });
         } finally {
             setUsageLoading(false);
         }
-    };
+    }, [productId, tenantId]);
 
-    const loadProduct = async () => {
+    const loadMatrixConfig = useCallback(async (pid: string, tid: string, isBaseProduct: boolean) => {
+        if (!isBaseProduct) return;
+        try {
+            setMatrixLoading(true);
+            const config = await getVariantMatrixConfig(pid, tid);
+            setMatrixConfig(config);
+        } catch {
+            setMatrixConfig(null);
+        } finally {
+            setMatrixLoading(false);
+        }
+    }, []);
+
+    const loadProduct = useCallback(async () => {
         if (!productId || !tenantId) return;
         try {
             setLoading(true);
             setError(null);
             const data = await getProduct(productId, tenantId);
             setProduct(data);
-        } catch (err: any) {
-            console.error(err);
+            await Promise.all([
+                loadOptions(),
+                loadUsage(),
+                loadMatrixConfig(productId, tenantId, data.parent_product_id === null)
+            ]);
+        } catch {
             setError("Prodotto non trovato");
         } finally {
             setLoading(false);
         }
-
-        await Promise.all([loadOptions(), loadUsage()]);
-    };
+    }, [productId, tenantId, loadOptions, loadUsage, loadMatrixConfig]);
 
     useEffect(() => {
         loadProduct();
-    }, [productId, tenantId]);
+    }, [loadProduct]);
+
 
     const breadcrumbItems = [
         { label: "Prodotti", to: `/business/${tenantId}/products` },
@@ -182,11 +135,11 @@ export default function ProductPage() {
         return (
             <div className={styles.container}>
                 <Breadcrumb items={breadcrumbItems} />
-                <div style={{ marginTop: "24px" }}>
+                <div className={styles.errorBlock}>
                     <Text variant="title-sm" colorVariant="error">
                         {error || "Prodotto non trovato"}
                     </Text>
-                    <div style={{ marginTop: "16px" }}>
+                    <div className={styles.errorActions}>
                         <Button variant="secondary" onClick={() => navigate(`/business/${tenantId}/products`)}>
                             Torna alla lista
                         </Button>
@@ -195,6 +148,8 @@ export default function ProductPage() {
             </div>
         );
     }
+
+    const isChildVariant = product.parent_product_id !== null;
 
     return (
         <div className={styles.container}>
@@ -205,12 +160,13 @@ export default function ProductPage() {
             <Tabs value={activeTab} onChange={setActiveTab}>
                 <Tabs.List>
                     <Tabs.Tab value="general">Generale</Tabs.Tab>
-                    <Tabs.Tab value="pricing">Prezzi</Tabs.Tab>
-                    <Tabs.Tab value="config">Configurazioni</Tabs.Tab>
+                    <Tabs.Tab value="pricing">Prezzi & Varianti</Tabs.Tab>
+                    <Tabs.Tab value="config">Opzioni</Tabs.Tab>
+                    <Tabs.Tab value="attributes">Attributi</Tabs.Tab>
                     <Tabs.Tab value="usage">Utilizzo</Tabs.Tab>
                 </Tabs.List>
 
-                <div style={{ marginTop: "24px" }}>
+                <div className={styles.tabContent}>
                     <Tabs.Panel value="general">
                         <Card>
                             <GeneralTab
@@ -232,6 +188,16 @@ export default function ProductPage() {
                                 onProductUpdated={updated => setProduct(updated)}
                             />
                         </Card>
+                        {!isChildVariant && (
+                            <div className={styles.tabSectionGap}>
+                                <VariantsTab
+                                    product={product}
+                                    tenantId={tenantId!}
+                                    onOpenVariantDrawer={() => setIsVariantDrawerOpen(true)}
+                                    onVariantUpdated={loadProduct}
+                                />
+                            </div>
+                        )}
                     </Tabs.Panel>
 
                     <Tabs.Panel value="config">
@@ -242,6 +208,16 @@ export default function ProductPage() {
                                 addonGroups={addonGroups}
                                 optionsLoading={optionsLoading}
                                 onRefreshOptions={loadOptions}
+                            />
+                        </Card>
+                    </Tabs.Panel>
+
+                    <Tabs.Panel value="attributes">
+                        <Card>
+                            <AttributesTab
+                                productId={productId!}
+                                tenantId={tenantId!}
+                                vertical={selectedTenant?.vertical_type}
                             />
                         </Card>
                     </Tabs.Panel>
@@ -257,6 +233,32 @@ export default function ProductPage() {
                     </Tabs.Panel>
                 </div>
             </Tabs>
+
+            <ProductCreateEditDrawer
+                open={isVariantDrawerOpen}
+                onClose={() => setIsVariantDrawerOpen(false)}
+                mode="create_variant"
+                productData={null}
+                parentProduct={product}
+                tenantId={tenantId ?? undefined}
+                onSuccess={() => {
+                    setIsVariantDrawerOpen(false);
+                    loadProduct();
+                }}
+            />
+
+            {product.parent_product_id === null && tenantId && (
+                <MatrixConfigDrawer
+                    open={isMatrixDrawerOpen}
+                    onClose={() => setIsMatrixDrawerOpen(false)}
+                    productId={product.id}
+                    tenantId={tenantId}
+                    parentBasePrice={product.base_price}
+                    matrixConfig={matrixConfig}
+                    onSaveSuccess={() => loadMatrixConfig(product.id, tenantId, true)}
+                    onGenerateSuccess={() => loadProduct()}
+                />
+            )}
         </div>
     );
 }

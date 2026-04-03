@@ -1,0 +1,44 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+// ─── Header ──────────────────────────────────────────────────────────────────
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.priceInput {
+  width: 100%;
+  max-width: 140px;
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
+.emptyState {
+  padding: 40px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+// ─── Variant product note ─────────────────────────────────────────────────────
+
+.variantProductNote {
+  padding: 24px;
+  text-align: center;
+}

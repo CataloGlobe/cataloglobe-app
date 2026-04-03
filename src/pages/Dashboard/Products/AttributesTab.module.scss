@@ -1,0 +1,67 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+// ─── Top header (microcopy + button) ──────────────────────────────────────────
+
+.tabHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+// ─── Attribute name cell ──────────────────────────────────────────────────────
+
+.attributeName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.requiredBadge {
+  flex-shrink: 0;
+}
+
+// ─── Multi-select ─────────────────────────────────────────────────────────────
+
+.multiSelectList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.multiSelectOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  user-select: none;
+  cursor: pointer;
+
+  &.disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
+.emptyState {
+  padding: 32px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.emptyStateButton {
+  margin-top: 8px;
+}

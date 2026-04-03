@@ -75,8 +75,9 @@ export function ProductCreateEditDrawer({
                             type="submit"
                             form="product-form"
                             loading={isSaving}
+                            disabled={isSaving}
                         >
-                            {mode === "edit" ? "Salva" : "Crea"}
+                            {isSaving ? "Salvataggio..." : mode === "edit" ? "Salva" : "Crea"}
                         </Button>
                     </>
                 }
