@@ -509,6 +509,73 @@
   margin-top: var(--spacing-3, 12px);
 }
 
+.assignTableRow {
+  display: grid;
+  grid-template-columns: 28px 24px 1fr 90px;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--color-gray-100);
+}
+
+.assignTableRowVariant {
+  padding-left: 52px; /* indent: 28px + 24px */
+  grid-template-columns: 28px 1fr 90px;
+}
+
+.assignCheckCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.assignExpandBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--color-gray-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.assignExpandSpacer {
+  width: 24px;
+}
+
+.productExpandBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--color-gray-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.productExpandSpacer {
+  width: 18px;
+  flex-shrink: 0;
+}
+
+.assignNameCell {
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignPriceCell {
+  font-size: 13px;
+  color: var(--color-gray-500);
+  text-align: right;
+}
+
 .assignRow {
   display: flex;
   align-items: center;

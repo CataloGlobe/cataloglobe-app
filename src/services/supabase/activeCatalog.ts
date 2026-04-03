@@ -20,7 +20,10 @@ export type RenderableProduct = {
     product_id: string;
     name: string;
     category_name?: string | null;
-    final_price: number;
+    /** Resolved single price. Null when the product uses format pricing. */
+    final_price: number | null;
+    /** Minimum format price. Set when the product has PRIMARY_PRICE option groups. */
+    from_price: number | null;
     is_visible: boolean; // post-scheduling + post-activity-override
 };
 
@@ -130,7 +133,8 @@ export async function getRenderableCatalogForActivity(
                 product_id: p.id,
                 name: p.name,
                 category_name: category.name,
-                final_price: p.price ?? 0,
+                final_price: p.price ?? null,
+                from_price: p.from_price ?? null,
                 is_visible: override?.visible_override ?? true
             });
         }

@@ -26,7 +26,7 @@ import {
     useSortable
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { IconGripVertical, IconPhoto } from "@tabler/icons-react";
+import { IconGripVertical, IconPhoto, IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -43,7 +43,8 @@ import {
     V2CatalogCategory,
     V2CatalogCategoryProduct
 } from "@/services/supabase/catalogs";
-import { listBaseProductsWithVariants, V2Product } from "@/services/supabase/products";
+import { listBaseProductsWithVariants, getProductListMetadata, V2Product } from "@/services/supabase/products";
+import { getDisplayPrice } from "@/utils/priceDisplay";
 import { getProductGroups, ProductGroup } from "@/services/supabase/productGroups";
 import { listAttributeDefinitions } from "@/services/supabase/attributes";
 import { supabase } from "@/services/supabase/client";
@@ -62,6 +63,7 @@ const LOCAL_LINK_PREFIX = "loc_";
 function validateProductAddition(
     categoryId: string,
     productId: string,
+    variantProductId: string | null,
     categories: V2CatalogCategory[],
     categoryProducts: V2CatalogCategoryProduct[]
 ): string | null {
@@ -87,7 +89,10 @@ function validateProductAddition(
         return descendants;
     };
 
-    const existingAssignments = categoryProducts.filter(cp => cp.product_id === productId);
+    // Only consider links with the same variant_product_id — (P, null) and (P, V1) are distinct items
+    const existingAssignments = categoryProducts.filter(
+        cp => cp.product_id === productId && cp.variant_product_id === variantProductId
+    );
     if (existingAssignments.length === 0) return null;
 
     const targetAncestors = getAncestors(categoryId);
@@ -116,6 +121,19 @@ type ProductRow = {
     name: string;
     sku: string | null;
     price: number | null;
+    from_price: number | null;
+    isVariant: boolean;
+    isGroupChild: boolean; // true when a variant row with a parent row above it in the same group
+    hasVariants: boolean; // true for a parent row that has at least one variant link in this category
+};
+
+type AssignRow = {
+    id: string;
+    kind: "parent" | "variant";
+    product: V2Product;
+    variant?: V2Product;
+    hasVariants: boolean;
+    isExpanded: boolean;
 };
 
 type ProductAttributeValueRow = {
@@ -123,11 +141,6 @@ type ProductAttributeValueRow = {
     attribute_definition_id: string;
     value_text: string | null;
 };
-
-function formatPrice(value: number | null): string {
-    if (value === null) return "—";
-    return `€${value.toFixed(2)}`;
-}
 
 function getErrorMessage(error: unknown, fallback: string): string {
     if (error instanceof Error && error.message.trim().length > 0) {
@@ -288,6 +301,8 @@ export default function CatalogEngine() {
     const [allProducts, setAllProducts] = useState<V2Product[]>([]);
 
     const [skuByProductId, setSkuByProductId] = useState<Record<string, string>>({});
+    const [formatPriceByProductId, setFormatPriceByProductId] = useState<Record<string, number>>({});
+    const [formatsCountByProductId, setFormatsCountByProductId] = useState<Record<string, number>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set());
 
@@ -319,9 +334,10 @@ export default function CatalogEngine() {
     const [isDeletingCategory, setIsDeletingCategory] = useState(false);
 
     const [assignProductSearch, setAssignProductSearch] = useState("");
-    const [selectedAssignProductIds, setSelectedAssignProductIds] = useState<Set<string>>(
-        new Set()
-    );
+    type AssignSelection = { parentSelected: boolean; variantIds: Set<string> };
+    const [assignSelection, setAssignSelection] = useState<Map<string, AssignSelection>>(new Map());
+    const [expandedAssignIds, setExpandedAssignIds] = useState<Set<string>>(new Set());
+    const [expandedProductGroupIds, setExpandedProductGroupIds] = useState<Set<string>>(new Set());
     const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
     const [productGroupMap, setProductGroupMap] = useState<Map<string, string[]>>(new Map());
     const [assignGroupId, setAssignGroupId] = useState<string | null>(null);
@@ -391,61 +407,143 @@ export default function CatalogEngine() {
     );
 
     const productRows = useMemo<ProductRow[]>(() => {
-        return selectedCategoryLinks.map(link => {
-            const product = productById.get(link.product_id);
-            return {
-                id: link.id,
-                linkId: link.id,
-                productId: link.product_id,
-                name: product?.name ?? "Prodotto sconosciuto",
-                sku: skuByProductId[link.product_id] ?? null,
-                price: product?.base_price ?? null
-            };
-        });
-    }, [productById, selectedCategoryLinks, skuByProductId]);
+        // Group links by product_id, preserving the natural sort order
+        const groupOrder: string[] = [];
+        const groupMap = new Map<string, V2CatalogCategoryProduct[]>();
+        for (const link of selectedCategoryLinks) {
+            if (!groupMap.has(link.product_id)) {
+                groupOrder.push(link.product_id);
+                groupMap.set(link.product_id, []);
+            }
+            groupMap.get(link.product_id)!.push(link);
+        }
+
+        const rows: ProductRow[] = [];
+        for (const productId of groupOrder) {
+            const links = groupMap.get(productId)!;
+            const parentLink = links.find(l => l.variant_product_id === null) ?? null;
+            const variantLinks = links.filter(l => l.variant_product_id !== null);
+
+            // Render parent row first (if present)
+            if (parentLink) {
+                const parentProduct = productById.get(productId);
+                rows.push({
+                    id: parentLink.id,
+                    linkId: parentLink.id,
+                    productId,
+                    name: parentProduct?.name ?? "Prodotto sconosciuto",
+                    sku: skuByProductId[productId] ?? null,
+                    price: (formatsCountByProductId[productId] ?? 0) === 1
+                        ? (formatPriceByProductId[productId] ?? null)
+                        : (parentProduct?.base_price ?? null),
+                    from_price: (formatsCountByProductId[productId] ?? 0) > 1
+                        ? (formatPriceByProductId[productId] ?? null)
+                        : null,
+                    isVariant: false,
+                    isGroupChild: false,
+                    hasVariants: variantLinks.length > 0
+                });
+            }
+
+            // Render variant rows: indented when a parent exists, standalone otherwise
+            for (const vLink of variantLinks) {
+                const varProduct = productById.get(vLink.variant_product_id!);
+                rows.push({
+                    id: vLink.id,
+                    linkId: vLink.id,
+                    productId,
+                    name: varProduct?.name ?? "Variante sconosciuta",
+                    sku: skuByProductId[vLink.variant_product_id!] ?? null,
+                    price: vLink.variant_product_id && (formatsCountByProductId[vLink.variant_product_id] ?? 0) === 1
+                        ? (formatPriceByProductId[vLink.variant_product_id] ?? null)
+                        : (varProduct?.base_price ?? null),
+                    from_price: vLink.variant_product_id && (formatsCountByProductId[vLink.variant_product_id] ?? 0) > 1
+                        ? (formatPriceByProductId[vLink.variant_product_id] ?? null)
+                        : null,
+                    isVariant: true,
+                    isGroupChild: parentLink !== null,
+                    hasVariants: false
+                });
+            }
+        }
+        return rows;
+    }, [productById, selectedCategoryLinks, skuByProductId, formatPriceByProductId, formatsCountByProductId]);
 
     const filteredRows = useMemo(() => {
         const normalizedSearch = productSearch.trim().toLowerCase();
         if (!normalizedSearch) return productRows;
-        return productRows.filter(row => {
-            const haystack = `${row.name} ${row.sku ?? ""}`.toLowerCase();
-            return haystack.includes(normalizedSearch);
-        });
+
+        const matchingProductIds = new Set<string>();
+        for (const row of productRows) {
+            if (`${row.name} ${row.sku ?? ""}`.toLowerCase().includes(normalizedSearch)) {
+                matchingProductIds.add(row.productId);
+            }
+        }
+        return productRows.filter(row => matchingProductIds.has(row.productId));
     }, [productRows, productSearch]);
+
+    const visibleRows = useMemo(() => {
+        return filteredRows.filter(row => {
+            if (!row.isGroupChild) return true;
+            return expandedProductGroupIds.has(row.productId);
+        });
+    }, [filteredRows, expandedProductGroupIds]);
+
+    const selectedCategoryAssignedItems = useMemo((): Map<string, { parentAssigned: boolean; assignedVariantIds: Set<string> }> => {
+        const map = new Map<string, { parentAssigned: boolean; assignedVariantIds: Set<string> }>();
+        for (const cp of categoryProducts) {
+            if (cp.category_id !== selectedCategoryId) continue;
+            const parentId = cp.product_id;
+            if (!map.has(parentId)) map.set(parentId, { parentAssigned: false, assignedVariantIds: new Set() });
+            const entry = map.get(parentId)!;
+            if (cp.variant_product_id === null) entry.parentAssigned = true;
+            else if (cp.variant_product_id) entry.assignedVariantIds.add(cp.variant_product_id);
+        }
+        return map;
+    }, [categoryProducts, selectedCategoryId]);
+
+    const assignSelectionCount = useMemo(() => {
+        let count = 0;
+        for (const sel of assignSelection.values()) {
+            if (sel.parentSelected) count++;
+            count += sel.variantIds.size;
+        }
+        return count;
+    }, [assignSelection]);
 
     const assignableProducts = useMemo(() => {
         const normalizedSearch = assignProductSearch.trim().toLowerCase();
-        const flattenedProducts: V2Product[] = [];
-        for (const baseProduct of allProducts) {
-            flattenedProducts.push(baseProduct);
-            for (const variant of baseProduct.variants ?? []) {
-                flattenedProducts.push(variant);
-            }
-        }
-
-        return flattenedProducts.filter(product => {
-            if (selectedCategoryProductIds.has(product.id)) return false;
-
+        return allProducts.filter(product => {
+            if (normalizedSearch && !product.name.toLowerCase().includes(normalizedSearch)) return false;
             if (assignGroupId) {
                 const groups = productGroupMap.get(product.id) ?? [];
                 if (!groups.includes(assignGroupId)) return false;
             }
-
-            if (!normalizedSearch) return true;
-            return product.name.toLowerCase().includes(normalizedSearch);
+            return true;
         });
-    }, [
-        allProducts,
-        assignProductSearch,
-        selectedCategoryProductIds,
-        assignGroupId,
-        productGroupMap
-    ]);
+    }, [allProducts, assignProductSearch, assignGroupId, productGroupMap]);
 
-    const assignableSelectedIds = useMemo(
-        () => Array.from(selectedAssignProductIds),
-        [selectedAssignProductIds]
-    );
+    const assignRows = useMemo<AssignRow[]>(() => {
+        const rows: AssignRow[] = [];
+        for (const product of assignableProducts) {
+            const hasVariants = (product.variants?.length ?? 0) > 0;
+            const isExpanded = expandedAssignIds.has(product.id);
+            rows.push({ id: `parent_${product.id}`, kind: "parent", product, hasVariants, isExpanded });
+            if (hasVariants && isExpanded) {
+                for (const v of product.variants!) {
+                    rows.push({
+                        id: `variant_${v.id}`,
+                        kind: "variant",
+                        product,
+                        variant: v,
+                        hasVariants: false,
+                        isExpanded: false
+                    });
+                }
+            }
+        }
+        return rows;
+    }, [assignableProducts, expandedAssignIds]);
 
     const getNextSortOrder = useCallback(
         (parentId: string | null) => {
@@ -545,6 +643,31 @@ export default function CatalogEngine() {
             setProductGroupMap(nextGroupMap);
             setIsDirty(false);
 
+            // Load format prices using the freshly fetched products list
+            try {
+                const allIds = loadedProducts.flatMap(p => [
+                    p.id,
+                    ...(p.variants?.map(v => v.id) ?? [])
+                ]);
+                if (allIds.length > 0) {
+                    const metadata = await getProductListMetadata(currentTenantId, allIds);
+                    const nextFormatPrices: Record<string, number> = {};
+                    const nextFormatCounts: Record<string, number> = {};
+                    for (const [id, meta] of Object.entries(metadata)) {
+                        if (typeof meta.fromPrice === "number") {
+                            nextFormatPrices[id] = meta.fromPrice;
+                        }
+                        if (meta.formatsCount > 0) {
+                            nextFormatCounts[id] = meta.formatsCount;
+                        }
+                    }
+                    setFormatPriceByProductId(nextFormatPrices);
+                    setFormatsCountByProductId(nextFormatCounts);
+                }
+            } catch (error) {
+                console.warn("Impossibile caricare prezzi formato prodotti:", error);
+            }
+
             await loadProductMetadata();
         } catch (error) {
             console.error(error);
@@ -594,7 +717,9 @@ export default function CatalogEngine() {
     }, [categoriesById, selectedCategoryId, setSelectedCategoryInUrl, tree]);
 
     useEffect(() => {
-        setSelectedAssignProductIds(new Set());
+        setAssignSelection(new Map());
+        setExpandedAssignIds(new Set());
+        setExpandedProductGroupIds(new Set());
         setAssignGroupId(null);
         setAssignProductSearch("");
     }, [selectedCategoryId]);
@@ -879,6 +1004,7 @@ export default function CatalogEngine() {
             const validationError = validateProductAddition(
                 selectedCategoryId,
                 productId,
+                null,
                 categories,
                 categoryProducts
             );
@@ -898,6 +1024,7 @@ export default function CatalogEngine() {
                 catalog_id: catalogId,
                 category_id: selectedCategoryId,
                 product_id: productId,
+                variant_product_id: null,
                 sort_order: nextSortOrder,
                 created_at: new Date().toISOString()
             };
@@ -916,14 +1043,8 @@ export default function CatalogEngine() {
         ]
     );
 
-    const handleBulkAssignProducts = useCallback(() => {
-        if (
-            !currentTenantId ||
-            !catalogId ||
-            !selectedCategoryId ||
-            selectedAssignProductIds.size === 0
-        )
-            return;
+    const handleBulkAssignItems = useCallback(() => {
+        if (!currentTenantId || !catalogId || !selectedCategoryId || assignSelectionCount === 0) return;
 
         const currentMaxOrder =
             selectedCategoryLinks.length > 0
@@ -933,70 +1054,77 @@ export default function CatalogEngine() {
         let successCount = 0;
         let failedCount = 0;
         const newLinks: V2CatalogCategoryProduct[] = [];
-
-        // Snapshot of categoryProducts including links added in this loop
         let workingProducts = [...categoryProducts];
+        let sortIdx = 0;
 
-        Array.from(selectedAssignProductIds).forEach((productId, index) => {
-            const validationError = validateProductAddition(
-                selectedCategoryId,
-                productId,
-                categories,
-                workingProducts
-            );
-            if (validationError) {
-                failedCount++;
-                return;
+        for (const [productId, sel] of assignSelection) {
+            if (sel.parentSelected) {
+                const alreadyAssigned = workingProducts.some(
+                    cp => cp.category_id === selectedCategoryId
+                       && cp.product_id === productId
+                       && cp.variant_product_id === null
+                );
+                if (alreadyAssigned) { failedCount++; }
+                else {
+                    const link: V2CatalogCategoryProduct = {
+                        id: `${LOCAL_LINK_PREFIX}${selectedCategoryId}_${productId}_parent`,
+                        tenant_id: currentTenantId,
+                        catalog_id: catalogId,
+                        category_id: selectedCategoryId,
+                        product_id: productId,
+                        variant_product_id: null,
+                        sort_order: currentMaxOrder + (++sortIdx) * 10,
+                        created_at: new Date().toISOString()
+                    };
+                    newLinks.push(link);
+                    workingProducts = [...workingProducts, link];
+                    successCount++;
+                }
             }
 
-            const localLink: V2CatalogCategoryProduct = {
-                id: `${LOCAL_LINK_PREFIX}${selectedCategoryId}_${productId}`,
-                tenant_id: currentTenantId,
-                catalog_id: catalogId,
-                category_id: selectedCategoryId,
-                product_id: productId,
-                sort_order: currentMaxOrder + (index + 1) * 10,
-                created_at: new Date().toISOString()
-            };
+            for (const variantId of sel.variantIds) {
+                const alreadyAssigned = workingProducts.some(
+                    cp => cp.category_id === selectedCategoryId
+                       && cp.product_id === productId
+                       && cp.variant_product_id === variantId
+                );
+                if (alreadyAssigned) { failedCount++; continue; }
 
-            newLinks.push(localLink);
-            workingProducts = [...workingProducts, localLink];
-            successCount++;
-        });
+                const link: V2CatalogCategoryProduct = {
+                    id: `${LOCAL_LINK_PREFIX}${selectedCategoryId}_${productId}_${variantId}`,
+                    tenant_id: currentTenantId,
+                    catalog_id: catalogId,
+                    category_id: selectedCategoryId,
+                    product_id: productId,
+                    variant_product_id: variantId,
+                    sort_order: currentMaxOrder + (++sortIdx) * 10,
+                    created_at: new Date().toISOString()
+                };
+                newLinks.push(link);
+                workingProducts = [...workingProducts, link];
+                successCount++;
+            }
+        }
 
         if (successCount > 0) {
             setCategoryProducts(prev => [...prev, ...newLinks]);
             setIsDirty(true);
-
-            if (failedCount === 0) {
-                showToast({
-                    message: `${successCount} prodotti associati con successo.`,
-                    type: "success"
-                });
-            } else {
-                showToast({
-                    message: `${successCount} associati, ${failedCount} non associati (già presenti).`,
-                    type: "info"
-                });
-            }
-        } else {
             showToast({
-                message: "Impossibile associare i prodotti selezionati.",
-                type: "error"
+                message: failedCount === 0
+                    ? `${successCount} elementi associati con successo.`
+                    : `${successCount} associati, ${failedCount} non associati (già presenti).`,
+                type: failedCount === 0 ? "success" : "info"
             });
+        } else {
+            showToast({ message: "Impossibile associare gli elementi selezionati.", type: "error" });
         }
 
-        setSelectedAssignProductIds(new Set());
+        setAssignSelection(new Map());
+        setExpandedAssignIds(new Set());
         setIsUnifiedAddProductDrawerOpen(false);
     }, [
-        catalogId,
-        categories,
-        categoryProducts,
-        currentTenantId,
-        selectedAssignProductIds,
-        selectedCategoryId,
-        selectedCategoryLinks,
-        showToast
+        assignSelection, assignSelectionCount, catalogId, categoryProducts,
+        currentTenantId, selectedCategoryId, selectedCategoryLinks, showToast
     ]);
 
     const handleProductCreated = useCallback(
@@ -1020,6 +1148,7 @@ export default function CatalogEngine() {
                 catalog_id: catalogId,
                 category_id: selectedCategoryId,
                 product_id: createdProduct.id,
+                variant_product_id: null,
                 sort_order: nextSortOrder,
                 created_at: new Date().toISOString()
             };
@@ -1132,6 +1261,7 @@ export default function CatalogEngine() {
                 return orig !== undefined && orig.sort_order !== l.sort_order;
             });
 
+
             // Execute in parallel where safe
             await Promise.all([
                 ...categoryUpdates.map(({ id, updates }) =>
@@ -1150,7 +1280,8 @@ export default function CatalogEngine() {
                     catalogId,
                     link.category_id,
                     link.product_id,
-                    link.sort_order
+                    link.sort_order,
+                    link.variant_product_id
                 );
             }
 
@@ -1205,12 +1336,37 @@ export default function CatalogEngine() {
                 header: "Nome prodotto",
                 width: "2fr",
                 cell: (_value, row) => (
-                    <div className={styles.productNameCell}>
+                    <div
+                        className={styles.productNameCell}
+                        style={row.isGroupChild ? { paddingLeft: 20 } : undefined}
+                    >
                         <div className={styles.productNameRow}>
+                            {!row.isVariant && row.hasVariants ? (
+                                <button
+                                    type="button"
+                                    className={styles.productExpandBtn}
+                                    onClick={e => {
+                                        e.stopPropagation();
+                                        setExpandedProductGroupIds(prev => {
+                                            const next = new Set(prev);
+                                            if (next.has(row.productId)) next.delete(row.productId);
+                                            else next.add(row.productId);
+                                            return next;
+                                        });
+                                    }}
+                                >
+                                    {expandedProductGroupIds.has(row.productId)
+                                        ? <IconChevronDown size={14} />
+                                        : <IconChevronRight size={14} />}
+                                </button>
+                            ) : (
+                                <span className={styles.productExpandSpacer} />
+                            )}
                             <Text variant="body-sm" weight={600} className={styles.productNameMain}>
                                 {row.name}
                             </Text>
-                            {row.price === null && <Badge variant="warning">Da configurare</Badge>}
+                            {row.isVariant && <Badge variant="secondary">Variante</Badge>}
+                            {row.price === null && row.from_price === null && <Badge variant="warning">Da configurare</Badge>}
                         </div>
                         {row.sku && (
                             <Text variant="caption" className={styles.productSku}>
@@ -1224,11 +1380,11 @@ export default function CatalogEngine() {
                 id: "price",
                 header: "Prezzo",
                 width: "0.9fr",
-                accessor: row => row.price,
-                cell: value => <Text variant="body-sm">{formatPrice(value as number | null)}</Text>
+                accessor: row => row.id,
+                cell: (_value, row) => <Text variant="body-sm">{getDisplayPrice({ base_price: row.price, from_price: row.from_price }).label}</Text>
             }
         ],
-        []
+        [expandedProductGroupIds]
     );
 
     const assignableColumns = useMemo<ColumnDefinition<V2Product>[]>(
@@ -1253,18 +1409,21 @@ export default function CatalogEngine() {
             },
             {
                 id: "price",
-                header: "Prezzo base",
-                accessor: row => row.base_price,
+                header: "Prezzo",
+                accessor: row => row.id,
                 width: "130px",
                 align: "right",
-                cell: value => (
+                cell: (_value, row) => (
                     <Text variant="body-sm" colorVariant="muted">
-                        {formatPrice((value as number | null) ?? null)}
+                        {getDisplayPrice({
+                            base_price: (formatsCountByProductId[row.id] ?? 0) === 1 ? (formatPriceByProductId[row.id] ?? null) : row.base_price,
+                            from_price: (formatsCountByProductId[row.id] ?? 0) > 1 ? (formatPriceByProductId[row.id] ?? null) : null
+                        }).label}
                     </Text>
                 )
             }
         ],
-        []
+        [formatPriceByProductId, formatsCountByProductId]
     );
 
     const renderRightPane = () => {
@@ -1335,11 +1494,11 @@ export default function CatalogEngine() {
                         onDragEnd={handleReorderProducts}
                     >
                         <SortableContext
-                            items={filteredRows.map(r => r.id)}
+                            items={visibleRows.map(r => r.id)}
                             strategy={verticalListSortingStrategy}
                         >
                             <DataTable<ProductRow>
-                                data={filteredRows}
+                                data={visibleRows}
                                 columns={columns}
                                 selectable
                                 onBulkDelete={handleBulkRemoveSelected}
@@ -1543,7 +1702,8 @@ export default function CatalogEngine() {
                 open={isUnifiedAddProductDrawerOpen}
                 onClose={() => {
                     setIsUnifiedAddProductDrawerOpen(false);
-                    setSelectedAssignProductIds(new Set());
+                    setAssignSelection(new Map());
+                    setExpandedAssignIds(new Set());
                     setAssignGroupId(null);
                     setAssignProductSearch("");
                 }}
@@ -1589,10 +1749,10 @@ export default function CatalogEngine() {
                             {addProductMode === "existing" ? (
                                 <Button
                                     variant="primary"
-                                    onClick={handleBulkAssignProducts}
-                                    disabled={selectedAssignProductIds.size === 0}
+                                    onClick={handleBulkAssignItems}
+                                    disabled={assignSelectionCount === 0}
                                 >
-                                    Associa selezionati ({selectedAssignProductIds.size})
+                                    Associa selezionati ({assignSelectionCount})
                                 </Button>
                             ) : (
                                 <SplitButton
@@ -1645,18 +1805,104 @@ export default function CatalogEngine() {
                             </div>
 
                             <div className={styles.assignTableWrap}>
-                                <DataTable<V2Product>
-                                    data={assignableProducts}
-                                    columns={assignableColumns}
-                                    selectable
-                                    selectedRowIds={assignableSelectedIds}
-                                    onSelectedRowsChange={ids =>
-                                        setSelectedAssignProductIds(new Set(ids))
-                                    }
-                                    showSelectionBar={false}
-                                    rowsPerPage={8}
-                                    emptyState="Nessun prodotto disponibile da associare."
-                                />
+                                {assignableProducts.length === 0 ? (
+                                    <Text variant="body-sm" colorVariant="muted" style={{ padding: "16px 0" }}>
+                                        Nessun prodotto disponibile da associare.
+                                    </Text>
+                                ) : (
+                                    <div>
+                                        {assignRows.map(row => {
+                                            const sel = assignSelection.get(row.product.id);
+                                            const assigned = selectedCategoryAssignedItems.get(row.product.id);
+
+                                            if (row.kind === "parent") {
+                                                const parentChecked = sel?.parentSelected ?? false;
+                                                const parentAssigned = assigned?.parentAssigned ?? false;
+                                                return (
+                                                    <div key={row.id} className={styles.assignTableRow}>
+                                                        <span className={styles.assignCheckCell}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={parentChecked || parentAssigned}
+                                                                disabled={parentAssigned}
+                                                                onChange={e => {
+                                                                    setAssignSelection(prev => {
+                                                                        const next = new Map(prev);
+                                                                        const cur = next.get(row.product.id) ?? { parentSelected: false, variantIds: new Set() };
+                                                                        const newParentSelected = e.target.checked;
+                                                                        const newVariantIds = new Set(cur.variantIds);
+                                                                        if (newParentSelected && row.hasVariants) {
+                                                                            for (const v of row.product.variants!) {
+                                                                                if (!(assigned?.assignedVariantIds.has(v.id) ?? false)) {
+                                                                                    newVariantIds.add(v.id);
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                        next.set(row.product.id, { parentSelected: newParentSelected, variantIds: newVariantIds });
+                                                                        return next;
+                                                                    });
+                                                                }}
+                                                            />
+                                                        </span>
+                                                        {row.hasVariants ? (
+                                                            <button
+                                                                type="button"
+                                                                className={styles.assignExpandBtn}
+                                                                onClick={() => setExpandedAssignIds(prev => {
+                                                                    const next = new Set(prev);
+                                                                    if (next.has(row.product.id)) next.delete(row.product.id);
+                                                                    else next.add(row.product.id);
+                                                                    return next;
+                                                                })}
+                                                            >
+                                                                {row.isExpanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                                                            </button>
+                                                        ) : (
+                                                            <span className={styles.assignExpandSpacer} />
+                                                        )}
+                                                        <span className={styles.assignNameCell}>{row.product.name}</span>
+                                                        <span className={styles.assignPriceCell}>{getDisplayPrice({
+                                                            base_price: (formatsCountByProductId[row.product.id] ?? 0) === 1 ? (formatPriceByProductId[row.product.id] ?? null) : row.product.base_price,
+                                                            from_price: (formatsCountByProductId[row.product.id] ?? 0) > 1 ? (formatPriceByProductId[row.product.id] ?? null) : null
+                                                        }).label}</span>
+                                                    </div>
+                                                );
+                                            }
+
+                                            // variant row
+                                            const v = row.variant!;
+                                            const varChecked = sel?.variantIds.has(v.id) ?? false;
+                                            const varAssigned = assigned?.assignedVariantIds.has(v.id) ?? false;
+                                            return (
+                                                <div key={row.id} className={`${styles.assignTableRow} ${styles.assignTableRowVariant}`}>
+                                                    <span className={styles.assignCheckCell}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={varChecked || varAssigned}
+                                                            disabled={varAssigned}
+                                                            onChange={e => {
+                                                                setAssignSelection(prev => {
+                                                                    const next = new Map(prev);
+                                                                    const cur = next.get(row.product.id) ?? { parentSelected: false, variantIds: new Set() };
+                                                                    const newIds = new Set(cur.variantIds);
+                                                                    if (e.target.checked) newIds.add(v.id);
+                                                                    else newIds.delete(v.id);
+                                                                    next.set(row.product.id, { parentSelected: cur.parentSelected, variantIds: newIds });
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                        />
+                                                    </span>
+                                                    <span className={styles.assignNameCell}>{v.name}</span>
+                                                    <span className={styles.assignPriceCell}>{getDisplayPrice({
+                                                        base_price: (formatsCountByProductId[v.id] ?? 0) === 1 ? (formatPriceByProductId[v.id] ?? null) : v.base_price,
+                                                        from_price: (formatsCountByProductId[v.id] ?? 0) > 1 ? (formatPriceByProductId[v.id] ?? null) : null
+                                                    }).label}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (

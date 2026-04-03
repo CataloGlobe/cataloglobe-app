@@ -27,6 +27,7 @@ export type V2CatalogCategoryProduct = {
     catalog_id: string;
     category_id: string;
     product_id: string;
+    variant_product_id: string | null;
     sort_order: number;
     created_at: string;
 };
@@ -189,7 +190,8 @@ export async function addProductToCategory(
     catalogId: string,
     categoryId: string,
     productId: string,
-    sortOrder: number = 0
+    sortOrder: number = 0,
+    variantProductId: string | null = null
 ): Promise<V2CatalogCategoryProduct> {
     // ---------------------------------------------------------------------------------
     // ANTI-DUPLICATION CHECK: VERTICAL BRANCH VALIDATION
@@ -202,8 +204,12 @@ export async function addProductToCategory(
     // 2. Fetch all products currently assigned in this catalog
     const categoryProducts = await listCategoryProducts(tenantId, catalogId);
 
-    // Find where this product is already assigned
-    const existingAssignments = categoryProducts.filter(cp => cp.product_id === productId);
+    // Find where this product is already assigned (composite key: product_id + variant_product_id)
+    // Use ?? null to treat undefined and null as equivalent (Supabase may return either)
+    const existingAssignments = categoryProducts.filter(
+        cp => cp.product_id === productId && (cp.variant_product_id ?? null) === (variantProductId ?? null)
+    );
+
 
     if (existingAssignments.length > 0) {
         // Build an ancestor map for quick lookup: [categoryId] -> parentCategoryId
@@ -270,6 +276,7 @@ export async function addProductToCategory(
                 catalog_id: catalogId,
                 category_id: categoryId,
                 product_id: productId,
+                variant_product_id: variantProductId,
                 sort_order: sortOrder
             }
         ])
