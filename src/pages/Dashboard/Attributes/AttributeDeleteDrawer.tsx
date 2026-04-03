@@ -36,6 +36,10 @@ export function AttributeDeleteDrawer({
     const handleDelete = async () => {
         if (!attributeData) return;
 
+        if (!attributeData.tenant_id) {
+            showToast({ message: "Gli attributi di piattaforma non possono essere eliminati.", type: "error" });
+            return;
+        }
         setIsDeleting(true);
         try {
             await deleteAttributeDefinition(attributeData.id, attributeData.tenant_id);

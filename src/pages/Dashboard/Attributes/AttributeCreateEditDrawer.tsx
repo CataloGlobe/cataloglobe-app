@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import { Switch } from "@/components/ui/Switch/Switch";
+import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
     createAttributeDefinition,
@@ -15,6 +16,19 @@ import {
 } from "@/services/supabase/attributes";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import styles from "./Attributes.module.scss";
+
+// UI type collapses select + multi_select into a single "select" choice.
+// The actual AttributeType is derived on submit.
+type UiType = "text" | "number" | "boolean" | "select";
+
+function toUiType(t: AttributeType): UiType {
+    return t === "multi_select" ? "select" : t;
+}
+
+function toAttributeType(ui: UiType, isMulti: boolean): AttributeType {
+    if (ui === "select") return isMulti ? "multi_select" : "select";
+    return ui;
+}
 
 type AttributeCreateEditDrawerProps = {
     open: boolean;
@@ -37,10 +51,12 @@ export function AttributeCreateEditDrawer({
     const [isSaving, setIsSaving] = useState(false);
     const [label, setLabel] = useState("");
     const [code, setCode] = useState("");
-    const [type, setType] = useState<AttributeType>("text");
+    const [uiType, setUiType] = useState<UiType>("text");
+    const [isMulti, setIsMulti] = useState(false);
     const [isRequired, setIsRequired] = useState(false);
+    const [showInPublicChannels, setShowInPublicChannels] = useState(true);
 
-    // For Select / Multi Select
+    // For Selezione
     const [options, setOptions] = useState<string[]>([]);
     const [newOption, setNewOption] = useState("");
 
@@ -49,19 +65,18 @@ export function AttributeCreateEditDrawer({
             if (isEditing && attributeData) {
                 setLabel(attributeData.label);
                 setCode(attributeData.code);
-                setType(attributeData.type);
+                setUiType(toUiType(attributeData.type));
+                setIsMulti(attributeData.type === "multi_select");
                 setIsRequired(attributeData.is_required);
-
-                if (Array.isArray(attributeData.options)) {
-                    setOptions(attributeData.options.map(String));
-                } else {
-                    setOptions([]);
-                }
+                setShowInPublicChannels(attributeData.show_in_public_channels);
+                setOptions(Array.isArray(attributeData.options) ? attributeData.options.map(String) : []);
             } else {
                 setLabel("");
                 setCode("");
-                setType("text");
+                setUiType("text");
+                setIsMulti(false);
                 setIsRequired(false);
+                setShowInPublicChannels(true);
                 setOptions([]);
                 setNewOption("");
             }
@@ -69,9 +84,14 @@ export function AttributeCreateEditDrawer({
         }
     }, [open, isEditing, attributeData]);
 
-    // Generate code from label if it's new
+    // Reset is_required when switching to boolean
     useEffect(() => {
-        if (!isEditing && label && !code) {
+        if (uiType === "boolean") setIsRequired(false);
+    }, [uiType]);
+
+    // Always auto-generate code from label while creating
+    useEffect(() => {
+        if (!isEditing && label) {
             setCode(
                 label
                     .toLowerCase()
@@ -80,7 +100,7 @@ export function AttributeCreateEditDrawer({
                     .replace(/^_|_$/g, "")
             );
         }
-    }, [label, isEditing, code]);
+    }, [label, isEditing]);
 
     const handleAddOption = () => {
         const val = newOption.trim();
@@ -96,26 +116,33 @@ export function AttributeCreateEditDrawer({
         setOptions(newOpts);
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
 
-        if (!label.trim() || !code.trim()) {
-            showToast({ message: "Label e codice sono obbligatori.", type: "error" });
+        if (!label.trim()) {
+            showToast({ message: "Il nome è obbligatorio.", type: "error" });
             return;
         }
 
-        if ((type === "select" || type === "multi_select") && options.length === 0) {
-            showToast({ message: "Aggiungi almeno un'opzione per i tipi select.", type: "error" });
+        if (uiType === "select" && options.length === 0) {
+            showToast({ message: "Aggiungi almeno un valore per la selezione.", type: "error" });
             return;
         }
+
+        const resolvedType = toAttributeType(uiType, isMulti);
 
         setIsSaving(true);
         try {
             if (isEditing && attributeData) {
+                if (!attributeData.tenant_id) {
+                    showToast({ message: "Gli attributi di piattaforma non possono essere modificati.", type: "error" });
+                    return;
+                }
                 await updateAttributeDefinition(attributeData.id, attributeData.tenant_id, {
                     label,
                     is_required: isRequired,
-                    options: type === "select" || type === "multi_select" ? options : null
+                    options: uiType === "select" ? options : null,
+                    show_in_public_channels: showInPublicChannels
                 });
                 showToast({ message: "Attributo aggiornato.", type: "success" });
             } else {
@@ -123,18 +150,19 @@ export function AttributeCreateEditDrawer({
                 await createAttributeDefinition(tenantId, {
                     code,
                     label,
-                    type,
+                    type: resolvedType,
                     is_required: isRequired,
-                    options: type === "select" || type === "multi_select" ? options : null
+                    show_in_public_channels: showInPublicChannels,
+                    options: uiType === "select" ? options : null
                 });
                 showToast({ message: "Attributo creato con successo.", type: "success" });
             }
             onSuccess();
             onClose();
-        } catch (error: any) {
-            console.error("Errore salvataggio attributo:", error);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : undefined;
             showToast({
-                message: error.message || "Impossibile salvare l'attributo.",
+                message: msg || "Impossibile salvare l'attributo.",
                 type: "error"
             });
         } finally {
@@ -175,117 +203,119 @@ export function AttributeCreateEditDrawer({
             >
                 <form id="attr-form" className={styles.form} onSubmit={handleSubmit}>
                     <TextInput
-                        label="Label (Nome visualizzato)"
+                        label="Nome"
                         required
                         value={label}
                         onChange={e => setLabel(e.target.value)}
                         placeholder="Es: Colore, Taglia, Livello piccantezza..."
                     />
 
-                    <TextInput
-                        label="Codice interno (slug)"
-                        required
-                        disabled={isEditing}
-                        value={code}
-                        onChange={e => setCode(e.target.value)}
-                        placeholder="es: colore, taglia_eu"
-                        helperText={
-                            isEditing
-                                ? "Il codice non può essere modificato dopo la creazione."
-                                : "Codice univoco utilizzato per integrare questo dato."
-                        }
-                    />
-
                     <Select
-                        label="Tipo dato"
+                        label="Tipo di valore"
                         required
                         disabled={isEditing}
-                        value={type}
-                        onChange={e => setType(e.target.value as AttributeType)}
+                        value={uiType}
+                        onChange={e => {
+                            setUiType(e.target.value as UiType);
+                            setIsMulti(false);
+                        }}
                         options={[
-                            { value: "text", label: "Testo libero" },
+                            { value: "text", label: "Testo" },
                             { value: "number", label: "Numero" },
-                            { value: "boolean", label: "Interruttore (Si/No)" },
-                            { value: "select", label: "Selezione singola" },
-                            { value: "multi_select", label: "Selezione multipla" }
+                            { value: "boolean", label: "Sì / No" },
+                            { value: "select", label: "Selezione" }
                         ]}
                         helperText={
-                            isEditing ? "Il tipo non può essere modificato dopo la creazione." : ""
+                            isEditing
+                                ? "Il tipo non può essere modificato dopo la creazione."
+                                : uiType === "text"
+                                ? "Valore testuale libero."
+                                : uiType === "number"
+                                ? "Valore numerico (es. 42, 3.5)."
+                                : uiType === "boolean"
+                                ? "Valore Sì/No, visualizzato come interruttore."
+                                : "Scelta tra i valori che definisci."
                         }
                     />
 
-                    {(type === "select" || type === "multi_select") && (
-                        <div className={styles.optionsSection}>
-                            <Text variant="body-sm" weight={600}>
-                                Opzioni disponibili *
-                            </Text>
-                            <div className={styles.optionsList}>
-                                {options.map((opt, i) => (
-                                    <div key={i} className={styles.optionItem}>
-                                        <div
-                                            style={{
-                                                flex: 1,
-                                                padding: "8px 12px",
-                                                border: "1px solid var(--color-gray-200)",
-                                                borderRadius: "var(--radius-md)",
-                                                backgroundColor: "var(--color-gray-50)",
-                                                fontSize: "14px"
-                                            }}
-                                        >
-                                            {opt}
+                    {uiType === "select" && (
+                        <>
+                            <CheckboxInput
+                                description="Consenti selezione multipla"
+                                checked={isMulti}
+                                onChange={e => setIsMulti(e.target.checked)}
+                                disabled={isEditing}
+                            />
+
+                            <div className={styles.optionsSection}>
+                                <Text variant="body-sm" weight={600}>
+                                    Valori *
+                                </Text>
+                                <div className={styles.optionsList}>
+                                    {options.map((opt, i) => (
+                                        <div key={i} className={styles.optionItem}>
+                                            <div className={styles.optionValue}>
+                                                {opt}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className={styles.actionButton}
+                                                onClick={() => handleRemoveOption(i)}
+                                            >
+                                                <IconTrash size={16} />
+                                            </button>
                                         </div>
-                                        <button
+                                    ))}
+                                    <div className={styles.optionItem}>
+                                        <TextInput
+                                            value={newOption}
+                                            onChange={e => setNewOption(e.target.value)}
+                                            placeholder="Nuovo valore..."
+                                            onKeyDown={e => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    handleAddOption();
+                                                }
+                                            }}
+                                        />
+                                        <Button
                                             type="button"
-                                            className={styles.actionButton}
-                                            style={{ color: "var(--color-error-600)" }}
-                                            onClick={() => handleRemoveOption(i)}
+                                            variant="secondary"
+                                            leftIcon={<IconPlus size={16} />}
+                                            onClick={handleAddOption}
                                         >
-                                            <IconTrash size={16} />
-                                        </button>
+                                            Aggiungi
+                                        </Button>
                                     </div>
-                                ))}
-                                <div className={styles.optionItem}>
-                                    <TextInput
-                                        value={newOption}
-                                        onChange={e => setNewOption(e.target.value)}
-                                        placeholder="Nuova opzione..."
-                                        onKeyDown={e => {
-                                            if (e.key === "Enter") {
-                                                e.preventDefault();
-                                                handleAddOption();
-                                            }
-                                        }}
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="secondary"
-                                        leftIcon={<IconPlus size={16} />}
-                                        onClick={handleAddOption}
-                                    >
-                                        Aggiungi
-                                    </Button>
                                 </div>
                             </div>
+                        </>
+                    )}
+
+                    {uiType !== "boolean" && (
+                        <div className={styles.switchRow}>
+                            <div>
+                                <Text variant="body-sm" weight={600}>
+                                    Richiesto
+                                </Text>
+                                <Text variant="caption" colorVariant="muted">
+                                    Richiedi un valore quando associato a un prodotto
+                                </Text>
+                            </div>
+                            <Switch checked={isRequired} onChange={setIsRequired} />
                         </div>
                     )}
 
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            marginTop: 8
-                        }}
-                    >
+                    <div className={styles.switchRow}>
                         <div>
                             <Text variant="body-sm" weight={600}>
-                                Richiesto
+                                Visibile al pubblico
                             </Text>
                             <Text variant="caption" colorVariant="muted">
-                                Rendi questo attributo obbligatorio per i prodotti
+                                Mostra il valore nella pagina pubblica del catalogo
                             </Text>
                         </div>
-                        <Switch checked={isRequired} onChange={setIsRequired} />
+                        <Switch checked={showInPublicChannels} onChange={setShowInPublicChannels} />
                     </div>
                 </form>
             </DrawerLayout>

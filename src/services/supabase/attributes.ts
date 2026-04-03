@@ -4,12 +4,13 @@ export type AttributeType = "text" | "number" | "boolean" | "select" | "multi_se
 
 export type V2ProductAttributeDefinition = {
     id: string;
-    tenant_id: string;
+    tenant_id: string | null;
     code: string;
     label: string;
     type: AttributeType;
     options: any | null; // Used for select/multi_select
     is_required: boolean;
+    show_in_public_channels: boolean;
     vertical: string | null;
     created_at: string;
 };
@@ -43,16 +44,16 @@ export async function listAttributeDefinitions(
     tenantId: string,
     vertical?: string
 ): Promise<V2ProductAttributeDefinition[]> {
-    let query = supabase
+    // Include tenant-specific attrs AND platform attrs matching the tenant's vertical
+    const platformFilter = vertical
+        ? `and(tenant_id.is.null,or(vertical.is.null,vertical.eq.${vertical}))`
+        : `and(tenant_id.is.null,vertical.is.null)`;
+
+    const { data, error } = await supabase
         .from("product_attribute_definitions")
         .select("*")
-        .eq("tenant_id", tenantId);
-
-    if (vertical) {
-        query = query.eq("vertical", vertical);
-    }
-
-    const { data, error } = await query.order("label", { ascending: true });
+        .or(`tenant_id.eq.${tenantId},${platformFilter}`)
+        .order("label", { ascending: true });
 
     if (error) throw error;
     return data || [];
@@ -66,6 +67,7 @@ export async function createAttributeDefinition(
         type: AttributeType;
         options?: any;
         is_required?: boolean;
+        show_in_public_channels?: boolean;
         vertical?: string;
     }
 ): Promise<V2ProductAttributeDefinition> {
@@ -78,6 +80,7 @@ export async function createAttributeDefinition(
             type: data.type,
             options: data.options || null,
             is_required: data.is_required || false,
+            show_in_public_channels: data.show_in_public_channels ?? true,
             vertical: data.vertical || null
         })
         .select()
@@ -102,6 +105,7 @@ export async function updateAttributeDefinition(
         label?: string;
         is_required?: boolean;
         options?: any;
+        show_in_public_channels?: boolean;
     }
 ): Promise<V2ProductAttributeDefinition> {
     const { data: updatedDef, error } = await supabase
@@ -109,7 +113,8 @@ export async function updateAttributeDefinition(
         .update({
             ...(data.label !== undefined && { label: data.label }),
             ...(data.is_required !== undefined && { is_required: data.is_required }),
-            ...(data.options !== undefined && { options: data.options })
+            ...(data.options !== undefined && { options: data.options }),
+            ...(data.show_in_public_channels !== undefined && { show_in_public_channels: data.show_in_public_channels })
         })
         .eq("id", id)
         .eq("tenant_id", tenantId)
@@ -209,6 +214,38 @@ export async function setProductAttributeValue(
 
         if (insertError) throw insertError;
     }
+}
+
+/**
+ * Creates an association record between a product and an attribute definition,
+ * with all values set to null. Safe to call if already linked (no-op).
+ */
+export async function linkProductAttribute(
+    tenantId: string,
+    productId: string,
+    attributeDefinitionId: string
+): Promise<void> {
+    const { data: existing, error: checkError } = await supabase
+        .from("product_attribute_values")
+        .select("id")
+        .eq("product_id", productId)
+        .eq("attribute_definition_id", attributeDefinitionId)
+        .maybeSingle();
+
+    if (checkError) throw checkError;
+    if (existing) return; // Already linked
+
+    const { error } = await supabase.from("product_attribute_values").insert({
+        tenant_id: tenantId,
+        product_id: productId,
+        attribute_definition_id: attributeDefinitionId,
+        value_text: null,
+        value_number: null,
+        value_boolean: null,
+        value_json: null
+    });
+
+    if (error) throw error;
 }
 
 // Optional helper to remove a value if cleared
