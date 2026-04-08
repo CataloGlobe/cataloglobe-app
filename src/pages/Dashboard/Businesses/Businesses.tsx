@@ -347,11 +347,11 @@ export default function Businesses() {
                 await refreshBusinesses();
             } catch (e) {
                 console.error("Errore aggiunta business:", e);
-                showToast({
-                    message: "Errore durante la creazione del business.",
-                    type: "error",
-                    duration: 2500
-                });
+                const message =
+                    e instanceof Error && e.message === "SLUG_CONFLICT"
+                        ? "Indirizzo web già in uso. Scegli un indirizzo diverso."
+                        : "Errore durante la creazione della sede.";
+                showToast({ message, type: "error" });
             } finally {
                 setIsCreating(false);
                 setIsCreateOpen(false);

@@ -13,14 +13,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { uploadTenantLogo, updateTenantLogoUrl } from "@/services/supabase/tenants";
 
 import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
-
-const VERTICAL_OPTIONS = [
-    { value: "restaurant", label: "Ristorante" },
-    { value: "bar", label: "Bar" },
-    { value: "retail", label: "Negozio" },
-    { value: "hotel", label: "Hotel" },
-    { value: "generic", label: "Generico" }
-];
+import { SUBTYPE_OPTIONS, DEFAULT_SUBTYPE, type BusinessSubtype } from "@/constants/verticalTypes";
 
 interface CreateBusinessDrawerProps {
     open: boolean;
@@ -33,14 +26,14 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
     const { showToast } = useToast();
 
     const [name, setName] = useState("");
-    const [verticalType, setVerticalType] = useState("generic");
+    const [subtype, setSubtype] = useState<BusinessSubtype>(DEFAULT_SUBTYPE);
     const [logoFile, setLogoFile] = useState<File | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
     const handleClose = () => {
         if (submitting) return;
         setName("");
-        setVerticalType("generic");
+        setSubtype(DEFAULT_SUBTYPE);
         setLogoFile(null);
         onClose();
     };
@@ -64,7 +57,7 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
 
             const { data, error } = await supabase
                 .from("tenants")
-                .insert({ owner_user_id: user.id, name: name.trim(), vertical_type: verticalType })
+                .insert({ owner_user_id: user.id, name: name.trim(), vertical_type: "food_beverage", business_subtype: subtype })
                 .select("id")
                 .single();
 
@@ -128,9 +121,9 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
 
                     <Select
                         label="Tipo di attività"
-                        value={verticalType}
-                        onChange={e => setVerticalType(e.target.value)}
-                        options={VERTICAL_OPTIONS}
+                        value={subtype}
+                        onChange={e => setSubtype(e.target.value as BusinessSubtype)}
+                        options={SUBTYPE_OPTIONS}
                         disabled={submitting}
                     />
 

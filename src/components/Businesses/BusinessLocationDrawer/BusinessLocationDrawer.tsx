@@ -100,6 +100,7 @@ export const BusinessLocationDrawer: React.FC<Props> = React.memo(
                 <DrawerLayout header={header} footer={footer}>
                     <BusinessCreateCard
                         formId={formId}
+                        mode={mode}
                         values={values}
                         errors={errors}
                         onFieldChange={onFieldChange}

@@ -9,15 +9,8 @@ import Text from "@/components/ui/Text/Text";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
+import { SUBTYPE_LABELS, VERTICAL_LABELS } from "@/constants/verticalTypes";
 import styles from "./OverviewPage.module.scss";
-
-const VERTICAL_LABELS: Record<string, string> = {
-    restaurant: "Ristorante",
-    bar: "Bar",
-    retail: "Negozio",
-    hotel: "Hotel",
-    generic: "Generico"
-};
 
 const AVATAR_PALETTE = [
     { bg: "#ede9fe", text: "#7c3aed" },
@@ -88,7 +81,9 @@ export default function OverviewPage() {
     }
 
     const b = `/business/${tenantId}`;
-    const verticalLabel = VERTICAL_LABELS[selectedTenant.vertical_type] ?? selectedTenant.vertical_type;
+    const verticalLabel = (selectedTenant.business_subtype && SUBTYPE_LABELS[selectedTenant.business_subtype])
+        ?? VERTICAL_LABELS[selectedTenant.vertical_type]
+        ?? selectedTenant.vertical_type;
     const { bg, text } = avatarColors(selectedTenant.name);
     const initial = selectedTenant.name.charAt(0).toUpperCase();
 

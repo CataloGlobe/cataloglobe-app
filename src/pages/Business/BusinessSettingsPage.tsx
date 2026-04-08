@@ -11,22 +11,15 @@ import { FileInput } from "@/components/ui/Input/FileInput";
 import { DeleteTenantDialog } from "@/components/Businesses/DeleteTenantDialog";
 import { deleteTenantSoft, getTenantLogoPublicUrl, updateTenantLogoUrl, uploadTenantLogo } from "@/services/supabase/tenants";
 import { TENANT_KEY } from "@/constants/storageKeys";
+import { SUBTYPE_OPTIONS, DEFAULT_SUBTYPE, type BusinessSubtype } from "@/constants/verticalTypes";
 import styles from "./BusinessSettingsPage.module.scss";
-
-const VERTICAL_OPTIONS = [
-    { value: "generic", label: "Generico" },
-    { value: "restaurant", label: "Ristorante" },
-    { value: "bar", label: "Bar" },
-    { value: "retail", label: "Negozio" },
-    { value: "hotel", label: "Hotel" }
-];
 
 export default function BusinessSettingsPage() {
     const { selectedTenant, loading, userRole, refreshTenants } = useTenant();
     const { showToast } = useToast();
 
     const [name, setName] = useState("");
-    const [verticalType, setVerticalType] = useState("generic");
+    const [subtype, setSubtype] = useState<BusinessSubtype>(DEFAULT_SUBTYPE);
     const [saving, setSaving] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -37,7 +30,7 @@ export default function BusinessSettingsPage() {
     useEffect(() => {
         if (selectedTenant) {
             setName(selectedTenant.name);
-            setVerticalType(selectedTenant.vertical_type);
+            setSubtype(selectedTenant.business_subtype ?? DEFAULT_SUBTYPE);
         }
     }, [selectedTenant?.id]);
 
@@ -50,7 +43,7 @@ export default function BusinessSettingsPage() {
         setSaving(true);
         const { error } = await supabase
             .from("tenants")
-            .update({ name: trimmed, vertical_type: verticalType })
+            .update({ name: trimmed, vertical_type: "food_beverage", business_subtype: subtype })
             .eq("id", selectedTenant.id);
         setSaving(false);
 
@@ -148,9 +141,9 @@ export default function BusinessSettingsPage() {
 
                     <Select
                         label="Tipo di attività"
-                        value={verticalType}
-                        onChange={e => setVerticalType(e.target.value)}
-                        options={VERTICAL_OPTIONS}
+                        value={subtype}
+                        onChange={e => setSubtype(e.target.value as BusinessSubtype)}
+                        options={SUBTYPE_OPTIONS}
                     />
                 </form>
 

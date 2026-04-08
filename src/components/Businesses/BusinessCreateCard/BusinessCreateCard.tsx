@@ -22,6 +22,7 @@ interface BusinessCreateCardProps {
     slugState: SlugInlineState;
     onPickSlugSuggestion: (slug: string) => void;
     namePlaceholder?: string;
+    mode?: "create" | "edit";
 }
 
 type SlugInlineState =
@@ -39,8 +40,10 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
     formId,
     slugState,
     onPickSlugSuggestion,
-    namePlaceholder
+    namePlaceholder,
+    mode = "create"
 }) => {
+    const isCreate = mode === "create";
     const finalUrl = `${previewBaseUrl}/${values.slug || "<slug>"}`;
 
     return (
@@ -82,47 +85,48 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                     required
                 />
 
-                {/* Slug */}
+                {/* Slug — solo in creazione */}
+                {isCreate && (
+                    <div className={styles.slugContainer}>
+                        <TextInput
+                            label="Slug"
+                            placeholder="es. snoopy-bar"
+                            value={values.slug}
+                            onChange={e => onFieldChange("slug", e.target.value)}
+                            error={errors?.slug}
+                            helperText={`URL finale: ${finalUrl}`}
+                            required
+                        />
 
-                <div className={styles.slugContainer}>
-                    <TextInput
-                        label="Slug"
-                        placeholder="es. snoopy-bar"
-                        value={values.slug}
-                        onChange={e => onFieldChange("slug", e.target.value)}
-                        error={errors?.slug}
-                        helperText={`URL finale: ${finalUrl}`}
-                        required
-                    />
-
-                    {slugState.type === "warning" && (
-                        <Text variant="caption" colorVariant="warning">
-                            Attenzione: cambiando lo slug, i QR code già stampati e i link condivisi
-                            potrebbero non funzionare più.
-                        </Text>
-                    )}
-
-                    {slugState.type === "conflict" && (
-                        <div className={styles.slugConflict} role="alert" aria-live="polite">
+                        {slugState.type === "warning" && (
                             <Text variant="caption" colorVariant="warning">
-                                Questo slug è già in uso. Scegli un’alternativa:
+                                Attenzione: cambiando lo slug, i QR code già stampati e i link condivisi
+                                potrebbero non funzionare più.
                             </Text>
+                        )}
 
-                            <div className={styles.slugSuggestions}>
-                                {slugState.suggestions.map(s => (
-                                    <Button
-                                        key={s}
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => onPickSlugSuggestion(s)}
-                                    >
-                                        {s}
-                                    </Button>
-                                ))}
+                        {slugState.type === "conflict" && (
+                            <div className={styles.slugConflict} role="alert" aria-live="polite">
+                                <Text variant="caption" colorVariant="warning">
+                                    Questo slug è già in uso. Scegli un&apos;alternativa:
+                                </Text>
+
+                                <div className={styles.slugSuggestions}>
+                                    {slugState.suggestions.map(s => (
+                                        <Button
+                                            key={s}
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => onPickSlugSuggestion(s)}
+                                        >
+                                            {s}
+                                        </Button>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    )}
-                </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Cover */}
                 <FileInput

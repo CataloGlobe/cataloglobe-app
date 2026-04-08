@@ -4,15 +4,8 @@ import Text from "@/components/ui/Text/Text";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import type { V2Tenant } from "@/types/tenant";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
+import { SUBTYPE_LABELS, VERTICAL_LABELS } from "@/constants/verticalTypes";
 import styles from "./BusinessCard.module.scss";
-
-const VERTICAL_LABELS: Record<string, string> = {
-    restaurant: "Ristorante",
-    bar: "Bar",
-    retail: "Negozio",
-    hotel: "Hotel",
-    generic: "Generico"
-};
 
 // 6-color palette cycling by first char code — gives each business a distinct tint
 const AVATAR_PALETTE = [
@@ -40,7 +33,9 @@ interface BusinessCardProps {
 
 export default function BusinessCard({ tenant, locationCount, productCount, catalogCount, onSelect, onOpenSettings, onLeave }: BusinessCardProps) {
     const initial = tenant.name.charAt(0).toUpperCase();
-    const verticalLabel = VERTICAL_LABELS[tenant.vertical_type] ?? tenant.vertical_type;
+    const verticalLabel = (tenant.business_subtype && SUBTYPE_LABELS[tenant.business_subtype])
+        ?? VERTICAL_LABELS[tenant.vertical_type]
+        ?? tenant.vertical_type;
     const { bg, text } = avatarColors(tenant.name);
     const isOwner = tenant.user_role === "owner";
 
