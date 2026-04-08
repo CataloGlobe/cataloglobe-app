@@ -1,0 +1,210 @@
+/* ── Overlay ─────────────────────────────────────────────────────────────── */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 900;
+  display: flex;
+  align-items: flex-end; /* mobile: bottom sheet */
+  justify-content: center;
+  padding: 0;
+}
+
+/* ── Panel ───────────────────────────────────────────────────────────────── */
+
+.panel {
+  position: relative;
+  background: #fff;
+  width: 100%;
+  max-height: 90dvh;
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Close button ────────────────────────────────────────────────────────── */
+
+.closeBtn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #333;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.13);
+  }
+}
+
+/* ── Scrollable body ─────────────────────────────────────────────────────── */
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  scrollbar-width: none;
+}
+
+/* ── Image ───────────────────────────────────────────────────────────────── */
+
+.image {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+}
+
+/* ── Content area ────────────────────────────────────────────────────────── */
+
+.content {
+  padding: 20px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.title {
+  margin: 0;
+}
+
+.subtitle {
+  margin: 0;
+}
+
+.description {
+  margin: 0;
+}
+
+/* ── Product list ────────────────────────────────────────────────────────── */
+
+.productList {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  padding-top: 12px;
+}
+
+.productItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.productBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: inherit;
+  font-family: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover .productName {
+    text-decoration: underline;
+  }
+}
+
+.productName {
+  font-weight: 500;
+}
+
+.productNote {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 0.8em;
+}
+
+.productPrice {
+  font-weight: 600;
+  color: var(--pub-accent, #000);
+  white-space: nowrap;
+}
+
+/* ── Bundle section ──────────────────────────────────────────────────────── */
+
+.bundleSection {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.originalTotal {
+  font-size: 1rem;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.4);
+  text-decoration: line-through;
+  white-space: nowrap;
+}
+
+.bundlePrice {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--pub-accent, #000);
+  white-space: nowrap;
+}
+
+/* ── CTA ─────────────────────────────────────────────────────────────────── */
+
+.ctaBtn {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 11px 22px;
+  background: var(--pub-cta-bg, #000);
+  color: var(--pub-cta-text, #fff);
+  border-radius: var(--pub-btn-radius, 8px);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  align-self: flex-start;
+  transition: opacity 0.15s ease;
+
+  &:hover {
+    opacity: 0.82;
+  }
+}
+
+/* ── Desktop: centered modal ─────────────────────────────────────────────── */
+
+@media (min-width: 640px) {
+  .overlay {
+    align-items: center;
+    padding: 24px;
+  }
+
+  .panel {
+    width: 480px;
+    max-width: 100%;
+    max-height: 85dvh;
+    border-radius: 16px;
+  }
+}

@@ -13,6 +13,20 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  cursor: pointer;
+  border: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  width: 100%;
+  transition:
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+
+  &:hover {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+  }
 }
 
 .header {
@@ -66,19 +80,6 @@
 .productName {
   flex: 1;
   font-weight: 500;
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  font-size: inherit;
-  font-family: inherit;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-
-  &:hover {
-    text-decoration: underline;
-  }
 }
 
 .productNote {

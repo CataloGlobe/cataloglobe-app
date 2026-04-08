@@ -2,8 +2,7 @@ import React, { useState } from "react";
 import styles from "./FeaturedBlock.module.scss";
 import type { V2FeaturedContent } from "@/services/supabase/resolveActivityCatalogs";
 import Text from "@/components/ui/Text/Text";
-import ItemDetail from "../ItemDetail/ItemDetail";
-import type { CollectionViewSectionItem } from "../CollectionView/CollectionView";
+import { FeaturedPreviewModal } from "./FeaturedPreviewModal";
 
 type Props = {
     blocks: V2FeaturedContent[];
@@ -18,7 +17,7 @@ function formatPrice(price: number): string {
 }
 
 export default function FeaturedBlock({ blocks }: Props) {
-    const [selectedItem, setSelectedItem] = useState<CollectionViewSectionItem | null>(null);
+    const [previewBlock, setPreviewBlock] = useState<V2FeaturedContent | null>(null);
 
     if (!blocks || blocks.length === 0) return null;
 
@@ -48,7 +47,12 @@ export default function FeaturedBlock({ blocks }: Props) {
                 })();
 
                 return (
-                    <div key={block.id} className={styles.card}>
+                    <button
+                        key={block.id}
+                        type="button"
+                        className={styles.card}
+                        onClick={() => setPreviewBlock(block)}
+                    >
                         {/* ── Immagine media ─────────────────────────── */}
                         {block.media_id && (
                             <img
@@ -106,25 +110,9 @@ export default function FeaturedBlock({ blocks }: Props) {
                                             key={`${product.id}-${idx}`}
                                             className={styles.productItem}
                                         >
-                                            <button
-                                                type="button"
-                                                className={styles.productName}
-                                                onClick={() =>
-                                                    setSelectedItem({
-                                                        id: product.id,
-                                                        name: product.name,
-                                                        description: product.description ?? null,
-                                                        price: product.base_price ?? null,
-                                                        from_price: product.is_from_price
-                                                            ? (product.fromPrice ?? null)
-                                                            : null,
-                                                        image: product.image_url ?? null,
-                                                        parentSelected: true
-                                                    })
-                                                }
-                                            >
+                                            <span className={styles.productName}>
                                                 {product.name}
-                                            </button>
+                                            </span>
                                             {item.note && (
                                                 <span className={styles.productNote}>
                                                     {item.note}
@@ -151,24 +139,18 @@ export default function FeaturedBlock({ blocks }: Props) {
 
                         {/* ── CTA ────────────────────────────────────── */}
                         {block.cta_text && block.cta_url && (
-                            <a
-                                href={block.cta_url}
-                                className={styles.ctaButton}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
+                            <span className={styles.ctaButton}>
                                 {block.cta_text}
-                            </a>
+                            </span>
                         )}
-                    </div>
+                    </button>
                 );
             })}
         </div>
-        <ItemDetail
-            item={selectedItem}
-            isOpen={!!selectedItem}
-            onClose={() => setSelectedItem(null)}
-            mode="public"
+        <FeaturedPreviewModal
+            block={previewBlock}
+            isOpen={!!previewBlock}
+            onClose={() => setPreviewBlock(null)}
         />
         </>
     );
