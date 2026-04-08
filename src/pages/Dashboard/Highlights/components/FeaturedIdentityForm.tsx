@@ -6,6 +6,7 @@ import {
     type FeaturedContent
 } from "@/services/supabase/featuredContents";
 import { useToast } from "@/context/Toast/ToastContext";
+import styles from "./FeaturedIdentityForm.module.scss";
 
 type Props = {
     formId: string;
@@ -24,13 +25,13 @@ export function FeaturedIdentityForm({
 }: Props) {
     const { showToast } = useToast();
     const [title, setTitle] = useState(entityData.title);
-    const [internalName, setInternalName] = useState(entityData.internal_name);
+    const [internalName, setInternalName] = useState(entityData.internal_name ?? "");
     const [subtitle, setSubtitle] = useState(entityData.subtitle ?? "");
     const [description, setDescription] = useState(entityData.description ?? "");
 
     useEffect(() => {
         setTitle(entityData.title);
-        setInternalName(entityData.internal_name);
+        setInternalName(entityData.internal_name ?? "");
         setSubtitle(entityData.subtitle ?? "");
         setDescription(entityData.description ?? "");
     }, [entityData]);
@@ -68,7 +69,7 @@ export function FeaturedIdentityForm({
 
     return (
         <form id={formId} onSubmit={handleSubmit}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            <div className={styles.formFields}>
                 <TextInput
                     label="Titolo pubblico *"
                     required
@@ -78,6 +79,7 @@ export function FeaturedIdentityForm({
                 />
                 <TextInput
                     label="Nome interno *"
+                    required
                     value={internalName}
                     onChange={e => setInternalName(e.target.value)}
                     placeholder="Es: Promo Roma - Aprile"
