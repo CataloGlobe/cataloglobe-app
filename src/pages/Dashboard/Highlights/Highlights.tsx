@@ -11,7 +11,6 @@ import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import {
     listFeaturedContents,
-    getFeaturedContentById,
     deleteFeaturedContent,
     FeaturedContentWithProducts
 } from "@/services/supabase/featuredContents";
@@ -20,7 +19,7 @@ import FeaturedContentDrawer from "./FeaturedContentDrawer";
 import styles from "./Highlights.module.scss";
 import { useDrawer } from "@/context/Drawer/useDrawer";
 
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 
@@ -94,11 +93,12 @@ export default function Highlights() {
     };
 
     const handleDelete = async () => {
+        if (!tenantId) return;
         if (!deleteTarget) return;
 
         try {
             setIsDeleting(true);
-            await deleteFeaturedContent(deleteTarget.id, tenantId!);
+            await deleteFeaturedContent(deleteTarget.id, tenantId);
             setContents(prev => prev.filter(c => c.id !== deleteTarget.id));
             showToast({
                 type: "success",
@@ -119,9 +119,10 @@ export default function Highlights() {
     };
 
     const handleBulkDelete = async (selectedIds: string[]) => {
+        if (!tenantId) return;
         if (selectedIds.length === 0) return;
         try {
-            await Promise.all(selectedIds.map(id => deleteFeaturedContent(id, tenantId!)));
+            await Promise.all(selectedIds.map(id => deleteFeaturedContent(id, tenantId)));
             setContents(prev => prev.filter(c => !selectedIds.includes(c.id)));
             showToast({
                 type: "success",
