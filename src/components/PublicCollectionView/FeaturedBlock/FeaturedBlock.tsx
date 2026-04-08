@@ -23,6 +23,7 @@ export default function FeaturedBlock({ blocks }: Props) {
     if (!blocks || blocks.length === 0) return null;
 
     return (
+        <>
         <div className={styles.container}>
             {blocks.map(block => {
                 const sortedProducts =
@@ -169,5 +170,6 @@ export default function FeaturedBlock({ blocks }: Props) {
             onClose={() => setSelectedItem(null)}
             mode="public"
         />
+        </>
     );
 }
