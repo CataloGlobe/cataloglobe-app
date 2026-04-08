@@ -118,7 +118,7 @@ export default function FeaturedBlock({ blocks }: Props) {
                                                         from_price: product.is_from_price
                                                             ? (product.fromPrice ?? null)
                                                             : null,
-                                                        image: product.media_id ?? null,
+                                                        image: product.image_url ?? null,
                                                         parentSelected: true
                                                     })
                                                 }

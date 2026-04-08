@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { IconDeviceMobile, IconDeviceDesktop } from "@tabler/icons-react";
 import { StyleTokenModel } from "./StyleTokenModel";
 import CollectionView, {
     type CollectionViewSection
@@ -11,10 +12,10 @@ import {
 } from "@/types/collectionStyle";
 import { useTenant } from "@/context/useTenant";
 import type { V2FeaturedContent } from "@/services/supabase/resolveActivityCatalogs";
+import previewStyles from "./StylePreview.module.scss";
 
 type StylePreviewProps = {
     model: StyleTokenModel;
-    scrollContainerEl?: HTMLElement | null;
 };
 
 const MOCK_FEATURED: V2FeaturedContent[] = [
@@ -36,17 +37,17 @@ const MOCK_FEATURED: V2FeaturedContent[] = [
             {
                 sort_order: 0,
                 note: null,
-                product: { id: "fp1", name: "Elemento in evidenza", description: null, base_price: 14.0 }
+                product: { id: "fp1", name: "Elemento in evidenza", description: null, base_price: 14.0, image_url: null, fromPrice: null, is_from_price: false }
             },
             {
                 sort_order: 1,
                 note: null,
-                product: { id: "fp2", name: "Offerta speciale", description: null, base_price: 9.5 }
+                product: { id: "fp2", name: "Offerta speciale", description: null, base_price: 9.5, image_url: null, fromPrice: null, is_from_price: false }
             },
             {
                 sort_order: 2,
                 note: null,
-                product: { id: "fp3", name: "Selezione del mese", description: null, base_price: 18.0 }
+                product: { id: "fp3", name: "Selezione del mese", description: null, base_price: 18.0, image_url: null, fromPrice: null, is_from_price: false }
             }
         ],
         created_at: "",
@@ -147,9 +148,10 @@ const NAV_SHAPE_MAP: Record<string, SectionNavShape> = {
     minimal: "rounded"
 };
 
-export const StylePreview = ({ model, scrollContainerEl }: StylePreviewProps) => {
+export const StylePreview = ({ model }: StylePreviewProps) => {
     const { selectedTenant } = useTenant();
     const [viewMode, setViewMode] = useState<"mobile" | "desktop">("mobile");
+    const [screenEl, setScreenEl] = useState<HTMLDivElement | null>(null);
 
     const businessName = selectedTenant?.name ?? "Nome attività";
 
@@ -172,96 +174,59 @@ export const StylePreview = ({ model, scrollContainerEl }: StylePreviewProps) =>
     };
 
     return (
-        <div
-            style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                padding: "32px",
-                margin: "0 auto",
-                width: "100%"
-            }}
-        >
-            {/* View Mode Toggle */}
-            <div
-                style={{
-                    marginBottom: "24px",
-                    display: "flex",
-                    gap: "8px",
-                    backgroundColor: "var(--color-surface)",
-                    borderRadius: "8px",
-                    padding: "4px",
-                    boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
-                }}
-            >
+        <div className={previewStyles.previewRoot}>
+            {/* Toggle */}
+            <div className={previewStyles.toggleBar}>
+                <div
+                    className={`${previewStyles.toggleIndicator} ${
+                        viewMode === "desktop" ? previewStyles.toggleIndicatorDesktop : ""
+                    }`}
+                />
                 <button
+                    type="button"
+                    className={`${previewStyles.toggleBtn} ${
+                        viewMode === "mobile" ? previewStyles.toggleBtnActive : ""
+                    }`}
                     onClick={() => setViewMode("mobile")}
-                    style={{
-                        padding: "6px 12px",
-                        borderRadius: "4px",
-                        border: "none",
-                        background:
-                            viewMode === "mobile" ? "var(--color-bg-subtle)" : "transparent",
-                        fontWeight: viewMode === "mobile" ? 600 : 400,
-                        color:
-                            viewMode === "mobile"
-                                ? "var(--color-text)"
-                                : "var(--color-text-muted)",
-                        cursor: "pointer",
-                        fontSize: "14px"
-                    }}
                 >
+                    <IconDeviceMobile size={14} stroke={2} />
                     Mobile
                 </button>
                 <button
+                    type="button"
+                    className={`${previewStyles.toggleBtn} ${
+                        viewMode === "desktop" ? previewStyles.toggleBtnActive : ""
+                    }`}
                     onClick={() => setViewMode("desktop")}
-                    style={{
-                        padding: "6px 12px",
-                        borderRadius: "4px",
-                        border: "none",
-                        background:
-                            viewMode === "desktop" ? "var(--color-bg-subtle)" : "transparent",
-                        fontWeight: viewMode === "desktop" ? 600 : 400,
-                        color:
-                            viewMode === "desktop"
-                                ? "var(--color-text)"
-                                : "var(--color-text-muted)",
-                        cursor: "pointer",
-                        fontSize: "14px"
-                    }}
                 >
+                    <IconDeviceDesktop size={14} stroke={2} />
                     Desktop
                 </button>
             </div>
 
-            {/* Themed Canvas */}
+            {/* Device Frame */}
             <PublicThemeScope tokens={model}>
                 <div
-                    className={
-                        viewMode === "mobile" ? "preview-mobile" : "preview-desktop"
-                    }
-                    style={{
-                        width: "100%",
-                        maxWidth: viewMode === "mobile" ? "390px" : "900px",
-                        borderRadius: "16px",
-                        boxShadow:
-                            "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)",
-                        overflow: "clip",
-                        transition: "max-width 0.3s ease-in-out"
-                    }}
+                    className={`${previewStyles.deviceFrame} ${
+                        viewMode === "mobile"
+                            ? previewStyles.deviceMobile
+                            : previewStyles.deviceDesktop
+                    }`}
                 >
-                    <CollectionView
-                        businessName={businessName}
-                        businessImage={null}
-                        collectionTitle="Catalogo digitale"
-                        sections={MOCK_SECTIONS}
-                        style={collectionStyle}
-                        mode="preview"
-                        scrollContainerEl={scrollContainerEl}
-                        featuredBeforeCatalogSlot={
-                            <FeaturedBlock blocks={MOCK_FEATURED} />
-                        }
-                    />
+                    <div className={previewStyles.deviceScreen} ref={setScreenEl}>
+                        <CollectionView
+                            businessName={businessName}
+                            businessImage={null}
+                            collectionTitle="Catalogo digitale"
+                            sections={MOCK_SECTIONS}
+                            style={collectionStyle}
+                            mode="preview"
+                            scrollContainerEl={screenEl}
+                            featuredBeforeCatalogSlot={
+                                <FeaturedBlock blocks={MOCK_FEATURED} />
+                            }
+                        />
+                    </div>
                 </div>
             </PublicThemeScope>
         </div>
