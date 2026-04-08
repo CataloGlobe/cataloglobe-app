@@ -95,6 +95,10 @@
   }
 }
 
+.rowNoDrag {
+  grid-template-columns: 20px 32px minmax(0, 2fr) minmax(120px, 1fr) 64px 44px;
+}
+
 .rowDisabled {
   opacity: 0.6;
 }

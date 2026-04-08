@@ -51,6 +51,11 @@ export function SchedulingSection({
     const [timeFromTouched, setTimeFromTouched] = useState(false);
     const [timeToTouched, setTimeToTouched] = useState(false);
 
+    // Progressive toggle states — initialized from existing prop values
+    const [hasPeriod, setHasPeriod] = useState(!!(startAt || endAt));
+    const [hasTime, setHasTime] = useState(!!(timeFrom || timeTo));
+    const [hasDays, setHasDays] = useState(daysOfWeek.length > 0);
+
     const today = new Date().toISOString().split("T")[0];
     const timeOrderError =
         timeFromTouched && timeToTouched && timeFrom && timeTo && timeTo <= timeFrom
@@ -84,6 +89,35 @@ export function SchedulingSection({
         });
     };
 
+    const handleTogglePeriod = (checked: boolean) => {
+        setHasPeriod(checked);
+        if (checked) {
+            // Disable and reset days when period is active
+            setHasDays(false);
+            onFormChange({ daysOfWeek: [] });
+        } else {
+            setStartAtError("");
+            setEndAtError("");
+            onFormChange({ startAt: "", endAt: "" });
+        }
+    };
+
+    const handleToggleTime = (checked: boolean) => {
+        setHasTime(checked);
+        if (!checked) {
+            setTimeFromTouched(false);
+            setTimeToTouched(false);
+            onFormChange({ timeFrom: "", timeTo: "" });
+        }
+    };
+
+    const handleToggleDays = (checked: boolean) => {
+        setHasDays(checked);
+        if (!checked) {
+            onFormChange({ daysOfWeek: [] });
+        }
+    };
+
     return (
         <section className={styles.sectionCard}>
             <div className={styles.sectionHeader}>
@@ -98,67 +132,120 @@ export function SchedulingSection({
 
             {!alwaysActive && (
                 <div className={styles.schedulingGrid}>
-                    <div className={styles.sectionGrid}>
-                        <div>
-                            <DateInput
-                                label="Data inizio"
-                                value={startAt}
-                                onChange={event => onFormChange({ startAt: event.target.value })}
-                                onBlur={handleStartAtBlur}
-                            />
-                            {startAtError && (
-                                <Text variant="caption" colorVariant="error">{startAtError}</Text>
-                            )}
+                    {/* Step 1 — Periodo */}
+                    <div className={styles.inlineBlock}>
+                        <div className={styles.switchRow}>
+                            <Switch checked={hasPeriod} onChange={handleTogglePeriod} />
+                            <Text variant="body-sm">Vale solo in un periodo specifico?</Text>
                         </div>
-                        <div>
-                            <DateInput
-                                label="Data fine"
-                                value={endAt}
-                                onChange={event => onFormChange({ endAt: event.target.value })}
-                                onBlur={handleEndAtBlur}
-                            />
-                            {endAtError && (
-                                <Text variant="caption" colorVariant="error">{endAtError}</Text>
-                            )}
-                        </div>
+                        {hasPeriod && (
+                            <>
+                                <div className={styles.sectionGrid}>
+                                    <div>
+                                        <DateInput
+                                            label="Data inizio"
+                                            value={startAt}
+                                            onChange={event => {
+                                                const newStart = event.target.value;
+                                                if (endAt && newStart && endAt < newStart) {
+                                                    onFormChange({ startAt: newStart, endAt: "" });
+                                                    setEndAtError("");
+                                                } else {
+                                                    onFormChange({ startAt: newStart });
+                                                }
+                                            }}
+                                            onBlur={handleStartAtBlur}
+                                        />
+                                        {startAtError && (
+                                            <Text variant="caption" colorVariant="error">{startAtError}</Text>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <DateInput
+                                            label="Data fine"
+                                            value={endAt}
+                                            min={startAt || undefined}
+                                            onChange={event => onFormChange({ endAt: event.target.value })}
+                                            onBlur={handleEndAtBlur}
+                                        />
+                                        {endAtError && (
+                                            <Text variant="caption" colorVariant="error">{endAtError}</Text>
+                                        )}
+                                    </div>
+                                </div>
+                                <Text variant="caption" colorVariant="muted">
+                                    La regola si attiva e disattiva automaticamente nelle date indicate.
+                                </Text>
+                            </>
+                        )}
                     </div>
-                    <Text variant="caption" colorVariant="muted">
-                        Se impostata, la regola si attiva e disattiva automaticamente nelle date indicate.
-                    </Text>
 
                     <div className={styles.schedulingSeparator} />
 
-                    <div className={styles.sectionGrid}>
-                        <TimeInput
-                            label="Orario inizio"
-                            value={timeFrom}
-                            onChange={event => onFormChange({ timeFrom: event.target.value })}
-                            onBlur={() => setTimeFromTouched(true)}
-                        />
-                        <TimeInput
-                            label="Orario fine"
-                            value={timeTo}
-                            onChange={event => onFormChange({ timeTo: event.target.value })}
-                            onBlur={() => setTimeToTouched(true)}
-                        />
-                    </div>
-                    {timeOrderError && (
-                        <Text variant="caption" colorVariant="error">
-                            {timeOrderError}
-                        </Text>
-                    )}
-
+                    {/* Step 2 — Orario */}
                     <div className={styles.inlineBlock}>
-                        <Text variant="caption" colorVariant="muted">
-                            Giorni della settimana
-                        </Text>
-                        <PillGroupMultiple
-                            ariaLabel="Seleziona giorni della settimana"
-                            options={DAY_OPTIONS}
-                            value={daysOfWeek}
-                            onChange={val => onFormChange({ daysOfWeek: [...val] })}
-                            layout="auto"
-                        />
+                        <div className={styles.switchRow}>
+                            <Switch checked={hasTime} onChange={handleToggleTime} />
+                            <Text variant="body-sm">Vale solo in certi orari?</Text>
+                        </div>
+                        {hasTime && (
+                            <>
+                                <div className={styles.sectionGrid}>
+                                    <TimeInput
+                                        label="Orario inizio"
+                                        value={timeFrom}
+                                        onChange={event => onFormChange({ timeFrom: event.target.value })}
+                                        onBlur={() => setTimeFromTouched(true)}
+                                    />
+                                    <TimeInput
+                                        label="Orario fine"
+                                        value={timeTo}
+                                        onChange={event => onFormChange({ timeTo: event.target.value })}
+                                        onBlur={() => setTimeToTouched(true)}
+                                    />
+                                </div>
+                                {timeOrderError && (
+                                    <Text variant="caption" colorVariant="error">
+                                        {timeOrderError}
+                                    </Text>
+                                )}
+                            </>
+                        )}
+                    </div>
+
+                    <div className={styles.schedulingSeparator} />
+
+                    {/* Step 3 — Giorni */}
+                    <div className={styles.inlineBlock}>
+                        <div className={styles.switchRow}>
+                            <Switch
+                                checked={hasDays}
+                                onChange={handleToggleDays}
+                                disabled={hasPeriod}
+                            />
+                            <Text
+                                variant="body-sm"
+                                colorVariant={hasPeriod ? "muted" : undefined}
+                            >
+                                Vale solo in certi giorni della settimana?
+                            </Text>
+                        </div>
+                        {hasPeriod && (
+                            <Text variant="caption" colorVariant="muted">
+                                I giorni sono già definiti dal periodo selezionato.
+                            </Text>
+                        )}
+                        {hasDays && !hasPeriod && (
+                            <div className={styles.daysCompact}>
+                                <PillGroupMultiple
+                                    ariaLabel="Seleziona giorni della settimana"
+                                    options={DAY_OPTIONS}
+                                    value={daysOfWeek}
+                                    onChange={val => onFormChange({ daysOfWeek: [...val] })}
+                                    layout="auto"
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

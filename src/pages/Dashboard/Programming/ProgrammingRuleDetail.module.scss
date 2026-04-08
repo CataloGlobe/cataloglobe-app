@@ -25,7 +25,6 @@
 }
 
 .formColumnLeft {
-  flex: 1.6;
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
@@ -33,11 +32,22 @@
 }
 
 .formColumnRight {
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
   min-width: 0;
+}
+
+.formLayout {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.formColumnRight {
+  position: sticky;
+  top: 1.5rem;
 }
 
 .sectionCard,
@@ -101,6 +111,20 @@
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+}
+
+.daysCompact {
+  /* gruppo pill — secondo figlio del wrapper PillGroupMultiple */
+  > div > [role="group"] {
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    min-height: 0;
+  }
 }
 
 /* ─── Price override list ─────────────────────────────────────── */
@@ -351,9 +375,9 @@
 
 .targetModeOption {
   display: flex;
-  align-items: flex-start;
-  gap: 0.65rem;
-  padding: 0.65rem 0.75rem;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.65rem;
   border: 1px solid var(--color-gray-200);
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -372,7 +396,6 @@
 }
 
 .targetModeRadio {
-  margin-top: 2px;
   flex-shrink: 0;
   accent-color: var(--color-primary, #6366f1);
   width: 15px;
@@ -382,8 +405,21 @@
 
 .targetModeContent {
   display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.targetModeLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.targetModeDesc {
+  font-size: 0.8rem;
+  color: var(--color-gray-500, #6b7280);
+  white-space: nowrap;
 }
 
 /* ─── Multi-select chip input ─────────────────────────────────── */
@@ -395,9 +431,9 @@
 }
 
 .multiSelectLabel {
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-gray-500, #6b7280);
 }
 
 .chipsRow {
@@ -455,24 +491,38 @@
   position: relative;
 }
 
+.multiSelectInputWrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1.5px solid var(--border, #cbd5e1);
+  border-radius: 8px;
+  padding: 0.62rem 0.85rem;
+  cursor: text;
+  background: var(--card-bg, #ffffff);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:focus-within {
+    border-color: var(--brand-primary, #6366f1);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    outline: none;
+  }
+}
+
+.searchIcon {
+  color: var(--color-gray-400, #9ca3af);
+  flex-shrink: 0;
+}
+
 .multiSelectInput {
   width: 100%;
   font-size: 0.85rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-gray-200);
-  border-radius: var(--radius-md);
-  background: #fff;
+  padding: 0;
+  border: none;
+  background: transparent;
   outline: none;
   font-family: inherit;
   color: var(--color-gray-800);
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-
-  &:focus {
-    border-color: var(--color-primary, #6366f1);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #6366f1) 15%, transparent 85%);
-  }
 
   &::placeholder {
     color: var(--color-gray-400);
@@ -540,21 +590,21 @@
 
 .featuredRow {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) 180px 28px;
+  grid-template-columns: 20px 1fr 180px 24px;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.65rem;
-  border: 1px solid var(--color-gray-200);
-  border-radius: var(--radius-md);
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  min-height: 44px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
   background: #fff;
-  transition: background 0.1s, box-shadow 0.1s;
+  transition: background 0.1s;
+
+  &:last-child {
+    border-bottom: none;
+  }
 
   &:hover {
     background: color-mix(in srgb, var(--hover-bg, #f1f5f9) 60%, white 40%);
-  }
-
-  &:hover .featuredDragHandle {
-    opacity: 1;
   }
 }
 
@@ -569,11 +619,10 @@
   align-items: center;
   justify-content: center;
   cursor: grab;
-  color: var(--color-gray-400, #9ca3af);
-  opacity: 0;
-  transition: opacity 0.12s, color 0.12s;
+  color: var(--text-muted, #94a3b8);
   padding: 2px;
   border-radius: 4px;
+  transition: color 0.12s;
 
   &:hover {
     color: var(--color-gray-600, #4b5563);
@@ -593,6 +642,7 @@
 
 .featuredRowSlot {
   min-width: 0;
+  max-width: 180px;
 }
 
 .featuredRemoveButton {
@@ -683,6 +733,14 @@
 @media (max-width: 900px) {
   .layout {
     flex-direction: column;
+  }
+
+  .formLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .formColumnRight {
+    position: static;
   }
 }
 

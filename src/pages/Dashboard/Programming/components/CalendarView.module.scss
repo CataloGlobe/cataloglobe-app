@@ -1,0 +1,473 @@
+@use "@styles/variables" as *;
+
+/* ─── Wrapper ────────────────────────────────────────────────── */
+
+.calendarWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* ─── Week navigation ────────────────────────────────────────── */
+
+.calendarNav {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  justify-content: center;
+}
+
+.calendarNavLabel {
+  font-weight: 600;
+  font-size: 0.9rem;
+  min-width: 200px;
+  text-align: center;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+.navBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 6px;
+  background: var(--card-bg, #fff);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+
+  &:hover {
+    background: var(--hover-bg, #f1f5f9);
+    border-color: var(--color-gray-400, #9ca3af);
+  }
+}
+
+.navBtnText {
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 6px;
+  background: var(--card-bg, #fff);
+  color: var(--brand-primary, #6366f1);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+
+  &:hover {
+    background: color-mix(in srgb, var(--brand-primary, #6366f1) 6%, white 94%);
+    border-color: var(--brand-primary, #6366f1);
+  }
+}
+
+/* ─── Tab bar ────────────────────────────────────────────────── */
+
+.tabBar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+
+  &:hover {
+    color: var(--text);
+  }
+}
+
+.tabActive {
+  color: var(--text);
+}
+
+.tabBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--border, #e2e8f0);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ─── Grid ───────────────────────────────────────────────────── */
+
+.calendarGrid {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 10px);
+  overflow: hidden;
+  background: var(--card-bg, #fff);
+}
+
+/* ─── Header ─────────────────────────────────────────────────── */
+
+.gridHeader {
+  display: grid;
+  grid-template-columns: 50px repeat(7, 1fr);
+  border-bottom: 1px solid var(--border);
+  background: var(--hover-bg, #f8fafc);
+}
+
+.timeCorner {
+  border-right: 1px solid var(--border);
+}
+
+.dayHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0.45rem 0;
+  border-left: 1px solid var(--border);
+}
+
+.dayName {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-muted, #94a3b8);
+  text-transform: capitalize;
+}
+
+.dayNumber {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--text);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.dayHeaderToday {
+  .dayName {
+    color: var(--brand-primary, #6366f1);
+  }
+}
+
+.dayNumberToday {
+  background: var(--brand-primary, #6366f1);
+  color: #fff;
+}
+
+/* ─── Sub-header (all view) ──────────────────────────────────── */
+
+.subHeader {
+  display: grid;
+  grid-template-columns: 50px repeat(7, 1fr);
+  border-bottom: 1px solid var(--border);
+  background: var(--hover-bg, #f8fafc);
+}
+
+.subHeaderCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  border-left: 1px solid var(--border);
+}
+
+.subHeaderLabel {
+  flex: 1;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 0;
+}
+
+/* ─── Grid body ──────────────────────────────────────────────── */
+
+.gridBody {
+  display: grid;
+  grid-template-columns: 50px repeat(7, 1fr);
+  padding-bottom: 20px;
+}
+
+/* ─── Time column ────────────────────────────────────────────── */
+
+.timeCol {
+  position: relative;
+  border-right: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.timeLabel {
+  position: absolute;
+  right: 6px;
+  transform: translateY(-50%);
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--text-muted, #94a3b8);
+  white-space: nowrap;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+
+  &:first-child {
+    transform: none;
+  }
+}
+
+/* ─── Day columns (single type view) ─────────────────────────── */
+
+.dayColumn {
+  position: relative;
+  border-left: 1px solid var(--border);
+
+  &:first-of-type {
+    border-left: none;
+  }
+}
+
+.dayColumnToday {
+  background: color-mix(in srgb, var(--brand-primary, #6366f1) 3%, transparent);
+}
+
+/* ─── Day columns (all view) ─────────────────────────────────── */
+
+.dayColumnAll {
+  display: flex;
+  position: relative;
+  border-left: 1px solid var(--border);
+
+  &:first-of-type {
+    border-left: none;
+  }
+}
+
+.hourLinesOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.subColumn {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+
+  & + & {
+    border-left: 1px dashed color-mix(in srgb, var(--border) 60%, transparent);
+  }
+}
+
+/* ─── Hour lines ─────────────────────────────────────────────── */
+
+.hourLine {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+  z-index: 2;
+
+  &:first-child {
+    opacity: 0;
+  }
+}
+
+/* ─── Rule blocks ────────────────────────────────────────────── */
+
+.ruleBlock {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border: none;
+  border-radius: 6px;
+  padding: 3px 5px;
+  cursor: pointer;
+  overflow: hidden;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  color: #fff;
+  opacity: 0.85;
+  z-index: 1;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.4);
+  margin-bottom: 1px;
+  transition: opacity 0.12s, box-shadow 0.12s;
+
+  &:hover {
+    opacity: 1;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+    z-index: 5;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary, #6366f1);
+    outline-offset: 1px;
+    z-index: 5;
+  }
+}
+
+.ruleBlockVertical {
+  padding: 4px 2px;
+  border-radius: 4px;
+  left: 1px;
+  right: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.blockLabel {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.blockLabelVertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 100%;
+}
+
+.blockTime {
+  display: block;
+  font-size: 0.6rem;
+  line-height: 1.2;
+  opacity: 0.85;
+}
+
+/* ─── Now indicator ──────────────────────────────────────────── */
+
+.nowLine {
+  position: absolute;
+  height: 2px;
+  background: #ef4444;
+  z-index: 8;
+  pointer-events: none;
+  left: 0;
+  right: 0;
+}
+
+.nowDot {
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    border: 2px solid #ef4444;
+    opacity: 0;
+    animation: calPulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes calPulse {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(1.6);
+  }
+}
+
+/* ─── Tooltip ────────────────────────────────────────────────── */
+
+.tipContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tipName {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.tipMeta {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .gridHeader,
+  .subHeader,
+  .gridBody {
+    grid-template-columns: 36px repeat(7, 1fr);
+  }
+
+  .timeLabel {
+    font-size: 0.5rem;
+    right: 3px;
+  }
+
+  .ruleBlock {
+    padding: 2px 3px;
+    border-radius: 4px;
+  }
+
+  .blockLabel {
+    font-size: 0.55rem;
+  }
+
+  .blockLabelVertical {
+    font-size: 9px;
+  }
+
+  .subHeaderLabel {
+    font-size: 8px;
+  }
+
+  .tab {
+    padding: 0.45rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .calendarNav {
+    gap: 0.4rem;
+  }
+
+  .calendarNavLabel {
+    font-size: 0.78rem;
+    min-width: 160px;
+  }
+}

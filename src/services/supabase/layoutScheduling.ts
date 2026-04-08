@@ -326,9 +326,9 @@ async function insertScheduleWithNameFallback(
 async function updateScheduleWithNameFallback(input: {
     scheduleId: string;
     patch: {
-        priority: number;
-        priority_level: PriorityLevel;
-        display_order: number;
+        priority?: number;
+        priority_level?: PriorityLevel;
+        display_order?: number;
         enabled: boolean;
         time_mode: LayoutTimeMode;
         days_of_week: number[] | null;
@@ -344,7 +344,7 @@ async function updateScheduleWithNameFallback(input: {
     const normalizedName = input.name?.trim() ?? "";
     const normalizedPatch = {
         ...input.patch,
-        priority: normalizePriority(input.patch.priority)
+        ...(input.patch.priority != null ? { priority: normalizePriority(input.patch.priority) } : {})
     };
     const patchWithName = {
         ...normalizedPatch,
@@ -1182,26 +1182,22 @@ export async function createRuleDraft(input: {
     tenantId: string;
     ruleType: RuleType;
     name: string;
-    priorityLevel?: PriorityLevel;
-    displayOrder?: number;
 }): Promise<string> {
     const systemGroupId = await getSystemActivityGroupId(input.tenantId);
     if (!systemGroupId) {
         throw new Error("Gruppo di sistema 'Tutte le sedi' mancante.");
     }
 
-    const level = input.priorityLevel ?? 'medium';
-    const order = input.displayOrder ?? 0;
-
+    // priority gestita internamente dal sistema — default medio (21)
     const schedule = await insertScheduleWithNameFallback(
         {
             tenant_id: input.tenantId,
             rule_type: input.ruleType,
             target_type: null,
             target_id: null,
-            priority: computePriority(level, order),
-            priority_level: level,
-            display_order: order,
+            priority: 21,
+            priority_level: 'medium' as PriorityLevel,
+            display_order: 0,
             enabled: true,
             time_mode: "always",
             days_of_week: null,
@@ -1246,8 +1242,7 @@ export async function updateRule(input: {
     // Legacy fallback target (deprecated — derived automatically from activityIds/groupIds)
     targetType?: RuleTargetType;
     targetId?: string;
-    priorityLevel: PriorityLevel;
-    displayOrder: number;
+    // priority gestita internamente dal sistema
     enabled: boolean;
     timeMode: LayoutTimeMode;
     daysOfWeek: number[] | null;
@@ -1310,9 +1305,7 @@ export async function updateRule(input: {
     await updateScheduleWithNameFallback({
         scheduleId: input.scheduleId,
         patch: {
-            priority: computePriority(input.priorityLevel, input.displayOrder),
-            priority_level: input.priorityLevel,
-            display_order: input.displayOrder,
+            // priority gestita internamente dal sistema — non sovrascritta al salvataggio
             enabled: input.enabled,
             time_mode: input.timeMode,
             days_of_week: input.daysOfWeek,

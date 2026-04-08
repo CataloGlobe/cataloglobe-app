@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { Search } from "lucide-react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
 import { LayoutRuleOption } from "@/services/supabase/layoutScheduling";
@@ -75,9 +76,7 @@ function MultiSelectChip({
 
     return (
         <div className={styles.multiSelectBlock}>
-            <Text variant="caption" colorVariant="muted" className={styles.multiSelectLabel}>
-                {label}
-            </Text>
+            <span className={styles.multiSelectLabel}>{label}</span>
 
             {/* Chips */}
             {selectedOptions.length > 0 && (
@@ -100,18 +99,27 @@ function MultiSelectChip({
 
             {/* Search + Dropdown */}
             <div className={styles.multiSelectWrapper} ref={containerRef}>
-                <input
-                    type="text"
-                    className={styles.multiSelectInput}
-                    placeholder={placeholder}
-                    value={query}
-                    onChange={e => {
-                        setQuery(e.target.value);
-                        setIsOpen(true);
+                <div
+                    className={styles.multiSelectInputWrapper}
+                    onClick={e => {
+                        const input = (e.currentTarget as HTMLElement).querySelector("input");
+                        input?.focus();
                     }}
-                    onFocus={() => setIsOpen(true)}
-                    autoComplete="off"
-                />
+                >
+                    <Search size={14} className={styles.searchIcon} />
+                    <input
+                        type="text"
+                        className={styles.multiSelectInput}
+                        placeholder={placeholder}
+                        value={query}
+                        onChange={e => {
+                            setQuery(e.target.value);
+                            setIsOpen(true);
+                        }}
+                        onFocus={() => setIsOpen(true)}
+                        autoComplete="off"
+                    />
+                </div>
                 {isOpen && filtered.length > 0 && (
                     <ul className={styles.multiSelectDropdown} role="listbox">
                         {filtered.slice(0, 20).map(opt => (
@@ -225,12 +233,8 @@ export function TargetSection({
                             className={styles.targetModeRadio}
                         />
                         <div className={styles.targetModeContent}>
-                            <Text variant="body-sm" weight={600}>
-                                {opt.label}
-                            </Text>
-                            <Text variant="caption" colorVariant="muted">
-                                {opt.description}
-                            </Text>
+                            <span className={styles.targetModeLabel}>{opt.label}</span>
+                            <span className={styles.targetModeDesc}>· {opt.description}</span>
                         </div>
                     </label>
                 ))}

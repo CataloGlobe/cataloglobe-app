@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Globe, Building2, Users, AlertCircle, FileText, Loader2, Calendar } from "lucide-react";
+import { Globe, Building2, Users, AlertCircle, FileText, Loader2, Calendar, ChevronDown, List, CalendarDays } from "lucide-react";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { Button } from "@/components/ui/Button/Button";
-import { Switch } from "@/components/ui/Switch/Switch";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import ModalLayout, {
     ModalLayoutContent,
@@ -28,18 +27,18 @@ import {
     deleteLayoutRule,
     listLayoutRuleOptions,
     listLayoutRules,
-    reorderSchedulesInLevel,
     updateScheduleEnabled,
     type LayoutRule,
     type LayoutRuleOption,
     type RuleType
 } from "@/services/supabase/layoutScheduling";
-import { computePriority, PRIORITY_LEVEL_ORDER, PRIORITY_LEVEL_LABELS, type PriorityLevel } from "@utils/priorityUtils";
-import { PriorityGroup } from "./components/PriorityGroup";
+import { RuleRow } from "./components/RuleRow";
+import { CalendarView } from "./components/CalendarView";
 import {
     resolveRulesForActivity,
     type ResolveRulesForActivityResult
 } from "@/services/supabase/scheduleResolver";
+import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import { buildRuleSummary, isRuleCurrentlyActive } from "@/utils/ruleHelpers";
 import styles from "./Programming.module.scss";
 
@@ -62,25 +61,13 @@ type RuleSuggestion = {
     fixSuggestion?: string;
 };
 
-type RuleExplainItem = {
-    ruleId: string;
-    ruleName: string;
-    specificity: 0 | 1 | 2;
-    priority: number;
-    reason: string;
-};
+type VisibilityModeLabel = "hide" | "disable";
 
-type RuleExplainByType = {
-    winner: RuleExplainItem | null;
-    discarded: RuleExplainItem[];
-    ambiguityCount: number;
-};
-
-type SimulationAlert = {
-    id: string;
-    type: "warning" | "info";
-    message: string;
-};
+function formatVisibilityMode(mode: VisibilityModeLabel | string | null | undefined, short = false): string {
+    if (mode === "hide") return short ? "Nascosti" : "Nasconde i prodotti selezionati";
+    if (mode === "disable") return short ? "Non disponibile" : "Mostra come non disponibile";
+    return "—";
+}
 
 type DailyTimelineBlock = {
     startMinutes: number;
@@ -129,9 +116,9 @@ function toDateTimeLocalValue(date: Date): string {
 }
 
 function getSpecificityLabel(value: number | null) {
-    if (value === 2) return "Attività";
-    if (value === 1) return "Gruppo";
-    if (value === 0) return "Globale";
+    if (value === 2) return "Sede specifica";
+    if (value === 1) return "Gruppo di sedi";
+    if (value === 0) return "Tutte le sedi";
     return "-";
 }
 
@@ -154,26 +141,6 @@ function compareCandidateSpecificityFirst(
     return compareSpecificityFirst(a.rule, b.rule, a.specificity, b.specificity);
 }
 
-function getDiscardReason(
-    winner: { rule: LayoutRule; specificity: 0 | 1 | 2 },
-    candidate: { rule: LayoutRule; specificity: 0 | 1 | 2 }
-): string {
-    if (candidate.specificity < winner.specificity) {
-        return "Esiste una regola più specifica per questa sede";
-    }
-    if (candidate.rule.priority > winner.rule.priority) {
-        return "Esiste una regola con priorità più alta";
-    }
-    const createdDelta =
-        new Date(candidate.rule.created_at).getTime() - new Date(winner.rule.created_at).getTime();
-    if (createdDelta > 0) {
-        return "È stata creata dopo una regola con stessa priorità";
-    }
-    if (candidate.rule.id.localeCompare(winner.rule.id) > 0) {
-        return "È stata superata da un’altra regola con stessi criteri";
-    }
-    return "Precedenza inferiore secondo ordinamento corrente";
-}
 
 function formatMinutesToHourLabel(totalMinutes: number): string {
     const h = Math.floor(totalMinutes / 60)
@@ -181,6 +148,55 @@ function formatMinutesToHourLabel(totalMinutes: number): string {
         .padStart(2, "0");
     const m = (totalMinutes % 60).toString().padStart(2, "0");
     return `${h}:${m}`;
+}
+
+/* ─── RuleBlock ──────────────────────────────────────────────── */
+
+interface RuleBlockProps {
+    title: string;
+    count: number;
+    collapsible?: boolean;
+    open?: boolean;
+    onToggle?: (open: boolean) => void;
+    children: React.ReactNode;
+}
+
+function RuleBlock({
+    title,
+    count,
+    collapsible = false,
+    open: controlledOpen,
+    onToggle,
+    children
+}: RuleBlockProps) {
+    const isOpen = collapsible ? (controlledOpen ?? true) : true;
+
+    const header = (
+        <div
+            className={styles.ruleBlockHeader}
+            role={collapsible ? "button" : undefined}
+            tabIndex={collapsible ? 0 : undefined}
+            onClick={collapsible ? () => onToggle?.(!isOpen) : undefined}
+            onKeyDown={collapsible ? e => { if (e.key === "Enter") onToggle?.(!isOpen); } : undefined}
+        >
+            <div className={styles.ruleBlockHeaderLeft}>
+                <Text variant="body-sm" weight={700}>{title}</Text>
+                <span className={styles.ruleBlockCount}>{count}</span>
+            </div>
+            {collapsible && (
+                <span className={styles.ruleBlockChevron}>
+                    <ChevronDown size={14} style={isOpen ? undefined : { transform: "rotate(-90deg)" }} />
+                </span>
+            )}
+        </div>
+    );
+
+    return (
+        <div className={styles.ruleBlock}>
+            {header}
+            {isOpen && children}
+        </div>
+    );
 }
 
 export default function Programming() {
@@ -204,6 +220,7 @@ export default function Programming() {
     const [ruleToDelete, setRuleToDelete] = useState<string | null>(null);
     const [updatingRules, setUpdatingRules] = useState<Set<string>>(new Set());
 
+    const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
     const [searchTerm, setSearchTerm] = useState("");
     const typeFromUrl = searchParams.get("type") as RuleType | null;
     const [ruleTypeFilter, setRuleTypeFilter] = useState<RuleTypeFilter>(
@@ -218,8 +235,7 @@ export default function Programming() {
     const [simResult, setSimResult] = useState<ResolveRulesForActivityResult | null>(null);
     const [isSimLoading, setIsSimLoading] = useState(false);
     const [simError, setSimError] = useState<string | null>(null);
-    const [simActivityGroupIds, setSimActivityGroupIds] = useState<string[]>([]);
-    const [simShowWarningsOnly, setSimShowWarningsOnly] = useState(false);
+    const [simTimelineOpen, setSimTimelineOpen] = useState(false);
     const [isDailyTimelineLoading, setIsDailyTimelineLoading] = useState(false);
     const [dailyTimelineError, setDailyTimelineError] = useState<string | null>(null);
     const [dailyTimelineBlocks, setDailyTimelineBlocks] = useState<DailyTimelineBlock[]>([]);
@@ -285,6 +301,13 @@ export default function Programming() {
         void loadInitialData();
     }, [loadInitialData]);
 
+    // Auto-select activity if tenant has exactly one
+    useEffect(() => {
+        if (activities.length === 1 && !simActivityId) {
+            setSimActivityId(activities[0].id);
+        }
+    }, [activities, simActivityId]);
+
     const filteredRules = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
         const typeFilteredRules = rules.filter(rule => rule.rule_type === ruleTypeFilter);
@@ -318,54 +341,6 @@ export default function Programming() {
                 .includes(query);
         });
     }, [activityById, catalogById, ruleTypeFilter, rules, searchTerm, styleById]);
-
-    const groupedRules = useMemo(() => {
-        const map = new Map<PriorityLevel, LayoutRule[]>();
-        for (const level of PRIORITY_LEVEL_ORDER) {
-            map.set(level, []);
-        }
-        for (const rule of filteredRules) {
-            const level = rule.priority_level ?? "medium";
-            map.get(level as PriorityLevel)?.push(rule);
-        }
-        for (const level of PRIORITY_LEVEL_ORDER) {
-            map.get(level)!.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
-        }
-        return map;
-    }, [filteredRules]);
-
-    const handleReorder = useCallback(
-        async (level: PriorityLevel, reorderedRules: LayoutRule[]) => {
-            const updates = reorderedRules.map((rule, index) => ({
-                id: rule.id,
-                display_order: index,
-                priority_level: level
-            }));
-            // Optimistic update
-            setRules(prev => {
-                const next = [...prev];
-                for (const upd of updates) {
-                    const idx = next.findIndex(r => r.id === upd.id);
-                    if (idx !== -1) {
-                        next[idx] = {
-                            ...next[idx],
-                            display_order: upd.display_order,
-                            priority: computePriority(level, upd.display_order)
-                        };
-                    }
-                }
-                return next;
-            });
-            try {
-                await reorderSchedulesInLevel(currentTenantId!, updates);
-            } catch (error) {
-                console.error("Errore riordino regole:", error);
-                showToast({ type: "error", message: "Impossibile salvare l'ordine.", duration: 3000 });
-                await loadRules();
-            }
-        },
-        [currentTenantId, loadRules, showToast]
-    );
 
     const handleSelectionChange = useCallback((id: string, checked: boolean) => {
         setSelectedRuleIds(prev => {
@@ -491,16 +466,82 @@ export default function Programming() {
         return insights;
     }, [activities, activityIdsByGroupId, currentTime, rules]);
 
-    const winningRuleIds = useMemo(() => {
-        return new Set(
-            rules
-                .filter(rule => {
-                    const insight = ruleInsightsById.get(rule.id);
-                    return Boolean(insight?.isActiveNow && !insight.isOverridden);
-                })
-                .map(rule => rule.id)
+    const { activeRules, scheduledRules, expiredRules, disabledRules } = useMemo(() => {
+        const active: LayoutRule[] = [];
+        const scheduled: LayoutRule[] = [];
+        const expired: LayoutRule[] = [];
+        const disabled: LayoutRule[] = [];
+
+        const isExpired = (rule: LayoutRule): boolean => {
+            if (!rule.end_at) return false;
+            return new Date(rule.end_at) < new Date();
+        };
+
+        for (const rule of filteredRules) {
+            if (!rule.enabled) {
+                disabled.push(rule);
+            } else if (isExpired(rule)) {
+                expired.push(rule);
+            } else {
+                const insight = ruleInsightsById.get(rule.id);
+                if (insight?.isActiveNow && !insight?.isOverridden) {
+                    active.push(rule);
+                } else {
+                    scheduled.push(rule);
+                }
+            }
+        }
+
+        const temporalScore = (r: LayoutRule): number => {
+            let score = 0;
+            if (r.start_at || r.end_at) score += 2;
+            if (r.time_from || r.time_to) score += 1;
+            return score;
+        };
+
+        const getTargetSpecificity = (r: LayoutRule): number => {
+            if (r.activityIds.length > 0) return 2;
+            if (r.groupIds.length > 0) return 1;
+            return 0;
+        };
+
+        const resolverSort = (a: LayoutRule, b: LayoutRule): number => {
+            const insightA = ruleInsightsById.get(a.id);
+            const insightB = ruleInsightsById.get(b.id);
+
+            // 1. Regole sovrascritta ora in cima (attive e in competizione)
+            const aOverridden = insightA?.isOverridden ? 1 : 0;
+            const bOverridden = insightB?.isOverridden ? 1 : 0;
+            if (aOverridden !== bOverridden) return bOverridden - aOverridden;
+
+            // 2. Specificità target DESC
+            const specDiff = getTargetSpecificity(b) - getTargetSpecificity(a);
+            if (specDiff !== 0) return specDiff;
+
+            // 3. Specificità temporale DESC
+            const tempDiff = temporalScore(b) - temporalScore(a);
+            if (tempDiff !== 0) return tempDiff;
+
+            // 4. created_at ASC
+            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        };
+
+        active.sort(resolverSort);
+        scheduled.sort(resolverSort);
+
+        expired.sort((a, b) =>
+            new Date(b.end_at!).getTime() - new Date(a.end_at!).getTime()
         );
-    }, [rules, ruleInsightsById]);
+
+        disabled.sort((a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+
+        return { activeRules: active, scheduledRules: scheduled, expiredRules: expired, disabledRules: disabled };
+    }, [filteredRules, ruleInsightsById]);
+
+    const [showExpired, setShowExpired] = useState(false);
+    const [showDisabled, setShowDisabled] = useState(false);
 
     const handleToggleEnabled = async (ruleId: string, enabled: boolean) => {
         // Optimistic update
@@ -623,28 +664,17 @@ export default function Programming() {
         try {
             setIsSimLoading(true);
             setSimError(null);
-            const [result, groupMembersRes] = await Promise.all([
-                resolveRulesForActivity({
-                    supabase,
-                    activityId: simActivityId,
-                    now: selectedDate,
-                    includeLayoutStyle: true
-                }),
-                supabase
-                    .from("activity_group_members")
-                    .select("group_id")
-                    .eq("activity_id", simActivityId)
-            ]);
+            const result = await resolveRulesForActivity({
+                supabase,
+                activityId: simActivityId,
+                now: toRomeDateTime(selectedDate),
+                includeLayoutStyle: true
+            });
             setSimResult(result);
-            if (groupMembersRes.error) throw groupMembersRes.error;
-            setSimActivityGroupIds(
-                Array.from(new Set((groupMembersRes.data ?? []).map(row => row.group_id)))
-            );
         } catch (error) {
             console.error("Errore simulazione regole:", error);
             setSimResult(null);
             setSimError("Impossibile simulare le regole per i parametri selezionati.");
-            setSimActivityGroupIds([]);
         } finally {
             setIsSimLoading(false);
         }
@@ -691,7 +721,7 @@ export default function Programming() {
                     const result = await resolveRulesForActivity({
                         supabase,
                         activityId: simActivityId,
-                        now: slotTime,
+                        now: toRomeDateTime(slotTime),
                         includeLayoutStyle: false
                     });
 
@@ -764,245 +794,6 @@ export default function Programming() {
             setIsDailyTimelineLoading(false);
         }
     }, [simActivityId, simDateTime]);
-
-    const simulationExplanation = useMemo(() => {
-        if (!simActivityId || !simDateTime || !simResult) return null;
-        const selectedDate = new Date(simDateTime);
-        if (Number.isNaN(selectedDate.getTime())) return null;
-
-        const selectedGroupIdSet = new Set(simActivityGroupIds);
-        const winnerRuleIdByType: Record<RuleType, string | null> = {
-            layout: simResult.layout.scheduleId ?? null,
-            price: simResult.priceRuleId ?? null,
-            visibility: simResult.visibilityRule?.scheduleId ?? null
-        };
-        const winnerSpecificityByType: Record<RuleType, 0 | 1 | 2 | null> = {
-            layout: (simResult.debug?.selectedLayoutRuleSpecificity as 0 | 1 | 2 | null) ?? null,
-            price: (simResult.debug?.selectedPriceRuleSpecificity as 0 | 1 | 2 | null) ?? null,
-            visibility:
-                (simResult.debug?.selectedVisibilityRuleSpecificity as 0 | 1 | 2 | null) ?? null
-        };
-        const byType: Record<RuleType, RuleExplainByType> = {
-            layout: { winner: null, discarded: [], ambiguityCount: 0 },
-            price: { winner: null, discarded: [], ambiguityCount: 0 },
-            visibility: { winner: null, discarded: [], ambiguityCount: 0 }
-        };
-
-        (["layout", "price", "visibility"] as RuleType[]).forEach(type => {
-            const typeRules = rules.filter(rule => rule.rule_type === type);
-            const eligible: Array<{ rule: LayoutRule; specificity: 0 | 1 | 2 }> = [];
-            const discarded: RuleExplainItem[] = [];
-
-            for (const rule of typeRules) {
-                const legacyActivityMatch =
-                    rule.target_type === "activity" && rule.target_id === simActivityId;
-                const legacyGroupMatch =
-                    rule.target_type === "activity_group" && selectedGroupIdSet.has(rule.target_id);
-                const activityMatch = rule.activityIds.includes(simActivityId) || legacyActivityMatch;
-                const groupMatch =
-                    rule.groupIds.some(groupId => selectedGroupIdSet.has(groupId)) || legacyGroupMatch;
-                const globalMatch = rule.applyToAll;
-
-                if (!rule.enabled) {
-                    discarded.push({
-                        ruleId: rule.id,
-                        ruleName: getRuleDisplayName(rule),
-                        specificity: 0,
-                        priority: rule.priority,
-                        reason: "Questa regola è disattivata"
-                    });
-                    continue;
-                }
-
-                let specificity: 0 | 1 | 2 | null = null;
-                if (activityMatch) specificity = 2;
-                else if (groupMatch) specificity = 1;
-                else if (globalMatch) specificity = 0;
-
-                if (specificity === null) {
-                    discarded.push({
-                        ruleId: rule.id,
-                        ruleName: getRuleDisplayName(rule),
-                        specificity: 0,
-                        priority: rule.priority,
-                        reason: "Questa regola non si applica alla sede selezionata"
-                    });
-                    continue;
-                }
-
-                if (!isRuleCurrentlyActive(rule, selectedDate)) {
-                    discarded.push({
-                        ruleId: rule.id,
-                        ruleName: getRuleDisplayName(rule),
-                        specificity,
-                        priority: rule.priority,
-                        reason: "Questa regola non è attiva nel momento selezionato"
-                    });
-                    continue;
-                }
-
-                eligible.push({ rule, specificity });
-            }
-
-            eligible.sort(compareCandidateSpecificityFirst);
-            const resolvedWinnerId = winnerRuleIdByType[type];
-            const winner =
-                eligible.find(candidate => candidate.rule.id === resolvedWinnerId) ??
-                (resolvedWinnerId
-                    ? ({
-                          rule:
-                              typeRules.find(rule => rule.id === resolvedWinnerId) ??
-                              ({
-                                  id: resolvedWinnerId,
-                                  name: resolvedWinnerId,
-                                  rule_type: type,
-                                  priority: 10,
-                                  created_at: new Date(0).toISOString()
-                              } as LayoutRule),
-                          specificity: winnerSpecificityByType[type] ?? 0
-                      } as { rule: LayoutRule; specificity: 0 | 1 | 2 })
-                    : null);
-
-            const winnerExplain: RuleExplainItem | null = winner
-                ? {
-                      ruleId: winner.rule.id,
-                      ruleName: getRuleDisplayName(winner.rule),
-                      specificity: winner.specificity,
-                      priority: winner.rule.priority,
-                      reason:
-                          winner.specificity === 2
-                              ? "Questa regola è stata selezionata perché è specifica per questa sede."
-                              : winner.specificity === 1
-                                ? "Questa regola è stata selezionata perché è la più specifica tra quelle disponibili."
-                                : "Questa regola è stata selezionata perché non ci sono regole più specifiche attive in questo momento."
-                  }
-                : null;
-
-            const precedenceDiscarded = eligible
-                .filter(candidate => candidate.rule.id !== winner?.rule.id)
-                .map(candidate => ({
-                    ruleId: candidate.rule.id,
-                    ruleName: getRuleDisplayName(candidate.rule),
-                    specificity: candidate.specificity,
-                    priority: candidate.rule.priority,
-                    reason: winner ? getDiscardReason(winner, candidate) : "Precedenza inferiore"
-                }));
-
-            const ambiguityCount = winner
-                ? eligible
-                      .filter(candidate => candidate.rule.id !== winner.rule.id)
-                      .filter(
-                          candidate =>
-                              candidate.specificity === winner.specificity &&
-                              candidate.rule.priority === winner.rule.priority
-                      ).length
-                : 0;
-
-            byType[type] = {
-                winner: winnerExplain,
-                discarded: [...precedenceDiscarded, ...discarded],
-                ambiguityCount
-            };
-        });
-
-        return byType;
-    }, [rules, simActivityGroupIds, simActivityId, simDateTime, simResult]);
-
-    const simulationAlerts = useMemo<SimulationAlert[]>(() => {
-        if (!simulationExplanation || !simResult) return [];
-
-        const rawAlerts: SimulationAlert[] = [];
-        const labels: Record<RuleType, string> = {
-            layout: "Layout",
-            price: "Prezzi",
-            visibility: "Visibilità"
-        };
-
-        const missingTypes = (["layout", "price", "visibility"] as RuleType[]).filter(
-            type => !simulationExplanation[type].winner
-        );
-
-        if (missingTypes.length === 3) {
-            rawAlerts.push({
-                id: "no-active-rules",
-                type: "warning",
-                message:
-                    "Nel momento selezionato non risulta attiva nessuna regola. Verifica stato, target e finestre temporali."
-            });
-        } else if (missingTypes.length > 0) {
-            rawAlerts.push({
-                id: "partial-missing-rules",
-                type: "info",
-                message: `Nel momento selezionato non risultano attive regole per: ${missingTypes
-                    .map(type => labels[type])
-                    .join(", ")}.`
-            });
-        }
-
-        if (!simResult.layout.scheduleId) {
-            rawAlerts.push({
-                id: "missing-layout",
-                type: "warning",
-                message:
-                    "Non c'è un layout attivo per questa sede e questo orario: il catalogo potrebbe non essere mostrato."
-            });
-        }
-
-        (["layout", "price", "visibility"] as RuleType[]).forEach(type => {
-            const ambiguityCount = simulationExplanation[type].ambiguityCount;
-            if (ambiguityCount > 0) {
-                rawAlerts.push({
-                    id: `ambiguous-${type}`,
-                    type: "warning",
-                    message: `${labels[type]}: trovate ${
-                        ambiguityCount + 1
-                    } regole con stessa specificità e stessa priorità. La scelta dipende dai criteri di tie-break (data creazione/ID).`
-                });
-            }
-        });
-
-        if ((simResult.debug?.candidatesCount ?? 0) === 0) {
-            rawAlerts.push({
-                id: "no-candidates",
-                type: "info",
-                message:
-                    "Non sono stati trovati candidati per questa simulazione. Controlla target, stato regole e configurazioni globali."
-            });
-        }
-
-        // Dedup by message and keep the highest severity if duplicates exist.
-        const dedupByMessage = new Map<string, SimulationAlert>();
-        for (const alert of rawAlerts) {
-            const key = alert.message.trim().toLowerCase();
-            const current = dedupByMessage.get(key);
-            if (!current) {
-                dedupByMessage.set(key, alert);
-                continue;
-            }
-            if (current.type === "info" && alert.type === "warning") {
-                dedupByMessage.set(key, alert);
-            }
-        }
-
-        const severityRank: Record<SimulationAlert["type"], number> = {
-            warning: 0,
-            info: 1
-        };
-
-        return Array.from(dedupByMessage.values()).sort((a, b) => {
-            const severityDelta = severityRank[a.type] - severityRank[b.type];
-            if (severityDelta !== 0) return severityDelta;
-            return a.message.localeCompare(b.message, "it");
-        });
-    }, [simResult, simulationExplanation]);
-
-    const displayedSimulationAlerts = useMemo(
-        () =>
-            simShowWarningsOnly
-                ? simulationAlerts.filter(alert => alert.type === "warning")
-                : simulationAlerts,
-        [simShowWarningsOnly, simulationAlerts]
-    );
 
     const hasAnyRuleActiveInDay = useMemo(
         () =>
@@ -1100,6 +891,28 @@ export default function Programming() {
                     subtitle="Gestisci le regole del Rule Engine."
                     actions={
                         <div className={styles.headerActions}>
+                            <div className={styles.viewToggle}>
+                                <Tooltip content="Vista lista" side="bottom">
+                                    <button
+                                        type="button"
+                                        className={`${styles.viewToggleBtn} ${viewMode === "list" ? styles.viewToggleBtnActive : ""}`}
+                                        onClick={() => setViewMode("list")}
+                                        aria-label="Vista lista"
+                                    >
+                                        <List size={16} />
+                                    </button>
+                                </Tooltip>
+                                <Tooltip content="Vista calendario" side="bottom">
+                                    <button
+                                        type="button"
+                                        className={`${styles.viewToggleBtn} ${viewMode === "calendar" ? styles.viewToggleBtnActive : ""}`}
+                                        onClick={() => setViewMode("calendar")}
+                                        aria-label="Vista calendario"
+                                    >
+                                        <CalendarDays size={16} />
+                                    </button>
+                                </Tooltip>
+                            </div>
                             <Button
                                 variant="secondary"
                                 onClick={() => setIsSimulatorDrawerOpen(true)}
@@ -1120,93 +933,171 @@ export default function Programming() {
                 />
             </div>
 
-            <Tabs<RuleType>
-                value={ruleTypeFilter}
-                onChange={tab => {
-                    setRuleTypeFilter(tab);
-                    setSelectedRuleIds(new Set());
-                }}
-            >
-                <Tabs.List>
-                    {RULE_TYPE_TAB_OPTIONS.map(option => (
-                        <Tabs.Tab key={option.value} value={option.value}>
-                            {option.label}
-                        </Tabs.Tab>
-                    ))}
-                </Tabs.List>
-            </Tabs>
+            {viewMode === "list" ? (
+                <>
+                    <Tabs<RuleType>
+                        value={ruleTypeFilter}
+                        onChange={tab => {
+                            setRuleTypeFilter(tab);
+                            setSelectedRuleIds(new Set());
+                        }}
+                    >
+                        <Tabs.List>
+                            {RULE_TYPE_TAB_OPTIONS.map(option => (
+                                <Tabs.Tab key={option.value} value={option.value}>
+                                    {option.label}
+                                </Tabs.Tab>
+                            ))}
+                        </Tabs.List>
+                    </Tabs>
 
-            <FilterBar
-                search={{
-                    value: searchTerm,
-                    onChange: setSearchTerm,
-                    placeholder: "Cerca per nome, tipo, target o id..."
-                }}
-            />
-
-            <div className={styles.tableCard}>
-                <div className={styles.tabDescription}>
-                    <Text variant="body-sm" colorVariant="muted">
-                        {RULE_TYPE_TAB_OPTIONS.find(o => o.value === ruleTypeFilter)?.description}
-                    </Text>
-                </div>
-
-                {isLoading ? (
-                    <div className={styles.emptyState}>
-                        <Text colorVariant="muted">Caricamento regole...</Text>
-                    </div>
-                ) : filteredRules.length === 0 ? (
-                    <EmptyState
-                        icon={<Calendar size={40} strokeWidth={1.5} />}
-                        title={searchTerm ? "Nessuna regola trovata" : "Nessuna regola configurata"}
-                        description={
-                            searchTerm
-                                ? "Nessuna regola corrisponde alla ricerca."
-                                : RULE_TYPE_TAB_OPTIONS.find(o => o.value === ruleTypeFilter)
-                                      ?.description ?? ""
-                        }
-                        action={
-                            !searchTerm ? (
-                                <Button
-                                    variant="primary"
-                                    onClick={() => void handleCreateRule()}
-                                    disabled={isCreating}
-                                    loading={isCreating}
-                                >
-                                    + Crea la prima regola
-                                </Button>
-                            ) : undefined
-                        }
+                    <FilterBar
+                        search={{
+                            value: searchTerm,
+                            onChange: setSearchTerm,
+                            placeholder: "Cerca per nome, tipo, target o id..."
+                        }}
                     />
-                ) : (
-                    <div className={styles.groupedList}>
-                        {PRIORITY_LEVEL_ORDER.map(level => (
-                            <PriorityGroup
-                                key={level}
-                                level={level}
-                                label={PRIORITY_LEVEL_LABELS[level]}
-                                rules={groupedRules.get(level) ?? []}
-                                selectedIds={selectedRuleIds}
-                                onSelectionChange={handleSelectionChange}
-                                onReorder={handleReorder}
-                                onRuleClick={rule =>
-                                    navigate(`/business/${currentTenantId}/scheduling/${rule.id}`)
+
+                    <div className={styles.tableCard}>
+                        <div className={styles.tabDescription}>
+                            <Text variant="body-sm" colorVariant="muted">
+                                {RULE_TYPE_TAB_OPTIONS.find(o => o.value === ruleTypeFilter)?.description}
+                            </Text>
+                        </div>
+
+                        {isLoading ? (
+                            <div className={styles.emptyState}>
+                                <Text colorVariant="muted">Caricamento regole...</Text>
+                            </div>
+                        ) : filteredRules.length === 0 ? (
+                            <EmptyState
+                                icon={<Calendar size={40} strokeWidth={1.5} />}
+                                title={searchTerm ? "Nessuna regola trovata" : "Nessuna regola configurata"}
+                                description={
+                                    searchTerm
+                                        ? "Nessuna regola corrisponde alla ricerca."
+                                        : RULE_TYPE_TAB_OPTIONS.find(o => o.value === ruleTypeFilter)
+                                              ?.description ?? ""
                                 }
-                                onDeleteRule={id => {
-                                    setRuleToDelete(id);
-                                    setIsDeleteModalOpen(true);
-                                }}
-                                onToggleEnabled={handleToggleEnabled}
-                                updatingRules={updatingRules}
-                                activityById={activityById}
-                                activityGroups={activityGroups}
-                                winningRuleIds={winningRuleIds}
-                                ruleInsightsById={ruleInsightsById}
+                                action={
+                                    !searchTerm ? (
+                                        <Button
+                                            variant="primary"
+                                            onClick={() => void handleCreateRule()}
+                                            disabled={isCreating}
+                                            loading={isCreating}
+                                        >
+                                            + Crea la prima regola
+                                        </Button>
+                                    ) : undefined
+                                }
                             />
-                        ))}
+                        ) : (
+                            <div className={styles.groupedList}>
+                                {activeRules.length > 0 && (
+                                    <RuleBlock title="In esecuzione" count={activeRules.length}>
+                                        {activeRules.map(rule => (
+                                            <RuleRow
+                                                key={rule.id}
+                                                rule={rule}
+                                                isSelected={selectedRuleIds.has(rule.id)}
+                                                insight={ruleInsightsById.get(rule.id)}
+                                                isUpdating={updatingRules.has(rule.id)}
+                                                activityById={activityById}
+                                                activityGroups={activityGroups}
+                                                onSelect={handleSelectionChange}
+                                                onClick={r => navigate(`/business/${currentTenantId}/scheduling/${r.id}`)}
+                                                onDelete={id => { setRuleToDelete(id); setIsDeleteModalOpen(true); }}
+                                                onToggleEnabled={handleToggleEnabled}
+                                            />
+                                        ))}
+                                    </RuleBlock>
+                                )}
+
+                                {scheduledRules.length > 0 && (
+                                    <RuleBlock title="Programmate" count={scheduledRules.length}>
+                                        {scheduledRules.map(rule => (
+                                            <RuleRow
+                                                key={rule.id}
+                                                rule={rule}
+                                                isSelected={selectedRuleIds.has(rule.id)}
+                                                insight={ruleInsightsById.get(rule.id)}
+                                                isUpdating={updatingRules.has(rule.id)}
+                                                activityById={activityById}
+                                                activityGroups={activityGroups}
+                                                onSelect={handleSelectionChange}
+                                                onClick={r => navigate(`/business/${currentTenantId}/scheduling/${r.id}`)}
+                                                onDelete={id => { setRuleToDelete(id); setIsDeleteModalOpen(true); }}
+                                                onToggleEnabled={handleToggleEnabled}
+                                            />
+                                        ))}
+                                    </RuleBlock>
+                                )}
+
+                                {disabledRules.length > 0 && (
+                                    <RuleBlock
+                                        title="Disabilitate"
+                                        count={disabledRules.length}
+                                        collapsible
+                                        open={showDisabled}
+                                        onToggle={setShowDisabled}
+                                    >
+                                        {disabledRules.map(rule => (
+                                            <RuleRow
+                                                key={rule.id}
+                                                rule={rule}
+                                                isSelected={selectedRuleIds.has(rule.id)}
+                                                insight={ruleInsightsById.get(rule.id)}
+                                                isUpdating={updatingRules.has(rule.id)}
+                                                activityById={activityById}
+                                                activityGroups={activityGroups}
+                                                onSelect={handleSelectionChange}
+                                                onClick={r => navigate(`/business/${currentTenantId}/scheduling/${r.id}`)}
+                                                onDelete={id => { setRuleToDelete(id); setIsDeleteModalOpen(true); }}
+                                                onToggleEnabled={handleToggleEnabled}
+                                            />
+                                        ))}
+                                    </RuleBlock>
+                                )}
+
+                                {expiredRules.length > 0 && (
+                                    <RuleBlock
+                                        title="Scadute"
+                                        count={expiredRules.length}
+                                        collapsible
+                                        open={showExpired}
+                                        onToggle={setShowExpired}
+                                    >
+                                        {expiredRules.map(rule => (
+                                            <RuleRow
+                                                key={rule.id}
+                                                rule={rule}
+                                                isSelected={selectedRuleIds.has(rule.id)}
+                                                insight={ruleInsightsById.get(rule.id)}
+                                                isUpdating={updatingRules.has(rule.id)}
+                                                activityById={activityById}
+                                                activityGroups={activityGroups}
+                                                onSelect={handleSelectionChange}
+                                                onClick={r => navigate(`/business/${currentTenantId}/scheduling/${r.id}`)}
+                                                onDelete={id => { setRuleToDelete(id); setIsDeleteModalOpen(true); }}
+                                                onToggleEnabled={handleToggleEnabled}
+                                            />
+                                        ))}
+                                    </RuleBlock>
+                                )}
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </>
+            ) : (
+                <CalendarView
+                    rules={rules}
+                    onRuleClick={rule =>
+                        navigate(`/business/${currentTenantId}/scheduling/${rule.id}`)
+                    }
+                />
+            )}
 
             <BulkBar
                 selectedCount={selectedRuleIds.size}
@@ -1239,22 +1130,23 @@ export default function Programming() {
                             >
                                 Chiudi
                             </Button>
-                            <Button
-                                variant="primary"
-                                onClick={() => {
-                                    void runSimulation();
-                                    void runDailyTimeline();
-                                }}
-                                disabled={
-                                    !simActivityId ||
-                                    !simDateTime ||
-                                    isSimLoading ||
-                                    isDailyTimelineLoading
-                                }
-                                loading={isSimLoading || isDailyTimelineLoading}
-                            >
-                                Aggiorna simulazione
-                            </Button>
+                            {(() => {
+                                const selectedActivity = activities.find(a => a.id === simActivityId);
+                                const activitySlug = selectedActivity?.slug;
+                                if (!simResult || !activitySlug || !simDateTime) return null;
+                                return (
+                                    <Button
+                                        variant="primary"
+                                        onClick={() => {
+                                            const simDate = new Date(simDateTime);
+                                            const url = `/${activitySlug}?simulate=${simDate.toISOString()}`;
+                                            window.open(url, "_blank");
+                                        }}
+                                    >
+                                        Visualizza anteprima →
+                                    </Button>
+                                );
+                            })()}
                         </>
                     }
                 >
@@ -1303,278 +1195,153 @@ export default function Programming() {
                             </div>
                         ) : simResult ? (
                             <div className={styles.simResultBlock}>
-                                {simulationAlerts.length > 0 && (
-                                    <div className={styles.simAlertsBlock}>
-                                        <div className={styles.simAlertsHeader}>
-                                            <Text variant="caption" weight={700}>
-                                                Alert simulazione ({displayedSimulationAlerts.length}/
-                                                {simulationAlerts.length})
+                                <div className={styles.simResultGrid}>
+                                    <div className={styles.simResultCard}>
+                                        <Text variant="caption" colorVariant="muted">
+                                            Catalogo
+                                        </Text>
+                                        <Text variant="body-sm" weight={700}>
+                                            {simResult.layout.catalogId
+                                                ? (catalogById.get(simResult.layout.catalogId)?.name ??
+                                                  simResult.layout.catalogId)
+                                                : "Nessun catalogo attivo"}
+                                        </Text>
+                                        {simResult.layout.scheduleId && (
+                                            <Text variant="caption" colorVariant="muted">
+                                                via{" "}
+                                                {rules.find(rule => rule.id === simResult.layout.scheduleId)
+                                                    ?.name ?? simResult.layout.scheduleId}
                                             </Text>
-                                            <div className={styles.simAlertsToggle}>
-                                                <Switch
-                                                    checked={simShowWarningsOnly}
-                                                    onChange={setSimShowWarningsOnly}
-                                                />
-                                                <Text variant="caption" colorVariant="muted">
-                                                    Mostra solo warning
-                                                </Text>
-                                            </div>
-                                        </div>
+                                        )}
+                                    </div>
 
-                                        {displayedSimulationAlerts.length > 0 ? (
-                                            displayedSimulationAlerts.map(alert => (
-                                                <div
-                                                    key={alert.id}
-                                                    className={`${styles.simAlertCard} ${
-                                                        alert.type === "warning"
-                                                            ? styles.simAlertWarning
-                                                            : styles.simAlertInfo
-                                                    }`}
-                                                >
-                                                    <Text
-                                                        variant="caption"
-                                                        colorVariant={
-                                                            alert.type === "warning"
-                                                                ? "error"
-                                                                : "muted"
-                                                        }
-                                                    >
-                                                        {alert.message}
-                                                    </Text>
-                                                </div>
-                                            ))
+                                    <div className={styles.simResultCard}>
+                                        <Text variant="caption" colorVariant="muted">
+                                            Prezzi
+                                        </Text>
+                                        <Text variant="body-sm" weight={700}>
+                                            {simResult.priceRuleId
+                                                ? (rules.find(rule => rule.id === simResult.priceRuleId)
+                                                      ?.name ?? simResult.priceRuleId)
+                                                : "Nessuna regola attiva"}
+                                        </Text>
+                                    </div>
+
+                                    <div className={styles.simResultCard}>
+                                        <Text variant="caption" colorVariant="muted">
+                                            Visibilità
+                                        </Text>
+                                        <Text variant="body-sm" weight={700}>
+                                            {simResult.visibilityRule?.scheduleId
+                                                ? (rules.find(
+                                                      rule => rule.id === simResult.visibilityRule?.scheduleId
+                                                  )?.name ?? simResult.visibilityRule.scheduleId)
+                                                : "Nessuna regola attiva"}
+                                        </Text>
+                                        {simResult.visibilityRule?.mode && (
+                                            <Text variant="caption" colorVariant="muted">
+                                                {formatVisibilityMode(simResult.visibilityRule.mode, true)}
+                                            </Text>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    className={styles.simTimelineToggle}
+                                    onClick={() => setSimTimelineOpen(prev => !prev)}
+                                    aria-expanded={simTimelineOpen}
+                                >
+                                    <ChevronDown
+                                        size={14}
+                                        className={simTimelineOpen ? styles.simTimelineChevronOpen : styles.simTimelineChevronClosed}
+                                    />
+                                    <Text variant="body-sm" weight={600} as="span">
+                                        Andamento giornaliero
+                                    </Text>
+                                    {isDailyTimelineLoading && (
+                                        <Loader2 size={12} className={styles.miniLoader} />
+                                    )}
+                                </button>
+
+                                {simTimelineOpen && (
+                                    <div className={styles.simTimelineContent}>
+                                        {isDailyTimelineLoading ? (
+                                            <Text variant="caption" colorVariant="muted">
+                                                Calcolo andamento giornaliero...
+                                            </Text>
+                                        ) : dailyTimelineError ? (
+                                            <Text variant="caption" colorVariant="error">
+                                                {dailyTimelineError}
+                                            </Text>
+                                        ) : dailyTimelineBlocks.length === 0 ||
+                                          !hasAnyRuleActiveInDay ? (
+                                            <Text variant="caption" colorVariant="muted">
+                                                Nessuna regola attiva durante la giornata.
+                                            </Text>
                                         ) : (
-                                            <div className={styles.simAlertCard}>
-                                                <Text variant="caption" colorVariant="muted">
-                                                    Nessun warning da mostrare con il filtro attivo.
-                                                </Text>
+                                            <div className={styles.timelineList}>
+                                                {dailyTimelineBlocks.map((block, index) => {
+                                                    const layoutName = block.layoutCatalogId
+                                                        ? (catalogById.get(block.layoutCatalogId)?.name ??
+                                                          block.layoutCatalogId)
+                                                        : "Nessun catalogo";
+                                                    const layoutClassName = block.layoutCatalogId
+                                                        ? styles.timelineBlockActive
+                                                        : styles.timelineBlockNoLayout;
+                                                    const visibilityBadgeClassName =
+                                                        block.visibilityMode === "disable"
+                                                            ? styles.timelineBadgeDisable
+                                                            : block.visibilityMode === "hide"
+                                                              ? styles.timelineBadgeHide
+                                                              : styles.timelineBadgeNeutral;
+
+                                                    return (
+                                                        <div
+                                                            key={`${block.startMinutes}-${block.endMinutes}-${index}`}
+                                                            className={`${styles.timelineBlock} ${layoutClassName}`}
+                                                        >
+                                                            <Text variant="caption" weight={700}>
+                                                                {formatMinutesToHourLabel(
+                                                                    block.startMinutes
+                                                                )}
+                                                                –{formatMinutesToHourLabel(block.endMinutes)}
+                                                            </Text>
+                                                            <Text variant="body-sm" weight={600}>
+                                                                {layoutName}
+                                                            </Text>
+                                                            <div className={styles.timelineBadges}>
+                                                                <span className={styles.timelineBadgeNeutral}>
+                                                                    Spec:{" "}
+                                                                    {getSpecificityLabel(
+                                                                        block.layoutSpecificity
+                                                                    )}
+                                                                </span>
+                                                                <span className={visibilityBadgeClassName}>
+                                                                    Visibilità:{" "}
+                                                                    {block.visibilityMode === "hide"
+                                                                        ? "Nasconde"
+                                                                        : block.visibilityMode === "disable"
+                                                                          ? "Non disponibile"
+                                                                          : "Nessuna"}
+                                                                </span>
+                                                                {block.priceRuleId && (
+                                                                    <span
+                                                                        className={
+                                                                            styles.timelineBadgeNeutral
+                                                                        }
+                                                                    >
+                                                                        Prezzi attivi
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>
                                 )}
-
-                                <div className={styles.simResultCard}>
-                                    <Text variant="caption" colorVariant="muted">
-                                        Layout/Catalog attivo
-                                    </Text>
-                                    <Text variant="body-sm" weight={700}>
-                                        {simResult.layout.catalogId
-                                            ? (catalogById.get(simResult.layout.catalogId)?.name ??
-                                              simResult.layout.catalogId)
-                                            : "Nessun catalogo attivo"}
-                                    </Text>
-                                    <Text variant="caption" colorVariant="muted">
-                                        Regola:{" "}
-                                        {simResult.layout.scheduleId
-                                            ? (rules.find(rule => rule.id === simResult.layout.scheduleId)
-                                                  ?.name ?? simResult.layout.scheduleId)
-                                            : "Nessuna"}
-                                    </Text>
-                                </div>
-
-                                <div className={styles.simResultCard}>
-                                    <Text variant="caption" colorVariant="muted">
-                                        Price rule attiva
-                                    </Text>
-                                    <Text variant="body-sm" weight={700}>
-                                        {simResult.priceRuleId
-                                            ? (rules.find(rule => rule.id === simResult.priceRuleId)
-                                                  ?.name ?? simResult.priceRuleId)
-                                            : "Nessuna"}
-                                    </Text>
-                                </div>
-
-                                <div className={styles.simResultCard}>
-                                    <Text variant="caption" colorVariant="muted">
-                                        Visibility rule attiva
-                                    </Text>
-                                    <Text variant="body-sm" weight={700}>
-                                        {simResult.visibilityRule?.scheduleId
-                                            ? (rules.find(
-                                                  rule => rule.id === simResult.visibilityRule?.scheduleId
-                                              )?.name ?? simResult.visibilityRule.scheduleId)
-                                            : "Nessuna"}
-                                    </Text>
-                                    <Text variant="caption" colorVariant="muted">
-                                        Mode: {simResult.visibilityRule?.mode ?? "-"}
-                                    </Text>
-                                </div>
-
-                                <div className={styles.simWhyCard}>
-                                    <Text variant="body-sm" weight={700}>
-                                        Perché ha vinto
-                                    </Text>
-                                    <Text variant="caption" colorVariant="muted">
-                                        Ordinamento runtime: specificità target (activity {" > "}
-                                        activity_group {" > "} apply_to_all), poi priority ASC,
-                                        created_at ASC, id ASC.
-                                    </Text>
-                                    <Text variant="caption" colorVariant="muted">
-                                        Specificità selezionate — Layout:{" "}
-                                        {getSpecificityLabel(
-                                            simResult.debug?.selectedLayoutRuleSpecificity ?? null
-                                        )}
-                                        , Price:{" "}
-                                        {getSpecificityLabel(
-                                            simResult.debug?.selectedPriceRuleSpecificity ?? null
-                                        )}
-                                        , Visibility:{" "}
-                                        {getSpecificityLabel(
-                                            simResult.debug?.selectedVisibilityRuleSpecificity ?? null
-                                        )}
-                                    </Text>
-                                    <Text variant="caption" colorVariant="muted">
-                                        Candidati valutati: {simResult.debug?.candidatesCount ?? 0}
-                                    </Text>
-                                </div>
-
-                                {simulationExplanation && (
-                                    <>
-                                        {([
-                                            ["layout", "Layout"],
-                                            ["price", "Prezzi"],
-                                            ["visibility", "Visibilità"]
-                                        ] as Array<[RuleType, string]>).map(([type, label]) => {
-                                            const explain = simulationExplanation[type];
-                                            return (
-                                                <div key={type} className={styles.simWhyCard}>
-                                                    <Text variant="body-sm" weight={700}>
-                                                        {label}: dettaglio decisione
-                                                    </Text>
-                                                    <Text variant="caption" colorVariant="muted">
-                                                        Vincente:{" "}
-                                                        {explain.winner
-                                                            ? `${explain.winner.ruleName} · specificità ${getSpecificityLabel(
-                                                                  explain.winner.specificity
-                                                              )} · priorità ${explain.winner.priority}`
-                                                            : "Nessuna regola vincente"}
-                                                    </Text>
-                                                    {explain.discarded.length > 0 ? (
-                                                        <div className={styles.simDiscardList}>
-                                                            {explain.discarded.slice(0, 8).map(item => (
-                                                                <div
-                                                                    key={item.ruleId}
-                                                                    className={styles.simDiscardItem}
-                                                                >
-                                                                    <Text
-                                                                        variant="caption"
-                                                                        colorVariant="muted"
-                                                                    >
-                                                                        {item.ruleName} ·{" "}
-                                                                        {getSpecificityLabel(
-                                                                            item.specificity
-                                                                        )}{" "}
-                                                                        · P{item.priority} —{" "}
-                                                                        {item.reason}
-                                                                    </Text>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    ) : (
-                                                        <Text variant="caption" colorVariant="muted">
-                                                            Nessuna regola scartata.
-                                                        </Text>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </>
-                                )}
-
-                                {(() => {
-                                    const selectedActivity = activities.find(a => a.id === simActivityId);
-                                    const activitySlug = selectedActivity?.slug;
-                                    if (!activitySlug || !simDateTime) return null;
-                                    return (
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() => {
-                                                const simDate = new Date(simDateTime);
-                                                const url = `/${activitySlug}?simulate=${simDate.toISOString()}`;
-                                                window.open(url, "_blank");
-                                            }}
-                                        >
-                                            Apri anteprima →
-                                        </Button>
-                                    );
-                                })()}
-
-                                <div className={styles.simWhyCard}>
-                                    <Text variant="body-sm" weight={700}>
-                                        Andamento giornaliero
-                                    </Text>
-
-                                    {isDailyTimelineLoading ? (
-                                        <Text variant="caption" colorVariant="muted">
-                                            Calcolo andamento giornaliero...
-                                        </Text>
-                                    ) : dailyTimelineError ? (
-                                        <Text variant="caption" colorVariant="error">
-                                            {dailyTimelineError}
-                                        </Text>
-                                    ) : dailyTimelineBlocks.length === 0 ||
-                                      !hasAnyRuleActiveInDay ? (
-                                        <Text variant="caption" colorVariant="muted">
-                                            Nessuna regola attiva durante la giornata.
-                                        </Text>
-                                    ) : (
-                                        <div className={styles.timelineList}>
-                                            {dailyTimelineBlocks.map((block, index) => {
-                                                const layoutName = block.layoutCatalogId
-                                                    ? (catalogById.get(block.layoutCatalogId)?.name ??
-                                                      block.layoutCatalogId)
-                                                    : "Nessun catalogo";
-                                                const layoutClassName = block.layoutCatalogId
-                                                    ? styles.timelineBlockActive
-                                                    : styles.timelineBlockNoLayout;
-                                                const visibilityBadgeClassName =
-                                                    block.visibilityMode === "disable"
-                                                        ? styles.timelineBadgeDisable
-                                                        : block.visibilityMode === "hide"
-                                                          ? styles.timelineBadgeHide
-                                                          : styles.timelineBadgeNeutral;
-
-                                                return (
-                                                    <div
-                                                        key={`${block.startMinutes}-${block.endMinutes}-${index}`}
-                                                        className={`${styles.timelineBlock} ${layoutClassName}`}
-                                                    >
-                                                        <Text variant="caption" weight={700}>
-                                                            {formatMinutesToHourLabel(
-                                                                block.startMinutes
-                                                            )}
-                                                            –{formatMinutesToHourLabel(block.endMinutes)}
-                                                        </Text>
-                                                        <Text variant="body-sm" weight={600}>
-                                                            {layoutName}
-                                                        </Text>
-                                                        <div className={styles.timelineBadges}>
-                                                            <span className={styles.timelineBadgeNeutral}>
-                                                                Spec:{" "}
-                                                                {getSpecificityLabel(
-                                                                    block.layoutSpecificity
-                                                                )}
-                                                            </span>
-                                                            <span className={visibilityBadgeClassName}>
-                                                                Visibilità:{" "}
-                                                                {block.visibilityMode ?? "Nessuna"}
-                                                            </span>
-                                                            {block.priceRuleId && (
-                                                                <span
-                                                                    className={
-                                                                        styles.timelineBadgeNeutral
-                                                                    }
-                                                                >
-                                                                    Prezzi attivi
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
                             </div>
                         ) : null}
                     </div>

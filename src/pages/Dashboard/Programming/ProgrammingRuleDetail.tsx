@@ -18,15 +18,12 @@ import {
     type ProductGroupAssignmentOption
 } from "@/services/supabase/layoutScheduling";
 import { parseDecimalPrice } from "@/utils/priceParser";
-import { computePriority } from "@utils/priorityUtils";
-import type { PriorityLevel } from "@utils/priorityUtils";
 import styles from "./ProgrammingRuleDetail.module.scss";
 
 // Componentes
 import { TargetSection, type TargetMode } from "./components/TargetSection";
 import { AssociatedContentSection, type FeaturedContentItem } from "./components/AssociatedContentSection";
 import { SchedulingSection } from "./components/SchedulingSection";
-import { PrioritySection } from "./components/PrioritySection";
 
 type RuleDetailForm = {
     name: string;
@@ -47,8 +44,6 @@ type RuleDetailForm = {
         }
     >;
     visibilityProductModes: Record<string, VisibilityMode>;
-    priorityLevel: PriorityLevel;
-    displayOrder: number;
     enabled: boolean;
     alwaysActive: boolean;
     timeMode: LayoutTimeMode;
@@ -148,8 +143,6 @@ function buildForm(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>
         selectedProductIds,
         productOverrides,
         visibilityProductModes,
-        priorityLevel: rule.priority_level,
-        displayOrder: rule.display_order,
         enabled: rule.enabled,
         alwaysActive: rule.time_mode === "always",
         timeMode: rule.time_mode,
@@ -320,8 +313,6 @@ export default function ProgrammingRuleDetail() {
             return;
         }
 
-        const priority = computePriority(form.priorityLevel, form.displayOrder);
-
         const hasDays = form.daysOfWeek.length > 0;
         const hasBothTimes = Boolean(form.timeFrom && form.timeTo);
         const hasSingleTime = Boolean(form.timeFrom) !== Boolean(form.timeTo);
@@ -478,8 +469,6 @@ export default function ProgrammingRuleDetail() {
                 groupIds: form.groupIds,
                 targetType,
                 targetId,
-                priorityLevel: form.priorityLevel,
-                displayOrder: form.displayOrder,
                 enabled: form.enabled,
                 timeMode: form.timeMode,
                 daysOfWeek:
@@ -595,7 +584,7 @@ export default function ProgrammingRuleDetail() {
                 />
             </div>
 
-            <form id="rule-detail-form" className={styles.layout} onSubmit={handleSubmit}>
+            <form id="rule-detail-form" className={styles.formLayout} onSubmit={handleSubmit}>
                 <div className={styles.formColumnLeft}>
                     <TargetSection
                         name={form.name}
@@ -633,12 +622,6 @@ export default function ProgrammingRuleDetail() {
                         daysOfWeek={form.daysOfWeek}
                         timeFrom={form.timeFrom}
                         timeTo={form.timeTo}
-                        onFormChange={handleFormChange}
-                    />
-
-                    <PrioritySection
-                        priorityLevel={form.priorityLevel}
-                        enabled={form.enabled}
                         onFormChange={handleFormChange}
                     />
                 </div>
