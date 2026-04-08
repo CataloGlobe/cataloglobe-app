@@ -1,4 +1,26 @@
+// ⚠️ SYNC: questo file è duplicato. L'altra copia è in src/services/supabase/scheduleResolver.ts.
+// Qualsiasi modifica va replicata in ENTRAMBI i file.
+
 export type VisibilityMode = "hide" | "disable";
+
+/**
+ * Rome wall-clock instant. Defined inline to keep both resolver copies
+ * byte-identical without a cross-module import.
+ * Primary source of truth: schedulingNow.ts (RomeDateTime).
+ */
+type RomeDateTime = {
+    /** True UTC epoch — use for start_at/end_at comparisons. */
+    epoch: number;
+    year: number;
+    /** 0-based. */
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+    second: number;
+    /** 0 = domenica … 6 = sabato. */
+    dayOfWeek: number;
+};
 
 type RuleType = "layout" | "price" | "visibility";
 type RuleSpecificity = 0 | 1 | 2;
@@ -78,7 +100,7 @@ type SupabaseLike = {
 export type ResolveRulesForActivityParams = {
     supabase: SupabaseLike;
     activityId: string;
-    now: Date;
+    now: RomeDateTime;
     includeLayoutStyle?: boolean;
     ruleTypes?: RuleType[];
 };
@@ -165,32 +187,49 @@ function compareByPriorityThenCreatedThenId(a: TimeRuleRow, b: TimeRuleRow): num
     return a.id.localeCompare(b.id);
 }
 
+function temporalScore(rule: TimeRuleRow): number {
+    let score = 0;
+    if (rule.start_at || rule.end_at) score += 4;
+    if (rule.time_from && rule.time_to) score += 2;
+    if (rule.days_of_week && rule.days_of_week.length > 0) score += 1;
+    return score;
+}
+
 function compareSpecificityFirst(a: CandidateRuleRow, b: CandidateRuleRow): number {
+    // 1. Specificità target (activity > group > all)
     if (a.specificity !== b.specificity) {
         return b.specificity - a.specificity;
     }
+    // 2. Specificità temporale (più vincoli = più specifico)
+    const tA = temporalScore(a);
+    const tB = temporalScore(b);
+    if (tA !== tB) return tB - tA;
+    // 3. Priority numerico (tiebreaker legacy)
     return compareByPriorityThenCreatedThenId(a, b);
 }
 
 export function isTimeRuleActiveNow(
     rule: Pick<TimeRuleRow, "time_mode" | "days_of_week" | "time_from" | "time_to" | "start_at" | "end_at">,
-    now: Date
+    now: RomeDateTime
 ): boolean {
     if (rule.start_at || rule.end_at) {
-        const nowTime = now.getTime();
-        if (rule.start_at && nowTime < new Date(rule.start_at).getTime()) {
+        if (rule.start_at && now.epoch < new Date(rule.start_at).getTime()) {
             return false;
         }
-        if (rule.end_at && nowTime >= new Date(rule.end_at).getTime()) {
+        if (rule.end_at && now.epoch >= new Date(rule.end_at).getTime()) {
+            return false;
+        }
+        // Window rules with start_at but no end_at are open-ended date ranges —
+        // exclude them to prevent stale rules from winning indefinitely via temporal score.
+        if (rule.time_mode === "window" && rule.start_at && !rule.end_at) {
             return false;
         }
     }
 
     if (rule.time_mode === "always") return true;
 
-    const day = now.getDay();
-    const nowMinutes = toMinutes(now.toTimeString().slice(0, 5));
-    if (nowMinutes === null) return false;
+    const day = now.dayOfWeek;
+    const nowMinutes = now.hour * 60 + now.minute;
 
     if (rule.days_of_week !== null && !rule.days_of_week.includes(day)) {
         return false;
@@ -393,6 +432,8 @@ function buildLayoutSelect(includeLayoutStyle: boolean): string {
             days_of_week,
             time_from,
             time_to,
+            start_at,
+            end_at,
             layout:schedule_layout!schedule_layout_schedule_id_fkey(
                 catalog_id
             )
@@ -407,6 +448,8 @@ function buildLayoutSelect(includeLayoutStyle: boolean): string {
         days_of_week,
         time_from,
         time_to,
+        start_at,
+        end_at,
         layout:schedule_layout!schedule_layout_schedule_id_fkey(
             catalog_id,
             style:styles(

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolveRulesForActivity as resolveWebRules } from "@/services/supabase/scheduleResolver";
 import { resolveRulesForActivity as resolveEdgeRules } from "../../../supabase/functions/_shared/scheduleResolver";
+import { toRomeDateTime, type RomeDateTime } from "@/services/supabase/schedulingNow";
 
 type TableRows = Record<string, Array<Record<string, unknown>>>;
 type UiRuleType = "layout" | "price" | "visibility";
@@ -119,7 +120,7 @@ function buildSchedule(
 async function resolveIds(params: {
     tables: TableRows;
     activityId: string;
-    now: Date;
+    now: RomeDateTime;
 }) {
     const fakeSupabase = createFakeSupabase(params.tables);
     const web = await resolveWebRules({
@@ -170,7 +171,7 @@ describe("Scheduling consistency contract", () => {
             ]
         };
 
-        const now = new Date("2026-03-26T12:00:00.000Z");
+        const now = toRomeDateTime(new Date("2026-03-26T12:00:00.000Z"));
         const { web, edge } = await resolveIds({ tables, activityId: "activity-1", now });
 
         expect(web).toEqual(edge);
@@ -208,7 +209,7 @@ describe("Scheduling consistency contract", () => {
             ]
         };
 
-        const now = new Date("2026-03-26T12:00:00.000Z");
+        const now = toRomeDateTime(new Date("2026-03-26T12:00:00.000Z"));
         const { web, edge } = await resolveIds({ tables, activityId: "activity-1", now });
 
         expect(web.layout.scheduleId).toBe("activity-layout");
@@ -243,7 +244,7 @@ describe("Scheduling consistency contract", () => {
             ]
         };
 
-        const now = new Date("2026-03-26T12:00:00.000Z");
+        const now = toRomeDateTime(new Date("2026-03-26T12:00:00.000Z"));
         const { web } = await resolveIds({ tables, activityId: "activity-1", now });
 
         expect(web.layout.scheduleId).toBe("layout-old");
