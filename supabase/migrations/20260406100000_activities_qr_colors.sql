@@ -1,0 +1,3 @@
+ALTER TABLE activities
+  ADD COLUMN qr_fg_color TEXT NULL DEFAULT '#000000',
+  ADD COLUMN qr_bg_color TEXT NULL DEFAULT '#FFFFFF';
