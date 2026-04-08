@@ -71,14 +71,14 @@ export function FeaturedIdentityForm({
         <form id={formId} onSubmit={handleSubmit}>
             <div className={styles.formFields}>
                 <TextInput
-                    label="Titolo pubblico *"
+                    label="Titolo pubblico"
                     required
                     value={title}
                     onChange={e => setTitle(e.target.value)}
                     placeholder="Es: Promozione speciale"
                 />
                 <TextInput
-                    label="Nome interno *"
+                    label="Nome interno"
                     required
                     value={internalName}
                     onChange={e => setInternalName(e.target.value)}

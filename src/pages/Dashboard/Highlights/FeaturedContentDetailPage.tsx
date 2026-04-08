@@ -24,10 +24,19 @@ import { FeaturedPricingModeDrawer } from "./components/FeaturedPricingModeDrawe
 import { FeaturedCtaDrawer } from "./components/FeaturedCtaDrawer";
 import styles from "./FeaturedContentDetailPage.module.scss";
 
-const PRICING_MODE_LABELS: Record<FeaturedContentPricingMode, string> = {
-    none: "Solo informativo",
-    per_item: "Con prodotti",
-    bundle: "Prezzo fisso"
+const PRICING_MODE_INFO: Record<FeaturedContentPricingMode, { label: string; description: string }> = {
+    none: {
+        label: "Solo informativo",
+        description: "Banner editoriale senza listino prezzi. Titolo, testo e CTA."
+    },
+    per_item: {
+        label: "Con prodotti",
+        description: "Mostra una lista di prodotti con il loro prezzo singolo."
+    },
+    bundle: {
+        label: "Prezzo fisso",
+        description: "Aggrega prodotti con un unico prezzo bundle definito da te."
+    }
 };
 
 export default function FeaturedContentDetailPage() {
@@ -130,11 +139,11 @@ export default function FeaturedContentDetailPage() {
                     <Button
                         variant="ghost"
                         size="sm"
+                        leftIcon={<Pencil size={14} />}
                         onClick={() => setIsIdentityDrawerOpen(true)}
                         disabled={loading}
                     >
-                        <Pencil size={14} />
-                        {" "}Modifica
+                        Modifica
                     </Button>
                 </div>
                 <div className={styles.readOnlyGrid}>
@@ -172,11 +181,11 @@ export default function FeaturedContentDetailPage() {
                     <Button
                         variant="ghost"
                         size="sm"
+                        leftIcon={<Pencil size={14} />}
                         onClick={() => setIsMediaDrawerOpen(true)}
                         disabled={loading}
                     >
-                        <Pencil size={14} />
-                        {" "}Modifica
+                        Modifica
                     </Button>
                 </div>
                 {content?.media_id ? (
@@ -202,33 +211,39 @@ export default function FeaturedContentDetailPage() {
                     <Button
                         variant="ghost"
                         size="sm"
+                        leftIcon={<Pencil size={14} />}
                         onClick={() => setIsPricingDrawerOpen(true)}
                         disabled={loading}
                     >
-                        <Pencil size={14} />
-                        {" "}Modifica
+                        Modifica
                     </Button>
                 </div>
-                <div className={styles.pricingModeRow}>
-                    <span className={styles.pricingModeLabel}>
-                        {content ? PRICING_MODE_LABELS[content.pricing_mode] : "—"}
-                    </span>
-                    {content?.pricing_mode === "bundle" &&
-                        content.bundle_price != null && (
-                            <span className={styles.pricingModeDetail}>
-                                Prezzo:{" "}
-                                {new Intl.NumberFormat("it-IT", {
-                                    style: "currency",
-                                    currency: "EUR"
-                                }).format(content.bundle_price)}
-                            </span>
-                        )}
-                    {content?.pricing_mode === "bundle" && content.show_original_total && (
-                        <span className={styles.pricingModeDetail}>
-                            Mostra totale originale: Sì
+                {content && (
+                    <div className={styles.pricingModeCard}>
+                        <span className={styles.pricingModeCardLabel}>
+                            {PRICING_MODE_INFO[content.pricing_mode].label}
                         </span>
-                    )}
-                </div>
+                        <span className={styles.pricingModeCardDescription}>
+                            {PRICING_MODE_INFO[content.pricing_mode].description}
+                        </span>
+                        {content.pricing_mode === "bundle" && content.bundle_price != null && (
+                            <div className={styles.pricingModeBundleDetails}>
+                                <span className={styles.pricingModeBundleDetail}>
+                                    Prezzo bundle:{" "}
+                                    {new Intl.NumberFormat("it-IT", {
+                                        style: "currency",
+                                        currency: "EUR"
+                                    }).format(content.bundle_price)}
+                                </span>
+                                {content.show_original_total && (
+                                    <span className={styles.pricingModeBundleDetail}>
+                                        Mostra totale originale: Sì
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* ── Call to Action ───────────────────────────── */}
@@ -238,11 +253,11 @@ export default function FeaturedContentDetailPage() {
                     <Button
                         variant="ghost"
                         size="sm"
+                        leftIcon={<Pencil size={14} />}
                         onClick={() => setIsCtaDrawerOpen(true)}
                         disabled={loading}
                     >
-                        <Pencil size={14} />
-                        {" "}Modifica
+                        Modifica
                     </Button>
                 </div>
                 {content?.cta_text || content?.cta_url ? (

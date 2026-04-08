@@ -134,3 +134,39 @@
   font-size: 0.875rem;
   color: var(--text-muted);
 }
+
+.pricingModeCard {
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  border-radius: 8px;
+  padding: 14px 16px;
+  background: var(--surface-secondary, #f9fafb);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pricingModeCardLabel {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+
+.pricingModeCardDescription {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.pricingModeBundleDetails {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle, #e5e7eb);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pricingModeBundleDetail {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
