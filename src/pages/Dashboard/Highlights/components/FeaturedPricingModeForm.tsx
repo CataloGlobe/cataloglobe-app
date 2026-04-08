@@ -55,11 +55,13 @@ export function FeaturedPricingModeForm({
         entityData.bundle_price != null ? String(entityData.bundle_price) : ""
     );
     const [showOriginalTotal, setShowOriginalTotal] = useState(entityData.show_original_total);
+    const [showImages, setShowImages] = useState(entityData.layout_style === "with_images");
 
     useEffect(() => {
         setPricingMode(entityData.pricing_mode);
         setBundlePrice(entityData.bundle_price != null ? String(entityData.bundle_price) : "");
         setShowOriginalTotal(entityData.show_original_total);
+        setShowImages(entityData.layout_style === "with_images");
     }, [entityData]);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -75,10 +77,13 @@ export function FeaturedPricingModeForm({
         try {
             const bundlePriceNum =
                 pricingMode === "bundle" ? parseFloat(bundlePrice) : null;
+            const layoutStyle =
+                pricingMode !== "none" && showImages ? "with_images" : null;
             await updateFeaturedContent(entityData.id, tenantId, {
                 pricing_mode: pricingMode,
                 bundle_price: bundlePriceNum,
-                show_original_total: pricingMode === "bundle" ? showOriginalTotal : false
+                show_original_total: pricingMode === "bundle" ? showOriginalTotal : false,
+                layout_style: layoutStyle
             });
             showToast({ message: "Modalità aggiornata.", type: "success" });
             onSuccess();
@@ -126,6 +131,15 @@ export function FeaturedPricingModeForm({
                             onChange={setShowOriginalTotal}
                         />
                     </div>
+                )}
+
+                {pricingMode !== "none" && (
+                    <Switch
+                        label="Mostra immagini prodotti"
+                        description="Mostra le immagini dei prodotti nel contenuto in evidenza"
+                        checked={showImages}
+                        onChange={setShowImages}
+                    />
                 )}
             </div>
         </form>

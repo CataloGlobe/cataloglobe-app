@@ -70,6 +70,7 @@
   padding-top: 12px;
 }
 
+/* Row: [thumbnail?] [info flex:1] [price] */
 .productItem {
   display: flex;
   align-items: center;
@@ -77,9 +78,19 @@
   font-size: 0.9rem;
 }
 
-.productName {
+.productInfo {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.productName {
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .productNote {
@@ -91,6 +102,30 @@
   font-weight: 600;
   color: var(--pub-accent, #000);
   white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Thumbnails ──────────────────────────────────────────────────────────── */
+
+.productThumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 5px;
+  object-fit: cover;
+  display: block;
+  flex-shrink: 0;
+}
+
+.productThumbPlaceholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: rgba(0, 0, 0, 0.3);
 }
 
 .ctaButton {

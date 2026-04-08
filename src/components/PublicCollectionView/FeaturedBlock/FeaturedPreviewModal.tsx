@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { X } from "lucide-react";
+import { X, ImageIcon } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { V2FeaturedContent } from "@/services/supabase/resolveActivityCatalogs";
 import Text from "@/components/ui/Text/Text";
@@ -43,6 +43,8 @@ export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
     }, [isOpen, onClose]);
 
     if (!block) return null;
+
+    const showImages = block.layout_style === "with_images";
 
     const sortedProducts =
         block.pricing_mode !== "none"
@@ -154,39 +156,42 @@ export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
                                                     key={`${product.id}-${idx}`}
                                                     className={styles.productItem}
                                                 >
-                                                    <div className={styles.productMain}>
-                                                        <span className={styles.productName}>
-                                                            {product.name}
-                                                        </span>
-                                                        {item.note && (
-                                                            <span className={styles.productNote}>
-                                                                {item.note}
-                                                            </span>
+                                                    <div className={styles.productRow}>
+                                                        {showImages && (
+                                                            product.image_url ? (
+                                                                <img
+                                                                    src={product.image_url}
+                                                                    alt={product.name}
+                                                                    className={styles.productThumb}
+                                                                    loading="lazy"
+                                                                />
+                                                            ) : (
+                                                                <span className={styles.productThumbPlaceholder}>
+                                                                    <ImageIcon size={16} strokeWidth={1.5} />
+                                                                </span>
+                                                            )
                                                         )}
-                                                        {/* Prezzo singolo (per_item, senza varianti) */}
+                                                        <div className={styles.productInfo}>
+                                                            <span className={styles.productName}>
+                                                                {product.name}
+                                                            </span>
+                                                            {item.note && (
+                                                                <span className={styles.productNote}>
+                                                                    {item.note}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        {/* Prezzo (solo per_item, senza varianti) */}
                                                         {showPrice && !hasVariants &&
                                                             (product.is_from_price
                                                                 ? product.fromPrice != null && (
-                                                                      <span
-                                                                          className={
-                                                                              styles.productPrice
-                                                                          }
-                                                                      >
-                                                                          {"da " +
-                                                                              formatPrice(
-                                                                                  product.fromPrice
-                                                                              )}
+                                                                      <span className={styles.productPrice}>
+                                                                          {"da " + formatPrice(product.fromPrice)}
                                                                       </span>
                                                                   )
                                                                 : product.base_price != null && (
-                                                                      <span
-                                                                          className={
-                                                                              styles.productPrice
-                                                                          }
-                                                                      >
-                                                                          {formatPrice(
-                                                                              product.base_price
-                                                                          )}
+                                                                      <span className={styles.productPrice}>
+                                                                          {formatPrice(product.base_price)}
                                                                       </span>
                                                                   ))}
                                                     </div>
@@ -194,35 +199,23 @@ export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
                                                     {/* Varianti inline (PRIMARY_PRICE) */}
                                                     {showPrice && hasVariants && (
                                                         <ul className={styles.variantList}>
-                                                            {product.price_variants.map(
-                                                                (v, vIdx) => (
-                                                                    <li
-                                                                        key={vIdx}
-                                                                        className={styles.variantItem}
-                                                                    >
-                                                                        {v.name && (
-                                                                            <span
-                                                                                className={
-                                                                                    styles.variantName
-                                                                                }
-                                                                            >
-                                                                                {v.name}
-                                                                            </span>
-                                                                        )}
-                                                                        {v.absolute_price != null && (
-                                                                            <span
-                                                                                className={
-                                                                                    styles.variantPrice
-                                                                                }
-                                                                            >
-                                                                                {formatPrice(
-                                                                                    v.absolute_price
-                                                                                )}
-                                                                            </span>
-                                                                        )}
-                                                                    </li>
-                                                                )
-                                                            )}
+                                                            {product.price_variants.map((v, vIdx) => (
+                                                                <li
+                                                                    key={vIdx}
+                                                                    className={styles.variantItem}
+                                                                >
+                                                                    {v.name && (
+                                                                        <span className={styles.variantName}>
+                                                                            {v.name}
+                                                                        </span>
+                                                                    )}
+                                                                    {v.absolute_price != null && (
+                                                                        <span className={styles.variantPrice}>
+                                                                            {formatPrice(v.absolute_price)}
+                                                                        </span>
+                                                                    )}
+                                                                </li>
+                                                            ))}
                                                         </ul>
                                                     )}
                                                 </li>

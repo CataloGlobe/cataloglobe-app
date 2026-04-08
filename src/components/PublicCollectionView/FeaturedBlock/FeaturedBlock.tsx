@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ImageIcon } from "lucide-react";
 import styles from "./FeaturedBlock.module.scss";
 import type { V2FeaturedContent } from "@/services/supabase/resolveActivityCatalogs";
 import Text from "@/components/ui/Text/Text";
@@ -25,6 +26,8 @@ export default function FeaturedBlock({ blocks }: Props) {
         <>
         <div className={styles.container}>
             {blocks.map(block => {
+                const showImages = block.layout_style === "with_images";
+
                 const sortedProducts =
                     block.pricing_mode !== "none"
                         ? (block.products ?? [])
@@ -110,14 +113,30 @@ export default function FeaturedBlock({ blocks }: Props) {
                                             key={`${product.id}-${idx}`}
                                             className={styles.productItem}
                                         >
-                                            <span className={styles.productName}>
-                                                {product.name}
-                                            </span>
-                                            {item.note && (
-                                                <span className={styles.productNote}>
-                                                    {item.note}
-                                                </span>
+                                            {showImages && (
+                                                product.image_url ? (
+                                                    <img
+                                                        src={product.image_url}
+                                                        alt={product.name}
+                                                        className={styles.productThumb}
+                                                        loading="lazy"
+                                                    />
+                                                ) : (
+                                                    <span className={styles.productThumbPlaceholder}>
+                                                        <ImageIcon size={13} strokeWidth={1.5} />
+                                                    </span>
+                                                )
                                             )}
+                                            <div className={styles.productInfo}>
+                                                <span className={styles.productName}>
+                                                    {product.name}
+                                                </span>
+                                                {item.note && (
+                                                    <span className={styles.productNote}>
+                                                        {item.note}
+                                                    </span>
+                                                )}
+                                            </div>
                                             {/* Prezzo prodotto solo in per_item */}
                                             {block.pricing_mode === "per_item" &&
                                                 (product.is_from_price

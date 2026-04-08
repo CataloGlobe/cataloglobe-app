@@ -242,6 +242,12 @@ export default function FeaturedContentDetailPage() {
                                 )}
                             </div>
                         )}
+                        {content.pricing_mode !== "none" &&
+                            content.layout_style === "with_images" && (
+                                <span className={styles.pricingModeBundleDetail}>
+                                    Immagini prodotti: Sì
+                                </span>
+                            )}
                     </div>
                 )}
             </div>

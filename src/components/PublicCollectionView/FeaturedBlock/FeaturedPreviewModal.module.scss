@@ -113,34 +113,26 @@
   font-size: 0.9rem;
 }
 
-.productMain {
+/* Row: [thumbnail?] [info flex:1] [price] */
+.productRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
-.productBtn {
+.productInfo {
   flex: 1;
+  min-width: 0;
   display: flex;
-  align-items: center;
-  gap: 6px;
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  font-size: inherit;
-  font-family: inherit;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-
-  &:hover .productName {
-    text-decoration: underline;
-  }
+  flex-direction: column;
+  gap: 1px;
 }
 
 .productName {
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .productNote {
@@ -152,6 +144,30 @@
   font-weight: 600;
   color: var(--pub-accent, #000);
   white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Thumbnails ──────────────────────────────────────────────────────────── */
+
+.productThumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  display: block;
+  flex-shrink: 0;
+}
+
+.productThumbPlaceholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: rgba(0, 0, 0, 0.3);
 }
 
 /* ── Variant list ────────────────────────────────────────────────────────── */
