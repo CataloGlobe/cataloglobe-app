@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import styles from "./FeaturedBlock.module.scss";
 import type { V2FeaturedContent } from "@/services/supabase/resolveActivityCatalogs";
 import Text from "@/components/ui/Text/Text";
+import ItemDetail from "../ItemDetail/ItemDetail";
+import type { CollectionViewSectionItem } from "../CollectionView/CollectionView";
 
 type Props = {
     blocks: V2FeaturedContent[];
@@ -16,6 +18,8 @@ function formatPrice(price: number): string {
 }
 
 export default function FeaturedBlock({ blocks }: Props) {
+    const [selectedItem, setSelectedItem] = useState<CollectionViewSectionItem | null>(null);
+
     if (!blocks || blocks.length === 0) return null;
 
     return (
@@ -101,9 +105,25 @@ export default function FeaturedBlock({ blocks }: Props) {
                                             key={`${product.id}-${idx}`}
                                             className={styles.productItem}
                                         >
-                                            <span className={styles.productName}>
+                                            <button
+                                                type="button"
+                                                className={styles.productName}
+                                                onClick={() =>
+                                                    setSelectedItem({
+                                                        id: product.id,
+                                                        name: product.name,
+                                                        description: product.description ?? null,
+                                                        price: product.base_price ?? null,
+                                                        from_price: product.is_from_price
+                                                            ? (product.fromPrice ?? null)
+                                                            : null,
+                                                        image: product.media_id ?? null,
+                                                        parentSelected: true
+                                                    })
+                                                }
+                                            >
                                                 {product.name}
-                                            </span>
+                                            </button>
                                             {item.note && (
                                                 <span className={styles.productNote}>
                                                     {item.note}
@@ -143,5 +163,11 @@ export default function FeaturedBlock({ blocks }: Props) {
                 );
             })}
         </div>
+        <ItemDetail
+            item={selectedItem}
+            isOpen={!!selectedItem}
+            onClose={() => setSelectedItem(null)}
+            mode="public"
+        />
     );
 }

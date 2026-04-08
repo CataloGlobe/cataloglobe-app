@@ -67,7 +67,7 @@ export function FeaturedPricingModeForm({
         if (pricingMode === "bundle") {
             const price = parseFloat(bundlePrice);
             if (!Number.isFinite(price) || price <= 0) {
-                showToast({ message: "Inserisci un prezzo fisso valido (> 0).", type: "error" });
+                showToast({ message: "Inserisci il prezzo del bundle per salvare.", type: "error" });
                 return;
             }
         }

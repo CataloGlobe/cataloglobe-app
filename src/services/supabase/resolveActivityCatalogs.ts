@@ -142,6 +142,7 @@ export type V2FeaturedContent = {
             name: string;
             description: string | null;
             base_price: number | null;
+            media_id: string | null;
             fromPrice: number | null;
             is_from_price: boolean;
         } | null;
@@ -1508,6 +1509,7 @@ export async function resolveActivityCatalogs(
                             name,
                             description,
                             base_price,
+                            media_id,
                             option_groups:product_option_groups(
                                 group_kind,
                                 values:product_option_values(absolute_price)
@@ -1539,6 +1541,7 @@ export async function resolveActivityCatalogs(
                     name: string;
                     description: string | null;
                     base_price: number | null;
+                    media_id: string | null;
                     option_groups: Array<{
                         group_kind: string;
                         values: Array<{ absolute_price: number | null }>;
@@ -1563,6 +1566,7 @@ export async function resolveActivityCatalogs(
                                     name: p.product.name,
                                     description: p.product.description,
                                     base_price: p.product.base_price,
+                                    media_id: p.product.media_id,
                                     fromPrice,
                                     is_from_price
                                 }

@@ -66,6 +66,19 @@
 .productName {
   flex: 1;
   font-weight: 500;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: inherit;
+  font-family: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
 }
 
 .productNote {
@@ -95,4 +108,28 @@
   &:hover {
     opacity: 0.85;
   }
+}
+
+.mediaImage {
+  width: 100%;
+  border-radius: calc(var(--pub-card-radius, 12px) - 2px);
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.priceGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.originalPrice {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--pub-text-muted, #999);
+  text-decoration: line-through;
+  white-space: nowrap;
 }
