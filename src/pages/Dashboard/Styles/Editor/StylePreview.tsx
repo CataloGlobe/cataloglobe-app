@@ -11,7 +11,7 @@ import {
     type SectionNavShape
 } from "@/types/collectionStyle";
 import { useTenant } from "@/context/useTenant";
-import type { V2FeaturedContent } from "@/services/supabase/resolveActivityCatalogs";
+import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import previewStyles from "./StylePreview.module.scss";
 
 type StylePreviewProps = {
@@ -211,7 +211,7 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                         viewMode === "mobile"
                             ? previewStyles.deviceMobile
                             : previewStyles.deviceDesktop
-                    }`}
+                    } ${viewMode === "mobile" ? "preview-mobile" : "preview-desktop"}`}
                 >
                     <div className={previewStyles.deviceScreen} ref={setScreenEl}>
                         <CollectionView

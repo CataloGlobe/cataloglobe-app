@@ -1,0 +1,147 @@
+/* ── Root ───────────────────────────────────────────────────────────────── */
+
+.previewRoot {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  animation: stageFadeIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes stageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Toggle ─────────────────────────────────────────────────────────────── */
+
+.toggleBar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.07);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 0;
+  width: 184px;
+}
+
+.toggleIndicator {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  height: calc(100% - 6px);
+  background: #ffffff;
+  border-radius: 7px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  transition: left 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+.toggleIndicatorDesktop {
+  left: 50%;
+}
+
+.toggleBtn {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 0;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: color 0.15s ease;
+  border-radius: 6px;
+  letter-spacing: -0.01em;
+}
+
+.toggleBtnActive {
+  color: rgba(0, 0, 0, 0.85);
+  font-weight: 600;
+}
+
+/* ── Device Frame — shared base ─────────────────────────────────────────── */
+
+.deviceFrame {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition:
+    width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    border-radius 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: frameAppear 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+
+@keyframes frameAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── Mobile frame ───────────────────────────────────────────────────────── */
+
+.deviceMobile {
+  width: 375px;
+  max-height: 782px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Desktop frame ──────────────────────────────────────────────────────── */
+
+.deviceDesktop {
+  width: min(1024px, 100%);
+  max-height: 700px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Device Screen (scroll container) ──────────────────────────────────── */
+
+.deviceScreen {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #fff;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  &::after {
+    content: '';
+    display: block;
+    height: 80px;
+    flex-shrink: 0;
+  }
+}

@@ -35,12 +35,12 @@ export interface StyleTokenModel {
 // Default robust values to fallback to
 export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
     colors: {
-        pageBackground: "#f3f4f6",
+        pageBackground: "#FFFFFF",
         primary: "#6366f1",
-        headerBackground: "#ffffff",
-        textPrimary: "#0f172a",
-        textSecondary: "#64748b",
-        surface: "#ffffff",
+        headerBackground: "#6366f1",
+        textPrimary: "#1a1a2e",
+        textSecondary: "#6b7280",
+        surface: "#FFFFFF",
         border: "#f1f5f9"
     },
     typography: {
@@ -53,7 +53,7 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
         style: "pill"
     },
     card: {
-        layout: "grid",
+        layout: "list",
         radius: "rounded",
         image: {
             mode: "show",
@@ -140,7 +140,7 @@ export function parseTokens(rawJson: any): StyleTokenModel {
  * Serializes the UI Token Model back into the raw JSON config shape expected by the DB logic.
  * We can keep it flat or structured. As visual style system evolves, keeping a predictable structured schema is best.
  */
-export function serializeTokens(model: StyleTokenModel): any {
+export function serializeTokens(model: StyleTokenModel): Record<string, unknown> {
     return {
         colors: {
             pageBackground: model.colors.pageBackground,

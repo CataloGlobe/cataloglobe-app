@@ -6,98 +6,75 @@ import { useToast } from "@/context/Toast/ToastContext";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { Card } from "@/components/ui/Card/Card";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import { IconPalette } from "@tabler/icons-react";
+import { IconPalette, IconShieldCheck } from "@tabler/icons-react";
 import { TableRowActions, type TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
 import styles from "./Styles.module.scss";
 
 import { useNavigate } from "react-router-dom";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { listStyles, duplicateStyle, deleteStyle, V2Style } from "@/services/supabase/styles";
+import { parseTokens, DEFAULT_STYLE_TOKENS } from "./Editor/StyleTokenModel";
 import { StyleDeleteDrawer } from "./StyleDeleteDrawer";
 import { StyleCreateDrawer } from "./StyleCreateDrawer";
 
-type StyleListRow = V2Style & {
-    description?: string | null;
-    status?: string | null;
-};
-
-function resolveStyleDescription(style: StyleListRow): string | null {
-    if (typeof style.description === "string" && style.description.trim().length > 0) {
-        return style.description.trim();
-    }
-
-    const config = style.current_version?.config;
-    if (!config || typeof config !== "object") return null;
-
-    const raw = config as Record<string, unknown>;
-    if (typeof raw.description === "string" && raw.description.trim().length > 0) {
-        return raw.description.trim();
-    }
-
-    const meta = raw.meta;
-    if (meta && typeof meta === "object") {
-        const metaDescription = (meta as Record<string, unknown>).description;
-        if (typeof metaDescription === "string" && metaDescription.trim().length > 0) {
-            return metaDescription.trim();
-        }
-    }
-
-    return null;
-}
-
 function resolvePreviewColors(style: V2Style) {
-    const config = style.current_version?.config;
-    const raw = config && typeof config === "object" ? (config as Record<string, unknown>) : {};
-    const colors =
-        raw.colors && typeof raw.colors === "object" ? (raw.colors as Record<string, unknown>) : {};
-    const header =
-        raw.header && typeof raw.header === "object" ? (raw.header as Record<string, unknown>) : {};
-
-    const pageBackground =
-        typeof colors.pageBackground === "string"
-            ? colors.pageBackground
-            : typeof colors.background === "string"
-              ? colors.background
-              : "#f3f4f6";
-
-    const primary = typeof colors.primary === "string" ? colors.primary : "#6366f1";
-
-    const headerBackground =
-        typeof colors.headerBackground === "string"
-            ? colors.headerBackground
-            : typeof header.background === "string"
-              ? header.background
-              : "#ffffff";
-
-    return { pageBackground, primary, headerBackground };
-}
-
-function StyleMiniPreview({ style }: { style: V2Style }) {
-    const palette = resolvePreviewColors(style);
-
-    return (
-        <div className={styles.previewBox} aria-hidden="true">
-            <span
-                className={styles.previewHeaderBand}
-                style={{ backgroundColor: palette.headerBackground }}
-            />
-            <span
-                className={styles.previewBody}
-                style={{ backgroundColor: palette.pageBackground }}
-            />
-            <span className={styles.previewAccent} style={{ backgroundColor: palette.primary }} />
-        </div>
-    );
+    const tokens = style.current_version?.config
+        ? parseTokens(style.current_version.config)
+        : DEFAULT_STYLE_TOKENS;
+    return {
+        pageBackground: tokens.colors.pageBackground,
+        primary: tokens.colors.primary,
+        headerBackground: tokens.colors.headerBackground
+    };
 }
 
 function UsageBadge({ style }: { style: V2Style }) {
-    return (style.usage_count || 0) > 0 ? (
-        <Badge variant="warning">In uso ({style.usage_count})</Badge>
-    ) : (
-        <Badge variant="secondary">Non in uso</Badge>
+    const count = style.usage_count || 0;
+    if (count > 0) {
+        return (
+            <span className={styles.usageText}>
+                Usato in {count} {count === 1 ? "regola" : "regole"}
+            </span>
+        );
+    }
+    return <span className={styles.usageTextMuted}>Non utilizzato</span>;
+}
+
+function StyleCardPreview({ style, compact = false }: { style: V2Style; compact?: boolean }) {
+    const palette = resolvePreviewColors(style);
+    return (
+        <div
+            className={`${styles.cardPreviewBox} ${compact ? styles.cardPreviewBoxCompact : ""}`}
+            aria-hidden="true"
+        >
+            <div
+                className={styles.cardPreviewHeader}
+                style={{ backgroundColor: palette.headerBackground }}
+            />
+            <div
+                className={styles.cardPreviewBody}
+                style={{ backgroundColor: palette.pageBackground }}
+            >
+                <div className={styles.cardPreviewNav}>
+                    <span
+                        className={styles.cardPreviewNavPillActive}
+                        style={{ backgroundColor: palette.primary }}
+                    />
+                    <span className={styles.cardPreviewNavPillIdle} />
+                    <span className={styles.cardPreviewNavPillIdle} />
+                </div>
+                <div className={styles.cardPreviewContent}>
+                    <span className={styles.cardPreviewBlock} />
+                    <span className={styles.cardPreviewBlockNarrow} />
+                </div>
+                <span
+                    className={styles.cardPreviewCta}
+                    style={{ backgroundColor: palette.primary }}
+                />
+            </div>
+        </div>
     );
 }
 
@@ -113,7 +90,15 @@ export default function Styles() {
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState("");
-    const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+    const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
+        const saved = localStorage.getItem("cataloglobe-styles-view-mode");
+        return saved === "list" ? "list" : "grid";
+    });
+
+    const handleViewModeChange = useCallback((mode: "list" | "grid") => {
+        setViewMode(mode);
+        localStorage.setItem("cataloglobe-styles-view-mode", mode);
+    }, []);
 
     // Drawer States
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -245,7 +230,7 @@ export default function Styles() {
                 id: "preview",
                 header: "Anteprima",
                 width: "96px",
-                cell: (_value, style) => <StyleMiniPreview style={style} />
+                cell: (_value, style) => <StyleCardPreview style={style} compact />
             },
             {
                 id: "name",
@@ -264,7 +249,9 @@ export default function Styles() {
                                 <Text variant="body-sm" weight={600}>
                                     {style.name}
                                 </Text>
-                                {style.is_system && <Badge variant="primary">Default</Badge>}
+                                {style.is_system && (
+                                    <IconShieldCheck size={14} className={styles.systemIcon} />
+                                )}
                             </div>
                             <Text variant="caption" colorVariant="muted">
                                 Versione {style.current_version?.version || "0"}
@@ -274,33 +261,10 @@ export default function Styles() {
                 )
             },
             {
-                id: "description",
-                header: "Descrizione breve",
-                width: "1.6fr",
-                accessor: style => resolveStyleDescription(style as StyleListRow),
-                cell: value => {
-                    if (typeof value === "string" && value.trim().length > 0) {
-                        return (
-                            <Text variant="body-sm" className={styles.descriptionText}>
-                                {value}
-                            </Text>
-                        );
-                    }
-
-                    return (
-                        <Text variant="body-sm" colorVariant="muted">
-                            Nessuna descrizione
-                        </Text>
-                    );
-                }
-            },
-            {
                 id: "usage",
                 header: "Stato di utilizzo",
                 width: "0.95fr",
-                accessor: style =>
-                    (style as StyleListRow).status ??
-                    ((style.usage_count || 0) > 0 ? "in_use" : "unused"),
+                accessor: style => ((style.usage_count || 0) > 0 ? "in_use" : "unused"),
                 cell: (_value, style) => <UsageBadge style={style} />
             },
             {
@@ -349,14 +313,7 @@ export default function Styles() {
             />
 
             <div className={styles.content}>
-                <div
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "16px",
-                        marginBottom: "24px"
-                    }}
-                >
+                <div className={styles.filterBarRow}>
                     <FilterBar
                         search={{
                             value: searchQuery,
@@ -365,7 +322,7 @@ export default function Styles() {
                         }}
                         view={{
                             value: viewMode,
-                            onChange: setViewMode
+                            onChange: handleViewModeChange
                         }}
                         className={styles.filterBar}
                     />
@@ -375,57 +332,51 @@ export default function Styles() {
                     <Card className={styles.tableCard}>{loadingState}</Card>
                 ) : filteredStyles.length === 0 ? (
                     emptyState
-                ) : (
+                ) : viewMode === "list" ? (
                     <Card className={styles.tableCard}>
-                        {viewMode === "list" ? (
-                            <DataTable<V2Style>
-                                data={filteredStyles}
-                                columns={columns}
-                                selectable
-                                onBulkDelete={handleBulkDelete}
-                                emptyState={emptyState}
-                            />
-                        ) : (
-                            <div className={styles.listContainer}>
-                                <div className={styles.listHeader}>
-                                    <div className={styles.colName}>Nome</div>
-                                    <div className={styles.colUsage}>Stato</div>
-                                    <div className={styles.colActions}></div>
-                                </div>
-                                <div className={styles.listBody}>
-                                    {filteredStyles.map(style => (
-                                        <div key={style.id} className={styles.listRow}>
-                                            <div className={styles.colName}>
-                                                <button
-                                                    type="button"
-                                                    className={styles.rowLink}
-                                                    onClick={() => handleEditClick(style)}
-                                                >
-                                                    <div className={styles.styleNameRow}>
-                                                        <Text variant="body-sm" weight={600}>
-                                                            {style.name}
-                                                        </Text>
-                                                        {style.is_system && (
-                                                            <Badge variant="primary">Default</Badge>
-                                                        )}
-                                                    </div>
-                                                    <Text variant="caption" colorVariant="muted">
-                                                        Versione {style.current_version?.version || "0"}
-                                                    </Text>
-                                                </button>
+                        <DataTable<V2Style>
+                            data={filteredStyles}
+                            columns={columns}
+                            selectable
+                            onBulkDelete={handleBulkDelete}
+                            emptyState={emptyState}
+                        />
+                    </Card>
+                ) : (
+                    <div className={styles.gridWrapper}>
+                        <div className={styles.gridView}>
+                            {filteredStyles.map(style => (
+                                <div key={style.id} className={styles.styleCard}>
+                                    <button
+                                        type="button"
+                                        className={styles.cardPreviewArea}
+                                        onClick={() => handleEditClick(style)}
+                                    >
+                                        <StyleCardPreview style={style} />
+                                    </button>
+                                    <div className={styles.cardFooter}>
+                                        <div className={styles.cardFooterLeft}>
+                                            <div className={styles.styleNameRow}>
+                                                <Text variant="body-sm" weight={600}>
+                                                    {style.name}
+                                                </Text>
+                                                {style.is_system && (
+                                                    <IconShieldCheck
+                                                        size={14}
+                                                        className={styles.systemIcon}
+                                                    />
+                                                )}
                                             </div>
-
-                                            <div className={styles.colUsage}>
-                                                <UsageBadge style={style} />
-                                            </div>
-
+                                            <UsageBadge style={style} />
+                                        </div>
+                                        <div className={styles.cardFooterRight}>
                                             {renderRowActions(style)}
                                         </div>
-                                    ))}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </Card>
+                            ))}
+                        </div>
+                    </div>
                 )}
             </div>
 

@@ -1,0 +1,125 @@
+.popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 200;
+  width: 280px;
+  background: var(--color-background-primary, #ffffff);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: popIn 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.list {
+  max-height: 220px;
+  overflow-y: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.loadingRow,
+.emptyRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 12px;
+}
+
+.versionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+}
+
+.versionRowSelected {
+  background-color: var(--color-primary-50, rgba(var(--color-primary-rgb, 79, 70, 229), 0.06));
+
+  &:hover {
+    background-color: var(--color-primary-50, rgba(var(--color-primary-rgb, 79, 70, 229), 0.1));
+  }
+}
+
+.versionNum {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text);
+  min-width: 28px;
+  flex-shrink: 0;
+}
+
+.versionDate {
+  flex: 1;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.currentBadge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background-color: var(--color-success-light, #d1fae5);
+  color: var(--color-success, #059669);
+  letter-spacing: 0.02em;
+}
+
+.selectedIcon {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.footer {
+  padding: 8px 10px;
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-surface-hover);
+}
+
+.rollbackBtn {
+  width: 100%;
+}

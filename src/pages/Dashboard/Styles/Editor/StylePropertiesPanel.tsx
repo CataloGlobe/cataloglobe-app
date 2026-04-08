@@ -209,7 +209,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     </div>
                 </div>
 
-                <div className={styles.controlField} style={{ marginTop: "8px" }}>
+                <div className={`${styles.controlField} ${styles.controlFieldMt8}`}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
                         Arrotondamento card
                     </Text>
@@ -237,17 +237,19 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                 </div>
 
                 {/* IMAGE CONTROLS */}
-                <div className={styles.controlField} style={{ marginTop: "12px" }}>
+                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
                         Immagini prodotti
                     </Text>
 
                     {model.card.layout === "grid" ? (
                         <div className={`${styles.buttonGroup} ${styles.cards}`}>
-                            {[
-                                { value: "show", label: "Mostra" },
-                                { value: "hide", label: "Nascondi" }
-                            ].map(opt => {
+                            {(
+                                [
+                                    { value: "show", label: "Mostra" },
+                                    { value: "hide", label: "Nascondi" }
+                                ] as Array<{ value: "show" | "hide"; label: string }>
+                            ).map(opt => {
                                 const isActive = model.card.image.mode === opt.value;
                                 return (
                                     <button
@@ -257,10 +259,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                             isActive ? styles.optionButtonActive : ""
                                         }`}
                                         onClick={() =>
-                                            updateCardImage(
-                                                opt.value as any,
-                                                model.card.image.position
-                                            )
+                                            updateCardImage(opt.value, model.card.image.position)
                                         }
                                     >
                                         <Text variant="body" weight={600}>
@@ -275,11 +274,17 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                             className={`${styles.buttonGroup} ${styles.threeColumns}`}
                             role="radiogroup"
                         >
-                            {[
-                                { value: "left", label: "Sinistra", mode: "show" },
-                                { value: "right", label: "Destra", mode: "show" },
-                                { value: "none", label: "Nessuna", mode: "hide" }
-                            ].map(opt => {
+                            {(
+                                [
+                                    { value: "left", label: "Sinistra", mode: "show" },
+                                    { value: "right", label: "Destra", mode: "show" },
+                                    { value: "none", label: "Nessuna", mode: "hide" }
+                                ] as Array<{
+                                    value: "left" | "right" | "none";
+                                    mode: "show" | "hide";
+                                    label: string;
+                                }>
+                            ).map(opt => {
                                 const isActive =
                                     opt.mode === "hide"
                                         ? model.card.image.mode === "hide"
@@ -293,14 +298,13 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                         className={`${styles.optionButton} ${
                                             isActive ? styles.optionButtonActive : ""
                                         }`}
-                                        onClick={() =>
-                                            updateCardImage(
-                                                opt.mode as any,
-                                                opt.value === "none"
-                                                    ? model.card.image.position
-                                                    : (opt.value as any)
-                                            )
-                                        }
+                                        onClick={() => {
+                                            const pos =
+                                                opt.value !== "none"
+                                                    ? opt.value
+                                                    : model.card.image.position;
+                                            updateCardImage(opt.mode, pos);
+                                        }}
                                     >
                                         <Text variant="body" weight={600}>
                                             {opt.label}
