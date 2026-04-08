@@ -1,17 +1,17 @@
 // src/pages/Dashboard/Highlights/components/FeaturedMediaDrawer.tsx
 import React, { useState, useRef } from "react";
-import { SystemDrawer } from "@components/layout/SystemDrawer/SystemDrawer";
-import { DrawerLayout } from "@components/layout/SystemDrawer/DrawerLayout";
-import { Button } from "@components/ui/Button/Button";
-import Text from "@components/ui/Text/Text";
+import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
+import { Button } from "@/components/ui/Button/Button";
+import Text from "@/components/ui/Text/Text";
 import { Image } from "lucide-react";
 import {
     updateFeaturedContent,
     type FeaturedContent
-} from "@services/supabase/featuredContents";
-import { uploadFeaturedContentImage } from "@services/supabase/upload";
-import { compressImage } from "@utils/compressImage";
-import { useToast } from "@context/Toast/ToastContext";
+} from "@/services/supabase/featuredContents";
+import { uploadFeaturedContentImage } from "@/services/supabase/upload";
+import { compressImage } from "@/utils/compressImage";
+import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./FeaturedMediaDrawer.module.scss";
 
 type Props = {

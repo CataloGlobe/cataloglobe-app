@@ -14,25 +14,21 @@ const PRICING_OPTIONS: {
     value: FeaturedContentPricingMode;
     label: string;
     description: string;
-    icon: string;
 }[] = [
     {
         value: "none",
         label: "Solo informativo",
-        description: "Banner editoriale senza listino prezzi. Titolo, testo e CTA.",
-        icon: "📄"
+        description: "Banner editoriale senza listino prezzi. Titolo, testo e CTA."
     },
     {
         value: "per_item",
         label: "Con prodotti",
-        description: "Mostra una lista di prodotti con il loro prezzo singolo.",
-        icon: "🛒"
+        description: "Mostra una lista di prodotti con il loro prezzo singolo."
     },
     {
         value: "bundle",
         label: "Prezzo fisso",
-        description: "Aggrega prodotti con un unico prezzo bundle definito da te.",
-        icon: "🎁"
+        description: "Aggrega prodotti con un unico prezzo bundle definito da te."
     }
 ];
 
@@ -106,7 +102,6 @@ export function FeaturedPricingModeForm({
                             }`}
                             onClick={() => setPricingMode(opt.value)}
                         >
-                            <span className={styles.pricingCardIcon}>{opt.icon}</span>
                             <span className={styles.pricingCardLabel}>{opt.label}</span>
                             <span className={styles.pricingCardDescription}>{opt.description}</span>
                         </div>
