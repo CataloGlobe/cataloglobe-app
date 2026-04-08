@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ImageIcon } from "lucide-react";
 import styles from "./FeaturedBlock.module.scss";
-import type { V2FeaturedContent } from "@/services/supabase/resolveActivityCatalogs";
+import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import Text from "@/components/ui/Text/Text";
 import { FeaturedPreviewModal } from "./FeaturedPreviewModal";
 

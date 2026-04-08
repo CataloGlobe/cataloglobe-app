@@ -54,6 +54,7 @@ export interface DeletedTenant {
     id: string;
     name: string;
     vertical_type: string;
+    business_subtype: string | null;
     created_at: string;
     deleted_at: string;
 }

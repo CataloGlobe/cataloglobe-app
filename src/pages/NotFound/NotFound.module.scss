@@ -25,6 +25,13 @@
   user-select: none;
 }
 
+.inactiveIcon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+  color: var(--brand-primary);
+}
+
 .actions {
   margin-top: 24px;
   display: flex;

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Info, Package } from "lucide-react";
-import type { ResolvedAllergen, ResolvedIngredient } from "@/services/supabase/resolveActivityCatalogs";
+import type { ResolvedAllergen, ResolvedIngredient } from "@/types/resolvedCollections";
 import Text from "@/components/ui/Text/Text";
 import { Pill } from "@/components/ui/Pill/Pill";
 import CollectionHero from "../CollectionHero/CollectionHero";

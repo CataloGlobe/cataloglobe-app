@@ -7,14 +7,7 @@ import { Button } from "@/components/ui/Button/Button";
 import type { V2Tenant } from "@/types/tenant";
 
 import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
-
-const VERTICAL_LABELS: Record<string, string> = {
-    restaurant: "Ristorante",
-    bar: "Bar",
-    retail: "Negozio",
-    hotel: "Hotel",
-    generic: "Generico"
-};
+import { SUBTYPE_LABELS, VERTICAL_LABELS } from "@/constants/verticalTypes";
 
 export default function SelectBusiness() {
     const { user } = useAuth();
@@ -27,7 +20,7 @@ export default function SelectBusiness() {
         if (!user) return;
         supabase
             .from("tenants")
-            .select("id, owner_user_id, name, vertical_type, created_at")
+            .select("id, owner_user_id, name, vertical_type, business_subtype, created_at")
             .order("created_at", { ascending: true })
             .then(({ data }) => {
                 setTenants((data as V2Tenant[]) ?? []);
@@ -84,8 +77,9 @@ export default function SelectBusiness() {
                                 </Text>
                                 <div style={{ marginTop: "2px" }}>
                                     <Text variant="body-sm" colorVariant="muted">
-                                        {VERTICAL_LABELS[tenant.vertical_type] ??
-                                            tenant.vertical_type}
+                                        {(tenant.business_subtype && SUBTYPE_LABELS[tenant.business_subtype])
+                                            ?? VERTICAL_LABELS[tenant.vertical_type]
+                                            ?? tenant.vertical_type}
                                     </Text>
                                 </div>
                             </div>

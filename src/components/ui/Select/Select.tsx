@@ -5,6 +5,7 @@ import styles from "./Select.module.scss";
 export interface SelectOption {
     value: string;
     label: string;
+    disabled?: boolean;
 }
 
 export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "size"> {
@@ -66,7 +67,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                         >
                             {options
                                 ? options.map(opt => (
-                                      <option key={opt.value} value={opt.value}>
+                                      <option key={opt.value} value={opt.value} disabled={opt.disabled}>
                                           {opt.label}
                                       </option>
                                   ))

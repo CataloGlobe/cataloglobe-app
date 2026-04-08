@@ -1,5 +1,5 @@
 import React from "react";
-import type { ResolvedOptionGroup } from "@/services/supabase/resolveActivityCatalogs";
+import type { ResolvedOptionGroup } from "@/types/resolvedCollections";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

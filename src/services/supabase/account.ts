@@ -78,7 +78,7 @@ export async function listUserTenantsForDeletion(): Promise<{
 }> {
     const { data, error } = await supabase
         .from("user_tenants_view")
-        .select("id, owner_user_id, name, vertical_type, created_at, user_role")
+        .select("id, owner_user_id, name, vertical_type, business_subtype, created_at, user_role")
         .order("created_at", { ascending: true });
 
     if (error) throw error;

@@ -1,31 +1,17 @@
-// TODO(phase10): Uses legacy BusinessType enum (restaurant, bar, hotel, hairdresser, beauty, shop, other).
-// Does not align with tenants.vertical_type values (restaurant, bar, retail, hotel, generic).
-// Update this mapping to consume selectedTenant.vertical_type from useTenant() when the V2 catalog pipeline is wired.
+import type { VerticalType } from "@/constants/verticalTypes";
 import type { CatalogType } from "@/types/catalog";
 
-export type BusinessType =
-    | "restaurant"
-    | "bar"
-    | "hotel"
-    | "hairdresser"
-    | "beauty"
-    | "shop"
-    | "other";
-
 export function businessTypeToCatalogType(
-    businessType: BusinessType | null | undefined
+    verticalType: VerticalType | null | undefined
 ): CatalogType {
-    switch (businessType) {
+    switch (verticalType) {
+        case "food_beverage":
         case "restaurant":
         case "bar":
         case "hotel":
             return "menu";
 
-        case "hairdresser":
-        case "beauty":
-            return "services";
-
-        case "shop":
+        case "retail":
             return "products";
 
         default:

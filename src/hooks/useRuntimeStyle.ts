@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { parseTokens, DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { mapStyleTokensToCssVars } from "@/features/public/utils/mapStyleTokensToCssVars";
-import type { ResolvedStyle } from "@/services/supabase/resolveActivityCatalogs";
+import type { ResolvedStyle } from "@/types/resolvedCollections";
 
 /**
  * Injects runtime CSS variables onto :root derived from the active schedule's

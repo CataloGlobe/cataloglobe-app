@@ -73,9 +73,12 @@ function triggerDownload(blob: Blob, filename: string) {
     URL.revokeObjectURL(url);
 }
 
-export async function downloadMenuPdf(businessId: string): Promise<void> {
+export async function downloadMenuPdf(
+    businessId: string,
+    options?: { catalogId?: string; fileName?: string }
+): Promise<void> {
     const { data, error, response } = await supabase.functions.invoke("generate-menu-pdf", {
-        body: { businessId }
+        body: { businessId, ...(options?.catalogId ? { catalogId: options.catalogId } : {}) }
     });
 
     if (error || !response) {
@@ -90,7 +93,11 @@ export async function downloadMenuPdf(businessId: string): Promise<void> {
         }
         if (status === 404) {
             if (serverError === "no_visible_items") {
-                throw new DownloadMenuPdfError("no_visible_items", "Nessun item visibile.", status);
+                throw new DownloadMenuPdfError(
+                    "no_visible_items",
+                    "Nessun catalogo attivo in questo momento. Configura una regola di programmazione per questa sede.",
+                    status
+                );
             }
             throw new DownloadMenuPdfError("not_found", "Risorsa non trovata.", status);
         }
@@ -102,9 +109,16 @@ export async function downloadMenuPdf(businessId: string): Promise<void> {
     }
 
     const blob = toBlob(data);
-    const filename =
-        getFilenameFromContentDisposition(response.headers.get("Content-Disposition")) ??
-        "menu.pdf";
+
+    let filename: string;
+    if (options?.fileName) {
+        const base = options.fileName.trim();
+        filename = base.toLowerCase().endsWith(".pdf") ? base : `${base}.pdf`;
+    } else {
+        filename =
+            getFilenameFromContentDisposition(response.headers.get("Content-Disposition")) ??
+            "menu.pdf";
+    }
 
     triggerDownload(blob, filename);
 }

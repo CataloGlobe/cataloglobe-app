@@ -1,7 +1,7 @@
 import React from "react";
 import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { serializeTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import type { ResolvedCollections } from "@/services/supabase/resolveActivityCatalogs";
+import type { ResolvedCollections } from "@/types/resolvedCollections";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import PublicCollectionRenderer from "@/features/public/components/PublicCollectionRenderer";
 import { createMockPublicCollection } from "@/features/public/mock/mockPublicCollection";

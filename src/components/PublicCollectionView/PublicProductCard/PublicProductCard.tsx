@@ -5,7 +5,7 @@ import type {
     ResolvedVariant,
     ResolvedAllergen,
     ResolvedIngredient
-} from "@/services/supabase/resolveActivityCatalogs";
+} from "@/types/resolvedCollections";
 import Text from "@/components/ui/Text/Text";
 import ModalLayout, {
     ModalLayoutContent,

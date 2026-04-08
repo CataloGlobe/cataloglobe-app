@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { X, ImageIcon } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import type { V2FeaturedContent } from "@/services/supabase/resolveActivityCatalogs";
+import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import Text from "@/components/ui/Text/Text";
 import styles from "./FeaturedPreviewModal.module.scss";
 

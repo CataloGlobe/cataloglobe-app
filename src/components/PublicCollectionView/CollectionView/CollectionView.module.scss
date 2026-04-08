@@ -5,7 +5,8 @@
 ---------------------------------------------------- */
 
 .page {
-  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   /* clip instead of hidden: same visual clipping but does NOT create a scroll
      container, so position:sticky on CollectionSectionNav works correctly */

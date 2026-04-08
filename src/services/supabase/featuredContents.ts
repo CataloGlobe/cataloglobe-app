@@ -129,8 +129,8 @@ export async function updateFeaturedContent(
     id: string,
     tenantId: string,
     contentData: Partial<FeaturedContent>,
-    productsData: Partial<FeaturedContentProduct>[] = []
-) {
+    productsData?: Partial<FeaturedContentProduct>[]
+): Promise<FeaturedContent> {
     const { data: content, error: contentError } = await supabase
         .from("featured_contents")
         .update(contentData)
@@ -141,32 +141,34 @@ export async function updateFeaturedContent(
 
     if (contentError) throw contentError;
 
-    // Delete all and re-insert logic
-    const { error: delError } = await supabase
-        .from("featured_content_products")
-        .delete()
-        .eq("featured_content_id", id)
-        .eq("tenant_id", tenantId);
-
-    if (delError) throw delError;
-
-    if (productsData.length > 0) {
-        const productsToInsert = productsData.map((p, index) => ({
-            product_id: p.product_id,
-            note: p.note || null,
-            tenant_id: tenantId,
-            featured_content_id: id,
-            sort_order: p.sort_order ?? index
-        }));
-
-        const { error: productsError } = await supabase
+    // Solo se productsData è esplicitamente passato, esegui delete+reinsert
+    if (productsData !== undefined) {
+        const { error: delError } = await supabase
             .from("featured_content_products")
-            .insert(productsToInsert);
+            .delete()
+            .eq("featured_content_id", id)
+            .eq("tenant_id", tenantId);
 
-        if (productsError) throw productsError;
+        if (delError) throw delError;
+
+        if (productsData.length > 0) {
+            const productsToInsert = productsData.map((p, index) => ({
+                product_id: p.product_id,
+                note: p.note || null,
+                tenant_id: tenantId,
+                featured_content_id: id,
+                sort_order: p.sort_order ?? index
+            }));
+
+            const { error: productsError } = await supabase
+                .from("featured_content_products")
+                .insert(productsToInsert);
+
+            if (productsError) throw productsError;
+        }
     }
 
-    return content;
+    return content as FeaturedContent;
 }
 
 export async function deleteFeaturedContent(id: string, tenantId: string) {

@@ -1,4 +1,5 @@
 import { Navigate, Routes, Route, useNavigate } from "react-router-dom";
+import ScrollToTop from "@/components/ScrollToTop/ScrollToTop";
 import { useEffect } from "react";
 import { supabase } from "@/services/supabase/client";
 import MainLayout from "@layouts/MainLayout/MainLayout";
@@ -73,6 +74,8 @@ export default function App() {
     }, [navigate]);
 
     return (
+        <>
+        <ScrollToTop />
         <Routes>
             {/* Public routes */}
             <Route path="/" element={<Home />} />
@@ -215,5 +218,6 @@ export default function App() {
             {/* Global 404 */}
             <Route path="*" element={<NotFound />} />
         </Routes>
+        </>
     );
 }

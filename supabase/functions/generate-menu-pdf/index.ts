@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1?target=deno";
 import { resolveRulesForActivity } from "../_shared/scheduleResolver.ts";
-import { getNowInRome } from "../_shared/schedulingNow.ts";
+import { getNowInRome, type RomeDateTime } from "../_shared/schedulingNow.ts";
 
 type V2CatalogItem = {
     id: string;
@@ -40,30 +40,50 @@ type V2ActivityScheduleRow = {
     catalog: V2Catalog | null;
 };
 
-type RawProductRow = {
+type RawOptionValueRow = {
     id: string;
-    base_price: number | null;
     name: string | null;
+    absolute_price: number | null;
+    price_modifier: number | null;
 };
 
-type RawCatalogItemRow = {
+type RawOptionGroupRow = {
     id: string;
-    order_index: number | null;
-    visible: boolean | null;
+    name: string | null;
+    group_kind: "PRIMARY_PRICE" | "ADDON";
+    pricing_mode: "ABSOLUTE" | "DELTA";
+    is_required: boolean;
+    values: RawOptionValueRow[] | RawOptionValueRow | null;
+};
+
+type RawProductRow = {
+    id: string;
+    name: string | null;
+    description: string | null;
+    base_price: number | null;
+    product_type: string | null;
+    parent_product_id: string | null;
+    option_groups: RawOptionGroupRow[] | RawOptionGroupRow | null;
+};
+
+type RawCatalogCategoryProductRow = {
+    id: string;
+    sort_order: number | null;
+    product_id: string | null;
     product: RawProductRow | RawProductRow[] | null;
 };
 
-type RawCatalogSectionRow = {
+type RawCatalogCategoryRow = {
     id: string;
-    label: string | null;
-    order_index: number | null;
-    items: RawCatalogItemRow[] | RawCatalogItemRow | null;
+    name: string | null;
+    sort_order: number | null;
+    products: RawCatalogCategoryProductRow[] | RawCatalogCategoryProductRow | null;
 };
 
 type RawCatalogRow = {
     id: string;
     name: string | null;
-    sections: RawCatalogSectionRow[] | RawCatalogSectionRow | null;
+    categories: RawCatalogCategoryRow[] | RawCatalogCategoryRow | null;
 };
 
 type PriceOverrideRow = {
@@ -150,11 +170,10 @@ function pickWinner(schedules: V2ActivityScheduleRow[]): V2ActivityScheduleRow |
 
 function pickFallbackPrimary(
     schedules: V2ActivityScheduleRow[],
-    now: Date
+    now: RomeDateTime
 ): V2ActivityScheduleRow | null {
-    const day = now.getDay();
-    const time = toMinutes(now.toTimeString().slice(0, 5));
-    if (time === null) return null;
+    const day = now.dayOfWeek;
+    const time = now.hour * 60 + now.minute;
 
     const primary = schedules.filter(s => s.is_active && s.slot === "primary");
     if (primary.length === 0) return null;
@@ -325,25 +344,25 @@ function normalizeCatalog(raw: RawCatalogRow | RawCatalogRow[] | null): V2Catalo
     const catalog = normalizeOne(raw);
     if (!catalog) return null;
 
-    const sections = normalizeMany(catalog.sections)
+    const sections = normalizeMany(catalog.categories)
         .slice()
-        .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
-        .map(section => {
-            const items = normalizeMany(section.items)
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        .map(category => {
+            const items = normalizeMany(category.products)
                 .slice()
-                .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+                .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
                 .map(item => {
                     const product = normalizeOne(item.product);
                     return {
                         id: item.id,
-                        visible: item.visible ?? true,
-                        product_id: product?.id ?? null,
+                        visible: true, // visibility managed via schedule_visibility_overrides
+                        product_id: product?.id ?? item.product_id ?? null,
                         effective_price: product?.base_price ?? null
                     };
                 });
 
             return {
-                id: section.id,
+                id: category.id,
                 items
             };
         });
@@ -427,7 +446,7 @@ serve(async req => {
             return json(401, { error: "unauthorized" });
         }
 
-        let body: { businessId?: string; business_id?: string } | null = null;
+        let body: { businessId?: string; business_id?: string; catalogId?: string } | null = null;
         try {
             body = await req.json();
         } catch {
@@ -439,6 +458,7 @@ serve(async req => {
         if (!activityId) {
             return json(400, { error: "missing_business_id" });
         }
+        const overrideCatalogId: string | null = body?.catalogId ?? null;
 
         // 1) Create Supabase client using user JWT
         const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -476,17 +496,35 @@ serve(async req => {
 
         const now = getNowInRome();
 
-        // 3) Resolve active scheduling rules through shared resolver.
-        const ruleResolution = await resolveRulesForActivity({
-            supabase,
-            activityId,
-            now,
-            includeLayoutStyle: false
-        });
-        const layoutCatalogId = ruleResolution.layout.catalogId;
+        // 3) Resolve active scheduling rules (skipped when a specific catalogId is provided)
+        type RuleResolutionShape = {
+            layout: { scheduleId: string | null; catalogId: string | null };
+            priceRuleId: string | null;
+            visibilityRule: { scheduleId: string; mode?: string } | null;
+        };
+        let ruleResolution: RuleResolutionShape;
+        let layoutCatalogId: string;
 
-        if (!layoutCatalogId) {
-            return json(404, { error: "no_active_collection" });
+        if (overrideCatalogId) {
+            layoutCatalogId = overrideCatalogId;
+            ruleResolution = {
+                layout: { scheduleId: null, catalogId: overrideCatalogId },
+                priceRuleId: null,
+                visibilityRule: null
+            };
+        } else {
+            const resolved = await resolveRulesForActivity({
+                supabase,
+                activityId,
+                now,
+                includeLayoutStyle: false
+            });
+            const catalogId = resolved.layout.catalogId;
+            if (!catalogId) {
+                return json(404, { error: "no_active_collection" });
+            }
+            layoutCatalogId = catalogId;
+            ruleResolution = resolved;
         }
 
         // 4) Load Catalog
@@ -496,15 +534,35 @@ serve(async req => {
                 `
             id,
             name,
-            sections:catalog_sections(
+            categories:catalog_categories(
                 id,
-                label,
-                order_index,
-                items:catalog_items(
+                name,
+                sort_order,
+                products:catalog_category_products(
                     id,
-                    order_index,
-                    visible,
-                    product:products(id, base_price, name)
+                    sort_order,
+                    product_id,
+                    product:products!catalog_category_products_product_id_fkey(
+                        id,
+                        name,
+                        description,
+                        base_price,
+                        product_type,
+                        parent_product_id,
+                        option_groups:product_option_groups(
+                            id,
+                            name,
+                            group_kind,
+                            pricing_mode,
+                            is_required,
+                            values:product_option_values(
+                                id,
+                                name,
+                                absolute_price,
+                                price_modifier
+                            )
+                        )
+                    )
                 )
             )
         `
@@ -517,6 +575,24 @@ serve(async req => {
         }
 
         const rawCatalog = catalogData as RawCatalogRow;
+        console.error("PDF_RAW_CATALOG", JSON.stringify({
+          categoriesCount: rawCatalog.categories?.length,
+          categories: rawCatalog.categories?.map(c => ({
+            name: c.name,
+            productsCount: c.products?.length,
+            products: c.products?.map(p => ({
+              id: p.id,
+              product_id: p.product_id,
+              variant_product_id: p.variant_product_id,
+              product: {
+                id: p.product?.id,
+                name: p.product?.name,
+                parent_product_id: p.product?.parent_product_id,
+                product_type: p.product?.product_type
+              }
+            }))
+          }))
+        }));
         const normalizedCatalog = normalizeCatalog(rawCatalog);
         if (!normalizedCatalog) {
             return json(404, { error: "collection_corrupted" });
@@ -644,64 +720,195 @@ serve(async req => {
         // Compile mapped sections for the PDF Template
         // -------------------------------------------------------------
 
-        // Combine original rawCatalog sections labels & products info with the resolved visible catalog tree.
-        const productInfoMap: Record<string, { name: string }> = {};
-        if (rawCatalog.sections && Array.isArray(rawCatalog.sections)) {
-            rawCatalog.sections.forEach(rawSec => {
-                if (rawSec.items && Array.isArray(rawSec.items)) {
-                    rawSec.items.forEach(rawIt => {
+        // Combine original rawCatalog categories names & products info with the resolved visible catalog tree.
+        type ProductInfo = {
+            name: string;
+            description: string | null;
+            base_price: number | null;
+            parent_product_id: string | null;
+            option_groups: RawOptionGroupRow[];
+        };
+        const productInfoMap: Record<string, ProductInfo> = {};
+        if (rawCatalog.categories && Array.isArray(rawCatalog.categories)) {
+            rawCatalog.categories.forEach(rawCat => {
+                if (rawCat.products && Array.isArray(rawCat.products)) {
+                    rawCat.products.forEach(rawIt => {
                         const rawPr = Array.isArray(rawIt.product)
                             ? rawIt.product[0]
                             : rawIt.product;
                         if (rawPr && rawPr.id && rawPr.name) {
-                            productInfoMap[rawPr.id] = { name: rawPr.name };
+                            productInfoMap[rawPr.id] = {
+                                name: rawPr.name,
+                                description: rawPr.description ?? null,
+                                base_price: rawPr.base_price ?? null,
+                                parent_product_id: rawPr.parent_product_id ?? null,
+                                option_groups: normalizeMany(rawPr.option_groups)
+                            };
                         }
                     });
                 }
             });
         }
 
+        // ── Helpers shared across sections ─────────────────────────────────
+        function resolvePrice(productId, effectivePrice) {
+            const info = productInfoMap[productId];
+            const optGroups = info?.option_groups ?? [];
+            let price = effectivePrice;
+            let formats;
+            if (price == null) {
+                const pg = optGroups.find(
+                    g => g.group_kind === "PRIMARY_PRICE" && g.pricing_mode === "ABSOLUTE"
+                );
+                if (pg) {
+                    const valid = normalizeMany(pg.values).filter(
+                        v => typeof v.absolute_price === "number"
+                    );
+                    if (valid.length === 1) {
+                        price = valid[0].absolute_price;
+                    } else if (valid.length > 1) {
+                        formats = valid.map(v => ({ name: v.name ?? "", price: v.absolute_price }));
+                    }
+                }
+            }
+            return { price, formats };
+        }
+
+        function resolveAddons(productId) {
+            const info = productInfoMap[productId];
+            const optGroups = info?.option_groups ?? [];
+            const addonGroups = optGroups.filter(g => g.group_kind === "ADDON");
+            if (addonGroups.length === 0) return undefined;
+            const result = addonGroups
+                .map(g => {
+                    const vals = normalizeMany(g.values)
+                        .map(v => {
+                            const vName = v.name ?? "";
+                            if (g.is_required) return vName;
+                            if (
+                                g.pricing_mode === "ABSOLUTE" &&
+                                typeof v.absolute_price === "number"
+                            ) {
+                                return v.absolute_price === 0
+                                    ? vName
+                                    : `${vName} € ${v.absolute_price.toFixed(2)}`;
+                            }
+                            if (
+                                g.pricing_mode === "DELTA" &&
+                                typeof v.price_modifier === "number"
+                            ) {
+                                if (v.price_modifier === 0) return vName;
+                                const sign = v.price_modifier > 0 ? "+" : "";
+                                return `${vName} ${sign}€ ${v.price_modifier.toFixed(2)}`;
+                            }
+                            return vName;
+                        })
+                        .filter(Boolean);
+                    return {
+                        label: g.is_required ? (g.name ?? "Opzione") : "Extra",
+                        values: vals
+                    };
+                })
+                .filter(g => g.values.length > 0);
+            return result.length > 0 ? result : undefined;
+        }
+
         const sections = finalPrimary.catalog.sections
             .map(section => {
-                const rawSection = Array.isArray(rawCatalog.sections)
-                    ? rawCatalog.sections.find(s => s.id === section.id)
+                const rawSection = Array.isArray(rawCatalog.categories)
+                    ? rawCatalog.categories.find(s => s.id === section.id)
                     : null;
-                const label = rawSection?.label ?? "Sezione";
+                const label = rawSection?.name ?? "Categoria";
 
-                const items = section.items
-                    .map(item => {
-                        const productName = item.product_id
-                            ? (productInfoMap[item.product_id]?.name ?? "Sconosciuto")
-                            : "Sconosciuto";
-                        const visible =
-                            overridesByProductId[item.product_id!]?.visible_override ??
-                            item.effective_visible ??
-                            item.visible;
-                        if (!visible) return null;
+                // ── Step 1: flat list of visible items ─────────────────────────
+                const flatItems = [];
+                for (const item of section.items) {
+                    if (!item.product_id) continue;
+                    const visible =
+                        overridesByProductId[item.product_id]?.visible_override ??
+                        item.effective_visible ??
+                        item.visible;
+                    if (!visible) continue;
 
-                        return {
-                            name: productName,
-                            price: item.effective_price,
-                            original_price: item.original_price
-                        };
-                    })
-                    .filter(
-                        (
-                            i
-                        ): i is {
-                            name: string;
-                            price: number | null;
-                            original_price?: number | null;
-                        } => i !== null
-                    );
+                    const info = productInfoMap[item.product_id];
+                    const { price, formats } = resolvePrice(item.product_id, item.effective_price);
+                    flatItems.push({
+                        productId: item.product_id,
+                        parentProductId: info?.parent_product_id ?? null,
+                        name: info?.name ?? "Sconosciuto",
+                        price,
+                        original_price: item.original_price,
+                        description: info?.description ?? null,
+                        formats,
+                        addons: resolveAddons(item.product_id)
+                    });
+                }
 
-                return {
-                    id: section.id,
-                    label,
-                    items
-                };
+                // ── Step 2: IDs of parent products present in this section ─────
+                const parentIdsInSection = new Set(
+                    flatItems.filter(i => !i.parentProductId).map(i => i.productId)
+                );
+
+                // ── Step 3: map variant lists keyed by parent ID ───────────────
+                const variantsByParentId = new Map();
+                for (const fi of flatItems) {
+                    if (fi.parentProductId && parentIdsInSection.has(fi.parentProductId)) {
+                        if (!variantsByParentId.has(fi.parentProductId)) {
+                            variantsByParentId.set(fi.parentProductId, []);
+                        }
+                        variantsByParentId.get(fi.parentProductId).push(fi);
+                    }
+                }
+
+                // ── Step 4: build final ordered items ─────────────────────────
+                const items = [];
+                for (const fi of flatItems) {
+                    // Variant whose parent is in this section → rendered under parent, skip here
+                    if (fi.parentProductId && parentIdsInSection.has(fi.parentProductId)) continue;
+
+                    const childVariants = (variantsByParentId.get(fi.productId) ?? [])
+                        .map(v => {
+                            // Skip if name AND price are identical to parent (no added info)
+                            const sameName = v.name === fi.name;
+                            const samePrice =
+                                v.price === fi.price &&
+                                (v.formats?.length ?? 0) === 0 &&
+                                (fi.formats?.length ?? 0) === 0;
+                            if (sameName && samePrice) return null;
+                            return {
+                                name: v.name,
+                                price: v.price,
+                                formats: v.formats,
+                                // Only show description when it differs from the parent
+                                description:
+                                    v.description && v.description !== fi.description
+                                        ? v.description
+                                        : null
+                            };
+                        })
+                        .filter(Boolean);
+
+                    items.push({
+                        ...fi,
+                        ...(childVariants.length > 0 ? { variants: childVariants } : {})
+                    });
+                }
+
+                return { id: section.id, label, items };
             })
             .filter(s => s.items.length > 0);
+
+        console.error("PDF_FINAL_SECTIONS", JSON.stringify(
+          sections.map(s => ({
+            title: s.title,
+            itemsCount: s.items?.length,
+            items: s.items?.map(i => ({
+              name: i.name,
+              hasVariants: i.variants?.length > 0,
+              variantNames: i.variants?.map(v => v.name)
+            }))
+          }))
+        ));
 
         if (sections.length === 0) {
             return json(404, { error: "no_visible_items" });
@@ -724,11 +931,16 @@ serve(async req => {
         const COLLECTION_SIZE = 16;
         const SECTION_SIZE = 14;
         const ITEM_SIZE = 12;
+        const FORMAT_SIZE = ITEM_SIZE - 1;   // 11 — formati/varianti
+        const DESC_SIZE = ITEM_SIZE - 2;     // 10 — descrizione e addon
 
         const TITLE_LINE = TITLE_SIZE * 1.4;
         const COLLECTION_LINE = COLLECTION_SIZE * 1.4;
         const SECTION_LINE = SECTION_SIZE * 1.4;
         const ITEM_LINE = ITEM_SIZE * 1.35;
+        const FORMAT_LINE_H = FORMAT_SIZE * 1.4;
+        const DESC_LINE_H = DESC_SIZE * 1.4;
+        const INDENT = 14;
 
         let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
         let y = PAGE_HEIGHT - MARGIN_TOP;
@@ -775,26 +987,57 @@ serve(async req => {
             y -= SECTION_LINE;
 
             for (const item of section.items) {
-                const priceText = item.price != null ? `€ ${item.price.toFixed(2)}` : "-";
-                const oldPriceText =
-                    item.original_price != null ? `€ ${item.original_price.toFixed(2)}` : null;
+                const hasFormats = Array.isArray(item.formats) && item.formats.length > 0;
 
-                // Layout price text to find width
-                let totalPriceWidth = fontRegular.widthOfTextAtSize(priceText, ITEM_SIZE);
-                let oldPriceWidth = 0;
-                if (oldPriceText) {
-                    oldPriceWidth = fontStrike.widthOfTextAtSize(oldPriceText, ITEM_SIZE - 2);
-                    totalPriceWidth += oldPriceWidth + 5; // adding small gap
+                // ── Format string ──────────────────────────────────────────────
+                let formatStr: string | null = null;
+                if (hasFormats) {
+                    formatStr = item.formats!
+                        .map(f => f.name ? `${f.name} € ${f.price.toFixed(2)}` : `€ ${f.price.toFixed(2)}`)
+                        .join("  |  ");
                 }
 
-                const priceX = PAGE_WIDTH - MARGIN_X - totalPriceWidth;
-                const maxNameWidth = priceX - MARGIN_X - 10;
+                // ── Simple price (right-aligned, only when no formats) ─────────
+                let priceText: string | null = null;
+                let oldPriceText: string | null = null;
+                let totalPriceWidth = 0;
+                let oldPriceWidth = 0;
 
-                const lines = wrapText(item.name, maxNameWidth, fontRegular, ITEM_SIZE);
+                if (!hasFormats) {
+                    if (item.price != null) {
+                        priceText = `€ ${item.price.toFixed(2)}`;
+                        totalPriceWidth = fontRegular.widthOfTextAtSize(priceText, ITEM_SIZE);
+                        if (item.original_price != null) {
+                            oldPriceText = `€ ${item.original_price.toFixed(2)}`;
+                            oldPriceWidth = fontStrike.widthOfTextAtSize(oldPriceText, ITEM_SIZE - 2);
+                            totalPriceWidth += oldPriceWidth + 5;
+                        }
+                    }
+                }
 
-                for (let i = 0; i < lines.length; i++) {
+                const priceStartX = priceText
+                    ? PAGE_WIDTH - MARGIN_X - totalPriceWidth
+                    : PAGE_WIDTH - MARGIN_X;
+                const maxNameWidth = priceText
+                    ? priceStartX - MARGIN_X - 10
+                    : PAGE_WIDTH - 2 * MARGIN_X;
+
+                // ── Check if format fits on same line as name ──────────────────
+                let formatSameLine = false;
+                if (hasFormats && formatStr) {
+                    const nameW = fontRegular.widthOfTextAtSize(item.name, ITEM_SIZE);
+                    const fmtW = fontRegular.widthOfTextAtSize(formatStr, FORMAT_SIZE);
+                    if (nameW + 12 + fmtW <= PAGE_WIDTH - 2 * MARGIN_X) {
+                        formatSameLine = true;
+                    }
+                }
+
+                const nameLines = wrapText(item.name, maxNameWidth, fontRegular, ITEM_SIZE);
+
+                // ── Draw name lines ────────────────────────────────────────────
+                for (let i = 0; i < nameLines.length; i++) {
                     ensureSpace(ITEM_LINE);
-                    page.drawText(lines[i], {
+                    page.drawText(nameLines[i], {
                         x: MARGIN_X,
                         y,
                         size: ITEM_SIZE,
@@ -802,43 +1045,242 @@ serve(async req => {
                         color: rgb(0, 0, 0)
                     });
 
-                    // Draw price only on the first line
                     if (i === 0) {
-                        let currentPriceX = priceX;
-                        if (oldPriceText) {
-                            // Draw strikethrough original price
-                            page.drawText(oldPriceText, {
+                        if (priceText) {
+                            // Simple price: right-aligned with optional strikethrough
+                            let currentPriceX = priceStartX;
+                            if (oldPriceText) {
+                                page.drawText(oldPriceText, {
+                                    x: currentPriceX,
+                                    y: y + 1,
+                                    size: ITEM_SIZE - 2,
+                                    font: fontStrike,
+                                    color: rgb(0.5, 0.5, 0.5)
+                                });
+                                const textHeight = (ITEM_SIZE - 2) * 0.4;
+                                page.drawLine({
+                                    start: { x: currentPriceX - 1, y: y + 1 + textHeight },
+                                    end: { x: currentPriceX + oldPriceWidth + 1, y: y + 1 + textHeight },
+                                    thickness: 1,
+                                    color: rgb(0.5, 0.5, 0.5)
+                                });
+                                currentPriceX += oldPriceWidth + 5;
+                            }
+                            page.drawText(priceText, {
                                 x: currentPriceX,
-                                y: y + 1, // small baseline shift
-                                size: ITEM_SIZE - 2,
-                                font: fontStrike,
-                                color: rgb(0.5, 0.5, 0.5)
+                                y,
+                                size: ITEM_SIZE,
+                                font: fontRegular,
+                                color: rgb(0, 0, 0)
                             });
-                            // draw strikethrough line
-                            const textHeight = (ITEM_SIZE - 2) * 0.4;
-                            page.drawLine({
-                                start: { x: currentPriceX - 1, y: y + 1 + textHeight },
-                                end: {
-                                    x: currentPriceX + oldPriceWidth + 1,
-                                    y: y + 1 + textHeight
-                                },
-                                thickness: 1,
-                                color: rgb(0.5, 0.5, 0.5)
+                        } else if (formatSameLine && formatStr) {
+                            // Formats on same line, right after name
+                            const nameW = fontRegular.widthOfTextAtSize(nameLines[0], ITEM_SIZE);
+                            page.drawText(formatStr, {
+                                x: MARGIN_X + nameW + 12,
+                                y,
+                                size: FORMAT_SIZE,
+                                font: fontRegular,
+                                color: rgb(0.2, 0.2, 0.2)
                             });
-                            currentPriceX += oldPriceWidth + 5;
                         }
-
-                        page.drawText(priceText, {
-                            x: currentPriceX,
-                            y,
-                            size: ITEM_SIZE,
-                            font: fontRegular,
-                            color: rgb(0, 0, 0)
-                        });
                     }
 
                     y -= ITEM_LINE;
                 }
+
+                // ── Formats on next line (if didn't fit on same line) ──────────
+                if (hasFormats && formatStr && !formatSameLine) {
+                    const fmtLines = wrapText(
+                        formatStr,
+                        PAGE_WIDTH - 2 * MARGIN_X - INDENT,
+                        fontRegular,
+                        FORMAT_SIZE
+                    );
+                    for (const fl of fmtLines) {
+                        ensureSpace(FORMAT_LINE_H);
+                        page.drawText(fl, {
+                            x: MARGIN_X + INDENT,
+                            y,
+                            size: FORMAT_SIZE,
+                            font: fontRegular,
+                            color: rgb(0.2, 0.2, 0.2)
+                        });
+                        y -= FORMAT_LINE_H;
+                    }
+                }
+
+                // ── Description ────────────────────────────────────────────────
+                if (item.description) {
+                    const descLines = wrapText(
+                        item.description,
+                        PAGE_WIDTH - 2 * MARGIN_X - INDENT,
+                        fontRegular,
+                        DESC_SIZE
+                    );
+                    for (const dl of descLines) {
+                        ensureSpace(DESC_LINE_H);
+                        page.drawText(dl, {
+                            x: MARGIN_X + INDENT,
+                            y,
+                            size: DESC_SIZE,
+                            font: fontRegular,
+                            color: rgb(0.5, 0.5, 0.5)
+                        });
+                        y -= DESC_LINE_H;
+                    }
+                }
+
+                // ── Addon groups ───────────────────────────────────────────────
+                if (item.addons) {
+                    for (const addon of item.addons) {
+                        const addonLine = `${addon.label}: ${addon.values.join(", ")}`;
+                        const adlLines = wrapText(
+                            addonLine,
+                            PAGE_WIDTH - 2 * MARGIN_X - INDENT,
+                            fontRegular,
+                            DESC_SIZE
+                        );
+                        for (const al of adlLines) {
+                            ensureSpace(DESC_LINE_H);
+                            page.drawText(al, {
+                                x: MARGIN_X + INDENT,
+                                y,
+                                size: DESC_SIZE,
+                                font: fontRegular,
+                                color: rgb(0.5, 0.5, 0.5)
+                            });
+                            y -= DESC_LINE_H;
+                        }
+                    }
+                }
+
+                // ── Variants ──────────────────────────────────────────────────
+                if (item.variants && item.variants.length > 0) {
+                    const VARIANT_INDENT = INDENT + 10;
+                    const VARIANT_SIZE = DESC_SIZE;
+                    const VARIANT_LINE_H = VARIANT_SIZE * 1.35;
+
+                    ensureSpace(DESC_LINE_H);
+                    page.drawText("Varianti:", {
+                        x: MARGIN_X + INDENT,
+                        y,
+                        size: DESC_SIZE,
+                        font: fontRegular,
+                        color: rgb(0.5, 0.5, 0.5)
+                    });
+                    y -= DESC_LINE_H;
+
+                    for (const variant of item.variants) {
+                        const hasVFormats = Array.isArray(variant.formats) && variant.formats.length > 0;
+
+                        let vFormatStr = null;
+                        if (hasVFormats) {
+                            vFormatStr = variant.formats
+                                .map(f => f.name ? `${f.name} € ${f.price.toFixed(2)}` : `€ ${f.price.toFixed(2)}`)
+                                .join("  |  ");
+                        }
+
+                        let vPriceText = null;
+                        let vTotalPriceWidth = 0;
+                        if (!hasVFormats && variant.price != null) {
+                            vPriceText = `€ ${variant.price.toFixed(2)}`;
+                            vTotalPriceWidth = fontRegular.widthOfTextAtSize(vPriceText, VARIANT_SIZE);
+                        }
+
+                        const vPriceStartX = vPriceText
+                            ? PAGE_WIDTH - MARGIN_X - vTotalPriceWidth
+                            : PAGE_WIDTH - MARGIN_X;
+                        const vMaxNameWidth = vPriceText
+                            ? vPriceStartX - MARGIN_X - VARIANT_INDENT - 10
+                            : PAGE_WIDTH - MARGIN_X - VARIANT_INDENT;
+
+                        let vFormatSameLine = false;
+                        if (hasVFormats && vFormatStr) {
+                            const vNameW = fontRegular.widthOfTextAtSize(variant.name, VARIANT_SIZE);
+                            const vFmtW = fontRegular.widthOfTextAtSize(vFormatStr, VARIANT_SIZE - 1);
+                            if (vNameW + 12 + vFmtW <= PAGE_WIDTH - MARGIN_X - VARIANT_INDENT) {
+                                vFormatSameLine = true;
+                            }
+                        }
+
+                        const vNameLines = wrapText(variant.name, vMaxNameWidth, fontRegular, VARIANT_SIZE);
+                        for (let i = 0; i < vNameLines.length; i++) {
+                            ensureSpace(VARIANT_LINE_H);
+                            page.drawText(vNameLines[i], {
+                                x: MARGIN_X + VARIANT_INDENT,
+                                y,
+                                size: VARIANT_SIZE,
+                                font: fontRegular,
+                                color: rgb(0.2, 0.2, 0.2)
+                            });
+                            if (i === 0) {
+                                if (vPriceText) {
+                                    page.drawText(vPriceText, {
+                                        x: vPriceStartX,
+                                        y,
+                                        size: VARIANT_SIZE,
+                                        font: fontRegular,
+                                        color: rgb(0.2, 0.2, 0.2)
+                                    });
+                                } else if (vFormatSameLine && vFormatStr) {
+                                    const vNameW = fontRegular.widthOfTextAtSize(vNameLines[0], VARIANT_SIZE);
+                                    page.drawText(vFormatStr, {
+                                        x: MARGIN_X + VARIANT_INDENT + vNameW + 12,
+                                        y,
+                                        size: VARIANT_SIZE - 1,
+                                        font: fontRegular,
+                                        color: rgb(0.3, 0.3, 0.3)
+                                    });
+                                }
+                            }
+                            y -= VARIANT_LINE_H;
+                        }
+
+                        if (hasVFormats && vFormatStr && !vFormatSameLine) {
+                            const vFmtLines = wrapText(
+                                vFormatStr,
+                                PAGE_WIDTH - MARGIN_X - VARIANT_INDENT - INDENT,
+                                fontRegular,
+                                VARIANT_SIZE - 1
+                            );
+                            for (const fl of vFmtLines) {
+                                ensureSpace(FORMAT_LINE_H);
+                                page.drawText(fl, {
+                                    x: MARGIN_X + VARIANT_INDENT + INDENT,
+                                    y,
+                                    size: VARIANT_SIZE - 1,
+                                    font: fontRegular,
+                                    color: rgb(0.3, 0.3, 0.3)
+                                });
+                                y -= FORMAT_LINE_H;
+                            }
+                        }
+
+                        if (variant.description) {
+                            const vDescLines = wrapText(
+                                variant.description,
+                                PAGE_WIDTH - MARGIN_X - VARIANT_INDENT - INDENT,
+                                fontRegular,
+                                VARIANT_SIZE - 1
+                            );
+                            for (const dl of vDescLines) {
+                                ensureSpace(DESC_LINE_H);
+                                page.drawText(dl, {
+                                    x: MARGIN_X + VARIANT_INDENT + INDENT,
+                                    y,
+                                    size: VARIANT_SIZE - 1,
+                                    font: fontRegular,
+                                    color: rgb(0.6, 0.6, 0.6)
+                                });
+                                y -= DESC_LINE_H;
+                            }
+                        }
+                    }
+                }
+
+                // Small gap between items
+                y -= 3;
             }
 
             // Extra spacing between sections
@@ -848,7 +1290,12 @@ serve(async req => {
         const pdfBytes = await pdfDoc.save();
 
         const safeName = businessRow.name.replace(/[^a-zA-Z0-9-_]+/g, "_");
-        const filename = safeName ? `menu-${safeName}.pdf` : "menu.pdf";
+        const safeCatalog = (rawCatalog.name ?? "").replace(/[^a-zA-Z0-9-_]+/g, "_");
+        const filename = safeName
+            ? safeCatalog
+                ? `menu-${safeName}-${safeCatalog}.pdf`
+                : `menu-${safeName}.pdf`
+            : "menu.pdf";
 
         // 6) Return the PDF as a binary response
         return new Response(pdfBytes, {

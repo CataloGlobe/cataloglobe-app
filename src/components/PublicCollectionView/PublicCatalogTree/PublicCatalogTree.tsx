@@ -1,6 +1,6 @@
 import React from "react";
 import styles from "./PublicCatalogTree.module.scss";
-import type { ResolvedCategory } from "@/services/supabase/resolveActivityCatalogs";
+import type { ResolvedCategory } from "@/types/resolvedCollections";
 import Text from "@/components/ui/Text/Text";
 import PublicProductCard from "../PublicProductCard/PublicProductCard";
 import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";

@@ -4,6 +4,7 @@ import {
     findLayoutCatalogId,
     loadCatalogById
 } from "./resolveActivityCatalogs";
+import { getNowInRome } from "@/services/supabase/schedulingNow";
 
 // ==========================================
 // TYPES
@@ -49,7 +50,7 @@ export async function getActiveCatalogForActivities(
 ): Promise<Record<string, ActiveCatalogMeta>> {
     if (activityIds.length === 0) return {};
 
-    const now = new Date();
+    const now = getNowInRome();
 
     // ── Step 1: Resolve all activities in parallel ─────────────────────────
     const resolvedList = await Promise.all(
@@ -109,7 +110,7 @@ export async function getActiveCatalogForActivities(
 export async function getRenderableCatalogForActivity(
     activityId: string
 ): Promise<RenderableCatalog> {
-    const now = new Date();
+    const now = getNowInRome();
     const { catalogId } = await findLayoutCatalogId(activityId, now);
 
     if (!catalogId) {

@@ -66,3 +66,31 @@ export async function deleteProductImage(
     const { error } = await supabase.storage.from("product-images").remove([filePath]);
     if (error) throw error;
 }
+
+export async function uploadFeaturedContentImage(
+    tenantId: string,
+    contentId: string,
+    file: File
+): Promise<string> {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const filePath = `${tenantId}/${contentId}.${ext}`;
+
+    const { error } = await supabase.storage
+        .from("featured-contents")
+        .upload(filePath, file, { upsert: true, contentType: file.type });
+
+    if (error) throw new Error("Upload immagine fallito");
+
+    const { data } = supabase.storage.from("featured-contents").getPublicUrl(filePath);
+    return data.publicUrl;
+}
+
+export async function deleteFeaturedContentImage(
+    tenantId: string,
+    contentId: string,
+    ext: string
+): Promise<void> {
+    const filePath = `${tenantId}/${contentId}.${ext}`;
+    const { error } = await supabase.storage.from("featured-contents").remove([filePath]);
+    if (error) throw error;
+}

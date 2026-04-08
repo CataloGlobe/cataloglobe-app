@@ -1,12 +1,12 @@
 import { supabase } from "@/services/supabase/client";
-import { resolveActivityCatalogs } from "./resolveActivityCatalogs"; // Using for types or potential cache invalidation
+
 
 export type V2StyleVersion = {
     id: string;
     tenant_id: string;
     style_id: string;
     version: number;
-    config: any;
+    config: Record<string, unknown>;
     created_at: string;
 };
 
@@ -100,7 +100,37 @@ export async function getStyle(styleId: string, tenantId: string): Promise<V2Sty
     };
 }
 
-export async function createStyle(tenant_id: string, name: string, config: any): Promise<V2Style> {
+export async function listStyleVersions(
+    styleId: string,
+    tenantId: string
+): Promise<V2StyleVersion[]> {
+    const { data, error } = await supabase
+        .from("style_versions")
+        .select("id, tenant_id, style_id, version, config, created_at")
+        .eq("style_id", styleId)
+        .eq("tenant_id", tenantId)
+        .order("version", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+}
+
+export async function getStyleVersion(
+    versionId: string,
+    tenantId: string
+): Promise<V2StyleVersion> {
+    const { data, error } = await supabase
+        .from("style_versions")
+        .select("id, tenant_id, style_id, version, config, created_at")
+        .eq("id", versionId)
+        .eq("tenant_id", tenantId)
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+export async function createStyle(tenant_id: string, name: string, config: Record<string, unknown>): Promise<V2Style> {
     // 1. Create the base style
     const { data: styleData, error: styleError } = await supabase
         .from("styles")
@@ -154,7 +184,7 @@ export async function createStyle(tenant_id: string, name: string, config: any):
 export async function updateStyle(
     styleId: string,
     name: string | undefined, // undefined means don't update name
-    newConfig: any | undefined, // undefined means don't create new version
+    newConfig: Record<string, unknown> | undefined, // undefined means don't create new version
     tenant_id: string
 ): Promise<V2Style> {
     const currentStyle = await getStyle(styleId, tenant_id);
@@ -183,7 +213,7 @@ export async function updateStyle(
     }
 
     // Update the style record (name if provided, and possibly new current_version_id)
-    const updatePayload: any = {};
+    const updatePayload: Record<string, string | null> = {};
     if (name !== undefined) updatePayload.name = name;
     if (nextVersionId !== currentStyle.current_version_id) {
         updatePayload.current_version_id = nextVersionId;

@@ -4,6 +4,7 @@ import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { Card } from "@/components/ui/Card/Card";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
@@ -29,6 +30,7 @@ export default function Catalogs() {
     const { selectedTenant } = useTenant();
     const { showToast } = useToast();
     const navigate = useNavigate();
+    const verticalConfig = useVerticalConfig();
 
     const [catalogs, setCatalogs] = useState<V2Catalog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -221,19 +223,20 @@ export default function Catalogs() {
 
     const hasSearchFilter = searchQuery.trim().length > 0;
 
+    const catalogLower = verticalConfig.catalogLabel.toLowerCase();
     const emptyState = (
         <EmptyState
             icon={<IconBook2 size={40} stroke={1.5} />}
-            title={hasSearchFilter ? "Nessun catalogo trovato" : "Non hai ancora creato cataloghi"}
+            title={hasSearchFilter ? `Nessun ${catalogLower} trovato` : `Non hai ancora creato ${catalogLower}`}
             description={
                 hasSearchFilter
-                    ? "Nessun catalogo corrisponde alla ricerca."
-                    : "I cataloghi organizzano i tuoi prodotti e vengono mostrati ai clienti."
+                    ? `Nessun ${catalogLower} corrisponde alla ricerca.`
+                    : `I ${catalogLower} organizzano i tuoi ${verticalConfig.productLabel.toLowerCase()}i e vengono mostrati ai clienti.`
             }
             action={
                 !hasSearchFilter ? (
                     <Button variant="primary" onClick={handleOpenCreate}>
-                        + Crea il tuo primo catalogo
+                        {`+ Crea il tuo primo ${catalogLower}`}
                     </Button>
                 ) : undefined
             }
@@ -243,12 +246,12 @@ export default function Catalogs() {
     return (
         <section className={styles.container}>
             <PageHeader
-                title="Cataloghi"
+                title={verticalConfig.catalogLabel}
                 businessName={selectedTenant?.name}
-                subtitle="Gestisci l'albero delle categorie e i gruppi del tuo menu."
+                subtitle={`Gestisci l'albero delle categorie e i gruppi del tuo ${catalogLower}.`}
                 actions={
                     <Button variant="primary" onClick={handleOpenCreate}>
-                        Crea catalogo
+                        {`Crea ${catalogLower}`}
                     </Button>
                 }
             />
@@ -258,7 +261,7 @@ export default function Catalogs() {
                     search={{
                         value: searchQuery,
                         onChange: setSearchQuery,
-                        placeholder: "Cerca cataloghi..."
+                        placeholder: `Cerca ${catalogLower}...`
                     }}
                     view={{
                         value: density === "compact" ? "list" : "grid",
