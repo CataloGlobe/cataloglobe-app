@@ -7,19 +7,15 @@ import CollectionView, {
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 
-import { getActivityBySlug } from "@/services/supabase/activities";
 import { supabase } from "@/services/supabase/client";
-import {
-    resolveActivityCatalogs,
-    type ResolvedCollections,
-    type ResolvedProduct,
-    type ResolvedCategory
-} from "@/services/supabase/resolveActivityCatalogs";
-import { getTenantLogoPublicUrl, getTenantPublicInfo } from "@/services/supabase/tenants";
+import type {
+    ResolvedCollections,
+    ResolvedProduct,
+    ResolvedCategory
+} from "@/types/resolvedCollections";
 import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { DEFAULT_COLLECTION_STYLE } from "@/types/collectionStyle";
 
-import type { V2Activity } from "@/types/activity";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import NotFound from "../NotFound/NotFound";
 import { getDisplayValue } from "@/utils/attributes";
@@ -129,18 +125,29 @@ function mapCatalogToSections(resolved: ResolvedCollections): CollectionViewSect
    PAGE
 =============================================== */
 
+type PublicBusiness = {
+    id: string;
+    tenant_id: string;
+    name: string;
+    slug: string;
+    cover_image: string | null;
+    status: "active" | "inactive";
+    inactive_reason: "maintenance" | "closed" | "unavailable" | null;
+};
+
 type PageState =
     | { status: "loading" }
     | { status: "error"; message: string }
+    | { status: "inactive"; inactiveReason: string | null }
     | {
           status: "ready";
-          business: V2Activity;
+          business: PublicBusiness;
           resolved: ResolvedCollections;
           tenantLogoUrl: string | null;
       }
     | {
           status: "empty";
-          business: V2Activity;
+          business: PublicBusiness;
           tenantLogoUrl: string | null;
       };
 
@@ -148,8 +155,8 @@ export default function PublicCollectionPage() {
     const { slug } = useParams<{ slug: string }>();
     const [searchParams] = useSearchParams();
     const simulateParam = searchParams.get("simulate");
-    const [simulatedAt, setSimulatedAt] = useState<Date | undefined>(undefined);
-    const isSimulation = simulatedAt && !Number.isNaN(simulatedAt.getTime());
+    const [effectiveSimulate, setEffectiveSimulate] = useState<string | null>(null);
+    const isSimulation = !!effectiveSimulate;
     const [state, setState] = useState<PageState>({ status: "loading" });
 
     useEffect(() => {
@@ -158,14 +165,14 @@ export default function PublicCollectionPage() {
             return;
         }
 
-        const businessSlug = slug;
         let cancelled = false;
 
         async function load() {
             try {
                 setState({ status: "loading" });
 
-                let effectiveSimulatedAt: Date | undefined = undefined;
+                // Gate simulation behind authentication
+                let simulate: string | undefined = undefined;
                 if (simulateParam) {
                     const {
                         data: { session }
@@ -173,26 +180,37 @@ export default function PublicCollectionPage() {
                     if (session) {
                         const parsed = new Date(simulateParam);
                         if (!Number.isNaN(parsed.getTime())) {
-                            effectiveSimulatedAt = parsed;
+                            simulate = simulateParam;
                         }
                     }
                 }
-                setSimulatedAt(effectiveSimulatedAt);
+                setEffectiveSimulate(simulate ?? null);
 
-                const business = await getActivityBySlug(businessSlug);
-                if (!business) throw new Error("Attività non trovata.");
+                const { data, error } = await supabase.functions.invoke(
+                    "resolve-public-catalog",
+                    { body: { slug, simulate } }
+                );
 
-                const [resolved, tenantInfo] = await Promise.all([
-                    resolveActivityCatalogs(business.id, effectiveSimulatedAt),
-                    getTenantPublicInfo(business.tenant_id)
-                ]);
-                console.log("simulatedAt:", effectiveSimulatedAt);
-                console.log("resolved catalog:", JSON.stringify(resolved?.catalog?.name));
+                if (cancelled) return;
 
-                const tenantLogoUrl = tenantInfo?.logo_url
-                    ? getTenantLogoPublicUrl(tenantInfo.logo_url)
-                    : null;
+                if (error) throw error;
 
+                const { business, tenantLogoUrl, resolved } = data as {
+                    business: PublicBusiness;
+                    tenantLogoUrl: string | null;
+                    resolved: ResolvedCollections;
+                };
+
+                // Inactive venue
+                if (business.status !== "active") {
+                    setState({
+                        status: "inactive",
+                        inactiveReason: business.inactive_reason ?? null
+                    });
+                    return;
+                }
+
+                // Empty state (no catalog, no featured)
                 if (
                     !resolved.catalog &&
                     (!resolved.featured?.hero || resolved.featured.hero.length === 0) &&
@@ -204,8 +222,6 @@ export default function PublicCollectionPage() {
                     setState({ status: "empty", business, tenantLogoUrl });
                     return;
                 }
-
-                if (cancelled) return;
 
                 setState({ status: "ready", business, resolved, tenantLogoUrl });
             } catch (err) {
@@ -240,6 +256,15 @@ export default function PublicCollectionPage() {
 
     if (state.status === "error") {
         return <NotFound variant="business" />;
+    }
+
+    if (state.status === "inactive") {
+        return (
+            <NotFound
+                variant="business-inactive"
+                inactiveReason={state.inactiveReason as "maintenance" | "closed" | "unavailable" | null}
+            />
+        );
     }
 
     if (state.status === "empty") {
@@ -312,7 +337,7 @@ export default function PublicCollectionPage() {
                     }}
                 >
                     <span>Anteprima simulazione</span>
-                    <span>{simulatedAt!.toLocaleString("it-IT")}</span>
+                    <span>{new Date(effectiveSimulate!).toLocaleString("it-IT", { timeZone: "Europe/Rome" })}</span>
                 </div>
             )}
             <CollectionView
