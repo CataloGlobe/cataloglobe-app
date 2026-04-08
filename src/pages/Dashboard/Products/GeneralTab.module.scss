@@ -36,58 +36,6 @@
   gap: 2px;
 }
 
-/* Info edit form */
-.infoEditForm {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-width: 560px;
-}
-
-.textareaField {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.textareaLabel {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text-primary, #111827);
-}
-
-.textarea {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
-  font-size: 14px;
-  font-family: inherit;
-  color: var(--color-text-primary, #111827);
-  background-color: var(--color-surface-primary, #fff);
-  resize: vertical;
-  min-height: 88px;
-  box-sizing: border-box;
-  outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
-
-  &:focus {
-    border-color: var(--color-primary, #6366f1);
-    box-shadow: 0 0 0 2px var(--color-primary-light, #eef2ff);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
-.infoActions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
 /* Thumbnail immagine in view mode */
 .productThumbnail {
   width: 48px;
@@ -98,49 +46,24 @@
 }
 
 /* Groups */
-.groupSearch {
-  max-width: 280px;
-}
-
-.groupList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
-  padding: 12px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.groupCheckItem {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  user-select: none;
-  padding: 4px 0;
-}
-
-.groupCheckbox {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-  accent-color: var(--color-primary, #6366f1);
-  flex-shrink: 0;
-}
-
-.groupActions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-top: 4px;
-}
-
 .groupsDisplay {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+// Static read-only badge shared base
+%staticBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
 }
 
 .groupBadge {
@@ -202,20 +125,6 @@
   gap: 8px;
 }
 
-// Static read-only badge shared base
-%staticBadge {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 4px 12px;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.4;
-  cursor: default;
-  user-select: none;
-  white-space: nowrap;
-}
-
 .allergenBadge {
   @extend %staticBadge;
   background-color: var(--color-warning-50, #fffbeb);
@@ -234,34 +143,4 @@
     border-color: #334155;
     color: #f1f5f9;
   }
-}
-
-.specsEditForm {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-width: 560px;
-}
-
-.specsField {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.allergenGrid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.specsActions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-top: 4px;
-}
-
-.fieldError {
-  margin-top: 4px;
 }

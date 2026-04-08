@@ -5,6 +5,7 @@ import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -59,6 +60,7 @@ export default function Products() {
     const currentTenantId = useTenantId();
     const { selectedTenant } = useTenant();
     const { showToast } = useToast();
+    const verticalConfig = useVerticalConfig();
 
     const [isLoading, setIsLoading] = useState(true);
     const [allProducts, setAllProducts] = useState<V2Product[]>([]);
@@ -364,13 +366,13 @@ export default function Products() {
     return (
         <section className={styles.container}>
             <PageHeader
-                title="Prodotti"
+                title={verticalConfig.productLabelPlural}
                 businessName={selectedTenant?.name}
-                subtitle="Gestisci il tuo catalogo prodotti, prezzi, varianti e raggruppamenti."
+                subtitle={`Gestisci il tuo catalogo ${verticalConfig.productLabelPlural.toLowerCase()}, prezzi, varianti e raggruppamenti.`}
                 actions={
                     activeTab === "products" ? (
                         <Button variant="primary" onClick={handleCreateBase}>
-                            Crea prodotto
+                            {`Crea ${verticalConfig.productLabel.toLowerCase()}`}
                         </Button>
                     ) : activeTab === "groups" ? (
                         <Button variant="primary" onClick={() => setCreateGroupOpen(true)}>
@@ -380,7 +382,7 @@ export default function Products() {
                         <Button variant="primary" onClick={() => setAttrCreateSeq(s => s + 1)}>
                             Nuovo attributo
                         </Button>
-                    ) : activeTab === "ingredients" ? (
+                    ) : activeTab === "ingredients" && verticalConfig.hasIngredients ? (
                         <Button variant="primary" onClick={() => setIngredientCreateSeq(s => s + 1)}>
                             Crea ingrediente
                         </Button>
@@ -395,10 +397,12 @@ export default function Products() {
                 }
             >
                 <Tabs.List>
-                    <Tabs.Tab value="products">Prodotti</Tabs.Tab>
+                    <Tabs.Tab value="products">{verticalConfig.productLabelPlural}</Tabs.Tab>
                     <Tabs.Tab value="groups">Gruppi Prodotti</Tabs.Tab>
                     <Tabs.Tab value="attributes">Attributi</Tabs.Tab>
-                    <Tabs.Tab value="ingredients">Ingredienti</Tabs.Tab>
+                    {verticalConfig.hasIngredients && (
+                        <Tabs.Tab value="ingredients">Ingredienti</Tabs.Tab>
+                    )}
                 </Tabs.List>
 
                 <Tabs.Panel value="products">
@@ -408,7 +412,7 @@ export default function Products() {
                                 search={{
                                     value: searchQuery,
                                     onChange: setSearchQuery,
-                                    placeholder: "Cerca piatto o variante..."
+                                    placeholder: `Cerca ${verticalConfig.productLabel.toLowerCase()} o variante...`
                                 }}
                                 view={{
                                     value: viewMode,
@@ -429,18 +433,18 @@ export default function Products() {
                                 icon={<Package size={40} strokeWidth={1.5} />}
                                 title={
                                     searchQuery
-                                        ? "Nessun prodotto trovato"
-                                        : "Non hai ancora creato prodotti"
+                                        ? `Nessun ${verticalConfig.productLabel.toLowerCase()} trovato`
+                                        : `Non hai ancora creato ${verticalConfig.productLabelPlural.toLowerCase()}`
                                 }
                                 description={
                                     searchQuery
-                                        ? "Nessun prodotto corrisponde ai filtri di ricerca."
-                                        : "I prodotti sono gli elementi che compariranno nei tuoi cataloghi."
+                                        ? `Nessun ${verticalConfig.productLabel.toLowerCase()} corrisponde ai filtri di ricerca.`
+                                        : `I ${verticalConfig.productLabelPlural.toLowerCase()} sono gli elementi che compariranno nei tuoi cataloghi.`
                                 }
                                 action={
                                     !searchQuery ? (
                                         <Button variant="primary" onClick={handleCreateBase}>
-                                            + Crea il tuo primo prodotto
+                                            {`+ Crea il tuo primo ${verticalConfig.productLabel.toLowerCase()}`}
                                         </Button>
                                     ) : undefined
                                 }
@@ -508,9 +512,11 @@ export default function Products() {
                         createTrigger={attrCreateSeq}
                     />
                 </Tabs.Panel>
-                <Tabs.Panel value="ingredients">
-                    <Ingredients createTrigger={ingredientCreateSeq} />
-                </Tabs.Panel>
+                {verticalConfig.hasIngredients && (
+                    <Tabs.Panel value="ingredients">
+                        <Ingredients createTrigger={ingredientCreateSeq} />
+                    </Tabs.Panel>
+                )}
             </Tabs>
         </section>
     );

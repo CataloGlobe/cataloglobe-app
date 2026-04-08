@@ -1,0 +1,17 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.specsField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.allergenGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

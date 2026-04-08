@@ -50,6 +50,7 @@ import { Select } from "@/components/ui/Select/Select";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Pill } from "@/components/ui/Pill/Pill";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import styles from "../Products.module.scss";
 import { IngredientCombobox } from "./IngredientCombobox";
 
@@ -241,6 +242,7 @@ export function ProductForm({
 }: ProductFormProps) {
     const { showToast } = useToast();
     const navigate = useNavigate();
+    const verticalConfig = useVerticalConfig();
     const isEditing = mode === "edit";
 
     const nameInputRef = useRef<HTMLInputElement>(null);
@@ -1795,7 +1797,7 @@ export function ProductForm({
                         <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
                             Specifiche prodotto
                         </Text>
-                        {systemAllergens.length > 0 && (
+                        {verticalConfig.hasAllergens && systemAllergens.length > 0 && (
                             <div style={{ marginBottom: 16 }}>
                                 <Text variant="body-sm" weight={600} style={{ marginBottom: 4 }}>
                                     Allergeni
@@ -1844,6 +1846,7 @@ export function ProductForm({
                                 )}
                             </div>
                         )}
+                        {verticalConfig.hasIngredients && (
                         <div>
                             <Text variant="body-sm" weight={600} style={{ marginBottom: 4 }}>
                                 Ingredienti
@@ -1856,6 +1859,7 @@ export function ProductForm({
                                 isLoadingIngredients={isLoadingIngredients}
                             />
                         </div>
+                        )}
 
                         {attributeDefinitions.length > 0 && (
                             <div style={{ marginTop: 16 }}>
@@ -1981,7 +1985,7 @@ export function ProductForm({
                 </Text>
 
                 {/* Allergeni */}
-                {(isLoadingAllergens || systemAllergens.length > 0) && (
+                {verticalConfig.hasAllergens && (isLoadingAllergens || systemAllergens.length > 0) && (
                     <div style={{ marginBottom: 20 }}>
                         <Text variant="body-sm" weight={600} style={{ marginBottom: 8 }}>
                             Allergeni
@@ -2016,6 +2020,7 @@ export function ProductForm({
                 )}
 
                 {/* Ingredienti */}
+                {verticalConfig.hasIngredients && (
                 <div>
                     <Text variant="body-sm" weight={600} style={{ marginBottom: 8 }}>
                         Ingredienti
@@ -2028,6 +2033,7 @@ export function ProductForm({
                         isLoadingIngredients={isLoadingIngredients}
                     />
                 </div>
+                )}
             </div>
 
             <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />

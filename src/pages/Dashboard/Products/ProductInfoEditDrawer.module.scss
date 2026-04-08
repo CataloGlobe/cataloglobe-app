@@ -1,0 +1,43 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.textareaField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.textareaLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary, #111827);
+}
+
+.textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--color-text-primary, #111827);
+  background-color: var(--color-surface-primary, #fff);
+  resize: vertical;
+  min-height: 88px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:focus {
+    border-color: var(--color-primary, #6366f1);
+    box-shadow: 0 0 0 2px var(--color-primary-light, #eef2ff);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
