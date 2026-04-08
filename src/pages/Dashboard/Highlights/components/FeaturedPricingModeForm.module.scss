@@ -1,0 +1,61 @@
+/* src/pages/Dashboard/Highlights/components/FeaturedPricingModeForm.module.scss */
+.pricingOptions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.pricingCard {
+  border: 2px solid var(--border-subtle, #e5e7eb);
+  border-radius: 10px;
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  user-select: none;
+
+  &:hover {
+    border-color: var(--color-primary, #6366f1);
+    background: var(--surface-hover, #f8f8ff);
+  }
+}
+
+.pricingCardSelected {
+  border-color: var(--color-primary, #6366f1);
+  background: var(--surface-selected, #f0f0ff);
+}
+
+.pricingCardIcon {
+  font-size: 1.25rem;
+  margin-bottom: 4px;
+}
+
+.pricingCardLabel {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.pricingCardDescription {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.pricingExtra {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface-secondary, #f9fafb);
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  margin-top: 4px;
+}
+
+.formFields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
