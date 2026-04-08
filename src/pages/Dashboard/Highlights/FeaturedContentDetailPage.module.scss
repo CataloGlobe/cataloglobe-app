@@ -1,0 +1,136 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-bottom: 40px;
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 24px;
+}
+
+.blockTitle {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle, #e5e7eb);
+}
+
+.row2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.mediaPreview {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  background: var(--surface-secondary, #f9fafb);
+}
+
+.mediaPreviewImg {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+}
+
+.productsEmptyState {
+  padding: 32px 24px;
+  text-align: center;
+}
+
+/* ── Read-only info layout ───────────────────────────── */
+.blockHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle, #e5e7eb);
+  margin-bottom: 16px;
+}
+
+.blockHeaderTitle {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.readOnlyGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.roField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.roFieldFull {
+  grid-column: 1 / -1;
+}
+
+.roLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.roValue {
+  font-size: 0.9375rem;
+  color: var(--text-primary, #111827);
+  line-height: 1.5;
+}
+
+.roValueEmpty {
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.mediaPlaceholder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  background: var(--surface-secondary, #f9fafb);
+  border: 1px dashed var(--border-subtle, #e5e7eb);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.pricingModeRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pricingModeLabel {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+
+.pricingModeDetail {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
