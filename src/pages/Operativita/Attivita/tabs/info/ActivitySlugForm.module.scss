@@ -1,0 +1,54 @@
+@use "@/styles/variables" as v;
+
+.formFields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.statusMessage {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  margin-top: 0.25rem;
+
+  &.available {
+    color: v.$success;
+  }
+
+  &.error {
+    color: v.$error;
+  }
+
+  &.checking {
+    color: v.$gray-400;
+  }
+}
+
+.warningBox {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: 8px;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+
+  .warningIcon {
+    flex-shrink: 0;
+    color: #d97706;
+    margin-top: 1px;
+  }
+
+  .warningText {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: #92400e;
+  }
+}
+
+.confirmRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}

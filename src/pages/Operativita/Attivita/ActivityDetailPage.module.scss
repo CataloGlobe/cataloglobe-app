@@ -136,22 +136,52 @@
     font-style: italic;
   }
 
+  .slugValue {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
   .slugLink {
     font-size: 1rem;
     color: v.$brand-primary;
     text-decoration: none;
-    display: inline-flex;
-    align-items: center;
     font-weight: 500;
 
     &:hover {
       text-decoration: underline;
     }
   }
+
+  .slugEditIcon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: v.$gray-400;
+    padding: 2px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+
+    &:hover {
+      color: v.$text-color;
+      background: v.$gray-100;
+    }
+  }
 }
 
 .fullWidth {
   grid-column: 1 / -1;
+}
+
+.descriptionField {
+  grid-column: 2;
+  grid-row: 2 / 4;
+
+  @media (max-width: 768px) {
+    grid-column: 1;
+    grid-row: auto;
+  }
 }
 
 .descriptionBox {

@@ -63,13 +63,40 @@ export async function uploadAndInsertActivityMedia(
     return data;
 }
 
-export async function deleteActivityMedia(id: string): Promise<void> {
+export async function deleteActivityMedia(id: string, url: string): Promise<void> {
+    // Extract storage path from public URL and delete file from bucket
+    try {
+        const bucketUrl = supabase.storage.from(BUCKET).getPublicUrl("").data.publicUrl;
+        const storagePath = url.replace(bucketUrl, "");
+        if (storagePath && storagePath !== url) {
+            await supabase.storage.from(BUCKET).remove([storagePath]);
+        }
+    } catch {
+        // Storage cleanup is best-effort — proceed with DB delete
+    }
+
     const { error } = await supabase
         .from("activity_media")
         .delete()
         .eq("id", id);
 
     if (error) throw error;
+}
+
+export async function updateMediaSortOrder(
+    updates: Array<{ id: string; sort_order: number }>
+): Promise<void> {
+    // Batch update sort_order for each media item
+    const promises = updates.map(({ id, sort_order }) =>
+        supabase
+            .from("activity_media")
+            .update({ sort_order })
+            .eq("id", id)
+    );
+
+    const results = await Promise.all(promises);
+    const failed = results.find(r => r.error);
+    if (failed?.error) throw failed.error;
 }
 
 export async function setMediaAsCover(

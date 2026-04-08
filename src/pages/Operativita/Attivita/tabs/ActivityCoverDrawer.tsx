@@ -37,9 +37,15 @@ export const ActivityCoverDrawer: React.FC<ActivityCoverDrawerProps> = ({
         onClose();
     };
 
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
     const handleFileSelect = (file: File) => {
         if (!file.type.startsWith("image/")) {
             showToast({ message: "Seleziona un'immagine valida.", type: "error" });
+            return;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+            showToast({ message: "L'immagine supera il limite di 5 MB.", type: "error" });
             return;
         }
         setSelectedFile(file);

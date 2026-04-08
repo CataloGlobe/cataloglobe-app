@@ -1,29 +1,26 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { IconLoader2 } from "@tabler/icons-react";
-import { Button, Card } from "@/components/ui";
+import { Button } from "@/components/ui";
 import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { SuspendActivityDialog } from "./components/SuspendActivityDialog";
 import { ActivityInfoTab } from "./tabs/ActivityInfoTab";
 import { ActivityMediaTab } from "./tabs/ActivityMediaTab";
-import { ActivityContactsTab } from "./tabs/ActivityContactsTab";
-import { ActivitySettingsTab } from "./tabs/ActivitySettingsTab";
-import { ActivityPublicAccessTab } from "./tabs/ActivityPublicAccessTab";
+import { ActivityHoursServicesTab } from "./tabs/ActivityHoursServicesTab";
+import { ActivityAccessControlTab } from "./tabs/ActivityAccessControlTab";
 import {
     getActivityById,
+    getActivityCount,
     updateActivity,
-    uploadActivityCover
+    deleteActivityAtomic
 } from "@/services/supabase/activities";
 import { getGroupsForActivity } from "@/services/supabase/activity-groups";
 import { V2Activity } from "@/types/activity";
 import { V2ActivityGroup } from "@/types/activity-group";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./ActivityDetailPage.module.scss";
-
-type SlugInlineState =
-    | { type: "idle" }
-    | { type: "warning" }
-    | { type: "conflict"; suggestions: string[] };
 
 const ActivityDetailPage: React.FC = () => {
     const { activityId, businessId } = useParams<{ activityId: string; businessId: string }>();
@@ -34,9 +31,8 @@ const ActivityDetailPage: React.FC = () => {
     const activeTab = (searchParams.get("tab") || "info") as
         | "info"
         | "media"
-        | "contacts"
-        | "settings"
-        | "public";
+        | "hours-services"
+        | "access-control";
 
     const setActiveTab = (tab: string) => {
         setSearchParams(prev => {
@@ -47,23 +43,27 @@ const ActivityDetailPage: React.FC = () => {
 
     const [activity, setActivity] = useState<V2Activity | null>(null);
     const [groups, setGroups] = useState<V2ActivityGroup[]>([]);
+    const [activityCount, setActivityCount] = useState(0);
     const [loading, setLoading] = useState(true);
 
-    const [isUpdating, setIsUpdating] = useState(false);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [isSuspendOpen, setIsSuspendOpen] = useState(false);
 
     const fetchData = useCallback(async () => {
         if (!activityId) return;
         try {
             setLoading(true);
-            const [activityData, groupsData] = await Promise.all([
+            const [activityData, groupsData, count] = await Promise.all([
                 getActivityById(activityId, businessId!),
-                getGroupsForActivity(activityId, businessId!)
+                getGroupsForActivity(activityId, businessId!),
+                getActivityCount(businessId!)
             ]);
 
             if (activityData) {
                 setActivity(activityData);
                 setGroups(groupsData.filter(g => !g.is_system));
             }
+            setActivityCount(count);
         } catch (error) {
             console.error("Error fetching activity details:", error);
             showToast({
@@ -86,51 +86,64 @@ const ActivityDetailPage: React.FC = () => {
         return `${protocol}//${domain}/${activity.slug}`;
     }, [activity]);
 
-    const copyToClipboard = () => {
-        navigator.clipboard.writeText(publicUrl);
-        showToast({
-            message: "URL copiato negli appunti.",
-            type: "success"
-        });
-    };
-
-    const handleToggleStatus = async () => {
+    const handleToggleStatus = useCallback(() => {
         if (!activity) return;
-        const newStatus = activity.status === "active" ? "inactive" : "active";
-        try {
-            await updateActivity(activity.id, businessId!, { status: newStatus });
-            setActivity({ ...activity, status: newStatus });
-            showToast({
-                message: `Sede impostata come ${newStatus === "active" ? "attiva" : "inattiva"}.`,
-                type: "success"
-            });
-        } catch (error) {
-            showToast({
-                message: "Impossibile aggiornare lo stato della sede.",
-                type: "error"
-            });
+        if (activity.status === "active") {
+            setIsSuspendOpen(true);
+        } else {
+            // Riattivazione diretta
+            (async () => {
+                try {
+                    await updateActivity(activity.id, businessId!, {
+                        status: "active",
+                        inactive_reason: null
+                    });
+                    await fetchData();
+                    showToast({ message: "Sede riattivata con successo.", type: "success" });
+                } catch {
+                    showToast({
+                        message: "Impossibile riattivare la sede.",
+                        type: "error"
+                    });
+                }
+            })();
         }
-    };
+    }, [activity, businessId, fetchData, showToast]);
 
-    const handleSaveActivity = async (updates: Partial<V2Activity>) => {
-        if (!activity) return;
-        setIsUpdating(true);
+    const handleSuspendConfirm = useCallback(
+        async (reason: "maintenance" | "closed" | "unavailable"): Promise<boolean> => {
+            if (!activity) return false;
+            try {
+                await updateActivity(activity.id, businessId!, {
+                    status: "inactive",
+                    inactive_reason: reason
+                });
+                await fetchData();
+                showToast({ message: "Sede sospesa.", type: "success" });
+                return true;
+            } catch {
+                showToast({
+                    message: "Impossibile sospendere la sede.",
+                    type: "error"
+                });
+                return false;
+            }
+        },
+        [activity, businessId, fetchData, showToast]
+    );
+
+    const handleDeleteActivity = useCallback(async (): Promise<boolean> => {
+        if (!activity) return false;
         try {
-            await updateActivity(activity.id, businessId!, updates);
-            await fetchData();
-            showToast({
-                message: "Sede aggiornata con successo.",
-                type: "success"
-            });
-        } catch (error) {
-            showToast({
-                message: "Impossibile aggiornare la sede.",
-                type: "error"
-            });
-        } finally {
-            setIsUpdating(false);
+            await deleteActivityAtomic(activity.id);
+            showToast({ message: "Sede eliminata con successo.", type: "success" });
+            navigate(`/business/${businessId}/locations`);
+            return true;
+        } catch {
+            showToast({ message: "Errore durante l'eliminazione della sede.", type: "error" });
+            return false;
         }
-    };
+    }, [activity, businessId, navigate, showToast]);
 
     const breadcrumbItems = useMemo(
         () => [
@@ -179,9 +192,8 @@ const ActivityDetailPage: React.FC = () => {
                     <Tabs.List>
                         <Tabs.Tab value="info">Informazioni</Tabs.Tab>
                         <Tabs.Tab value="media">Media</Tabs.Tab>
-                        <Tabs.Tab value="contacts">Contatti</Tabs.Tab>
-                        <Tabs.Tab value="settings">Impostazioni</Tabs.Tab>
-                        <Tabs.Tab value="public">Accesso pubblico</Tabs.Tab>
+                        <Tabs.Tab value="hours-services">Orari & Servizi</Tabs.Tab>
+                        <Tabs.Tab value="access-control">Accesso & Controllo</Tabs.Tab>
                     </Tabs.List>
 
                     <div style={{ marginTop: "24px" }}>
@@ -190,14 +202,13 @@ const ActivityDetailPage: React.FC = () => {
                                 activity={activity}
                                 groups={groups}
                                 publicUrl={publicUrl}
-                                onSave={handleSaveActivity}
-                                isSaving={isUpdating}
+                                showGroups={activityCount > 1}
                                 onNavigateToGroups={() =>
                                     navigate(
                                         `/business/${businessId}/locations?tab=groups&highlight=${activity.id}`
                                     )
                                 }
-                                onCopyToClipboard={copyToClipboard}
+                                onReload={fetchData}
                             />
                         </Tabs.Panel>
 
@@ -210,23 +221,42 @@ const ActivityDetailPage: React.FC = () => {
                             />
                         </Tabs.Panel>
 
-                        <Tabs.Panel value="contacts">
-                            <ActivityContactsTab activity={activity} />
-                        </Tabs.Panel>
-
-                        <Tabs.Panel value="settings">
-                            <ActivitySettingsTab
+                        <Tabs.Panel value="hours-services">
+                            <ActivityHoursServicesTab
                                 activity={activity}
-                                onToggleStatus={handleToggleStatus}
+                                tenantId={businessId!}
+                                onReload={fetchData}
                             />
                         </Tabs.Panel>
 
-                        <Tabs.Panel value="public">
-                            <ActivityPublicAccessTab activity={activity} publicUrl={publicUrl} />
+                        <Tabs.Panel value="access-control">
+                            <ActivityAccessControlTab
+                                activity={activity}
+                                publicUrl={publicUrl}
+                                tenantId={businessId!}
+                                onToggleStatus={handleToggleStatus}
+                                onDeleteRequest={() => setIsDeleteOpen(true)}
+                                onReload={fetchData}
+                            />
                         </Tabs.Panel>
                     </div>
                 </Tabs>
             </div>
+
+            <ConfirmDialog
+                isOpen={isDeleteOpen}
+                onClose={() => setIsDeleteOpen(false)}
+                title="Elimina sede"
+                message="Questa azione è irreversibile. La sede e tutte le configurazioni associate verranno eliminate definitivamente."
+                confirmLabel="Elimina"
+                onConfirm={handleDeleteActivity}
+            />
+
+            <SuspendActivityDialog
+                isOpen={isSuspendOpen}
+                onClose={() => setIsSuspendOpen(false)}
+                onConfirm={handleSuspendConfirm}
+            />
         </div>
     );
 };

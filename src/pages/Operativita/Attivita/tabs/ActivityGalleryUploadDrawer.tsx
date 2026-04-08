@@ -42,12 +42,22 @@ export const ActivityGalleryUploadDrawer: React.FC<ActivityGalleryUploadDrawerPr
         onClose();
     };
 
-    const addFiles = (incoming: FileList | File[]) => {
-        const valid = Array.from(incoming).filter(f => f.type.startsWith("image/"));
-        if (valid.length < Array.from(incoming).length) {
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
+    const addFiles = useCallback((incoming: FileList | File[]) => {
+        const all = Array.from(incoming);
+        const images = all.filter(f => f.type.startsWith("image/"));
+        if (images.length < all.length) {
             showToast({
                 message: "Alcuni file non sono immagini e sono stati ignorati.",
                 type: "info"
+            });
+        }
+        const valid = images.filter(f => f.size <= MAX_FILE_SIZE);
+        if (valid.length < images.length) {
+            showToast({
+                message: `${images.length - valid.length} immagine/i superano il limite di 5 MB.`,
+                type: "error"
             });
         }
         const previews: FilePreview[] = valid.map(f => ({
@@ -55,7 +65,7 @@ export const ActivityGalleryUploadDrawer: React.FC<ActivityGalleryUploadDrawerPr
             previewUrl: URL.createObjectURL(f)
         }));
         setFiles(prev => [...prev, ...previews]);
-    };
+    }, [showToast]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) addFiles(e.target.files);
@@ -76,7 +86,7 @@ export const ActivityGalleryUploadDrawer: React.FC<ActivityGalleryUploadDrawerPr
         e.preventDefault();
         setIsDragging(false);
         if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
-    }, []);
+    }, [addFiles]);
 
     const handleRemove = (index: number) => {
         setFiles(prev => {
@@ -162,7 +172,7 @@ export const ActivityGalleryUploadDrawer: React.FC<ActivityGalleryUploadDrawerPr
                             Trascina le immagini qui, oppure <span>sfoglia</span>
                         </Text>
                         <Text variant="caption" colorVariant="muted" className={styles.dropHint}>
-                            PNG, JPG, WEBP — più file supportati
+                            PNG, JPG, WEBP — max 5 MB per file
                         </Text>
                         <input
                             ref={inputRef}

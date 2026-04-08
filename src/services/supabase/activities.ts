@@ -163,9 +163,38 @@ export async function getActivities(tenantId: string): Promise<V2Activity[]> {
 }
 
 /**
- * Recupera una singola attività tramite slug.
+ * Conta le attività di un tenant (head-only, nessun payload).
+ */
+export async function getActivityCount(tenantId: string): Promise<number> {
+    const { count, error } = await supabase
+        .from("activities")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId);
+
+    if (error) throw error;
+    return count ?? 0;
+}
+
+/**
+ * Recupera una singola attività attiva tramite slug (uso pubblico).
  */
 export async function getActivityBySlug(slug: string): Promise<V2Activity | null> {
+    const { data, error } = await supabase
+        .from("activities")
+        .select("*")
+        .eq("slug", slug)
+        .eq("status", "active")
+        .single();
+
+    if (error) return null;
+    return data;
+}
+
+/**
+ * Recupera una singola attività tramite slug senza filtro status.
+ * Usata per distinguere "inesistente" da "inattiva" nella pagina pubblica.
+ */
+export async function getActivityBySlugAny(slug: string): Promise<V2Activity | null> {
     const { data, error } = await supabase
         .from("activities")
         .select("*")
@@ -218,7 +247,12 @@ export async function createActivity(
         .select()
         .single();
 
-    if (error) throw error;
+    if (error) {
+        if (error.code === "23505") {
+            throw new Error("SLUG_CONFLICT");
+        }
+        throw error;
+    }
     return data;
 }
 
@@ -235,7 +269,12 @@ export async function updateActivity(
         .select()
         .single();
 
-    if (error) throw error;
+    if (error) {
+        if (error.code === "23505") {
+            throw new Error("SLUG_CONFLICT");
+        }
+        throw error;
+    }
     return data;
 }
 
