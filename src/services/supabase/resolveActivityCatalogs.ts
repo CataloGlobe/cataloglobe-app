@@ -145,6 +145,7 @@ export type V2FeaturedContent = {
             image_url: string | null;
             fromPrice: number | null;
             is_from_price: boolean;
+            price_variants: Array<{ name: string | null; absolute_price: number | null }>;
         } | null;
     }>;
     created_at: string;
@@ -1512,7 +1513,7 @@ export async function resolveActivityCatalogs(
                             image_url,
                             option_groups:product_option_groups(
                                 group_kind,
-                                values:product_option_values(absolute_price)
+                                values:product_option_values(name, absolute_price)
                             )
                         )
                     )
@@ -1544,7 +1545,7 @@ export async function resolveActivityCatalogs(
                     image_url: string | null;
                     option_groups: Array<{
                         group_kind: string;
-                        values: Array<{ absolute_price: number | null }>;
+                        values: Array<{ name: string | null; absolute_price: number | null }>;
                     }> | null;
                 } | null;
             };
@@ -1559,6 +1560,10 @@ export async function resolveActivityCatalogs(
                             const { fromPrice, is_from_price } = computeFromPrice(
                                 p.product.option_groups
                             );
+                            const primaryGroup = (p.product.option_groups ?? []).find(
+                                g => g.group_kind === "PRIMARY_PRICE"
+                            );
+                            const price_variants = primaryGroup ? primaryGroup.values : [];
                             return {
                                 ...p,
                                 product: {
@@ -1568,7 +1573,8 @@ export async function resolveActivityCatalogs(
                                     base_price: p.product.base_price,
                                     image_url: p.product.image_url,
                                     fromPrice,
-                                    is_from_price
+                                    is_from_price,
+                                    price_variants
                                 }
                             };
                         });

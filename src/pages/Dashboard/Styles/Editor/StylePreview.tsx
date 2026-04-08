@@ -37,17 +37,17 @@ const MOCK_FEATURED: V2FeaturedContent[] = [
             {
                 sort_order: 0,
                 note: null,
-                product: { id: "fp1", name: "Elemento in evidenza", description: null, base_price: 14.0, image_url: null, fromPrice: null, is_from_price: false }
+                product: { id: "fp1", name: "Elemento in evidenza", description: null, base_price: 14.0, image_url: null, fromPrice: null, is_from_price: false, price_variants: [] }
             },
             {
                 sort_order: 1,
                 note: null,
-                product: { id: "fp2", name: "Offerta speciale", description: null, base_price: 9.5, image_url: null, fromPrice: null, is_from_price: false }
+                product: { id: "fp2", name: "Offerta speciale", description: null, base_price: 9.5, image_url: null, fromPrice: null, is_from_price: false, price_variants: [] }
             },
             {
                 sort_order: 2,
                 note: null,
-                product: { id: "fp3", name: "Selezione del mese", description: null, base_price: 18.0, image_url: null, fromPrice: null, is_from_price: false }
+                product: { id: "fp3", name: "Selezione del mese", description: null, base_price: 18.0, image_url: null, fromPrice: null, is_from_price: false, price_variants: [] }
             }
         ],
         created_at: "",

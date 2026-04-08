@@ -108,9 +108,15 @@
 
 .productItem {
   display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-size: 0.9rem;
+}
+
+.productMain {
+  display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.9rem;
 }
 
 .productBtn {
@@ -143,6 +149,37 @@
 }
 
 .productPrice {
+  font-weight: 600;
+  color: var(--pub-accent, #000);
+  white-space: nowrap;
+}
+
+/* ── Variant list ────────────────────────────────────────────────────────── */
+
+.variantList {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.variantItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0 2px 12px;
+  font-size: 0.82rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.variantName {
+  flex: 1;
+}
+
+.variantPrice {
   font-weight: 600;
   color: var(--pub-accent, #000);
   white-space: nowrap;
