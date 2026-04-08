@@ -2,17 +2,13 @@ import React, { useCallback, useMemo, useState, useEffect } from "react";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
-import { Select } from "@/components/ui/Select/Select";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { Pencil, Trash2, Layers } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
-import ModalLayout, {
-    ModalLayoutContent,
-    ModalLayoutFooter,
-    ModalLayoutHeader
-} from "@/components/ui/ModalLayout/ModalLayout";
+import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import {
     listFeaturedContents,
     getFeaturedContentById,
@@ -39,7 +35,6 @@ export default function Highlights() {
 
     // Filters and Toolbar
     const [searchQuery, setSearchQuery] = useState("");
-    const [typeFilter, setTypeFilter] = useState<string>("all");
     const [densityView, setDensityView] = useState<"list" | "grid">("grid"); // list = compact, grid = extended mapping
 
     // Delete state
@@ -144,15 +139,10 @@ export default function Highlights() {
     };
 
     const filteredContents = useMemo(() => {
-        return contents.filter(item => {
-            const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesType =
-                typeFilter === "all" ||
-                (typeFilter === "editorial" && item.pricing_mode === "none") ||
-                (typeFilter === "products" && item.pricing_mode !== "none");
-            return matchesSearch && matchesType;
-        });
-    }, [contents, searchQuery, typeFilter]);
+        return contents.filter(item =>
+            item.title.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [contents, searchQuery]);
 
     const columns: ColumnDefinition<FeaturedContentWithProducts>[] = [
         {
@@ -177,17 +167,6 @@ export default function Highlights() {
             )
         },
         {
-            id: "type",
-            header: "Tipo",
-            width: "1fr",
-            accessor: item => item.pricing_mode,
-            cell: (_value, item) => (
-                <span className={styles.typeBadge}>
-                    {item.pricing_mode === "none" ? "Editoriale" : "Composito"}
-                </span>
-            )
-        },
-        {
             id: "products",
             header: "Prodotti",
             width: "0.8fr",
@@ -200,21 +179,6 @@ export default function Highlights() {
                 ) : (
                     <Text variant="body-sm">{(value as number) || 0}</Text>
                 )
-        },
-        {
-            id: "status",
-            header: "Stato",
-            width: "0.9fr",
-            accessor: item => item.status,
-            cell: (value, item) => (
-                <span
-                    className={
-                        item.status === "published" ? styles.statusPublished : styles.statusDraft
-                    }
-                >
-                    {value === "published" ? "Pubblicato" : "Bozza"}
-                </span>
-            )
         },
         {
             id: "actions",
@@ -237,20 +201,6 @@ export default function Highlights() {
             )
         }
     ];
-
-    const activeFilters = (
-        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-            <Select
-                value={typeFilter}
-                onChange={e => setTypeFilter(e.target.value)}
-                options={[
-                    { value: "all", label: "Tutti i tipi" },
-                    { value: "editorial", label: "Editoriale" },
-                    { value: "products", label: "Con prodotti" }
-                ]}
-            />
-        </div>
-    );
 
     return (
         <>
@@ -276,7 +226,6 @@ export default function Highlights() {
                         value: densityView,
                         onChange: setDensityView
                     }}
-                    advancedFilters={activeFilters}
                 />
 
                 <div className={styles.tableCard}>
@@ -288,17 +237,17 @@ export default function Highlights() {
                         <EmptyState
                             icon={<Layers size={40} strokeWidth={1.5} />}
                             title={
-                                searchQuery || typeFilter !== "all"
+                                searchQuery
                                     ? "Nessun contenuto trovato"
                                     : "Non hai ancora creato contenuti in evidenza"
                             }
                             description={
-                                searchQuery || typeFilter !== "all"
-                                    ? "Nessun contenuto corrisponde ai filtri."
+                                searchQuery
+                                    ? "Nessun contenuto corrisponde alla ricerca."
                                     : "I contenuti in evidenza compaiono nella homepage del tuo catalogo."
                             }
                             action={
-                                !searchQuery && typeFilter === "all" ? (
+                                !searchQuery ? (
                                     <Button variant="primary" onClick={handleCreate}>
                                         + Crea il primo contenuto
                                     </Button>
@@ -318,36 +267,38 @@ export default function Highlights() {
                 </div>
             </div>
 
-            <ModalLayout
-                isOpen={Boolean(deleteTarget)}
+            <SystemDrawer
+                open={Boolean(deleteTarget)}
                 onClose={() => !isDeleting && setDeleteTarget(null)}
-                width="xs"
-                height="fit"
+                width={400}
             >
-                <ModalLayoutHeader>
-                    <Text as="h2" variant="title-sm" weight={700}>
-                        Elimina contenuto
-                    </Text>
-                </ModalLayoutHeader>
-                <ModalLayoutContent>
+                <DrawerLayout
+                    header={
+                        <Text as="h2" variant="title-sm" weight={700}>
+                            Elimina contenuto
+                        </Text>
+                    }
+                    footer={
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setDeleteTarget(null)}
+                                disabled={isDeleting}
+                            >
+                                Annulla
+                            </Button>
+                            <Button variant="primary" onClick={handleDelete} loading={isDeleting}>
+                                Elimina
+                            </Button>
+                        </>
+                    }
+                >
                     <Text variant="body">
-                        Sei sicuro di voler eliminare <b>{deleteTarget?.title}</b>? Questa azione
-                        non può essere annullata.
+                        Sei sicuro di voler eliminare <b>{deleteTarget?.title}</b>?
+                        Questa azione non può essere annullata.
                     </Text>
-                </ModalLayoutContent>
-                <ModalLayoutFooter>
-                    <Button
-                        variant="secondary"
-                        onClick={() => setDeleteTarget(null)}
-                        disabled={isDeleting}
-                    >
-                        Annulla
-                    </Button>
-                    <Button variant="primary" onClick={handleDelete} loading={isDeleting}>
-                        Elimina
-                    </Button>
-                </ModalLayoutFooter>
-            </ModalLayout>
+                </DrawerLayout>
+            </SystemDrawer>
         </>
     );
 }

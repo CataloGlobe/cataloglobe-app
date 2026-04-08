@@ -57,37 +57,3 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-.typeBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  padding: 0.2rem 0.55rem;
-  background: #1d4ed8;
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.statusPublished,
-.statusDraft {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  padding: 0.2rem 0.55rem;
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.statusPublished {
-  background: #15803d;
-}
-
-.statusDraft {
-  background: #b45309;
-}
