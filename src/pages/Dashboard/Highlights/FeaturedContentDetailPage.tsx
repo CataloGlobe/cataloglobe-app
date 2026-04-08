@@ -148,7 +148,7 @@ export default function FeaturedContentDetailPage() {
                 </div>
                 <div className={styles.readOnlyGrid}>
                     <div className={styles.roField}>
-                        <span className={styles.roLabel}>Titolo</span>
+                        <span className={styles.roLabel}>Titolo pubblico</span>
                         <span className={styles.roValue}>{content?.title || "—"}</span>
                     </div>
                     <div className={styles.roField}>

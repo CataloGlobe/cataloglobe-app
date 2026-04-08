@@ -77,16 +77,16 @@ export default function FeaturedContentDrawer({ onClose, onSuccess }: DrawerProp
                     Informazioni base
                 </Text>
                 <TextInput
-                    label="Nome interno *"
-                    value={internalName}
-                    onChange={e => setInternalName(e.target.value)}
-                    placeholder="Es: RistoPromo - Sede Roma"
-                />
-                <TextInput
                     label="Titolo pubblico *"
                     value={title}
                     onChange={e => setTitle(e.target.value)}
                     placeholder="Es: Promozione speciale"
+                />
+                <TextInput
+                    label="Nome interno"
+                    value={internalName}
+                    onChange={e => setInternalName(e.target.value)}
+                    placeholder="Es: RistoPromo - Sede Roma"
                 />
             </div>
             <input type="submit" id="featured-content-submit" style={{ display: "none" }} />

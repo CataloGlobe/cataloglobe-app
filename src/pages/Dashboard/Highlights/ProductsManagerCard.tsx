@@ -87,6 +87,25 @@ const SortableDataTableRow = ({ children, id }: SortableDataTableRowProps) => {
     );
 };
 
+function formatPrice(price: number): string {
+    return new Intl.NumberFormat("it-IT", {
+        style: "currency",
+        currency: "EUR",
+        minimumFractionDigits: 2
+    }).format(price);
+}
+
+function computeFromPrice(
+    optionGroups: Array<{ group_kind: string; values: Array<{ absolute_price: number | null }> }> | null
+): number | null {
+    const primaryGroup = (optionGroups ?? []).find(g => g.group_kind === "PRIMARY_PRICE");
+    if (!primaryGroup || primaryGroup.values.length === 0) return null;
+    const prices = primaryGroup.values
+        .map(v => v.absolute_price)
+        .filter((p): p is number => p != null);
+    return prices.length > 0 ? Math.min(...prices) : null;
+}
+
 function normalizeNote(note: string | null): string | null {
     if (note === "") return null;
     return note;
@@ -346,24 +365,33 @@ export default function ProductsManagerCard({
                           header: "Prezzo",
                           width: "100px",
                           align: "right" as const,
-                          accessor: (row: FeaturedContentProductRow) =>
-                              row.products?.base_price ?? null,
-                          cell: (value: unknown) => {
-                              const price = value as number | null | undefined;
-                              if (price == null) {
+                          cell: (_value: unknown, row: FeaturedContentProductRow) => {
+                              const product = row.products;
+                              if (!product) {
                                   return (
                                       <Text variant="body-sm" colorVariant="muted">
                                           —
                                       </Text>
                                   );
                               }
+                              if (product.base_price != null) {
+                                  return (
+                                      <Text variant="body-sm" weight={500}>
+                                          {formatPrice(product.base_price)}
+                                      </Text>
+                                  );
+                              }
+                              const fromPrice = computeFromPrice(product.option_groups ?? null);
+                              if (fromPrice != null) {
+                                  return (
+                                      <Text variant="body-sm" weight={500}>
+                                          {"da " + formatPrice(fromPrice)}
+                                      </Text>
+                                  );
+                              }
                               return (
-                                  <Text variant="body-sm" weight={500}>
-                                      {new Intl.NumberFormat("it-IT", {
-                                          style: "currency",
-                                          currency: "EUR",
-                                          minimumFractionDigits: 2
-                                      }).format(price)}
+                                  <Text variant="body-sm" colorVariant="muted">
+                                      —
                                   </Text>
                               );
                           }
