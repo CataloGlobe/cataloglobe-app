@@ -1,4 +1,11 @@
 /* src/pages/Dashboard/Highlights/components/FeaturedMediaDrawer.module.scss */
+
+.drawerBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .uploadArea {
   border: 2px dashed var(--border-subtle, #e0e0e0);
   border-radius: 10px;
@@ -24,7 +31,6 @@
 }
 
 .preview {
-  position: relative;
   width: 100%;
   border-radius: 10px;
   overflow: hidden;
@@ -37,37 +43,6 @@
   aspect-ratio: 16 / 9;
   object-fit: cover;
   display: block;
-}
-
-.previewOverlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s ease;
-
-  .preview:hover & {
-    background: rgba(0, 0, 0, 0.35);
-  }
-}
-
-.previewRemoveBtn {
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  background: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 6px 12px;
-  cursor: pointer;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--color-error, #ef4444);
-
-  .preview:hover & {
-    opacity: 1;
-  }
 }
 
 .fileInputHidden {
