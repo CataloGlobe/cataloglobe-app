@@ -21,21 +21,54 @@ export default function FeaturedBlock({ blocks }: Props) {
     return (
         <div className={styles.container}>
             {blocks.map(block => {
-                const sortedProducts = (block.products ?? [])
-                    .slice()
-                    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-                    .filter(item => item.product !== null);
+                const sortedProducts =
+                    block.pricing_mode !== "none"
+                        ? (block.products ?? [])
+                              .slice()
+                              .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+                              .filter(item => item.product !== null)
+                        : [];
+
+                const originalTotal = (() => {
+                    if (block.pricing_mode !== "bundle" || !block.show_original_total) return null;
+                    const total = (block.products ?? [])
+                        .filter(item => item.product != null)
+                        .reduce((sum, item) => {
+                            const p = item.product!;
+                            const price = p.is_from_price ? (p.fromPrice ?? 0) : (p.base_price ?? 0);
+                            return sum + price;
+                        }, 0);
+                    if (total === 0 || total === block.bundle_price) return null;
+                    return total;
+                })();
 
                 return (
                     <div key={block.id} className={styles.card}>
+                        {/* ── Immagine media ─────────────────────────── */}
+                        {block.media_id && (
+                            <img
+                                src={block.media_id}
+                                alt={block.title}
+                                className={styles.mediaImage}
+                                loading="lazy"
+                            />
+                        )}
+
                         {/* ── Header: titolo + prezzo bundle ─────────── */}
                         <div className={styles.header}>
                             <Text variant="title-md" as="h3" className={styles.title}>
                                 {block.title}
                             </Text>
                             {block.pricing_mode === "bundle" && block.bundle_price != null && (
-                                <span className={styles.bundlePrice}>
-                                    {formatPrice(block.bundle_price)}
+                                <span className={styles.priceGroup}>
+                                    {originalTotal != null && originalTotal > 0 && (
+                                        <span className={styles.originalPrice}>
+                                            {formatPrice(originalTotal)}
+                                        </span>
+                                    )}
+                                    <span className={styles.bundlePrice}>
+                                        {formatPrice(block.bundle_price)}
+                                    </span>
                                 </span>
                             )}
                         </div>
@@ -78,11 +111,17 @@ export default function FeaturedBlock({ blocks }: Props) {
                                             )}
                                             {/* Prezzo prodotto solo in per_item */}
                                             {block.pricing_mode === "per_item" &&
-                                                product.base_price != null && (
-                                                    <span className={styles.productPrice}>
-                                                        {formatPrice(product.base_price)}
-                                                    </span>
-                                                )}
+                                                (product.is_from_price
+                                                    ? product.fromPrice != null && (
+                                                          <span className={styles.productPrice}>
+                                                              {"da " + formatPrice(product.fromPrice)}
+                                                          </span>
+                                                      )
+                                                    : product.base_price != null && (
+                                                          <span className={styles.productPrice}>
+                                                              {formatPrice(product.base_price)}
+                                                          </span>
+                                                      ))}
                                         </li>
                                     );
                                 })}

@@ -3,7 +3,7 @@ import {
     resolveRulesForActivity,
     type VisibilityMode
 } from "@/services/supabase/scheduleResolver";
-import { getNowInRome } from "@/services/supabase/schedulingNow";
+import { getNowInRome, type RomeDateTime } from "@/services/supabase/schedulingNow";
 
 export type ResolvedVariantDimValue = {
     value_id: string;
@@ -142,6 +142,8 @@ export type V2FeaturedContent = {
             name: string;
             description: string | null;
             base_price: number | null;
+            fromPrice: number | null;
+            is_from_price: boolean;
         } | null;
     }>;
     created_at: string;
@@ -816,7 +818,7 @@ export async function loadCatalogById(catalogId: string): Promise<ResolvedCatalo
 
 export async function findLayoutCatalogId(
     activityId: string,
-    now: Date
+    now: RomeDateTime
 ): Promise<{ catalogId: string | null; scheduleId: string | null; styleData?: ResolvedStyle }> {
     const result = await resolveRulesForActivity({
         supabase,
@@ -834,7 +836,7 @@ export async function findLayoutCatalogId(
 
 export async function findActivePriceRuleScheduleId(
     activityId: string,
-    now: Date
+    now: RomeDateTime
 ): Promise<string | null> {
     const result = await resolveRulesForActivity({
         supabase,
@@ -1265,13 +1267,12 @@ function scheduleIncludesDay(days: number[] | null, day: number) {
     return days.includes(day);
 }
 
-function isScheduleActive(schedule: V2ActivityScheduleRow, now?: Date) {
+function isScheduleActive(schedule: V2ActivityScheduleRow, now?: RomeDateTime) {
     if (!schedule.is_active) return false;
     const effectiveNow = now ?? getNowInRome();
 
-    const day = effectiveNow.getDay();
-    const time = toMinutes(effectiveNow.toTimeString().slice(0, 5));
-    if (time === null) return false;
+    const day = effectiveNow.dayOfWeek;
+    const time = effectiveNow.hour * 60 + effectiveNow.minute;
 
     const start = toMinutes(schedule.start_time);
     const end = toMinutes(schedule.end_time);
@@ -1315,12 +1316,11 @@ function pickWinner(schedules: V2ActivityScheduleRow[]): V2ActivityScheduleRow |
 
 function pickFallbackPrimary(
     schedules: V2ActivityScheduleRow[],
-    now?: Date
+    now?: RomeDateTime
 ): V2ActivityScheduleRow | null {
     const effectiveNow = now ?? getNowInRome();
-    const day = effectiveNow.getDay();
-    const time = toMinutes(effectiveNow.toTimeString().slice(0, 5));
-    if (time === null) return null;
+    const day = effectiveNow.dayOfWeek;
+    const time = effectiveNow.hour * 60 + effectiveNow.minute;
 
     const primary = schedules.filter(s => s.is_active && s.slot === "primary");
     if (primary.length === 0) return null;
@@ -1425,7 +1425,7 @@ function hasRenderableItems(
 
 export async function resolveActivityCatalogs(
     activityId: string,
-    now?: Date
+    now?: RomeDateTime
 ): Promise<ResolvedCollections> {
     const effectiveNow = now ?? getNowInRome();
     // ── Pre-flight check: Verify activity exists ──────────────────────────
@@ -1449,10 +1449,27 @@ export async function resolveActivityCatalogs(
         now: effectiveNow,
         includeLayoutStyle: true
     });
-    console.log("DEBUG 1 - visibility rule:", JSON.stringify(ruleResolution.visibilityRule));
     const layoutCatalogId = ruleResolution.layout.catalogId;
     const layoutScheduleId = ruleResolution.layout.scheduleId;
     const styleData = ruleResolution.layout.styleData as ResolvedStyle | undefined;
+
+    function computeFromPrice(
+        optionGroups: Array<{
+            group_kind: string;
+            values: Array<{ absolute_price: number | null }>;
+        }> | null | undefined
+    ): { fromPrice: number | null; is_from_price: boolean } {
+        if (!optionGroups) return { fromPrice: null, is_from_price: false };
+        const primaryGroup = optionGroups.find(g => g.group_kind === "PRIMARY_PRICE");
+        if (!primaryGroup || !primaryGroup.values || primaryGroup.values.length === 0) {
+            return { fromPrice: null, is_from_price: false };
+        }
+        const prices = primaryGroup.values
+            .map(v => v.absolute_price)
+            .filter((p): p is number => p != null);
+        if (prices.length === 0) return { fromPrice: null, is_from_price: false };
+        return { fromPrice: Math.min(...prices), is_from_price: true };
+    }
 
     const featured: ResolvedCollections["featured"] = {
         hero: [],
@@ -1490,7 +1507,11 @@ export async function resolveActivityCatalogs(
                             id,
                             name,
                             description,
-                            base_price
+                            base_price,
+                            option_groups:product_option_groups(
+                                group_kind,
+                                values:product_option_values(absolute_price)
+                            )
                         )
                     )
                 )
@@ -1510,9 +1531,44 @@ export async function resolveActivityCatalogs(
                 featured_content: V2FeaturedContent | V2FeaturedContent[] | null;
             };
 
+            type RawProductItem = {
+                sort_order: number | null;
+                note: string | null;
+                product: {
+                    id: string;
+                    name: string;
+                    description: string | null;
+                    base_price: number | null;
+                    option_groups: Array<{
+                        group_kind: string;
+                        values: Array<{ absolute_price: number | null }>;
+                    }> | null;
+                } | null;
+            };
+
             const validFeaturedItems = (featuredData as unknown as RawFeaturedJoin[])
                 .map(row => {
                     const fc = normalizeOne(row.featured_content);
+                    if (fc && fc.products) {
+                        const rawProducts = fc.products as unknown as RawProductItem[];
+                        fc.products = rawProducts.map(p => {
+                            if (!p.product) return { ...p, product: null };
+                            const { fromPrice, is_from_price } = computeFromPrice(
+                                p.product.option_groups
+                            );
+                            return {
+                                ...p,
+                                product: {
+                                    id: p.product.id,
+                                    name: p.product.name,
+                                    description: p.product.description,
+                                    base_price: p.product.base_price,
+                                    fromPrice,
+                                    is_from_price
+                                }
+                            };
+                        });
+                    }
                     return { slot: row.slot, sort_order: row.sort_order, featured_content: fc };
                 })
                 .filter(
@@ -1612,7 +1668,6 @@ export async function resolveActivityCatalogs(
             activeVisibilityRuleScheduleId,
             productIds
         );
-        console.log("DEBUG 2 - override rows:", JSON.stringify(visibilityOverrideRows));
 
         for (const row of visibilityOverrideRows) {
             visibilityOverridesByProductId[row.product_id] = row;
@@ -1628,11 +1683,7 @@ export async function resolveActivityCatalogs(
         )
     }));
 
-    console.log("DEBUG 3 - prodotti dopo override:", JSON.stringify(
-        schedules[0]?.catalog?.categories?.flatMap(c =>
-            c.products.map(p => ({ id: p.id, name: p.name, is_visible: p.is_visible, is_disabled: p.is_disabled }))
-        ) ?? []
-    ));
+
 
     const visibleProductIds = Array.from(
         new Set(
