@@ -9,7 +9,6 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
 import { supabase } from "@/services/supabase/client";
 import { GripVertical, Trash2 } from "lucide-react";
-import { getDisplayPrice } from "@/utils/priceDisplay";
 import {
     DndContext,
     closestCenter,
@@ -17,7 +16,7 @@ import {
     PointerSensor,
     useSensor,
     useSensors,
-    DragEndEvent
+    type DragEndEvent
 } from "@dnd-kit/core";
 import {
     arrayMove,
@@ -30,6 +29,8 @@ import { CSS } from "@dnd-kit/utilities";
 
 interface ProductsManagerCardProps {
     featuredId: string;
+    pricingMode: "none" | "per_item" | "bundle";
+    showOriginalTotal: boolean;
     onOpenProductPicker?: (
         linkedIds: string[],
         onApply: (productIds: string[]) => Promise<void>
@@ -75,9 +76,10 @@ const SortableDataTableRow = ({ children, id }: SortableDataTableRowProps) => {
         <div ref={setNodeRef} style={style} {...attributes}>
             {React.Children.map(children, child => {
                 if (React.isValidElement(child)) {
-                    return React.cloneElement(child as React.ReactElement<any>, {
-                        dragHandleProps: listeners
-                    });
+                    return React.cloneElement(
+                        child as React.ReactElement<{ dragHandleProps?: unknown }>,
+                        { dragHandleProps: listeners }
+                    );
                 }
                 return child;
             })}
@@ -90,46 +92,22 @@ function normalizeNote(note: string | null): string | null {
     return note;
 }
 
-function cloneRows(rows: FeaturedContentProductRow[]): FeaturedContentProductRow[] {
-    return rows.map(row => ({
-        ...row,
-        products: row.products ? { ...row.products } : null
-    }));
-}
-
 function reindexRows(rows: FeaturedContentProductRow[]): FeaturedContentProductRow[] {
-    return rows.map((row, index) => ({
-        ...row,
-        sort_order: index + 1
-    }));
-}
-
-function areRowsEqual(a: FeaturedContentProductRow[], b: FeaturedContentProductRow[]): boolean {
-    if (a.length !== b.length) return false;
-
-    for (let i = 0; i < a.length; i += 1) {
-        const left = a[i];
-        const right = b[i];
-        if (!left || !right) return false;
-        if (left.product_id !== right.product_id) return false;
-        if (left.sort_order !== right.sort_order) return false;
-        if (normalizeNote(left.note) !== normalizeNote(right.note)) return false;
-    }
-
-    return true;
+    return rows.map((row, index) => ({ ...row, sort_order: index + 1 }));
 }
 
 export default function ProductsManagerCard({
     featuredId,
+    pricingMode,
+    showOriginalTotal,
     onOpenProductPicker
 }: ProductsManagerCardProps) {
     const { showToast } = useToast();
     const tenantId = useTenantId();
 
     const [loading, setLoading] = useState(true);
-    const [isSavingChanges, setIsSavingChanges] = useState(false);
-    const [initialProducts, setInitialProducts] = useState<FeaturedContentProductRow[]>([]);
-    const [draftProducts, setDraftProducts] = useState<FeaturedContentProductRow[]>([]);
+    const [isSaving, setIsSaving] = useState(false);
+    const [products, setProducts] = useState<FeaturedContentProductRow[]>([]);
 
     const loadProducts = useCallback(async () => {
         try {
@@ -150,11 +128,9 @@ export default function ProductsManagerCard({
                 .order("sort_order", { ascending: true });
 
             if (error) throw error;
-            const loadedRows = reindexRows((data as any as FeaturedContentProductRow[]) ?? []);
-            setInitialProducts(cloneRows(loadedRows));
-            setDraftProducts(cloneRows(loadedRows));
-        } catch (error) {
-            console.error(error);
+            setProducts(reindexRows((data as unknown as FeaturedContentProductRow[]) ?? []));
+        } catch (err) {
+            console.error(err);
             showToast({ type: "error", message: "Errore nel caricamento dei prodotti associati." });
         } finally {
             setLoading(false);
@@ -165,34 +141,68 @@ export default function ProductsManagerCard({
         loadProducts();
     }, [loadProducts]);
 
-    const hasUnsavedChanges = useMemo(
-        () => !areRowsEqual(initialProducts, draftProducts),
-        [initialProducts, draftProducts]
-    );
-
-    const handleCancelChanges = () => {
-        setDraftProducts(cloneRows(initialProducts));
+    const handleDelete = async (dbId: string) => {
+        try {
+            setIsSaving(true);
+            const { error } = await supabase
+                .from("featured_content_products")
+                .delete()
+                .eq("id", dbId);
+            if (error) throw error;
+            showToast({ type: "success", message: "Prodotto rimosso." });
+            await loadProducts();
+        } catch (err) {
+            console.error(err);
+            showToast({ type: "error", message: "Errore nella rimozione del prodotto." });
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleNoteChange = (dbId: string, newNote: string) => {
-        setDraftProducts(prev =>
+        setProducts(prev =>
             prev.map(row => (row.id === dbId ? { ...row, note: newNote } : row))
         );
     };
 
-    const handleDelete = (dbId: string) => {
-        setDraftProducts(prev => reindexRows(prev.filter(row => row.id !== dbId)));
+    const handleNoteBlur = async (dbId: string, note: string) => {
+        const { error } = await supabase
+            .from("featured_content_products")
+            .update({ note: normalizeNote(note) })
+            .eq("id", dbId);
+        if (error) {
+            console.error(error);
+            showToast({ type: "error", message: "Errore nel salvataggio della nota." });
+        }
     };
 
-    const handleDragEnd = (event: DragEndEvent) => {
+    const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
 
-        const oldIndex = draftProducts.findIndex(row => row.id === active.id);
-        const newIndex = draftProducts.findIndex(row => row.id === over.id);
+        const oldIndex = products.findIndex(row => row.id === active.id);
+        const newIndex = products.findIndex(row => row.id === over.id);
         if (oldIndex < 0 || newIndex < 0) return;
 
-        setDraftProducts(prev => reindexRows(arrayMove(prev, oldIndex, newIndex)));
+        const reindexed = reindexRows(arrayMove(products, oldIndex, newIndex));
+        setProducts(reindexed); // ottimistico
+
+        try {
+            const results = await Promise.all(
+                reindexed.map(row =>
+                    supabase
+                        .from("featured_content_products")
+                        .update({ sort_order: row.sort_order })
+                        .eq("id", row.id)
+                )
+            );
+            const failed = results.find(r => r.error);
+            if (failed?.error) throw failed.error;
+        } catch (err) {
+            console.error(err);
+            showToast({ type: "error", message: "Errore nel salvataggio dell'ordine." });
+            await loadProducts(); // rollback
+        }
     };
 
     const sensors = useSensors(
@@ -206,137 +216,76 @@ export default function ProductsManagerCard({
         if (!onOpenProductPicker) return;
 
         onOpenProductPicker(
-            draftProducts.map(row => row.product_id),
+            products.map(row => row.product_id),
             async (selectedProductIds: string[]) => {
-                const dedupedSelection = Array.from(new Set(selectedProductIds));
-                const existingByProductId = new Map(draftProducts.map(row => [row.product_id, row]));
-                const missingProductIds = dedupedSelection.filter(
-                    productId => !existingByProductId.has(productId)
-                );
-
-                let fetchedById = new Map<string, { id: string; name: string; base_price: number | null }>();
-
-                if (missingProductIds.length > 0) {
-                    const { data, error } = await supabase
-                        .from("products")
-                        .select("id, name, base_price")
-                        .in("id", missingProductIds);
-
-                    if (error) throw error;
-
-                    fetchedById = new Map(
-                        ((data ?? []) as { id: string; name: string; base_price: number | null }[]).map(
-                            product => [product.id, product]
-                        )
-                    );
+                if (!tenantId) {
+                    showToast({ type: "error", message: "Tenant non selezionato. Riprova." });
+                    return;
                 }
 
-                const nextRows: FeaturedContentProductRow[] = [];
+                const dedupedSelection = Array.from(new Set(selectedProductIds));
+                const existingByProductId = new Map(products.map(row => [row.product_id, row]));
 
-                dedupedSelection.forEach(productId => {
-                    const existing = existingByProductId.get(productId);
-                    if (existing) {
-                        nextRows.push({ ...existing, products: existing.products ? { ...existing.products } : null });
-                        return;
+                const toRemoveIds = products
+                    .filter(row => !dedupedSelection.includes(row.product_id))
+                    .map(row => row.id);
+
+                const toAddProductIds = dedupedSelection.filter(
+                    id => !existingByProductId.has(id)
+                );
+
+                try {
+                    setIsSaving(true);
+                    const ops: PromiseLike<void>[] = [];
+
+                    if (toRemoveIds.length > 0) {
+                        ops.push(
+                            supabase
+                                .from("featured_content_products")
+                                .delete()
+                                .in("id", toRemoveIds)
+                                .then(({ error }) => {
+                                    if (error) throw error;
+                                })
+                        );
                     }
 
-                    const fetched = fetchedById.get(productId);
-                    nextRows.push({
-                        id: `tmp-${productId}`,
-                        featured_content_id: featuredId,
-                        product_id: productId,
-                        sort_order: 0,
-                        note: null,
-                        products: fetched
-                            ? {
-                                  id: fetched.id,
-                                  name: fetched.name,
-                                  base_price: fetched.base_price,
-                                  option_groups: null
-                              }
-                            : null
-                    });
-                });
+                    if (toAddProductIds.length > 0) {
+                        const payload = toAddProductIds.map((productId, idx) => ({
+                            tenant_id: tenantId,
+                            featured_content_id: featuredId,
+                            product_id: productId,
+                            sort_order: products.length + idx + 1,
+                            note: null
+                        }));
+                        ops.push(
+                            supabase
+                                .from("featured_content_products")
+                                .insert(payload)
+                                .then(({ error }) => {
+                                    if (error) throw error;
+                                })
+                        );
+                    }
 
-                setDraftProducts(reindexRows(nextRows));
+                    await Promise.all(ops);
+                    showToast({ type: "success", message: "Prodotti aggiornati." });
+                    await loadProducts();
+                } catch (err) {
+                    console.error(err);
+                    showToast({
+                        type: "error",
+                        message: "Errore durante il salvataggio dei prodotti."
+                    });
+                } finally {
+                    setIsSaving(false);
+                }
             }
         );
     };
 
-    const handleSaveChanges = async () => {
-        if (!tenantId) {
-            showToast({ type: "error", message: "Tenant non selezionato. Riprova." });
-            return;
-        }
-
-        try {
-            setIsSavingChanges(true);
-
-            const initialByProductId = new Map(initialProducts.map(row => [row.product_id, row]));
-            const draftByProductId = new Map(draftProducts.map(row => [row.product_id, row]));
-
-            const toRemoveLinkIds = initialProducts
-                .filter(row => !draftByProductId.has(row.product_id))
-                .map(row => row.id);
-
-            if (toRemoveLinkIds.length > 0) {
-                const { error } = await supabase
-                    .from("featured_content_products")
-                    .delete()
-                    .in("id", toRemoveLinkIds);
-                if (error) throw error;
-            }
-
-            const toAddRows = draftProducts.filter(row => !initialByProductId.has(row.product_id));
-            if (toAddRows.length > 0) {
-                const payload = toAddRows.map(row => ({
-                    tenant_id: tenantId,
-                    featured_content_id: featuredId,
-                    product_id: row.product_id,
-                    sort_order: row.sort_order,
-                    note: normalizeNote(row.note)
-                }));
-
-                const { error } = await supabase.from("featured_content_products").insert(payload);
-                if (error) throw error;
-            }
-
-            const updatePromises = draftProducts
-                .filter(row => initialByProductId.has(row.product_id))
-                .filter(row => {
-                    const original = initialByProductId.get(row.product_id);
-                    if (!original) return false;
-                    return (
-                        original.sort_order !== row.sort_order ||
-                        normalizeNote(original.note) !== normalizeNote(row.note)
-                    );
-                })
-                .map(row => {
-                    const original = initialByProductId.get(row.product_id);
-                    return supabase
-                        .from("featured_content_products")
-                        .update({
-                            sort_order: row.sort_order,
-                            note: normalizeNote(row.note)
-                        })
-                        .eq("id", original!.id);
-                });
-
-            if (updatePromises.length > 0) {
-                const updateResults = await Promise.all(updatePromises);
-                const failed = updateResults.find(result => result.error);
-                if (failed?.error) throw failed.error;
-            }
-
-            showToast({ type: "success", message: "Prodotti inclusi aggiornati." });
-            await loadProducts();
-        } catch (error) {
-            console.error(error);
-            showToast({ type: "error", message: "Errore durante il salvataggio dei prodotti." });
-        } finally {
-            setIsSavingChanges(false);
-        }
-    };
+    const showPriceColumn =
+        pricingMode === "per_item" || (pricingMode === "bundle" && showOriginalTotal);
 
     const columns = useMemo<ColumnDefinition<FeaturedContentProductRow>[]>(
         () => [
@@ -345,11 +294,11 @@ export default function ProductsManagerCard({
                 header: "",
                 width: "52px",
                 align: "center",
-                cell: (_value, _row, _rowIndex, dragHandleProps?: any) => (
+                cell: (_value, _row, _rowIndex, dragHandleProps?: unknown) => (
                     <button
                         type="button"
                         aria-label="Trascina per riordinare"
-                        {...dragHandleProps}
+                        {...(dragHandleProps as React.HTMLAttributes<HTMLButtonElement>)}
                         style={{
                             cursor: "grab",
                             border: "none",
@@ -386,20 +335,41 @@ export default function ProductsManagerCard({
                         value={row.note ?? ""}
                         placeholder="Aggiungi una nota..."
                         onChange={event => handleNoteChange(row.id, event.target.value)}
+                        onBlur={event => handleNoteBlur(row.id, event.target.value)}
                     />
                 )
             },
-            {
-                id: "price",
-                header: "Prezzo",
-                accessor: row => row.id,
-                width: "140px",
-                cell: (_value, row) => (
-                    <Text variant="body-sm" colorVariant="muted">
-                        {getDisplayPrice(row.products ?? {}).label}
-                    </Text>
-                )
-            },
+            ...(showPriceColumn
+                ? [
+                      {
+                          id: "price" as const,
+                          header: "Prezzo",
+                          width: "100px",
+                          align: "right" as const,
+                          accessor: (row: FeaturedContentProductRow) =>
+                              row.products?.base_price ?? null,
+                          cell: (value: unknown) => {
+                              const price = value as number | null | undefined;
+                              if (price == null) {
+                                  return (
+                                      <Text variant="body-sm" colorVariant="muted">
+                                          —
+                                      </Text>
+                                  );
+                              }
+                              return (
+                                  <Text variant="body-sm" weight={500}>
+                                      {new Intl.NumberFormat("it-IT", {
+                                          style: "currency",
+                                          currency: "EUR",
+                                          minimumFractionDigits: 2
+                                      }).format(price)}
+                                  </Text>
+                              );
+                          }
+                      }
+                  ]
+                : []),
             {
                 id: "actions",
                 header: "",
@@ -419,7 +389,7 @@ export default function ProductsManagerCard({
                 )
             }
         ],
-        []
+        [showPriceColumn]
     );
 
     return (
@@ -434,37 +404,16 @@ export default function ProductsManagerCard({
                         gap: "12px"
                     }}
                 >
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                        <Text variant="title-sm" weight={600}>
-                            Prodotti inclusi
-                        </Text>
-                        {hasUnsavedChanges && (
-                            <Text variant="caption" colorVariant="muted">
-                                Hai modifiche non salvate
-                            </Text>
-                        )}
-                    </div>
-
-                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                        <Button variant="primary" onClick={handleOpenAddModal}>
-                            + Aggiungi prodotto
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            onClick={handleCancelChanges}
-                            disabled={!hasUnsavedChanges || isSavingChanges}
-                        >
-                            Annulla
-                        </Button>
-                        <Button
-                            variant="primary"
-                            onClick={handleSaveChanges}
-                            disabled={!hasUnsavedChanges}
-                            loading={isSavingChanges}
-                        >
-                            Salva
-                        </Button>
-                    </div>
+                    <Text variant="title-sm" weight={600}>
+                        Prodotti inclusi
+                    </Text>
+                    <Button
+                        variant="primary"
+                        onClick={handleOpenAddModal}
+                        disabled={isSaving}
+                    >
+                        + Aggiungi prodotto
+                    </Button>
                 </div>
 
                 {loading ? (
@@ -479,18 +428,24 @@ export default function ProductsManagerCard({
                             onDragEnd={handleDragEnd}
                         >
                             <SortableContext
-                                items={draftProducts.map(product => product.id)}
+                                items={products.map(product => product.id)}
                                 strategy={verticalListSortingStrategy}
                             >
                                 <DataTable<FeaturedContentProductRow>
-                                    data={draftProducts}
+                                    data={products}
                                     columns={columns}
                                     emptyState={
                                         <div style={{ padding: "24px", textAlign: "center" }}>
-                                            <Text colorVariant="muted" style={{ marginBottom: "12px" }}>
+                                            <Text
+                                                colorVariant="muted"
+                                                style={{ marginBottom: "12px" }}
+                                            >
                                                 Nessun prodotto associato a questo contenuto.
                                             </Text>
-                                            <Button variant="primary" onClick={handleOpenAddModal}>
+                                            <Button
+                                                variant="primary"
+                                                onClick={handleOpenAddModal}
+                                            >
                                                 Aggiungi il primo prodotto
                                             </Button>
                                         </div>
