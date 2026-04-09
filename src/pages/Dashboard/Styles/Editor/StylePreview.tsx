@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { IconDeviceMobile, IconDeviceDesktop } from "@tabler/icons-react";
 import { StyleTokenModel } from "./StyleTokenModel";
 import CollectionView, {
@@ -144,14 +144,29 @@ const MOCK_SECTIONS: CollectionViewSection[] = [
 
 const NAV_SHAPE_MAP: Record<string, SectionNavShape> = {
     pill: "pill",
+    chip: "pill",
+    outline: "pill",
     tabs: "square",
-    minimal: "rounded"
+    minimal: "rounded",
+    dot: "pill"
 };
 
 export const StylePreview = ({ model }: StylePreviewProps) => {
     const { selectedTenant } = useTenant();
     const [viewMode, setViewMode] = useState<"mobile" | "desktop">("mobile");
+    const [isTransitioning, setIsTransitioning] = useState(false);
     const [screenEl, setScreenEl] = useState<HTMLDivElement | null>(null);
+
+    const handleViewModeChange = useCallback((mode: "mobile" | "desktop") => {
+        if (mode === viewMode) return;
+        setIsTransitioning(true);
+        setTimeout(() => {
+            setViewMode(mode);
+            requestAnimationFrame(() => {
+                setIsTransitioning(false);
+            });
+        }, 250);
+    }, [viewMode]);
 
     const businessName = selectedTenant?.name ?? "Nome attività";
 
@@ -170,7 +185,11 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
         sectionNavShape,
         sectionNavStyle: model.navigation.style,
         cardTemplate,
-        cardLayout: model.card.layout
+        cardLayout: model.card.layout,
+        showLogo: model.header.showLogo,
+        showCoverImage: model.header.showCoverImage,
+        showActivityName: model.header.showActivityName,
+        showCatalogName: model.header.showCatalogName
     };
 
     return (
@@ -187,7 +206,7 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                     className={`${previewStyles.toggleBtn} ${
                         viewMode === "mobile" ? previewStyles.toggleBtnActive : ""
                     }`}
-                    onClick={() => setViewMode("mobile")}
+                    onClick={() => handleViewModeChange("mobile")}
                 >
                     <IconDeviceMobile size={14} stroke={2} />
                     Mobile
@@ -197,7 +216,7 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                     className={`${previewStyles.toggleBtn} ${
                         viewMode === "desktop" ? previewStyles.toggleBtnActive : ""
                     }`}
-                    onClick={() => setViewMode("desktop")}
+                    onClick={() => handleViewModeChange("desktop")}
                 >
                     <IconDeviceDesktop size={14} stroke={2} />
                     Desktop
@@ -211,7 +230,9 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                         viewMode === "mobile"
                             ? previewStyles.deviceMobile
                             : previewStyles.deviceDesktop
-                    } ${viewMode === "mobile" ? "preview-mobile" : "preview-desktop"}`}
+                    } ${viewMode === "mobile" ? "preview-mobile" : "preview-desktop"} ${
+                        isTransitioning ? previewStyles.deviceFrameTransitioning : ""
+                    }`}
                 >
                     <div className={previewStyles.deviceScreen} ref={setScreenEl}>
                         <CollectionView
@@ -222,6 +243,7 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                             style={collectionStyle}
                             mode="preview"
                             scrollContainerEl={screenEl}
+                            activityAddress="Via Roma 1, Milano"
                             featuredBeforeCatalogSlot={
                                 <FeaturedBlock blocks={MOCK_FEATURED} />
                             }
