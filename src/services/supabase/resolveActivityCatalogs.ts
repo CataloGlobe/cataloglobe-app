@@ -1633,13 +1633,6 @@ export async function resolveActivityCatalogs(
         ? JSON.parse(JSON.stringify(layoutCatalog))
         : undefined;
 
-    const categoriesCount = layoutCatalog?.categories?.length ?? 0;
-    const itemsCount =
-        layoutCatalog?.categories?.reduce(
-            (total, category) => total + category.products.length,
-            0
-        ) ?? 0;
-
     schedules = [
         {
             id: `layout-rule:${activityId}`,
