@@ -86,8 +86,9 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  /* offset for the sticky nav: nav height ~3.5rem + 1rem breathing space */
-  scroll-margin-top: 4.5rem;
+  /* offset: compact header (~60px) + nav (~56px) + gap (16px) ≈ 132px ≈ 8.25rem
+     Valore aumentato rispetto al precedente 4.5rem per accomodare il compact header fisso. */
+  scroll-margin-top: 8.5rem;
 }
 
 /* ----------------------------------------------------
@@ -181,7 +182,7 @@
   background: var(--pub-surface);
   border: 1px solid var(--pub-border);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
-  border-radius: var(--pub-card-radius);
+  border-radius: var(--pub-radius);
 
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 
@@ -209,12 +210,16 @@
   }
 }
 
+.productRowImageRight {
+  flex-direction: row-reverse;
+}
+
 .rowImage {
   width: 96px;
   height: 96px;
   flex-shrink: 0;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: var(--pub-radius);
 }
 
 .rowPlaceholder {
@@ -225,7 +230,7 @@
   align-items: center;
   justify-content: center;
   background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
-  border-radius: 10px;
+  border-radius: var(--pub-radius);
   color: var(--pub-text-secondary);
 }
 
@@ -375,7 +380,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 2px;
+  gap: 4px;
   margin-top: 4px;
 }
 
@@ -410,6 +415,62 @@
 .emptyState {
   padding: 32px 16px;
   text-align: center;
+}
+
+/* ----------------------------------------------------
+   SEARCH EMPTY STATE
+---------------------------------------------------- */
+
+.searchEmptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3rem 1rem 1.5rem;
+  text-align: center;
+}
+
+.searchEmptyIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+/* ----------------------------------------------------
+   SCROLL TO TOP BUTTON
+---------------------------------------------------- */
+
+.scrollToTopBtn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 15; /* sotto compact header (20), sopra contenuto */
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: none;
+  background: color-mix(in srgb, var(--pub-text) 88%, transparent);
+  color: var(--pub-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+  transition: background 0.15s ease, transform 0.15s ease;
+
+  &:hover {
+    background: var(--pub-text);
+    transform: translateY(-2px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
 }
 
 /* ----------------------------------------------------

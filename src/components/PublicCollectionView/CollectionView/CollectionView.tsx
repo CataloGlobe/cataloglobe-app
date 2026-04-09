@@ -1,15 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Info, Package } from "lucide-react";
+import { ChevronUp, Info, Package, Search } from "lucide-react";
 import type { ResolvedAllergen, ResolvedIngredient } from "@/types/resolvedCollections";
 import Text from "@/components/ui/Text/Text";
 import { Pill } from "@/components/ui/Pill/Pill";
-import CollectionHero from "../CollectionHero/CollectionHero";
+// NOTE: CollectionHero e PublicBrandHeader sono sostituiti da PublicCollectionHeader.
+// I file originali restano nel progetto come fallback potenziale.
+// import CollectionHero from "../CollectionHero/CollectionHero";
+// import PublicBrandHeader from "../PublicBrandHeader/PublicBrandHeader";
+import PublicCollectionHeader from "../PublicCollectionHeader/PublicCollectionHeader";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
-import PublicBrandHeader from "../PublicBrandHeader/PublicBrandHeader";
 import type { CardTemplate, CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
 import ItemDetail from "../ItemDetail/ItemDetail";
+import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 
 type SectionNavItem = { id: string; name: string };
 
@@ -100,29 +104,6 @@ function getDisplayPrice(opts: {
 
 // ─── ProductRow — shared layout for parent products and variants ──────────────
 
-const ALLERGEN_EMOJI: Record<string, string> = {
-    gluten: "🌾",
-    eggs: "🥚",
-    fish: "🐟",
-    crustaceans: "🦐",
-    shellfish: "🦐",
-    peanuts: "🥜",
-    soybeans: "🫘",
-    soy: "🫘",
-    milk: "🥛",
-    dairy: "🥛",
-    nuts: "🌰",
-    tree_nuts: "🌰",
-    celery: "🌿",
-    mustard: "🌱",
-    sesame: "🫙",
-    sulphites: "❗",
-    sulfur_dioxide: "❗",
-    lupin: "🌸",
-    molluscs: "🐚",
-    mollusks: "🐚"
-};
-
 type ProductRowProps = {
     name: string;
     fromPrice?: number | null;
@@ -132,6 +113,7 @@ type ProductRowProps = {
     description?: string | null;
     image?: string | null;
     showImage: boolean;
+    imageRight?: boolean;
     mode: "public" | "preview";
     onClick: (e: React.MouseEvent) => void;
     optionGroups?: CollectionViewSectionItem["optionGroups"];
@@ -148,6 +130,7 @@ function ProductRow({
     description,
     image,
     showImage,
+    imageRight = false,
     mode,
     onClick,
     optionGroups,
@@ -162,7 +145,10 @@ function ProductRow({
     const hiddenCount = hasAllergens ? Math.max(0, allergens!.length - MAX_ALLERGEN_EMOJIS) : 0;
     const dp = getDisplayPrice({ fromPrice, price, effectivePrice, originalPrice });
     return (
-        <div className={styles.productRow} onClick={onClick}>
+        <div
+            className={`${styles.productRow} ${imageRight ? styles.productRowImageRight : ""}`}
+            onClick={onClick}
+        >
             {showImage &&
                 (mode === "preview" || !image ? (
                     <div className={styles.rowPlaceholder} aria-hidden="true">
@@ -253,10 +239,8 @@ function ProductRow({
                             <span
                                 key={a.id}
                                 className={styles.allergenEmoji}
-                                title={a.label_it}
-                                aria-label={a.label_it}
                             >
-                                {ALLERGEN_EMOJI[a.code] ?? "⚠️"}
+                                <AllergenIcon code={a.code} size={20} label={a.label_it} />
                             </span>
                         ))}
                         {hiddenCount > 0 && (
@@ -269,16 +253,13 @@ function ProductRow({
     );
 }
 
-// ─── Scroll-offset constants — single source of truth ───────────────────────
-// SCROLL_OFFSET: how far from the container top a section title lands after a
-//   click-triggered scroll.  Matches CSS scroll-margin-top: 4.5rem (72px).
-// STICKY_OFFSET: the threshold at which a section is considered "active" during
-//   manual scrolling.  Must be ≥ SCROLL_OFFSET so a section is always detected
-//   as active once a programmatic scroll settles.
-const NAV_HEIGHT = 56; // CollectionSectionNav (~3.5rem)
-const VISUAL_GAP = 16; // breathing room below sticky bar
-const SCROLL_OFFSET = NAV_HEIGHT + VISUAL_GAP; // 72 px — heading fully visible
-const STICKY_OFFSET = SCROLL_OFFSET + 4; // 76 px — detection threshold
+// ─── Scroll-offset constants ─────────────────────────────────────────────────
+// NAV_HEIGHT: altezza sticky della CollectionSectionNav
+// VISUAL_GAP: breathing room sotto la barra sticky
+// SCROLL_OFFSET e STICKY_OFFSET sono ora calcolati dinamicamente in base
+// all'altezza reale del compact header (via compactHeaderHeightRef).
+const NAV_HEIGHT = 56;  // CollectionSectionNav (~3.5rem)
+const VISUAL_GAP = 16;  // breathing room below sticky bar
 // ─────────────────────────────────────────────────────────────────────────────
 
 type Props = {
@@ -295,12 +276,14 @@ type Props = {
     };
     featuredHeroSlot?: ReactNode;
     featuredBeforeCatalogSlot?: ReactNode;
-    /** Tenant logo URL to display above the hero in public mode. */
+    /** Tenant logo URL da mostrare nel compact header. */
     tenantLogoUrl?: string | null;
     /** Explicit scroll container. Use when the component lives inside a custom
      *  scrollable element (e.g. the style-editor canvas). If omitted, the nearest
      *  scrollable ancestor is detected automatically; falls back to window. */
     scrollContainerEl?: HTMLElement | null;
+    /** Indirizzo dell'attività (opzionale, mostrato nell'info card hero). */
+    activityAddress?: string | null;
 };
 
 export default function CollectionView({
@@ -315,37 +298,56 @@ export default function CollectionView({
     featuredHeroSlot,
     featuredBeforeCatalogSlot,
     tenantLogoUrl,
-    scrollContainerEl
+    scrollContainerEl,
+    activityAddress
 }: Props) {
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
         () => sections[0]?.id ?? null
     );
     const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
     const pageRef = useRef<HTMLElement | null>(null);
-    // Holds the resolved scroll container so scrollToSection can use it
-    // without re-walking the DOM on every click.
     const containerRef = useRef<HTMLElement | Window>(window);
-    // pendingScrollTargetIdRef: set on pill click, cleared when the target section
-    // actually reaches STICKY_OFFSET.  Prevents ping-pong during smooth scroll.
     const pendingScrollTargetIdRef = useRef<string | null>(null);
-    // Safety fallback: releases the guard if the scroll never settles (e.g. the
-    // section is already on-screen, a layout shift occurs, etc.).
     const safetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [selectedItem, setSelectedItem] = useState<CollectionViewSectionItem | null>(null);
 
-    // Keep first section active as default when sections load asynchronously
+    // ── Search ──────────────────────────────────────────────────────────────
+    const [searchQuery, setSearchQuery] = useState("");
+
+    // ── Compact header state ────────────────────────────────────────────────
+    // isCompactHeaderVisible: true = compact bar è visibile (nav deve scendere)
+    // compactHeaderHeight: altezza reale del compact bar (aggiornata da ResizeObserver)
+    const [isCompactHeaderVisible, setIsCompactHeaderVisible] = useState(
+        mode === "preview"
+    );
+    const [compactHeaderHeight, setCompactHeaderHeight] = useState(0);
+    // Ref per leggere l'altezza aggiornata nelle closure del scroll listener
+    // senza dover ricreare l'effect ad ogni cambio di altezza.
+    const compactHeaderHeightRef = useRef(0);
+
+    const handleCompactVisibilityChange = useCallback((visible: boolean) => {
+        setIsCompactHeaderVisible(visible);
+    }, []);
+
+    const handleCompactHeightChange = useCallback((h: number) => {
+        compactHeaderHeightRef.current = h;
+        setCompactHeaderHeight(h);
+    }, []);
+
+    // ── Scroll-to-top ───────────────────────────────────────────────────────
+    const [showScrollToTop, setShowScrollToTop] = useState(false);
+
+    // ── Keep first section active when sections load asynchronously ─────────
     useEffect(() => {
         if (!activeSectionId && sections.length > 0) {
             setActiveSectionId(sections[0].id);
         }
     }, [activeSectionId, sections]);
 
+    // ── Main scroll effect: section tracking + scroll-to-top visibility ─────
     useEffect(() => {
         if (sections.length === 0) return;
 
-        // Resolve scroll container: explicit prop takes precedence.
-        // Fallback: walk up the DOM to find the nearest overflow:auto/scroll
-        // ancestor (handles the public page → window case automatically).
         function findScrollContainer(el: HTMLElement | null): HTMLElement | Window {
             let node = el?.parentElement ?? null;
             while (node && node !== document.body) {
@@ -359,11 +361,13 @@ export default function CollectionView({
         const container: HTMLElement | Window =
             scrollContainerEl ?? findScrollContainer(pageRef.current);
 
-        // Persist so scrollToSection can compute the target without re-detecting.
         containerRef.current = container;
 
         function computeActiveSection() {
-            // Compute which section is naturally active based on scroll position.
+            // Offset dinamico: altezza reale compact header + nav + gap
+            const dynamicStickyOffset =
+                compactHeaderHeightRef.current + NAV_HEIGHT + VISUAL_GAP + 4;
+
             const containerTop =
                 container === window ? 0 : (container as HTMLElement).getBoundingClientRect().top;
 
@@ -372,68 +376,82 @@ export default function CollectionView({
                 const el = sectionRefs.current[section.id];
                 if (!el) continue;
                 const sectionTop = el.getBoundingClientRect().top - containerTop;
-                if (sectionTop <= STICKY_OFFSET) {
+                if (sectionTop <= dynamicStickyOffset) {
                     naturalActive = section.id;
                 } else {
                     break;
                 }
             }
 
-            // Click-navigation guard ─────────────────────────────────────────
-            // Keep the clicked category active until the target section has
-            // physically reached STICKY_OFFSET from the container top.
-            // This is threshold-based (not timeout-only) to prevent ping-pong.
             if (pendingScrollTargetIdRef.current !== null) {
                 const targetId = pendingScrollTargetIdRef.current;
                 const targetEl = sectionRefs.current[targetId];
                 if (targetEl) {
                     const targetTop = targetEl.getBoundingClientRect().top - containerTop;
-                    if (targetTop > STICKY_OFFSET) {
-                        // Target not yet reached — suppress natural detection.
+                    if (targetTop > dynamicStickyOffset) {
                         return;
                     }
                 }
-                // Target reached (or element gone) — release the guard.
                 pendingScrollTargetIdRef.current = null;
                 if (safetyTimeoutRef.current !== null) {
                     clearTimeout(safetyTimeoutRef.current);
                     safetyTimeoutRef.current = null;
                 }
             }
-            // ────────────────────────────────────────────────────────────────
 
             setActiveSectionId(naturalActive);
         }
 
+        function handleScroll() {
+            computeActiveSection();
+            // Scroll-to-top: visibile solo in mode="public"
+            if (mode === "public") {
+                const scrollTop =
+                    container === window
+                        ? window.scrollY
+                        : (container as HTMLElement).scrollTop;
+                setShowScrollToTop(scrollTop > 300);
+            }
+        }
+
         computeActiveSection();
-        container.addEventListener("scroll", computeActiveSection, { passive: true });
+        container.addEventListener("scroll", handleScroll, { passive: true });
         return () => {
-            container.removeEventListener("scroll", computeActiveSection);
-            // Clean up on unmount / effect re-run so refs don't leak.
+            container.removeEventListener("scroll", handleScroll);
             if (safetyTimeoutRef.current !== null) {
                 clearTimeout(safetyTimeoutRef.current);
                 safetyTimeoutRef.current = null;
             }
             pendingScrollTargetIdRef.current = null;
         };
-    }, [sections, scrollContainerEl]);
+    }, [sections, scrollContainerEl, mode]);
 
-    const navItems: SectionNavItem[] = useMemo(
-        () => sections.map(s => ({ id: s.id, name: s.name })),
-        [sections]
+    // ── Filtered sections (search) ──────────────────────────────────────────
+    const filteredSections = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return sections;
+        return sections
+            .map(section => ({
+                ...section,
+                items: section.items.filter(
+                    item =>
+                        item.name.toLowerCase().includes(q) ||
+                        (item.description?.toLowerCase().includes(q) ?? false)
+                )
+            }))
+            .filter(section => section.items.length > 0);
+    }, [sections, searchQuery]);
+
+    const filteredNavItems: SectionNavItem[] = useMemo(
+        () => filteredSections.map(s => ({ id: s.id, name: s.name })),
+        [filteredSections]
     );
 
+    // ── Scroll to section ───────────────────────────────────────────────────
     const scrollToSection = (sectionId: string) => {
-        // 1. Activate pill immediately — don't wait for scroll to settle.
         setActiveSectionId(sectionId);
-
-        // 2. Arm the threshold-based click-navigation guard.
-        //    computeActiveSection will suppress natural detection until the target
-        //    section physically reaches STICKY_OFFSET from the container top.
         pendingScrollTargetIdRef.current = sectionId;
 
-        // 3. Safety timeout: releases the guard if the scroll never settles
-        //    (section already on-screen, layout shift, or scroll interrupted).
         if (safetyTimeoutRef.current !== null) clearTimeout(safetyTimeoutRef.current);
         safetyTimeoutRef.current = setTimeout(() => {
             pendingScrollTargetIdRef.current = null;
@@ -443,14 +461,14 @@ export default function CollectionView({
         const el = sectionRefs.current[sectionId];
         if (!el) return;
 
-        // 4. Scroll the section to SCROLL_OFFSET from the container top.
-        //    VISUAL_GAP (16px) of breathing room below the sticky bar keeps the
-        //    heading fully readable.  SCROLL_OFFSET (72) < STICKY_OFFSET (76) so
-        //    the section is guaranteed to be detected active once scroll settles.
+        // Offset dinamico: compact header + nav + gap
+        const dynamicScrollOffset =
+            compactHeaderHeightRef.current + NAV_HEIGHT + VISUAL_GAP;
+
         const container = containerRef.current;
 
         if (container === window) {
-            const top = el.getBoundingClientRect().top + window.scrollY - SCROLL_OFFSET;
+            const top = el.getBoundingClientRect().top + window.scrollY - dynamicScrollOffset;
             window.scrollTo({ top, behavior: "smooth" });
         } else {
             const containerEl = container as HTMLElement;
@@ -458,13 +476,39 @@ export default function CollectionView({
                 el.getBoundingClientRect().top -
                 containerEl.getBoundingClientRect().top +
                 containerEl.scrollTop -
-                SCROLL_OFFSET;
+                dynamicScrollOffset;
             containerEl.scrollTo({ top, behavior: "smooth" });
         }
     };
 
+    // ── Scroll to top handler ───────────────────────────────────────────────
+    const handleScrollToTop = useCallback(() => {
+        const container = containerRef.current;
+        if (container === window) {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+            (container as HTMLElement).scrollTo({ top: 0, behavior: "smooth" });
+        }
+    }, []);
+
+    // ── Derived values for render ───────────────────────────────────────────
+    // In mode="public" il compact header è fixed → serve paddingTop per non
+    // nascondere il contenuto sotto di esso.
+    const mainPaddingTop =
+        mode === "public" && isCompactHeaderVisible ? compactHeaderHeight : 0;
+
+    const hasHeader =
+        style.showLogo || style.showCoverImage || style.showActivityName || style.showCatalogName;
+
+    const hasSearchResults = filteredSections.length > 0;
+    const isSearchActive = searchQuery.trim().length > 0;
+
     return (
-        <main className={styles.page} ref={pageRef}>
+        <main
+            className={styles.page}
+            ref={pageRef}
+            style={mainPaddingTop > 0 ? { paddingTop: mainPaddingTop } : undefined}
+        >
             {/* Skip link (solo public) */}
             {mode === "public" && (
                 <a className={styles.skipLink} href={`#${contentId}`}>
@@ -472,25 +516,30 @@ export default function CollectionView({
                 </a>
             )}
 
-            {/* BRAND HEADER – logo sopra la hero (solo public, se presente) */}
-            {mode === "public" && tenantLogoUrl && (
-                <PublicBrandHeader logoUrl={tenantLogoUrl} brandName={businessName} />
+            {/* ── HEADER: sostituisce PublicBrandHeader + CollectionHero ── */}
+            {hasHeader && (
+                <PublicCollectionHeader
+                    logoUrl={tenantLogoUrl}
+                    activityName={businessName}
+                    activityAddress={activityAddress}
+                    coverImageUrl={businessImage}
+                    showCoverImage={style.showCoverImage}
+                    showLogo={style.showLogo}
+                    mode={mode}
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    onCompactVisibilityChange={handleCompactVisibilityChange}
+                    onCompactHeightChange={handleCompactHeightChange}
+                    scrollContainerEl={scrollContainerEl}
+                />
             )}
-
-            {/* HERO – full-bleed, fuori dal frame */}
-            <CollectionHero
-                title={businessName}
-                subtitle={collectionTitle}
-                imageUrl={businessImage}
-                variant={mode === "public" ? "public" : "preview"}
-            />
 
             {featuredHeroSlot}
 
-            {/* NAV – sticky, full-bleed, fuori dal frame */}
+            {/* ── NAV – sticky, topOffset dinamico ── */}
             {!emptyState && (
                 <CollectionSectionNav
-                    sections={navItems}
+                    sections={filteredNavItems}
                     activeSectionId={activeSectionId}
                     onSelect={scrollToSection}
                     variant={mode === "public" ? "public" : "preview"}
@@ -498,10 +547,11 @@ export default function CollectionView({
                         shape: style.sectionNavShape,
                         navStyle: style.sectionNavStyle
                     }}
+                    topOffset={isCompactHeaderVisible ? compactHeaderHeight : 0}
                 />
             )}
 
-            {/* FRAME – contenuto centrato e max-width responsivo */}
+            {/* ── FRAME – contenuto centrato e max-width responsivo ── */}
             <div className={styles.frame}>
                 {emptyState ? (
                     <div className={styles.emptyState}>
@@ -510,7 +560,6 @@ export default function CollectionView({
                                 {emptyState.title}
                             </Text>
                         )}
-
                         {emptyState.description && (
                             <Text variant="body" colorVariant="muted">
                                 {emptyState.description}
@@ -519,13 +568,32 @@ export default function CollectionView({
                     </div>
                 ) : (
                     <>
+                        {/* ── SEARCH EMPTY STATE ── */}
+                        {isSearchActive && !hasSearchResults && (
+                            <div className={styles.searchEmptyState}>
+                                <div className={styles.searchEmptyIcon}>
+                                    <Search
+                                        size={28}
+                                        strokeWidth={1.5}
+                                        color="var(--pub-text-muted)"
+                                    />
+                                </div>
+                                <Text as="p" variant="title-sm" weight={700}>
+                                    Nessun risultato
+                                </Text>
+                                <Text variant="body" colorVariant="muted">
+                                    Prova con un'altra parola chiave
+                                </Text>
+                            </div>
+                        )}
+
                         <div
                             id={contentId}
                             className={styles.container}
                             data-card-layout={style.cardLayout ?? "list"}
                         >
                             {featuredBeforeCatalogSlot}
-                            {sections.map(section => {
+                            {filteredSections.map(section => {
                                 if (section.items.length === 0) return null;
 
                                 return (
@@ -569,6 +637,7 @@ export default function CollectionView({
                                                             showImage={
                                                                 style.cardTemplate !== "no-image"
                                                             }
+                                                            imageRight={style.cardTemplate === "right"}
                                                             mode={mode}
                                                             onClick={() => setSelectedItem(item)}
                                                             optionGroups={item.optionGroups}
@@ -577,11 +646,9 @@ export default function CollectionView({
                                                         />
                                                     )}
 
-                                                    {/* Divider + variants: only if there are variants to show */}
+                                                    {/* Divider + variants */}
                                                     {(item.variants?.length ?? 0) > 0 && (
                                                         <>
-                                                            {/* Divider with label only in Case A (parent + variants).
-                                                                Case B (no parent): still render divider but without label */}
                                                             <div className={styles.variantsDivider}>
                                                                 {item.parentSelected && (
                                                                     <span
@@ -607,6 +674,7 @@ export default function CollectionView({
                                                                         style.cardTemplate !==
                                                                         "no-image"
                                                                     }
+                                                                    imageRight={style.cardTemplate === "right"}
                                                                     mode={mode}
                                                                     optionGroups={v.optionGroups}
                                                                     onClick={e => {
@@ -666,6 +734,18 @@ export default function CollectionView({
                     </>
                 )}
             </div>
+
+            {/* ── SCROLL TO TOP — solo mode="public" ── */}
+            {mode === "public" && showScrollToTop && (
+                <button
+                    type="button"
+                    className={styles.scrollToTopBtn}
+                    onClick={handleScrollToTop}
+                    aria-label="Torna in cima"
+                >
+                    <ChevronUp size={20} strokeWidth={2.5} />
+                </button>
+            )}
         </main>
     );
 }

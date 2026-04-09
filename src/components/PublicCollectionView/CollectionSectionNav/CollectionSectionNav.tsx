@@ -9,8 +9,10 @@ export type CollectionSectionNavProps = {
     variant?: "preview" | "public";
     style?: {
         shape?: "rounded" | "pill" | "square";
-        navStyle?: "pill" | "tabs" | "minimal";
+        navStyle?: "pill" | "chip" | "outline" | "tabs" | "dot" | "minimal";
     };
+    /** Offset top dinamico (px) per stare sotto il compact header. */
+    topOffset?: number;
 };
 
 export default function CollectionSectionNav({
@@ -18,7 +20,8 @@ export default function CollectionSectionNav({
     activeSectionId,
     onSelect,
     variant = "public",
-    style
+    style,
+    topOffset
 }: CollectionSectionNavProps) {
     const listRef = useRef<HTMLUListElement | null>(null);
     const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -67,6 +70,7 @@ export default function CollectionSectionNav({
             data-variant={variant}
             data-nav-style={navStyle}
             aria-label="Navigazione sezioni del catalogo"
+            style={topOffset !== undefined ? { top: topOffset } : undefined}
         >
             <ul className={styles.list} role="tablist" ref={listRef}>
                 {sections.map(section => {
