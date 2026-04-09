@@ -1,0 +1,127 @@
+/* ─────────────────────────────────────────────────────────
+   PublicFooter
+   Social icons → separator → powered-by → separator → legal
+───────────────────────────────────────────────────────── */
+
+.footer {
+  width: 100%;
+  padding: 2rem 1rem 2.5rem;
+  background: var(--pub-bg);
+  border-top: 1px solid var(--pub-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+/* ── SOCIAL ROW ─────────────────────────────────────────── */
+.socialRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.socialBtn {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid var(--pub-border);
+  background: var(--pub-surface);
+  color: var(--pub-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.15s ease;
+
+  &:hover {
+    background: var(--pub-text);
+    color: var(--pub-bg);
+    border-color: var(--pub-text);
+    transform: translateY(-1px);
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+}
+
+/* ── SEPARATOR ──────────────────────────────────────────── */
+.separator {
+  width: 100%;
+  max-width: 280px;
+  height: 1px;
+  background: var(--pub-border);
+  border: none;
+}
+
+/* ── POWERED BY ─────────────────────────────────────────── */
+.poweredByLink {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  text-decoration: none;
+  color: inherit;
+
+  &:hover .brandName {
+    opacity: 0.75;
+  }
+}
+
+.poweredByLabel {
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--pub-text-muted);
+  font-family: var(--pub-font-family, sans-serif);
+}
+
+.brandRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.brandName {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #6366f1;
+  font-family: var(--pub-font-family, sans-serif);
+  transition: opacity 0.15s ease;
+  letter-spacing: -0.01em;
+}
+
+/* ── LEGAL LINKS ─────────────────────────────────────────── */
+.legalRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-family: var(--pub-font-family, sans-serif);
+}
+
+.legalLink {
+  color: var(--pub-text-muted);
+  text-decoration: none;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: var(--pub-text-secondary);
+    text-decoration: underline;
+  }
+}
+
+.legalDot {
+  color: var(--pub-text-muted);
+  opacity: 0.45;
+  user-select: none;
+}

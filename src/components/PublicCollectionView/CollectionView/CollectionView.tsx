@@ -9,6 +9,7 @@ import { Pill } from "@/components/ui/Pill/Pill";
 // import CollectionHero from "../CollectionHero/CollectionHero";
 // import PublicBrandHeader from "../PublicBrandHeader/PublicBrandHeader";
 import PublicCollectionHeader from "../PublicCollectionHeader/PublicCollectionHeader";
+import PublicFooter from "../PublicFooter/PublicFooter";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
 import type { CardTemplate, CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
@@ -734,6 +735,9 @@ export default function CollectionView({
                     </>
                 )}
             </div>
+
+            {/* ── FOOTER ── */}
+            {!emptyState && <PublicFooter />}
 
             {/* ── SCROLL TO TOP — solo mode="public" ── */}
             {mode === "public" && showScrollToTop && (
