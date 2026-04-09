@@ -1,3 +1,6 @@
+// ⚠️ SYNC: questo file è duplicato. L'altra copia è in supabase/functions/_shared/resolveActivityCatalogs.ts.
+// Qualsiasi modifica va replicata in ENTRAMBI i file.
+
 import { supabase } from "@/services/supabase/client";
 import {
     resolveRulesForActivity,

@@ -1,10 +1,6 @@
-/**
- * Edge Function version of resolveActivityCatalogs.
- * Mirrors src/services/supabase/resolveActivityCatalogs.ts but accepts a
- * Supabase client (service_role) instead of importing the singleton.
- *
- * KEEP IN SYNC with the frontend copy.
- */
+// ⚠️ SYNC: questo file è duplicato. L'altra copia è in src/services/supabase/resolveActivityCatalogs.ts.
+// Qualsiasi modifica va replicata in ENTRAMBI i file.
+// Nota: questa versione accetta il client Supabase come parametro (service_role) invece di importare il singleton.
 
 import {
     resolveRulesForActivity,
