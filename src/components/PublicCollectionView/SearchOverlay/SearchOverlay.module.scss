@@ -1,0 +1,342 @@
+/* ─────────────────────────────────────────────────────────
+   SearchOverlay
+   MOBILE   → pannello floating quasi full-screen con backdrop scuro
+   DESKTOP  → backdrop scuro + panel centrato max-width 620px
+   PREVIEW  → sticky shell (h:0) + panel assoluto,
+              clippato dal deviceScreen (overflow-y:auto)
+──────────────────────────────────────────────────────────── */
+
+/* ── ANIMAZIONI ─────────────────────────────────────────── */
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes backdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── PUBLIC OVERLAY ────────────────────────────────────── */
+
+.publicOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Backdrop visibile sia su mobile che su desktop */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  animation: backdropIn 200ms ease forwards;
+}
+
+/* Mobile: pannello floating con margini su tutti i lati.
+   Desktop: wrapper centrato che galleggia sopra il backdrop. */
+.publicPanelWrap {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  /* Mobile: rispetta safe-area in alto, margini laterali e inferiori */
+  padding: max(12px, env(safe-area-inset-top, 12px)) 12px 12px;
+
+  @media (min-width: 640px) {
+    padding: 0;
+    max-width: 620px;
+    margin: 6vh auto 0;
+    padding: 0 1rem;
+  }
+}
+
+/* ── PREVIEW SHELL ─────────────────────────────────────── */
+
+/*
+  Sticky a top:0 del deviceScreen con altezza reale del container (via JS).
+  overflow:hidden clippa backdrop e panel dentro i bordi del device frame.
+  marginBottom negativo annulla l'impatto sul flusso del documento.
+*/
+.previewShell {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  overflow: hidden;
+  /* height e marginBottom sono impostati via inline style */
+}
+
+/* Backdrop semi-trasparente che copre il device frame */
+.previewBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  animation: backdropIn 200ms ease forwards;
+}
+
+/* Wrapper del panel — sopra il backdrop, con padding come mobile public */
+.previewPanelWrap {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding: 12px;
+}
+
+/* ── PANEL (condiviso) ─────────────────────────────────── */
+
+.panel {
+  width: 100%;
+  background: var(--pub-bg);
+  border-radius: 14px;
+  border: 1px solid var(--pub-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  /* Il contenuto scrolla internamente */
+  overflow: hidden;
+  animation: panelIn 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* Mobile: quasi full-screen senza toccare il bordo inferiore */
+  max-height: 88dvh;
+
+  @media (min-width: 640px) {
+    max-height: 72dvh;
+  }
+}
+
+/* Preview: panel con border-radius pieno e max-height relativo al device */
+.previewPanelWrap .panel {
+  border-radius: 14px;
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.14);
+  max-height: 80dvh;
+}
+
+/* ── RIGA RICERCA ─────────────────────────────────────── */
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--pub-border);
+  background: var(--pub-bg);
+  flex-shrink: 0;
+}
+
+.inputWrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 42px;
+  padding: 0 0.75rem;
+  border: 1.5px solid var(--pub-border);
+  border-radius: 10px;
+  background: var(--pub-surface);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:focus-within {
+    border-color: var(--pub-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--pub-primary) 12%, transparent);
+  }
+}
+
+.searchIcon {
+  flex-shrink: 0;
+  color: var(--pub-text-muted);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--pub-text);
+  font-size: 0.9rem;
+  font-family: var(--pub-font-family, sans-serif);
+  outline: none;
+  -webkit-appearance: none;
+
+  &::placeholder {
+    color: var(--pub-text-muted);
+  }
+
+  &::-webkit-search-cancel-button,
+  &::-webkit-search-decoration {
+    -webkit-appearance: none;
+  }
+}
+
+.clearBtn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--pub-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-text) 10%, transparent);
+    color: var(--pub-text);
+  }
+}
+
+.closeBtn {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--pub-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: var(--pub-font-family, sans-serif);
+  cursor: pointer;
+  padding: 0.4rem 0;
+  white-space: nowrap;
+  transition: opacity 0.15s ease;
+
+  &:hover {
+    opacity: 0.65;
+  }
+}
+
+/* ── AREA RISULTATI ──────────────────────────────────────── */
+
+.results {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.25rem 0 1.25rem;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Hint (query vuota o nessun risultato): centrato verticalmente */
+.hint {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  font-size: 0.875rem;
+  color: var(--pub-text-muted);
+  font-family: var(--pub-font-family, sans-serif);
+  text-align: center;
+}
+
+.hintQuery {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--pub-text);
+}
+
+/* ── GRUPPO SEZIONE ──────────────────────────────────────── */
+
+.group {
+  padding-top: 0.75rem;
+}
+
+.groupLabel {
+  padding: 0 1rem 0.35rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--pub-text-muted);
+  font-family: var(--pub-font-family, sans-serif);
+}
+
+/* ── RISULTATO SINGOLO ───────────────────────────────────── */
+
+.resultBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 1rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-text) 4%, var(--pub-surface));
+  }
+
+  &:active {
+    background: color-mix(in srgb, var(--pub-text) 8%, var(--pub-surface));
+  }
+}
+
+.resultBtnHighlighted {
+  background: color-mix(in srgb, var(--pub-primary) 8%, var(--pub-surface));
+
+  .resultName {
+    color: var(--pub-primary);
+  }
+}
+
+.resultMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.resultName {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--pub-text);
+  font-family: var(--pub-font-family, sans-serif);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resultDesc {
+  font-size: 0.775rem;
+  color: var(--pub-text-muted);
+  font-family: var(--pub-font-family, sans-serif);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resultPrice {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--pub-primary);
+  font-family: var(--pub-font-family, sans-serif);
+}
+
+/* ── NOTA CONTEGGIO ────────────────────────────────────── */
+
+.countNote {
+  padding: 0.6rem 1rem 0;
+  font-size: 0.7rem;
+  color: var(--pub-text-muted);
+  font-family: var(--pub-font-family, sans-serif);
+  border-top: 1px solid var(--pub-border);
+  margin-top: 0.5rem;
+}
