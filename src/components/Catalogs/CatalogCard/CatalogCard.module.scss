@@ -1,0 +1,221 @@
+.card {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary, #4f46e5);
+    outline-offset: 2px;
+  }
+}
+
+/* ── Preview area ───────────────────────────────── */
+
+.preview {
+  position: relative;
+  background: #eef0fb;
+  padding: 1.25rem 1.25rem 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 148px;
+}
+
+.previewInner {
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  padding: 0.75rem 0.875rem;
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  gap: 0.625rem;
+}
+
+.accentBar {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--brand-primary, #4f46e5);
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+.previewContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Content lines */
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.line {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: #dde3ef;
+}
+
+.lineFull { width: 100%; }
+.lineLg   { width: 75%; }
+.lineMd   { width: 55%; }
+.lineSm   { width: 38%; }
+
+/* Thumbnail row */
+
+.thumbs {
+  display: flex;
+  gap: 0.375rem;
+  margin-top: 0.625rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #eceff6;
+}
+
+.thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: #dde3ef;
+  flex-shrink: 0;
+}
+
+/* Product count badge */
+
+.productBadge {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: #ffffff;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 999px;
+  padding: 0.2rem 0.625rem;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--brand-primary, #4f46e5);
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+
+  strong {
+    font-weight: 700;
+  }
+}
+
+/* ── Card body ──────────────────────────────────── */
+
+.body {
+  padding: 0.875rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* ── Dropdown menu ──────────────────────────────── */
+
+.menuTrigger {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm, 6px);
+  border: none;
+  background: transparent;
+  color: var(--color-gray-500, #64748b);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--color-gray-100, #f1f5f9);
+    color: var(--color-gray-800, #1e293b);
+  }
+}
+
+.menuContent {
+  background-color: white;
+  border-radius: var(--radius-md, 12px);
+  padding: 6px;
+  box-shadow:
+    0 10px 38px -10px rgba(22, 23, 24, 0.35),
+    0 10px 20px -15px rgba(22, 23, 24, 0.2);
+  min-width: 180px;
+  border: 1px solid var(--color-gray-200, #e2e8f0);
+  z-index: 50;
+}
+
+.menuItem {
+  font-size: 13px;
+  line-height: 1;
+  color: var(--color-gray-700, #334155);
+  border-radius: var(--radius-sm, 8px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  position: relative;
+  user-select: none;
+  outline: none;
+  cursor: pointer;
+
+  &[data-highlighted] {
+    background-color: var(--color-gray-100, #f1f5f9);
+    color: var(--color-gray-900, #0f172a);
+  }
+}
+
+.menuSeparator {
+  height: 1px;
+  background-color: var(--color-gray-200, #e2e8f0);
+  margin: 6px -6px;
+}
+
+.menuDanger {
+  color: var(--color-red-600, #dc2626);
+
+  &[data-highlighted] {
+    background-color: var(--color-red-50, #fef2f2);
+    color: var(--color-red-700, #b91c1c);
+  }
+}
