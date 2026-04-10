@@ -1,0 +1,14 @@
+.groupWrapper {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    background: var(--surface-subtle, #f8fafc);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px;
+
+    > * {
+        flex: 1;
+        min-width: 0;
+    }
+}
