@@ -21,7 +21,7 @@ export const ALLERGENS: Allergen[] = [
     {
         id: "eggs",
         label: "Uova",
-        description: "Presenti in pasta all’uovo, prodotti da forno, panature, creme, maionese."
+        description: "Presenti in pasta all'uovo, prodotti da forno, panature, creme, maionese."
     },
     {
         id: "fish",
@@ -79,3 +79,4 @@ export const ALLERGENS: Allergen[] = [
         description: "Cozze, vongole, ostriche, calamari, lumachini e derivati."
     }
 ];
+

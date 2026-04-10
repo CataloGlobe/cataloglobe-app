@@ -159,11 +159,11 @@ export async function deleteAccount(actions: DeleteAccountAction[]): Promise<voi
         if (status === 400) {
             if (code === "incomplete_actions") {
                 throw new Error(
-                    "Devi specificare un'azione per ogni azienda di cui sei proprietario."
+                    "Devi specificare un'azione per ogni attività di cui sei proprietario."
                 );
             }
             if (code === "not_owner_of_tenant") {
-                throw new Error("Non sei il proprietario di una delle aziende selezionate.");
+                throw new Error("Non sei il proprietario di una delle attività selezionate.");
             }
             if (code === "invalid_action") {
                 throw new Error("Azione non valida per uno dei tenant.");

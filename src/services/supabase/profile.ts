@@ -74,3 +74,16 @@ export async function updateProfileAvatar(userId: string, avatar_url: string) {
         .eq("id", userId);
     if (error) throw error;
 }
+
+export async function deleteAvatar(avatarPath: string): Promise<void> {
+    const { error } = await supabase.storage.from("avatars").remove([avatarPath]);
+    if (error) throw error;
+}
+
+export async function clearProfileAvatar(userId: string): Promise<void> {
+    const { error } = await supabase
+        .from("profiles")
+        .update({ avatar_url: null, updated_at: new Date().toISOString() })
+        .eq("id", userId);
+    if (error) throw error;
+}

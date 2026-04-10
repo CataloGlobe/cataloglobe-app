@@ -80,7 +80,7 @@ export async function deleteTenantSoft(tenantId: string): Promise<void> {
                 throw new Error("Autenticazione non valida. Rifai il login e riprova.");
             }
             if (status === 403) {
-                throw new Error("Non sei autorizzato ad eliminare questa azienda.");
+                throw new Error("Non sei autorizzato ad eliminare questa attività.");
             }
         }
         throw error;
@@ -121,13 +121,13 @@ export async function restoreTenant(tenantId: string): Promise<void> {
                 throw new Error("Autenticazione non valida. Rifai il login e riprova.");
             }
             if (status === 403) {
-                throw new Error("Non sei autorizzato a ripristinare questa azienda.");
+                throw new Error("Non sei autorizzato a ripristinare questa attività.");
             }
             if (status === 404) {
-                throw new Error("Azienda non trovata. Potrebbe essere già stata eliminata definitivamente.");
+                throw new Error("Attività non trovata. Potrebbe essere già stata eliminata definitivamente.");
             }
             if (status === 409) {
-                throw new Error("Questa azienda non risulta eliminata.");
+                throw new Error("Questa attività non risulta eliminata.");
             }
         }
         throw error;
@@ -155,13 +155,13 @@ export async function purgeTenantNow(tenantId: string): Promise<void> {
                 throw new Error("Autenticazione non valida. Rifai il login e riprova.");
             }
             if (status === 403) {
-                throw new Error("Non sei autorizzato ad eliminare questa azienda.");
+                throw new Error("Non sei autorizzato ad eliminare questa attività.");
             }
             if (status === 404) {
-                throw new Error("Azienda non trovata.");
+                throw new Error("Attività non trovata.");
             }
             if (status === 409) {
-                throw new Error("L'azienda non è in stato di eliminazione.");
+                throw new Error("L'attività non è in stato di eliminazione.");
             }
         }
         throw error;
@@ -181,10 +181,10 @@ export async function leaveTenant(tenantId: string): Promise<void> {
     const { error } = await supabase.rpc("leave_tenant", { p_tenant_id: tenantId });
     if (error) {
         if (error.message.includes("owner_cannot_leave")) {
-            throw new Error("Il proprietario non può lasciare la propria azienda.");
+            throw new Error("Il proprietario non può lasciare la propria attività.");
         }
         if (error.message.includes("membership_not_found")) {
-            throw new Error("Non sei membro attivo di questa azienda.");
+            throw new Error("Non sei membro attivo di questa attività.");
         }
         throw error;
     }

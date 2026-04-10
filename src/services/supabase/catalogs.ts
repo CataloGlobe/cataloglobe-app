@@ -32,6 +32,11 @@ export type V2CatalogCategoryProduct = {
     created_at: string;
 };
 
+export type CatalogStats = {
+    categoryCount: number;
+    productCount: number;
+};
+
 // ==========================================
 // CATALOGS
 // ==========================================
@@ -82,6 +87,40 @@ export async function deleteCatalog(catalogId: string, tenantId: string): Promis
         .eq("tenant_id", tenantId);
 
     if (error) throw error;
+}
+
+export async function getCatalogStatsMap(
+    tenantId: string,
+    catalogIds: string[]
+): Promise<Record<string, CatalogStats>> {
+    if (catalogIds.length === 0) return {};
+
+    const [catResult, prodResult] = await Promise.all([
+        supabase
+            .from("catalog_categories")
+            .select("catalog_id")
+            .eq("tenant_id", tenantId)
+            .in("catalog_id", catalogIds),
+        supabase
+            .from("catalog_category_products")
+            .select("catalog_id")
+            .eq("tenant_id", tenantId)
+            .in("catalog_id", catalogIds)
+    ]);
+
+    const stats: Record<string, CatalogStats> = {};
+    catalogIds.forEach(id => {
+        stats[id] = { categoryCount: 0, productCount: 0 };
+    });
+
+    (catResult.data ?? []).forEach(row => {
+        if (stats[row.catalog_id]) stats[row.catalog_id].categoryCount++;
+    });
+    (prodResult.data ?? []).forEach(row => {
+        if (stats[row.catalog_id]) stats[row.catalog_id].productCount++;
+    });
+
+    return stats;
 }
 
 // ==========================================

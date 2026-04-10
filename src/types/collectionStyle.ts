@@ -1,7 +1,8 @@
 export type CardTemplate = "left" | "right" | "no-image";
 export type SectionNavShape = "pill" | "rounded" | "square";
-export type SectionNavStyle = "pill" | "tabs" | "minimal";
+export type SectionNavStyle = "pill" | "chip" | "outline" | "tabs" | "dot" | "minimal";
 export type CardLayout = "grid" | "list";
+export type ProductStyle = "card" | "compact";
 
 export type CollectionStyle = {
     /* =========================
@@ -9,7 +10,7 @@ export type CollectionStyle = {
   ========================= */
 
     backgroundColor?: string; // page background
-    fontFamily?: "inter" | "outfit" | "poppins";
+    fontFamily?: "inter" | "poppins" | "playfair";
 
     /* =========================
      HEADER / HERO
@@ -17,6 +18,11 @@ export type CollectionStyle = {
 
     headerBackgroundColor?: string;
     heroImageRadius?: number; // px
+
+    showLogo?: boolean;
+    showCoverImage?: boolean;
+    showActivityName?: boolean;
+    showCatalogName?: boolean;
 
     /* =========================
      NAVIGATION (PILLS)
@@ -36,6 +42,8 @@ export type CollectionStyle = {
     cardRadius?: number; // px
     /** Whether items are displayed in a multi-column grid or a single-column list */
     cardLayout?: CardLayout;
+    /** Visual style of product rows: card (with image/background) or menu (text-only) */
+    productStyle?: ProductStyle;
 };
 
 /* =========================
@@ -49,6 +57,11 @@ export const DEFAULT_COLLECTION_STYLE: Required<CollectionStyle> = {
     headerBackgroundColor: "#ffffff",
     heroImageRadius: 12,
 
+    showLogo: true,
+    showCoverImage: true,
+    showActivityName: true,
+    showCatalogName: true,
+
     sectionNavColor: "#6366f1",
     sectionNavShape: "pill",
     sectionNavStyle: "pill",
@@ -56,110 +69,7 @@ export const DEFAULT_COLLECTION_STYLE: Required<CollectionStyle> = {
     cardTemplate: "left",
     cardBackgroundColor: "#ffffff",
     cardRadius: 12,
-    cardLayout: "list"
+    cardLayout: "list",
+    productStyle: "card"
 };
 
-/* =========================
-   HELPERS
-========================= */
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null;
-}
-
-/* =========================
-   SAFE PARSER
-========================= */
-
-export function safeCollectionStyle(style: unknown): CollectionStyle {
-    // Se arriva una stringa JSON (capita con Supabase / view)
-    if (typeof style === "string") {
-        try {
-            style = JSON.parse(style);
-        } catch {
-            return {};
-        }
-    }
-
-    if (!isRecord(style)) return {};
-
-    const out: CollectionStyle = {};
-
-    // BASE
-    if (typeof style.backgroundColor === "string") {
-        out.backgroundColor = style.backgroundColor;
-    }
-
-    if (
-        style.fontFamily === "inter" ||
-        style.fontFamily === "outfit" ||
-        style.fontFamily === "poppins"
-    ) {
-        out.fontFamily = style.fontFamily;
-    }
-
-    // HEADER
-    if (typeof style.headerBackgroundColor === "string") {
-        out.headerBackgroundColor = style.headerBackgroundColor;
-    }
-
-    if (typeof style.heroImageRadius === "number" && Number.isFinite(style.heroImageRadius)) {
-        out.heroImageRadius = style.heroImageRadius;
-    }
-
-    // NAV
-    if (typeof style.sectionNavColor === "string") {
-        out.sectionNavColor = style.sectionNavColor;
-    }
-
-    if (
-        style.sectionNavShape === "rounded" ||
-        style.sectionNavShape === "pill" ||
-        style.sectionNavShape === "square"
-    ) {
-        out.sectionNavShape = style.sectionNavShape;
-    }
-
-    if (
-        style.sectionNavStyle === "pill" ||
-        style.sectionNavStyle === "tabs" ||
-        style.sectionNavStyle === "minimal"
-    ) {
-        out.sectionNavStyle = style.sectionNavStyle;
-    }
-
-    // CARD
-    if (
-        style.cardTemplate === "left" ||
-        style.cardTemplate === "right" ||
-        style.cardTemplate === "no-image"
-    ) {
-        out.cardTemplate = style.cardTemplate;
-    }
-
-    if (typeof style.cardBackgroundColor === "string") {
-        out.cardBackgroundColor = style.cardBackgroundColor;
-    }
-
-    if (typeof style.cardRadius === "number" && Number.isFinite(style.cardRadius)) {
-        out.cardRadius = style.cardRadius;
-    }
-
-    if (style.cardLayout === "grid" || style.cardLayout === "list") {
-        out.cardLayout = style.cardLayout;
-    }
-
-    return out;
-}
-
-/* =========================
-   RESOLVER
-========================= */
-
-export function resolveCollectionStyle(saved: unknown, draft: unknown): Required<CollectionStyle> {
-    return {
-        ...DEFAULT_COLLECTION_STYLE,
-        ...safeCollectionStyle(saved),
-        ...safeCollectionStyle(draft)
-    };
-}
