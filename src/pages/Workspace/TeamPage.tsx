@@ -224,7 +224,7 @@ export default function TeamPage() {
                     {!selectedTenantId ? (
                         <div className={styles.emptyState}>
                             <Text variant="body">
-                                Seleziona un&apos;azienda dal workspace per vedere i membri.
+                                Seleziona un&apos;attività dal workspace per vedere i membri.
                             </Text>
                         </div>
                     ) : (

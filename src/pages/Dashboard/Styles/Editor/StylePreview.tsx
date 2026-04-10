@@ -10,7 +10,6 @@ import {
     DEFAULT_COLLECTION_STYLE,
     type SectionNavShape
 } from "@/types/collectionStyle";
-import { useTenant } from "@/context/useTenant";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import previewStyles from "./StylePreview.module.scss";
 
@@ -152,7 +151,6 @@ const NAV_SHAPE_MAP: Record<string, SectionNavShape> = {
 };
 
 export const StylePreview = ({ model }: StylePreviewProps) => {
-    const { selectedTenant } = useTenant();
     const [viewMode, setViewMode] = useState<"mobile" | "desktop">("mobile");
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [screenEl, setScreenEl] = useState<HTMLDivElement | null>(null);
@@ -168,7 +166,7 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
         }, 250);
     }, [viewMode]);
 
-    const businessName = selectedTenant?.name ?? "Nome attività";
+    const businessName = "Nome Sede";
 
     const sectionNavShape: SectionNavShape =
         NAV_SHAPE_MAP[model.navigation.style] ?? "pill";
@@ -186,6 +184,7 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
         sectionNavStyle: model.navigation.style,
         cardTemplate,
         cardLayout: model.card.layout,
+        productStyle: model.card.productStyle,
         showLogo: model.header.showLogo,
         showCoverImage: model.header.showCoverImage,
         showActivityName: model.header.showActivityName,
@@ -238,12 +237,12 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                         <CollectionView
                             businessName={businessName}
                             businessImage={null}
-                            collectionTitle="Catalogo digitale"
+                            collectionTitle="Nome Catalogo"
                             sections={MOCK_SECTIONS}
                             style={collectionStyle}
                             mode="preview"
                             scrollContainerEl={screenEl}
-                            activityAddress="Via Roma 1, Milano"
+                            activityAddress="Via Example, 1 - Città"
                             featuredBeforeCatalogSlot={
                                 <FeaturedBlock blocks={MOCK_FEATURED} />
                             }

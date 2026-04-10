@@ -59,7 +59,7 @@ export function DeleteTenantDialog({ isOpen, tenantName, onClose, onConfirm }: P
             <ModalLayoutContent>
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                     <Text variant="body-sm" colorVariant="muted">
-                        L&apos;azienda verrà spostata nell&apos;area &ldquo;In eliminazione&rdquo; nel workspace.
+                        L&apos;attività verrà spostata nell&apos;area &ldquo;In eliminazione&rdquo; nel workspace.
                         <br /><br />
                         Potrai ripristinarla entro 30 giorni.<br />
                         Dopo questo periodo verrà eliminata definitivamente.
@@ -93,7 +93,7 @@ export function DeleteTenantDialog({ isOpen, tenantName, onClose, onConfirm }: P
                     disabled={!canConfirm}
                     loading={loading}
                 >
-                    Elimina azienda
+                    Elimina attività
                 </Button>
             </ModalLayoutFooter>
         </ModalLayout>

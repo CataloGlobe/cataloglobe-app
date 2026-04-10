@@ -155,6 +155,102 @@
 }
 
 /* ----------------------------------------------------
+   MENU — text-only product style (no card container)
+---------------------------------------------------- */
+
+.compactItem {
+  scroll-margin-top: 8.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--pub-border) 60%, transparent);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &.disabledCard {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+}
+
+.compactRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.875rem 0;
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+
+  &:hover {
+    opacity: 0.75;
+  }
+}
+
+.compactRowBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.compactNameRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.compactName {
+  font-weight: 600;
+  color: var(--pub-text);
+  line-height: 1.3;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.compactPrice {
+  flex-shrink: 0;
+  font-weight: 500;
+  color: var(--pub-text);
+  white-space: nowrap;
+  font-size: 0.9em;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.compactPriceOriginal {
+  text-decoration: line-through;
+  color: var(--pub-text-secondary);
+  opacity: 0.7;
+}
+
+.compactDescription {
+  color: var(--pub-text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.4;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Compact allergens — smaller icons to match the lighter style */
+.compactAllergens {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 5px;
+}
+
+/* ----------------------------------------------------
    CARD — visual container only, no layout decisions
 ---------------------------------------------------- */
 
@@ -178,6 +274,9 @@
   display: flex;
   flex-direction: column;
   overflow: hidden; /* clips ProductRow hover bg to card radius */
+  /* Offset per scrollIntoView dal SearchOverlay:
+     compact header (~60px) + nav (~56px) + gap ≈ 130px ≈ 8.5rem */
+  scroll-margin-top: 8.5rem;
 
   background: var(--pub-surface);
   border: 1px solid var(--pub-border);
@@ -391,10 +490,16 @@
 }
 
 .allergenMore {
-  font-size: 0.65rem;
-  color: var(--pub-text-muted);
-  font-weight: 600;
-  margin-left: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--pub-primary);
+  background: var(--pub-primary-soft);
+  border-radius: 999px;
+  padding: 2px 5px;
+  line-height: 1;
 }
 
 /* ----------------------------------------------------
@@ -418,27 +523,119 @@
 }
 
 /* ----------------------------------------------------
-   SEARCH EMPTY STATE
+   PREVIEW COMPACT HEADER
+   Anchor sticky come figlio diretto di <main> (full-height).
+   Il compact bar è position:absolute → zero impatto sul layout.
+   La sticky constraint è <main> (min-height:100dvh) → resta attivo per tutto lo scroll.
 ---------------------------------------------------- */
 
-.searchEmptyState {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 3rem 1rem 1.5rem;
-  text-align: center;
+.previewHdrAnchor {
+  position: sticky;
+  top: 0;
+  height: 0;
+  overflow: visible;
+  z-index: 20;
 }
 
-.searchEmptyIcon {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
+.previewHdrBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--pub-bg);
+  border-bottom: 1px solid var(--pub-border);
+  will-change: transform, opacity;
+  transform: translateY(-100%);
+  opacity: 0;
+  transition:
+    transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.18s ease;
+
+  &.previewHdrBarVisible {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.previewHdrInner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 1rem;
+  height: 60px;
+  max-width: 100%;
+
+  :global(.preview-desktop) & {
+    max-width: 1024px;
+    margin: 0 auto;
+  }
+}
+
+.previewHdrLogoWrapper {
+  flex-shrink: 0;
+  height: 28px;
+  max-width: 80px;
+  display: flex;
+  align-items: center;
+}
+
+.previewHdrLogo {
+  height: 28px;
+  max-width: 80px;
+  object-fit: contain;
+  display: block;
+}
+
+.previewHdrLogoPlaceholder {
+  flex-shrink: 0;
+  width: 60px;
+  height: 28px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--pub-text) 10%, transparent);
+}
+
+.previewHdrName {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--pub-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--pub-font-family, sans-serif);
+}
+
+.previewHdrSearchBtn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--pub-border);
+  background: var(--pub-surface);
+  color: var(--pub-text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-text) 5%, var(--pub-surface));
+    color: var(--pub-text);
+  }
+}
+
+/* ----------------------------------------------------
+   COMPACT HEADER SPACER
+   Compensa il compact header position:fixed in public mode.
+   Transizione sincronizzata con l'animazione slide-in del compact bar.
+---------------------------------------------------- */
+
+.compactSpacer {
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ----------------------------------------------------

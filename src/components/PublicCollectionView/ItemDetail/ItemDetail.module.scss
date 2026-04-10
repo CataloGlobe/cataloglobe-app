@@ -1,11 +1,51 @@
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
+    flex-shrink: 0;
+    background: var(--pub-surface, #fff);
+}
+
+.headerTitle {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Scrollable body ─────────────────────────────────────────────────────── */
+
+.body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 20px 20px 32px;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+
+    scrollbar-width: none;
+}
+
+/* ── Content layout ──────────────────────────────────────────────────────── */
+
 .root {
     display: flex;
     flex-direction: column;
     gap: 1rem;
 }
 
-
-.image,.placeholderImage  {
+.image,
+.placeholderImage {
     width: 100%;
     aspect-ratio: 16/9;
     border-radius: 12px;
@@ -21,7 +61,8 @@
     background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
 }
 
-/* CONTENUTO */
+/* ── Content ─────────────────────────────────────────────────────────────── */
+
 .content {
     display: flex;
     flex-direction: column;
@@ -69,7 +110,8 @@
     gap: 0.4rem;
 }
 
-/* ALLERGENI */
+/* ── Allergeni ───────────────────────────────────────────────────────────── */
+
 .allergenSection {
     margin-top: 12px;
     display: flex;
@@ -92,6 +134,7 @@
 .allergenBadge {
     display: inline-flex;
     align-items: center;
+    gap: 5px;
     padding: 2px 8px;
     border-radius: 999px;
     font-size: 0.7rem;
@@ -101,7 +144,8 @@
     border: 1px solid color-mix(in srgb, var(--pub-text) 14%, var(--pub-surface));
 }
 
-/* INGREDIENTI */
+/* ── Ingredienti ─────────────────────────────────────────────────────────── */
+
 .ingredientSection {
     margin-top: 10px;
     display: flex;
@@ -117,20 +161,4 @@
 
 .ingredientList {
     line-height: 1.5;
-}
-
-/* DESKTOP */
-@media (min-width: 768px) {
-    .root {
-        grid-template-columns: 1fr 1.2fr;
-        gap: 1.5rem;
-    }
-
-    .imageWrapper {
-        max-height: 320px;
-    }
-
-    .image {
-        height: 100%;
-    }
 }

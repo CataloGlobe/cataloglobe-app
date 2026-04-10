@@ -13,6 +13,7 @@ import ModalLayout, {
 } from "@/components/ui/ModalLayout/ModalLayout";
 import { Button } from "@/components/ui";
 import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
+import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 
 type Props = {
     product: ResolvedProduct;
@@ -25,23 +26,6 @@ type ProductAttribute = {
     value_number?: number | null;
     value_boolean?: boolean | null;
     value_json?: unknown | null;
-};
-
-const ALLERGEN_EMOJI: Record<string, string> = {
-    gluten: "🌾",
-    crustaceans: "🦐",
-    eggs: "🥚",
-    fish: "🐟",
-    peanuts: "🥜",
-    soy: "🫘",
-    milk: "🥛",
-    nuts: "🌰",
-    celery: "🥬",
-    mustard: "🌿",
-    sesame: "🫙",
-    sulphites: "🍇",
-    lupin: "🌼",
-    molluscs: "🦪"
 };
 
 // Returns displayable string for an attribute value, or null if empty.
@@ -163,11 +147,8 @@ export default function PublicProductCard({ product, tokens }: Props) {
                                     <span
                                         key={al.code}
                                         className={styles.allergenEmoji}
-                                        title={al.label_it}
-                                        aria-label={al.label_it}
-                                        role="img"
                                     >
-                                        {ALLERGEN_EMOJI[al.code] ?? "⚠️"}
+                                        <AllergenIcon code={al.code} size={20} label={al.label_it} />
                                     </span>
                                 ))}
                                 {(product.allergens as ResolvedAllergen[]).length > 6 && (
@@ -310,9 +291,9 @@ export default function PublicProductCard({ product, tokens }: Props) {
                                             <span
                                                 key={al.code}
                                                 className={styles.allergenBadge}
-                                                title={al.label_it}
                                             >
-                                                {ALLERGEN_EMOJI[al.code] ?? "⚠️"} {al.label_it}
+                                                <AllergenIcon code={al.code} size={16} variant="bare" />
+                                                {al.label_it}
                                             </span>
                                         ))}
                                     </div>

@@ -4,11 +4,11 @@ import {
     StyleTokenModel,
     NavigationStyle,
     CardLayout,
+    ProductStyle,
     FontFamily,
-    CardRadiusPreset
+    BorderRadius
 } from "./StyleTokenModel";
 import { StyleColorPicker } from "./StyleColorPicker";
-import { StyleSlider } from "./StyleSlider";
 import styles from "./StyleSettingsControls.module.scss";
 
 type StylePropertiesPanelProps = {
@@ -25,8 +25,16 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
     const navigationOptions: Array<{ value: NavigationStyle; label: string }> = [
         { value: "pill", label: "Pill" },
+        { value: "chip", label: "Chip" },
+        { value: "outline", label: "Outline" },
         { value: "tabs", label: "Tabs" },
+        { value: "dot", label: "Dot" },
         { value: "minimal", label: "Minimal" }
+    ];
+
+    const productStyleOptions: Array<{ value: ProductStyle; label: string }> = [
+        { value: "card", label: "Card" },
+        { value: "compact", label: "Compatto" }
     ];
 
     const cardLayoutOptions: Array<{ value: CardLayout; label: string }> = [
@@ -34,9 +42,10 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         { value: "list", label: "List" }
     ];
 
-    const cardRadiusOptions: Array<{ value: CardRadiusPreset; label: string }> = [
-        { value: "sharp", label: "Sharp" },
-        { value: "rounded", label: "Rounded" }
+    const borderRadiusOptions: Array<{ value: BorderRadius; label: string }> = [
+        { value: "none", label: "Nessuno" },
+        { value: "soft", label: "Morbido" },
+        { value: "rounded", label: "Arrotondato" }
     ];
 
     const updateColor = (key: keyof StyleTokenModel["colors"], value: string) => {
@@ -53,11 +62,15 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         });
     };
 
-    const updateHeader = (key: keyof StyleTokenModel["header"], value: number) => {
-        onChange({
-            ...model,
-            header: { ...model.header, [key]: value }
-        });
+    const updateAppearance = (borderRadius: BorderRadius) => {
+        onChange({ ...model, appearance: { ...model.appearance, borderRadius } });
+    };
+
+    const updateHeaderBool = (
+        key: "showLogo" | "showCoverImage" | "showCatalogName",
+        value: boolean
+    ) => {
+        onChange({ ...model, header: { ...model.header, [key]: value } });
     };
 
     const updateNav = (style: NavigationStyle) => {
@@ -67,17 +80,14 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         });
     };
 
+    const updateProductStyle = (productStyle: ProductStyle) => {
+        onChange({ ...model, card: { ...model.card, productStyle } });
+    };
+
     const updateCard = (layout: CardLayout) => {
         onChange({
             ...model,
             card: { ...model.card, layout }
-        });
-    };
-
-    const updateCardRadius = (radius: CardRadiusPreset) => {
-        onChange({
-            ...model,
-            card: { ...model.card, radius }
         });
     };
 
@@ -109,6 +119,33 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     value={model.colors.primary}
                     onChange={val => updateColor("primary", val)}
                 />
+
+                <div className={styles.controlField}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Arrotondamento
+                    </Text>
+                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                        {borderRadiusOptions.map(option => {
+                            const isActive = model.appearance.borderRadius === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={isActive}
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateAppearance(option.value)}
+                                >
+                                    <Text as="span" variant="body" weight={600}>
+                                        {option.label}
+                                    </Text>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
             </section>
 
             {/* HEADER */}
@@ -122,14 +159,47 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     value={model.colors.headerBackground}
                     onChange={val => updateColor("headerBackground", val)}
                 />
-                <StyleSlider
-                    label="Bordo immagine"
-                    value={model.header.imageBorderRadiusPx}
-                    min={0}
-                    max={24}
-                    unit="px"
-                    onChange={val => updateHeader("imageBorderRadiusPx", val)}
-                />
+
+                {(
+                    [
+                        { key: "showLogo", label: "Logo" },
+                        { key: "showCoverImage", label: "Immagine copertina" },
+                        { key: "showCatalogName", label: "Nome catalogo" }
+                    ] as Array<{
+                        key: "showLogo" | "showCoverImage" | "showCatalogName";
+                        label: string;
+                    }>
+                ).map(({ key, label }) => (
+                    <div key={key} className={`${styles.controlField} ${styles.controlFieldMt8}`}>
+                        <Text variant="body" weight={500} className={styles.fieldLabel}>
+                            {label}
+                        </Text>
+                        <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                            {(
+                                [
+                                    { value: true, label: "Mostra" },
+                                    { value: false, label: "Nascondi" }
+                                ] as Array<{ value: boolean; label: string }>
+                            ).map(opt => {
+                                const isActive = model.header[key] === opt.value;
+                                return (
+                                    <button
+                                        key={String(opt.value)}
+                                        type="button"
+                                        className={`${styles.optionButton} ${
+                                            isActive ? styles.optionButtonActive : ""
+                                        }`}
+                                        onClick={() => updateHeaderBool(key, opt.value)}
+                                    >
+                                        <Text as="span" variant="body" weight={600}>
+                                            {opt.label}
+                                        </Text>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
             </section>
 
             {/* NAVIGAZIONE SEZIONI */}
@@ -174,6 +244,33 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
                 <div className={styles.controlField}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Stile prodotto
+                    </Text>
+                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                        {productStyleOptions.map(option => {
+                            const isActive = model.card.productStyle === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={isActive}
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateProductStyle(option.value)}
+                                >
+                                    <Text as="span" variant="body" weight={600}>
+                                        {option.label}
+                                    </Text>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
                         Layout lista prodotti
                     </Text>
                     <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
@@ -209,34 +306,8 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     </div>
                 </div>
 
-                <div className={`${styles.controlField} ${styles.controlFieldMt8}`}>
-                    <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Arrotondamento card
-                    </Text>
-                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
-                        {cardRadiusOptions.map(option => {
-                            const isActive = model.card.radius === option.value;
-                            return (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    role="radio"
-                                    aria-checked={isActive}
-                                    className={`${styles.optionButton} ${
-                                        isActive ? styles.optionButtonActive : ""
-                                    }`}
-                                    onClick={() => updateCardRadius(option.value)}
-                                >
-                                    <Text as="span" variant="body" weight={600}>
-                                        {option.label}
-                                    </Text>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* IMAGE CONTROLS */}
+                {/* IMAGE CONTROLS — only for card style */}
+                {model.card.productStyle !== "compact" && (
                 <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
                         Immagini prodotti
@@ -315,6 +386,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                         </div>
                     )}
                 </div>
+                )}
             </section>
 
             {/* TESTI E SUPERFICI */}

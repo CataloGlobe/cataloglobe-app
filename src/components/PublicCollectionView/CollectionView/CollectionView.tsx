@@ -10,8 +10,9 @@ import { Pill } from "@/components/ui/Pill/Pill";
 // import PublicBrandHeader from "../PublicBrandHeader/PublicBrandHeader";
 import PublicCollectionHeader from "../PublicCollectionHeader/PublicCollectionHeader";
 import PublicFooter from "../PublicFooter/PublicFooter";
+import SearchOverlay from "../SearchOverlay/SearchOverlay";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
-import type { CardTemplate, CollectionStyle } from "@/types/collectionStyle";
+import type { CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
 import ItemDetail from "../ItemDetail/ItemDetail";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
@@ -254,6 +255,73 @@ function ProductRow({
     );
 }
 
+// ─── ProductCompactRow — text-only compact-style product row ─────────────────
+
+type ProductCompactRowProps = {
+    name: string;
+    fromPrice?: number | null;
+    price?: number | null;
+    effectivePrice?: number | null;
+    originalPrice?: number | null;
+    description?: string | null;
+    onClick: (e: React.MouseEvent) => void;
+    allergens?: ResolvedAllergen[];
+};
+
+function ProductCompactRow({
+    name,
+    fromPrice,
+    price,
+    effectivePrice,
+    originalPrice,
+    description,
+    onClick,
+    allergens
+}: ProductCompactRowProps) {
+    const hasAllergens = (allergens?.length ?? 0) > 0;
+    const MAX_ALLERGEN_ICONS = 6;
+    const visibleAllergens = hasAllergens ? allergens!.slice(0, MAX_ALLERGEN_ICONS) : [];
+    const hiddenCount = hasAllergens ? Math.max(0, allergens!.length - MAX_ALLERGEN_ICONS) : 0;
+    const dp = getDisplayPrice({ fromPrice, price, effectivePrice, originalPrice });
+
+    return (
+        <div className={styles.compactRow} onClick={onClick}>
+            <div className={styles.compactRowBody}>
+                <div className={styles.compactNameRow}>
+                    <span className={styles.compactName}>{name}</span>
+                    {dp.type !== "none" && (
+                        <span className={styles.compactPrice}>
+                            {dp.originalPrice != null && (
+                                <span className={styles.compactPriceOriginal}>
+                                    {dp.type === "from" ? "da " : ""}€ {dp.originalPrice.toFixed(2)}
+                                </span>
+                            )}
+                            <span>
+                                {dp.type === "from" ? "da " : ""}€ {dp.price.toFixed(2)}
+                            </span>
+                        </span>
+                    )}
+                </div>
+                {description && (
+                    <span className={styles.compactDescription}>{description}</span>
+                )}
+                {hasAllergens && (
+                    <div className={styles.compactAllergens}>
+                        {visibleAllergens.map(a => (
+                            <span key={a.id} className={styles.allergenEmoji}>
+                                <AllergenIcon code={a.code} size={16} label={a.label_it} />
+                            </span>
+                        ))}
+                        {hiddenCount > 0 && (
+                            <span className={styles.allergenMore}>+{hiddenCount}</span>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 // ─── Scroll-offset constants ─────────────────────────────────────────────────
 // NAV_HEIGHT: altezza sticky della CollectionSectionNav
 // VISUAL_GAP: breathing room sotto la barra sticky
@@ -262,6 +330,21 @@ function ProductRow({
 const NAV_HEIGHT = 56;  // CollectionSectionNav (~3.5rem)
 const VISUAL_GAP = 16;  // breathing room below sticky bar
 // ─────────────────────────────────────────────────────────────────────────────
+
+export type SocialLinks = {
+    instagram?: string | null;
+    instagram_public?: boolean;
+    facebook?: string | null;
+    facebook_public?: boolean;
+    whatsapp?: string | null;
+    whatsapp_public?: boolean;
+    website?: string | null;
+    website_public?: boolean;
+    phone?: string | null;
+    phone_public?: boolean;
+    email_public?: string | null;
+    email_public_visible?: boolean;
+};
 
 type Props = {
     businessName: string;
@@ -285,6 +368,8 @@ type Props = {
     scrollContainerEl?: HTMLElement | null;
     /** Indirizzo dell'attività (opzionale, mostrato nell'info card hero). */
     activityAddress?: string | null;
+    /** Link social dell'attività (opzionale, mostrati nel footer). */
+    socialLinks?: SocialLinks;
 };
 
 export default function CollectionView({
@@ -300,7 +385,8 @@ export default function CollectionView({
     featuredBeforeCatalogSlot,
     tenantLogoUrl,
     scrollContainerEl,
-    activityAddress
+    activityAddress,
+    socialLinks
 }: Props) {
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
         () => sections[0]?.id ?? null
@@ -312,19 +398,24 @@ export default function CollectionView({
     const safetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [selectedItem, setSelectedItem] = useState<CollectionViewSectionItem | null>(null);
 
-    // ── Search ──────────────────────────────────────────────────────────────
-    const [searchQuery, setSearchQuery] = useState("");
+    // ── Search overlay ──────────────────────────────────────────────────────
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const handleOpenSearch = useCallback(() => setIsSearchOpen(true), []);
+    const handleCloseSearch = useCallback(() => setIsSearchOpen(false), []);
 
     // ── Compact header state ────────────────────────────────────────────────
     // isCompactHeaderVisible: true = compact bar è visibile (nav deve scendere)
     // compactHeaderHeight: altezza reale del compact bar (aggiornata da ResizeObserver)
     const [isCompactHeaderVisible, setIsCompactHeaderVisible] = useState(
-        mode === "preview"
+        !style.showCoverImage
     );
     const [compactHeaderHeight, setCompactHeaderHeight] = useState(0);
     // Ref per leggere l'altezza aggiornata nelle closure del scroll listener
     // senza dover ricreare l'effect ad ogni cambio di altezza.
     const compactHeaderHeightRef = useRef(0);
+    // Ref per il compact bar in preview (renderizzato in CollectionView, non in
+    // PublicCollectionHeader, per avere <main> come parent sticky — full-height).
+    const previewCompactBarRef = useRef<HTMLDivElement | null>(null);
 
     const handleCompactVisibilityChange = useCallback((visible: boolean) => {
         setIsCompactHeaderVisible(visible);
@@ -334,6 +425,16 @@ export default function CollectionView({
         compactHeaderHeightRef.current = h;
         setCompactHeaderHeight(h);
     }, []);
+
+    // In preview il compact bar è renderizzato qui (non in PublicCollectionHeader).
+    // L'altezza è sempre 60px (fissata nel CSS). Notifichiamo una volta al mount.
+    useEffect(() => {
+        if (mode !== "preview" || !hasHeader) return;
+        const h = 60;
+        compactHeaderHeightRef.current = h;
+        setCompactHeaderHeight(h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mode]);
 
     // ── Scroll-to-top ───────────────────────────────────────────────────────
     const [showScrollToTop, setShowScrollToTop] = useState(false);
@@ -427,25 +528,10 @@ export default function CollectionView({
         };
     }, [sections, scrollContainerEl, mode]);
 
-    // ── Filtered sections (search) ──────────────────────────────────────────
-    const filteredSections = useMemo(() => {
-        const q = searchQuery.trim().toLowerCase();
-        if (!q) return sections;
-        return sections
-            .map(section => ({
-                ...section,
-                items: section.items.filter(
-                    item =>
-                        item.name.toLowerCase().includes(q) ||
-                        (item.description?.toLowerCase().includes(q) ?? false)
-                )
-            }))
-            .filter(section => section.items.length > 0);
-    }, [sections, searchQuery]);
-
-    const filteredNavItems: SectionNavItem[] = useMemo(
-        () => filteredSections.map(s => ({ id: s.id, name: s.name })),
-        [filteredSections]
+    // ── Nav items (la ricerca è gestita nel SearchOverlay, sezioni sempre intere) ──
+    const navItems: SectionNavItem[] = useMemo(
+        () => sections.map(s => ({ id: s.id, name: s.name })),
+        [sections]
     );
 
     // ── Scroll to section ───────────────────────────────────────────────────
@@ -493,22 +579,13 @@ export default function CollectionView({
     }, []);
 
     // ── Derived values for render ───────────────────────────────────────────
-    // In mode="public" il compact header è fixed → serve paddingTop per non
-    // nascondere il contenuto sotto di esso.
-    const mainPaddingTop =
-        mode === "public" && isCompactHeaderVisible ? compactHeaderHeight : 0;
-
     const hasHeader =
         style.showLogo || style.showCoverImage || style.showActivityName || style.showCatalogName;
-
-    const hasSearchResults = filteredSections.length > 0;
-    const isSearchActive = searchQuery.trim().length > 0;
 
     return (
         <main
             className={styles.page}
             ref={pageRef}
-            style={mainPaddingTop > 0 ? { paddingTop: mainPaddingTop } : undefined}
         >
             {/* Skip link (solo public) */}
             {mode === "public" && (
@@ -523,15 +600,77 @@ export default function CollectionView({
                     logoUrl={tenantLogoUrl}
                     activityName={businessName}
                     activityAddress={activityAddress}
+                    catalogName={collectionTitle}
+                    showCatalogName={style.showCatalogName}
                     coverImageUrl={businessImage}
                     showCoverImage={style.showCoverImage}
                     showLogo={style.showLogo}
                     mode={mode}
-                    searchQuery={searchQuery}
-                    onSearchChange={setSearchQuery}
+                    onSearchOpen={handleOpenSearch}
                     onCompactVisibilityChange={handleCompactVisibilityChange}
                     onCompactHeightChange={handleCompactHeightChange}
                     scrollContainerEl={scrollContainerEl}
+                />
+            )}
+
+            {/* ── PREVIEW COMPACT HEADER ──────────────────────────────────────────
+                Renderizzato come figlio diretto di <main> (full-height) anziché
+                dentro PublicCollectionHeader (.root = solo hero height ~220px).
+                Con parent <main>, il sticky anchor non viene mai "rilasciato"
+                e il compact bar resta fisso per tutta la durata dello scroll. */}
+            {mode === "preview" && hasHeader && (
+                <div className={styles.previewHdrAnchor}>
+                    <div
+                        className={[
+                            styles.previewHdrBar,
+                            isCompactHeaderVisible ? styles.previewHdrBarVisible : ""
+                        ].filter(Boolean).join(" ")}
+                        ref={previewCompactBarRef}
+                    >
+                        <div className={styles.previewHdrInner}>
+                            {style.showLogo && (
+                                tenantLogoUrl ? (
+                                    <div className={styles.previewHdrLogoWrapper}>
+                                        <img
+                                            src={tenantLogoUrl}
+                                            alt={`Logo ${businessName}`}
+                                            className={styles.previewHdrLogo}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className={styles.previewHdrLogoPlaceholder} />
+                                )
+                            )}
+                            <span className={styles.previewHdrName}>{businessName}</span>
+                            <button
+                                type="button"
+                                className={styles.previewHdrSearchBtn}
+                                onClick={handleOpenSearch}
+                                aria-label="Cerca nel catalogo"
+                            >
+                                <Search size={16} strokeWidth={2} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── SEARCH OVERLAY ── */}
+            <SearchOverlay
+                isOpen={isSearchOpen}
+                onClose={handleCloseSearch}
+                sections={sections}
+                scrollContainerEl={scrollContainerEl}
+                mode={mode}
+            />
+
+            {/* Spacer in-flow che compensa il compact header fixed (solo public).
+                Usa CSS transition per evitare layout jump durante l'animazione slide-in. */}
+            {mode === "public" && (
+                <div
+                    aria-hidden
+                    className={styles.compactSpacer}
+                    style={{ height: isCompactHeaderVisible ? compactHeaderHeight : 0 }}
                 />
             )}
 
@@ -540,7 +679,7 @@ export default function CollectionView({
             {/* ── NAV – sticky, topOffset dinamico ── */}
             {!emptyState && (
                 <CollectionSectionNav
-                    sections={filteredNavItems}
+                    sections={navItems}
                     activeSectionId={activeSectionId}
                     onSelect={scrollToSection}
                     variant={mode === "public" ? "public" : "preview"}
@@ -569,32 +708,13 @@ export default function CollectionView({
                     </div>
                 ) : (
                     <>
-                        {/* ── SEARCH EMPTY STATE ── */}
-                        {isSearchActive && !hasSearchResults && (
-                            <div className={styles.searchEmptyState}>
-                                <div className={styles.searchEmptyIcon}>
-                                    <Search
-                                        size={28}
-                                        strokeWidth={1.5}
-                                        color="var(--pub-text-muted)"
-                                    />
-                                </div>
-                                <Text as="p" variant="title-sm" weight={700}>
-                                    Nessun risultato
-                                </Text>
-                                <Text variant="body" colorVariant="muted">
-                                    Prova con un'altra parola chiave
-                                </Text>
-                            </div>
-                        )}
-
                         <div
                             id={contentId}
                             className={styles.container}
                             data-card-layout={style.cardLayout ?? "list"}
                         >
                             {featuredBeforeCatalogSlot}
-                            {filteredSections.map(section => {
+                            {sections.map(section => {
                                 if (section.items.length === 0) return null;
 
                                 return (
@@ -617,16 +737,33 @@ export default function CollectionView({
                                                 return (
                                                 <article
                                                     key={item.id}
+                                                    id={`product-${item.id}`}
                                                     role="listitem"
-                                                    className={`${styles.card}${isDisabled ? ` ${styles.disabledCard}` : ""}`}
+                                                    className={
+                                                        style.productStyle === "compact"
+                                                            ? `${styles.compactItem}${isDisabled ? ` ${styles.disabledCard}` : ""}`
+                                                            : `${styles.card}${isDisabled ? ` ${styles.disabledCard}` : ""}`
+                                                    }
                                                 >
-                                                    {isDisabled && (
+                                                    {isDisabled && style.productStyle !== "compact" && (
                                                         <span className={styles.unavailableBadge}>
                                                             Non disponibile
                                                         </span>
                                                     )}
                                                     {/* Case A/B: parent row — only if parentSelected */}
                                                     {item.parentSelected && (
+                                                        style.productStyle === "compact" ? (
+                                                            <ProductCompactRow
+                                                                name={item.name}
+                                                                fromPrice={item.from_price}
+                                                                price={item.price}
+                                                                effectivePrice={item.effective_price}
+                                                                originalPrice={item.original_price}
+                                                                description={item.description}
+                                                                onClick={() => setSelectedItem(item)}
+                                                                allergens={item.allergens}
+                                                            />
+                                                        ) : (
                                                         <ProductRow
                                                             name={item.name}
                                                             fromPrice={item.from_price}
@@ -645,6 +782,7 @@ export default function CollectionView({
                                                             attributes={item.attributes}
                                                             allergens={item.allergens}
                                                         />
+                                                        )
                                                     )}
 
                                                     {/* Divider + variants */}
@@ -663,6 +801,31 @@ export default function CollectionView({
                                                             </div>
 
                                                             {item.variants!.map(v => (
+                                                                style.productStyle === "compact" ? (
+                                                                    <ProductCompactRow
+                                                                        key={v.id}
+                                                                        name={v.name}
+                                                                        price={v.price}
+                                                                        originalPrice={v.original_price}
+                                                                        fromPrice={v.from_price}
+                                                                        description={v.description}
+                                                                        onClick={e => {
+                                                                            e.stopPropagation();
+                                                                            setSelectedItem({
+                                                                                id: v.id,
+                                                                                name: v.name,
+                                                                                parentSelected: true,
+                                                                                price: v.price ?? null,
+                                                                                original_price: v.original_price ?? null,
+                                                                                from_price: v.from_price ?? null,
+                                                                                image: v.image ?? null,
+                                                                                description: v.description ?? null,
+                                                                                ...(v.optionGroups && v.optionGroups.length > 0 ? { optionGroups: v.optionGroups } : {}),
+                                                                                ...(item.ingredients && item.ingredients.length > 0 ? { ingredients: item.ingredients } : {})
+                                                                            });
+                                                                        }}
+                                                                    />
+                                                                ) : (
                                                                 <ProductRow
                                                                     key={v.id}
                                                                     name={v.name}
@@ -714,6 +877,7 @@ export default function CollectionView({
                                                                         });
                                                                     }}
                                                                 />
+                                                                )
                                                             ))}
                                                         </>
                                                     )}
@@ -737,7 +901,7 @@ export default function CollectionView({
             </div>
 
             {/* ── FOOTER ── */}
-            {!emptyState && <PublicFooter />}
+            {!emptyState && <PublicFooter socialLinks={socialLinks} />}
 
             {/* ── SCROLL TO TOP — solo mode="public" ── */}
             {mode === "public" && showScrollToTop && (

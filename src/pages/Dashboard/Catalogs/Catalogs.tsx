@@ -17,8 +17,11 @@ import {
     createCatalog,
     updateCatalog,
     deleteCatalog,
-    V2Catalog
+    getCatalogStatsMap,
+    type V2Catalog,
+    type CatalogStats
 } from "@/services/supabase/catalogs";
+import { CatalogCard } from "@/components/Catalogs/CatalogCard/CatalogCard";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
@@ -31,11 +34,17 @@ export default function Catalogs() {
     const { showToast } = useToast();
     const navigate = useNavigate();
     const verticalConfig = useVerticalConfig();
+    const catalogLower = verticalConfig.catalogLabel.toLowerCase();
 
     const [catalogs, setCatalogs] = useState<V2Catalog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
-    const [density, setDensity] = useState<"compact" | "extended">("compact");
+    const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
+        const stored = localStorage.getItem("cataloglobe_catalogs_view_mode");
+        return stored === "list" ? "list" : "grid";
+    });
+    const [statsMap, setStatsMap] = useState<Record<string, CatalogStats>>({});
+    const [statsLoading, setStatsLoading] = useState(false);
 
     // Drawer state
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -54,6 +63,14 @@ export default function Catalogs() {
         try {
             const data = await listCatalogs(currentTenantId);
             setCatalogs(data);
+
+            if (data.length > 0) {
+                setStatsLoading(true);
+                getCatalogStatsMap(currentTenantId, data.map(c => c.id))
+                    .then(map => setStatsMap(map))
+                    .catch(() => {})
+                    .finally(() => setStatsLoading(false));
+            }
         } catch (error) {
             console.error("Errore caricamento cataloghi:", error);
             showToast({ message: "Impossibile caricare i cataloghi.", type: "error" });
@@ -202,7 +219,7 @@ export default function Catalogs() {
                     actions={[
                         { label: "Modifica nome", onClick: () => handleOpenEdit(catalog) },
                         {
-                            label: "Elimina catalogo",
+                            label: `Elimina ${catalogLower}`,
                             onClick: () => handleOpenDelete(catalog),
                             variant: "destructive",
                             separator: true
@@ -223,7 +240,6 @@ export default function Catalogs() {
 
     const hasSearchFilter = searchQuery.trim().length > 0;
 
-    const catalogLower = verticalConfig.catalogLabel.toLowerCase();
     const emptyState = (
         <EmptyState
             icon={<IconBook2 size={40} stroke={1.5} />}
@@ -264,8 +280,11 @@ export default function Catalogs() {
                         placeholder: `Cerca ${catalogLower}...`
                     }}
                     view={{
-                        value: density === "compact" ? "list" : "grid",
-                        onChange: value => setDensity(value === "list" ? "compact" : "extended")
+                        value: viewMode,
+                        onChange: v => {
+                            setViewMode(v);
+                            localStorage.setItem("cataloglobe_catalogs_view_mode", v);
+                        }
                     }}
                     className={styles.filterBar}
                 />
@@ -274,14 +293,33 @@ export default function Catalogs() {
                     loadingState
                 ) : filteredCatalogs.length === 0 ? (
                     emptyState
+                ) : viewMode === "grid" ? (
+                    <div className={styles.catalogsGrid}>
+                        {filteredCatalogs.map(catalog => (
+                            <CatalogCard
+                                key={catalog.id}
+                                catalog={catalog}
+                                stats={statsMap[catalog.id]}
+                                statsLoading={statsLoading}
+                                catalogLower={catalogLower}
+                                onEdit={handleOpenEdit}
+                                onDelete={handleOpenDelete}
+                                onClick={c =>
+                                    navigate(`/business/${currentTenantId}/catalogs/${c.id}`)
+                                }
+                            />
+                        ))}
+                    </div>
                 ) : (
                     <DataTable<V2Catalog>
                         data={filteredCatalogs}
                         columns={columns}
-                        density={density}
+                        density="compact"
                         selectable
                         onBulkDelete={handleBulkDelete}
-                        onRowClick={catalog => navigate(`/business/${currentTenantId}/catalogs/${catalog.id}`)}
+                        onRowClick={catalog =>
+                            navigate(`/business/${currentTenantId}/catalogs/${catalog.id}`)
+                        }
                     />
                 )}
             </div>
@@ -292,7 +330,7 @@ export default function Catalogs() {
                     header={
                         <div>
                             <Text variant="title-sm" weight={600}>
-                                {editingCatalog ? "Modifica Catalogo" : "Nuovo Catalogo"}
+                                {editingCatalog ? `Modifica ${verticalConfig.catalogLabel}` : `Nuovo ${verticalConfig.catalogLabel}`}
                             </Text>
                         </div>
                     }
@@ -311,7 +349,7 @@ export default function Catalogs() {
                                 form="catalog-form"
                                 loading={isSaving}
                             >
-                                {editingCatalog ? "Salva Modifiche" : "Crea Catalogo"}
+                                {editingCatalog ? "Salva Modifiche" : `Crea ${verticalConfig.catalogLabel}`}
                             </Button>
                         </>
                     }
@@ -334,7 +372,7 @@ export default function Catalogs() {
                     header={
                         <div>
                             <Text variant="title-sm" weight={600}>
-                                Elimina Catalogo
+                                {`Elimina ${verticalConfig.catalogLabel}`}
                             </Text>
                         </div>
                     }
@@ -355,7 +393,7 @@ export default function Catalogs() {
                 >
                     <div className={styles.deleteWarning}>
                         <Text variant="body-sm">
-                            Sei sicuro di voler eliminare il catalogo "
+                            Sei sicuro di voler eliminare il {catalogLower} "
                             <strong>{catalogToDelete?.name}</strong>"?
                         </Text>
                         <Text variant="body-sm" colorVariant="muted" style={{ marginTop: 8 }}>

@@ -428,7 +428,7 @@ function MemberTenantCard({ tenant }: { tenant: V2Tenant }) {
             </div>
             <div className={styles.tenantMemberInfo}>
                 <Text variant="caption" colorVariant="muted">
-                    Verrai rimosso automaticamente da questa azienda.
+                    Verrai rimosso automaticamente da questa attività.
                 </Text>
             </div>
         </div>

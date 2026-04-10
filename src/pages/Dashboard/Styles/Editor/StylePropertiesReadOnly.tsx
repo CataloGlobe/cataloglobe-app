@@ -6,16 +6,19 @@ import roStyles from "./StylePropertiesReadOnly.module.scss";
 type Props = { model: StyleTokenModel };
 
 export const StylePropertiesReadOnly = ({ model }: Props) => {
+    const navLabels: Record<string, string> = {
+        pill: "Pill",
+        chip: "Chip",
+        outline: "Outline",
+        tabs: "Tabs",
+        dot: "Dot",
+        minimal: "Minimal"
+    };
+
     const fontLabels: Record<string, string> = {
         inter: "Inter",
         poppins: "Poppins",
         playfair: "Playfair"
-    };
-
-    const fontFamilyCss: Record<string, string> = {
-        inter: "'Inter', sans-serif",
-        poppins: "'Poppins', sans-serif",
-        playfair: "'Playfair Display', serif"
     };
 
     const imageLabel = (() => {
@@ -35,6 +38,16 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 </Text>
                 <ColorReadRow label="Sfondo pagina" value={model.colors.pageBackground} />
                 <ColorReadRow label="Colore primario" value={model.colors.primary} />
+                <ValueReadRow
+                    label="Arrotondamento"
+                    value={
+                        model.appearance.borderRadius === "none"
+                            ? "Nessuno"
+                            : model.appearance.borderRadius === "soft"
+                              ? "Morbido"
+                              : "Arrotondato"
+                    }
+                />
             </section>
 
             {/* HEADER */}
@@ -44,8 +57,16 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 </Text>
                 <ColorReadRow label="Colore header" value={model.colors.headerBackground} />
                 <ValueReadRow
-                    label="Bordo immagine"
-                    value={`${model.header.imageBorderRadiusPx}px`}
+                    label="Logo"
+                    value={model.header.showLogo ? "Visibile" : "Nascosto"}
+                />
+                <ValueReadRow
+                    label="Immagine copertina"
+                    value={model.header.showCoverImage ? "Visibile" : "Nascosta"}
+                />
+                <ValueReadRow
+                    label="Nome catalogo"
+                    value={model.header.showCatalogName ? "Visibile" : "Nascosto"}
                 />
             </section>
 
@@ -54,19 +75,10 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 <Text as="h4" variant="title-sm" weight={700} className={sharedStyles.sectionTitle}>
                     Navigazione Sezioni
                 </Text>
-                <div className={sharedStyles.controlField}>
-                    <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
-                        Stile navigazione
-                    </Text>
-                    <OptionChipRow
-                        options={[
-                            { value: "pill", label: "Pill" },
-                            { value: "tabs", label: "Tabs" },
-                            { value: "minimal", label: "Minimal" }
-                        ]}
-                        active={model.navigation.style}
-                    />
-                </div>
+                <ValueReadRow
+                    label="Stile navigazione"
+                    value={navLabels[model.navigation.style] ?? model.navigation.style}
+                />
             </section>
 
             {/* CARD LAYOUT */}
@@ -74,36 +86,17 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 <Text as="h4" variant="title-sm" weight={700} className={sharedStyles.sectionTitle}>
                     Card Layout
                 </Text>
-                <div className={sharedStyles.controlField}>
-                    <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
-                        Layout lista prodotti
-                    </Text>
-                    <OptionChipRow
-                        options={[
-                            { value: "grid", label: "Grid" },
-                            { value: "list", label: "List" }
-                        ]}
-                        active={model.card.layout}
-                    />
-                </div>
-                <div className={sharedStyles.controlField}>
-                    <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
-                        Arrotondamento card
-                    </Text>
-                    <OptionChipRow
-                        options={[
-                            { value: "sharp", label: "Sharp" },
-                            { value: "rounded", label: "Rounded" }
-                        ]}
-                        active={model.card.radius}
-                    />
-                </div>
-                <div className={sharedStyles.controlField}>
-                    <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
-                        Immagini prodotti
-                    </Text>
-                    <span className={roStyles.readChipActive}>{imageLabel}</span>
-                </div>
+                <ValueReadRow
+                    label="Stile prodotto"
+                    value={model.card.productStyle === "compact" ? "Compatto" : "Card"}
+                />
+                <ValueReadRow
+                    label="Layout lista prodotti"
+                    value={model.card.layout === "grid" ? "Grid" : "List"}
+                />
+                {model.card.productStyle !== "compact" && (
+                    <ValueReadRow label="Immagini prodotti" value={imageLabel} />
+                )}
             </section>
 
             {/* TESTI E SUPERFICI */}
@@ -125,17 +118,10 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 <Text as="h4" variant="title-sm" weight={700} className={sharedStyles.sectionTitle}>
                     Tipografia
                 </Text>
-                <div className={sharedStyles.controlField}>
-                    <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
-                        Font family
-                    </Text>
-                    <span
-                        className={roStyles.readChipActive}
-                        style={{ fontFamily: fontFamilyCss[model.typography.fontFamily] }}
-                    >
-                        {fontLabels[model.typography.fontFamily] ?? model.typography.fontFamily}
-                    </span>
-                </div>
+                <ValueReadRow
+                    label="Font family"
+                    value={fontLabels[model.typography.fontFamily] ?? model.typography.fontFamily}
+                />
             </section>
         </div>
     );
@@ -164,27 +150,6 @@ function ValueReadRow({ label, value }: { label: string; value: string }) {
                 {label}
             </Text>
             <span className={roStyles.readValue}>{value}</span>
-        </div>
-    );
-}
-
-function OptionChipRow({
-    options,
-    active
-}: {
-    options: Array<{ value: string; label: string }>;
-    active: string;
-}) {
-    return (
-        <div className={roStyles.chipRow}>
-            {options.map(opt => (
-                <span
-                    key={opt.value}
-                    className={`${roStyles.readChip} ${opt.value === active ? roStyles.readChipActive : ""}`}
-                >
-                    {opt.label}
-                </span>
-            ))}
         </div>
     );
 }

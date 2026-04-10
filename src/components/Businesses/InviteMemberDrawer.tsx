@@ -61,7 +61,7 @@ export function InviteMemberDrawer({
             if (rpcError) {
                 const msg = rpcError.message ?? "";
                 if (msg.includes("user already member")) {
-                    showToast({ type: "error", message: "Questo utente è già membro dell'azienda.", duration: 4000 });
+                    showToast({ type: "error", message: "Questo utente è già membro dell'attività.", duration: 4000 });
                     setSubmitting(false);
                     return;
                 }

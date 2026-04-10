@@ -7,7 +7,7 @@
 
 .card {
   background: var(--pub-card-bg, #fff);
-  border-radius: var(--pub-card-radius, 12px);
+  border-radius: var(--pub-radius);
   padding: 24px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
   display: flex;
@@ -148,7 +148,7 @@
 
 .mediaImage {
   width: 100%;
-  border-radius: calc(var(--pub-card-radius, 12px) - 2px);
+  border-radius: var(--pub-radius);
   aspect-ratio: 16 / 9;
   object-fit: cover;
   display: block;

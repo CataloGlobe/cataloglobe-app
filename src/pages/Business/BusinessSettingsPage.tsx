@@ -121,19 +121,19 @@ export default function BusinessSettingsPage() {
     return (
         <div className={styles.page}>
             <PageHeader
-                title="Impostazioni azienda"
-                subtitle="Gestisci le informazioni e le preferenze di questa azienda."
+                title="Impostazioni attività"
+                subtitle="Gestisci le informazioni e le preferenze di questa attività."
             />
 
             {/* Section 1 — Business info */}
             <div className={styles.section}>
                 <Text variant="title-sm" weight={600}>
-                    Informazioni azienda
+                    Informazioni attività
                 </Text>
 
                 <form id="business-info-form" onSubmit={handleSave} className={styles.form}>
                     <TextInput
-                        label="Nome azienda"
+                        label="Nome attività"
                         value={name}
                         onChange={e => setName(e.target.value)}
                         required
@@ -169,13 +169,13 @@ export default function BusinessSettingsPage() {
                     {(logoPreview ?? selectedTenant?.logo_url) && (
                         <img
                             src={logoPreview ?? getTenantLogoPublicUrl(selectedTenant!.logo_url!)}
-                            alt="Logo azienda"
+                            alt="Logo attività"
                             className={styles.logoPreview}
                         />
                     )}
 
                     <FileInput
-                        label="Logo azienda"
+                        label="Logo attività"
                         accept="image/png,image/jpeg,image/webp"
                         helperText="PNG, JPG o WEBP, max 5MB."
                         maxSizeMb={5}
@@ -215,15 +215,15 @@ export default function BusinessSettingsPage() {
                     <div className={styles.dangerRow}>
                         <div>
                             <Text variant="body" weight={500}>
-                                Elimina azienda
+                                Elimina attività
                             </Text>
                             <Text variant="body-sm" colorVariant="muted">
-                                L&apos;azienda verrà spostata nell&apos;area &ldquo;In eliminazione&rdquo;.
+                                L&apos;attività verrà spostata nell&apos;area &ldquo;In eliminazione&rdquo;.
                                 Potrai ripristinarla entro 30 giorni.
                             </Text>
                         </div>
                         <Button variant="danger" onClick={() => setDeleteDialogOpen(true)}>
-                            Elimina azienda
+                            Elimina attività
                         </Button>
                     </div>
                 </div>

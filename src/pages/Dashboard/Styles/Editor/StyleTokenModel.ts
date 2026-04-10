@@ -1,6 +1,7 @@
-export type NavigationStyle = "pill" | "tabs" | "minimal";
+export type NavigationStyle = "pill" | "chip" | "outline" | "tabs" | "dot" | "minimal";
 export type CardLayout = "grid" | "list";
-export type CardRadiusPreset = "sharp" | "rounded";
+export type ProductStyle = "card" | "compact";
+export type BorderRadius = "none" | "soft" | "rounded";
 export type FontFamily = "inter" | "poppins" | "playfair";
 
 export interface StyleTokenModel {
@@ -16,15 +17,21 @@ export interface StyleTokenModel {
     typography: {
         fontFamily: FontFamily;
     };
+    appearance: {
+        borderRadius: BorderRadius;
+    };
     header: {
-        imageBorderRadiusPx: number;
+        showLogo: boolean;
+        showCoverImage: boolean;
+        showActivityName: boolean;
+        showCatalogName: boolean;
     };
     navigation: {
         style: NavigationStyle;
     };
     card: {
         layout: CardLayout;
-        radius: CardRadiusPreset;
+        productStyle: ProductStyle;
         image: {
             mode: "show" | "hide";
             position: "left" | "right";
@@ -46,15 +53,21 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
     typography: {
         fontFamily: "inter"
     },
+    appearance: {
+        borderRadius: "rounded"
+    },
     header: {
-        imageBorderRadiusPx: 12
+        showLogo: true,
+        showCoverImage: true,
+        showActivityName: true,
+        showCatalogName: true
     },
     navigation: {
         style: "pill"
     },
     card: {
         layout: "list",
-        radius: "rounded",
+        productStyle: "card" as ProductStyle,
         image: {
             mode: "show",
             position: "left"
@@ -72,13 +85,22 @@ export function parseTokens(rawJson: any): StyleTokenModel {
     if (typeof rawJson !== "object") return DEFAULT_STYLE_TOKENS;
 
     const rawColors = rawJson.colors || {};
-    const rawShape = rawJson.shape || {};
     const rawLayout = rawJson.layout || {};
     const rawHeader = rawJson.header || {};
     const rawNav = rawJson.navigation || {};
     const rawCard = rawJson.card || {};
     const rawTypo = rawJson.typography || {};
     const rawCardImage = rawCard.image || {};
+    const rawAppearance = rawJson.appearance || {};
+
+    // Retrocompat: derive borderRadius from old card.radius if new field absent
+    const borderRadius: BorderRadius = (() => {
+        if (["none", "soft", "rounded"].includes(rawAppearance.borderRadius)) {
+            return rawAppearance.borderRadius as BorderRadius;
+        }
+        if (rawCard.radius === "sharp") return "none";
+        return DEFAULT_STYLE_TOKENS.appearance.borderRadius;
+    })();
 
     return {
         colors: {
@@ -103,17 +125,27 @@ export function parseTokens(rawJson: any): StyleTokenModel {
                 ? rawTypo.fontFamily || rawJson.fontFamily
                 : DEFAULT_STYLE_TOKENS.typography.fontFamily
         },
+        appearance: {
+            borderRadius
+        },
         header: {
-            imageBorderRadiusPx:
-                typeof rawHeader.imageBorderRadiusPx === "number"
-                    ? rawHeader.imageBorderRadiusPx
-                    : typeof rawShape.borderRadius === "string" &&
-                        rawShape.borderRadius.includes("px")
-                      ? parseInt(rawShape.borderRadius, 10)
-                      : DEFAULT_STYLE_TOKENS.header.imageBorderRadiusPx
+            showLogo:
+                typeof rawHeader.showLogo === "boolean"
+                    ? rawHeader.showLogo
+                    : DEFAULT_STYLE_TOKENS.header.showLogo,
+            showCoverImage:
+                typeof rawHeader.showCoverImage === "boolean"
+                    ? rawHeader.showCoverImage
+                    : DEFAULT_STYLE_TOKENS.header.showCoverImage,
+            // Nome sede sempre visibile — non modificabile dall'utente
+            showActivityName: true,
+            showCatalogName:
+                typeof rawHeader.showCatalogName === "boolean"
+                    ? rawHeader.showCatalogName
+                    : DEFAULT_STYLE_TOKENS.header.showCatalogName
         },
         navigation: {
-            style: ["pill", "tabs", "minimal"].includes(rawNav.style)
+            style: ["pill", "chip", "outline", "tabs", "dot", "minimal"].includes(rawNav.style)
                 ? (rawNav.style as NavigationStyle)
                 : DEFAULT_STYLE_TOKENS.navigation.style
         },
@@ -121,9 +153,11 @@ export function parseTokens(rawJson: any): StyleTokenModel {
             layout: ["grid", "list"].includes(rawCard.layout || rawLayout.card)
                 ? ((rawCard.layout || rawLayout.card) as CardLayout)
                 : DEFAULT_STYLE_TOKENS.card.layout,
-            radius: ["sharp", "rounded"].includes(rawCard.radius)
-                ? (rawCard.radius as CardRadiusPreset)
-                : DEFAULT_STYLE_TOKENS.card.radius,
+            productStyle: rawCard.productStyle === "menu"
+                ? "compact"
+                : ["card", "compact"].includes(rawCard.productStyle)
+                    ? (rawCard.productStyle as ProductStyle)
+                    : DEFAULT_STYLE_TOKENS.card.productStyle,
             image: {
                 mode: ["show", "hide"].includes(rawCardImage.mode)
                     ? rawCardImage.mode
@@ -138,7 +172,6 @@ export function parseTokens(rawJson: any): StyleTokenModel {
 
 /**
  * Serializes the UI Token Model back into the raw JSON config shape expected by the DB logic.
- * We can keep it flat or structured. As visual style system evolves, keeping a predictable structured schema is best.
  */
 export function serializeTokens(model: StyleTokenModel): Record<string, unknown> {
     return {
@@ -154,15 +187,21 @@ export function serializeTokens(model: StyleTokenModel): Record<string, unknown>
         typography: {
             fontFamily: model.typography.fontFamily
         },
+        appearance: {
+            borderRadius: model.appearance.borderRadius
+        },
         header: {
-            imageBorderRadiusPx: model.header.imageBorderRadiusPx
+            showLogo: model.header.showLogo,
+            showCoverImage: model.header.showCoverImage,
+            showActivityName: model.header.showActivityName,
+            showCatalogName: model.header.showCatalogName
         },
         navigation: {
             style: model.navigation.style
         },
         card: {
             layout: model.card.layout,
-            radius: model.card.radius,
+            productStyle: model.card.productStyle,
             image: {
                 mode: model.card.image.mode,
                 position: model.card.image.position

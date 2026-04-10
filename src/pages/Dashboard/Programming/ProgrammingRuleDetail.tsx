@@ -530,7 +530,12 @@ export default function ProgrammingRuleDetail() {
             await loadData();
         } catch (error) {
             console.error("Errore salvataggio regola:", error);
-            showToast({ type: "error", message: "Errore durante il salvataggio.", duration: 3000 });
+            const code = (error as { code?: string })?.code;
+            const message =
+                code === "23505"
+                    ? "Questo contenuto è già associato a questa regola."
+                    : "Errore durante il salvataggio.";
+            showToast({ type: "error", message, duration: 3000 });
         } finally {
             setIsSaving(false);
         }

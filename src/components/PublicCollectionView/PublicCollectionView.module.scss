@@ -28,8 +28,8 @@
 
 .header {
   background-color: var(--pub-header-bg);
-  border-bottom-left-radius: var(--pub-header-radius);
-  border-bottom-right-radius: var(--pub-header-radius);
+  border-bottom-left-radius: var(--pub-radius);
+  border-bottom-right-radius: var(--pub-radius);
   padding: 20px 0 16px;
 }
 
@@ -42,7 +42,7 @@
 
 .coverImage {
   width: 100%;
-  border-radius: var(--pub-card-radius);
+  border-radius: var(--pub-radius);
   margin-top: 12px;
   display: block;
 }
@@ -77,7 +77,7 @@
 .card {
   overflow: hidden;
   background: var(--pub-card-bg);
-  border-radius: var(--pub-card-radius);
+  border-radius: var(--pub-radius);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
   display: flex;
   gap: 10px;
@@ -103,7 +103,7 @@
   width: 92px;
   min-width: 92px;
   height: 92px;
-  border-radius: var(--pub-card-radius);
+  border-radius: var(--pub-radius);
   background: linear-gradient(135deg, #e6e6e6, #f0f0f0);
   display: flex;
   align-items: center;

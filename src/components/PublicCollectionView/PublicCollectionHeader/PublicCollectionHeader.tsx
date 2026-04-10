@@ -1,26 +1,27 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { ImageIcon, Search, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ImageIcon, Search } from "lucide-react";
 import styles from "./PublicCollectionHeader.module.scss";
 
 export type PublicCollectionHeaderProps = {
     logoUrl?: string | null;
     activityName: string;
     activityAddress?: string | null;
+    catalogName?: string | null;
+    showCatalogName?: boolean;
     coverImageUrl?: string | null;
     showCoverImage: boolean;
     showLogo: boolean;
     mode: "public" | "preview";
-    searchQuery: string;
-    onSearchChange: (q: string) => void;
-    /** Chiamato quando il compact bar diventa visibile/invisibile (public mode). */
+    /** Apre il SearchOverlay (la ricerca è gestita esternamente). */
+    onSearchOpen: () => void;
+    /** Chiamato quando il compact bar diventa visibile/invisibile. */
     onCompactVisibilityChange?: (visible: boolean) => void;
     /**
      * Chiamato ogni volta che l'altezza reale del compact bar cambia
-     * (es. apertura/chiusura search bar). CollectionView usa questo valore
-     * per aggiornare dinamicamente topOffset di CollectionSectionNav.
+     * (CollectionView aggiorna dinamicamente topOffset di CollectionSectionNav).
      */
     onCompactHeightChange?: (height: number) => void;
-    /** Scroll container per IntersectionObserver root (preview con container custom). */
+    /** Scroll container della preview (deviceScreen). Non usato in public. */
     scrollContainerEl?: HTMLElement | null;
 };
 
@@ -28,54 +29,86 @@ export default function PublicCollectionHeader({
     logoUrl,
     activityName,
     activityAddress,
+    catalogName,
+    showCatalogName = false,
     coverImageUrl,
     showCoverImage,
     showLogo,
     mode,
-    searchQuery,
-    onSearchChange,
+    onSearchOpen,
     onCompactVisibilityChange,
     onCompactHeightChange,
     scrollContainerEl
 }: PublicCollectionHeaderProps) {
-    const sentinelRef = useRef<HTMLDivElement | null>(null);
+    const heroAreaRef = useRef<HTMLDivElement | null>(null);
     const compactBarRef = useRef<HTMLDivElement | null>(null);
-    const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-    // In preview compact è sempre visibile; in public si attiva dopo lo scroll
-    const [isCompact, setIsCompact] = useState(mode === "preview" || !showCoverImage);
-    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    // Senza cover image: compact visibile dall'inizio.
+    // Con cover image: si attiva dopo lo scroll (sia public che preview).
+    const [isCompact, setIsCompact] = useState(!showCoverImage);
 
-    // ─── IntersectionObserver: rileva quando il sentinel hero esce dal viewport ──
+    // ─── Rilevamento scroll per PREVIEW ───────────────────────────────────────
+    // In preview usiamo un semplice scroll listener sul scrollContainerEl.
+    // L'IntersectionObserver non si comporta in modo affidabile quando il root
+    // è un container interno (deviceScreen) a causa del layout non stabile
+    // al momento del mount.
     useEffect(() => {
-        if (mode === "preview" || !showCoverImage) {
-            // In preview o senza cover: compact sempre attivo
+        if (mode !== "preview") return;
+        if (!showCoverImage) {
+            setIsCompact(true);
+            onCompactVisibilityChange?.(true);
+            return;
+        }
+        if (!scrollContainerEl) return;
+
+        const container = scrollContainerEl;
+
+        const handleScroll = () => {
+            // Stessa logica del rootMargin: attiva 60px prima che l'hero
+            // sia completamente uscito, così la slide-in parte in anticipo.
+            const heroHeight = heroAreaRef.current?.offsetHeight ?? 220;
+            const compact = container.scrollTop >= heroHeight - 60;
+            setIsCompact(compact);
+            onCompactVisibilityChange?.(compact);
+        };
+
+        // Controllo iniziale: se l'overlay è già scrollato (es. hot-reload)
+        handleScroll();
+
+        container.addEventListener("scroll", handleScroll, { passive: true });
+        return () => container.removeEventListener("scroll", handleScroll);
+    }, [mode, showCoverImage, scrollContainerEl, onCompactVisibilityChange]);
+
+    // ─── IntersectionObserver per PUBLIC ──────────────────────────────────────
+    // rootMargin: "-60px 0px 0px 0px" restringe il root di 60px dall'alto.
+    // Il compact bar si attiva quando restano ~60px di hero visibile, così
+    // la slide-in (0.3s) è già in corso quando l'hero scompare → zero gap.
+    useEffect(() => {
+        if (mode !== "public") return;
+        if (!showCoverImage) {
             setIsCompact(true);
             onCompactVisibilityChange?.(true);
             return;
         }
 
-        const sentinel = sentinelRef.current;
-        if (!sentinel) return;
-
-        // root null = viewport (public); elemento = container preview
-        const root = scrollContainerEl ?? null;
+        const heroEl = heroAreaRef.current;
+        if (!heroEl) return;
 
         const observer = new IntersectionObserver(
             ([entry]) => {
-                const compactVisible = !entry.isIntersecting;
-                setIsCompact(compactVisible);
-                onCompactVisibilityChange?.(compactVisible);
+                const compact = !entry.isIntersecting;
+                setIsCompact(compact);
+                onCompactVisibilityChange?.(compact);
             },
-            { root, threshold: 0, rootMargin: "0px" }
+            { root: null, threshold: 0, rootMargin: "-60px 0px 0px 0px" }
         );
 
-        observer.observe(sentinel);
+        observer.observe(heroEl);
         return () => observer.disconnect();
-    }, [mode, showCoverImage, scrollContainerEl, onCompactVisibilityChange]);
+    }, [mode, showCoverImage, onCompactVisibilityChange]);
 
-    // ─── ResizeObserver: misura l'altezza reale del compact bar ─────────────────
-    // Chiamato ogni volta che la dimensione cambia (es. search aperto/chiuso).
+    // ─── ResizeObserver ───────────────────────────────────────────────────────
+    // Misura l'altezza reale del compact bar per il compactSpacer in public mode.
     useEffect(() => {
         const el = compactBarRef.current;
         if (!el || !onCompactHeightChange) return;
@@ -87,28 +120,12 @@ export default function PublicCollectionHeader({
         return () => ro.disconnect();
     }, [onCompactHeightChange]);
 
-    // ─── Toggle search bar ───────────────────────────────────────────────────────
-    const toggleSearch = useCallback(() => {
-        setIsSearchOpen(prev => {
-            const next = !prev;
-            if (next) {
-                // Focus dopo che la transizione CSS ha avuto tempo di avviarsi
-                requestAnimationFrame(() => {
-                    searchInputRef.current?.focus();
-                });
-            } else {
-                onSearchChange("");
-            }
-            return next;
-        });
-    }, [onSearchChange]);
-
     const isPublic = mode === "public";
 
     const compactBarClass = [
         styles.compactBar,
         isPublic ? styles.compactFixed : styles.compactSticky,
-        isCompact && isPublic ? styles.compactVisible : ""
+        isCompact ? styles.compactVisible : ""
     ]
         .filter(Boolean)
         .join(" ");
@@ -117,7 +134,7 @@ export default function PublicCollectionHeader({
         <div className={styles.root}>
             {/* ───────────── HERO AREA ───────────── */}
             {showCoverImage && (
-                <div className={styles.heroArea}>
+                <div className={styles.heroArea} ref={heroAreaRef}>
                     {coverImageUrl ? (
                         <img
                             src={coverImageUrl}
@@ -156,87 +173,65 @@ export default function PublicCollectionHeader({
                             {activityAddress && (
                                 <span className={styles.infoCardAddress}>{activityAddress}</span>
                             )}
+                            {showCatalogName && catalogName && (
+                                <span className={styles.infoCardCatalogName}>{catalogName}</span>
+                            )}
                         </div>
 
                         <button
                             type="button"
                             className={styles.infoCardSearchBtn}
-                            onClick={toggleSearch}
+                            onClick={onSearchOpen}
                             aria-label="Cerca nel catalogo"
                         >
                             <Search size={15} strokeWidth={2} />
                         </button>
                     </div>
-
-                    {/* Sentinel a fine hero per IntersectionObserver */}
-                    <div ref={sentinelRef} className={styles.heroSentinel} aria-hidden />
                 </div>
             )}
 
-            {/* ───────────── COMPACT BAR ───────────── */}
-            <div className={compactBarClass} ref={compactBarRef}>
-                <div className={styles.compactInner}>
-                    {showLogo && (
-                        <>
-                            {logoUrl ? (
-                                <div className={styles.compactLogoWrapper}>
-                                    <img
-                                        src={logoUrl}
-                                        alt={`Logo ${activityName}`}
-                                        className={styles.compactLogo}
-                                    />
-                                </div>
-                            ) : mode === "preview" ? (
-                                <div className={styles.compactLogoPlaceholder} />
-                            ) : null}
-                        </>
-                    )}
+            {/* ───────────── COMPACT BAR (solo public) ───────────── */}
+            {/*
+             * PUBLIC  → compactBar usa position:fixed (sfugge al containing block sticky).
+             *           La pagina usa il <compactSpacer> per compensare l'altezza.
+             *
+             * PREVIEW → il compact bar è renderizzato da CollectionView come figlio
+             *           diretto di <main> (full-height). Qui non viene renderizzato
+             *           perché il parent .root copre solo l'hero (~220px): il sticky
+             *           smette di funzionare quando l'utente scrolla oltre quel limite.
+             */}
+            {mode === "public" && (
+                <div className={styles.compactAnchor}>
+                    <div className={compactBarClass} ref={compactBarRef}>
+                        <div className={styles.compactInner}>
+                            {showLogo && (
+                                <>
+                                    {logoUrl ? (
+                                        <div className={styles.compactLogoWrapper}>
+                                            <img
+                                                src={logoUrl}
+                                                alt={`Logo ${activityName}`}
+                                                className={styles.compactLogo}
+                                            />
+                                        </div>
+                                    ) : null}
+                                </>
+                            )}
 
-                    <span className={styles.compactName}>{activityName}</span>
+                            <span className={styles.compactName}>{activityName}</span>
 
-                    <button
-                        type="button"
-                        className={`${styles.compactSearchBtn}${isSearchOpen ? ` ${styles.searchActive}` : ""}`}
-                        onClick={toggleSearch}
-                        aria-label={isSearchOpen ? "Chiudi ricerca" : "Cerca nel catalogo"}
-                        aria-expanded={isSearchOpen}
-                    >
-                        {isSearchOpen ? (
-                            <X size={16} strokeWidth={2} />
-                        ) : (
-                            <Search size={16} strokeWidth={2} />
-                        )}
-                    </button>
-                </div>
-
-                {/* Search bar espandibile */}
-                <div
-                    className={`${styles.searchBar}${isSearchOpen ? ` ${styles.searchBarOpen}` : ""}`}
-                    aria-hidden={!isSearchOpen}
-                >
-                    <div className={styles.searchInner}>
-                        <input
-                            ref={searchInputRef}
-                            type="search"
-                            className={styles.searchInput}
-                            placeholder="Cerca nel catalogo…"
-                            value={searchQuery}
-                            onChange={e => onSearchChange(e.target.value)}
-                            tabIndex={isSearchOpen ? 0 : -1}
-                        />
-                        {searchQuery && (
                             <button
                                 type="button"
-                                className={styles.searchClearBtn}
-                                onClick={() => onSearchChange("")}
-                                aria-label="Cancella ricerca"
+                                className={styles.compactSearchBtn}
+                                onClick={onSearchOpen}
+                                aria-label="Cerca nel catalogo"
                             >
-                                <X size={14} strokeWidth={2} />
+                                <Search size={16} strokeWidth={2} />
                             </button>
-                        )}
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+import type { SocialLinks } from "../CollectionView/CollectionView";
 import styles from "./PublicFooter.module.scss";
 
 /* ── Icone SVG inline ─────────────────────────────────────────
@@ -40,6 +42,51 @@ function IconWhatsApp() {
     );
 }
 
+function IconPhone() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+        </svg>
+    );
+}
+
+function IconMail() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <rect x="2" y="4" width="20" height="16" rx="2" />
+            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+        </svg>
+    );
+}
+
+/* ── Helper: costruisce href per ogni social ──────────────────────────────── */
+
+function isAbsoluteUrl(value: string): boolean {
+    return value.startsWith("http://") || value.startsWith("https://");
+}
+
+function ensureHttps(url: string): string {
+    if (isAbsoluteUrl(url)) return url;
+    return `https://${url}`;
+}
+
+function instagramHref(value: string): string {
+    if (isAbsoluteUrl(value)) return value;
+    const handle = value.replace(/^@/, "");
+    return `https://instagram.com/${handle}`;
+}
+
+function facebookHref(value: string): string {
+    if (isAbsoluteUrl(value)) return value;
+    return `https://facebook.com/${value}`;
+}
+
+function whatsappHref(value: string): string {
+    // Rimuovi tutto tranne le cifre e il + iniziale
+    const digits = value.replace(/[^\d+]/g, "");
+    return `https://wa.me/${digits}`;
+}
+
 /* ── Logo CataloGlobe SVG ─────────────────────────────────── */
 function CataloGlobeLogo() {
     return (
@@ -58,44 +105,77 @@ function CataloGlobeLogo() {
 }
 
 /* ── Componente ───────────────────────────────────────────── */
-export default function PublicFooter() {
+
+type Props = {
+    socialLinks?: SocialLinks;
+};
+
+export default function PublicFooter({ socialLinks }: Props) {
+    // Costruisce la lista di social visibili
+    const visibleSocials: { href: string; label: string; icon: ReactNode }[] = [];
+
+    if (socialLinks?.website && socialLinks.website_public) {
+        visibleSocials.push({
+            href: ensureHttps(socialLinks.website),
+            label: "Sito web",
+            icon: <IconGlobe />
+        });
+    }
+    if (socialLinks?.instagram && socialLinks.instagram_public) {
+        visibleSocials.push({
+            href: instagramHref(socialLinks.instagram),
+            label: "Instagram",
+            icon: <IconInstagram />
+        });
+    }
+    if (socialLinks?.facebook && socialLinks.facebook_public) {
+        visibleSocials.push({
+            href: facebookHref(socialLinks.facebook),
+            label: "Facebook",
+            icon: <IconFacebook />
+        });
+    }
+    if (socialLinks?.whatsapp && socialLinks.whatsapp_public) {
+        visibleSocials.push({
+            href: whatsappHref(socialLinks.whatsapp),
+            label: "WhatsApp",
+            icon: <IconWhatsApp />
+        });
+    }
+    if (socialLinks?.phone && socialLinks.phone_public) {
+        visibleSocials.push({
+            href: `tel:${socialLinks.phone}`,
+            label: "Telefono",
+            icon: <IconPhone />
+        });
+    }
+    if (socialLinks?.email_public && socialLinks.email_public_visible) {
+        visibleSocials.push({
+            href: `mailto:${socialLinks.email_public}`,
+            label: "Email",
+            icon: <IconMail />
+        });
+    }
+
     return (
         <footer className={styles.footer}>
-            {/* Social icons — placeholder href="#" */}
-            <div className={styles.socialRow}>
-                <a
-                    href="#"
-                    className={styles.socialBtn}
-                    aria-label="Sito web"
-                    onClick={e => e.preventDefault()}
-                >
-                    <IconGlobe />
-                </a>
-                <a
-                    href="#"
-                    className={styles.socialBtn}
-                    aria-label="Instagram"
-                    onClick={e => e.preventDefault()}
-                >
-                    <IconInstagram />
-                </a>
-                <a
-                    href="#"
-                    className={styles.socialBtn}
-                    aria-label="Facebook"
-                    onClick={e => e.preventDefault()}
-                >
-                    <IconFacebook />
-                </a>
-                <a
-                    href="#"
-                    className={styles.socialBtn}
-                    aria-label="WhatsApp"
-                    onClick={e => e.preventDefault()}
-                >
-                    <IconWhatsApp />
-                </a>
-            </div>
+            {/* Social icons — visibili solo se configurati e pubblici */}
+            {visibleSocials.length > 0 && (
+                <div className={styles.socialRow}>
+                    {visibleSocials.map(({ href, label, icon }) => (
+                        <a
+                            key={label}
+                            href={href}
+                            className={styles.socialBtn}
+                            aria-label={label}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {icon}
+                        </a>
+                    ))}
+                </div>
+            )}
 
             <hr className={styles.separator} />
 

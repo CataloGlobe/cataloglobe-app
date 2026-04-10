@@ -16,6 +16,7 @@ import { Package } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { Link } from "react-router-dom";
 import ProductCard from "./components/ProductCard";
+import ProductCardGroup from "./components/ProductCardGroup";
 import styles from "./Products.module.scss";
 
 import {
@@ -52,9 +53,6 @@ const EMPTY_PRODUCT_METADATA: ProductListMetadata = {
 };
 
 const formatCurrency = (value: number) => `${value.toFixed(2)} €`;
-
-const getEffectiveProductId = (row: ProductTableRow) =>
-    row.product.parent_product_id ?? row.product.id;
 
 export default function Products() {
     const currentTenantId = useTenantId();
@@ -105,9 +103,10 @@ export default function Products() {
             const data = await listBaseProductsWithVariants(currentTenantId);
             setAllProducts(data);
             const baseProductIds = data.map(p => p.id);
+            const variantIds = data.flatMap(p => p.variants?.map(v => v.id) ?? []);
 
             try {
-                const metadata = await getProductListMetadata(currentTenantId, baseProductIds);
+                const metadata = await getProductListMetadata(currentTenantId, [...baseProductIds, ...variantIds]);
                 setProductMetadata(metadata);
             } catch {
                 setProductMetadata({});
@@ -307,15 +306,41 @@ export default function Products() {
             width: "1fr",
             accessor: row => row.product.id,
             cell: (_value, row) => {
-                const meta = productMetadata[getEffectiveProductId(row)] ?? EMPTY_PRODUCT_METADATA;
+                if (row.kind === "variant") {
+                    const variantMeta = productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA;
+                    // Variant has formats
+                    if (variantMeta.formatsCount > 0 && variantMeta.fromPrice !== null) {
+                        return variantMeta.formatsCount > 1 ? (
+                            <Text variant="body-sm">da {formatCurrency(variantMeta.fromPrice)}</Text>
+                        ) : (
+                            <Text variant="body-sm">{formatCurrency(variantMeta.fromPrice)}</Text>
+                        );
+                    }
+                    // Variant has own price
+                    if (row.product.base_price !== null) {
+                        return <Text variant="body-sm">{formatCurrency(row.product.base_price)}</Text>;
+                    }
+                    // Inherit: show parent's effective price
+                    const parentMeta = row.parent
+                        ? (productMetadata[row.parent.id] ?? EMPTY_PRODUCT_METADATA)
+                        : EMPTY_PRODUCT_METADATA;
+                    const inheritedPrice = parentMeta.fromPrice ?? row.parent?.base_price ?? null;
+                    return inheritedPrice !== null ? (
+                        <Text variant="body-sm" colorVariant="muted">
+                            {formatCurrency(inheritedPrice)} (ereditato)
+                        </Text>
+                    ) : (
+                        <Text variant="body-sm" colorVariant="muted">Eredita</Text>
+                    );
+                }
 
+                // Base product
+                const meta = productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA;
                 if (meta.formatsCount > 1) {
                     return meta.fromPrice !== null ? (
                         <Text variant="body-sm">da {formatCurrency(meta.fromPrice)}</Text>
                     ) : (
-                        <Text variant="body-sm" colorVariant="muted">
-                            —
-                        </Text>
+                        <Text variant="body-sm" colorVariant="muted">—</Text>
                     );
                 }
                 if (meta.formatsCount === 1 && meta.fromPrice !== null) {
@@ -324,9 +349,7 @@ export default function Products() {
                 return row.product.base_price !== null ? (
                     <Text variant="body-sm">{formatCurrency(row.product.base_price)}</Text>
                 ) : (
-                    <Text variant="body-sm" colorVariant="muted">
-                        —
-                    </Text>
+                    <Text variant="body-sm" colorVariant="muted">—</Text>
                 );
             }
         },
@@ -462,20 +485,33 @@ export default function Products() {
                             />
                         ) : (
                             <div className={styles.productGrid}>
-                                {tableRows
-                                    .filter(row => row.kind === "base")
-                                    .map(row => (
+                                {filteredProducts.map(product => {
+                                    const variants = product.variants ?? [];
+                                    if (variants.length > 0) {
+                                        return (
+                                            <ProductCardGroup
+                                                key={product.id}
+                                                product={product}
+                                                variants={variants}
+                                                metadata={productMetadata}
+                                                onEdit={handleEdit}
+                                                onDelete={handleDelete}
+                                            />
+                                        );
+                                    }
+                                    return (
                                         <ProductCard
-                                            key={row.product.id}
-                                            product={row.product}
+                                            key={product.id}
+                                            product={product}
                                             metadata={
-                                                productMetadata[row.product.id] ??
+                                                productMetadata[product.id] ??
                                                 EMPTY_PRODUCT_METADATA
                                             }
-                                            onEdit={() => handleEdit(row.product)}
-                                            onDelete={() => handleDelete(row.product)}
+                                            onEdit={() => handleEdit(product)}
+                                            onDelete={() => handleDelete(product)}
                                         />
-                                    ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

@@ -311,7 +311,7 @@ export default function TeamPage() {
                 {!selectedTenantId ? (
                     <Card className={styles.card}>
                         <div className={styles.emptyState}>
-                            <Text variant="body">Seleziona un&apos;azienda per vedere i membri.</Text>
+                            <Text variant="body">Seleziona un&apos;attività per vedere i membri.</Text>
                         </div>
                     </Card>
                 ) : (
@@ -321,7 +321,7 @@ export default function TeamPage() {
                                 <div className={styles.cardHeaderText}>
                                     <Text variant="title-sm" weight={600}>Membri</Text>
                                     <Text variant="body-sm" colorVariant="muted">
-                                        Membri attivi con accesso a questa azienda.
+                                        Membri attivi con accesso a questa attività.
                                     </Text>
                                 </div>
                                 {isAdmin && (

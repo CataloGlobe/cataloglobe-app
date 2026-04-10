@@ -12,3 +12,10 @@
   width: auto;
   object-fit: contain;
 }
+
+.logoPlaceholder {
+  height: 40px;
+  width: 120px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--pub-text, #1a1a2e) 10%, transparent);
+}

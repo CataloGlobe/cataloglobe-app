@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
+import { getProfile } from "@/services/supabase/profile";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
 import Text from "@/components/ui/Text/Text";
@@ -8,13 +9,16 @@ import BusinessCard from "@/components/Businesses/BusinessCard";
 import { CreateBusinessDrawer } from "@/components/Businesses/CreateBusinessDrawer";
 import { InviteModal, PendingInviteData } from "@/components/Businesses/InviteModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { leaveTenant, restoreTenant, getDeletedTenants, purgeTenantNow } from "@/services/supabase/tenants";
+import {
+    leaveTenant,
+    restoreTenant,
+    getDeletedTenants,
+    purgeTenantNow
+} from "@/services/supabase/tenants";
 import type { DeletedTenant } from "@/services/supabase/tenants";
 import type { V2Tenant } from "@/types/tenant";
 import { Button } from "@/components/ui/Button/Button";
 import { useToast } from "@/context/Toast/ToastContext";
-import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import styles from "./WorkspacePage.module.scss";
 
 import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
@@ -45,7 +49,16 @@ export default function WorkspacePage() {
     const [deletedSectionOpen, setDeletedSectionOpen] = useState(false);
     const [purgeTarget, setPurgeTarget] = useState<{ id: string; name: string } | null>(null);
     const [actionInProgressId, setActionInProgressId] = useState<string | null>(null);
+    const [restoringId, setRestoringId] = useState<string | null>(null);
+    const [firstName, setFirstName] = useState<string | null>(null);
     const shownNotificationIdsRef = useRef<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (!user?.id) return;
+        getProfile(user.id)
+            .then(p => setFirstName(p?.first_name ?? null))
+            .catch(() => {});
+    }, [user?.id]);
 
     useEffect(() => {
         if (!user) return;
@@ -80,7 +93,7 @@ export default function WorkspacePage() {
                     role: r.role as string,
                     tenant_id: r.tenant_id as string,
                     tenant_name: nameById[r.tenant_id] ?? "",
-                    inviter_email: (r.inviter_email as string | null) ?? null,
+                    inviter_email: (r.inviter_email as string | null) ?? null
                 }))
             );
         };
@@ -94,18 +107,18 @@ export default function WorkspacePage() {
 
             if (!notifications || notifications.length === 0) return;
 
-            notifications.forEach((n) => {
+            notifications.forEach(n => {
                 if (n.event_type === "ownership_received") {
                     if (shownNotificationIdsRef.current.has(n.id)) return;
                     shownNotificationIdsRef.current.add(n.id);
                     showToast({
                         type: "info",
-                        message: `Sei diventato proprietario di ${(n.data as { tenant_name?: string })?.tenant_name ?? "un tenant"}`,
+                        message: `Sei diventato proprietario di ${(n.data as { tenant_name?: string })?.tenant_name ?? "un tenant"}`
                     });
                 }
             });
 
-            const ids = notifications.map((n) => n.id);
+            const ids = notifications.map(n => n.id);
             await supabase
                 .from("v2_notifications")
                 .update({ read_at: new Date().toISOString() })
@@ -121,7 +134,9 @@ export default function WorkspacePage() {
         const [activeResult, deletedResult] = await Promise.all([
             supabase
                 .from("user_tenants_view")
-                .select("id, owner_user_id, name, vertical_type, business_subtype, created_at, user_role, logo_url")
+                .select(
+                    "id, owner_user_id, name, vertical_type, business_subtype, created_at, user_role, logo_url"
+                )
                 .order("created_at", { ascending: true }),
             getDeletedTenants().catch(() => [] as DeletedTenant[])
         ]);
@@ -178,11 +193,8 @@ export default function WorkspacePage() {
         return Math.max(0, Math.ceil((purgeDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
     };
 
-    const formatDeletedAt = (deletedAt: string): string =>
-        new Date(deletedAt).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
-
     const handleRestore = async (tenantId: string) => {
-        setActionInProgressId(tenantId);
+        setRestoringId(tenantId);
         try {
             await restoreTenant(tenantId);
             await loadTenants();
@@ -192,7 +204,7 @@ export default function WorkspacePage() {
                 message: err instanceof Error ? err.message : "Errore durante il ripristino."
             });
         } finally {
-            setActionInProgressId(null);
+            setRestoringId(null);
         }
     };
 
@@ -204,7 +216,7 @@ export default function WorkspacePage() {
             setDeletedTenants(prev => prev.filter(t => t.id !== purgeTarget.id));
             return true;
         } catch (err) {
-            if (err instanceof Error && err.message.includes("Azienda non trovata")) {
+            if (err instanceof Error && err.message.includes("Attività non trovata")) {
                 await loadTenants();
             }
             showToast({
@@ -228,69 +240,11 @@ export default function WorkspacePage() {
         }
     };
 
-    const deletedColumns = useMemo<ColumnDefinition<DeletedTenant>[]>(() => [
-        {
-            id: "name",
-            header: "Azienda",
-            cell: (_, row) => <Text variant="body-sm" weight={600}>{row.name}</Text>,
-        },
-        {
-            id: "deleted_at",
-            header: "Eliminata il",
-            width: "140px",
-            cell: (_, row) => (
-                <Text variant="body-sm" colorVariant="muted">{formatDeletedAt(row.deleted_at)}</Text>
-            ),
-        },
-        {
-            id: "purge_date",
-            header: "Cancellazione definitiva",
-            width: "200px",
-            cell: (_, row) => {
-                const daysLeft = getDaysLeft(row.deleted_at);
-                const isUrgent = daysLeft <= 3;
-                return (
-                    <span className={isUrgent ? styles.purgeUrgent : styles.purgeNormal}>
-                        {isUrgent
-                            ? (daysLeft === 0 ? "⚠ Scaduta" : `⚠ tra ${daysLeft} giorn${daysLeft === 1 ? "o" : "i"}`)
-                            : `In ${daysLeft} giorn${daysLeft === 1 ? "o" : "i"}`}
-                    </span>
-                );
-            },
-        },
-        {
-            id: "actions",
-            header: "",
-            width: "56px",
-            align: "right",
-            cell: (_, row) => (
-                <TableRowActions
-                    actions={[
-                        {
-                            label: "Ripristina",
-                            onClick: () => handleRestore(row.id),
-                        },
-                        {
-                            label: "Elimina definitivamente",
-                            variant: "destructive",
-                            separator: true,
-                            onClick: () => setPurgeTarget({ id: row.id, name: row.name }),
-                        },
-                    ]}
-                />
-            ),
-        },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [handleRestore]);
-
     const header = (
         <div className={styles.header}>
-            <Text variant="title-lg" weight={700}>
-                Workspace
-            </Text>
-            <Text variant="body" colorVariant="muted" style={{ marginTop: 6 }}>
-                Gestisci le tue aziende e accedi alle loro dashboard.
-            </Text>
+            {firstName && <p className={styles.greeting}>Ciao {firstName}</p>}
+            <h1 className={styles.title}>Le tue attività</h1>
+            <p className={styles.subtitle}>Seleziona un'attività per accedere alla sua dashboard</p>
         </div>
     );
 
@@ -321,7 +275,10 @@ export default function WorkspacePage() {
                                         Sei stato invitato a partecipare a{" "}
                                         <strong>{invite.tenant_name}</strong>
                                         {invite.inviter_email && (
-                                            <> da <strong>{invite.inviter_email}</strong></>
+                                            <>
+                                                {" "}
+                                                da <strong>{invite.inviter_email}</strong>
+                                            </>
                                         )}
                                     </Text>
                                     <Button
@@ -353,20 +310,21 @@ export default function WorkspacePage() {
 
                     <button className={styles.createCard} onClick={() => setDrawerOpen(true)}>
                         <div className={styles.createIconWrapper}>
-                            <Plus size={20} />
+                            <Plus size={24} />
                         </div>
                         <Text variant="body" weight={600}>
-                            Crea azienda
+                            Crea attività
                         </Text>
+                        <span className={styles.createSubtitle}>Aggiungi una nuova attività</span>
                     </button>
                 </div>
 
                 {deletedTenants.length > 0 && (
                     <div className={styles.deletedSection}>
                         <div className={styles.deletedSectionHeader}>
-                            <Text variant="body" weight={600}>
-                                {`Aziende in eliminazione (${deletedTenants.length})`}
-                            </Text>
+                            <span className={styles.deletedSectionLabel}>
+                                {`Attività in eliminazione (${deletedTenants.length})`}
+                            </span>
                             <button
                                 className={styles.deletedToggle}
                                 onClick={() => setDeletedSectionOpen(o => !o)}
@@ -376,17 +334,71 @@ export default function WorkspacePage() {
                         </div>
 
                         {deletedSectionOpen && (
-                            <div className={styles.deletedTableWrapper}>
-                                <DataTable<DeletedTenant>
-                                    data={[...deletedTenants].sort((a, b) =>
-                                        new Date(b.deleted_at).getTime() - new Date(a.deleted_at).getTime()
-                                    )}
-                                    columns={deletedColumns}
-                                    density="compact"
-                                    rowClassName={row =>
-                                        actionInProgressId === row.id ? styles.rowInProgress : undefined
-                                    }
-                                />
+                            <div className={styles.deletedCardsWrapper}>
+                                {[...deletedTenants]
+                                    .sort(
+                                        (a, b) =>
+                                            new Date(b.deleted_at).getTime() -
+                                            new Date(a.deleted_at).getTime()
+                                    )
+                                    .map(row => {
+                                        const daysLeft = getDaysLeft(row.deleted_at);
+                                        const isUrgent = daysLeft <= 3;
+                                        const initial = row.name.charAt(0).toUpperCase();
+                                        const isRestoring = restoringId === row.id;
+                                        const isPurging = actionInProgressId === row.id;
+                                        return (
+                                            <div
+                                                key={row.id}
+                                                className={`${styles.deletedCard} ${isRestoring || isPurging ? styles.deletedCardInProgress : ""}`}
+                                            >
+                                                <div className={styles.deletedCardAvatar}>
+                                                    {initial}
+                                                </div>
+                                                <div className={styles.deletedCardInfo}>
+                                                    <span className={styles.deletedCardName}>
+                                                        {row.name}
+                                                    </span>
+                                                    <span
+                                                        className={
+                                                            isUrgent
+                                                                ? styles.deletedCardCountdownUrgent
+                                                                : styles.deletedCardCountdown
+                                                        }
+                                                    >
+                                                        {isUrgent
+                                                            ? daysLeft === 0
+                                                                ? "Scaduta"
+                                                                : `Eliminazione tra ${daysLeft} giorn${daysLeft === 1 ? "o" : "i"}`
+                                                            : `Eliminazione in ${daysLeft} giorn${daysLeft === 1 ? "o" : "i"}`}
+                                                    </span>
+                                                </div>
+                                                <div className={styles.deletedCardActions}>
+                                                    <button
+                                                        className={styles.restoreBtn}
+                                                        onClick={() => handleRestore(row.id)}
+                                                        disabled={isRestoring}
+                                                    >
+                                                        {isRestoring
+                                                            ? "Ripristino..."
+                                                            : "Ripristina"}
+                                                    </button>
+                                                    <button
+                                                        className={styles.purgeBtn}
+                                                        onClick={() =>
+                                                            setPurgeTarget({
+                                                                id: row.id,
+                                                                name: row.name
+                                                            })
+                                                        }
+                                                        disabled={isPurging}
+                                                    >
+                                                        Elimina
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                             </div>
                         )}
                     </div>
@@ -400,16 +412,16 @@ export default function WorkspacePage() {
                 onClose={() => setLeaveTarget(null)}
                 onConfirm={handleLeaveConfirm}
                 title={`Lasciare "${leaveTarget?.name}"?`}
-                message="Non avrai più accesso a questa azienda. Potrai essere reinvitato dal proprietario."
-                confirmLabel="Lascia azienda"
+                message="Non avrai più accesso a questa attività. Potrai essere reinvitato dal proprietario."
+                confirmLabel="Lascia attività"
             />
 
             <ConfirmDialog
                 isOpen={purgeTarget !== null}
                 onClose={() => setPurgeTarget(null)}
                 onConfirm={handlePurgeConfirm}
-                title="Eliminare definitivamente questa azienda?"
-                message="Questa operazione è irreversibile. Tutti i dati dell'azienda verranno cancellati definitivamente."
+                title="Eliminare definitivamente questa attività?"
+                message="Questa operazione è irreversibile. Tutti i dati dell'attività verranno cancellati definitivamente."
                 confirmLabel="Elimina definitivamente"
             />
 

@@ -44,7 +44,7 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
         if (!name.trim()) {
             showToast({
                 type: "error",
-                message: "Il nome dell'azienda è obbligatorio",
+                message: "Il nome dell'attività è obbligatorio",
                 duration: 3000
             });
             return;
@@ -76,7 +76,7 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
             navigate(`/business/${data.id}/overview`);
         } catch (err) {
             console.error("[CreateBusinessDrawer] creation failed:", err);
-            showToast({ type: "error", message: "Errore durante la creazione dell'azienda" });
+            showToast({ type: "error", message: "Errore durante la creazione dell'attività" });
             setSubmitting(false);
         }
     };
@@ -86,7 +86,7 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={700}>
-                        Crea azienda
+                        Crea attività
                     </Text>
                 }
                 footer={
@@ -100,7 +100,7 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
                             form="create-business-form"
                             loading={submitting}
                         >
-                            Crea azienda
+                            Crea attività
                         </Button>
                     </>
                 }
@@ -111,7 +111,7 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
                     style={{ display: "flex", flexDirection: "column", gap: "20px" }}
                 >
                     <TextInput
-                        label="Nome azienda"
+                        label="Nome attività"
                         value={name}
                         onChange={e => setName(e.target.value)}
                         placeholder="es. Ristorante Bellavista"

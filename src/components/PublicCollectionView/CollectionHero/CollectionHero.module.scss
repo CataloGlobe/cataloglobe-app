@@ -38,7 +38,7 @@
 .imageWrapper {
   width: 100%;
   height: 200px;
-  border-radius: var(--pub-header-radius);
+  border-radius: var(--pub-radius);
   overflow: hidden;
   background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
 
@@ -58,6 +58,19 @@
   width: 100%;
   height: 100%;
   background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
+}
+
+.placeholderPreview {
+  width: 100%;
+  height: 100%;
+  background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholderIcon {
+  color: color-mix(in srgb, var(--pub-text) 30%, transparent);
 }
 
 /* ----------------------------------------------------

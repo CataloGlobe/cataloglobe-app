@@ -4,6 +4,7 @@ import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import Breadcrumb, { type BreadcrumbItem } from "@/components/ui/Breadcrumb/Breadcrumb";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -292,6 +293,7 @@ export default function CatalogEngine() {
     const [searchParams, setSearchParams] = useSearchParams();
     const currentTenantId = useTenantId();
     const { showToast } = useToast();
+    const { catalogLabel } = useVerticalConfig();
 
     const selectedCategoryId = searchParams.get("categoryId");
 
@@ -363,9 +365,9 @@ export default function CatalogEngine() {
     const breadcrumbItems = useMemo<BreadcrumbItem[]>(
         () => [
             { label: "Cataloghi", to: `/business/${currentTenantId}/catalogs` },
-            { label: catalog?.name || "Catalogo" }
+            { label: catalog?.name || catalogLabel }
         ],
-        [catalog?.name]
+        [catalog?.name, catalogLabel]
     );
 
     const categoriesById = useMemo(
@@ -1534,7 +1536,7 @@ export default function CatalogEngine() {
             <div className={styles.engineHeader}>
                 <Breadcrumb items={breadcrumbItems} />
                 <PageHeader
-                    title={catalog?.name || "Catalogo"}
+                    title={catalog?.name || catalogLabel}
                     subtitle="Gestisci categorie e prodotti con navigazione ad albero."
                 />
             </div>

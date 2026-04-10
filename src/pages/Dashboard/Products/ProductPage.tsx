@@ -160,7 +160,9 @@ export default function ProductPage() {
             <Tabs value={activeTab} onChange={setActiveTab}>
                 <Tabs.List>
                     <Tabs.Tab value="general">Generale</Tabs.Tab>
-                    <Tabs.Tab value="pricing">Prezzi & Varianti</Tabs.Tab>
+                    <Tabs.Tab value="pricing">
+                        {product.parent_product_id !== null ? "Prezzi" : "Prezzi & Varianti"}
+                    </Tabs.Tab>
                     <Tabs.Tab value="config">Opzioni</Tabs.Tab>
                     <Tabs.Tab value="attributes">Attributi</Tabs.Tab>
                     <Tabs.Tab value="usage">Utilizzo</Tabs.Tab>

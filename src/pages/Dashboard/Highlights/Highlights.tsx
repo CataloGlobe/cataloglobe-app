@@ -16,6 +16,7 @@ import {
 } from "@/services/supabase/featuredContents";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import FeaturedContentDrawer from "./FeaturedContentDrawer";
+import FeaturedContentCard from "./components/FeaturedContentCard";
 import styles from "./Highlights.module.scss";
 import { useDrawer } from "@/context/Drawer/useDrawer";
 
@@ -34,7 +35,15 @@ export default function Highlights() {
 
     // Filters and Toolbar
     const [searchQuery, setSearchQuery] = useState("");
-    const [densityView, setDensityView] = useState<"list" | "grid">("grid"); // list = compact, grid = extended mapping
+    const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
+        const saved = localStorage.getItem("featuredContents_viewMode");
+        return saved === "list" ? "list" : "grid";
+    });
+
+    const handleViewChange = (v: "list" | "grid") => {
+        setViewMode(v);
+        localStorage.setItem("featuredContents_viewMode", v);
+    };
 
     // Delete state
     const [deleteTarget, setDeleteTarget] = useState<FeaturedContentWithProducts | null>(null);
@@ -224,8 +233,8 @@ export default function Highlights() {
                         placeholder: "Cerca per titolo..."
                     }}
                     view={{
-                        value: densityView,
-                        onChange: setDensityView
+                        value: viewMode,
+                        onChange: handleViewChange
                     }}
                 />
 
@@ -255,15 +264,26 @@ export default function Highlights() {
                                 ) : undefined
                             }
                         />
-                    ) : (
+                    ) : viewMode === "list" ? (
                         <DataTable<FeaturedContentWithProducts>
                             data={filteredContents}
                             columns={columns}
-                            density={densityView === "list" ? "compact" : "extended"}
+                            density="compact"
                             selectable
                             onBulkDelete={handleBulkDelete}
                             onRowClick={item => navigate(`/business/${tenantId}/featured/${item.id}`)}
                         />
+                    ) : (
+                        <div className={styles.contentGrid}>
+                            {filteredContents.map(item => (
+                                <FeaturedContentCard
+                                    key={item.id}
+                                    item={item}
+                                    onEdit={() => handleEdit(item)}
+                                    onDelete={() => setDeleteTarget(item)}
+                                />
+                            ))}
+                        </div>
                     )}
                 </div>
             </div>

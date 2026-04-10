@@ -3,6 +3,10 @@
 .container {
   overflow-y: auto;
   background-color: var(--color-gray-50);
+
+  > div {
+    margin-top: 12px;
+  }
 }
 
 .content {
@@ -223,12 +227,22 @@
 
 .productGrid {
   display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: stretch;
+  width: 100%;
+  overflow: hidden;
+
+  @media (max-width: 767px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 
   @media (min-width: 1024px) {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  @media (min-width: 1440px) {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 }
 

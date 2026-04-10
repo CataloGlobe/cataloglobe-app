@@ -10,8 +10,8 @@
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.09);
-    border-color: #6366f1;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
+    border-color: #818cf8;
   }
 
   &:focus-visible {
@@ -20,7 +20,7 @@
   }
 }
 
-/* ===== Header: circular avatar + meta block ===== */
+/* ===== Header: avatar + meta block ===== */
 .header {
   display: flex;
   align-items: flex-start;
@@ -29,11 +29,11 @@
 }
 
 .avatar {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   font-weight: 700;
-  font-size: 18px;
+  font-size: 16px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -41,8 +41,8 @@
 }
 
 .avatarImg {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
@@ -53,24 +53,56 @@
   min-width: 0;
 }
 
-.name {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* ===== Name row (name + three-dot menu) ===== */
+.nameRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
 }
 
-.nameRow {
+.name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ===== Tags row: type pill + role text ===== */
+.tagsRow {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.typePill {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  padding: 1px 8px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.roleText {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 400;
 }
 
 /* ===== Actions: three-dot menu ===== */
 .actions {
   flex-shrink: 0;
-  margin-top: -2px; // optical alignment with avatar top
+  margin-top: -4px; // optical alignment
 }
 
 /* ===== Footer: quick stats ===== */
@@ -78,7 +110,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 14px;
   padding-top: 14px;
   margin-top: 14px;
   border-top: 1px solid #f1f5f9;
@@ -86,9 +118,17 @@
 
 .stat {
   display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 13px;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.statNum {
+  font-size: 12px;
   font-weight: 500;
-  color: #64748b;
+  color: #0f172a;
+}
+
+.statLabel {
+  font-size: 11px;
+  color: #94a3b8;
 }

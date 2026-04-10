@@ -1,3 +1,21 @@
+.confirmCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.875rem;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+
+  input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    cursor: pointer;
+    accent-color: var(--color-primary);
+  }
+}
+
 .container {
   height: 100dvh;
   max-height: 100%;

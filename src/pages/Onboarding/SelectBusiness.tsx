@@ -48,11 +48,11 @@ export default function SelectBusiness() {
             <div style={{ width: "100%", maxWidth: "480px" }}>
                 <div style={{ marginBottom: "32px" }}>
                     <Text variant="title-lg" weight={700}>
-                        Le tue aziende
+                        Le tue attività
                     </Text>
                     <div style={{ marginTop: "8px" }}>
                         <Text variant="body" colorVariant="muted">
-                            Scegli l&apos;azienda con cui vuoi lavorare.
+                            Scegli l&apos;attività con cui vuoi lavorare.
                         </Text>
                     </div>
                 </div>
@@ -85,7 +85,7 @@ export default function SelectBusiness() {
                             </div>
 
                             <Button variant="secondary" onClick={() => handleSelect(tenant.id)}>
-                                Apri azienda
+                                Apri attività
                             </Button>
                         </div>
                     ))}
@@ -94,7 +94,7 @@ export default function SelectBusiness() {
                 <div style={{ marginTop: "24px" }}>
                     <Link to="/onboarding/create-business" style={{ textDecoration: "none" }}>
                         <Text variant="body" colorVariant="primary">
-                            + Aggiungi azienda
+                            + Aggiungi attività
                         </Text>
                     </Link>
                 </div>

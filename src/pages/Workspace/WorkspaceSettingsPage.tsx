@@ -11,7 +11,7 @@ import { FileInput } from "@/components/ui/Input/FileInput";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTheme } from "@/context/Theme/useTheme";
-import { getProfile, updateProfile, updateProfileAvatar, uploadAvatar } from "@/services/supabase/profile";
+import { getProfile, updateProfile, updateProfileAvatar, uploadAvatar, deleteAvatar, clearProfileAvatar } from "@/services/supabase/profile";
 import { signOut } from "@/services/supabase/auth";
 import type { Profile } from "@/types/database";
 import ModalLayout, {
@@ -37,6 +37,7 @@ export default function WorkspaceSettingsPage() {
     const [draftAvatarPreview, setDraftAvatarPreview] = useState<string | null>(null);
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [saving, setSaving] = useState(false);
+    const [removingAvatar, setRemovingAvatar] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -102,10 +103,23 @@ export default function WorkspaceSettingsPage() {
             return draftAvatarPreview;
         }
         if (profile?.avatar_url) {
-            return supabase.storage.from("avatars").getPublicUrl(profile.avatar_url).data.publicUrl;
+            const baseUrl = supabase.storage
+                .from("avatars")
+                .getPublicUrl(profile.avatar_url).data.publicUrl;
+            const cacheBuster = profile.updated_at
+                ? `?t=${encodeURIComponent(profile.updated_at)}`
+                : "";
+            return `${baseUrl}${cacheBuster}`;
         }
-        return "/default-avatar.svg";
-    }, [draftAvatarPreview, profile?.avatar_url]);
+        return null;
+    }, [draftAvatarPreview, profile?.avatar_url, profile?.updated_at]);
+
+    const initials = useMemo(() => {
+        const f = profile?.first_name?.[0] ?? "";
+        const l = profile?.last_name?.[0] ?? "";
+        if (f || l) return (f + l).toUpperCase();
+        return user?.email?.[0]?.toUpperCase() ?? "?";
+    }, [profile?.first_name, profile?.last_name, user?.email]);
 
     const handleAvatarFileChange = (file: File | null) => {
         setAvatarFile(file);
@@ -122,6 +136,27 @@ export default function WorkspaceSettingsPage() {
             URL.revokeObjectURL(draftAvatarPreview);
         };
     }, [draftAvatarPreview]);
+
+    const handleRemoveAvatar = async () => {
+        if (!user || !profile?.avatar_url) return;
+        setRemovingAvatar(true);
+        try {
+            await deleteAvatar(profile.avatar_url);
+            await clearProfileAvatar(user.id);
+            const nextUpdatedAt = new Date().toISOString();
+            setProfile(prev =>
+                prev ? { ...prev, avatar_url: null, updated_at: nextUpdatedAt } : null
+            );
+            setDraftAvatarPreview(null);
+            setAvatarFile(null);
+            window.dispatchEvent(new CustomEvent("profile:updated"));
+        } catch (err) {
+            console.error("[WorkspaceSettings] remove avatar failed:", err);
+            showToast({ message: "Impossibile rimuovere l'avatar. Riprova.", type: "error" });
+        } finally {
+            setRemovingAvatar(false);
+        }
+    };
 
     const handleSaveProfile = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -140,10 +175,12 @@ export default function WorkspaceSettingsPage() {
             });
 
             let nextAvatarPath = profile?.avatar_url ?? null;
+            let nextUpdatedAt = profile?.updated_at ?? null;
             if (avatarFile) {
                 const avatarPath = await uploadAvatar(user.id, avatarFile);
                 await updateProfileAvatar(user.id, avatarPath);
                 nextAvatarPath = avatarPath;
+                nextUpdatedAt = new Date().toISOString();
             }
 
             setProfile(prev =>
@@ -153,7 +190,8 @@ export default function WorkspaceSettingsPage() {
                           first_name: nextFirstName || null,
                           last_name: nextLastName || null,
                           phone: draftPhone.trim() || null,
-                          avatar_url: nextAvatarPath
+                          avatar_url: nextAvatarPath,
+                          updated_at: nextUpdatedAt
                       }
                     : {
                           id: user.id,
@@ -161,12 +199,14 @@ export default function WorkspaceSettingsPage() {
                           last_name: nextLastName || null,
                           phone: draftPhone.trim() || null,
                           avatar_url: nextAvatarPath,
+                          updated_at: nextUpdatedAt,
                           created_at: new Date().toISOString()
                       }
             );
             setDraftAvatarPreview(null);
             setAvatarFile(null);
             setDrawerOpen(false);
+            window.dispatchEvent(new CustomEvent("profile:updated"));
         } catch (err) {
             console.error("[WorkspaceSettings] update profile failed:", err);
         } finally {
@@ -237,11 +277,17 @@ export default function WorkspaceSettingsPage() {
                     <Card title="Profilo" className={styles.card}>
                         <div className={styles.profileRow}>
                             <div className={styles.profileInfo}>
-                                <img
-                                    src={avatarUrl}
-                                    alt={`Avatar di ${displayName}`}
-                                    className={styles.avatar}
-                                />
+                                {avatarUrl ? (
+                                    <img
+                                        src={avatarUrl}
+                                        alt={`Avatar di ${displayName}`}
+                                        className={styles.avatar}
+                                    />
+                                ) : (
+                                    <span className={styles.avatarPlaceholder}>
+                                        {initials}
+                                    </span>
+                                )}
                                 <div className={styles.profileMeta}>
                                     <Text variant="body" weight={600}>
                                         {displayName}
@@ -385,14 +431,32 @@ export default function WorkspaceSettingsPage() {
                         className={styles.drawerForm}
                     >
                         <div className={styles.drawerAvatarRow}>
-                            <img
-                                src={avatarUrl}
-                                alt="Anteprima avatar"
-                                className={styles.drawerAvatar}
-                            />
-                            <Text variant="body-sm" colorVariant="muted">
-                                PNG o JPG, max 5MB.
-                            </Text>
+                            {avatarUrl ? (
+                                <img
+                                    src={avatarUrl}
+                                    alt="Anteprima avatar"
+                                    className={styles.drawerAvatar}
+                                />
+                            ) : (
+                                <span className={styles.drawerAvatarPlaceholder}>
+                                    {initials}
+                                </span>
+                            )}
+                            <div className={styles.drawerAvatarInfo}>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    PNG o JPG, max 5MB.
+                                </Text>
+                                {profile?.avatar_url && !avatarFile && (
+                                    <button
+                                        type="button"
+                                        className={styles.removeAvatarBtn}
+                                        onClick={handleRemoveAvatar}
+                                        disabled={removingAvatar}
+                                    >
+                                        {removingAvatar ? "Rimozione..." : "Rimuovi foto"}
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         <TextInput

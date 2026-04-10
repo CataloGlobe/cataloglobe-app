@@ -237,7 +237,7 @@ export default function InvitePage() {
 
                 <div className={styles.meta}>
                     <Text variant="body-sm" colorVariant="muted">
-                        Azienda
+                        Attività
                     </Text>
                     <Text variant="body" weight={600}>
                         {invite.tenant_name}

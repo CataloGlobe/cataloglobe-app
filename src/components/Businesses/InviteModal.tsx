@@ -86,7 +86,7 @@ export function InviteModal({ invite, onClose, onAccepted, onDeclined }: Props) 
                 {invite && (
                     <div className={styles.meta}>
                         <div className={styles.row}>
-                            <Text variant="body-sm" colorVariant="muted">Azienda</Text>
+                            <Text variant="body-sm" colorVariant="muted">Attività</Text>
                             <Text variant="body" weight={600}>{invite.tenant_name}</Text>
                         </div>
                         {invite.inviter_email && (

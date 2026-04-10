@@ -1,6 +1,4 @@
 import { MapPin, Archive, BookOpen, LayoutDashboard, Settings, LogOut } from "lucide-react";
-import { Badge } from "@/components/ui/Badge/Badge";
-import Text from "@/components/ui/Text/Text";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import type { V2Tenant } from "@/types/tenant";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
@@ -19,6 +17,13 @@ const AVATAR_PALETTE = [
 
 function avatarColors(name: string) {
     return AVATAR_PALETTE[name.charCodeAt(0) % AVATAR_PALETTE.length];
+}
+
+function roleLabel(role: string | null | undefined): string {
+    if (role === "owner") return "Owner";
+    if (role === "admin") return "Admin";
+    if (role === "member") return "Member";
+    return role ?? "Unknown";
 }
 
 interface BusinessCardProps {
@@ -61,55 +66,51 @@ export default function BusinessCard({ tenant, locationCount, productCount, cata
                 )}
                 <div className={styles.meta}>
                     <div className={styles.nameRow}>
-                        <Text variant="title-sm" weight={600} className={styles.name}>
-                            {tenant.name}
-                        </Text>
-                        <Badge variant={tenant.user_role === "owner" ? "primary" : "secondary"}>
-                            {tenant.user_role === "owner" ? "Owner" : tenant.user_role === "admin" ? "Admin" : tenant.user_role === "member" ? "Member" : tenant.user_role ?? "Unknown"}
-                        </Badge>
+                        <span className={styles.name}>{tenant.name}</span>
+                        <div className={styles.actions} onClick={e => e.stopPropagation()}>
+                            <TableRowActions
+                                actions={[
+                                    {
+                                        label: "Apri dashboard",
+                                        icon: LayoutDashboard,
+                                        onClick: () => onSelect(tenant.id),
+                                    },
+                                    {
+                                        label: "Impostazioni attività",
+                                        icon: Settings,
+                                        onClick: () => onOpenSettings(tenant.id),
+                                    },
+                                    {
+                                        label: "Lascia attività",
+                                        icon: LogOut,
+                                        onClick: () => onLeave(tenant.id),
+                                        variant: "destructive",
+                                        separator: true,
+                                        hidden: isOwner,
+                                    },
+                                ]}
+                            />
+                        </div>
                     </div>
-                    <div style={{ marginTop: "5px" }}>
-                        <Badge variant="secondary">{verticalLabel}</Badge>
+                    <div className={styles.tagsRow}>
+                        <span className={styles.typePill}>{verticalLabel}</span>
+                        <span className={styles.roleText}>{roleLabel(tenant.user_role)}</span>
                     </div>
-                </div>
-                <div className={styles.actions} onClick={e => e.stopPropagation()}>
-                    <TableRowActions
-                        actions={[
-                            {
-                                label: "Apri dashboard",
-                                icon: LayoutDashboard,
-                                onClick: () => onSelect(tenant.id),
-                            },
-                            {
-                                label: "Impostazioni azienda",
-                                icon: Settings,
-                                onClick: () => onOpenSettings(tenant.id),
-                            },
-                            {
-                                label: "Lascia azienda",
-                                icon: LogOut,
-                                onClick: () => onLeave(tenant.id),
-                                variant: "destructive",
-                                separator: true,
-                                hidden: isOwner,
-                            },
-                        ]}
-                    />
                 </div>
             </div>
 
             <div className={styles.footer}>
                 <span className={styles.stat}>
-                    <MapPin size={13} />
-                    {locationCount} {locationCount === 1 ? "sede" : "sedi"}
+                    <span className={styles.statNum}>{locationCount}</span>
+                    <span className={styles.statLabel}>{locationCount === 1 ? "sede" : "sedi"}</span>
                 </span>
                 <span className={styles.stat}>
-                    <Archive size={13} />
-                    {productCount} prodotti
+                    <span className={styles.statNum}>{productCount}</span>
+                    <span className={styles.statLabel}>prodotti</span>
                 </span>
                 <span className={styles.stat}>
-                    <BookOpen size={13} />
-                    {catalogCount} cataloghi
+                    <span className={styles.statNum}>{catalogCount}</span>
+                    <span className={styles.statLabel}>cataloghi</span>
                 </span>
             </div>
         </div>

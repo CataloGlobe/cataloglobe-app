@@ -17,7 +17,7 @@ export default function BusinessSwitcher({ collapsed }: BusinessSwitcherProps) {
     const wrapperRef = useRef<HTMLDivElement>(null);
 
     const hasMultiple = tenants.length >= 1;
-    const name = selectedTenant?.name ?? "Nessuna azienda";
+    const name = selectedTenant?.name ?? "Nessuna attività";
     const initial = name.charAt(0).toUpperCase();
 
     // Close on outside click

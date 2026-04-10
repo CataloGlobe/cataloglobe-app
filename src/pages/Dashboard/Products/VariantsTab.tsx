@@ -1,14 +1,22 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button/Button";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
-import { NumberInput } from "@/components/ui/Input/NumberInput";
 import Text from "@/components/ui/Text/Text";
-import { useToast } from "@/context/Toast/ToastContext";
-import { V2Product, updateProduct } from "@/services/supabase/products";
+import { V2Product } from "@/services/supabase/products";
+import { GroupWithValues, getProductOptions } from "@/services/supabase/productOptions";
 import styles from "./VariantsTab.module.scss";
+
+function computeFromPrice(group: GroupWithValues | null | undefined, fallback: number | null): number | null {
+    if (group === undefined) return null;
+    if (group !== null && group.values.length > 0) {
+        const prices = group.values.map(v => v.absolute_price).filter((p): p is number => p !== null);
+        return prices.length > 0 ? Math.min(...prices) : null;
+    }
+    return fallback;
+}
 
 interface VariantsTabProps {
     product: V2Product;
@@ -19,12 +27,8 @@ interface VariantsTabProps {
 
 export function VariantsTab({
     product,
-    tenantId,
     onOpenVariantDrawer,
-    onVariantUpdated
 }: VariantsTabProps) {
-    const { showToast } = useToast();
-
     if (product.parent_product_id !== null) {
         return (
             <div className={styles.variantProductNote}>
@@ -41,11 +45,9 @@ export function VariantsTab({
 
     return (
         <VariantsTabContent
-            tenantId={tenantId}
+            parent={product}
             variants={variants}
             onOpenVariantDrawer={onOpenVariantDrawer}
-            onVariantUpdated={onVariantUpdated}
-            showToast={showToast}
         />
     );
 }
@@ -55,71 +57,53 @@ export function VariantsTab({
 // =============================================================================
 
 function VariantsTabContent({
-    tenantId,
+    parent,
     variants,
     onOpenVariantDrawer,
-    onVariantUpdated,
-    showToast
 }: {
-    tenantId: string;
+    parent: V2Product;
     variants: V2Product[];
     onOpenVariantDrawer: () => void;
-    onVariantUpdated: () => void;
-    showToast: ReturnType<typeof useToast>["showToast"];
 }) {
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
-    const [priceDraft, setPriceDraft] = useState<Record<string, string>>({});
-    const [savingId, setSavingId] = useState<string | null>(null);
+
+    // undefined = not yet loaded, null = no formats group
+    const [variantOptions, setVariantOptions] = useState<Record<string, GroupWithValues | null>>({});
+    const [parentGroup, setParentGroup] = useState<GroupWithValues | null | undefined>(undefined);
 
     useEffect(() => {
-        const drafts: Record<string, string> = {};
-        for (const v of variants) {
-            drafts[v.id] = v.base_price != null ? v.base_price.toFixed(2) : "";
+        let cancelled = false;
+        void getProductOptions(parent.id).then(opts => {
+            if (!cancelled) setParentGroup(opts.primaryPriceGroup);
+        }).catch(() => {
+            if (!cancelled) setParentGroup(null);
+        });
+        return () => { cancelled = true; };
+    }, [parent.id]);
+
+    useEffect(() => {
+        if (variants.length === 0) {
+            setVariantOptions({});
+            return;
         }
-        setPriceDraft(drafts);
+        let cancelled = false;
+        void Promise.all(
+            variants.map(v =>
+                getProductOptions(v.id).then(opts => ({ id: v.id, group: opts.primaryPriceGroup }))
+            )
+        ).then(results => {
+            if (cancelled) return;
+            const map: Record<string, GroupWithValues | null> = {};
+            for (const r of results) { map[r.id] = r.group; }
+            setVariantOptions(map);
+        }).catch(() => {
+            // silent — price cells fall back to "—"
+        });
+        return () => { cancelled = true; };
     }, [variants]);
 
-    const handlePriceBlur = async (variant: V2Product) => {
-        const draft = priceDraft[variant.id] ?? "";
-        const parsed = draft === "" ? null : parseFloat(draft);
-        const newPrice =
-            parsed !== null && !isNaN(parsed)
-                ? Math.round(parsed * 100) / 100
-                : null;
-
-        if (newPrice === variant.base_price) return;
-        if (savingId) return;
-
-        try {
-            setSavingId(variant.id);
-            await updateProduct(variant.id, tenantId, { base_price: newPrice });
-            onVariantUpdated();
-            showToast({ message: "Prezzo aggiornato", type: "success" });
-        } catch {
-            showToast({ message: "Errore aggiornamento prezzo", type: "error" });
-            setPriceDraft(prev => ({
-                ...prev,
-                [variant.id]: variant.base_price != null ? variant.base_price.toFixed(2) : ""
-            }));
-        } finally {
-            setSavingId(null);
-        }
-    };
-
-    const handlePriceKeyDown = (
-        e: React.KeyboardEvent<HTMLInputElement>,
-        variant: V2Product
-    ) => {
-        if (e.key === "Enter") e.currentTarget.blur();
-        if (e.key === "Escape") {
-            setPriceDraft(prev => ({
-                ...prev,
-                [variant.id]: variant.base_price != null ? variant.base_price.toFixed(2) : ""
-            }));
-            e.currentTarget.blur();
-        }
-    };
+    const parentEffectivePrice = computeFromPrice(parentGroup, parent.base_price);
 
     const columns: ColumnDefinition<V2Product>[] = [
         {
@@ -133,25 +117,35 @@ function VariantsTabContent({
             id: "price",
             header: "Prezzo",
             width: "160px",
-            cell: (_, variant) => (
-                <NumberInput
-                    value={priceDraft[variant.id] ?? ""}
-                    onChange={e =>
-                        setPriceDraft(prev => ({
-                            ...prev,
-                            [variant.id]: e.target.value
-                        }))
-                    }
-                    onBlur={() => handlePriceBlur(variant)}
-                    onKeyDown={e => handlePriceKeyDown(e, variant)}
-                    disabled={savingId === variant.id}
-                    placeholder="—"
-                    min={0}
-                    step={0.01}
-                    endAdornment="€"
-                    containerClassName={styles.priceInput}
-                />
-            ),
+            cell: (_, variant) => {
+                const group = variantOptions[variant.id];
+                // still loading
+                if (group === undefined) {
+                    return <Text variant="body" colorVariant="muted">—</Text>;
+                }
+                // formats mode: "da X.XX €"
+                const fromPrice = computeFromPrice(group, null);
+                if (group !== null && group.values.length > 0) {
+                    return fromPrice !== null ? (
+                        <Text variant="body">da {fromPrice.toFixed(2)} €</Text>
+                    ) : (
+                        <Text variant="body" colorVariant="muted">—</Text>
+                    );
+                }
+                // simple mode: own price
+                if (variant.base_price != null) {
+                    return <Text variant="body">{variant.base_price.toFixed(2)} €</Text>;
+                }
+                // inherit mode: show parent's effective price
+                if (parentEffectivePrice !== null) {
+                    return (
+                        <Text variant="body-sm" colorVariant="muted">
+                            {parentEffectivePrice.toFixed(2)} € (ereditato)
+                        </Text>
+                    );
+                }
+                return <Text variant="body" colorVariant="muted">—</Text>;
+            },
         },
         {
             id: "actions",

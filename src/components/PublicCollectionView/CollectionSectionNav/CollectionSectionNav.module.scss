@@ -109,6 +109,46 @@
 }
 
 /* ---------------------------------------------
+   STILE CHIP (squadrato pieno)
+--------------------------------------------- */
+.nav[data-nav-style="chip"] {
+  .pill {
+    border-radius: 4px;
+
+    &[data-active="true"] {
+      background: var(--pub-primary);
+      color: #fff;
+      border-radius: 4px;
+
+      * {
+        color: inherit;
+      }
+    }
+  }
+}
+
+/* ---------------------------------------------
+   STILE OUTLINE (bordo arrotondato)
+--------------------------------------------- */
+.nav[data-nav-style="outline"] {
+  .pill {
+    border-radius: 20px;
+    border: 1.5px solid transparent;
+    background: transparent;
+
+    &[data-active="true"] {
+      background: transparent;
+      color: var(--pub-primary);
+      border-color: var(--pub-primary);
+
+      * {
+        color: inherit;
+      }
+    }
+  }
+}
+
+/* ---------------------------------------------
    STILE TABS
 --------------------------------------------- */
 .nav[data-nav-style="tabs"] {
@@ -159,8 +199,57 @@
 
     &[data-active="true"] {
       background: transparent;
-      color: var(--pub-text);
-      font-weight: 700;
+      color: var(--pub-primary);
+      font-weight: 500;
+
+      * {
+        color: inherit;
+      }
+    }
+  }
+}
+
+/* ---------------------------------------------
+   STILE DOT
+--------------------------------------------- */
+.nav[data-nav-style="dot"] {
+  background: color-mix(in srgb, var(--pub-bg) 95%, transparent);
+  backdrop-filter: blur(4px);
+  border-bottom: 1px solid color-mix(in srgb, var(--pub-border) 50%, transparent);
+
+  .list {
+    gap: 0.5rem;
+  }
+
+  .pill {
+    position: relative;
+    border-radius: 4px;
+    background: transparent;
+    border: none;
+    color: var(--pub-text-secondary);
+    font-weight: 400;
+    padding-bottom: 1.1rem;
+
+    &[data-active="true"] {
+      background: transparent;
+      color: var(--pub-primary);
+      font-weight: 500;
+
+      * {
+        color: inherit;
+      }
+
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: 0.35rem;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--pub-primary);
+      }
     }
   }
 }

@@ -7,7 +7,14 @@ import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/Data
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
-import { supabase } from "@/services/supabase/client";
+import {
+    type FeaturedContentProductRow,
+    listFeaturedContentProducts,
+    deleteFeaturedContentProduct,
+    updateFeaturedContentProductNote,
+    updateFeaturedContentProductsSortOrder,
+    syncFeaturedContentProducts
+} from "@services/supabase/featuredContents";
 import { GripVertical, Trash2 } from "lucide-react";
 import {
     DndContext,
@@ -35,23 +42,6 @@ interface ProductsManagerCardProps {
         linkedIds: string[],
         onApply: (productIds: string[]) => Promise<void>
     ) => void;
-}
-
-interface FeaturedContentProductRow {
-    id: string;
-    featured_content_id: string;
-    product_id: string;
-    sort_order: number;
-    note: string | null;
-    products: {
-        id: string;
-        name: string;
-        base_price: number | null;
-        option_groups: Array<{
-            group_kind: string;
-            values: Array<{ absolute_price: number | null }>;
-        }> | null;
-    } | null;
 }
 
 type SortableDataTableRowProps = {
@@ -129,45 +119,28 @@ export default function ProductsManagerCard({
     const [products, setProducts] = useState<FeaturedContentProductRow[]>([]);
 
     const loadProducts = useCallback(async () => {
+        if (!tenantId) return;
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from("featured_content_products")
-                .select(
-                    `
-                    id,
-                    featured_content_id,
-                    product_id,
-                    sort_order,
-                    note,
-                    products (id, name, base_price, option_groups:product_option_groups(group_kind, values:product_option_values(absolute_price)))
-                `
-                )
-                .eq("featured_content_id", featuredId)
-                .order("sort_order", { ascending: true });
-
-            if (error) throw error;
-            setProducts(reindexRows((data as unknown as FeaturedContentProductRow[]) ?? []));
+            const data = await listFeaturedContentProducts(featuredId, tenantId);
+            setProducts(reindexRows(data));
         } catch (err) {
             console.error(err);
             showToast({ type: "error", message: "Errore nel caricamento dei prodotti associati." });
         } finally {
             setLoading(false);
         }
-    }, [featuredId, showToast]);
+    }, [featuredId, tenantId, showToast]);
 
     useEffect(() => {
         loadProducts();
     }, [loadProducts]);
 
     const handleDelete = async (dbId: string) => {
+        if (!tenantId) return;
         try {
             setIsSaving(true);
-            const { error } = await supabase
-                .from("featured_content_products")
-                .delete()
-                .eq("id", dbId);
-            if (error) throw error;
+            await deleteFeaturedContentProduct(dbId, tenantId);
             showToast({ type: "success", message: "Prodotto rimosso." });
             await loadProducts();
         } catch (err) {
@@ -185,12 +158,11 @@ export default function ProductsManagerCard({
     };
 
     const handleNoteBlur = async (dbId: string, note: string) => {
-        const { error } = await supabase
-            .from("featured_content_products")
-            .update({ note: normalizeNote(note) })
-            .eq("id", dbId);
-        if (error) {
-            console.error(error);
+        if (!tenantId) return;
+        try {
+            await updateFeaturedContentProductNote(dbId, tenantId, normalizeNote(note));
+        } catch (err) {
+            console.error(err);
             showToast({ type: "error", message: "Errore nel salvataggio della nota." });
         }
     };
@@ -206,17 +178,12 @@ export default function ProductsManagerCard({
         const reindexed = reindexRows(arrayMove(products, oldIndex, newIndex));
         setProducts(reindexed); // ottimistico
 
+        if (!tenantId) return;
         try {
-            const results = await Promise.all(
-                reindexed.map(row =>
-                    supabase
-                        .from("featured_content_products")
-                        .update({ sort_order: row.sort_order })
-                        .eq("id", row.id)
-                )
+            await updateFeaturedContentProductsSortOrder(
+                reindexed.map(row => ({ id: row.id, sort_order: row.sort_order })),
+                tenantId
             );
-            const failed = results.find(r => r.error);
-            if (failed?.error) throw failed.error;
         } catch (err) {
             console.error(err);
             showToast({ type: "error", message: "Errore nel salvataggio dell'ordine." });
@@ -255,39 +222,15 @@ export default function ProductsManagerCard({
 
                 try {
                     setIsSaving(true);
-                    const ops: PromiseLike<void>[] = [];
-
-                    if (toRemoveIds.length > 0) {
-                        ops.push(
-                            supabase
-                                .from("featured_content_products")
-                                .delete()
-                                .in("id", toRemoveIds)
-                                .then(({ error }) => {
-                                    if (error) throw error;
-                                })
-                        );
-                    }
-
-                    if (toAddProductIds.length > 0) {
-                        const payload = toAddProductIds.map((productId, idx) => ({
-                            tenant_id: tenantId,
-                            featured_content_id: featuredId,
-                            product_id: productId,
-                            sort_order: products.length + idx + 1,
-                            note: null
-                        }));
-                        ops.push(
-                            supabase
-                                .from("featured_content_products")
-                                .insert(payload)
-                                .then(({ error }) => {
-                                    if (error) throw error;
-                                })
-                        );
-                    }
-
-                    await Promise.all(ops);
+                    await syncFeaturedContentProducts(
+                        featuredId,
+                        tenantId,
+                        toRemoveIds,
+                        toAddProductIds.map((productId, idx) => ({
+                            productId,
+                            sortOrder: products.length + idx + 1
+                        }))
+                    );
                     showToast({ type: "success", message: "Prodotti aggiornati." });
                     await loadProducts();
                 } catch (err) {

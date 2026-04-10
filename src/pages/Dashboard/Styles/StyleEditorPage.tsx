@@ -11,8 +11,10 @@ import {
     getStyle,
     updateStyle,
     duplicateStyle,
+    getStyleUsageCount,
     V2Style
 } from "@/services/supabase/styles";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { StylePreview } from "./Editor/StylePreview";
 import { StylePropertiesPanel } from "./Editor/StylePropertiesPanel";
 import { StylePropertiesReadOnly } from "./Editor/StylePropertiesReadOnly";
@@ -41,6 +43,9 @@ export default function StyleEditorPage() {
     const [name, setName] = useState("");
     const [tokenModel, setTokenModel] = useState<StyleTokenModel>(DEFAULT_STYLE_TOKENS);
     const [originalTokens, setOriginalTokens] = useState<StyleTokenModel>(DEFAULT_STYLE_TOKENS);
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [pendingUsageCount, setPendingUsageCount] = useState(0);
+    const [skipConfirmChecked, setSkipConfirmChecked] = useState(false);
 
     const isDirty =
         name !== styleData?.name || JSON.stringify(tokenModel) !== JSON.stringify(originalTokens);
@@ -91,12 +96,9 @@ export default function StyleEditorPage() {
     );
 
     useEffect(() => {
-        if (!styleId) {
-            navigate(`/business/${currentTenantId}/styles`);
-            return;
-        }
+        if (!currentTenantId || !styleId) return;
         loadStyle(styleId);
-    }, [styleId]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [currentTenantId, styleId, loadStyle]);
 
     const onRollbackComplete = useCallback(async () => {
         if (styleId) await loadStyle(styleId);
@@ -107,6 +109,26 @@ export default function StyleEditorPage() {
         tenantId: styleData?.tenant_id,
         onRollbackComplete
     });
+
+    const doSave = useCallback(async (): Promise<boolean> => {
+        if (!styleData) return false;
+        const config = serializeTokens(tokenModel);
+        setIsSaving(true);
+        try {
+            await updateStyle(styleData.id, name, config, styleData.tenant_id);
+            showToast({ message: "Stile aggiornato (nuova versione creata).", type: "success" });
+            setOriginalTokens(parseTokens(config));
+            versioning.invalidate();
+            const refreshed = await getStyle(styleData.id, styleData.tenant_id);
+            if (refreshed) setStyleData(refreshed);
+            return true;
+        } catch {
+            showToast({ message: "Impossibile salvare lo stile.", type: "error" });
+            return false;
+        } finally {
+            setIsSaving(false);
+        }
+    }, [name, tokenModel, styleData, showToast, versioning.invalidate]);
 
     const handleSubmit = useCallback(
         async (e: React.FormEvent) => {
@@ -119,23 +141,48 @@ export default function StyleEditorPage() {
                 navigate(`/business/${currentTenantId}/styles`);
                 return;
             }
-            const config = serializeTokens(tokenModel);
+
+            const skipKey = `cataloglobe-style-skip-confirm-${styleData.id}`;
+            if (localStorage.getItem(skipKey)) {
+                await doSave();
+                return;
+            }
+
             setIsSaving(true);
+            let count = 0;
             try {
-                await updateStyle(styleData.id, name, config, styleData.tenant_id);
-                showToast({ message: "Stile aggiornato (nuova versione creata).", type: "success" });
-                setOriginalTokens(parseTokens(config));
-                versioning.invalidate();
-                const refreshed = await getStyle(styleData.id, styleData.tenant_id);
-                if (refreshed) setStyleData(refreshed);
+                count = await getStyleUsageCount(styleData.id, styleData.tenant_id);
             } catch {
                 showToast({ message: "Impossibile salvare lo stile.", type: "error" });
-            } finally {
                 setIsSaving(false);
+                return;
             }
+            setIsSaving(false);
+
+            if (count > 0) {
+                setPendingUsageCount(count);
+                setSkipConfirmChecked(false);
+                setIsConfirmOpen(true);
+                return;
+            }
+
+            await doSave();
         },
-        [name, tokenModel, styleData, currentTenantId, showToast, navigate, versioning.invalidate]
+        [name, styleData, currentTenantId, showToast, navigate, doSave]
     );
+
+    const handleConfirmSave = useCallback(async (): Promise<boolean> => {
+        const ok = await doSave();
+        if (ok && skipConfirmChecked && styleData) {
+            localStorage.setItem(`cataloglobe-style-skip-confirm-${styleData.id}`, "true");
+        }
+        return ok;
+    }, [doSave, skipConfirmChecked, styleData]);
+
+    const handleConfirmClose = useCallback(() => {
+        setIsConfirmOpen(false);
+        setSkipConfirmChecked(false);
+    }, []);
 
     const handleReset = useCallback(() => {
         setTokenModel(originalTokens);
@@ -329,6 +376,25 @@ export default function StyleEditorPage() {
                 )}
 
             </div>
+
+            <ConfirmDialog
+                isOpen={isConfirmOpen}
+                onClose={handleConfirmClose}
+                onConfirm={handleConfirmSave}
+                title="Stile in uso"
+                message={`Questo stile è attualmente utilizzato in ${pendingUsageCount} ${pendingUsageCount === 1 ? "regola" : "regole"}. Le modifiche saranno applicate immediatamente alle sedi che lo utilizzano.`}
+                confirmLabel="Salva comunque"
+                confirmVariant="primary"
+            >
+                <label className={styles.confirmCheckbox}>
+                    <input
+                        type="checkbox"
+                        checked={skipConfirmChecked}
+                        onChange={e => setSkipConfirmChecked(e.target.checked)}
+                    />
+                    Non chiedere più per questo stile
+                </label>
+            </ConfirmDialog>
         </section>
     );
 }

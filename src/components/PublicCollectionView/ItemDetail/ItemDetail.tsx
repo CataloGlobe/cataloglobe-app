@@ -1,13 +1,11 @@
 import { Package } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
-import ModalLayout, {
-    ModalLayoutContent,
-    ModalLayoutHeader
-} from "@/components/ui/ModalLayout/ModalLayout";
+import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
+import PublicSheet from "../PublicSheet/PublicSheet";
+import { Button } from "@/components/ui";
 import styles from "./ItemDetail.module.scss";
 
 import type { CollectionViewSectionItem } from "../CollectionView/CollectionView";
-import { Button } from "@/components/ui";
 
 type Props = {
     item: CollectionViewSectionItem | null;
@@ -30,22 +28,19 @@ export default function ItemDetail({ item, isOpen, onClose, mode }: Props) {
     const hasNonPrimaryOptions = nonPrimaryGroups.length > 0;
 
     return (
-        <ModalLayout isOpen={isOpen} onClose={onClose} width="sm" height="sm">
-            <ModalLayoutHeader>
-                <div className={styles.headerLeft}>
-                    <Text as="h2" variant="title-md" weight={700}>
-                        {item.name}
-                    </Text>
-                </div>
+        <PublicSheet isOpen={isOpen} onClose={onClose} ariaLabel={item.name}>
+            {/* Header */}
+            <div className={styles.header}>
+                <Text as="h2" variant="title-md" weight={700} className={styles.headerTitle}>
+                    {item.name}
+                </Text>
+                <Button variant="secondary" onClick={onClose}>
+                    Chiudi
+                </Button>
+            </div>
 
-                <div className={styles.headerRight}>
-                    <Button variant="secondary" onClick={onClose}>
-                        Chiudi
-                    </Button>
-                </div>
-            </ModalLayoutHeader>
-
-            <ModalLayoutContent>
+            {/* Scrollable body */}
+            <div className={styles.body}>
                 <div className={styles.root}>
                     {/* IMMAGINE */}
                     {shouldShowImage ? (
@@ -188,6 +183,7 @@ export default function ItemDetail({ item, isOpen, onClose, mode }: Props) {
                                 <div className={styles.allergenBadges}>
                                     {item.allergens.map(a => (
                                         <span key={a.id} className={styles.allergenBadge}>
+                                            <AllergenIcon code={a.code} size={14} variant="bare" />
                                             {a.label_it}
                                         </span>
                                     ))}
@@ -208,7 +204,7 @@ export default function ItemDetail({ item, isOpen, onClose, mode }: Props) {
                         )}
                     </div>
                 </div>
-            </ModalLayoutContent>
-        </ModalLayout>
+            </div>
+        </PublicSheet>
     );
 }

@@ -133,6 +133,20 @@ type PublicBusiness = {
     cover_image: string | null;
     status: "active" | "inactive";
     inactive_reason: "maintenance" | "closed" | "unavailable" | null;
+    address: string | null;
+    city: string | null;
+    instagram: string | null;
+    instagram_public: boolean;
+    facebook: string | null;
+    facebook_public: boolean;
+    whatsapp: string | null;
+    whatsapp_public: boolean;
+    website: string | null;
+    website_public: boolean;
+    phone: string | null;
+    phone_public: boolean;
+    email_public: string | null;
+    email_public_visible: boolean;
 };
 
 type PageState =
@@ -200,6 +214,8 @@ export default function PublicCollectionPage() {
                     tenantLogoUrl: string | null;
                     resolved: ResolvedCollections;
                 };
+                // TODO: rimuovere dopo diagnosi social
+                console.log("[PublicCollectionPage] business ricevuto:", JSON.stringify(business, null, 2));
 
                 // Inactive venue
                 if (business.status !== "active") {
@@ -309,7 +325,12 @@ export default function PublicCollectionPage() {
         sectionNavShape,
         sectionNavStyle: navStyle,
         cardTemplate,
-        cardLayout: tokens.card.layout
+        cardLayout: tokens.card.layout,
+        productStyle: tokens.card.productStyle,
+        showLogo: tokens.header.showLogo,
+        showCoverImage: tokens.header.showCoverImage,
+        showActivityName: tokens.header.showActivityName,
+        showCatalogName: tokens.header.showCatalogName
     } as const;
 
     const sections = mapCatalogToSections(resolved);
@@ -348,6 +369,21 @@ export default function PublicCollectionPage() {
                 style={collectionStyle}
                 mode="public"
                 tenantLogoUrl={tenantLogoUrl}
+                activityAddress={[business.address, business.city].filter(Boolean).join(", ") || null}
+                socialLinks={{
+                    instagram: business.instagram,
+                    instagram_public: business.instagram_public,
+                    facebook: business.facebook,
+                    facebook_public: business.facebook_public,
+                    whatsapp: business.whatsapp,
+                    whatsapp_public: business.whatsapp_public,
+                    website: business.website,
+                    website_public: business.website_public,
+                    phone: business.phone,
+                    phone_public: business.phone_public,
+                    email_public: business.email_public,
+                    email_public_visible: business.email_public_visible
+                }}
                 emptyState={emptyState}
                 featuredHeroSlot={
                     resolved.featured?.hero && resolved.featured.hero.length > 0 ? (
