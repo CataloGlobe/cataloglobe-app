@@ -1,6 +1,7 @@
 import { NavLink, useParams } from "react-router-dom";
 import Text from "@/components/ui/Text/Text";
 import { motion } from "framer-motion";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import {
     LayoutDashboard,
     Store,
@@ -44,7 +45,7 @@ interface NavGroup {
     items: NavItem[];
 }
 
-function buildGroups(businessId: string): NavGroup[] {
+function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
     const b = `/business/${businessId}`;
     return [
         {
@@ -70,7 +71,7 @@ function buildGroups(businessId: string): NavGroup[] {
             title: "Contenuti",
             icon: <FolderOpen size={12} />,
             items: [
-                { to: `${b}/catalogs`, label: "Cataloghi", icon: <BookOpen size={18} /> },
+                { to: `${b}/catalogs`, label: catalogLabel, icon: <BookOpen size={18} /> },
                 { to: `${b}/products`, label: "Prodotti", icon: <Archive size={18} /> },
                 {
                     to: `${b}/featured`,
@@ -116,8 +117,8 @@ export default function Sidebar({
     onToggleCollapse
 }: SidebarProps) {
     const { businessId = "" } = useParams<{ businessId: string }>();
-    const groups = buildGroups(businessId);
-
+    const { catalogLabel } = useVerticalConfig();
+    const groups = buildGroups(businessId, catalogLabel);
     return (
         <>
             {isMobile && mobileOpen && (

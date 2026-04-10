@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import ModalLayout, {
     ModalLayoutContent,
     ModalLayoutFooter,
@@ -15,6 +16,8 @@ type Props = {
     title: string;
     message?: string;
     confirmLabel?: string;
+    confirmVariant?: "danger" | "primary";
+    children?: ReactNode;
 };
 
 export function ConfirmDialog({
@@ -24,6 +27,8 @@ export function ConfirmDialog({
     title,
     message,
     confirmLabel = "Conferma",
+    confirmVariant = "danger",
+    children,
 }: Props) {
     const [loading, setLoading] = useState(false);
 
@@ -47,12 +52,13 @@ export function ConfirmDialog({
                         {message}
                     </Text>
                 )}
+                {children}
             </ModalLayoutContent>
             <ModalLayoutFooter>
                 <Button variant="secondary" size="sm" onClick={onClose} disabled={loading}>
                     Annulla
                 </Button>
-                <Button variant="danger" size="sm" onClick={handleConfirm} loading={loading}>
+                <Button variant={confirmVariant} size="sm" onClick={handleConfirm} loading={loading}>
                     {confirmLabel}
                 </Button>
             </ModalLayoutFooter>

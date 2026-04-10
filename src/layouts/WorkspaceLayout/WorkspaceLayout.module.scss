@@ -9,4 +9,22 @@
   flex: 1;
   min-width: 0;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Mobile top bar ===== */
+.mobileHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.mobileTitle {
+  font-weight: 700;
+  font-size: 15px;
+  color: #6366f1;
 }

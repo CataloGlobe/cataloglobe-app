@@ -30,10 +30,7 @@
   --pub-primary-soft: color-mix(in srgb, #6366f1 10%, transparent);
 
   // Shape
-  --pub-header-radius: 12px;
-  --pub-card-radius: 9px;
+  --pub-radius: 20px;
 
-  // Layout signals (consumed via data-* attributes in CSS, not directly)
-  --pub-nav-style: pill;
   --pub-font-family: "Inter", sans-serif;
 }
