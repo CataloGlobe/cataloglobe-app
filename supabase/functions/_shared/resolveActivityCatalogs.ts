@@ -1399,47 +1399,9 @@ export async function resolveActivityCatalogs(
     };
 
     if (layoutScheduleId) {
+        // SYNC: identico in src/services/supabase/resolveActivityCatalogs.ts
         const { data: featuredData, error: featuredError } = await supabase
-            .from("schedule_featured_contents")
-            .select(
-                `
-                slot,
-                sort_order,
-                featured_content:featured_contents(
-                    id,
-                    internal_name,
-                    title,
-                    subtitle,
-                    description,
-                    media_id,
-                    cta_text,
-                    cta_url,
-                    status,
-                    layout_style,
-                    pricing_mode,
-                    bundle_price,
-                    show_original_total,
-                    created_at,
-                    updated_at,
-                    products:featured_content_products(
-                        sort_order,
-                        note,
-                        product:products(
-                            id,
-                            name,
-                            description,
-                            base_price,
-                            image_url,
-                            option_groups:product_option_groups(
-                                group_kind,
-                                values:product_option_values(name, absolute_price)
-                            )
-                        )
-                    )
-                )
-            `
-            )
-            .eq("schedule_id", layoutScheduleId);
+            .rpc("get_schedule_featured_contents", { p_schedule_id: layoutScheduleId });
 
         if (featuredError) {
             console.error(

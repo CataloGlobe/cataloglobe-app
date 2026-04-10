@@ -56,6 +56,15 @@ type RawOptionGroupRow = {
     values: RawOptionValueRow[] | RawOptionValueRow | null;
 };
 
+type RawVariantRow = {
+    id: string;
+    name: string | null;
+    description: string | null;
+    base_price: number | null;
+    product_type: string | null;
+    option_groups: RawOptionGroupRow[] | RawOptionGroupRow | null;
+};
+
 type RawProductRow = {
     id: string;
     name: string | null;
@@ -64,6 +73,7 @@ type RawProductRow = {
     product_type: string | null;
     parent_product_id: string | null;
     option_groups: RawOptionGroupRow[] | RawOptionGroupRow | null;
+    variants: RawVariantRow[] | RawVariantRow | null;
 };
 
 type RawCatalogCategoryProductRow = {
@@ -379,6 +389,9 @@ function wrapText(
     font: { widthOfTextAtSize: (t: string, size: number) => number },
     size: number
 ) {
+    // Sanitize at entry so all internal width measurements operate on safe text.
+    // sanitizeText is defined later in the module; it is hoisted as a function declaration.
+    text = sanitizeText(text);
     const words = text.split(/\s+/).filter(Boolean);
     const lines: string[] = [];
     let current = "";
@@ -417,6 +430,28 @@ function wrapText(
     pushLine(current);
 
     return lines.length ? lines : [""];
+}
+
+function sanitizeText(text: string): string {
+    return text
+        .replace(/[\u00A0\u202F\u2007\u2060]/g, " ")   // no-break spaces → normal space
+        .replace(/[\u2018\u2019]/g, "'")                  // smart single quotes
+        .replace(/[\u201C\u201D]/g, '"')                  // smart double quotes
+        .replace(/[\u2013\u2014]/g, "-")                  // en/em dash → hyphen
+        .replace(/\u2026/g, "...")                        // ellipsis → three dots
+        .replace(/[\u00AE\u2122]/g, "")                   // ® ™ → remove
+        .replace(/[^\x00-\xFF\u20AC]/g, "");              // strip non-WinAnsi, but keep € (U+20AC)
+}
+
+// safeDrawText and safeWidth sanitize all text before handing it to pdf-lib.
+// Every page.drawText / font.widthOfTextAtSize call in the rendering block must
+// go through these two helpers to avoid WinAnsi encoding errors at runtime.
+function safeDrawText(pg, text: string, options) {
+    pg.drawText(sanitizeText(text), options);
+}
+
+function safeWidth(font, text: string, size: number): number {
+    return font.widthOfTextAtSize(sanitizeText(text), size);
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -561,6 +596,26 @@ serve(async req => {
                                 absolute_price,
                                 price_modifier
                             )
+                        ),
+                        variants:products!parent_product_id(
+                            id,
+                            name,
+                            description,
+                            base_price,
+                            product_type,
+                            option_groups:product_option_groups(
+                                id,
+                                name,
+                                group_kind,
+                                pricing_mode,
+                                is_required,
+                                values:product_option_values(
+                                    id,
+                                    name,
+                                    absolute_price,
+                                    price_modifier
+                                )
+                            )
                         )
                     )
                 )
@@ -575,24 +630,6 @@ serve(async req => {
         }
 
         const rawCatalog = catalogData as RawCatalogRow;
-        console.error("PDF_RAW_CATALOG", JSON.stringify({
-          categoriesCount: rawCatalog.categories?.length,
-          categories: rawCatalog.categories?.map(c => ({
-            name: c.name,
-            productsCount: c.products?.length,
-            products: c.products?.map(p => ({
-              id: p.id,
-              product_id: p.product_id,
-              variant_product_id: p.variant_product_id,
-              product: {
-                id: p.product?.id,
-                name: p.product?.name,
-                parent_product_id: p.product?.parent_product_id,
-                product_type: p.product?.product_type
-              }
-            }))
-          }))
-        }));
         const normalizedCatalog = normalizeCatalog(rawCatalog);
         if (!normalizedCatalog) {
             return json(404, { error: "collection_corrupted" });
@@ -721,12 +758,20 @@ serve(async req => {
         // -------------------------------------------------------------
 
         // Combine original rawCatalog categories names & products info with the resolved visible catalog tree.
+        type VariantInfo = {
+            id: string;
+            name: string;
+            description: string | null;
+            base_price: number | null;
+            option_groups: RawOptionGroupRow[];
+        };
         type ProductInfo = {
             name: string;
             description: string | null;
             base_price: number | null;
             parent_product_id: string | null;
             option_groups: RawOptionGroupRow[];
+            variants: VariantInfo[];
         };
         const productInfoMap: Record<string, ProductInfo> = {};
         if (rawCatalog.categories && Array.isArray(rawCatalog.categories)) {
@@ -737,13 +782,35 @@ serve(async req => {
                             ? rawIt.product[0]
                             : rawIt.product;
                         if (rawPr && rawPr.id && rawPr.name) {
+                            const rawVariants = normalizeMany(rawPr.variants) as RawVariantRow[];
+                            const variantInfos: VariantInfo[] = rawVariants
+                                .filter(v => v.id && v.name)
+                                .map(v => ({
+                                    id: v.id,
+                                    name: v.name!,
+                                    description: v.description ?? null,
+                                    base_price: v.base_price ?? null,
+                                    option_groups: normalizeMany(v.option_groups)
+                                }));
                             productInfoMap[rawPr.id] = {
                                 name: rawPr.name,
                                 description: rawPr.description ?? null,
                                 base_price: rawPr.base_price ?? null,
                                 parent_product_id: rawPr.parent_product_id ?? null,
-                                option_groups: normalizeMany(rawPr.option_groups)
+                                option_groups: normalizeMany(rawPr.option_groups),
+                                variants: variantInfos
                             };
+                            // Also index each variant so resolvePrice/resolveAddons work for them
+                            for (const vi of variantInfos) {
+                                productInfoMap[vi.id] = {
+                                    name: vi.name,
+                                    description: vi.description,
+                                    base_price: vi.base_price,
+                                    parent_product_id: rawPr.id,
+                                    option_groups: vi.option_groups,
+                                    variants: []
+                                };
+                            }
                         }
                     });
                 }
@@ -820,10 +887,13 @@ serve(async req => {
                     : null;
                 const label = rawSection?.name ?? "Categoria";
 
-                // ── Step 1: flat list of visible items ─────────────────────────
+                // ── Step 1: flat list of visible items (deduplicated by product_id) ──
                 const flatItems = [];
+                const seenProductIds = new Set();
                 for (const item of section.items) {
                     if (!item.product_id) continue;
+                    if (seenProductIds.has(item.product_id)) continue;
+                    seenProductIds.add(item.product_id);
                     const visible =
                         overridesByProductId[item.product_id]?.visible_override ??
                         item.effective_visible ??
@@ -834,7 +904,6 @@ serve(async req => {
                     const { price, formats } = resolvePrice(item.product_id, item.effective_price);
                     flatItems.push({
                         productId: item.product_id,
-                        parentProductId: info?.parent_product_id ?? null,
                         name: info?.name ?? "Sconosciuto",
                         price,
                         original_price: item.original_price,
@@ -844,42 +913,30 @@ serve(async req => {
                     });
                 }
 
-                // ── Step 2: IDs of parent products present in this section ─────
-                const parentIdsInSection = new Set(
-                    flatItems.filter(i => !i.parentProductId).map(i => i.productId)
-                );
-
-                // ── Step 3: map variant lists keyed by parent ID ───────────────
-                const variantsByParentId = new Map();
-                for (const fi of flatItems) {
-                    if (fi.parentProductId && parentIdsInSection.has(fi.parentProductId)) {
-                        if (!variantsByParentId.has(fi.parentProductId)) {
-                            variantsByParentId.set(fi.parentProductId, []);
-                        }
-                        variantsByParentId.get(fi.parentProductId).push(fi);
-                    }
-                }
-
-                // ── Step 4: build final ordered items ─────────────────────────
+                // ── Step 2: build final ordered items (variants loaded nested) ──
                 const items = [];
                 for (const fi of flatItems) {
-                    // Variant whose parent is in this section → rendered under parent, skip here
-                    if (fi.parentProductId && parentIdsInSection.has(fi.parentProductId)) continue;
+                    const info = productInfoMap[fi.productId];
+                    const rawVariants = info?.variants ?? [];
 
-                    const childVariants = (variantsByParentId.get(fi.productId) ?? [])
+                    const childVariants = rawVariants
                         .map(v => {
+                            let { price: vPrice, formats: vFormats } = resolvePrice(v.id, v.base_price);
+                            if (vPrice == null && (vFormats?.length ?? 0) === 0) {
+                                vPrice = fi.price;
+                                vFormats = fi.formats;
+                            }
                             // Skip if name AND price are identical to parent (no added info)
                             const sameName = v.name === fi.name;
                             const samePrice =
-                                v.price === fi.price &&
-                                (v.formats?.length ?? 0) === 0 &&
+                                vPrice === fi.price &&
+                                (vFormats?.length ?? 0) === 0 &&
                                 (fi.formats?.length ?? 0) === 0;
                             if (sameName && samePrice) return null;
                             return {
                                 name: v.name,
-                                price: v.price,
-                                formats: v.formats,
-                                // Only show description when it differs from the parent
+                                price: vPrice,
+                                formats: vFormats,
                                 description:
                                     v.description && v.description !== fi.description
                                         ? v.description
@@ -898,18 +955,6 @@ serve(async req => {
             })
             .filter(s => s.items.length > 0);
 
-        console.error("PDF_FINAL_SECTIONS", JSON.stringify(
-          sections.map(s => ({
-            title: s.title,
-            itemsCount: s.items?.length,
-            items: s.items?.map(i => ({
-              name: i.name,
-              hasVariants: i.variants?.length > 0,
-              variantNames: i.variants?.map(v => v.name)
-            }))
-          }))
-        ));
-
         if (sections.length === 0) {
             return json(404, { error: "no_visible_items" });
         }
@@ -918,374 +963,371 @@ serve(async req => {
 
         const pdfDoc = await PDFDocument.create();
         const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
-        const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-        const fontStrike = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const fontBold    = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-        const PAGE_WIDTH = 595.28;
-        const PAGE_HEIGHT = 841.89;
-        const MARGIN_X = 50;
-        const MARGIN_TOP = 60;
-        const MARGIN_BOTTOM = 60;
+        // ── Design system ─────────────────────────────────────────────────────
+        const PAGE_W = 595;
+        const PAGE_H = 842;
+        const MARGIN  = 40;
+        const CONTENT_W    = PAGE_W - 2 * MARGIN;
+        const FOOTER_RESERVED = 24;
+        const CONTENT_BOTTOM  = MARGIN + FOOTER_RESERVED;
 
-        const TITLE_SIZE = 20;
-        const COLLECTION_SIZE = 16;
-        const SECTION_SIZE = 14;
-        const ITEM_SIZE = 12;
-        const FORMAT_SIZE = ITEM_SIZE - 1;   // 11 — formati/varianti
-        const DESC_SIZE = ITEM_SIZE - 2;     // 10 — descrizione e addon
+        const C_PRIMARY   = rgb(0.10, 0.10, 0.10);
+        const C_SECONDARY = rgb(0.45, 0.45, 0.45);
+        const C_TERTIARY  = rgb(0.60, 0.60, 0.60);
+        const C_LINE_STR  = rgb(0.10, 0.10, 0.10);
+        const C_LINE_LT   = rgb(0.85, 0.85, 0.85);
 
-        const TITLE_LINE = TITLE_SIZE * 1.4;
-        const COLLECTION_LINE = COLLECTION_SIZE * 1.4;
-        const SECTION_LINE = SECTION_SIZE * 1.4;
-        const ITEM_LINE = ITEM_SIZE * 1.35;
-        const FORMAT_LINE_H = FORMAT_SIZE * 1.4;
-        const DESC_LINE_H = DESC_SIZE * 1.4;
-        const INDENT = 14;
+        const SZ_SEDE    = 9;
+        const SZ_CATALOG = 20;
+        const SZ_CAT     = 12;
+        const SZ_ITEM    = 13;
+        const SZ_PRICE   = 12;
+        const SZ_DESC    = 10;
+        const SZ_ADDON   = 10;
+        const SZ_VARLBL  = 9;
+        const SZ_VARNM   = 12;
+        const SZ_VARDET  = 11;
+        const SZ_FOOTER  = 9;
 
-        let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-        let y = PAGE_HEIGHT - MARGIN_TOP;
+        const LH_CATALOG = SZ_CATALOG * 1.35;
+        const LH_ITEM    = SZ_ITEM    * 1.35;
+        const LH_DESC    = SZ_DESC    * 1.5;
+        const LH_ADDON   = SZ_ADDON   * 1.5;
+        const LH_VARLBL  = SZ_VARLBL  * 1.4;
+        const LH_VARNM   = SZ_VARNM   * 1.35;
+        const LH_VARDET  = SZ_VARDET  * 1.5;
 
-        const ensureSpace = (height: number) => {
-            // Basic pagination: add a new page when space is not enough
-            if (y - height < MARGIN_BOTTOM) {
-                page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-                y = PAGE_HEIGHT - MARGIN_TOP;
+        // ── Page management ───────────────────────────────────────────────────
+        let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+        let y = PAGE_H - MARGIN;
+
+        function newPage() {
+            page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+            y = PAGE_H - MARGIN;
+        }
+
+        function checkSpace(needed) {
+            if (y - needed < CONTENT_BOTTOM) newPage();
+        }
+
+        // ── Text helpers ──────────────────────────────────────────────────────
+        // Draw text with extra letter-spacing (character-by-character).
+        // Sanitizes text at entry to avoid WinAnsi encoding errors.
+        function drawSpaced(pg, text, x, baseline, size, font, color, spacing) {
+            const safe = sanitizeText(text);
+            let cx = x;
+            for (const ch of safe) {
+                safeDrawText(pg, ch, { x: cx, y: baseline, size, font, color });
+                cx += font.widthOfTextAtSize(ch, size) + spacing;
             }
-        };
+        }
 
-        // Header: business name and active collection title
-        ensureSpace(TITLE_LINE);
-        page.drawText(businessRow.name, {
-            x: MARGIN_X,
-            y,
-            size: TITLE_SIZE,
-            font: fontBold,
-            color: rgb(0, 0, 0)
-        });
-        y -= TITLE_LINE;
+        function spacedWidth(font, text, size, spacing) {
+            const safe = sanitizeText(text);
+            let w = 0;
+            for (const ch of safe) w += font.widthOfTextAtSize(ch, size) + spacing;
+            return Math.max(0, w - spacing);
+        }
 
-        ensureSpace(COLLECTION_LINE);
-        page.drawText(collectionName, {
-            x: MARGIN_X,
-            y,
-            size: COLLECTION_SIZE,
-            font: fontRegular,
-            color: rgb(0, 0, 0)
-        });
-        y -= COLLECTION_LINE;
+        // ── Formats helpers ───────────────────────────────────────────────────
+        // Builds an array of right-aligned format lines.
+        // Each element is a string ready to draw: "Name € X.XX | Name2 € Y.YY".
+        // Lines are split when the accumulated width exceeds maxW.
+        function buildFormatsLines(formats, font, size, maxW) {
+            const SEP  = " | ";
+            const sepW = safeWidth(font, SEP, size);
+            const lines = [];
+            let current = [];
+            let currentW = 0;
 
-        // Sections and items
-        for (const section of sections) {
-            ensureSpace(SECTION_LINE);
-            page.drawText(section.label, {
-                x: MARGIN_X,
-                y,
-                size: SECTION_SIZE,
-                font: fontBold,
-                color: rgb(0, 0, 0)
+            for (const f of formats) {
+                const label  = sanitizeText(
+                    f.name
+                        ? `${f.name} \u20AC ${(f.price ?? 0).toFixed(2)}`
+                        : `\u20AC ${(f.price ?? 0).toFixed(2)}`
+                );
+                const labelW = safeWidth(font, label, size);
+                const gap    = current.length > 0 ? sepW : 0;
+
+                if (current.length > 0 && currentW + gap + labelW > maxW) {
+                    lines.push(current.join(SEP));
+                    current  = [label];
+                    currentW = labelW;
+                } else {
+                    currentW += gap + labelW;
+                    current.push(label);
+                }
+            }
+            if (current.length > 0) lines.push(current.join(SEP));
+            return lines;
+        }
+
+        // Truncates text to the last whole word that fits within maxW, appending "...".
+        function truncateName(text, font, size, maxW) {
+            if (safeWidth(font, text, size) <= maxW) return text;
+            const ellipsis = "...";
+            const ellW     = safeWidth(font, ellipsis, size);
+            const words    = text.split(/\s+/);
+            let result     = "";
+            for (const word of words) {
+                const candidate = result ? `${result} ${word}` : word;
+                if (safeWidth(font, `${candidate}${ellipsis}`, size) <= maxW) {
+                    result = candidate;
+                } else {
+                    break;
+                }
+            }
+            return result ? `${result}${ellipsis}` : ellipsis;
+        }
+
+        // ── Product height estimator (for no-break pagination) ────────────────
+        function estimateProductHeight(item) {
+            const hasFormats = Array.isArray(item.formats) && item.formats.length > 0;
+            let h = LH_ITEM;
+            if (hasFormats)       h += LH_ITEM; // worst case: formats on second line
+            if (item.description) h += 3 + Math.min(2, wrapText(item.description.slice(0, 150), CONTENT_W, fontRegular, SZ_DESC).length) * LH_DESC;
+            if (item.addons?.length > 0) h += 3 + item.addons.length * LH_ADDON;
+            if (item.variants?.length > 0) {
+                h += 4;
+                for (const v of item.variants) {
+                    h += LH_VARLBL + LH_VARNM;
+                    if (v.description) h += LH_VARDET;
+                }
+            }
+            return h;
+        }
+
+        // ── HEADER (first page only) ──────────────────────────────────────────
+        const sedeText = businessRow.name.toUpperCase();
+        const sedeW    = spacedWidth(fontRegular, sedeText, SZ_SEDE, 0.8);
+        drawSpaced(page, sedeText, (PAGE_W - sedeW) / 2, y, SZ_SEDE, fontRegular, C_SECONDARY, 0.8);
+        y -= SZ_SEDE * 1.4 + 6;
+
+        const catalogW = safeWidth(fontBold, collectionName, SZ_CATALOG);
+        safeDrawText(page, collectionName, { x: (PAGE_W - catalogW) / 2, y, size: SZ_CATALOG, font: fontBold, color: C_PRIMARY });
+        y -= LH_CATALOG + 12;
+
+        page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_W - MARGIN, y }, thickness: 2, color: C_LINE_STR });
+        y -= 24;
+
+        // ── SECTIONS ──────────────────────────────────────────────────────────
+        for (let si = 0; si < sections.length; si++) {
+            const section = sections[si];
+
+            // Ensure space for category header + at least first product
+            // Header height: category text line + underline gap + 12pt below
+            const CAT_HEADER_H = SZ_CAT * 1.5 + 12;
+            const firstProductH = section.items.length > 0 ? estimateProductHeight(section.items[0]) : 0;
+            if (y - (CAT_HEADER_H + firstProductH) < CONTENT_BOTTOM) newPage();
+
+            // Category name: uppercase, spaced, bold, secondary
+            const catText = section.label.toUpperCase();
+            drawSpaced(page, catText, MARGIN, y, SZ_CAT, fontBold, C_SECONDARY, 1.5);
+            y -= SZ_CAT * 1.5;
+
+            // Light underline, 4pt below text
+            page.drawLine({
+                start: { x: MARGIN, y: y + SZ_CAT * 0.3 },
+                end:   { x: PAGE_W - MARGIN, y: y + SZ_CAT * 0.3 },
+                thickness: 0.5,
+                color: C_LINE_LT
             });
-            y -= SECTION_LINE;
+            y -= 12;
 
-            for (const item of section.items) {
+            // ── ITEMS ──────────────────────────────────────────────────────────
+            for (let ii = 0; ii < section.items.length; ii++) {
+                const item = section.items[ii];
+
+                // No-break: move to new page if product block won't fit
+                const estimated = estimateProductHeight(item);
+                if (y - estimated < CONTENT_BOTTOM) newPage();
+
                 const hasFormats = Array.isArray(item.formats) && item.formats.length > 0;
 
-                // ── Format string ──────────────────────────────────────────────
-                let formatStr: string | null = null;
+                // ── Name + Price/Formats ──────────────────────────────────────
+                // Name is capped at 55% of CONTENT_W so price/formats always
+                // have room on the right.
+                const NAME_MAX_W  = CONTENT_W * 0.55;
+                const PRICE_MAX_W = CONTENT_W * 0.45;
+                const RIGHT_EDGE  = MARGIN + CONTENT_W;
+
+                // Truncate name to a single line within NAME_MAX_W
+                const nameSingle = truncateName(item.name, fontBold, SZ_ITEM, NAME_MAX_W);
+
                 if (hasFormats) {
-                    formatStr = item.formats!
-                        .map(f => f.name ? `${f.name} € ${f.price.toFixed(2)}` : `€ ${f.price.toFixed(2)}`)
-                        .join("  |  ");
-                }
+                    // Build format lines at SZ_PRICE / bold — same style as single price
+                    const fmtLines  = buildFormatsLines(item.formats, fontBold, SZ_PRICE, PRICE_MAX_W);
+                    const fmtLine0W = safeWidth(fontBold, fmtLines[0], SZ_PRICE);
+                    const sameLine  = fmtLines.length === 1; // single line → draw on name row
 
-                // ── Simple price (right-aligned, only when no formats) ─────────
-                let priceText: string | null = null;
-                let oldPriceText: string | null = null;
-                let totalPriceWidth = 0;
-                let oldPriceWidth = 0;
+                    // Name row
+                    checkSpace(LH_ITEM);
+                    safeDrawText(page, nameSingle, { x: MARGIN, y, size: SZ_ITEM, font: fontBold, color: C_PRIMARY });
+                    if (sameLine) {
+                        safeDrawText(page, fmtLines[0], { x: RIGHT_EDGE - fmtLine0W, y, size: SZ_PRICE, font: fontBold, color: C_PRIMARY });
+                    }
+                    y -= LH_ITEM;
 
-                if (!hasFormats) {
+                    // Overflow format lines (including line 0 when multi-line)
+                    const startIdx = sameLine ? 1 : 0;
+                    for (let fi = startIdx; fi < fmtLines.length; fi++) {
+                        checkSpace(LH_ITEM);
+                        const lw = safeWidth(fontBold, fmtLines[fi], SZ_PRICE);
+                        safeDrawText(page, fmtLines[fi], { x: RIGHT_EDGE - lw, y, size: SZ_PRICE, font: fontBold, color: C_PRIMARY });
+                        y -= LH_ITEM;
+                    }
+                } else {
+                    // Single price or no price
+                    let priceText     = null;
+                    let origPriceText = null;
+                    let priceW        = 0;
+                    let origW         = 0;
+
                     if (item.price != null) {
-                        priceText = `€ ${item.price.toFixed(2)}`;
-                        totalPriceWidth = fontRegular.widthOfTextAtSize(priceText, ITEM_SIZE);
+                        priceText = `\u20AC ${item.price.toFixed(2)}`;
+                        priceW    = safeWidth(fontBold, priceText, SZ_PRICE);
                         if (item.original_price != null) {
-                            oldPriceText = `€ ${item.original_price.toFixed(2)}`;
-                            oldPriceWidth = fontStrike.widthOfTextAtSize(oldPriceText, ITEM_SIZE - 2);
-                            totalPriceWidth += oldPriceWidth + 5;
-                        }
-                    }
-                }
-
-                const priceStartX = priceText
-                    ? PAGE_WIDTH - MARGIN_X - totalPriceWidth
-                    : PAGE_WIDTH - MARGIN_X;
-                const maxNameWidth = priceText
-                    ? priceStartX - MARGIN_X - 10
-                    : PAGE_WIDTH - 2 * MARGIN_X;
-
-                // ── Check if format fits on same line as name ──────────────────
-                let formatSameLine = false;
-                if (hasFormats && formatStr) {
-                    const nameW = fontRegular.widthOfTextAtSize(item.name, ITEM_SIZE);
-                    const fmtW = fontRegular.widthOfTextAtSize(formatStr, FORMAT_SIZE);
-                    if (nameW + 12 + fmtW <= PAGE_WIDTH - 2 * MARGIN_X) {
-                        formatSameLine = true;
-                    }
-                }
-
-                const nameLines = wrapText(item.name, maxNameWidth, fontRegular, ITEM_SIZE);
-
-                // ── Draw name lines ────────────────────────────────────────────
-                for (let i = 0; i < nameLines.length; i++) {
-                    ensureSpace(ITEM_LINE);
-                    page.drawText(nameLines[i], {
-                        x: MARGIN_X,
-                        y,
-                        size: ITEM_SIZE,
-                        font: fontRegular,
-                        color: rgb(0, 0, 0)
-                    });
-
-                    if (i === 0) {
-                        if (priceText) {
-                            // Simple price: right-aligned with optional strikethrough
-                            let currentPriceX = priceStartX;
-                            if (oldPriceText) {
-                                page.drawText(oldPriceText, {
-                                    x: currentPriceX,
-                                    y: y + 1,
-                                    size: ITEM_SIZE - 2,
-                                    font: fontStrike,
-                                    color: rgb(0.5, 0.5, 0.5)
-                                });
-                                const textHeight = (ITEM_SIZE - 2) * 0.4;
-                                page.drawLine({
-                                    start: { x: currentPriceX - 1, y: y + 1 + textHeight },
-                                    end: { x: currentPriceX + oldPriceWidth + 1, y: y + 1 + textHeight },
-                                    thickness: 1,
-                                    color: rgb(0.5, 0.5, 0.5)
-                                });
-                                currentPriceX += oldPriceWidth + 5;
-                            }
-                            page.drawText(priceText, {
-                                x: currentPriceX,
-                                y,
-                                size: ITEM_SIZE,
-                                font: fontRegular,
-                                color: rgb(0, 0, 0)
-                            });
-                        } else if (formatSameLine && formatStr) {
-                            // Formats on same line, right after name
-                            const nameW = fontRegular.widthOfTextAtSize(nameLines[0], ITEM_SIZE);
-                            page.drawText(formatStr, {
-                                x: MARGIN_X + nameW + 12,
-                                y,
-                                size: FORMAT_SIZE,
-                                font: fontRegular,
-                                color: rgb(0.2, 0.2, 0.2)
-                            });
+                            origPriceText = `\u20AC ${item.original_price.toFixed(2)}`;
+                            origW         = safeWidth(fontRegular, origPriceText, SZ_PRICE - 2);
                         }
                     }
 
-                    y -= ITEM_LINE;
-                }
+                    checkSpace(LH_ITEM);
+                    safeDrawText(page, nameSingle, { x: MARGIN, y, size: SZ_ITEM, font: fontBold, color: C_PRIMARY });
 
-                // ── Formats on next line (if didn't fit on same line) ──────────
-                if (hasFormats && formatStr && !formatSameLine) {
-                    const fmtLines = wrapText(
-                        formatStr,
-                        PAGE_WIDTH - 2 * MARGIN_X - INDENT,
-                        fontRegular,
-                        FORMAT_SIZE
-                    );
-                    for (const fl of fmtLines) {
-                        ensureSpace(FORMAT_LINE_H);
-                        page.drawText(fl, {
-                            x: MARGIN_X + INDENT,
-                            y,
-                            size: FORMAT_SIZE,
-                            font: fontRegular,
-                            color: rgb(0.2, 0.2, 0.2)
-                        });
-                        y -= FORMAT_LINE_H;
+                    if (priceText) {
+                        if (origPriceText) {
+                            const ox = RIGHT_EDGE - priceW - 6 - origW;
+                            safeDrawText(page, origPriceText, { x: ox, y: y + 1, size: SZ_PRICE - 2, font: fontRegular, color: C_SECONDARY });
+                            const strikeY = y + 1 + (SZ_PRICE - 2) * 0.35;
+                            page.drawLine({ start: { x: ox - 1, y: strikeY }, end: { x: ox + origW + 1, y: strikeY }, thickness: 0.8, color: C_SECONDARY });
+                        }
+                        safeDrawText(page, priceText, { x: RIGHT_EDGE - priceW, y, size: SZ_PRICE, font: fontBold, color: C_PRIMARY });
                     }
+
+                    y -= LH_ITEM;
                 }
 
-                // ── Description ────────────────────────────────────────────────
+                // ── Description (max 2 lines) ─────────────────────────────────
                 if (item.description) {
-                    const descLines = wrapText(
-                        item.description,
-                        PAGE_WIDTH - 2 * MARGIN_X - INDENT,
-                        fontRegular,
-                        DESC_SIZE
-                    );
-                    for (const dl of descLines) {
-                        ensureSpace(DESC_LINE_H);
-                        page.drawText(dl, {
-                            x: MARGIN_X + INDENT,
-                            y,
-                            size: DESC_SIZE,
-                            font: fontRegular,
-                            color: rgb(0.5, 0.5, 0.5)
-                        });
-                        y -= DESC_LINE_H;
+                    const raw   = item.description.length > 150
+                        ? item.description.slice(0, 150).replace(/\s+\S*$/, "") + "..."
+                        : item.description;
+                    const lines = wrapText(raw, CONTENT_W, fontRegular, SZ_DESC).slice(0, 2);
+                    y -= 3;
+                    for (const dl of lines) {
+                        checkSpace(LH_DESC);
+                        safeDrawText(page, dl, { x: MARGIN, y, size: SZ_DESC, font: fontRegular, color: C_SECONDARY });
+                        y -= LH_DESC;
                     }
                 }
 
-                // ── Addon groups ───────────────────────────────────────────────
-                if (item.addons) {
+                // ── Addons ────────────────────────────────────────────────────
+                if (item.addons?.length > 0) {
+                    y -= 3;
                     for (const addon of item.addons) {
-                        const addonLine = `${addon.label}: ${addon.values.join(", ")}`;
-                        const adlLines = wrapText(
-                            addonLine,
-                            PAGE_WIDTH - 2 * MARGIN_X - INDENT,
-                            fontRegular,
-                            DESC_SIZE
-                        );
-                        for (const al of adlLines) {
-                            ensureSpace(DESC_LINE_H);
-                            page.drawText(al, {
-                                x: MARGIN_X + INDENT,
-                                y,
-                                size: DESC_SIZE,
-                                font: fontRegular,
-                                color: rgb(0.5, 0.5, 0.5)
-                            });
-                            y -= DESC_LINE_H;
+                        const str   = `${addon.label}: ${addon.values.join(", ")}`;
+                        const lines = wrapText(str, CONTENT_W, fontRegular, SZ_ADDON);
+                        for (const al of lines) {
+                            checkSpace(LH_ADDON);
+                            safeDrawText(page, al, { x: MARGIN, y, size: SZ_ADDON, font: fontRegular, color: C_TERTIARY });
+                            y -= LH_ADDON;
                         }
                     }
                 }
 
                 // ── Variants ──────────────────────────────────────────────────
-                if (item.variants && item.variants.length > 0) {
-                    const VARIANT_INDENT = INDENT + 10;
-                    const VARIANT_SIZE = DESC_SIZE;
-                    const VARIANT_LINE_H = VARIANT_SIZE * 1.35;
+                if (item.variants?.length > 0) {
+                    const VAR_X      = MARGIN;
+                    const VAR_CONT_W = CONTENT_W;
 
-                    ensureSpace(DESC_LINE_H);
-                    page.drawText("Varianti:", {
-                        x: MARGIN_X + INDENT,
-                        y,
-                        size: DESC_SIZE,
-                        font: fontRegular,
-                        color: rgb(0.5, 0.5, 0.5)
-                    });
-                    y -= DESC_LINE_H;
+                    y -= 4;
 
-                    for (const variant of item.variants) {
-                        const hasVFormats = Array.isArray(variant.formats) && variant.formats.length > 0;
+                    for (let vi = 0; vi < item.variants.length; vi++) {
+                        const variant = item.variants[vi];
+                        if (vi > 0) y -= 8;
 
-                        let vFormatStr = null;
-                        if (hasVFormats) {
-                            vFormatStr = variant.formats
-                                .map(f => f.name ? `${f.name} € ${f.price.toFixed(2)}` : `€ ${f.price.toFixed(2)}`)
-                                .join("  |  ");
-                        }
+                        // "VARIANTE" label — 8pt, letter-spacing 1pt, tertiary
+                        checkSpace(LH_VARLBL + 6);
+                        drawSpaced(page, "VARIANTE", VAR_X, y, 8, fontRegular, C_TERTIARY, 1);
+                        y -= 8 * 1.4 + 6;
 
-                        let vPriceText = null;
-                        let vTotalPriceWidth = 0;
-                        if (!hasVFormats && variant.price != null) {
-                            vPriceText = `€ ${variant.price.toFixed(2)}`;
-                            vTotalPriceWidth = fontRegular.widthOfTextAtSize(vPriceText, VARIANT_SIZE);
-                        }
+                        // variant name + price/formats (same logic as parent, 1pt smaller)
+                        const vHasFormats  = Array.isArray(variant.formats) && variant.formats.length > 0;
+                        const VAR_NAME_MAX = VAR_CONT_W * 0.55;
+                        const VAR_PRICE_MAX = VAR_CONT_W * 0.45;
+                        const VAR_RIGHT    = MARGIN + VAR_CONT_W;
+                        const vNameSingle  = truncateName(variant.name, fontBold, SZ_VARNM, VAR_NAME_MAX);
 
-                        const vPriceStartX = vPriceText
-                            ? PAGE_WIDTH - MARGIN_X - vTotalPriceWidth
-                            : PAGE_WIDTH - MARGIN_X;
-                        const vMaxNameWidth = vPriceText
-                            ? vPriceStartX - MARGIN_X - VARIANT_INDENT - 10
-                            : PAGE_WIDTH - MARGIN_X - VARIANT_INDENT;
+                        if (vHasFormats) {
+                            const vFmtLines  = buildFormatsLines(variant.formats, fontBold, SZ_VARNM, VAR_PRICE_MAX);
+                            const vFmtLine0W = safeWidth(fontBold, vFmtLines[0], SZ_VARNM);
+                            const vSameLine  = vFmtLines.length === 1;
 
-                        let vFormatSameLine = false;
-                        if (hasVFormats && vFormatStr) {
-                            const vNameW = fontRegular.widthOfTextAtSize(variant.name, VARIANT_SIZE);
-                            const vFmtW = fontRegular.widthOfTextAtSize(vFormatStr, VARIANT_SIZE - 1);
-                            if (vNameW + 12 + vFmtW <= PAGE_WIDTH - MARGIN_X - VARIANT_INDENT) {
-                                vFormatSameLine = true;
+                            checkSpace(LH_VARNM);
+                            safeDrawText(page, vNameSingle, { x: VAR_X, y, size: SZ_VARNM, font: fontBold, color: C_PRIMARY });
+                            if (vSameLine) {
+                                safeDrawText(page, vFmtLines[0], { x: VAR_RIGHT - vFmtLine0W, y, size: SZ_VARNM, font: fontBold, color: C_PRIMARY });
                             }
-                        }
+                            y -= LH_VARNM;
 
-                        const vNameLines = wrapText(variant.name, vMaxNameWidth, fontRegular, VARIANT_SIZE);
-                        for (let i = 0; i < vNameLines.length; i++) {
-                            ensureSpace(VARIANT_LINE_H);
-                            page.drawText(vNameLines[i], {
-                                x: MARGIN_X + VARIANT_INDENT,
-                                y,
-                                size: VARIANT_SIZE,
-                                font: fontRegular,
-                                color: rgb(0.2, 0.2, 0.2)
-                            });
-                            if (i === 0) {
-                                if (vPriceText) {
-                                    page.drawText(vPriceText, {
-                                        x: vPriceStartX,
-                                        y,
-                                        size: VARIANT_SIZE,
-                                        font: fontRegular,
-                                        color: rgb(0.2, 0.2, 0.2)
-                                    });
-                                } else if (vFormatSameLine && vFormatStr) {
-                                    const vNameW = fontRegular.widthOfTextAtSize(vNameLines[0], VARIANT_SIZE);
-                                    page.drawText(vFormatStr, {
-                                        x: MARGIN_X + VARIANT_INDENT + vNameW + 12,
-                                        y,
-                                        size: VARIANT_SIZE - 1,
-                                        font: fontRegular,
-                                        color: rgb(0.3, 0.3, 0.3)
-                                    });
-                                }
+                            const vStartIdx = vSameLine ? 1 : 0;
+                            for (let fi = vStartIdx; fi < vFmtLines.length; fi++) {
+                                checkSpace(LH_VARNM);
+                                const lw = safeWidth(fontBold, vFmtLines[fi], SZ_VARNM);
+                                safeDrawText(page, vFmtLines[fi], { x: VAR_RIGHT - lw, y, size: SZ_VARNM, font: fontBold, color: C_PRIMARY });
+                                y -= LH_VARNM;
                             }
-                            y -= VARIANT_LINE_H;
-                        }
-
-                        if (hasVFormats && vFormatStr && !vFormatSameLine) {
-                            const vFmtLines = wrapText(
-                                vFormatStr,
-                                PAGE_WIDTH - MARGIN_X - VARIANT_INDENT - INDENT,
-                                fontRegular,
-                                VARIANT_SIZE - 1
-                            );
-                            for (const fl of vFmtLines) {
-                                ensureSpace(FORMAT_LINE_H);
-                                page.drawText(fl, {
-                                    x: MARGIN_X + VARIANT_INDENT + INDENT,
-                                    y,
-                                    size: VARIANT_SIZE - 1,
-                                    font: fontRegular,
-                                    color: rgb(0.3, 0.3, 0.3)
-                                });
-                                y -= FORMAT_LINE_H;
+                        } else {
+                            let vPriceText = null;
+                            let vPriceW    = 0;
+                            if (variant.price != null) {
+                                vPriceText = `\u20AC ${variant.price.toFixed(2)}`;
+                                vPriceW    = safeWidth(fontBold, vPriceText, SZ_VARNM);
                             }
+                            checkSpace(LH_VARNM);
+                            safeDrawText(page, vNameSingle, { x: VAR_X, y, size: SZ_VARNM, font: fontBold, color: C_PRIMARY });
+                            if (vPriceText) {
+                                safeDrawText(page, vPriceText, { x: VAR_RIGHT - vPriceW, y, size: SZ_VARNM, font: fontBold, color: C_PRIMARY });
+                            }
+                            y -= LH_VARNM;
                         }
 
+                        // variant description (only if differs from parent)
                         if (variant.description) {
-                            const vDescLines = wrapText(
-                                variant.description,
-                                PAGE_WIDTH - MARGIN_X - VARIANT_INDENT - INDENT,
-                                fontRegular,
-                                VARIANT_SIZE - 1
-                            );
-                            for (const dl of vDescLines) {
-                                ensureSpace(DESC_LINE_H);
-                                page.drawText(dl, {
-                                    x: MARGIN_X + VARIANT_INDENT + INDENT,
-                                    y,
-                                    size: VARIANT_SIZE - 1,
-                                    font: fontRegular,
-                                    color: rgb(0.6, 0.6, 0.6)
-                                });
-                                y -= DESC_LINE_H;
+                            const raw   = variant.description.length > 100
+                                ? variant.description.slice(0, 100).replace(/\s+\S*$/, "") + "..."
+                                : variant.description;
+                            const lines = wrapText(raw, VAR_CONT_W, fontRegular, SZ_VARDET).slice(0, 2);
+                            y -= 2;
+                            for (const dl of lines) {
+                                checkSpace(LH_VARDET);
+                                safeDrawText(page, dl, { x: VAR_X, y, size: SZ_VARDET, font: fontRegular, color: C_SECONDARY });
+                                y -= LH_VARDET;
                             }
                         }
                     }
                 }
 
-                // Small gap between items
-                y -= 3;
+                // Gap between products
+                y -= 14;
             }
 
-            // Extra spacing between sections
-            y -= 6;
+            // Gap between categories
+            if (si < sections.length - 1) y -= 20;
         }
+
+        // ── BRANDING (last page only) ─────────────────────────────────────────
+        const totalPages = pdfDoc.getPageCount();
+        const lastPg     = pdfDoc.getPage(totalPages - 1);
+        const brandLineY = MARGIN + 16;
+        const brandTextY = MARGIN + 4;
+        lastPg.drawLine({ start: { x: MARGIN, y: brandLineY }, end: { x: PAGE_W - MARGIN, y: brandLineY }, thickness: 0.5, color: C_LINE_LT });
+        const brandText  = "Generato con CataloGlobe";
+        const brandTextW = safeWidth(fontRegular, brandText, 8);
+        safeDrawText(lastPg, brandText, { x: (PAGE_W - brandTextW) / 2, y: brandTextY, size: 8, font: fontRegular, color: C_TERTIARY });
 
         const pdfBytes = await pdfDoc.save();
 

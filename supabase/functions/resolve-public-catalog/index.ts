@@ -36,7 +36,13 @@ serve(async (req: Request) => {
         // 1. Look up activity by slug (any status)
         const { data: activity, error: activityError } = await supabase
             .from("activities")
-            .select("id, tenant_id, name, slug, cover_image, status, inactive_reason")
+            .select(
+                "id, tenant_id, name, slug, cover_image, status, inactive_reason, " +
+                "address, city, " +
+                "instagram, instagram_public, facebook, facebook_public, " +
+                "whatsapp, whatsapp_public, website, website_public, " +
+                "phone, phone_public, email_public, email_public_visible"
+            )
             .eq("slug", slug)
             .maybeSingle();
 
@@ -56,7 +62,21 @@ serve(async (req: Request) => {
             slug: activity.slug,
             cover_image: activity.cover_image,
             status: activity.status,
-            inactive_reason: activity.inactive_reason
+            inactive_reason: activity.inactive_reason,
+            address: activity.address ?? null,
+            city: activity.city ?? null,
+            instagram: activity.instagram ?? null,
+            instagram_public: activity.instagram_public ?? false,
+            facebook: activity.facebook ?? null,
+            facebook_public: activity.facebook_public ?? false,
+            whatsapp: activity.whatsapp ?? null,
+            whatsapp_public: activity.whatsapp_public ?? false,
+            website: activity.website ?? null,
+            website_public: activity.website_public ?? false,
+            phone: activity.phone ?? null,
+            phone_public: activity.phone_public ?? false,
+            email_public: activity.email_public ?? null,
+            email_public_visible: activity.email_public_visible ?? false
         };
 
         // For inactive venues, return early with business info only

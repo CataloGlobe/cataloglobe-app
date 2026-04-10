@@ -77,6 +77,12 @@ verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/purge-tenant-now/index.ts"
 
+[functions.menu-ai-import]
+enabled = false
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/menu-ai-import/index.ts"
+
 [functions.resolve-public-catalog]
 enabled = true
 verify_jwt = false
