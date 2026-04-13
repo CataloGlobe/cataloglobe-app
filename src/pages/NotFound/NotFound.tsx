@@ -5,7 +5,7 @@ import { Button } from "@/components/ui";
 import styles from "./NotFound.module.scss";
 import { useEffect } from "react";
 
-type NotFoundVariant = "page" | "business" | "business-inactive";
+type NotFoundVariant = "page" | "business" | "business-inactive" | "subscription-inactive";
 
 type InactiveReason = "maintenance" | "closed" | "unavailable";
 
@@ -29,6 +29,11 @@ const COPY: Record<NotFoundVariant, { title: string; description: string }> = {
         title: "Non disponibile al momento",
         description:
             "Questo catalogo è temporaneamente sospeso. Riprova più tardi o contatta direttamente il locale."
+    },
+    "subscription-inactive": {
+        title: "Sito non disponibile",
+        description:
+            "Questo sito non è al momento disponibile. Contatta il proprietario dell'attività."
     }
 };
 
@@ -63,14 +68,17 @@ const NotFoundPage = ({ variant = "page", inactiveReason }: NotFoundPageProps) =
             ? INACTIVE_REASON_COPY[inactiveReason]
             : COPY[variant];
 
-    const InactiveIcon =
-        variant === "business-inactive"
-            ? (inactiveReason ? INACTIVE_REASON_ICON[inactiveReason] : IconAlertCircle)
-            : null;
+    const isInactiveVariant = variant === "business-inactive" || variant === "subscription-inactive";
+
+    const InactiveIcon = isInactiveVariant
+        ? (variant === "business-inactive" && inactiveReason
+            ? INACTIVE_REASON_ICON[inactiveReason]
+            : IconAlertCircle)
+        : null;
 
     useEffect(() => {
         document.title =
-            variant === "business" || variant === "business-inactive"
+            variant === "business" || isInactiveVariant
                 ? "Attività non disponibile | CataloGlobe"
                 : "Pagina non trovata | CataloGlobe";
 
@@ -95,13 +103,13 @@ const NotFoundPage = ({ variant = "page", inactiveReason }: NotFoundPageProps) =
     return (
         <main className={styles.container} role="main" aria-labelledby="not-found-title">
             <section className={styles.card}>
-                {variant === "business-inactive" && InactiveIcon && (
+                {isInactiveVariant && InactiveIcon && (
                     <div className={styles.inactiveIcon}>
                         <InactiveIcon size={56} />
                     </div>
                 )}
 
-                {variant !== "business-inactive" && (
+                {!isInactiveVariant && (
                     <Text as="span" className={styles.code} aria-hidden>
                         404
                     </Text>
@@ -120,7 +128,7 @@ const NotFoundPage = ({ variant = "page", inactiveReason }: NotFoundPageProps) =
                         Torna alla home
                     </Button>
 
-                    {variant !== "business-inactive" && (
+                    {!isInactiveVariant && (
                         <Button variant="secondary" onClick={() => navigate(-1)}>
                             Torna indietro
                         </Button>
