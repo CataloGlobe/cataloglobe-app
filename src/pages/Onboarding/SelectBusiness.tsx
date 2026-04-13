@@ -20,7 +20,7 @@ export default function SelectBusiness() {
         if (!user) return;
         supabase
             .from("tenants")
-            .select("id, owner_user_id, name, vertical_type, business_subtype, created_at")
+            .select("id, owner_user_id, name, vertical_type, business_subtype, created_at, plan, subscription_status, trial_until, stripe_customer_id, stripe_subscription_id, paid_seats")
             .order("created_at", { ascending: true })
             .then(({ data }) => {
                 setTenants((data as V2Tenant[]) ?? []);
