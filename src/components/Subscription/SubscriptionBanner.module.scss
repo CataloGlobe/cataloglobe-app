@@ -1,0 +1,105 @@
+.banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.icon {
+    flex-shrink: 0;
+}
+
+.link {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    padding: 0;
+
+    &:hover {
+        opacity: 0.8;
+    }
+}
+
+/* --- Variants --- */
+
+.info {
+    background: var(--brand-primary-light, #eef2ff);
+    border: 1px solid #c7d2fe;
+    color: #3730a3;
+
+    .icon {
+        color: var(--brand-primary, #6366f1);
+    }
+}
+
+.warning {
+    background: var(--color-warning-50, #fffbeb);
+    border: 1px solid var(--color-warning-200, #fde68a);
+    color: var(--color-warning-700, #b45309);
+
+    .icon {
+        color: var(--color-warning-500, #f59e0b);
+    }
+}
+
+.error {
+    background: var(--color-red-50, #fff1f2);
+    border: 1px solid var(--color-red-200, #fecdd3);
+    color: var(--color-red-900, #450a0a);
+
+    .icon {
+        color: #ef4444;
+    }
+}
+
+/* --- Dark mode --- */
+
+[data-theme="dark"] {
+    .info {
+        background: rgba(99, 102, 241, 0.1);
+        border-color: rgba(99, 102, 241, 0.25);
+        color: #a5b4fc;
+
+        .icon {
+            color: #818cf8;
+        }
+    }
+
+    .warning {
+        background: rgba(245, 158, 11, 0.1);
+        border-color: rgba(245, 158, 11, 0.25);
+        color: #fcd34d;
+
+        .icon {
+            color: #f59e0b;
+        }
+    }
+
+    .error {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: rgba(239, 68, 68, 0.25);
+        color: #fca5a5;
+
+        .icon {
+            color: #ef4444;
+        }
+    }
+}

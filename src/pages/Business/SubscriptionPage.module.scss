@@ -1,0 +1,99 @@
+.page {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.section {
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.sectionHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+}
+
+.summaryGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+}
+
+.summaryItem {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.statusRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 2px;
+}
+
+.seatsInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.seatsNumbers {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.usageBarTrack {
+    height: 8px;
+    background: var(--hover-bg, #e2e8f0);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.usageBarFill {
+    height: 100%;
+    background: var(--brand-primary, #6366f1);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    min-width: 2px;
+}
+
+.usageBarFull {
+    background: #f59e0b;
+}
+
+.actionCard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--hover-bg, #f8fafc);
+    border-radius: 8px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+    .summaryGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .actionCard {
+        flex-direction: column;
+        align-items: stretch;
+
+        button {
+            width: 100%;
+        }
+    }
+}

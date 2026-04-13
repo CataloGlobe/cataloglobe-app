@@ -1,73 +1,87 @@
 .page {
-  padding: 48px 40px;
-  background: #f8fafc;
-  min-height: 100%;
+    padding: 48px 40px;
+    min-height: 100%;
 }
 
 .container {
-  max-width: 1040px;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
 }
 
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+.tenantRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    text-align: left;
+    width: 100%;
+
+    &:hover {
+        border-color: var(--brand-primary, #6366f1);
+        box-shadow: 0 0 0 1px var(--brand-primary, #6366f1);
+    }
 }
 
-.currentGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.5rem;
+.tenantInfo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
 }
 
-.planGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.5rem;
+.tenantAvatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: var(--brand-primary, #6366f1);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    flex-shrink: 0;
 }
 
-.planCard {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  min-height: 260px;
+.tenantDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
 }
 
-.planHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.planPrice {
-  margin-top: 0.25rem;
-}
-
-.planFeatures {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  margin: 0;
-  padding-left: 1rem;
+.tenantMeta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
 }
 
 @media (max-width: 768px) {
-  .page {
-    padding: 32px 20px;
-  }
+    .page {
+        padding: 32px 20px;
+    }
 
-  .currentGrid {
-    grid-template-columns: 1fr;
-  }
+    .tenantRow {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .tenantMeta {
+        padding-left: 48px;
+    }
 }
