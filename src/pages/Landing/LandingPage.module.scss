@@ -122,33 +122,29 @@ $text-muted: #9895a8;
 // ─── Navbar mobile ────────────────────────────────────
 @media (max-width: 767px) {
     .navLink {
-        display: none;
+        display: none !important;
     }
 
     .navLinks {
         gap: 12px;
+        flex-shrink: 0;
+    }
+
+    .navLinkAccedi {
+        display: inline !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        font-size: 13px;
     }
 
     .navCta {
+        display: inline-flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
         padding: 8px 16px;
         font-size: 13px;
+        white-space: nowrap;
     }
-}
-
-// ─── Hero fade-in (CSS animation, no IntersectionObserver) ────────────────
-@keyframes heroFadeUp {
-    from {
-        opacity: 0;
-        transform: translateY(24px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.heroFade {
-    animation: heroFadeUp 0.65s cubic-bezier(.22, 1, .36, 1) both;
 }
 
 // ─── Hero ─────────────────────────────────────────────
@@ -1465,14 +1461,9 @@ $text-muted: #9895a8;
 }
 
 @media (max-width: 640px) {
-    .navLinks {
-        display: none;
-    }
-
     .featuresGrid {
         grid-template-columns: 1fr;
     }
-
 }
 
 @media (max-width: 480px) {

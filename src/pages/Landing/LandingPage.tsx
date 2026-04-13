@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, useInView } from 'framer-motion';
 import s from './LandingPage.module.scss';
 import {
     SCHEDULE_RULES,
@@ -76,51 +77,20 @@ const FEATURE_ITEMS = [
     },
 ] as const;
 
-// ─── Scroll reveal hook ───────────────────────────────
-function useInView(threshold = 0.05) {
-    const ref = useRef<HTMLDivElement>(null);
-    const [visible, setVisible] = useState(false);
+// ─── Scroll-reveal wrapper (Framer Motion) ───────────
+function Animate({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+    const ref = useRef(null);
+    const isInView = useInView(ref, { once: true, margin: '0px 0px -50px 0px' });
 
-    useEffect(() => {
-        const el = ref.current;
-        if (!el) return;
-        const obs = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    setVisible(true);
-                    obs.disconnect();
-                }
-            },
-            { threshold }
-        );
-        obs.observe(el);
-        return () => obs.disconnect();
-    }, [threshold]);
-
-    return [ref, visible] as const;
-}
-
-interface RevealProps {
-    children: React.ReactNode;
-    delay?: number;
-    y?: number;
-    className?: string;
-}
-
-function Reveal({ children, delay = 0, y = 24, className }: RevealProps) {
-    const [ref, visible] = useInView();
     return (
-        <div
+        <motion.div
             ref={ref}
-            className={className}
-            style={{
-                opacity: visible ? 1 : 0,
-                transform: visible ? 'translateY(0)' : `translateY(${y}px)`,
-                transition: `opacity 0.65s cubic-bezier(.22,1,.36,1) ${delay}s, transform 0.65s cubic-bezier(.22,1,.36,1) ${delay}s`,
-            }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay }}
         >
             {children}
-        </div>
+        </motion.div>
     );
 }
 
@@ -164,7 +134,7 @@ function Navbar() {
     );
 }
 
-// ─── Hero ─────────────────────────────────────────────
+// ─── Hero (no animation wrapper — always visible immediately) ─────────
 function Hero() {
     return (
         <section className={s.hero}>
@@ -172,76 +142,64 @@ function Hero() {
             <div className={s.heroGlow} aria-hidden="true" />
             <div className={s.heroInner}>
                 <div className={s.heroContent}>
-                    <div className={s.heroFade} style={{ animationDelay: '0s' }}>
-                        <div className={s.heroBadge}>
-                            <span className={s.badgeDot} />
-                            <span className={s.badgeText}>Beta aperta — 3 mesi gratis</span>
-                        </div>
+                    <div className={s.heroBadge}>
+                        <span className={s.badgeDot} />
+                        <span className={s.badgeText}>Beta aperta — 3 mesi gratis</span>
                     </div>
 
-                    <div className={s.heroFade} style={{ animationDelay: '0.06s' }}>
-                        <h1 className={s.heroH1}>
-                            I tuoi menu si<br />aggiornano da soli.
-                        </h1>
+                    <h1 className={s.heroH1}>
+                        I tuoi menu si<br />aggiornano da soli.
+                    </h1>
+
+                    <p className={s.heroSub}>
+                        Un unico punto di controllo per prodotti, prezzi, promozioni e sedi.
+                        Tu definisci le regole, CataloGlobe fa il resto.
+                    </p>
+
+                    <div className={s.heroCtas}>
+                        <a href="/sign-up" className={s.ctaPrimary}>Inizia gratis</a>
+                        <a href="#" className={s.ctaSecondary}>
+                            Richiedi una demo <span>→</span>
+                        </a>
                     </div>
 
-                    <div className={s.heroFade} style={{ animationDelay: '0.12s' }}>
-                        <p className={s.heroSub}>
-                            Un unico punto di controllo per prodotti, prezzi, promozioni e sedi.
-                            Tu definisci le regole, CataloGlobe fa il resto.
-                        </p>
-                    </div>
-
-                    <div className={s.heroFade} style={{ animationDelay: '0.18s' }}>
-                        <div className={s.heroCtas}>
-                            <a href="/sign-up" className={s.ctaPrimary}>Inizia gratis</a>
-                            <a href="#" className={s.ctaSecondary}>
-                                Richiedi una demo <span>→</span>
-                            </a>
-                        </div>
-                    </div>
-
-                    <div className={s.heroFade} style={{ animationDelay: '0.26s' }}>
-                        <p className={s.heroSubtext}>
-                            Nessuna carta di credito · Configura tutto gratis · Paghi solo se vai live
-                        </p>
-                    </div>
+                    <p className={s.heroSubtext}>
+                        Nessuna carta di credito · Configura tutto gratis · Paghi solo se vai live
+                    </p>
                 </div>
 
                 {/* Product mockup — desktop only */}
                 <div className={s.heroMockupWrapper}>
-                    <div className={s.heroFade} style={{ animationDelay: '0.22s' }}>
-                        <div className={s.mockupShell}>
-                            <div className={s.mockupChrome}>
-                                <span className={s.mockupDotRed} />
-                                <span className={s.mockupDotYellow} />
-                                <span className={s.mockupDotGreen} />
-                            </div>
-                            <div className={s.mockupBody}>
-                                {SCHEDULE_RULES.map((rule, i) => (
-                                    <div key={i} className={s.scheduleRow}>
-                                        <div className={s.scheduleRowLeft}>
-                                            <span
-                                                className={s.scheduleRowDot}
-                                                style={{ background: rule.statusColor }}
-                                            />
-                                            <div>
-                                                <div className={s.scheduleRowName}>{rule.name}</div>
-                                                <div className={s.scheduleRowMeta}>{rule.type}</div>
-                                            </div>
-                                        </div>
+                    <div className={s.mockupShell}>
+                        <div className={s.mockupChrome}>
+                            <span className={s.mockupDotRed} />
+                            <span className={s.mockupDotYellow} />
+                            <span className={s.mockupDotGreen} />
+                        </div>
+                        <div className={s.mockupBody}>
+                            {SCHEDULE_RULES.map((rule, i) => (
+                                <div key={i} className={s.scheduleRow}>
+                                    <div className={s.scheduleRowLeft}>
                                         <span
-                                            className={s.scheduleBadge}
-                                            style={{
-                                                color: rule.statusColor,
-                                                background: `${rule.statusColor}14`,
-                                            }}
-                                        >
-                                            {rule.status}
-                                        </span>
+                                            className={s.scheduleRowDot}
+                                            style={{ background: rule.statusColor }}
+                                        />
+                                        <div>
+                                            <div className={s.scheduleRowName}>{rule.name}</div>
+                                            <div className={s.scheduleRowMeta}>{rule.type}</div>
+                                        </div>
                                     </div>
-                                ))}
-                            </div>
+                                    <span
+                                        className={s.scheduleBadge}
+                                        style={{
+                                            color: rule.statusColor,
+                                            background: `${rule.statusColor}14`,
+                                        }}
+                                    >
+                                        {rule.status}
+                                    </span>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -255,15 +213,15 @@ function PainBridge() {
     return (
         <section className={s.painBridge}>
             <div className={s.painWrap}>
-                <Reveal>
+                <Animate>
                     <div className={s.painHeader}>
                         <span className={s.painHeaderLabel}>Oggi</span>
                         <span />
                         <span className={s.painHeaderLabelAccent}>Con CataloGlobe</span>
                     </div>
-                </Reveal>
+                </Animate>
                 {PAIN_ROWS.map((row, i) => (
-                    <Reveal key={i} delay={0.04 + i * 0.05}>
+                    <Animate key={i} delay={0.04 + i * 0.05}>
                         <div className={s.painRow}>
                             <span className={s.painBefore}>{row.before}</span>
                             <span className={s.painArrow} aria-hidden="true">
@@ -279,7 +237,7 @@ function PainBridge() {
                             </span>
                             <span className={s.painAfter}>{row.after}</span>
                         </div>
-                    </Reveal>
+                    </Animate>
                 ))}
             </div>
         </section>
@@ -291,23 +249,23 @@ function HowItWorks() {
     return (
         <section id="come-funziona" className={s.howItWorks}>
             <div className={s.wrap}>
-                <Reveal>
+                <Animate>
                     <span className={s.sectionLabel}>Come funziona</span>
-                </Reveal>
-                <Reveal delay={0.04}>
+                </Animate>
+                <Animate delay={0.04}>
                     <h2 className={s.sectionH2}>
                         Tre passi.<br />Zero manutenzione.
                     </h2>
-                </Reveal>
+                </Animate>
                 <div className={s.stepsGrid}>
                     {HOW_STEPS.map((step, i) => (
-                        <Reveal key={i} delay={i * 0.08}>
+                        <Animate key={i} delay={i * 0.08}>
                             <div className={s.stepCard}>
                                 <span className={s.stepNum}>{step.num}</span>
                                 <h3 className={s.stepTitle}>{step.title}</h3>
                                 <p className={s.stepDesc}>{step.desc}</p>
                             </div>
-                        </Reveal>
+                        </Animate>
                     ))}
                 </div>
             </div>
@@ -321,28 +279,28 @@ function Features() {
         <section id="funzionalità" className={s.features}>
             <div className={s.featuresGlow} aria-hidden="true" />
             <div className={`${s.wrap} ${s.featuresInner}`}>
-                <Reveal>
+                <Animate>
                     <span className={s.sectionLabel}>Funzionalità</span>
-                </Reveal>
-                <Reveal delay={0.04}>
+                </Animate>
+                <Animate delay={0.04}>
                     <h2 className={s.featuresH2}>
                         Non un menu builder.<br />Un motore di distribuzione.
                     </h2>
-                </Reveal>
-                <Reveal delay={0.08}>
+                </Animate>
+                <Animate delay={0.08}>
                     <p className={s.featuresSub}>
                         Il contenuto è separato dalla distribuzione. Tu crei una volta, il sistema mostra ovunque.
                     </p>
-                </Reveal>
+                </Animate>
                 <div className={s.featuresGrid}>
                     {FEATURE_ITEMS.map((f, i) => (
-                        <Reveal key={f.title} delay={i * 0.06}>
+                        <Animate key={f.title} delay={i * 0.08}>
                             <div className={s.featureCard}>
                                 <div className={s.featureIcon}>{f.icon}</div>
                                 <h3 className={s.featureTitle}>{f.title}</h3>
                                 <p className={s.featureDesc}>{f.desc}</p>
                             </div>
-                        </Reveal>
+                        </Animate>
                     ))}
                 </div>
             </div>
@@ -534,17 +492,17 @@ function DemoCarousel() {
         >
             <div className={s.wrap}>
                 <div className={s.carouselHeader}>
-                    <Reveal>
+                    <Animate>
                         <span className={s.sectionLabel}>Provalo dal vivo</span>
-                    </Reveal>
-                    <Reveal delay={0.04}>
+                    </Animate>
+                    <Animate delay={0.04}>
                         <h2 className={s.carouselH2}>Scansiona. Esplora. Decidi.</h2>
-                    </Reveal>
-                    <Reveal delay={0.08}>
+                    </Animate>
+                    <Animate delay={0.08}>
                         <p className={s.carouselSub}>
                             Menu demo reali — esattamente come li vedranno i tuoi clienti.
                         </p>
-                    </Reveal>
+                    </Animate>
                 </div>
             </div>
 
@@ -633,19 +591,19 @@ function Pricing() {
     return (
         <section id="prezzi" className={s.pricing}>
             <div className={s.pricingWrap}>
-                <Reveal>
+                <Animate>
                     <span className={s.sectionLabel}>Prezzi</span>
-                </Reveal>
-                <Reveal delay={0.04}>
+                </Animate>
+                <Animate delay={0.04}>
                     <h2 className={s.pricingH2}>Più sedi attivi, meno paghi.</h2>
-                </Reveal>
-                <Reveal delay={0.08}>
+                </Animate>
+                <Animate delay={0.08}>
                     <p className={s.pricingSub}>
                         Configura tutto gratis — paghi solo quando attivi una sede. Prezzi graduali: ogni fascia paga il suo prezzo.
                     </p>
-                </Reveal>
+                </Animate>
 
-                <Reveal delay={0.12}>
+                <Animate delay={0.12}>
                     <div className={s.tiersGrid}>
                         {PRICING_TIERS.map((tier, i) => (
                             <div
@@ -673,9 +631,9 @@ function Pricing() {
                             </div>
                         ))}
                     </div>
-                </Reveal>
+                </Animate>
 
-                <Reveal delay={0.16}>
+                <Animate delay={0.16}>
                     <div className={s.calcCard}>
                         <span>
                             <span className={s.calcBold}>Esempio:</span>
@@ -684,9 +642,9 @@ function Pricing() {
                         </span>
                         <span className={s.calcNote}>· IVA inclusa</span>
                     </div>
-                </Reveal>
+                </Animate>
 
-                <Reveal delay={0.2}>
+                <Animate delay={0.2}>
                     <div className={s.includesCard}>
                         <p className={s.includesTitle}>Tutto incluso in ogni piano:</p>
                         <div className={s.includesGrid}>
@@ -712,7 +670,7 @@ function Pricing() {
                             I primi clienti beta non pagano per 3 mesi · Nessuna carta richiesta
                         </p>
                     </div>
-                </Reveal>
+                </Animate>
             </div>
         </section>
     );
@@ -726,15 +684,15 @@ function FAQ() {
         <section id="faq" className={s.faq}>
             <div className={s.faqWrap}>
                 <div className={s.faqHeader}>
-                    <Reveal>
+                    <Animate>
                         <span className={s.sectionLabel}>FAQ</span>
-                    </Reveal>
-                    <Reveal delay={0.04}>
+                    </Animate>
+                    <Animate delay={0.04}>
                         <h2 className={s.faqH2}>Domande frequenti</h2>
-                    </Reveal>
+                    </Animate>
                 </div>
                 {FAQ_ITEMS.map((item, i) => (
-                    <Reveal key={item.q} delay={i * 0.04}>
+                    <Animate key={item.q} delay={i * 0.04}>
                         <div className={s.faqItem}>
                             <button
                                 className={s.faqQuestion}
@@ -756,7 +714,7 @@ function FAQ() {
                                 <p className={s.faqAnswerText}>{item.a}</p>
                             </div>
                         </div>
-                    </Reveal>
+                    </Animate>
                 ))}
             </div>
         </section>
@@ -769,20 +727,20 @@ function FinalCTA() {
         <section className={s.finalCta}>
             <div className={s.finalGlow} aria-hidden="true" />
             <div className={s.finalWrap}>
-                <Reveal>
+                <Animate>
                     <h2 className={s.finalH2}>
                         Pronto a smettere di aggiornare menu a mano?
                     </h2>
-                </Reveal>
-                <Reveal delay={0.06}>
+                </Animate>
+                <Animate delay={0.06}>
                     <p className={s.finalSub}>Configura tutto gratis. Attiva quando sei pronto.</p>
-                </Reveal>
-                <Reveal delay={0.12}>
+                </Animate>
+                <Animate delay={0.12}>
                     <div className={s.finalCtas}>
                         <a href="/sign-up" className={s.ctaIndigo}>Inizia gratis</a>
                         <a href="#" className={s.ctaOutline}>Richiedi una demo</a>
                     </div>
-                </Reveal>
+                </Animate>
             </div>
         </section>
     );
