@@ -3,31 +3,16 @@ import type { Review } from "@/types/database";
 
 export type AnalyticsReview = Pick<Review, "id" | "rating" | "source" | "created_at">;
 
-/** Se in futuro vuoi filtrare per singolo locale */
-export async function getBusinessReviews(restaurantId: string): Promise<Review[]> {
+/** Recensioni per una singola attività */
+export async function getBusinessReviews(activityId: string): Promise<Review[]> {
     const { data, error } = await supabase
         .from("reviews")
         .select("*")
-        .eq("activity_id", restaurantId)
+        .eq("activity_id", activityId)
         .order("created_at", { ascending: false });
 
     if (error) throw error;
     return data ?? [];
-}
-
-export async function addReview(userId: string, rating: number, comment: string) {
-    const { error } = await supabase.from("reviews").insert([
-        {
-            user_id: userId,
-            rating,
-            comment
-        }
-    ]);
-
-    if (error) {
-        console.error("Errore durante l'inserimento recensione:", error.message);
-        throw error;
-    }
 }
 
 export async function deleteReview(reviewId: string) {
@@ -39,23 +24,25 @@ export async function deleteReview(reviewId: string) {
     }
 
     if (!data || data.length === 0) {
-        // utile per capire se l'id non matcha nessuna riga
         throw new Error("Nessuna recensione trovata da eliminare.");
     }
 
-    return data[0]; // opzionale, ma comodo se vuoi usarlo
+    return data[0];
 }
 
-export async function updateReviewResponse(reviewId: string, response: string) {
+export async function updateReviewStatus(
+    reviewId: string,
+    status: "pending" | "approved" | "hidden"
+): Promise<void> {
     const { error } = await supabase
         .from("reviews")
-        .update({ response, response_date: new Date().toISOString() })
+        .update({ status })
         .eq("id", reviewId);
 
     if (error) throw error;
 }
 
-/** Ottiene tutte le recensioni per un ristorante o globali */
+/** Ottiene tutte le recensioni per analytics */
 export async function getAnalyticsReviews() {
     const { data, error } = await supabase
         .from("reviews")

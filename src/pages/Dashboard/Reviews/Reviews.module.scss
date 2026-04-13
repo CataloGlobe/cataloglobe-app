@@ -1,285 +1,360 @@
-@use "@styles/variables" as *;
-
-/* ------------------------------------------------------
-   ANIMAZIONI & SKELETON
------------------------------------------------------- */
+/* ── Animations ──────────────────────────────────────── */
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes shimmer {
-  from {
-    background-position: 200% 0;
-  }
-  to {
-    background-position: -200% 0;
-  }
+/* ── Page ────────────────────────────────────────────── */
+
+.page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 2rem;
+    animation: fadeIn 0.25s ease both;
 }
 
-.skeleton {
-  width: 100%;
-  height: 16px;
-  border-radius: 6px;
-  background: linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 40%, #e5e7eb 80%);
-  background-size: 200% 100%;
-  animation: shimmer 1.6s infinite linear;
+/* ── Header action ──────────────────────────────────── */
+
+.activitySelectContainer {
+    min-width: 180px;
 }
 
-.skeleton.sm {
-  height: 12px;
-}
-.skeleton.lg {
-  height: 22px;
-}
+/* ── Stats block ─────────────────────────────────────── */
 
-/* Wrapper skeleton list */
-.skeletonWrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 1.2rem;
+.statsBlock {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1.2fr;
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
 }
 
-.reviewSkeleton {
-  background: var(--card-bg, #fff);
-  padding: 1.25rem;
-  border-radius: 14px;
-  border: 1px solid var(--border, #e5e7eb);
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+.statCell {
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-/* ------------------------------------------------------
-   WRAPPER PRINCIPALE
------------------------------------------------------- */
-
-.reviews {
-  background: var(--bg, #f9fafb);
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  padding-bottom: 2rem;
+.statDivider {
+    width: 1px;
+    background: #f1f5f9;
+    align-self: stretch;
 }
 
-/* ------------------------------------------------------
-   HEADER
------------------------------------------------------- */
-.header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+.statLabel {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
 
-.selectRow {
-  background: var(--card-bg, #fff);
-  padding: 1.25rem;
-  border-radius: 16px;
-  border: 1px solid var(--border, #e2e8f0);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2rem;
-  justify-content: space-between;
-  animation: fadeIn 0.3s ease forwards;
+.statBigNumber {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
 }
 
-.selectBusiness {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.4rem;
+.statBigNumberSuffix {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #94a3b8;
 }
 
-.stats {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
+.starsRow {
+    display: flex;
+    gap: 2px;
 }
 
-.statBox {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1rem;
-  min-width: 140px;
-  text-align: center;
+/* ── Indicators ──────────────────────────────────────── */
 
-  p {
-    font-size: 0.8rem;
-    color: var(--text-muted, #64748b);
-  }
+.indicators {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
 }
 
-/* ------------------------------------------------------
-   FILTRI
------------------------------------------------------- */
-
-.filters {
-  background: var(--card-bg);
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  flex-wrap: wrap;
+.indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.selects {
-  display: flex;
-  justify-content: space-between;
-  gap: 1.5rem;
-  flex-wrap: wrap;
+.indicatorDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
 
-.filterGroup {
-  display: flex;
-  flex: 1;
-  min-width: 160px;
-  flex-direction: column;
-  gap: 0.25rem;
+.indicatorDotPositive {
+    background: #16a34a;
 }
 
-/* ------------------------------------------------------
-   LISTA RECENSIONI
------------------------------------------------------- */
-
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+.indicatorDotNegative {
+    background: #dc2626;
 }
 
-/* ------------------------------------------------------
-   CARD RECENSIONE
------------------------------------------------------- */
+/* ── Distribution ────────────────────────────────────── */
 
-.review {
-  background: var(--card-bg);
-  padding: 1.25rem;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  animation: fadeIn 0.25s ease both;
+.distRows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
 }
 
-.headerRow {
-  display: flex;
-  justify-content: space-between;
+.distRow {
+    display: grid;
+    grid-template-columns: 16px 1fr 24px;
+    align-items: center;
+    gap: 8px;
 }
 
-.ratingBox {
-  display: flex;
-  align-items: center;
-  gap: 0.15rem;
+.distStar {
+    text-align: right;
 }
 
-.stars {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--brand-primary);
+.distBarTrack {
+    height: 8px;
+    border-radius: 4px;
+    background: #f1f5f9;
+    overflow: hidden;
 }
 
-.badge {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-
-  svg {
-    width: 0.875rem;
-    height: 0.875rem;
-  }
+.distBarFill {
+    height: 100%;
+    border-radius: 4px;
+    background: #0f172a;
+    transition: width 0.3s ease;
 }
 
-.public {
-  background: #eef2ff;
-  color: #3730a3;
+.distOpacity1 { opacity: 0.3; }
+.distOpacity2 { opacity: 0.475; }
+.distOpacity3 { opacity: 0.65; }
+.distOpacity4 { opacity: 0.825; }
+.distOpacity5 { opacity: 1; }
+
+.distCount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
-.verified {
-  background: #dcfce7;
-  color: #065f46;
+/* ── Toolbar ─────────────────────────────────────────── */
+
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
-/* TAG PILLS */
-
-.tagPills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+.toolbarRight {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
-.tagPill {
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--hover-bg, #f1f5f9);
-  padding: 0.15rem 0.6rem;
-  font-size: 0.75rem;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+.toolbarSelect {
+    width: 180px;
+    flex-shrink: 0;
 }
 
-/* COMMENT */
-
-.commentContainer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.toolbarSelectNarrow {
+    width: 160px;
+    flex-shrink: 0;
 }
 
-.commentContent {
-  flex: 1;
-  max-width: 90%;
+.toolbarSearch {
+    width: 180px;
+    flex-shrink: 0;
 }
 
-.comment {
-  line-height: 1.55;
+/* ── Custom date range ───────────────────────────────── */
+
+.dateRange {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.dateField {}
+
+/* ── Review list ─────────────────────────────────────── */
+
+.reviewList {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    padding: 0 28px;
+}
+
+.reviewRow {
+    display: grid;
+    grid-template-columns: 72px 1fr auto;
+    gap: 16px;
+    padding: 20px 0;
+    align-items: start;
+    border-bottom: 1px solid #f1f5f9;
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+/* ── Review rating ───────────────────────────────────── */
+
+.reviewRating {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-top: 2px;
+}
+
+.ratingNumber {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.ratingGreen { color: #16a34a; }
+.ratingYellow { color: #ca8a04; }
+.ratingRed { color: #dc2626; }
+
+/* ── Review body ─────────────────────────────────────── */
+
+.reviewBody {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.reviewComment {
+    line-height: 1.6;
+    word-break: break-word;
 }
 
 .noComment {
-  color: var(--text-muted, #64748b);
-  font-style: italic;
+    font-style: italic;
 }
 
-/* ------------------------------------------------------
-   EMPTY STATE
------------------------------------------------------- */
-
-.emptyState {
-  background: var(--card-bg);
-  padding: 2rem 1.5rem;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  text-align: center;
+.reviewMeta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
-/* ------------------------------------------------------
-   RESPONSIVE
------------------------------------------------------- */
+.metaDot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    flex-shrink: 0;
+}
+
+/* ── Review actions ──────────────────────────────────── */
+
+.reviewActions {
+    display: flex;
+    align-items: flex-start;
+    padding-top: 2px;
+}
+
+.deleteConfirm {
+    display: flex;
+    gap: 6px;
+}
+
+.deleteIconBtn {
+    opacity: 0.4;
+    transition: opacity 0.15s ease;
+
+    &:hover {
+        opacity: 1;
+    }
+}
+
+/* ── Skeleton ────────────────────────────────────────── */
+
+.skeletonRow {
+    display: grid;
+    grid-template-columns: 72px 1fr;
+    gap: 16px;
+    padding: 20px 0;
+    border-bottom: 1px solid #f1f5f9;
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.skeletonRating {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+
+.skeletonBody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* ── Responsive ──────────────────────────────────────── */
 
 @media (max-width: 768px) {
-  .header {
-    padding: 1.25rem;
-  }
-  .filters {
-    padding: 1rem;
-  }
-  .review {
-    padding: 1.25rem;
-  }
+    .statsBlock {
+        grid-template-columns: 1fr;
+    }
 
-  .selects {
-    flex-direction: column;
-  }
+    .statDivider {
+        width: auto;
+        height: 1px;
+    }
+
+    .toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .toolbarRight {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .toolbarSelect,
+    .toolbarSelectNarrow,
+    .toolbarSearch {
+        width: 100%;
+    }
+
+    .reviewRow {
+        grid-template-columns: 56px 1fr auto;
+        gap: 12px;
+    }
+
+    .reviewList {
+        padding: 0 16px;
+    }
+
+    .statCell {
+        padding: 16px 20px;
+    }
+
+    .ratingNumber {
+        font-size: 1.25rem;
+    }
 }

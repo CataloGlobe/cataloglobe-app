@@ -2,156 +2,295 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
+import { useToast } from "@/context/Toast/ToastContext";
 import { getActivities } from "@/services/supabase/activities";
-import { getBusinessReviews, deleteReview } from "@services/supabase/reviews";
+import { getBusinessReviews, deleteReview } from "@/services/supabase/reviews";
 import type { Review } from "@/types/database";
-import type { BusinessWithCapabilities } from "@/types/Businesses";
-import Text from "@components/ui/Text/Text";
-import { DateInput } from "@/components/ui/Input/DateInput";
-import { Globe, ShieldCheck, Trash2, Star } from "lucide-react";
+import { Trash2, MessageSquare } from "lucide-react";
+
+import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { Select } from "@/components/ui/Select/Select";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
+import { DateInput } from "@/components/ui/Input/DateInput";
+import { PillGroupSingle } from "@/components/ui/PillGroup/PillGroupSingle";
+import { Button } from "@/components/ui/Button/Button";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import Text from "@/components/ui/Text/Text";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
 
 import styles from "./Reviews.module.scss";
-import { Select } from "@/components/ui/Select/Select";
-import { IconButton } from "@/components/ui/Button/IconButton";
-import { Button } from "@/components/ui";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
-import ModalLayout, {
-    ModalLayoutContent,
-    ModalLayoutFooter,
-    ModalLayoutHeader
-} from "@/components/ui/ModalLayout/ModalLayout";
 
-const TAG_OPTIONS = [
-    "Qualità del cibo",
-    "Servizio",
-    "Tempi di attesa",
-    "Prezzo",
-    "Pulizia",
-    "Atmosfera"
+/* ── Types ───────────────────────────────────────────── */
+
+type ActivityItem = { id: string; name: string };
+type PeriodFilter = "all" | "7d" | "30d" | "90d" | "custom";
+type SortOption = "newest" | "oldest" | "ratingAsc" | "ratingDesc";
+
+const RATING_OPTIONS = [
+    { value: "all", label: "Tutte" },
+    { value: "5", label: "5 \u2605" },
+    { value: "4", label: "4 \u2605" },
+    { value: "3", label: "3 \u2605" },
+    { value: "2", label: "2 \u2605" },
+    { value: "1", label: "1 \u2605" },
+] as const;
+
+const PERIOD_OPTIONS = [
+    { value: "all", label: "Tutto il periodo" },
+    { value: "7d", label: "Ultimi 7 giorni" },
+    { value: "30d", label: "Ultimi 30 giorni" },
+    { value: "90d", label: "Ultimi 90 giorni" },
+    { value: "custom", label: "Periodo personalizzato" },
 ];
+
+const SORT_OPTIONS = [
+    { value: "newest", label: "Più recenti" },
+    { value: "oldest", label: "Meno recenti" },
+    { value: "ratingDesc", label: "Voto \u2191" },
+    { value: "ratingAsc", label: "Voto \u2193" },
+];
+
+/* ── Helpers ─────────────────────────────────────────── */
+
+function relativeDate(iso: string): string {
+    const now = new Date();
+    const date = new Date(iso);
+    const diffMs = now.getTime() - date.getTime();
+    const mins = Math.floor(diffMs / 60_000);
+
+    if (mins < 1) return "Adesso";
+    if (mins < 60) return `${mins}m fa`;
+
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h fa`;
+
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (date.toDateString() === yesterday.toDateString()) return "Ieri";
+
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} giorni fa`;
+
+    return date.toLocaleDateString("it-IT");
+}
+
+function ratingColorClass(rating: number): string {
+    if (rating >= 4) return styles.ratingGreen;
+    if (rating === 3) return styles.ratingYellow;
+    return styles.ratingRed;
+}
+
+function distOpacityClass(star: number): string {
+    switch (star) {
+        case 5: return styles.distOpacity5;
+        case 4: return styles.distOpacity4;
+        case 3: return styles.distOpacity3;
+        case 2: return styles.distOpacity2;
+        default: return styles.distOpacity1;
+    }
+}
+
+/* ── Star SVG row ────────────────────────────────────── */
+
+function StarRow({ rating, size = 12 }: { rating: number; size?: number }) {
+    return (
+        <div className={styles.starsRow}>
+            {[1, 2, 3, 4, 5].map((n) => (
+                <svg key={n} viewBox="0 0 24 24" width={size} height={size}>
+                    <path
+                        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                        fill={n <= Math.round(rating) ? "#1E293B" : "none"}
+                        stroke={n <= Math.round(rating) ? "#1E293B" : "#CBD5E1"}
+                        strokeWidth="1.5"
+                    />
+                </svg>
+            ))}
+        </div>
+    );
+}
+
+/* ── Component ───────────────────────────────────────── */
 
 export default function Reviews() {
     const tenantId = useTenantId();
     const { selectedTenant } = useTenant();
     const location = useLocation();
+    const { showToast } = useToast();
 
-    /** ------------------------ STATE ------------------------ */
-    const [businesses, setBusinesses] = useState<BusinessWithCapabilities[]>([]);
+    /* ── State ──────────────────────────────────────── */
+    const [activities, setActivities] = useState<ActivityItem[]>([]);
     const [reviews, setReviews] = useState<Review[]>([]);
-    const [selectedBusiness, setSelectedBusiness] = useState<string | null>(null);
+    const [selectedActivity, setSelectedActivity] = useState("");
+    const [loading, setLoading] = useState(true);
 
-    const [loading, setLoading] = useState(false);
+    const [filterRating, setFilterRating] = useState<string>("all");
+    const [filterPeriod, setFilterPeriod] = useState<PeriodFilter>("all");
+    const [customFrom, setCustomFrom] = useState("");
+    const [customTo, setCustomTo] = useState("");
+    const [sortBy, setSortBy] = useState<SortOption>("newest");
+    const [searchQuery, setSearchQuery] = useState("");
 
-    const [filterRating, setFilterRating] = useState<number | null>(null);
-    const [filterPeriod, setFilterPeriod] = useState<"all" | "7d" | "30d" | "custom">("all");
-    const [filterDate, setFilterDate] = useState<string | null>(null);
-    const [filterTag, setFilterTag] = useState<string>("");
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
-    const [sortBy, setSortBy] = useState<"newest" | "oldest" | "highest" | "lowest">("newest");
-    const [searchQuery, setSearchQuery] = useState<string>("");
+    const preselectedId: string | null =
+        (location.state as { restaurantId?: string } | null)?.restaurantId ?? null;
 
-    const [showModal, setShowModal] = useState(false);
-    const [reviewToDelete, setReviewToDelete] = useState<string | null>(null);
+    /* ── Fetch reviews ──────────────────────────────── */
+    const fetchReviews = useCallback(
+        async (activityId: string, allIds: string[]) => {
+            if (activityId) {
+                return getBusinessReviews(activityId);
+            }
+            if (allIds.length === 0) return [];
+            const results = await Promise.all(
+                allIds.map((id) => getBusinessReviews(id)),
+            );
+            return results.flat();
+        },
+        [],
+    );
 
-    const preselectedBusinessId: string | null = location.state?.restaurantId ?? null;
-
-    /** ------------------------ FETCH REVIEW ------------------------ */
-    const fetchReviews = useCallback(async (restaurantId: string | null) => {
-        if (!restaurantId) {
-            setReviews([]);
-            return;
-        }
-
-        const data = await getBusinessReviews(restaurantId);
-        setReviews(data);
-    }, []);
-
-    /** ------------------------ FETCH INITIAL ------------------------ */
+    /* ── Initial load ───────────────────────────────── */
     useEffect(() => {
+        if (!tenantId) return;
+        const tid = tenantId;
+        let cancelled = false;
+
         async function init() {
-            if (!tenantId) return;
             setLoading(true);
+            try {
+                const acts = await getActivities(tid);
+                if (cancelled) return;
 
-            const userBusinesses = await getActivities(tenantId);
-            setBusinesses(userBusinesses);
+                const items = acts.map((a) => ({ id: a.id, name: a.name }));
+                setActivities(items);
 
-            const first = preselectedBusinessId ?? userBusinesses[0]?.id ?? null;
-            setSelectedBusiness(first);
+                const initial = preselectedId ?? "";
+                setSelectedActivity(initial);
 
-            await fetchReviews(first);
-
-            setLoading(false);
+                const data = await fetchReviews(
+                    initial,
+                    items.map((a) => a.id),
+                );
+                if (cancelled) return;
+                setReviews(data);
+            } catch {
+                showToast({ message: "Errore nel caricamento", type: "error" });
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
         }
 
         void init();
-    }, [tenantId, preselectedBusinessId, fetchReviews]);
-
-    /** ------------------------ STATISTICHE ------------------------ */
-    const stats = useMemo(() => {
-        if (!reviews.length) {
-            return {
-                average: null,
-                total: 0
-            };
-        }
-
-        const avg = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
-        return {
-            average: Number(avg.toFixed(1)),
-            total: reviews.length
+        return () => {
+            cancelled = true;
         };
-    }, [reviews]);
+    }, [tenantId, preselectedId, fetchReviews, showToast]);
 
-    /** ------------------------ FILTRI & SEARCH ------------------------ */
-    const filteredAndSortedReviews = useMemo(() => {
-        let result = [...reviews];
+    /* ── Activity options for Select ─────────────────── */
+    const activityOptions = useMemo(
+        () => [
+            { value: "", label: "Tutte le sedi" },
+            ...activities.map((a) => ({ value: a.id, label: a.name })),
+        ],
+        [activities],
+    );
 
-        // voto
-        if (filterRating) {
-            result = result.filter(r => r.rating === filterRating);
+    /* ── Activity name map ──────────────────────────── */
+    const activityNameMap = useMemo(() => {
+        const map = new Map<string, string>();
+        activities.forEach((a) => map.set(a.id, a.name));
+        return map;
+    }, [activities]);
+
+    /* ── Period filtering (base for stats) ──────────── */
+    const periodFilteredReviews = useMemo(() => {
+        const now = Date.now();
+
+        if (filterPeriod === "7d") {
+            const t = now - 7 * 86_400_000;
+            return reviews.filter((r) => new Date(r.created_at).getTime() >= t);
+        }
+        if (filterPeriod === "30d") {
+            const t = now - 30 * 86_400_000;
+            return reviews.filter((r) => new Date(r.created_at).getTime() >= t);
+        }
+        if (filterPeriod === "90d") {
+            const t = now - 90 * 86_400_000;
+            return reviews.filter((r) => new Date(r.created_at).getTime() >= t);
+        }
+        if (filterPeriod === "custom") {
+            return reviews.filter((r) => {
+                const ts = new Date(r.created_at).getTime();
+                if (customFrom && ts < new Date(customFrom).getTime()) return false;
+                if (customTo && ts > new Date(customTo).getTime() + 86_400_000 - 1)
+                    return false;
+                return true;
+            });
+        }
+        return reviews;
+    }, [reviews, filterPeriod, customFrom, customTo]);
+
+    /* ── Stats ──────────────────────────────────────── */
+    const stats = useMemo(() => {
+        const total = periodFilteredReviews.length;
+        if (total === 0)
+            return { average: null, total: 0, positive: 0, negative: 0 };
+
+        const sum = periodFilteredReviews.reduce((s, r) => s + r.rating, 0);
+        return {
+            average: Math.round((sum / total) * 10) / 10,
+            total,
+            positive: periodFilteredReviews.filter((r) => r.rating >= 4).length,
+            negative: periodFilteredReviews.filter((r) => r.rating <= 2).length,
+        };
+    }, [periodFilteredReviews]);
+
+    const distribution = useMemo(() => {
+        const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        for (const r of periodFilteredReviews) {
+            dist[r.rating] = (dist[r.rating] ?? 0) + 1;
+        }
+        return dist;
+    }, [periodFilteredReviews]);
+
+    const maxDistCount = useMemo(
+        () => Math.max(...Object.values(distribution), 1),
+        [distribution],
+    );
+
+    /* ── Final filtered + sorted reviews ────────────── */
+    const displayedReviews = useMemo(() => {
+        let result = [...periodFilteredReviews];
+
+        if (filterRating !== "all") {
+            const rating = Number(filterRating);
+            result = result.filter((r) => r.rating === rating);
         }
 
-        // periodo
-        const now = Date.now();
-        if (filterPeriod === "7d" || filterPeriod === "30d") {
-            const days = filterPeriod === "7d" ? 7 : 30;
-            const threshold = now - days * 24 * 60 * 60 * 1000;
-            result = result.filter(r => new Date(r.created_at).getTime() >= threshold);
-        } else if (filterPeriod === "custom" && filterDate) {
-            result = result.filter(
-                r => new Date(r.created_at).toLocaleDateString("it-IT") === filterDate
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            result = result.filter((r) =>
+                (r.comment?.toLowerCase() ?? "").includes(q),
             );
         }
 
-        // tag
-        if (filterTag) {
-            result = result.filter(r => (r.tags ?? []).includes(filterTag));
-        }
-
-        // search
-        if (searchQuery.trim()) {
-            const q = searchQuery.toLowerCase();
-            result = result.filter(r => {
-                const comment = r.comment?.toLowerCase() ?? "";
-                const tags = (r.tags ?? []).join(" ").toLowerCase();
-                return comment.includes(q) || tags.includes(q);
-            });
-        }
-
-        // ordinamento
         result.sort((a, b) => {
-            const dateA = new Date(a.created_at).getTime();
-            const dateB = new Date(b.created_at).getTime();
-
             switch (sortBy) {
                 case "newest":
-                    return dateB - dateA;
+                    return (
+                        new Date(b.created_at).getTime() -
+                        new Date(a.created_at).getTime()
+                    );
                 case "oldest":
-                    return dateA - dateB;
-                case "highest":
+                    return (
+                        new Date(a.created_at).getTime() -
+                        new Date(b.created_at).getTime()
+                    );
+                case "ratingDesc":
                     return b.rating - a.rating;
-                case "lowest":
+                case "ratingAsc":
                     return a.rating - b.rating;
                 default:
                     return 0;
@@ -159,327 +298,325 @@ export default function Reviews() {
         });
 
         return result;
-    }, [reviews, filterRating, filterPeriod, filterDate, filterTag, searchQuery, sortBy]);
+    }, [periodFilteredReviews, filterRating, searchQuery, sortBy]);
 
-    /** ------------------------ DELETE ------------------------ */
-    async function handleDelete() {
-        if (!reviewToDelete) return;
-
+    /* ── Handlers ───────────────────────────────────── */
+    async function handleActivityChange(activityId: string) {
+        setSelectedActivity(activityId);
+        setLoading(true);
         try {
-            // elimina lato Supabase (con controlli)
-            await deleteReview(reviewToDelete);
-
-            // update ottimistico dello state locale
-            setReviews(prev => prev.filter(r => r.id !== reviewToDelete));
-
-            // se vuoi essere ultra-sicuro di allineare tutto con il backend,
-            // puoi comunque fare un refetch (opzionale):
-            // await fetchReviews(selectedBusiness);
-        } catch (err) {
-            console.error("Errore eliminazione recensione:", err);
+            const data = await fetchReviews(
+                activityId,
+                activities.map((a) => a.id),
+            );
+            setReviews(data);
+        } catch {
+            showToast({ message: "Errore nel caricamento", type: "error" });
         } finally {
-            setReviewToDelete(null);
-            setShowModal(false);
+            setLoading(false);
         }
     }
 
-    /** ------------------------ REVIEW CARD ------------------------ */
-    const ReviewCard = ({ review, index }: { review: Review; index: number }) => {
-        const [expanded, setExpanded] = useState(false);
+    async function handleDelete(reviewId: string) {
+        try {
+            await deleteReview(reviewId);
+            setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+            setDeletingId(null);
+            showToast({ message: "Recensione eliminata", type: "success" });
+        } catch {
+            showToast({
+                message: "Errore durante l'eliminazione",
+                type: "error",
+            });
+            setDeletingId(null);
+        }
+    }
 
-        const MAX_LEN = 220;
-        const comment = review.comment ?? "";
-        const isLong = comment.length > MAX_LEN;
-        const displayed = !expanded && isLong ? comment.slice(0, MAX_LEN) + "…" : comment;
-
-        const tags = review.tags ?? [];
-
-        return (
-            <article className={styles.review} style={{ animationDelay: `${index * 50}ms` }}>
-                <header className={styles.headerRow}>
-                    <div className={styles.ratingBox}>
-                        <Text variant="caption" className={styles.stars}>
-                            {review.rating}
-                        </Text>
-                        <Star fill="currentColor" width={18} className={styles.stars} />
-                    </div>
-
-                    <div
-                        className={`${styles.badge} ${
-                            review.source === "public" ? styles.public : styles.verified
-                        }`}
-                    >
-                        {review.source === "public" ? (
-                            <Globe size={14} />
-                        ) : (
-                            <ShieldCheck size={14} />
-                        )}
-
-                        <Text
-                            variant="caption"
-                            className={`${
-                                review.source === "public" ? styles.public : styles.verified
-                            }`}
-                        >
-                            {review.source === "public" ? " Pubblica " : " Verificata"}-{" "}
-                            {new Date(review.created_at).toLocaleDateString("it-IT")}
-                        </Text>
-                    </div>
-                </header>
-
-                {/* TAG PILLS */}
-                {tags && tags.length > 0 && (
-                    <div className={styles.tagPills}>
-                        {tags.map(tag => (
-                            <div key={tag} className={styles.tagPill}>
-                                {tag}
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                <div className={styles.commentContainer}>
-                    <div className={styles.commentContent}>
-                        <div className={styles.comment}>
-                            {comment ? (
-                                <Text variant="body">{displayed}</Text>
-                            ) : (
-                                <Text variant="caption" className={styles.noComment}>
-                                    Nessun commento
-                                </Text>
-                            )}
-                        </div>
-
-                        {isLong && (
-                            <Button variant="ghost" onClick={() => setExpanded(prev => !prev)}>
-                                {expanded ? "Mostra meno" : "Mostra tutto"}
-                            </Button>
-                        )}
-                    </div>
-
-                    {/* DELETE BUTTON */}
-
-                    <IconButton
-                        icon={<Trash2 size={16} />}
-                        onClick={() => {
-                            setShowModal(true);
-                            setReviewToDelete(review.id);
-                        }}
-                        aria-label="Elimina recensione"
-                        variant="danger"
-                    />
-                </div>
-            </article>
-        );
-    };
-
-    /** -------------------------------------------------
-     * RENDER
-     -------------------------------------------------- */
+    /* ── Render ──────────────────────────────────────── */
     return (
-        <div className={styles.reviews}>
+        <div className={styles.page}>
+            {/* ── Header ──────────────────────────────── */}
             <PageHeader
                 title="Recensioni"
                 businessName={selectedTenant?.name}
-                subtitle="Visualizza e rispondi alle recensioni dei clienti."
+                subtitle="Monitora il feedback ricevuto dai tuoi clienti."
+                actions={
+                    <Select
+                        value={selectedActivity}
+                        disabled={loading}
+                        onChange={(e) => void handleActivityChange(e.target.value)}
+                        options={activityOptions}
+                        containerClassName={styles.activitySelectContainer}
+                    />
+                }
             />
 
-            {/* HEADER */}
-            <header className={styles.selectRow}>
-                <div className={styles.selectBusiness}>
-                    <Select
-                        label="Attività"
-                        value={selectedBusiness ?? ""}
-                        disabled={loading}
-                        onChange={async e => {
-                            const id = e.target.value || null;
-                            setSelectedBusiness(id);
-                            setLoading(true);
-                            await fetchReviews(id);
-                            setLoading(false);
-                        }}
-                        options={[
-                            { value: "", label: "Tutte le attività" },
-                            ...businesses.map(b => ({
-                                value: b.id,
-                                label: b.name
-                            }))
-                        ]}
-                    />
-                </div>
-
-                <div className={styles.stats}>
-                    <div className={styles.statBox}>
-                        <Text variant="title-sm">
-                            {stats.average !== null ? stats.average : "-"}
-                        </Text>
-                        <Text variant="caption" colorVariant="muted">
-                            Valutazione media
-                        </Text>
+            {/* ── Stats block ─────────────────────────── */}
+            <div className={styles.statsBlock}>
+                {/* Media */}
+                <div className={styles.statCell}>
+                    <Text variant="caption" colorVariant="muted" weight={600} className={styles.statLabel}>
+                        MEDIA
+                    </Text>
+                    <div className={styles.statBigNumber}>
+                        <span>
+                            {stats.average !== null ? stats.average.toFixed(1) : "-"}
+                        </span>
+                        <span className={styles.statBigNumberSuffix}>/ 5</span>
                     </div>
-
-                    <div className={styles.statBox}>
-                        <Text variant="title-sm">{stats.total}</Text>
-                        <Text variant="caption" colorVariant="muted">
-                            Totale recensioni
-                        </Text>
-                    </div>
-                </div>
-            </header>
-
-            {/* FILTRI */}
-            <section className={styles.filters}>
-                <div className={styles.filterGroup}>
-                    <SearchInput
-                        placeholder="Cerca per testo o tag…"
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                        className={styles.searchInput}
-                    />
-                </div>
-
-                <div className={styles.selects}>
-                    <div className={styles.filterGroup}>
-                        <Select
-                            label="Voto"
-                            value={filterRating ?? ""}
-                            onChange={e =>
-                                setFilterRating(e.target.value ? Number(e.target.value) : null)
-                            }
-                            options={[
-                                { value: "", label: "Tutti" },
-                                ...["5", "4", "3", "2", "1"].map(v => ({
-                                    value: v,
-                                    label: `${v} ★`
-                                }))
-                            ]}
-                        />
-                    </div>
-
-                    <div className={styles.filterGroup}>
-                        <Select
-                            label="Periodo"
-                            value={filterPeriod}
-                            onChange={e => {
-                                const val = e.target.value as "all" | "7d" | "30d" | "custom";
-                                setFilterPeriod(val);
-                                if (val !== "custom") setFilterDate(null);
-                            }}
-                        >
-                            <option value="all">Tutto</option>
-                            <option value="7d">Ultimi 7 giorni</option>
-                            <option value="30d">Ultimi 30 giorni</option>
-                            <option value="custom">Data specifica</option>
-                        </Select>
-                    </div>
-
-                    {filterPeriod === "custom" && (
-                        <div className={styles.filterGroup}>
-                            <DateInput
-                                label="Data:"
-                                onChange={e =>
-                                    setFilterDate(
-                                        e.target.value
-                                            ? new Date(e.target.value).toLocaleDateString("it-IT")
-                                            : null
-                                    )
-                                }
-                            />
-                        </div>
+                    {stats.average !== null && (
+                        <StarRow rating={stats.average} size={14} />
                     )}
-
-                    <div className={styles.filterGroup}>
-                        <Select
-                            label="Tag"
-                            value={filterTag}
-                            onChange={e => setFilterTag(e.target.value)}
-                            options={[
-                                { value: "", label: "Tutti" },
-                                ...TAG_OPTIONS.map(t => ({
-                                    value: t,
-                                    label: t
-                                }))
-                            ]}
-                        />
-                    </div>
-
-                    <div className={styles.filterGroup}>
-                        <Select
-                            label="Ordina"
-                            value={sortBy}
-                            onChange={e =>
-                                setSortBy(
-                                    e.target.value as "newest" | "oldest" | "highest" | "lowest"
-                                )
-                            }
-                        >
-                            <option value="newest">Più recenti</option>
-                            <option value="oldest">Più vecchie</option>
-                            <option value="highest">Voto più alto</option>
-                            <option value="lowest">Voto più basso</option>
-                        </Select>
-                    </div>
                 </div>
-            </section>
 
-            {/* LISTA RECENSIONI / SKELETON */}
-            {loading ? (
-                <section className={styles.list} aria-label="Lista recensioni in caricamento">
-                    <div className={styles.skeletonWrapper}>
-                        {[1, 2, 3].map(i => (
-                            <div key={i} className={styles.reviewSkeleton}>
-                                <div className="skeleton sm" style={{ width: "30%" }} />
-                                <div className="skeleton" />
-                                <div className="skeleton" style={{ width: "80%" }} />
-                            </div>
-                        ))}
+                <div className={styles.statDivider} />
+
+                {/* Totale */}
+                <div className={styles.statCell}>
+                    <Text variant="caption" colorVariant="muted" weight={600} className={styles.statLabel}>
+                        TOTALE
+                    </Text>
+                    <div className={styles.statBigNumber}>
+                        <span>{stats.total}</span>
                     </div>
-                </section>
-            ) : (
-                <section className={styles.list} aria-label="Lista recensioni">
-                    {filteredAndSortedReviews.length === 0 ? (
-                        <div className={styles.emptyState}>
-                            <Text variant="title-sm">Nessuna recensione trovata</Text>
-                            <Text variant="body" colorVariant="muted">
-                                Prova a cambiare i filtri o la ricerca.
+                    <div className={styles.indicators}>
+                        <div className={styles.indicator}>
+                            <span
+                                className={`${styles.indicatorDot} ${styles.indicatorDotPositive}`}
+                            />
+                            <Text variant="caption" colorVariant="muted">
+                                {stats.positive} positive
                             </Text>
                         </div>
-                    ) : (
-                        filteredAndSortedReviews.map((review, i) => (
-                            <ReviewCard key={review.id} review={review} index={i} />
-                        ))
-                    )}
-                </section>
+                        <div className={styles.indicator}>
+                            <span
+                                className={`${styles.indicatorDot} ${styles.indicatorDotNegative}`}
+                            />
+                            <Text variant="caption" colorVariant="muted">
+                                {stats.negative} negative
+                            </Text>
+                        </div>
+                    </div>
+                </div>
+
+                <div className={styles.statDivider} />
+
+                {/* Distribuzione */}
+                <div className={styles.statCell}>
+                    <Text variant="caption" colorVariant="muted" weight={600} className={styles.statLabel}>
+                        DISTRIBUZIONE
+                    </Text>
+                    <div className={styles.distRows}>
+                        {([5, 4, 3, 2, 1] as const).map((star) => {
+                            const count = distribution[star];
+                            const pct =
+                                maxDistCount > 0
+                                    ? (count / maxDistCount) * 100
+                                    : 0;
+                            return (
+                                <div key={star} className={styles.distRow}>
+                                    <Text variant="caption" weight={600} colorVariant="muted" className={styles.distStar}>
+                                        {star}
+                                    </Text>
+                                    <div className={styles.distBarTrack}>
+                                        <div
+                                            className={`${styles.distBarFill} ${distOpacityClass(star)}`}
+                                            style={{ width: `${pct}%` }}
+                                        />
+                                    </div>
+                                    <Text variant="caption-xs" colorVariant="muted" className={styles.distCount}>
+                                        {count}
+                                    </Text>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Toolbar ─────────────────────────────── */}
+            <div className={styles.toolbar}>
+                <PillGroupSingle
+                    options={RATING_OPTIONS}
+                    value={filterRating}
+                    onChange={setFilterRating}
+                    ariaLabel="Filtra per voto"
+                />
+
+                <div className={styles.toolbarRight}>
+                    <Select
+                        value={filterPeriod}
+                        onChange={(e) => {
+                            const val = e.target.value as PeriodFilter;
+                            setFilterPeriod(val);
+                            if (val !== "custom") {
+                                setCustomFrom("");
+                                setCustomTo("");
+                            }
+                        }}
+                        options={PERIOD_OPTIONS}
+                        containerClassName={styles.toolbarSelect}
+                    />
+
+                    <SearchInput
+                        placeholder="Cerca..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        containerClassName={styles.toolbarSearch}
+                    />
+
+                    <Select
+                        value={sortBy}
+                        onChange={(e) =>
+                            setSortBy(e.target.value as SortOption)
+                        }
+                        options={SORT_OPTIONS}
+                        containerClassName={styles.toolbarSelectNarrow}
+                    />
+                </div>
+            </div>
+
+            {/* ── Custom date range ───────────────────── */}
+            {filterPeriod === "custom" && (
+                <div className={styles.dateRange}>
+                    <DateInput
+                        label="Da"
+                        value={customFrom}
+                        onChange={(e) => setCustomFrom(e.target.value)}
+                        containerClassName={styles.dateField}
+                    />
+                    <DateInput
+                        label="A"
+                        value={customTo}
+                        onChange={(e) => setCustomTo(e.target.value)}
+                        containerClassName={styles.dateField}
+                    />
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                            setCustomFrom("");
+                            setCustomTo("");
+                        }}
+                    >
+                        Azzera
+                    </Button>
+                </div>
             )}
 
-            <ModalLayout
-                isOpen={showModal}
-                onClose={() => setShowModal(false)}
-                width="xs"
-                height="fit"
-            >
-                <ModalLayoutHeader>
-                    <div className={styles.headerLeft}>
-                        <Text as="h2" variant="title-sm" weight={700}>
-                            Elimina recensione
-                        </Text>
-                    </div>
-                </ModalLayoutHeader>
+            {/* ── Review list ─────────────────────────── */}
+            {loading ? (
+                <div className={styles.reviewList}>
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className={styles.skeletonRow}>
+                            <div className={styles.skeletonRating}>
+                                <Skeleton width="48px" height="28px" />
+                                <Skeleton width="56px" height="10px" />
+                            </div>
+                            <div className={styles.skeletonBody}>
+                                <Skeleton width="80%" height="14px" />
+                                <Skeleton width="60%" height="14px" />
+                                <Skeleton width="30%" height="10px" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : displayedReviews.length === 0 ? (
+                <div className={styles.reviewList}>
+                    <EmptyState
+                        icon={<MessageSquare size={40} strokeWidth={1.5} />}
+                        title="Nessuna recensione trovata"
+                        description="Prova a modificare i filtri."
+                    />
+                </div>
+            ) : (
+                <div className={styles.reviewList}>
+                    {displayedReviews.map((review) => (
+                        <article key={review.id} className={styles.reviewRow}>
+                            {/* Rating */}
+                            <div className={styles.reviewRating}>
+                                <span
+                                    className={`${styles.ratingNumber} ${ratingColorClass(review.rating)}`}
+                                >
+                                    {review.rating.toFixed(1)}
+                                </span>
+                                <StarRow rating={review.rating} size={10} />
+                            </div>
 
-                <ModalLayoutContent>
-                    <Text variant="body">Sei sicuro di voler eliminare questa recensione?</Text>
-                </ModalLayoutContent>
+                            {/* Body */}
+                            <div className={styles.reviewBody}>
+                                {review.comment ? (
+                                    <Text variant="body-sm" className={styles.reviewComment}>
+                                        {review.comment}
+                                    </Text>
+                                ) : (
+                                    <Text variant="body-sm" colorVariant="muted" className={styles.noComment}>
+                                        Nessun commento
+                                    </Text>
+                                )}
+                                <div className={styles.reviewMeta}>
+                                    <Text variant="caption" colorVariant="muted">
+                                        {relativeDate(review.created_at)}
+                                    </Text>
+                                    {!selectedActivity && (
+                                        <>
+                                            <span className={styles.metaDot} />
+                                            <Text variant="caption" colorVariant="muted">
+                                                {activityNameMap.get(
+                                                    review.activity_id,
+                                                ) ?? ""}
+                                            </Text>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
 
-                <ModalLayoutFooter>
-                    <Button variant="secondary" onClick={() => setShowModal(false)}>
-                        Annulla
-                    </Button>
+                            {/* Actions */}
+                            <div className={styles.reviewActions}>
+                                {deletingId === review.id ? (
+                                    <div className={styles.deleteConfirm}>
+                                        <Button
+                                            variant="danger"
+                                            size="sm"
+                                            onClick={() =>
+                                                void handleDelete(review.id)
+                                            }
+                                        >
+                                            Elimina
+                                        </Button>
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => setDeletingId(null)}
+                                        >
+                                            Annulla
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <IconButton
+                                        icon={<Trash2 size={16} />}
+                                        variant="ghost"
+                                        size="sm"
+                                        aria-label="Elimina recensione"
+                                        onClick={() =>
+                                            setDeletingId(review.id)
+                                        }
+                                        className={styles.deleteIconBtn}
+                                    />
+                                )}
+                            </div>
+                        </article>
+                    ))}
+                </div>
+            )}
 
-                    <Button variant="primary" onClick={handleDelete}>
-                        Elimina
-                    </Button>
-                </ModalLayoutFooter>
-            </ModalLayout>
+            {/* ── Footer ──────────────────────────────── */}
+            {!loading && displayedReviews.length > 0 && (
+                <Text variant="caption" colorVariant="muted" align="center">
+                    {displayedReviews.length} di {periodFilteredReviews.length}{" "}
+                    recensioni
+                </Text>
+            )}
         </div>
     );
 }
