@@ -25,6 +25,7 @@ export const ContactsMainForm: React.FC<ContactsMainFormProps> = ({
     const [email, setEmail] = useState(entityData.email_public ?? "");
     const [phone, setPhone] = useState(entityData.phone ?? "");
     const [website, setWebsite] = useState(entityData.website ?? "");
+    const [googleReviewUrl, setGoogleReviewUrl] = useState(entityData.google_review_url ?? "");
     const [emailVisible, setEmailVisible] = useState(entityData.email_public_visible);
     const [phonePublic, setPhonePublic] = useState(entityData.phone_public);
     const [websitePublic, setWebsitePublic] = useState(entityData.website_public);
@@ -37,6 +38,7 @@ export const ContactsMainForm: React.FC<ContactsMainFormProps> = ({
                 email_public: email || null,
                 phone: phone || null,
                 website: website || null,
+                google_review_url: googleReviewUrl || null,
                 email_public_visible: emailVisible,
                 phone_public: phonePublic,
                 website_public: websitePublic
@@ -89,6 +91,15 @@ export const ContactsMainForm: React.FC<ContactsMainFormProps> = ({
                     label="Visibile nella pagina pubblica"
                     checked={websitePublic}
                     onChange={setWebsitePublic}
+                />
+
+                <TextInput
+                    label="URL Google Reviews"
+                    type="url"
+                    value={googleReviewUrl}
+                    onChange={e => setGoogleReviewUrl(e.target.value)}
+                    placeholder="https://search.google.com/local/writereview?placeid=..."
+                    helperText="Inserisci l'URL per reindirizzare i clienti a lasciare una recensione su Google. Lo trovi cercando la tua attività su Google Maps."
                 />
             </div>
         </form>

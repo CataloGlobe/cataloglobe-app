@@ -7,6 +7,7 @@ import {
     IconMail,
     IconPhone,
     IconWorld,
+    IconBrandGoogle,
     IconBrandInstagram,
     IconBrandFacebook,
     IconBrandWhatsapp,
@@ -183,6 +184,30 @@ export const ActivityInfoTab: React.FC<ActivityInfoTabProps> = ({
                                 value={activity.website}
                                 visible={activity.website_public}
                             />
+                            <div className={styles.field}>
+                                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                    <IconBrandGoogle size={14} /> Google Reviews
+                                </label>
+                                <span>
+                                    {activity.google_review_url ? (
+                                        <a
+                                            href={activity.google_review_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={styles.slugLink}
+                                            title={activity.google_review_url}
+                                            style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
+                                        >
+                                            {activity.google_review_url.length > 50
+                                                ? activity.google_review_url.slice(0, 50) + "…"
+                                                : activity.google_review_url}
+                                            <IconExternalLink size={12} />
+                                        </a>
+                                    ) : (
+                                        <span className={styles.placeholder}>—</span>
+                                    )}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </Card>

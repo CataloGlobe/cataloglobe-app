@@ -4,6 +4,9 @@ import Sidebar from "@components/layout/Sidebar/Sidebar";
 import { Menu } from "lucide-react";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { DrawerProvider } from "@/context/Drawer/DrawerProvider";
+import { SubscriptionBanner } from "@/components/Subscription/SubscriptionBanner";
+import { ActivationRequired } from "@/components/Subscription/ActivationRequired";
+import { useTenant } from "@/context/useTenant";
 
 import styles from "./MainLayout.module.scss";
 
@@ -33,6 +36,7 @@ function useMediaQuery(query: string) {
 
 export default function MainLayout() {
     const isMobile = useMediaQuery("(max-width: 1023px)");
+    const { selectedTenant, loading } = useTenant();
 
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -53,9 +57,13 @@ export default function MainLayout() {
         };
     }, [mobileSidebarOpen]);
 
+    // Tenant without subscription → standalone activation page (no sidebar)
+    if (!loading && selectedTenant && !selectedTenant.stripe_subscription_id) {
+        return <ActivationRequired />;
+    }
+
     return (
         <div className={styles.appLayout}>
-            {/* ⬇️ AREA SOTTO LA NAVBAR */}
             <div className={styles.body}>
                 <DrawerProvider>
                     <Sidebar
@@ -79,6 +87,7 @@ export default function MainLayout() {
                             </div>
                         )}
                         <div className={styles.content}>
+                            <SubscriptionBanner />
                             <Outlet />
                         </div>
                     </main>

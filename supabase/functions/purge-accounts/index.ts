@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import Stripe from "https://esm.sh/stripe@17?target=deno";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -118,6 +119,69 @@ serve(async (req: Request) => {
     const startedAt = Date.now();
 
     console.log(JSON.stringify({ event: "purge_run_started", dry_run: dryRun, cutoff: cutoffIso }));
+
+    // -------------------------------------------------------------------------
+    // Step 0: Safety net — cancel Stripe subs for locked tenants about to be purged
+    //
+    // The delete-account flow should have already cancelled these, but if that
+    // step failed (e.g. Stripe was down), this ensures subscriptions are not
+    // left active after the tenant data is hard-deleted.
+    // Non-blocking: failures are logged but do not prevent the purge.
+    // -------------------------------------------------------------------------
+    const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
+    let stripeCleanupCount = 0;
+
+    if (!dryRun && STRIPE_SECRET_KEY) {
+        try {
+            const { data: lockedWithStripe } = await supabase
+                .from("tenants")
+                .select("id, stripe_subscription_id")
+                .not("locked_at", "is", null)
+                .lt("locked_at", cutoffIso)
+                .not("stripe_subscription_id", "is", null);
+
+            if (lockedWithStripe?.length) {
+                const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-04-30.basil" });
+                for (const t of lockedWithStripe) {
+                    try {
+                        await stripe.subscriptions.cancel(t.stripe_subscription_id);
+                        stripeCleanupCount++;
+                        console.log(
+                            JSON.stringify({
+                                event: "purge_stripe_canceled",
+                                tenant_id: t.id,
+                                subscription_id: t.stripe_subscription_id
+                            })
+                        );
+                    } catch (stripeErr) {
+                        console.error(
+                            JSON.stringify({
+                                event: "purge_stripe_cancel_failed",
+                                tenant_id: t.id,
+                                subscription_id: t.stripe_subscription_id,
+                                error: stripeErr instanceof Error ? stripeErr.message : String(stripeErr)
+                            })
+                        );
+                    }
+                }
+            }
+        } catch (fetchErr) {
+            console.error(
+                JSON.stringify({
+                    event: "purge_stripe_prefetch_failed",
+                    error: fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
+                })
+            );
+        }
+    }
+
+    console.log(
+        JSON.stringify({
+            event: "purge_stripe_cleanup_completed",
+            stripe_subs_canceled: stripeCleanupCount,
+            dry_run: dryRun
+        })
+    );
 
     // -------------------------------------------------------------------------
     // Step 1: Purge locked tenants (SQL RPC — runs before user loop)

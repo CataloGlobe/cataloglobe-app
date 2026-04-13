@@ -23,11 +23,13 @@ import { useDrawer } from "@/context/Drawer/useDrawer";
 import { useNavigate } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 export default function Highlights() {
     const { showToast } = useToast();
     const tenantId = useTenantId();
     const { selectedTenant } = useTenant();
+    const { canEdit } = useSubscriptionGuard();
     const [loading, setLoading] = useState(true);
     const [contents, setContents] = useState<FeaturedContentWithProducts[]>([]);
     const { openDrawer, closeDrawer } = useDrawer();
@@ -72,6 +74,7 @@ export default function Highlights() {
     }, [loadData]);
 
     const handleCreate = () => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         openDrawer({
             title: "Crea contenuto",
             size: "md",
@@ -220,7 +223,7 @@ export default function Highlights() {
                     businessName={selectedTenant?.name}
                     subtitle="Gestisci i contenuti editoriali e aggregatori di prodotti."
                     actions={
-                        <Button variant="primary" onClick={handleCreate}>
+                        <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
                             Crea contenuto
                         </Button>
                     }
@@ -258,7 +261,7 @@ export default function Highlights() {
                             }
                             action={
                                 !searchQuery ? (
-                                    <Button variant="primary" onClick={handleCreate}>
+                                    <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
                                         + Crea il primo contenuto
                                     </Button>
                                 ) : undefined

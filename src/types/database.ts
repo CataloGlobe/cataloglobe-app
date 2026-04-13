@@ -24,16 +24,15 @@ export interface Profile {
 
 export interface Review {
     id: string;
-    user_id: string;
-    activity_id: string | null;
+    tenant_id: string;
+    activity_id: string;
     rating: number;
-    comment: string;
-    source: string;
+    rating_category: "positive" | "neutral" | "negative";
+    comment: string | null;
+    source: "public_form" | "internal" | "google";
+    status: "pending" | "approved" | "hidden";
+    session_id: string | null;
     created_at: string;
-    updated_at: string;
-    response?: string | null;
-    response_date?: string | null;
-    tags?: string[];
 }
 
 /* ============================

@@ -9,8 +9,10 @@ import BusinessCard from "@/components/Businesses/BusinessCard";
 import { CreateBusinessDrawer } from "@/components/Businesses/CreateBusinessDrawer";
 import { InviteModal, PendingInviteData } from "@/components/Businesses/InviteModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { DeleteTenantDialog } from "@/components/Businesses/DeleteTenantDialog";
 import {
     leaveTenant,
+    deleteTenantSoft,
     restoreTenant,
     getDeletedTenants,
     purgeTenantNow
@@ -18,6 +20,7 @@ import {
 import type { DeletedTenant } from "@/services/supabase/tenants";
 import type { V2Tenant } from "@/types/tenant";
 import { Button } from "@/components/ui/Button/Button";
+import { createCheckoutSession } from "@/services/supabase/billing";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./WorkspacePage.module.scss";
 
@@ -48,6 +51,7 @@ export default function WorkspacePage() {
     const [deletedTenants, setDeletedTenants] = useState<DeletedTenant[]>([]);
     const [deletedSectionOpen, setDeletedSectionOpen] = useState(false);
     const [purgeTarget, setPurgeTarget] = useState<{ id: string; name: string } | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
     const [actionInProgressId, setActionInProgressId] = useState<string | null>(null);
     const [restoringId, setRestoringId] = useState<string | null>(null);
     const [firstName, setFirstName] = useState<string | null>(null);
@@ -135,7 +139,7 @@ export default function WorkspacePage() {
             supabase
                 .from("user_tenants_view")
                 .select(
-                    "id, owner_user_id, name, vertical_type, business_subtype, created_at, user_role, logo_url"
+                    "id, owner_user_id, name, vertical_type, business_subtype, created_at, user_role, logo_url, plan, subscription_status, trial_until, stripe_customer_id, stripe_subscription_id, paid_seats"
                 )
                 .order("created_at", { ascending: true }),
             getDeletedTenants().catch(() => [] as DeletedTenant[])
@@ -185,6 +189,37 @@ export default function WorkspacePage() {
         const tenant = tenants.find(t => t.id === id);
         if (!tenant) return;
         setLeaveTarget({ id, name: tenant.name });
+    };
+
+    const handleDeleteRequest = (id: string) => {
+        const tenant = tenants.find(t => t.id === id);
+        if (!tenant) return;
+        setDeleteTarget({ id, name: tenant.name });
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!deleteTarget) return;
+        await deleteTenantSoft(deleteTarget.id);
+        setDeleteTarget(null);
+        await loadTenants();
+        showToast({ type: "success", message: `"${deleteTarget.name}" spostata nell'area in eliminazione.` });
+    };
+
+    const handleActivate = (id: string) => {
+        navigate(`/business/${id}/subscription`);
+    };
+
+    const handleCheckout = async (id: string) => {
+        try {
+            const url = await createCheckoutSession(
+                id,
+                `${window.location.origin}/business/${id}/overview`,
+                `${window.location.origin}/workspace`
+            );
+            window.location.href = url;
+        } catch {
+            showToast({ message: "Errore nell'avvio del checkout. Riprova.", type: "error" });
+        }
     };
 
     const getDaysLeft = (deletedAt: string): number => {
@@ -305,6 +340,9 @@ export default function WorkspacePage() {
                             onSelect={handleSelect}
                             onOpenSettings={id => navigate(`/business/${id}/settings`)}
                             onLeave={handleLeaveRequest}
+                            onActivate={handleActivate}
+                            onCheckout={handleCheckout}
+                            onDelete={handleDeleteRequest}
                         />
                     ))}
 
@@ -423,6 +461,13 @@ export default function WorkspacePage() {
                 title="Eliminare definitivamente questa attività?"
                 message="Questa operazione è irreversibile. Tutti i dati dell'attività verranno cancellati definitivamente."
                 confirmLabel="Elimina definitivamente"
+            />
+
+            <DeleteTenantDialog
+                isOpen={deleteTarget !== null}
+                tenantName={deleteTarget?.name ?? ""}
+                onClose={() => setDeleteTarget(null)}
+                onConfirm={handleDeleteConfirm}
             />
 
             <InviteModal

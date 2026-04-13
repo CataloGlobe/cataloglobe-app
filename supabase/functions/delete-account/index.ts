@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import Stripe from "https://esm.sh/stripe@17?target=deno";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -94,6 +95,40 @@ serve(async (req: Request) => {
     );
 
     // -------------------------------------------------------------------------
+    // Step 1b — Pre-fetch Stripe subscription IDs for affected tenants
+    //
+    // Must happen BEFORE the RPC: transfer_ownership() resets Stripe fields
+    // on transferred tenants, so the subscription_id would be lost after.
+    // -------------------------------------------------------------------------
+    const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
+    let stripeSubsToCancel: { tenant_id: string; stripe_subscription_id: string }[] = [];
+
+    if (STRIPE_SECRET_KEY && payload.actions.length > 0) {
+        const tenantIds = payload.actions.map((a: TenantAction) => a.tenant_id);
+        try {
+            const { data: tenantsStripe } = await supabaseAdmin
+                .from("tenants")
+                .select("id, stripe_subscription_id")
+                .in("id", tenantIds)
+                .not("stripe_subscription_id", "is", null);
+
+            stripeSubsToCancel = (tenantsStripe ?? []).map((t: { id: string; stripe_subscription_id: string }) => ({
+                tenant_id: t.id,
+                stripe_subscription_id: t.stripe_subscription_id
+            }));
+        } catch (prefetchErr) {
+            console.error(
+                JSON.stringify({
+                    event: "delete_account_stripe_prefetch_failed",
+                    user_id: userId,
+                    error: prefetchErr instanceof Error ? prefetchErr.message : String(prefetchErr)
+                })
+            );
+            // Non-blocking: proceed without Stripe cancellation
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // Step 2 — RPC SQL: execute tenant operations atomically
     //
     // Called with the user's JWT so that auth.uid() resolves correctly inside
@@ -126,6 +161,42 @@ serve(async (req: Request) => {
     }
 
     console.log(JSON.stringify({ event: "delete_account_sql_success", user_id: userId }));
+
+    // -------------------------------------------------------------------------
+    // Step 2a — Cancel Stripe subscriptions (non-blocking)
+    //
+    // Cancels subscriptions for both locked and transferred tenants.
+    // For transferred tenants, the RPC already reset the DB Stripe fields;
+    // this call ensures the subscription is also cancelled in Stripe itself.
+    // Failures are logged but do NOT block account deletion.
+    // -------------------------------------------------------------------------
+    if (stripeSubsToCancel.length > 0 && STRIPE_SECRET_KEY) {
+        const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-04-30.basil" });
+        for (const sub of stripeSubsToCancel) {
+            try {
+                await stripe.subscriptions.cancel(sub.stripe_subscription_id);
+                console.log(
+                    JSON.stringify({
+                        event: "delete_account_stripe_canceled",
+                        user_id: userId,
+                        tenant_id: sub.tenant_id,
+                        subscription_id: sub.stripe_subscription_id
+                    })
+                );
+            } catch (stripeErr) {
+                console.error(
+                    JSON.stringify({
+                        event: "delete_account_stripe_cancel_failed",
+                        user_id: userId,
+                        tenant_id: sub.tenant_id,
+                        subscription_id: sub.stripe_subscription_id,
+                        error: stripeErr instanceof Error ? stripeErr.message : String(stripeErr)
+                    })
+                );
+                // Non-blocking: continue with account deletion
+            }
+        }
+    }
 
     // -------------------------------------------------------------------------
     // Step 2b — Mark deletion timestamp

@@ -7,6 +7,7 @@ import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { IconLeaf } from "@tabler/icons-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { listIngredients, deleteIngredient, V2Ingredient } from "@/services/supabase/ingredients";
 import { IngredientsCreateEditDrawer } from "./IngredientsCreateEditDrawer";
 import { IngredientsDeleteDrawer } from "./IngredientsDeleteDrawer";
@@ -21,6 +22,7 @@ const formatDate = (iso: string): string =>
 export function Ingredients({ createTrigger }: IngredientsProps) {
     const tenantId = useTenantId();
     const { showToast } = useToast();
+    const { canEdit } = useSubscriptionGuard();
 
     const [isLoading, setIsLoading] = useState(true);
     const [ingredients, setIngredients] = useState<V2Ingredient[]>([]);
@@ -71,12 +73,14 @@ export function Ingredients({ createTrigger }: IngredientsProps) {
     );
 
     const handleCreate = () => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setIngredientToEdit(null);
         setEditMode("create");
         setIsCreateEditOpen(true);
     };
 
     const handleEdit = (ingredient: V2Ingredient) => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setIngredientToEdit(ingredient);
         setEditMode("edit");
         setIsCreateEditOpen(true);
@@ -210,6 +214,7 @@ export function Ingredients({ createTrigger }: IngredientsProps) {
                                 variant="primary"
                                 size="sm"
                                 onClick={handleCreate}
+                                disabled={!canEdit}
                                 style={{ marginTop: 4 }}
                             >
                                 Crea ingrediente

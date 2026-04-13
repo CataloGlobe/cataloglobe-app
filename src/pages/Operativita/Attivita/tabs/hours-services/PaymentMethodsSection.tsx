@@ -85,13 +85,15 @@ export const PaymentMethodsSection: React.FC<PaymentMethodsSectionProps> = ({
 
     return (
         <Card className={pageStyles.card}>
-            <div className={pageStyles.cardHeader}>
-                <h3>Metodi di pagamento</h3>
-                <Switch
-                    label="Mostra nella pagina pubblica"
-                    checked={isPublic}
-                    onChange={handlePublicToggle}
-                />
+            <div className={styles.cardHeader}>
+                <div className={styles.headerLeft}>
+                    <h3 className={styles.sectionTitle}>Metodi di pagamento</h3>
+                    <Switch
+                        label="Mostra nella pagina pubblica"
+                        checked={isPublic}
+                        onChange={handlePublicToggle}
+                    />
+                </div>
             </div>
             <div className={pageStyles.cardContent}>
                 {selected.length === 0 && (

@@ -1,5 +1,6 @@
-import { MapPin, Archive, BookOpen, LayoutDashboard, Settings, LogOut } from "lucide-react";
+import { MapPin, Archive, BookOpen, LayoutDashboard, Settings, LogOut, CreditCard, Trash2 } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import type { TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
 import type { V2Tenant } from "@/types/tenant";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
 import { SUBTYPE_LABELS, VERTICAL_LABELS } from "@/constants/verticalTypes";
@@ -34,23 +35,80 @@ interface BusinessCardProps {
     onSelect: (id: string) => void;
     onOpenSettings: (id: string) => void;
     onLeave: (id: string) => void;
+    onActivate: (id: string) => void;
+    onCheckout: (id: string) => void;
+    onDelete: (id: string) => void;
 }
 
-export default function BusinessCard({ tenant, locationCount, productCount, catalogCount, onSelect, onOpenSettings, onLeave }: BusinessCardProps) {
+export default function BusinessCard({ tenant, locationCount, productCount, catalogCount, onSelect, onOpenSettings, onLeave, onActivate, onCheckout, onDelete }: BusinessCardProps) {
     const initial = tenant.name.charAt(0).toUpperCase();
     const verticalLabel = (tenant.business_subtype && SUBTYPE_LABELS[tenant.business_subtype])
         ?? VERTICAL_LABELS[tenant.vertical_type]
         ?? tenant.vertical_type;
     const { bg, text } = avatarColors(tenant.name);
     const isOwner = tenant.user_role === "owner";
+    const isActivated = !!tenant.stripe_subscription_id;
+
+    const handleCardClick = () => {
+        if (isActivated) {
+            onSelect(tenant.id);
+        } else {
+            onActivate(tenant.id);
+        }
+    };
+
+    const actions: TableRowAction[] = isActivated
+        ? [
+            {
+                label: "Apri dashboard",
+                icon: LayoutDashboard,
+                onClick: () => onSelect(tenant.id),
+            },
+            {
+                label: "Impostazioni attività",
+                icon: Settings,
+                onClick: () => onOpenSettings(tenant.id),
+            },
+            {
+                label: "Lascia attività",
+                icon: LogOut,
+                onClick: () => onLeave(tenant.id),
+                variant: "destructive",
+                separator: true,
+                hidden: isOwner,
+            },
+            {
+                label: "Elimina attività",
+                icon: Trash2,
+                onClick: () => onDelete(tenant.id),
+                variant: "destructive",
+                separator: !isOwner ? false : true,
+                hidden: !isOwner,
+            },
+        ]
+        : [
+            {
+                label: "Attiva abbonamento",
+                icon: CreditCard,
+                onClick: () => onCheckout(tenant.id),
+            },
+            {
+                label: "Elimina attività",
+                icon: Trash2,
+                onClick: () => onDelete(tenant.id),
+                variant: "destructive",
+                separator: true,
+                hidden: !isOwner,
+            },
+        ];
 
     return (
         <div
-            className={styles.card}
-            onClick={() => onSelect(tenant.id)}
+            className={`${styles.card}${!isActivated ? ` ${styles.cardInactive}` : ""}`}
+            onClick={handleCardClick}
             role="button"
             tabIndex={0}
-            onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onSelect(tenant.id); }}
+            onKeyDown={e => { if (e.key === "Enter" || e.key === " ") handleCardClick(); }}
         >
             <div className={styles.header}>
                 {tenant.logo_url ? (
@@ -68,32 +126,14 @@ export default function BusinessCard({ tenant, locationCount, productCount, cata
                     <div className={styles.nameRow}>
                         <span className={styles.name}>{tenant.name}</span>
                         <div className={styles.actions} onClick={e => e.stopPropagation()}>
-                            <TableRowActions
-                                actions={[
-                                    {
-                                        label: "Apri dashboard",
-                                        icon: LayoutDashboard,
-                                        onClick: () => onSelect(tenant.id),
-                                    },
-                                    {
-                                        label: "Impostazioni attività",
-                                        icon: Settings,
-                                        onClick: () => onOpenSettings(tenant.id),
-                                    },
-                                    {
-                                        label: "Lascia attività",
-                                        icon: LogOut,
-                                        onClick: () => onLeave(tenant.id),
-                                        variant: "destructive",
-                                        separator: true,
-                                        hidden: isOwner,
-                                    },
-                                ]}
-                            />
+                            <TableRowActions actions={actions} />
                         </div>
                     </div>
                     <div className={styles.tagsRow}>
                         <span className={styles.typePill}>{verticalLabel}</span>
+                        {!isActivated && (
+                            <span className={styles.activatePill}>Da attivare</span>
+                        )}
                         <span className={styles.roleText}>{roleLabel(tenant.user_role)}</span>
                     </div>
                 </div>

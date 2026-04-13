@@ -87,13 +87,15 @@ export const ServicesSection: React.FC<ServicesSectionProps> = ({
 
     return (
         <Card className={pageStyles.card}>
-            <div className={pageStyles.cardHeader}>
-                <h3>Servizi offerti</h3>
-                <Switch
-                    label="Mostra nella pagina pubblica"
-                    checked={isPublic}
-                    onChange={handlePublicToggle}
-                />
+            <div className={styles.cardHeader}>
+                <div className={styles.headerLeft}>
+                    <h3 className={styles.sectionTitle}>Servizi offerti</h3>
+                    <Switch
+                        label="Mostra nella pagina pubblica"
+                        checked={isPublic}
+                        onChange={handlePublicToggle}
+                    />
+                </div>
             </div>
             <div className={pageStyles.cardContent}>
                 {selected.length === 0 && (

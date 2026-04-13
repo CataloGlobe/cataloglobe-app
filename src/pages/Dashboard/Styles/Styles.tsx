@@ -13,6 +13,7 @@ import { TableRowActions, type TableRowAction } from "@/components/ui/TableRowAc
 import styles from "./Styles.module.scss";
 
 import { useNavigate } from "react-router-dom";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { listStyles, duplicateStyle, deleteStyle, V2Style } from "@/services/supabase/styles";
 import { parseTokens, DEFAULT_STYLE_TOKENS } from "./Editor/StyleTokenModel";
@@ -82,6 +83,7 @@ export default function Styles() {
     const currentTenantId = useTenantId();
     const { selectedTenant } = useTenant();
     const { showToast } = useToast();
+    const { canEdit } = useSubscriptionGuard();
 
     const [isLoading, setIsLoading] = useState(true);
     const [allStyles, setAllStyles] = useState<V2Style[]>([]);
@@ -140,18 +142,21 @@ export default function Styles() {
     }, [allStyles, searchQuery]);
 
     const handleCreateClick = useCallback(() => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setIsCreateOpen(true);
-    }, []);
+    }, [canEdit, showToast]);
 
     const handleEditClick = useCallback(
         (style: V2Style) => {
+            if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
             navigate(`/business/${currentTenantId}/styles/${style.id}`);
         },
-        [navigate]
+        [navigate, canEdit, showToast]
     );
 
     const handleDuplicateClick = useCallback(
         async (style: V2Style) => {
+            if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
             try {
                 await duplicateStyle(style.id, `${style.name} (Copia)`, currentTenantId!);
                 showToast({ message: "Stile duplicato con successo.", type: "success" });
@@ -161,7 +166,7 @@ export default function Styles() {
                 showToast({ message: "Impossibile duplicare lo stile.", type: "error" });
             }
         },
-        [loadData, showToast]
+        [loadData, showToast, canEdit]
     );
 
     const handleDeleteClick = useCallback((style: V2Style) => {
@@ -292,7 +297,7 @@ export default function Styles() {
             title="Nessuno stile trovato"
             description="Crea un nuovo stile per personalizzare l'aspetto del tuo catalogo."
             action={
-                <Button variant="primary" onClick={handleCreateClick}>
+                <Button variant="primary" onClick={handleCreateClick} disabled={!canEdit}>
                     Crea stile
                 </Button>
             }
@@ -306,7 +311,7 @@ export default function Styles() {
                 businessName={selectedTenant?.name}
                 subtitle="Personalizza l'aspetto visivo e i colori del tuo catalogo."
                 actions={
-                    <Button variant="primary" onClick={handleCreateClick}>
+                    <Button variant="primary" onClick={handleCreateClick} disabled={!canEdit}>
                         Crea stile
                     </Button>
                 }

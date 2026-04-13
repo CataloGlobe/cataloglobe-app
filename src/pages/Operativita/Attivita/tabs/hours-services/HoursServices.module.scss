@@ -8,15 +8,28 @@
   gap: 1.5rem;
 }
 
-.headerLeft {
+.cardHeader {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 1.5rem;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border, v.$gray-200);
 }
 
-.toggleGroup {
+.headerLeft {
   display: flex;
   flex-direction: column;
+  gap: 4px;
+}
+
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-text-primary, v.$text-color);
+  margin: 0;
 }
 
 // ── Hours table (read-only) ──────────────────────────────────────────────────
@@ -129,12 +142,11 @@
 .pillGrid {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .pillHint {
-  font-size: 0.8125rem;
+  font-size: 12px;
   color: v.$gray-400;
-  font-style: italic;
-  margin: 0;
+  margin: 16px 0 10px;
 }

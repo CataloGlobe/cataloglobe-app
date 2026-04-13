@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
     getActivities,
     createActivity,
@@ -28,6 +28,7 @@ import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ActivityGroupsSection } from "@/components/Businesses/ActivityGroupsSection/ActivityGroupsSection";
 
 import { useDebounce } from "@/hooks/useDebounce";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 import { ensureUniqueBusinessSlug } from "@/utils/businessSlug";
 import { generateRandomSuffix, sanitizeSlugForSave } from "@/utils/slugify";
@@ -63,8 +64,10 @@ function isReservedSlug(slug: string) {
 export default function Businesses() {
     const tenantId = useTenantId();
     const { selectedTenant } = useTenant();
+    const { businessId } = useParams<{ businessId: string }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { canEdit } = useSubscriptionGuard();
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
@@ -276,6 +279,8 @@ export default function Businesses() {
         async (e: React.FormEvent) => {
             e.preventDefault();
 
+            if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+
             const errors = validateCreateForm(createForm);
             setCreateErrors(errors);
 
@@ -313,6 +318,17 @@ export default function Businesses() {
             if (uniqueSlug !== baseSlug) {
                 const suggestions = await getSlugSuggestions(baseSlug, uniqueSlug);
                 setCreateSlugState({ type: "conflict", suggestions });
+                return;
+            }
+
+            // --- Seat limit enforcement ---
+            if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
+                showToast({
+                    message: `Hai raggiunto il limite di ${selectedTenant.paid_seats} sed${selectedTenant.paid_seats === 1 ? "e" : "i"} incluse nel tuo abbonamento.`,
+                    type: "error",
+                    duration: 4000
+                });
+                navigate(`/business/${businessId}/subscription`);
                 return;
             }
 
@@ -358,7 +374,7 @@ export default function Businesses() {
                 setCreateSlugState({ type: "idle" });
             }
         },
-        [tenantId, createForm, createCoverFile, refreshBusinesses, showToast]
+        [tenantId, createForm, createCoverFile, refreshBusinesses, showToast, canEdit]
     );
 
     // ======================================
@@ -417,6 +433,7 @@ export default function Businesses() {
     // CALLBACK: edit business
     // ======================================
     const handleEditClick = useCallback((business: BusinessWithCapabilities) => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setEditingBusiness(business);
         setEditingId(business.id);
         setEditForm({
@@ -429,7 +446,7 @@ export default function Businesses() {
         setEditCoverFile(null);
         setIsEditOpen(true);
         setEditSlugState({ type: "idle" });
-    }, []);
+    }, [canEdit, showToast]);
 
     const handleEditFieldChange = useCallback(
         <K extends keyof BusinessFormValues>(field: K, value: BusinessFormValues[K]) => {
@@ -654,7 +671,9 @@ export default function Businesses() {
                     activeTab === "activities" ? (
                         <Button
                             variant="primary"
+                            disabled={!canEdit}
                             onClick={() => {
+                                if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
                                 setIsCreateOpen(true);
                                 setCreateSlugState({ type: "idle" });
                             }}
@@ -664,11 +683,9 @@ export default function Businesses() {
                     ) : (
                         <Button
                             variant="primary"
+                            disabled={!canEdit}
                             onClick={() => {
-                                // Questa funzione sarà passata o triggerata per aprire il drawer dei gruppi
-                                // Mapperemo un evento o useremo un ref?
-                                // In realtà ActivityGroupsSection ha la logica, ma la CTA è qui.
-                                // Dobbiamo esporre la funzione di creazione o usare un evento.
+                                if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
                                 window.dispatchEvent(new CustomEvent("open-group-drawer"));
                             }}
                         >

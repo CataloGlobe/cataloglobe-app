@@ -60,22 +60,15 @@ export const ActivityHoursSection: React.FC<ActivityHoursSectionProps> = ({
 
     return (
         <Card className={pageStyles.card}>
-            <div className={pageStyles.cardHeader}>
+            <div className={styles.cardHeader}>
                 <div className={styles.headerLeft}>
-                    <h3>Orari di apertura</h3>
-                    <div className={styles.toggleGroup}>
-                        <Switch
-                            label="Mostra nella pagina pubblica"
-                            checked={allPublic}
-                            onChange={handlePublicToggle}
-                            disabled={!hasHours}
-                        />
-                        {!hasHours && (
-                            <Text variant="caption" colorVariant="muted">
-                                Configura gli orari per abilitare la visibilità pubblica
-                            </Text>
-                        )}
-                    </div>
+                    <h3 className={styles.sectionTitle}>Orari di apertura</h3>
+                    <Switch
+                        label="Mostra nella pagina pubblica"
+                        checked={allPublic}
+                        onChange={handlePublicToggle}
+                        disabled={!hasHours}
+                    />
                 </div>
                 <Button
                     variant="ghost"

@@ -14,6 +14,7 @@ import {
 import { AttributeCreateEditDrawer } from "@/pages/Dashboard/Attributes/AttributeCreateEditDrawer";
 import { AttributeDeleteDrawer } from "@/pages/Dashboard/Attributes/AttributeDeleteDrawer";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import styles from "./ProductsAttributesTab.module.scss";
 
 interface ProductsAttributesTabProps {
@@ -35,6 +36,7 @@ function getTypeLabel(type: string): string {
 
 export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: ProductsAttributesTabProps) {
     const { showToast } = useToast();
+    const { canEdit } = useSubscriptionGuard();
 
     const [isLoading, setIsLoading] = useState(true);
     const [allAttributes, setAllAttributes] = useState<V2ProductAttributeDefinition[]>([]);
@@ -91,8 +93,14 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
         [filteredAttributes]
     );
 
-    const handleCreate = () => { setAttributeToEdit(null); setIsCreateEditOpen(true); };
-    const handleEdit = (attr: V2ProductAttributeDefinition) => { setAttributeToEdit(attr); setIsCreateEditOpen(true); };
+    const handleCreate = () => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        setAttributeToEdit(null); setIsCreateEditOpen(true);
+    };
+    const handleEdit = (attr: V2ProductAttributeDefinition) => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        setAttributeToEdit(attr); setIsCreateEditOpen(true);
+    };
     const handleDelete = (attr: V2ProductAttributeDefinition) => { setAttributeToDelete(attr); setIsDeleteOpen(true); };
 
     const handleBulkDelete = useCallback(async (selectedIds: string[]) => {
@@ -265,7 +273,7 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
                                     : "Crea attributi personalizzati per aggiungere caratteristiche ai prodotti."}
                             </Text>
                             {!searchQuery && (
-                                <Button variant="primary" size="sm" onClick={handleCreate} className={styles.emptyStateButton}>
+                                <Button variant="primary" size="sm" onClick={handleCreate} disabled={!canEdit} className={styles.emptyStateButton}>
                                     Crea attributo
                                 </Button>
                             )}

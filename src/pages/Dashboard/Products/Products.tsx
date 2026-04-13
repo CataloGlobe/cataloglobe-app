@@ -6,6 +6,7 @@ import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -59,6 +60,7 @@ export default function Products() {
     const { selectedTenant } = useTenant();
     const { showToast } = useToast();
     const verticalConfig = useVerticalConfig();
+    const { canEdit } = useSubscriptionGuard();
 
     const [isLoading, setIsLoading] = useState(true);
     const [allProducts, setAllProducts] = useState<V2Product[]>([]);
@@ -84,7 +86,7 @@ export default function Products() {
     const [searchQuery, setSearchQuery] = useState("");
     const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
         const saved = localStorage.getItem("products_view_mode");
-        return saved === "grid" ? "grid" : "list";
+        return (saved === "list" || saved === "grid") ? saved : "grid";
     });
 
     // Drawer States
@@ -177,6 +179,7 @@ export default function Products() {
 
     // Handlers
     const handleCreateBase = () => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setCreateEditMode("create_base");
         setProductToEdit(null);
         setParentForVariant(null);
@@ -184,6 +187,7 @@ export default function Products() {
     };
 
     const handleCreateVariant = (baseProduct: V2Product) => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setCreateEditMode("create_variant");
         setProductToEdit(null);
         setParentForVariant(baseProduct);
@@ -197,6 +201,7 @@ export default function Products() {
     };
 
     const handleEdit = (product: V2Product) => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setCreateEditMode("edit");
         setProductToEdit(product);
         setParentForVariant(null);
@@ -204,6 +209,7 @@ export default function Products() {
     };
 
     const handleDuplicate = async (product: V2Product) => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         try {
             await duplicateProduct(product.id, currentTenantId!);
             showToast({ message: "Prodotto duplicato con successo.", type: "success" });
@@ -394,19 +400,19 @@ export default function Products() {
                 subtitle={`Gestisci il tuo catalogo ${verticalConfig.productLabelPlural.toLowerCase()}, prezzi, varianti e raggruppamenti.`}
                 actions={
                     activeTab === "products" ? (
-                        <Button variant="primary" onClick={handleCreateBase}>
+                        <Button variant="primary" onClick={handleCreateBase} disabled={!canEdit}>
                             {`Crea ${verticalConfig.productLabel.toLowerCase()}`}
                         </Button>
                     ) : activeTab === "groups" ? (
-                        <Button variant="primary" onClick={() => setCreateGroupOpen(true)}>
+                        <Button variant="primary" onClick={() => setCreateGroupOpen(true)} disabled={!canEdit}>
                             Crea gruppo
                         </Button>
                     ) : activeTab === "attributes" ? (
-                        <Button variant="primary" onClick={() => setAttrCreateSeq(s => s + 1)}>
+                        <Button variant="primary" onClick={() => setAttrCreateSeq(s => s + 1)} disabled={!canEdit}>
                             Nuovo attributo
                         </Button>
                     ) : activeTab === "ingredients" && verticalConfig.hasIngredients ? (
-                        <Button variant="primary" onClick={() => setIngredientCreateSeq(s => s + 1)}>
+                        <Button variant="primary" onClick={() => setIngredientCreateSeq(s => s + 1)} disabled={!canEdit}>
                             Crea ingrediente
                         </Button>
                     ) : null
@@ -466,7 +472,7 @@ export default function Products() {
                                 }
                                 action={
                                     !searchQuery ? (
-                                        <Button variant="primary" onClick={handleCreateBase}>
+                                        <Button variant="primary" onClick={handleCreateBase} disabled={!canEdit}>
                                             {`+ Crea il tuo primo ${verticalConfig.productLabel.toLowerCase()}`}
                                         </Button>
                                     ) : undefined

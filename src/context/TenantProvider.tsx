@@ -42,7 +42,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         try {
             const { data, error } = await supabase
                 .from("user_tenants_view")
-                .select("id, owner_user_id, name, vertical_type, business_subtype, created_at, user_role, logo_url")
+                .select("id, owner_user_id, name, vertical_type, business_subtype, created_at, user_role, logo_url, plan, subscription_status, trial_until, stripe_customer_id, stripe_subscription_id, paid_seats")
                 .order("created_at", { ascending: true });
 
             if (fetchId !== fetchIdRef.current) return;

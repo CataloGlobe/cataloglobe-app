@@ -47,12 +47,18 @@ import ActivityDetailPage from "./pages/Operativita/Attivita/ActivityDetailPage"
 
 // Onboarding pages
 import CreateBusiness from "./pages/Onboarding/CreateBusiness";
+import ActivateTrial from "./pages/Onboarding/ActivateTrial";
+
+// Subscription
+import SubscriptionPage from "./pages/Business/SubscriptionPage";
 
 // Public pages
 import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
 import Home from "./pages/Home/Home";
 import NotFound from "./pages/NotFound/NotFound";
 import InvitePage from "./pages/Invite/InvitePage";
+import PrivacyPolicyPage from "./pages/Legal/PrivacyPolicyPage";
+import TermsPage from "./pages/Legal/TermsPage";
 
 export default function App() {
     const navigate = useNavigate();
@@ -154,6 +160,14 @@ export default function App() {
                     </ProtectedRoute>
                 }
             />
+            <Route
+                path="/onboarding/activate-trial"
+                element={
+                    <ProtectedRoute>
+                        <ActivateTrial />
+                    </ProtectedRoute>
+                }
+            />
             <Route path="/select-business" element={<Navigate to="/workspace" replace />} />
 
             {/* Business-level area */}
@@ -200,6 +214,7 @@ export default function App() {
                 <Route path="analytics" element={<Analytics />} />
 
                 <Route path="team" element={<BusinessTeamPage />} />
+                <Route path="subscription" element={<SubscriptionPage />} />
                 <Route path="settings" element={<BusinessSettingsPage />} />
             </Route>
 
@@ -211,6 +226,10 @@ export default function App() {
 
             {/* Invite */}
             <Route path="/invite/:token" element={<InvitePage />} />
+
+            {/* Legal pages */}
+            <Route path="/legal/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/legal/termini" element={<TermsPage />} />
 
             {/* PUBLIC BUSINESS */}
             <Route path="/:slug" element={<PublicCollectionPage />} />

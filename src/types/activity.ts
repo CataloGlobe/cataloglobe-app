@@ -28,6 +28,7 @@ export interface V2Activity {
     services_public: boolean;
     qr_fg_color: string | null;
     qr_bg_color: string | null;
+    google_review_url: string | null;
     created_at: string;
     updated_at: string;
 }

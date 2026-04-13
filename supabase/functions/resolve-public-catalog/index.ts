@@ -41,7 +41,8 @@ serve(async (req: Request) => {
                 "address, city, " +
                 "instagram, instagram_public, facebook, facebook_public, " +
                 "whatsapp, whatsapp_public, website, website_public, " +
-                "phone, phone_public, email_public, email_public_visible"
+                "phone, phone_public, email_public, email_public_visible, " +
+                "google_review_url"
             )
             .eq("slug", slug)
             .maybeSingle();
@@ -76,7 +77,8 @@ serve(async (req: Request) => {
             phone: activity.phone ?? null,
             phone_public: activity.phone_public ?? false,
             email_public: activity.email_public ?? null,
-            email_public_visible: activity.email_public_visible ?? false
+            email_public_visible: activity.email_public_visible ?? false,
+            google_review_url: activity.google_review_url ?? null
         };
 
         // For inactive venues, return early with business info only
@@ -105,8 +107,24 @@ serve(async (req: Request) => {
         // 3. Resolve catalogs + tenant info in parallel
         const [resolved, tenantInfo] = await Promise.all([
             resolveActivityCatalogs(supabase, activity.id, simulatedAt),
-            supabase.rpc("get_tenant_public_info", { p_tenant_id: activity.tenant_id })
+            supabase.rpc("get_tenant_public_info", { p_tenant_id: activity.tenant_id }),
         ]);
+
+        // 3b. Check subscription status — block if canceled or suspended
+        const subscriptionStatus = tenantInfo.data?.subscription_status;
+        if (subscriptionStatus === "canceled" || subscriptionStatus === "suspended") {
+            return new Response(
+                JSON.stringify({
+                    business,
+                    subscription_inactive: true,
+                    tenantLogoUrl: null,
+                    resolved: {
+                        featured: { hero: [], before_catalog: [], after_catalog: [] }
+                    }
+                }),
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
 
         // 4. Resolve tenant logo URL
         let tenantLogoUrl: string | null = null;
@@ -121,7 +139,7 @@ serve(async (req: Request) => {
             JSON.stringify({
                 business,
                 tenantLogoUrl,
-                resolved
+                resolved,
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );

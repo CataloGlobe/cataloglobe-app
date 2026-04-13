@@ -15,6 +15,7 @@ import {
 import { ProductGroupCreateEditDrawer, GroupFormMode } from "./ProductGroupCreateEditDrawer";
 import { ProductGroupDeleteDrawer } from "./ProductGroupDeleteDrawer";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 type FlatGroup = ProductGroupWithCount & { depth: number; parentName: string | null };
 
@@ -67,6 +68,7 @@ export default function ProductGroupsTab({
     onCloseCreate
 }: ProductGroupsTabProps) {
     const { showToast } = useToast();
+    const { canEdit } = useSubscriptionGuard();
 
     const [isLoading, setIsLoading] = useState(true);
     const [allGroups, setAllGroups] = useState<ProductGroupWithCount[]>([]);
@@ -141,6 +143,7 @@ export default function ProductGroupsTab({
     }, [flatTree, page, pageSize]);
 
     const handleEdit = (group: ProductGroupWithCount) => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setCreateEditMode("edit");
         setGroupToEdit(group);
         setIsCreateEditOpen(true);
@@ -152,6 +155,7 @@ export default function ProductGroupsTab({
     };
 
     const handleCreateSubgroup = (parentGroup: ProductGroupWithCount) => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setCreateEditMode("create");
         setGroupToEdit(null);
         setDefaultParentId(parentGroup.id);

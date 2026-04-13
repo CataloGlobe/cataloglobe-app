@@ -1,3 +1,5 @@
+export type HubTab = "menu" | "events" | "reviews";
+
 export type CardTemplate = "left" | "right" | "no-image";
 export type SectionNavShape = "pill" | "rounded" | "square";
 export type SectionNavStyle = "pill" | "chip" | "outline" | "tabs" | "dot" | "minimal";

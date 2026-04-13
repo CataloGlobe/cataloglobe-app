@@ -5,6 +5,7 @@ import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { Card } from "@/components/ui/Card/Card";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
@@ -34,6 +35,7 @@ export default function Catalogs() {
     const { showToast } = useToast();
     const navigate = useNavigate();
     const verticalConfig = useVerticalConfig();
+    const { canEdit } = useSubscriptionGuard();
     const catalogLower = verticalConfig.catalogLabel.toLowerCase();
 
     const [catalogs, setCatalogs] = useState<V2Catalog[]>([]);
@@ -84,12 +86,14 @@ export default function Catalogs() {
     }, [loadData]);
 
     const handleOpenCreate = () => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setEditingCatalog(null);
         setName("");
         setIsDrawerOpen(true);
     };
 
     const handleOpenEdit = (catalog: V2Catalog) => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setEditingCatalog(catalog);
         setName(catalog.name);
         setIsDrawerOpen(true);
@@ -251,7 +255,7 @@ export default function Catalogs() {
             }
             action={
                 !hasSearchFilter ? (
-                    <Button variant="primary" onClick={handleOpenCreate}>
+                    <Button variant="primary" onClick={handleOpenCreate} disabled={!canEdit}>
                         {`+ Crea il tuo primo ${catalogLower}`}
                     </Button>
                 ) : undefined
@@ -266,7 +270,7 @@ export default function Catalogs() {
                 businessName={selectedTenant?.name}
                 subtitle={`Gestisci l'albero delle categorie e i gruppi del tuo ${catalogLower}.`}
                 actions={
-                    <Button variant="primary" onClick={handleOpenCreate}>
+                    <Button variant="primary" onClick={handleOpenCreate} disabled={!canEdit}>
                         {`Crea ${catalogLower}`}
                     </Button>
                 }

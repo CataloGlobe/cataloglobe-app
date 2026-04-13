@@ -18,6 +18,7 @@ import {
     getFeaturedContentById
 } from "@/services/supabase/featuredContents";
 import { useTenantId } from "@/context/useTenantId";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { FeaturedIdentityDrawer } from "./components/FeaturedIdentityDrawer";
 import { FeaturedMediaDrawer } from "./components/FeaturedMediaDrawer";
 import { FeaturedPricingModeDrawer } from "./components/FeaturedPricingModeDrawer";
@@ -44,6 +45,7 @@ export default function FeaturedContentDetailPage() {
     const navigate = useNavigate();
     const { showToast } = useToast();
     const tenantId = useTenantId();
+    const { canEdit } = useSubscriptionGuard();
 
     const [content, setContent] = useState<FeaturedContentWithProducts | null>(null);
     const [loading, setLoading] = useState(true);
@@ -141,7 +143,7 @@ export default function FeaturedContentDetailPage() {
                         size="sm"
                         leftIcon={<Pencil size={14} />}
                         onClick={() => setIsIdentityDrawerOpen(true)}
-                        disabled={loading}
+                        disabled={loading || !canEdit}
                     >
                         Modifica
                     </Button>
@@ -183,7 +185,7 @@ export default function FeaturedContentDetailPage() {
                         size="sm"
                         leftIcon={<Pencil size={14} />}
                         onClick={() => setIsMediaDrawerOpen(true)}
-                        disabled={loading}
+                        disabled={loading || !canEdit}
                     >
                         Modifica
                     </Button>
@@ -213,7 +215,7 @@ export default function FeaturedContentDetailPage() {
                         size="sm"
                         leftIcon={<Pencil size={14} />}
                         onClick={() => setIsPricingDrawerOpen(true)}
-                        disabled={loading}
+                        disabled={loading || !canEdit}
                     >
                         Modifica
                     </Button>
@@ -261,7 +263,7 @@ export default function FeaturedContentDetailPage() {
                         size="sm"
                         leftIcon={<Pencil size={14} />}
                         onClick={() => setIsCtaDrawerOpen(true)}
-                        disabled={loading}
+                        disabled={loading || !canEdit}
                     >
                         Modifica
                     </Button>
