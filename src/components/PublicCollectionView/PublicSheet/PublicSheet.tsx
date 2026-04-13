@@ -29,10 +29,26 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel }: Pr
 
     useEffect(() => {
         if (!isOpen) return;
-        const prev = document.body.style.overflow;
+        // Su iOS Safari, overflow:hidden sul body non ferma il momentum scroll.
+        // La tecnica position:fixed congela la pagina alla posizione corrente
+        // e ripristina esattamente lo scroll quando il sheet si chiude.
+        const scrollY = window.scrollY;
+        const prevOverflow = document.body.style.overflow;
+        const prevPosition = document.body.style.position;
+        const prevTop = document.body.style.top;
+        const prevWidth = document.body.style.width;
+
         document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
+        document.body.style.top = `-${scrollY}px`;
+        document.body.style.width = "100%";
+
         return () => {
-            document.body.style.overflow = prev;
+            document.body.style.overflow = prevOverflow;
+            document.body.style.position = prevPosition;
+            document.body.style.top = prevTop;
+            document.body.style.width = prevWidth;
+            window.scrollTo(0, scrollY);
         };
     }, [isOpen]);
 
@@ -90,6 +106,9 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel }: Pr
                             if (info.offset.y > 100 || info.velocity.y > 400) onClose();
                         }}
                         onClick={e => e.stopPropagation()}
+                        // override di framer-motion che altrimenti imposta touch-action:none
+                        // sul panel intero, impedendo lo scroll del body
+                        style={isMobile ? { touchAction: "pan-y" } : undefined}
                     >
                         {isMobile && (
                             <div

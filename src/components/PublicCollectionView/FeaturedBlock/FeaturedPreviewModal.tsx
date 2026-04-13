@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { X, ImageIcon } from "lucide-react";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import Text from "@/components/ui/Text/Text";
@@ -19,33 +20,42 @@ type Props = {
 };
 
 export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
-    if (!block) return null;
+    // displayBlock persiste durante l'animazione di chiusura.
+    // Quando onClose() viene chiamato, il parent imposta block=null e isOpen=false
+    // simultaneamente. Senza questo stato, `if (!block) return null` smonterebbe
+    // PublicSheet prima che AnimatePresence possa eseguire l'exit animation.
+    const [displayBlock, setDisplayBlock] = useState(block);
+    useEffect(() => {
+        if (block) setDisplayBlock(block);
+    }, [block]);
 
-    const showImages = block.layout_style === "with_images";
+    if (!displayBlock) return null;
+
+    const showImages = displayBlock.layout_style === "with_images";
 
     const sortedProducts =
-        block.pricing_mode !== "none"
-            ? (block.products ?? [])
+        displayBlock.pricing_mode !== "none"
+            ? (displayBlock.products ?? [])
                   .slice()
                   .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
                   .filter(item => item.product !== null)
             : [];
 
     const originalTotal = (() => {
-        if (block.pricing_mode !== "bundle" || !block.show_original_total) return null;
-        const total = (block.products ?? [])
+        if (displayBlock.pricing_mode !== "bundle" || !displayBlock.show_original_total) return null;
+        const total = (displayBlock.products ?? [])
             .filter(item => item.product != null)
             .reduce((sum, item) => {
                 const p = item.product!;
                 const price = p.is_from_price ? (p.fromPrice ?? 0) : (p.base_price ?? 0);
                 return sum + price;
             }, 0);
-        if (total === 0 || total === block.bundle_price) return null;
+        if (total === 0 || total === displayBlock.bundle_price) return null;
         return total;
     })();
 
     return (
-        <PublicSheet isOpen={isOpen} onClose={onClose} ariaLabel={block.title}>
+        <PublicSheet isOpen={isOpen} onClose={onClose} ariaLabel={displayBlock.title}>
             {/* Header con pulsante chiudi */}
             <div className={styles.sheetHeader}>
                 <button
@@ -62,10 +72,10 @@ export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
             {/* Corpo scrollabile */}
             <div className={styles.body}>
                 {/* Immagine */}
-                {block.media_id && (
+                {displayBlock.media_id && (
                     <img
-                        src={block.media_id}
-                        alt={block.title}
+                        src={displayBlock.media_id}
+                        alt={displayBlock.title}
                         className={styles.image}
                         loading="lazy"
                     />
@@ -79,24 +89,24 @@ export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
                         weight={700}
                         className={styles.title}
                     >
-                        {block.title}
+                        {displayBlock.title}
                     </Text>
 
                     {/* Sottotitolo */}
-                    {block.subtitle && (
+                    {displayBlock.subtitle && (
                         <Text
                             variant="body-sm"
                             colorVariant="muted"
                             className={styles.subtitle}
                         >
-                            {block.subtitle}
+                            {displayBlock.subtitle}
                         </Text>
                     )}
 
                     {/* Descrizione */}
-                    {block.description && (
+                    {displayBlock.description && (
                         <Text variant="body" className={styles.description}>
-                            {block.description}
+                            {displayBlock.description}
                         </Text>
                     )}
 
@@ -105,7 +115,7 @@ export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
                         <ul className={styles.productList}>
                             {sortedProducts.map((item, idx) => {
                                 const product = item.product!;
-                                const showPrice = block.pricing_mode === "per_item";
+                                const showPrice = displayBlock.pricing_mode === "per_item";
                                 const hasVariants =
                                     product.price_variants &&
                                     product.price_variants.length > 0;
@@ -183,8 +193,8 @@ export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
                     )}
 
                     {/* Prezzo bundle */}
-                    {block.pricing_mode === "bundle" &&
-                        block.bundle_price != null && (
+                    {displayBlock.pricing_mode === "bundle" &&
+                        displayBlock.bundle_price != null && (
                             <div className={styles.bundleSection}>
                                 {originalTotal != null && (
                                     <span className={styles.originalTotal}>
@@ -192,20 +202,20 @@ export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
                                     </span>
                                 )}
                                 <span className={styles.bundlePrice}>
-                                    {formatPrice(block.bundle_price)}
+                                    {formatPrice(displayBlock.bundle_price)}
                                 </span>
                             </div>
                         )}
 
                     {/* CTA */}
-                    {block.cta_text && block.cta_url && (
+                    {displayBlock.cta_text && displayBlock.cta_url && (
                         <a
-                            href={block.cta_url}
+                            href={displayBlock.cta_url}
                             className={styles.ctaBtn}
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            {block.cta_text}
+                            {displayBlock.cta_text}
                         </a>
                     )}
                 </div>

@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { ChevronUp, Info, Package, Search } from "lucide-react";
-import type { ResolvedAllergen, ResolvedIngredient } from "@/types/resolvedCollections";
+import { Info, Package, Plus, Search } from "lucide-react";
+import type {
+    ResolvedAllergen,
+    ResolvedIngredient,
+    V2FeaturedContent
+} from "@/types/resolvedCollections";
+import type { HubTab } from "@/types/collectionStyle";
 import Text from "@/components/ui/Text/Text";
 import { Pill } from "@/components/ui/Pill/Pill";
 // NOTE: CollectionHero e PublicBrandHeader sono sostituiti da PublicCollectionHeader.
@@ -15,6 +20,8 @@ import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
 import type { CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
 import ItemDetail from "../ItemDetail/ItemDetail";
+import SelectionSheet, { type SelectionItem } from "../SelectionSheet/SelectionSheet";
+import ReviewsView, { type ReviewsViewProps } from "../ReviewsView/ReviewsView";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 
 type SectionNavItem = { id: string; name: string };
@@ -121,6 +128,8 @@ type ProductRowProps = {
     optionGroups?: CollectionViewSectionItem["optionGroups"];
     attributes?: CollectionViewSectionItem["attributes"];
     allergens?: ResolvedAllergen[];
+    onAddToSelection?: () => void;
+    selectionQty?: number;
 };
 
 function ProductRow({
@@ -137,7 +146,9 @@ function ProductRow({
     onClick,
     optionGroups,
     attributes,
-    allergens
+    allergens,
+    onAddToSelection,
+    selectionQty = 0
 }: ProductRowProps) {
     const hasConfigurations = optionGroups?.some(g => g.group_kind === "ADDON") ?? false;
     const hasAttributes = (attributes?.length ?? 0) > 0;
@@ -238,10 +249,7 @@ function ProductRow({
                 {hasAllergens && (
                     <div className={styles.allergenEmojis}>
                         {visibleAllergens.map(a => (
-                            <span
-                                key={a.id}
-                                className={styles.allergenEmoji}
-                            >
+                            <span key={a.id} className={styles.allergenEmoji}>
                                 <AllergenIcon code={a.code} size={20} label={a.label_it} />
                             </span>
                         ))}
@@ -251,6 +259,22 @@ function ProductRow({
                     </div>
                 )}
             </div>
+            {onAddToSelection && (
+                <button
+                    type="button"
+                    className={[styles.addBtn, selectionQty > 0 ? styles.addBtnActive : ""]
+                        .filter(Boolean)
+                        .join(" ")}
+                    onClick={e => {
+                        e.stopPropagation();
+                        onAddToSelection();
+                    }}
+                    aria-label="Aggiungi alla selezione"
+                >
+                    <Plus size={16} strokeWidth={2.5} />
+                    {selectionQty > 0 && <span className={styles.addBtnBadge}>{selectionQty}</span>}
+                </button>
+            )}
         </div>
     );
 }
@@ -266,6 +290,8 @@ type ProductCompactRowProps = {
     description?: string | null;
     onClick: (e: React.MouseEvent) => void;
     allergens?: ResolvedAllergen[];
+    onAddToSelection?: () => void;
+    selectionQty?: number;
 };
 
 function ProductCompactRow({
@@ -276,7 +302,9 @@ function ProductCompactRow({
     originalPrice,
     description,
     onClick,
-    allergens
+    allergens,
+    onAddToSelection,
+    selectionQty = 0
 }: ProductCompactRowProps) {
     const hasAllergens = (allergens?.length ?? 0) > 0;
     const MAX_ALLERGEN_ICONS = 6;
@@ -302,9 +330,7 @@ function ProductCompactRow({
                         </span>
                     )}
                 </div>
-                {description && (
-                    <span className={styles.compactDescription}>{description}</span>
-                )}
+                {description && <span className={styles.compactDescription}>{description}</span>}
                 {hasAllergens && (
                     <div className={styles.compactAllergens}>
                         {visibleAllergens.map(a => (
@@ -318,6 +344,78 @@ function ProductCompactRow({
                     </div>
                 )}
             </div>
+            {onAddToSelection && (
+                <button
+                    type="button"
+                    className={[styles.addBtn, selectionQty > 0 ? styles.addBtnActive : ""]
+                        .filter(Boolean)
+                        .join(" ")}
+                    onClick={e => {
+                        e.stopPropagation();
+                        onAddToSelection();
+                    }}
+                    aria-label="Aggiungi alla selezione"
+                >
+                    <Plus size={15} strokeWidth={2.5} />
+                    {selectionQty > 0 && <span className={styles.addBtnBadge}>{selectionQty}</span>}
+                </button>
+            )}
+        </div>
+    );
+}
+
+// ─── Hub tab views ────────────────────────────────────────────────────────────
+
+function EventsView({ featuredContents }: { featuredContents: V2FeaturedContent[] }) {
+    if (featuredContents.length === 0) {
+        return (
+            <div className={styles.hubEmptyState}>
+                <Text variant="body" colorVariant="muted">
+                    Nessun evento o promozione disponibile al momento.
+                </Text>
+            </div>
+        );
+    }
+
+    return (
+        <div className={styles.eventsContainer}>
+            {featuredContents.map(fc => (
+                <div key={fc.id} className={styles.eventCard}>
+                    {fc.media_id && (
+                        <img
+                            src={fc.media_id}
+                            alt={fc.title}
+                            className={styles.eventCardImage}
+                            loading="lazy"
+                        />
+                    )}
+                    <div className={styles.eventCardContent}>
+                        <Text variant="title-sm" weight={700} className={styles.eventCardTitle}>
+                            {fc.title}
+                        </Text>
+                        {fc.subtitle && (
+                            <Text variant="body-sm" colorVariant="muted">
+                                {fc.subtitle}
+                            </Text>
+                        )}
+                        {fc.description && (
+                            <Text variant="body" className={styles.eventCardDescription}>
+                                {fc.description}
+                            </Text>
+                        )}
+                        {fc.cta_text && fc.cta_url && (
+                            <a
+                                href={fc.cta_url}
+                                className={styles.eventCardCta}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                {fc.cta_text}
+                            </a>
+                        )}
+                    </div>
+                </div>
+            ))}
         </div>
     );
 }
@@ -327,8 +425,8 @@ function ProductCompactRow({
 // VISUAL_GAP: breathing room sotto la barra sticky
 // SCROLL_OFFSET e STICKY_OFFSET sono ora calcolati dinamicamente in base
 // all'altezza reale del compact header (via compactHeaderHeightRef).
-const NAV_HEIGHT = 56;  // CollectionSectionNav (~3.5rem)
-const VISUAL_GAP = 16;  // breathing room below sticky bar
+const NAV_HEIGHT = 56; // CollectionSectionNav (~3.5rem)
+const VISUAL_GAP = 16; // breathing room below sticky bar
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type SocialLinks = {
@@ -370,6 +468,14 @@ type Props = {
     activityAddress?: string | null;
     /** Link social dell'attività (opzionale, mostrati nel footer). */
     socialLinks?: SocialLinks;
+    /** Hub navigation tab attiva. Default "menu" (solo public). */
+    activeTab?: HubTab;
+    /** Callback per cambio tab. */
+    onTabChange?: (tab: HubTab) => void;
+    /** Tutti i featured contents (hero + before_catalog + after_catalog) per la vista eventi. */
+    featuredContents?: V2FeaturedContent[];
+    /** Props per il tab ReviewsView (solo public). */
+    reviewsProps?: ReviewsViewProps;
 };
 
 export default function CollectionView({
@@ -386,7 +492,11 @@ export default function CollectionView({
     tenantLogoUrl,
     scrollContainerEl,
     activityAddress,
-    socialLinks
+    socialLinks,
+    activeTab = "menu",
+    onTabChange,
+    featuredContents = [],
+    reviewsProps
 }: Props) {
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
         () => sections[0]?.id ?? null
@@ -403,12 +513,45 @@ export default function CollectionView({
     const handleOpenSearch = useCallback(() => setIsSearchOpen(true), []);
     const handleCloseSearch = useCallback(() => setIsSearchOpen(false), []);
 
+    // ── Selezione prodotti ──────────────────────────────────────────────────
+    const [selection, setSelection] = useState<SelectionItem[]>([]);
+    const [isSelectionOpen, setIsSelectionOpen] = useState(false);
+
+    const selectionCount = useMemo(() => selection.reduce((s, i) => s + i.qty, 0), [selection]);
+
+    // Map id → qty per lookups O(1) nel render
+    const selectionMap = useMemo(() => {
+        const map: Record<string, number> = {};
+        selection.forEach(s => {
+            map[s.id] = s.qty;
+        });
+        return map;
+    }, [selection]);
+
+    const addToSelection = useCallback((id: string, name: string, price: number) => {
+        setSelection(prev => {
+            const existing = prev.find(i => i.id === id);
+            if (existing) {
+                return prev.map(i => (i.id === id ? { ...i, qty: i.qty + 1 } : i));
+            }
+            return [...prev, { id, name, price, qty: 1 }];
+        });
+    }, []);
+
+    const updateSelectionQty = useCallback((id: string, qty: number) => {
+        setSelection(prev => prev.map(i => (i.id === id ? { ...i, qty } : i)));
+    }, []);
+
+    const removeFromSelection = useCallback((id: string) => {
+        setSelection(prev => prev.filter(i => i.id !== id));
+    }, []);
+
+    const clearSelection = useCallback(() => setSelection([]), []);
+
     // ── Compact header state ────────────────────────────────────────────────
     // isCompactHeaderVisible: true = compact bar è visibile (nav deve scendere)
     // compactHeaderHeight: altezza reale del compact bar (aggiornata da ResizeObserver)
-    const [isCompactHeaderVisible, setIsCompactHeaderVisible] = useState(
-        !style.showCoverImage
-    );
+    const [isCompactHeaderVisible, setIsCompactHeaderVisible] = useState(!style.showCoverImage);
     const [compactHeaderHeight, setCompactHeaderHeight] = useState(0);
     // Ref per leggere l'altezza aggiornata nelle closure del scroll listener
     // senza dover ricreare l'effect ad ogni cambio di altezza.
@@ -433,11 +576,12 @@ export default function CollectionView({
         const h = 60;
         compactHeaderHeightRef.current = h;
         setCompactHeaderHeight(h);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mode]);
 
-    // ── Scroll-to-top ───────────────────────────────────────────────────────
-    const [showScrollToTop, setShowScrollToTop] = useState(false);
+    // ── Valuta FAB ──────────────────────────────────────────────────────────
+    const [valutaVisible, setValutaVisible] = useState(false);
+    const [valutaExpanded, setValutaExpanded] = useState(false);
 
     // ── Keep first section active when sections load asynchronously ─────────
     useEffect(() => {
@@ -445,6 +589,21 @@ export default function CollectionView({
             setActiveSectionId(sections[0].id);
         }
     }, [activeSectionId, sections]);
+
+    // ── Chiudi il dettaglio prodotto al cambio di tab ────────────────────────
+    useEffect(() => {
+        setSelectedItem(null);
+    }, [activeTab]);
+
+    // ── Valuta FAB: delay 3s, reset al cambio tab ────────────────────────────
+    useEffect(() => {
+        if (mode !== "public") return;
+        setValutaVisible(false);
+        setValutaExpanded(false);
+        if (activeTab !== "menu") return;
+        const timer = setTimeout(() => setValutaVisible(true), 3000);
+        return () => clearTimeout(timer);
+    }, [activeTab, mode]);
 
     // ── Main scroll effect: section tracking + scroll-to-top visibility ─────
     useEffect(() => {
@@ -506,14 +665,6 @@ export default function CollectionView({
 
         function handleScroll() {
             computeActiveSection();
-            // Scroll-to-top: visibile solo in mode="public"
-            if (mode === "public") {
-                const scrollTop =
-                    container === window
-                        ? window.scrollY
-                        : (container as HTMLElement).scrollTop;
-                setShowScrollToTop(scrollTop > 300);
-            }
         }
 
         computeActiveSection();
@@ -549,8 +700,7 @@ export default function CollectionView({
         if (!el) return;
 
         // Offset dinamico: compact header + nav + gap
-        const dynamicScrollOffset =
-            compactHeaderHeightRef.current + NAV_HEIGHT + VISUAL_GAP;
+        const dynamicScrollOffset = compactHeaderHeightRef.current + NAV_HEIGHT + VISUAL_GAP;
 
         const container = containerRef.current;
 
@@ -568,25 +718,12 @@ export default function CollectionView({
         }
     };
 
-    // ── Scroll to top handler ───────────────────────────────────────────────
-    const handleScrollToTop = useCallback(() => {
-        const container = containerRef.current;
-        if (container === window) {
-            window.scrollTo({ top: 0, behavior: "smooth" });
-        } else {
-            (container as HTMLElement).scrollTo({ top: 0, behavior: "smooth" });
-        }
-    }, []);
-
     // ── Derived values for render ───────────────────────────────────────────
     const hasHeader =
         style.showLogo || style.showCoverImage || style.showActivityName || style.showCatalogName;
 
     return (
-        <main
-            className={styles.page}
-            ref={pageRef}
-        >
+        <main className={styles.page} ref={pageRef}>
             {/* Skip link (solo public) */}
             {mode === "public" && (
                 <a className={styles.skipLink} href={`#${contentId}`}>
@@ -610,6 +747,8 @@ export default function CollectionView({
                     onCompactVisibilityChange={handleCompactVisibilityChange}
                     onCompactHeightChange={handleCompactHeightChange}
                     scrollContainerEl={scrollContainerEl}
+                    activeTab={activeTab}
+                    onTabChange={onTabChange ?? (() => {})}
                 />
             )}
 
@@ -624,12 +763,14 @@ export default function CollectionView({
                         className={[
                             styles.previewHdrBar,
                             isCompactHeaderVisible ? styles.previewHdrBarVisible : ""
-                        ].filter(Boolean).join(" ")}
+                        ]
+                            .filter(Boolean)
+                            .join(" ")}
                         ref={previewCompactBarRef}
                     >
                         <div className={styles.previewHdrInner}>
-                            {style.showLogo && (
-                                tenantLogoUrl ? (
+                            {style.showLogo &&
+                                (tenantLogoUrl ? (
                                     <div className={styles.previewHdrLogoWrapper}>
                                         <img
                                             src={tenantLogoUrl}
@@ -639,8 +780,7 @@ export default function CollectionView({
                                     </div>
                                 ) : (
                                     <div className={styles.previewHdrLogoPlaceholder} />
-                                )
-                            )}
+                                ))}
                             <span className={styles.previewHdrName}>{businessName}</span>
                             <button
                                 type="button"
@@ -674,244 +814,463 @@ export default function CollectionView({
                 />
             )}
 
-            {featuredHeroSlot}
+            {activeTab === "menu" && (
+                <>
+                    {featuredHeroSlot}
 
-            {/* ── NAV – sticky, topOffset dinamico ── */}
-            {!emptyState && (
-                <CollectionSectionNav
-                    sections={navItems}
-                    activeSectionId={activeSectionId}
-                    onSelect={scrollToSection}
-                    variant={mode === "public" ? "public" : "preview"}
-                    style={{
-                        shape: style.sectionNavShape,
-                        navStyle: style.sectionNavStyle
-                    }}
-                    topOffset={isCompactHeaderVisible ? compactHeaderHeight : 0}
-                />
-            )}
+                    {/* ── NAV – sticky, topOffset dinamico ── */}
+                    {!emptyState && (
+                        <CollectionSectionNav
+                            sections={navItems}
+                            activeSectionId={activeSectionId}
+                            onSelect={scrollToSection}
+                            variant={mode === "public" ? "public" : "preview"}
+                            style={{
+                                shape: style.sectionNavShape,
+                                navStyle: style.sectionNavStyle
+                            }}
+                            topOffset={isCompactHeaderVisible ? compactHeaderHeight : 0}
+                        />
+                    )}
 
-            {/* ── FRAME – contenuto centrato e max-width responsivo ── */}
-            <div className={styles.frame}>
-                {emptyState ? (
-                    <div className={styles.emptyState}>
-                        {emptyState.title && (
-                            <Text as="h2" variant="title-sm" weight={700}>
-                                {emptyState.title}
-                            </Text>
-                        )}
-                        {emptyState.description && (
-                            <Text variant="body" colorVariant="muted">
-                                {emptyState.description}
-                            </Text>
+                    {/* ── FRAME – contenuto centrato e max-width responsivo ── */}
+                    <div className={styles.frame}>
+                        {emptyState ? (
+                            <div className={styles.emptyState}>
+                                {emptyState.title && (
+                                    <Text as="h2" variant="title-sm" weight={700}>
+                                        {emptyState.title}
+                                    </Text>
+                                )}
+                                {emptyState.description && (
+                                    <Text variant="body" colorVariant="muted">
+                                        {emptyState.description}
+                                    </Text>
+                                )}
+                            </div>
+                        ) : (
+                            <>
+                                <div
+                                    id={contentId}
+                                    className={styles.container}
+                                    data-card-layout={style.cardLayout ?? "list"}
+                                >
+                                    {featuredBeforeCatalogSlot}
+                                    {sections.map(section => {
+                                        if (section.items.length === 0) return null;
+
+                                        return (
+                                            <section
+                                                key={section.id}
+                                                data-section-id={section.id}
+                                                ref={el => {
+                                                    sectionRefs.current[section.id] = el;
+                                                }}
+                                                className={styles.section}
+                                                aria-label={section.name}
+                                            >
+                                                <Text as="h2" variant="title-sm" weight={700}>
+                                                    {section.name}
+                                                </Text>
+
+                                                <div className={styles.grid} role="list">
+                                                    {section.items.map(item => {
+                                                        const isDisabled =
+                                                            item.is_disabled === true;
+                                                        return (
+                                                            <article
+                                                                key={item.id}
+                                                                id={`product-${item.id}`}
+                                                                role="listitem"
+                                                                className={
+                                                                    style.productStyle === "compact"
+                                                                        ? `${styles.compactItem}${isDisabled ? ` ${styles.disabledCard}` : ""}`
+                                                                        : `${styles.card}${isDisabled ? ` ${styles.disabledCard}` : ""}`
+                                                                }
+                                                            >
+                                                                {isDisabled &&
+                                                                    style.productStyle !==
+                                                                        "compact" && (
+                                                                        <span
+                                                                            className={
+                                                                                styles.unavailableBadge
+                                                                            }
+                                                                        >
+                                                                            Non disponibile
+                                                                        </span>
+                                                                    )}
+                                                                {/* Case A/B: parent row — only if parentSelected */}
+                                                                {item.parentSelected &&
+                                                                    (style.productStyle ===
+                                                                    "compact" ? (
+                                                                        <ProductCompactRow
+                                                                            name={item.name}
+                                                                            fromPrice={
+                                                                                item.from_price
+                                                                            }
+                                                                            price={item.price}
+                                                                            effectivePrice={
+                                                                                item.effective_price
+                                                                            }
+                                                                            originalPrice={
+                                                                                item.original_price
+                                                                            }
+                                                                            description={
+                                                                                item.description
+                                                                            }
+                                                                            onClick={() =>
+                                                                                setSelectedItem(
+                                                                                    item
+                                                                                )
+                                                                            }
+                                                                            allergens={
+                                                                                item.allergens
+                                                                            }
+                                                                            onAddToSelection={
+                                                                                activeTab === "menu"
+                                                                                    ? () =>
+                                                                                          addToSelection(
+                                                                                              item.id,
+                                                                                              item.name,
+                                                                                              item.effective_price ??
+                                                                                                  item.price ??
+                                                                                                  0
+                                                                                          )
+                                                                                    : undefined
+                                                                            }
+                                                                            selectionQty={
+                                                                                selectionMap[
+                                                                                    item.id
+                                                                                ]
+                                                                            }
+                                                                        />
+                                                                    ) : (
+                                                                        <ProductRow
+                                                                            name={item.name}
+                                                                            fromPrice={
+                                                                                item.from_price
+                                                                            }
+                                                                            price={item.price}
+                                                                            effectivePrice={
+                                                                                item.effective_price
+                                                                            }
+                                                                            originalPrice={
+                                                                                item.original_price
+                                                                            }
+                                                                            description={
+                                                                                item.description
+                                                                            }
+                                                                            image={item.image}
+                                                                            showImage={
+                                                                                style.cardTemplate !==
+                                                                                "no-image"
+                                                                            }
+                                                                            imageRight={
+                                                                                style.cardTemplate ===
+                                                                                "right"
+                                                                            }
+                                                                            mode={mode}
+                                                                            onClick={() =>
+                                                                                setSelectedItem(
+                                                                                    item
+                                                                                )
+                                                                            }
+                                                                            optionGroups={
+                                                                                item.optionGroups
+                                                                            }
+                                                                            attributes={
+                                                                                item.attributes
+                                                                            }
+                                                                            allergens={
+                                                                                item.allergens
+                                                                            }
+                                                                            onAddToSelection={
+                                                                                activeTab === "menu"
+                                                                                    ? () =>
+                                                                                          addToSelection(
+                                                                                              item.id,
+                                                                                              item.name,
+                                                                                              item.effective_price ??
+                                                                                                  item.price ??
+                                                                                                  0
+                                                                                          )
+                                                                                    : undefined
+                                                                            }
+                                                                            selectionQty={
+                                                                                selectionMap[
+                                                                                    item.id
+                                                                                ]
+                                                                            }
+                                                                        />
+                                                                    ))}
+
+                                                                {/* Divider + variants */}
+                                                                {(item.variants?.length ?? 0) >
+                                                                    0 && (
+                                                                    <>
+                                                                        <div
+                                                                            className={
+                                                                                styles.variantsDivider
+                                                                            }
+                                                                        >
+                                                                            {item.parentSelected && (
+                                                                                <span
+                                                                                    className={
+                                                                                        styles.variantsLabel
+                                                                                    }
+                                                                                >
+                                                                                    Varianti
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+
+                                                                        {item.variants!.map(v =>
+                                                                            style.productStyle ===
+                                                                            "compact" ? (
+                                                                                <ProductCompactRow
+                                                                                    key={v.id}
+                                                                                    name={v.name}
+                                                                                    price={v.price}
+                                                                                    originalPrice={
+                                                                                        v.original_price
+                                                                                    }
+                                                                                    fromPrice={
+                                                                                        v.from_price
+                                                                                    }
+                                                                                    description={
+                                                                                        v.description
+                                                                                    }
+                                                                                    onClick={e => {
+                                                                                        e.stopPropagation();
+                                                                                        setSelectedItem(
+                                                                                            {
+                                                                                                id: v.id,
+                                                                                                name: v.name,
+                                                                                                parentSelected: true,
+                                                                                                price:
+                                                                                                    v.price ??
+                                                                                                    null,
+                                                                                                original_price:
+                                                                                                    v.original_price ??
+                                                                                                    null,
+                                                                                                from_price:
+                                                                                                    v.from_price ??
+                                                                                                    null,
+                                                                                                image:
+                                                                                                    v.image ??
+                                                                                                    null,
+                                                                                                description:
+                                                                                                    v.description ??
+                                                                                                    null,
+                                                                                                ...(v.optionGroups &&
+                                                                                                v
+                                                                                                    .optionGroups
+                                                                                                    .length >
+                                                                                                    0
+                                                                                                    ? {
+                                                                                                          optionGroups:
+                                                                                                              v.optionGroups
+                                                                                                      }
+                                                                                                    : {}),
+                                                                                                ...(item.ingredients &&
+                                                                                                item
+                                                                                                    .ingredients
+                                                                                                    .length >
+                                                                                                    0
+                                                                                                    ? {
+                                                                                                          ingredients:
+                                                                                                              item.ingredients
+                                                                                                      }
+                                                                                                    : {})
+                                                                                            }
+                                                                                        );
+                                                                                    }}
+                                                                                    onAddToSelection={
+                                                                                        activeTab ===
+                                                                                        "menu"
+                                                                                            ? () =>
+                                                                                                  addToSelection(
+                                                                                                      v.id,
+                                                                                                      v.name,
+                                                                                                      v.price ??
+                                                                                                          0
+                                                                                                  )
+                                                                                            : undefined
+                                                                                    }
+                                                                                    selectionQty={
+                                                                                        selectionMap[
+                                                                                            v.id
+                                                                                        ]
+                                                                                    }
+                                                                                />
+                                                                            ) : (
+                                                                                <ProductRow
+                                                                                    key={v.id}
+                                                                                    name={v.name}
+                                                                                    price={v.price}
+                                                                                    originalPrice={
+                                                                                        v.original_price
+                                                                                    }
+                                                                                    fromPrice={
+                                                                                        v.from_price
+                                                                                    }
+                                                                                    description={
+                                                                                        v.description
+                                                                                    }
+                                                                                    image={v.image}
+                                                                                    showImage={
+                                                                                        style.cardTemplate !==
+                                                                                        "no-image"
+                                                                                    }
+                                                                                    imageRight={
+                                                                                        style.cardTemplate ===
+                                                                                        "right"
+                                                                                    }
+                                                                                    mode={mode}
+                                                                                    optionGroups={
+                                                                                        v.optionGroups
+                                                                                    }
+                                                                                    onClick={e => {
+                                                                                        e.stopPropagation();
+                                                                                        setSelectedItem(
+                                                                                            {
+                                                                                                id: v.id,
+                                                                                                name: v.name,
+                                                                                                parentSelected: true,
+                                                                                                price:
+                                                                                                    v.price ??
+                                                                                                    null,
+                                                                                                original_price:
+                                                                                                    v.original_price ??
+                                                                                                    null,
+                                                                                                from_price:
+                                                                                                    v.from_price ??
+                                                                                                    null,
+                                                                                                image:
+                                                                                                    v.image ??
+                                                                                                    null,
+                                                                                                description:
+                                                                                                    v.description ??
+                                                                                                    null,
+                                                                                                ...(v.optionGroups &&
+                                                                                                v
+                                                                                                    .optionGroups
+                                                                                                    .length >
+                                                                                                    0
+                                                                                                    ? {
+                                                                                                          optionGroups:
+                                                                                                              v.optionGroups
+                                                                                                      }
+                                                                                                    : {}),
+                                                                                                ...(item.ingredients &&
+                                                                                                item
+                                                                                                    .ingredients
+                                                                                                    .length >
+                                                                                                    0
+                                                                                                    ? {
+                                                                                                          ingredients:
+                                                                                                              item.ingredients
+                                                                                                      }
+                                                                                                    : {})
+                                                                                            }
+                                                                                        );
+                                                                                    }}
+                                                                                    onAddToSelection={
+                                                                                        activeTab ===
+                                                                                        "menu"
+                                                                                            ? () =>
+                                                                                                  addToSelection(
+                                                                                                      v.id,
+                                                                                                      v.name,
+                                                                                                      v.price ??
+                                                                                                          0
+                                                                                                  )
+                                                                                            : undefined
+                                                                                    }
+                                                                                    selectionQty={
+                                                                                        selectionMap[
+                                                                                            v.id
+                                                                                        ]
+                                                                                    }
+                                                                                />
+                                                                            )
+                                                                        )}
+                                                                    </>
+                                                                )}
+                                                            </article>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </section>
+                                        );
+                                    })}
+                                </div>
+
+                                <ItemDetail
+                                    item={selectedItem}
+                                    isOpen={!!selectedItem}
+                                    onClose={() => setSelectedItem(null)}
+                                    mode={mode}
+                                />
+
+                                <SelectionSheet
+                                    isOpen={isSelectionOpen}
+                                    onClose={() => setIsSelectionOpen(false)}
+                                    items={selection}
+                                    onUpdateQty={updateSelectionQty}
+                                    onRemove={removeFromSelection}
+                                    onClear={clearSelection}
+                                />
+                            </>
                         )}
                     </div>
-                ) : (
-                    <>
-                        <div
-                            id={contentId}
-                            className={styles.container}
-                            data-card-layout={style.cardLayout ?? "list"}
-                        >
-                            {featuredBeforeCatalogSlot}
-                            {sections.map(section => {
-                                if (section.items.length === 0) return null;
 
-                                return (
-                                    <section
-                                        key={section.id}
-                                        data-section-id={section.id}
-                                        ref={el => {
-                                            sectionRefs.current[section.id] = el;
-                                        }}
-                                        className={styles.section}
-                                        aria-label={section.name}
-                                    >
-                                        <Text as="h2" variant="title-sm" weight={700}>
-                                            {section.name}
-                                        </Text>
+                    {/* ── FOOTER ── */}
+                    {!emptyState && <PublicFooter socialLinks={socialLinks} />}
+                </>
+            )}
 
-                                        <div className={styles.grid} role="list">
-                                            {section.items.map(item => {
-                                                const isDisabled = item.is_disabled === true;
-                                                return (
-                                                <article
-                                                    key={item.id}
-                                                    id={`product-${item.id}`}
-                                                    role="listitem"
-                                                    className={
-                                                        style.productStyle === "compact"
-                                                            ? `${styles.compactItem}${isDisabled ? ` ${styles.disabledCard}` : ""}`
-                                                            : `${styles.card}${isDisabled ? ` ${styles.disabledCard}` : ""}`
-                                                    }
-                                                >
-                                                    {isDisabled && style.productStyle !== "compact" && (
-                                                        <span className={styles.unavailableBadge}>
-                                                            Non disponibile
-                                                        </span>
-                                                    )}
-                                                    {/* Case A/B: parent row — only if parentSelected */}
-                                                    {item.parentSelected && (
-                                                        style.productStyle === "compact" ? (
-                                                            <ProductCompactRow
-                                                                name={item.name}
-                                                                fromPrice={item.from_price}
-                                                                price={item.price}
-                                                                effectivePrice={item.effective_price}
-                                                                originalPrice={item.original_price}
-                                                                description={item.description}
-                                                                onClick={() => setSelectedItem(item)}
-                                                                allergens={item.allergens}
-                                                            />
-                                                        ) : (
-                                                        <ProductRow
-                                                            name={item.name}
-                                                            fromPrice={item.from_price}
-                                                            price={item.price}
-                                                            effectivePrice={item.effective_price}
-                                                            originalPrice={item.original_price}
-                                                            description={item.description}
-                                                            image={item.image}
-                                                            showImage={
-                                                                style.cardTemplate !== "no-image"
-                                                            }
-                                                            imageRight={style.cardTemplate === "right"}
-                                                            mode={mode}
-                                                            onClick={() => setSelectedItem(item)}
-                                                            optionGroups={item.optionGroups}
-                                                            attributes={item.attributes}
-                                                            allergens={item.allergens}
-                                                        />
-                                                        )
-                                                    )}
+            {activeTab === "events" && <EventsView featuredContents={featuredContents} />}
 
-                                                    {/* Divider + variants */}
-                                                    {(item.variants?.length ?? 0) > 0 && (
-                                                        <>
-                                                            <div className={styles.variantsDivider}>
-                                                                {item.parentSelected && (
-                                                                    <span
-                                                                        className={
-                                                                            styles.variantsLabel
-                                                                        }
-                                                                    >
-                                                                        Varianti
-                                                                    </span>
-                                                                )}
-                                                            </div>
+            {activeTab === "reviews" && reviewsProps && <ReviewsView {...reviewsProps} />}
 
-                                                            {item.variants!.map(v => (
-                                                                style.productStyle === "compact" ? (
-                                                                    <ProductCompactRow
-                                                                        key={v.id}
-                                                                        name={v.name}
-                                                                        price={v.price}
-                                                                        originalPrice={v.original_price}
-                                                                        fromPrice={v.from_price}
-                                                                        description={v.description}
-                                                                        onClick={e => {
-                                                                            e.stopPropagation();
-                                                                            setSelectedItem({
-                                                                                id: v.id,
-                                                                                name: v.name,
-                                                                                parentSelected: true,
-                                                                                price: v.price ?? null,
-                                                                                original_price: v.original_price ?? null,
-                                                                                from_price: v.from_price ?? null,
-                                                                                image: v.image ?? null,
-                                                                                description: v.description ?? null,
-                                                                                ...(v.optionGroups && v.optionGroups.length > 0 ? { optionGroups: v.optionGroups } : {}),
-                                                                                ...(item.ingredients && item.ingredients.length > 0 ? { ingredients: item.ingredients } : {})
-                                                                            });
-                                                                        }}
-                                                                    />
-                                                                ) : (
-                                                                <ProductRow
-                                                                    key={v.id}
-                                                                    name={v.name}
-                                                                    price={v.price}
-                                                                    originalPrice={v.original_price}
-                                                                    fromPrice={v.from_price}
-                                                                    description={v.description}
-                                                                    image={v.image}
-                                                                    showImage={
-                                                                        style.cardTemplate !==
-                                                                        "no-image"
-                                                                    }
-                                                                    imageRight={style.cardTemplate === "right"}
-                                                                    mode={mode}
-                                                                    optionGroups={v.optionGroups}
-                                                                    onClick={e => {
-                                                                        e.stopPropagation();
-                                                                        setSelectedItem({
-                                                                            id: v.id,
-                                                                            name: v.name,
-                                                                            parentSelected: true,
-                                                                            price: v.price ?? null,
-                                                                            original_price:
-                                                                                v.original_price ??
-                                                                                null,
-                                                                            from_price:
-                                                                                v.from_price ??
-                                                                                null,
-                                                                            image: v.image ?? null,
-                                                                            description:
-                                                                                v.description ??
-                                                                                null,
-                                                                            ...(v.optionGroups &&
-                                                                            v.optionGroups.length >
-                                                                                0
-                                                                                ? {
-                                                                                      optionGroups:
-                                                                                          v.optionGroups
-                                                                                  }
-                                                                                : {}),
-                                                                            ...(item.ingredients &&
-                                                                            item.ingredients.length >
-                                                                                0
-                                                                                ? {
-                                                                                      ingredients:
-                                                                                          item.ingredients
-                                                                                  }
-                                                                                : {})
-                                                                        });
-                                                                    }}
-                                                                />
-                                                                )
-                                                            ))}
-                                                        </>
-                                                    )}
-                                                </article>
-                                                );
-                                            })}
-                                        </div>
-                                    </section>
-                                );
-                            })}
-                        </div>
-
-                        <ItemDetail
-                            item={selectedItem}
-                            isOpen={!!selectedItem}
-                            onClose={() => setSelectedItem(null)}
-                            mode={mode}
-                        />
-                    </>
-                )}
-            </div>
-
-            {/* ── FOOTER ── */}
-            {!emptyState && <PublicFooter socialLinks={socialLinks} />}
-
-            {/* ── SCROLL TO TOP — solo mode="public" ── */}
-            {mode === "public" && showScrollToTop && (
+            {/* ── FAB SELEZIONE — solo public, solo tab menu, quando c'è almeno 1 elemento ── */}
+            {mode === "public" && activeTab === "menu" && selectionCount > 0 && (
                 <button
                     type="button"
-                    className={styles.scrollToTopBtn}
-                    onClick={handleScrollToTop}
-                    aria-label="Torna in cima"
+                    className={styles.selectionFab}
+                    style={{ bottom: `calc(20px + env(safe-area-inset-bottom, 0px))` }}
+                    onClick={() => setIsSelectionOpen(true)}
+                    aria-label={`La mia selezione, ${selectionCount} elementi`}
                 >
-                    <ChevronUp size={20} strokeWidth={2.5} />
+                    La mia selezione
+                    <span className={styles.selectionFabBadge}>{selectionCount}</span>
+                </button>
+            )}
+
+            {/* ── VALUTA FAB — slide-in dopo 3s, solo public + tab menu ── */}
+            {mode === "public" && activeTab === "menu" && (
+                <button
+                    type="button"
+                    className={[
+                        styles.valutaFab,
+                        valutaVisible ? styles.valutaFabVisible : "",
+                        valutaExpanded ? styles.valutaFabExpanded : ""
+                    ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    style={{ bottom: `calc(20px + env(safe-area-inset-bottom, 0px))` }}
+                    onClick={() => {
+                        if (!valutaExpanded) {
+                            setValutaExpanded(true);
+                        } else {
+                            onTabChange?.("reviews");
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                        }
+                    }}
+                    aria-label="Com'è andata?"
+                >
+                    ⭐<span className={styles.valutaFabText}>Com'è andata?</span>
                 </button>
             )}
         </main>

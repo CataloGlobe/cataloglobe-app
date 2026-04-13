@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { ImageIcon, Search } from "lucide-react";
+import type { HubTab } from "@/types/collectionStyle";
+import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
+
+const HUB_TABS: { id: HubTab; label: string }[] = [
+    { id: "menu", label: "📋 Menu" },
+    { id: "events", label: "🎉 Eventi & Promo" },
+    { id: "reviews", label: "⭐ Dicci la tua" },
+];
 
 export type PublicCollectionHeaderProps = {
     logoUrl?: string | null;
@@ -23,6 +31,10 @@ export type PublicCollectionHeaderProps = {
     onCompactHeightChange?: (height: number) => void;
     /** Scroll container della preview (deviceScreen). Non usato in public. */
     scrollContainerEl?: HTMLElement | null;
+    /** Hub navigation tab attiva. */
+    activeTab: HubTab;
+    /** Callback per cambio tab. */
+    onTabChange: (tab: HubTab) => void;
 };
 
 export default function PublicCollectionHeader({
@@ -38,7 +50,9 @@ export default function PublicCollectionHeader({
     onSearchOpen,
     onCompactVisibilityChange,
     onCompactHeightChange,
-    scrollContainerEl
+    scrollContainerEl,
+    activeTab,
+    onTabChange
 }: PublicCollectionHeaderProps) {
     const heroAreaRef = useRef<HTMLDivElement | null>(null);
     const compactBarRef = useRef<HTMLDivElement | null>(null);
@@ -152,40 +166,60 @@ export default function PublicCollectionHeader({
 
                     {/* Card sovrapposta al hero */}
                     <div className={styles.infoCard}>
-                        {showLogo && (
-                            <>
-                                {logoUrl ? (
-                                    <div className={styles.infoCardLogoWrapper}>
-                                        <img
-                                            src={logoUrl}
-                                            alt={`Logo ${activityName}`}
-                                            className={styles.infoCardLogo}
-                                        />
-                                    </div>
-                                ) : mode === "preview" ? (
-                                    <div className={styles.infoCardLogoPlaceholder} />
-                                ) : null}
-                            </>
-                        )}
+                        <div className={styles.infoCardTopRow}>
+                            {showLogo && (
+                                <>
+                                    {logoUrl ? (
+                                        <div className={styles.infoCardLogoWrapper}>
+                                            <img
+                                                src={logoUrl}
+                                                alt={`Logo ${activityName}`}
+                                                className={styles.infoCardLogo}
+                                            />
+                                        </div>
+                                    ) : mode === "preview" ? (
+                                        <div className={styles.infoCardLogoPlaceholder} />
+                                    ) : null}
+                                </>
+                            )}
 
-                        <div className={styles.infoCardText}>
-                            <span className={styles.infoCardName}>{activityName}</span>
-                            {activityAddress && (
-                                <span className={styles.infoCardAddress}>{activityAddress}</span>
-                            )}
-                            {showCatalogName && catalogName && (
-                                <span className={styles.infoCardCatalogName}>{catalogName}</span>
-                            )}
+                            <div className={styles.infoCardText}>
+                                <span className={styles.infoCardName}>{activityName}</span>
+                                {activityAddress && (
+                                    <span className={styles.infoCardAddress}>{activityAddress}</span>
+                                )}
+                                {showCatalogName && catalogName && (
+                                    <span className={styles.infoCardCatalogName}>{catalogName}</span>
+                                )}
+                            </div>
+
+                            <LanguageSelector variant="hero" />
+
+                            <button
+                                type="button"
+                                className={styles.infoCardSearchBtn}
+                                onClick={onSearchOpen}
+                                aria-label="Cerca nel catalogo"
+                            >
+                                <Search size={15} strokeWidth={2} />
+                            </button>
                         </div>
 
-                        <button
-                            type="button"
-                            className={styles.infoCardSearchBtn}
-                            onClick={onSearchOpen}
-                            aria-label="Cerca nel catalogo"
-                        >
-                            <Search size={15} strokeWidth={2} />
-                        </button>
+                        <div className={styles.infoCardChips}>
+                            {HUB_TABS.map(t => (
+                                <button
+                                    key={t.id}
+                                    type="button"
+                                    className={[
+                                        styles.infoCardChip,
+                                        activeTab === t.id ? styles.infoCardChipActive : ""
+                                    ].filter(Boolean).join(" ")}
+                                    onClick={() => onTabChange(t.id)}
+                                >
+                                    {t.label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
             )}
@@ -204,30 +238,50 @@ export default function PublicCollectionHeader({
                 <div className={styles.compactAnchor}>
                     <div className={compactBarClass} ref={compactBarRef}>
                         <div className={styles.compactInner}>
-                            {showLogo && (
-                                <>
-                                    {logoUrl ? (
-                                        <div className={styles.compactLogoWrapper}>
-                                            <img
-                                                src={logoUrl}
-                                                alt={`Logo ${activityName}`}
-                                                className={styles.compactLogo}
-                                            />
-                                        </div>
-                                    ) : null}
-                                </>
-                            )}
+                            <div className={styles.compactTopRow}>
+                                {showLogo && (
+                                    <>
+                                        {logoUrl ? (
+                                            <div className={styles.compactLogoWrapper}>
+                                                <img
+                                                    src={logoUrl}
+                                                    alt={`Logo ${activityName}`}
+                                                    className={styles.compactLogo}
+                                                />
+                                            </div>
+                                        ) : null}
+                                    </>
+                                )}
 
-                            <span className={styles.compactName}>{activityName}</span>
+                                <span className={styles.compactName}>{activityName}</span>
 
-                            <button
-                                type="button"
-                                className={styles.compactSearchBtn}
-                                onClick={onSearchOpen}
-                                aria-label="Cerca nel catalogo"
-                            >
-                                <Search size={16} strokeWidth={2} />
-                            </button>
+                                <LanguageSelector variant="compact" />
+
+                                <button
+                                    type="button"
+                                    className={styles.compactSearchBtn}
+                                    onClick={onSearchOpen}
+                                    aria-label="Cerca nel catalogo"
+                                >
+                                    <Search size={16} strokeWidth={2} />
+                                </button>
+                            </div>
+
+                            <div className={styles.compactChips}>
+                                {HUB_TABS.map(t => (
+                                    <button
+                                        key={t.id}
+                                        type="button"
+                                        className={[
+                                            styles.compactChip,
+                                            activeTab === t.id ? styles.compactChipActive : ""
+                                        ].filter(Boolean).join(" ")}
+                                        onClick={() => onTabChange(t.id)}
+                                    >
+                                        {t.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>

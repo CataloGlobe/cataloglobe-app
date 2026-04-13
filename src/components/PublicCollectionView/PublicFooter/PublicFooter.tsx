@@ -177,8 +177,6 @@ export default function PublicFooter({ socialLinks }: Props) {
                 </div>
             )}
 
-            <hr className={styles.separator} />
-
             {/* Powered by CataloGlobe */}
             <a
                 href="https://cataloglobe.com"
@@ -194,22 +192,22 @@ export default function PublicFooter({ socialLinks }: Props) {
                 </div>
             </a>
 
-            <hr className={styles.separator} />
-
             {/* Legal links */}
             <div className={styles.legalRow}>
                 <a
-                    href="#"
+                    href="/legal/privacy"
                     className={styles.legalLink}
-                    onClick={e => e.preventDefault()}
+                    target="_blank"
+                    rel="noopener noreferrer"
                 >
                     Privacy Policy
                 </a>
                 <span className={styles.legalDot} aria-hidden>·</span>
                 <a
-                    href="#"
+                    href="/legal/termini"
                     className={styles.legalLink}
-                    onClick={e => e.preventDefault()}
+                    target="_blank"
+                    rel="noopener noreferrer"
                 >
                     Termini e Condizioni
                 </a>

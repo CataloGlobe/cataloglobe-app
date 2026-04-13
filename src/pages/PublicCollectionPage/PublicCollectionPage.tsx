@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import CollectionView, {
     type CollectionViewSection,
     type CollectionViewSectionItem
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
+import type { HubTab } from "@/types/collectionStyle";
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 
 import { supabase } from "@/services/supabase/client";
@@ -19,6 +20,7 @@ import { DEFAULT_COLLECTION_STYLE } from "@/types/collectionStyle";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import NotFound from "../NotFound/NotFound";
 import { getDisplayValue } from "@/utils/attributes";
+// reviews_summary and recent_reviews still returned by edge function — unused in frontend for now
 
 /* ===============================================
    DATA MAPPING
@@ -147,12 +149,14 @@ type PublicBusiness = {
     phone_public: boolean;
     email_public: string | null;
     email_public_visible: boolean;
+    google_review_url: string | null;
 };
 
 type PageState =
     | { status: "loading" }
     | { status: "error"; message: string }
     | { status: "inactive"; inactiveReason: string | null }
+    | { status: "subscription_inactive" }
     | {
           status: "ready";
           business: PublicBusiness;
@@ -209,13 +213,25 @@ export default function PublicCollectionPage() {
 
                 if (error) throw error;
 
-                const { business, tenantLogoUrl, resolved } = data as {
+                const {
+                    business,
+                    tenantLogoUrl,
+                    resolved,
+                    subscription_inactive,
+                } = data as {
                     business: PublicBusiness;
                     tenantLogoUrl: string | null;
                     resolved: ResolvedCollections;
+                    subscription_inactive?: boolean;
                 };
                 // TODO: rimuovere dopo diagnosi social
                 console.log("[PublicCollectionPage] business ricevuto:", JSON.stringify(business, null, 2));
+
+                // Subscription not active — show unavailable page
+                if (subscription_inactive) {
+                    setState({ status: "subscription_inactive" });
+                    return;
+                }
 
                 // Inactive venue
                 if (business.status !== "active") {
@@ -239,7 +255,12 @@ export default function PublicCollectionPage() {
                     return;
                 }
 
-                setState({ status: "ready", business, resolved, tenantLogoUrl });
+                setState({
+                    status: "ready",
+                    business,
+                    resolved,
+                    tenantLogoUrl,
+                });
             } catch (err) {
                 if (cancelled) return;
                 console.error("[PublicCollectionPage] loading error:", err);
@@ -262,6 +283,10 @@ export default function PublicCollectionPage() {
         }
     }, [state]);
 
+    const [activeTab, setActiveTab] = useState<HubTab>("menu");
+    const sessionId = useMemo(() => crypto.randomUUID(), []);
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+
     /* ============================
        RENDER
     ============================ */
@@ -281,6 +306,10 @@ export default function PublicCollectionPage() {
                 inactiveReason={state.inactiveReason as "maintenance" | "closed" | "unavailable" | null}
             />
         );
+    }
+
+    if (state.status === "subscription_inactive") {
+        return <NotFound variant="subscription-inactive" />;
     }
 
     if (state.status === "empty") {
@@ -337,6 +366,12 @@ export default function PublicCollectionPage() {
     const emptyState =
         sections.length === 0 ? { title: "Nessun prodotto disponibile al momento" } : undefined;
 
+    const allFeaturedContents = [
+        ...(resolved.featured?.hero ?? []),
+        ...(resolved.featured?.before_catalog ?? []),
+        ...(resolved.featured?.after_catalog ?? [])
+    ];
+
     return (
         <PublicThemeScope style={resolved.style}>
             {isSimulation && (
@@ -385,6 +420,9 @@ export default function PublicCollectionPage() {
                     email_public_visible: business.email_public_visible
                 }}
                 emptyState={emptyState}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                featuredContents={allFeaturedContents}
                 featuredHeroSlot={
                     resolved.featured?.hero && resolved.featured.hero.length > 0 ? (
                         <FeaturedBlock blocks={resolved.featured.hero} />
@@ -396,9 +434,15 @@ export default function PublicCollectionPage() {
                         <FeaturedBlock blocks={resolved.featured.before_catalog} />
                     ) : null
                 }
+                reviewsProps={{
+                    googleReviewUrl: business.google_review_url,
+                    activityId: business.id,
+                    sessionId,
+                    supabaseUrl,
+                }}
             />
 
-            {resolved.featured?.after_catalog && resolved.featured.after_catalog.length > 0 && (
+            {activeTab === "menu" && resolved.featured?.after_catalog && resolved.featured.after_catalog.length > 0 && (
                 <FeaturedBlock blocks={resolved.featured.after_catalog} />
             )}
         </PublicThemeScope>

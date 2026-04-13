@@ -19,14 +19,42 @@
     white-space: nowrap;
 }
 
+/* ── Close button (stesso stile di FeaturedPreviewModal) ─────────────────── */
+
+.closeBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: none;
+    background: color-mix(in srgb, var(--pub-text, #000) 8%, transparent);
+    color: var(--pub-text, #333);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+
+    &:hover {
+        background: color-mix(in srgb, var(--pub-text, #000) 14%, transparent);
+    }
+}
+
 /* ── Scrollable body ─────────────────────────────────────────────────────── */
 
 .body {
-    flex: 1;
+    /* flex-basis: auto (non 0) è necessario perché il pannello ha height:auto.
+       Con basis:0, in un contenitore senza altezza definita il body collassa a 0px.
+       Con basis:auto il body parte dalla sua altezza naturale, poi shrinka se
+       il panel supera max-height, attivando overflow-y:auto. */
+    flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    /* override touch-action:none che framer-motion imposta sul panel padre */
+    touch-action: pan-y;
     padding: 20px 20px 32px;
 
     &::-webkit-scrollbar {

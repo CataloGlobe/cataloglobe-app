@@ -1,0 +1,150 @@
+/* ─────────────────────────────────────────────────────────
+   LanguageSelector
+   Selettore lingua per public collection header (hero + compact)
+──────────────────────────────────────────────────────────── */
+
+/* ── TRIGGER BUTTON ─────────────────────────────────────── */
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: var(--pub-font-family, sans-serif);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+/* Hero variant — glass, altezza allineata a infoCardSearchBtn (34px) */
+.triggerHero {
+  height: 34px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* Compact variant — solid, altezza allineata a compactSearchBtn (36px) */
+.triggerCompact {
+  height: 36px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #57534E;
+
+  &:hover {
+    background: #fafaf9;
+    border-color: rgba(0, 0, 0, 0.14);
+  }
+}
+
+.triggerLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.triggerChevron {
+  transition: transform 0.2s ease;
+}
+
+.triggerChevronOpen {
+  transform: rotate(180deg);
+}
+
+/* ── DROPDOWN (portale su document.body) ────────────────── */
+.dropdown {
+  position: fixed;
+  z-index: 10000;
+  min-width: 170px;
+  padding: 6px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.12),
+    0 1px 3px rgba(0, 0, 0, 0.06);
+
+  /* Fade-in animation */
+  animation: langDropdownIn 0.18s ease forwards;
+}
+
+@keyframes langDropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── DROPDOWN ITEM ──────────────────────────────────────── */
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-family: var(--pub-font-family, sans-serif);
+  font-size: 13px;
+  color: #1c1917;
+  cursor: pointer;
+  transition: background 0.12s ease;
+
+  &:hover {
+    background: #f5f5f4;
+  }
+}
+
+.itemActive {
+  background: color-mix(in srgb, var(--pub-accent, #F59E0B) 10%, transparent);
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-accent, #F59E0B) 14%, transparent);
+  }
+}
+
+.itemDisabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+
+  &:hover {
+    background: transparent;
+  }
+}
+
+.itemFlag {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.itemLabel {
+  flex: 1;
+  text-align: left;
+  font-weight: 500;
+}
+
+.itemSoon {
+  font-size: 11px;
+  color: #a8a29e;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.itemCheck {
+  flex-shrink: 0;
+  color: var(--pub-accent, #F59E0B);
+}

@@ -1,8 +1,8 @@
-import { Package } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Package, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import PublicSheet from "../PublicSheet/PublicSheet";
-import { Button } from "@/components/ui";
 import styles from "./ItemDetail.module.scss";
 
 import type { CollectionViewSectionItem } from "../CollectionView/CollectionView";
@@ -15,28 +15,38 @@ type Props = {
 };
 
 export default function ItemDetail({ item, isOpen, onClose, mode }: Props) {
-    if (!item) return null;
+    // displayItem persiste durante l'animazione di chiusura.
+    // Quando onClose() viene chiamato, il parent imposta item=null e isOpen=false
+    // simultaneamente. Senza questo stato, `if (!item) return null` smonterebbe
+    // PublicSheet prima che AnimatePresence possa eseguire l'exit animation.
+    const [displayItem, setDisplayItem] = useState(item);
+    useEffect(() => {
+        if (item) setDisplayItem(item);
+    }, [item]);
 
-    const shouldShowImage = mode === "public" && !!item.image;
-    const displayPrice = item.effective_price ?? item.price;
+    if (!displayItem) return null;
 
-    const primaryPriceGroup = item.optionGroups?.find(
+    const shouldShowImage = mode === "public" && !!displayItem.image;
+    const displayPrice = displayItem.effective_price ?? displayItem.price;
+
+    const primaryPriceGroup = displayItem.optionGroups?.find(
         g => g.group_kind?.toUpperCase() === "PRIMARY_PRICE"
     );
     const nonPrimaryGroups =
-        item.optionGroups?.filter(g => g.group_kind?.toUpperCase() !== "PRIMARY_PRICE") ?? [];
+        displayItem.optionGroups?.filter(g => g.group_kind?.toUpperCase() !== "PRIMARY_PRICE") ?? [];
     const hasNonPrimaryOptions = nonPrimaryGroups.length > 0;
 
     return (
-        <PublicSheet isOpen={isOpen} onClose={onClose} ariaLabel={item.name}>
+        <PublicSheet isOpen={isOpen} onClose={onClose} ariaLabel={displayItem.name}>
             {/* Header */}
             <div className={styles.header}>
                 <Text as="h2" variant="title-md" weight={700} className={styles.headerTitle}>
-                    {item.name}
+                    {displayItem.name}
                 </Text>
-                <Button variant="secondary" onClick={onClose}>
-                    Chiudi
-                </Button>
+                <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Chiudi">
+                    <X size={16} strokeWidth={2} />
+                    <span>Chiudi</span>
+                </button>
             </div>
 
             {/* Scrollable body */}
@@ -45,8 +55,8 @@ export default function ItemDetail({ item, isOpen, onClose, mode }: Props) {
                     {/* IMMAGINE */}
                     {shouldShowImage ? (
                         <img
-                            src={item.image!}
-                            alt={item.name}
+                            src={displayItem.image!}
+                            alt={displayItem.name}
                             className={styles.image}
                             loading="lazy"
                         />
@@ -63,22 +73,22 @@ export default function ItemDetail({ item, isOpen, onClose, mode }: Props) {
                     {/* CONTENUTO */}
                     <div className={styles.content}>
                         {/* Prezzo */}
-                        {item.from_price != null ? (
+                        {displayItem.from_price != null ? (
                             <Text variant="body" weight={600} className={styles.price}>
-                                {item.original_price != null && (
+                                {displayItem.original_price != null && (
                                     <span className={styles.priceOriginal}>
-                                        da € {item.original_price.toFixed(2)}
+                                        da € {displayItem.original_price.toFixed(2)}
                                     </span>
                                 )}
                                 <span className={styles.priceCurrent}>
-                                    da € {item.from_price.toFixed(2)}
+                                    da € {displayItem.from_price.toFixed(2)}
                                 </span>
                             </Text>
                         ) : displayPrice != null ? (
                             <Text variant="body" weight={600} className={styles.price}>
-                                {item.original_price != null && (
+                                {displayItem.original_price != null && (
                                     <span className={styles.priceOriginal}>
-                                        € {item.original_price.toFixed(2)}
+                                        € {displayItem.original_price.toFixed(2)}
                                     </span>
                                 )}
                                 <span className={styles.priceCurrent}>
@@ -110,13 +120,13 @@ export default function ItemDetail({ item, isOpen, onClose, mode }: Props) {
                             </div>
                         )}
 
-                        {item.description && (
+                        {displayItem.description && (
                             <Text
                                 variant="body"
                                 colorVariant="muted"
                                 className={styles.description}
                             >
-                                {item.description}
+                                {displayItem.description}
                             </Text>
                         )}
 
@@ -161,9 +171,9 @@ export default function ItemDetail({ item, isOpen, onClose, mode }: Props) {
                         )}
 
                         {/* ATTRIBUTI */}
-                        {item.attributes && item.attributes.length > 0 && (
+                        {displayItem.attributes && displayItem.attributes.length > 0 && (
                             <div style={{ marginTop: 12 }}>
-                                {item.attributes.map((a, idx) => {
+                                {displayItem.attributes.map((a, idx) => {
                                     if (!a.value || a.value.trim() === "") return null;
                                     return (
                                         <Text key={idx} variant="body-sm" colorVariant="muted">
@@ -175,13 +185,13 @@ export default function ItemDetail({ item, isOpen, onClose, mode }: Props) {
                         )}
 
                         {/* ALLERGENI */}
-                        {item.allergens && item.allergens.length > 0 && (
+                        {displayItem.allergens && displayItem.allergens.length > 0 && (
                             <div className={styles.allergenSection}>
                                 <Text variant="body-sm" weight={700} className={styles.allergenSectionLabel}>
                                     Allergeni
                                 </Text>
                                 <div className={styles.allergenBadges}>
-                                    {item.allergens.map(a => (
+                                    {displayItem.allergens.map(a => (
                                         <span key={a.id} className={styles.allergenBadge}>
                                             <AllergenIcon code={a.code} size={14} variant="bare" />
                                             {a.label_it}
@@ -192,13 +202,13 @@ export default function ItemDetail({ item, isOpen, onClose, mode }: Props) {
                         )}
 
                         {/* INGREDIENTI */}
-                        {item.ingredients && item.ingredients.length > 0 && (
+                        {displayItem.ingredients && displayItem.ingredients.length > 0 && (
                             <div className={styles.ingredientSection}>
                                 <Text variant="body-sm" weight={700} className={styles.ingredientSectionLabel}>
                                     Ingredienti
                                 </Text>
                                 <Text variant="body-sm" colorVariant="muted" className={styles.ingredientList}>
-                                    {item.ingredients.map(i => i.name).join(", ")}
+                                    {displayItem.ingredients.map(i => i.name).join(", ")}
                                 </Text>
                             </div>
                         )}

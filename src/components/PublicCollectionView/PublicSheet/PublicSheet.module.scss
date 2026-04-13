@@ -8,6 +8,8 @@
     display: flex;
     align-items: flex-end;
     justify-content: center;
+    /* impedisce che il touch sull'overlay scrolli la pagina sottostante */
+    touch-action: none;
 }
 
 /* ── Panel ───────────────────────────────────────────────────────────────── */
@@ -23,6 +25,9 @@
     flex-direction: column;
     overflow: hidden;
     will-change: transform;
+    /* estende il background del panel nella safe area (home indicator iPhone,
+       navbar Android) evitando il "gap" bianco sotto il sheet */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* ── Drag handle ─────────────────────────────────────────────────────────── */

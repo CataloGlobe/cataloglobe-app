@@ -2,7 +2,16 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  margin: 32px 0;
+  width: 100%;
+  max-width: 820px;
+  margin: 32px auto;
+  padding: 0 1rem;
+  box-sizing: border-box;
+
+  @media (min-width: 1024px) {
+    max-width: 1024px;
+    padding: 0 1rem;
+  }
 }
 
 .card {
@@ -148,11 +157,16 @@
 
 .mediaImage {
   width: 100%;
+  height: auto;
+  max-height: 220px;
   border-radius: var(--pub-radius);
-  aspect-ratio: 16 / 9;
   object-fit: cover;
   display: block;
   margin-bottom: 4px;
+
+  @media (min-width: 640px) {
+    max-height: 300px;
+  }
 }
 
 .priceGroup {
