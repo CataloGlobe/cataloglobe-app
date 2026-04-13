@@ -77,7 +77,7 @@ const FEATURE_ITEMS = [
 ] as const;
 
 // ─── Scroll reveal hook ───────────────────────────────
-function useInView(threshold = 0.12) {
+function useInView(threshold = 0.05) {
     const ref = useRef<HTMLDivElement>(null);
     const [visible, setVisible] = useState(false);
 
@@ -172,45 +172,45 @@ function Hero() {
             <div className={s.heroGlow} aria-hidden="true" />
             <div className={s.heroInner}>
                 <div className={s.heroContent}>
-                    <Reveal>
+                    <div className={s.heroFade} style={{ animationDelay: '0s' }}>
                         <div className={s.heroBadge}>
                             <span className={s.badgeDot} />
                             <span className={s.badgeText}>Beta aperta — 3 mesi gratis</span>
                         </div>
-                    </Reveal>
+                    </div>
 
-                    <Reveal delay={0.06}>
+                    <div className={s.heroFade} style={{ animationDelay: '0.06s' }}>
                         <h1 className={s.heroH1}>
                             I tuoi menu si<br />aggiornano da soli.
                         </h1>
-                    </Reveal>
+                    </div>
 
-                    <Reveal delay={0.12}>
+                    <div className={s.heroFade} style={{ animationDelay: '0.12s' }}>
                         <p className={s.heroSub}>
                             Un unico punto di controllo per prodotti, prezzi, promozioni e sedi.
                             Tu definisci le regole, CataloGlobe fa il resto.
                         </p>
-                    </Reveal>
+                    </div>
 
-                    <Reveal delay={0.18}>
+                    <div className={s.heroFade} style={{ animationDelay: '0.18s' }}>
                         <div className={s.heroCtas}>
                             <a href="/sign-up" className={s.ctaPrimary}>Inizia gratis</a>
                             <a href="#" className={s.ctaSecondary}>
                                 Richiedi una demo <span>→</span>
                             </a>
                         </div>
-                    </Reveal>
+                    </div>
 
-                    <Reveal delay={0.26}>
+                    <div className={s.heroFade} style={{ animationDelay: '0.26s' }}>
                         <p className={s.heroSubtext}>
                             Nessuna carta di credito · Configura tutto gratis · Paghi solo se vai live
                         </p>
-                    </Reveal>
+                    </div>
                 </div>
 
                 {/* Product mockup — desktop only */}
                 <div className={s.heroMockupWrapper}>
-                    <Reveal delay={0.22}>
+                    <div className={s.heroFade} style={{ animationDelay: '0.22s' }}>
                         <div className={s.mockupShell}>
                             <div className={s.mockupChrome}>
                                 <span className={s.mockupDotRed} />
@@ -243,7 +243,7 @@ function Hero() {
                                 ))}
                             </div>
                         </div>
-                    </Reveal>
+                    </div>
                 </div>
             </div>
         </section>
