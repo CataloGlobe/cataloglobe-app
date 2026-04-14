@@ -4,6 +4,7 @@ import { Switch } from "@/components/ui/Switch/Switch";
 import { updateActivity } from "@/services/supabase/activities";
 import type { V2Activity } from "@/types/activity";
 import { useToast } from "@/context/Toast/ToastContext";
+import { GooglePlacesSearch } from "./GooglePlacesSearch";
 
 interface ContactsMainFormProps {
     formId: string;
@@ -93,13 +94,9 @@ export const ContactsMainForm: React.FC<ContactsMainFormProps> = ({
                     onChange={setWebsitePublic}
                 />
 
-                <TextInput
-                    label="URL Google Reviews"
-                    type="url"
+                <GooglePlacesSearch
                     value={googleReviewUrl}
-                    onChange={e => setGoogleReviewUrl(e.target.value)}
-                    placeholder="https://search.google.com/local/writereview?placeid=..."
-                    helperText="Inserisci l'URL per reindirizzare i clienti a lasciare una recensione su Google. Lo trovi cercando la tua attività su Google Maps."
+                    onChange={(url) => setGoogleReviewUrl(url)}
                 />
             </div>
         </form>

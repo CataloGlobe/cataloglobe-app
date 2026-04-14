@@ -1,0 +1,138 @@
+@use "@/styles/variables" as v;
+
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: v.$text-color;
+}
+
+.helperText {
+    font-size: 0.75rem;
+    color: v.$gray-400;
+    line-height: 1.5;
+}
+
+/* ── Dropdown ─────────────────────────────────── */
+
+.dropdownAnchor {
+    position: relative;
+}
+
+.dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 50;
+    background: v.$white;
+    border: 1px solid v.$gray-200;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.dropdownItem {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: background 0.1s;
+
+    &:not(:last-child) {
+        border-bottom: 1px solid v.$gray-100;
+    }
+
+    &:hover {
+        background: v.$gray-100;
+    }
+}
+
+.dropdownItemName {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: v.$text-color;
+}
+
+.dropdownItemAddress {
+    font-size: 0.75rem;
+    color: v.$gray-400;
+}
+
+.dropdownMessage {
+    padding: 1rem;
+    font-size: 0.8125rem;
+    color: v.$gray-400;
+    text-align: center;
+}
+
+/* ── Selected state ───────────────────────────── */
+
+.selectedCard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: v.$gray-100;
+    border: 1px solid v.$gray-200;
+    border-radius: 8px;
+}
+
+.selectedInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.selectedName {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: v.$text-color;
+}
+
+.selectedAddress {
+    font-size: 0.75rem;
+    color: v.$gray-400;
+}
+
+.selectedUrl {
+    font-size: 0.75rem;
+    color: v.$brand-primary;
+    word-break: break-all;
+}
+
+.selectedActions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+/* ── Current URL state (already saved) ────────── */
+
+.currentUrl {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: v.$gray-100;
+    border: 1px solid v.$gray-200;
+    border-radius: 8px;
+}
+
+.currentUrlText {
+    font-size: 0.8125rem;
+    color: v.$text-color;
+    word-break: break-all;
+}
+
+.currentUrlActions {
+    display: flex;
+    gap: 0.5rem;
+}
