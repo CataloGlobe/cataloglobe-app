@@ -13,23 +13,26 @@ const EVEN_HOURS = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24];
 
 const TYPE_LABEL: Record<RuleType, string> = {
     layout: "Layout",
+    featured: "In evidenza",
     price: "Prezzi",
     visibility: "Visibilità"
 };
 
 const TYPE_SHORT: Record<RuleType, string> = {
     layout: "L",
+    featured: "E",
     price: "P",
     visibility: "V"
 };
 
 const TYPE_COLOR: Record<RuleType, string> = {
     layout: "#4f46e5",
+    featured: "#8b5cf6",
     price: "#16a34a",
     visibility: "#f59e0b"
 };
 
-const TYPE_ORDER: RuleType[] = ["layout", "price", "visibility"];
+const TYPE_ORDER: RuleType[] = ["layout", "featured", "price", "visibility"];
 
 type ActiveFilter = RuleType | "all";
 
@@ -343,6 +346,7 @@ export function CalendarView({ rules, onRuleClick }: CalendarViewProps) {
     const winnerCountByType = useMemo(() => {
         const counts: Record<RuleType, Set<string>> = {
             layout: new Set(),
+            featured: new Set(),
             price: new Set(),
             visibility: new Set()
         };

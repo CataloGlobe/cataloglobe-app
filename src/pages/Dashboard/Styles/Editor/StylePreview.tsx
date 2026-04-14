@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { IconDeviceMobile, IconDeviceDesktop } from "@tabler/icons-react";
 import { StyleTokenModel } from "./StyleTokenModel";
 import CollectionView, {
-    type CollectionViewSection
+    type CollectionViewSectionGroup
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
@@ -54,90 +54,106 @@ const MOCK_FEATURED: V2FeaturedContent[] = [
     }
 ];
 
-const MOCK_SECTIONS: CollectionViewSection[] = [
+const MOCK_SECTION_GROUPS: CollectionViewSectionGroup[] = [
     {
-        id: "s1",
-        name: "Categoria 1",
-        items: [
+        root: {
+            id: "s1",
+            name: "Categoria 1",
+            level: 1,
+            parentCategoryId: null,
+            items: [
+                {
+                    id: "i1",
+                    name: "Elemento Base",
+                    description: "Descrizione breve del prodotto o servizio.",
+                    price: 12.0,
+                    image: null,
+                    parentSelected: true
+                },
+                {
+                    id: "i2",
+                    name: "Prodotto Premium",
+                    description: "Versione avanzata con caratteristiche aggiuntive.",
+                    price: 24.0,
+                    image: null,
+                    parentSelected: true
+                }
+            ]
+        },
+        children: [
             {
-                id: "i1",
-                name: "Elemento Base",
-                description: "Descrizione breve del prodotto o servizio.",
-                price: 12.0,
-                image: null,
-                parentSelected: true
-            },
-            {
-                id: "i2",
-                name: "Prodotto Premium",
-                description: "Versione avanzata con caratteristiche aggiuntive.",
-                price: 24.0,
-                image: null,
-                parentSelected: true
-            },
-            {
-                id: "i3",
-                name: "Articolo Standard",
-                description: "Adatto a diversi contesti e necessità.",
-                price: 9.0,
-                image: null,
-                parentSelected: true
+                id: "s1-sub",
+                name: "Sottocategoria",
+                level: 2,
+                parentCategoryId: "s1",
+                items: [
+                    {
+                        id: "i3",
+                        name: "Articolo Standard",
+                        description: "Adatto a diversi contesti e necessità.",
+                        price: 9.0,
+                        image: null,
+                        parentSelected: true
+                    }
+                ]
             }
         ]
     },
     {
-        id: "s2",
-        name: "Categoria 2",
-        items: [
-            {
-                id: "i4",
-                name: "Offerta Speciale",
-                description: "Disponibile per un periodo limitato.",
-                price: 15.0,
-                original_price: 22.0,
-                effective_price: 15.0,
-                image: null,
-                parentSelected: true
-            },
-            {
-                id: "i5",
-                name: "Versione Compatta",
-                description: "Ideale per un utilizzo quotidiano.",
-                price: 8.0,
-                image: null,
-                parentSelected: true
-            },
-            {
-                id: "i6",
-                name: "Proposta Stagionale",
-                description: "Disponibilità limitata alla stagione in corso.",
-                price: 11.0,
-                image: null,
-                parentSelected: true
-            }
-        ]
+        root: {
+            id: "s2",
+            name: "Categoria 2",
+            level: 1,
+            parentCategoryId: null,
+            items: [
+                {
+                    id: "i4",
+                    name: "Offerta Speciale",
+                    description: "Disponibile per un periodo limitato.",
+                    price: 15.0,
+                    original_price: 22.0,
+                    effective_price: 15.0,
+                    image: null,
+                    parentSelected: true
+                },
+                {
+                    id: "i5",
+                    name: "Versione Compatta",
+                    description: "Ideale per un utilizzo quotidiano.",
+                    price: 8.0,
+                    image: null,
+                    parentSelected: true
+                }
+            ]
+        },
+        children: []
     },
     {
-        id: "s3",
-        name: "Categoria 3",
-        items: [
-            {
-                id: "i7",
-                name: "Confezione Speciale",
-                description: "Formato pensato per più persone.",
-                price: 32.0,
-                image: null,
-                parentSelected: true
-            },
-            {
-                id: "i8",
-                name: "Articolo Esclusivo",
-                description: "Produzione limitata, disponibile su richiesta.",
-                price: 45.0,
-                image: null,
-                parentSelected: true
-            }
-        ]
+        root: {
+            id: "s3",
+            name: "Categoria 3",
+            level: 1,
+            parentCategoryId: null,
+            items: [
+                {
+                    id: "i7",
+                    name: "Confezione Speciale",
+                    description: "Formato pensato per più persone.",
+                    price: 32.0,
+                    image: null,
+                    parentSelected: true
+                },
+                {
+                    id: "i8",
+                    name: "Articolo Esclusivo",
+                    description: "Produzione limitata, disponibile su richiesta.",
+                    price: 45.0,
+                    image: null,
+                    parentSelected: true
+                }
+            ]
+        },
+        children: []
     }
 ];
 
@@ -238,12 +254,15 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                             businessName={businessName}
                             businessImage={null}
                             collectionTitle="Nome Catalogo"
-                            sections={MOCK_SECTIONS}
+                            sectionGroups={MOCK_SECTION_GROUPS}
                             style={collectionStyle}
                             mode="preview"
                             scrollContainerEl={screenEl}
                             activityAddress="Via Example, 1 - Città"
                             featuredBeforeCatalogSlot={
+                                <FeaturedBlock blocks={MOCK_FEATURED} />
+                            }
+                            featuredAfterCatalogSlot={
                                 <FeaturedBlock blocks={MOCK_FEATURED} />
                             }
                         />

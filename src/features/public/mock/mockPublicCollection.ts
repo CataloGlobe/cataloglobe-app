@@ -17,6 +17,7 @@ const antipasti: ResolvedCategory = {
     name: "Antipasti",
     level: 1,
     sort_order: 1,
+    parent_category_id: null,
     products: [
         {
             // Caso: immagine + prezzo
@@ -64,6 +65,7 @@ const pizze: ResolvedCategory = {
     name: "Pizze",
     level: 1,
     sort_order: 2,
+    parent_category_id: null,
     products: [
         {
             // Caso: immagine + attributo testo
@@ -129,6 +131,7 @@ const dolci: ResolvedCategory = {
     name: "Dolci",
     level: 1,
     sort_order: 3,
+    parent_category_id: null,
     products: [
         {
             // Caso: immagine + prezzo + allergeni

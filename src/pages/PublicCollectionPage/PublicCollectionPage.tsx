@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
+import { trackEvent } from "@/services/analytics/publicAnalytics";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import CollectionView, {
     type CollectionViewSection,
+    type CollectionViewSectionGroup,
     type CollectionViewSectionItem
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { HubTab } from "@/types/collectionStyle";
@@ -24,7 +26,7 @@ import { getDisplayValue } from "@/utils/attributes";
 
 /* ===============================================
    DATA MAPPING
-   ResolvedCollections → CollectionViewSection[]
+   ResolvedCollections → CollectionViewSectionGroup[]
 =============================================== */
 
 type RawAttr = {
@@ -114,13 +116,45 @@ function mapCategoryToSection(cat: ResolvedCategory): CollectionViewSection {
     return {
         id: cat.id,
         name: cat.name,
+        level: cat.level,
+        parentCategoryId: cat.parent_category_id,
         items: cat.products.filter(p => p.is_visible).map(mapProductToItem)
     };
 }
 
-function mapCatalogToSections(resolved: ResolvedCollections): CollectionViewSection[] {
+function mapCatalogToSectionGroups(resolved: ResolvedCollections): CollectionViewSectionGroup[] {
     if (!resolved.catalog?.categories) return [];
-    return resolved.catalog.categories.map(mapCategoryToSection).filter(s => s.items.length > 0);
+
+    const allSections = resolved.catalog.categories.map(mapCategoryToSection);
+
+    // Raccoglie L1 — incluse quelle senza prodotti diretti ma con figli che ne hanno
+    const l1Sections = allSections.filter(s => s.level === 1);
+
+    const result = l1Sections
+        .map(root => {
+            const l2Children = allSections.filter(
+                s => s.level === 2 && s.parentCategoryId === root.id && s.items.length > 0
+            );
+            const l3Children = allSections.filter(
+                s =>
+                    s.level === 3 &&
+                    l2Children.some(l2 => l2.id === s.parentCategoryId) &&
+                    s.items.length > 0
+            );
+
+            // Ordine originale: intercala L3 dopo il loro L2 parent
+            const orderedChildren: CollectionViewSection[] = [];
+            for (const l2 of l2Children) {
+                orderedChildren.push(l2);
+                const l3ForThisL2 = l3Children.filter(l3 => l3.parentCategoryId === l2.id);
+                orderedChildren.push(...l3ForThisL2);
+            }
+
+            return { root, children: orderedChildren };
+        })
+        .filter(g => g.root.items.length > 0 || g.children.length > 0);
+
+    return result;
 }
 
 /* ===============================================
@@ -204,28 +238,20 @@ export default function PublicCollectionPage() {
                 }
                 setEffectiveSimulate(simulate ?? null);
 
-                const { data, error } = await supabase.functions.invoke(
-                    "resolve-public-catalog",
-                    { body: { slug, simulate } }
-                );
+                const { data, error } = await supabase.functions.invoke("resolve-public-catalog", {
+                    body: { slug, simulate }
+                });
 
                 if (cancelled) return;
 
                 if (error) throw error;
 
-                const {
-                    business,
-                    tenantLogoUrl,
-                    resolved,
-                    subscription_inactive,
-                } = data as {
+                const { business, tenantLogoUrl, resolved, subscription_inactive } = data as {
                     business: PublicBusiness;
                     tenantLogoUrl: string | null;
                     resolved: ResolvedCollections;
                     subscription_inactive?: boolean;
                 };
-                // TODO: rimuovere dopo diagnosi social
-                console.log("[PublicCollectionPage] business ricevuto:", JSON.stringify(business, null, 2));
 
                 // Subscription not active — show unavailable page
                 if (subscription_inactive) {
@@ -259,7 +285,7 @@ export default function PublicCollectionPage() {
                     status: "ready",
                     business,
                     resolved,
-                    tenantLogoUrl,
+                    tenantLogoUrl
                 });
             } catch (err) {
                 if (cancelled) return;
@@ -284,8 +310,32 @@ export default function PublicCollectionPage() {
     }, [state]);
 
     const [activeTab, setActiveTab] = useState<HubTab>("menu");
+    const handleTabChange = useCallback(
+        (tab: HubTab) => {
+            const prevTab = activeTab;
+            setActiveTab(tab);
+            if (state.status === "ready" && prevTab !== tab) {
+                trackEvent(state.business.id, "tab_switch", {
+                    from_tab: prevTab,
+                    to_tab: tab
+                });
+            }
+        },
+        [activeTab, state]
+    );
     const sessionId = useMemo(() => crypto.randomUUID(), []);
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+
+    // ── Analytics: page_view (una sola volta quando la pagina è pronta) ──
+    const pageViewTracked = useRef(false);
+    useEffect(() => {
+        if (state.status !== "ready" || pageViewTracked.current) return;
+        pageViewTracked.current = true;
+        trackEvent(state.business.id, "page_view", {
+            slug,
+            referrer: document.referrer || undefined
+        });
+    }, [state, slug]);
 
     /* ============================
        RENDER
@@ -303,7 +353,9 @@ export default function PublicCollectionPage() {
         return (
             <NotFound
                 variant="business-inactive"
-                inactiveReason={state.inactiveReason as "maintenance" | "closed" | "unavailable" | null}
+                inactiveReason={
+                    state.inactiveReason as "maintenance" | "closed" | "unavailable" | null
+                }
             />
         );
     }
@@ -362,9 +414,11 @@ export default function PublicCollectionPage() {
         showCatalogName: tokens.header.showCatalogName
     } as const;
 
-    const sections = mapCatalogToSections(resolved);
+    const sectionGroups = mapCatalogToSectionGroups(resolved);
     const emptyState =
-        sections.length === 0 ? { title: "Nessun prodotto disponibile al momento" } : undefined;
+        sectionGroups.length === 0
+            ? { title: "Nessun prodotto disponibile al momento" }
+            : undefined;
 
     const allFeaturedContents = [
         ...(resolved.featured?.hero ?? []),
@@ -393,18 +447,25 @@ export default function PublicCollectionPage() {
                     }}
                 >
                     <span>Anteprima simulazione</span>
-                    <span>{new Date(effectiveSimulate!).toLocaleString("it-IT", { timeZone: "Europe/Rome" })}</span>
+                    <span>
+                        {new Date(effectiveSimulate!).toLocaleString("it-IT", {
+                            timeZone: "Europe/Rome"
+                        })}
+                    </span>
                 </div>
             )}
             <CollectionView
                 businessName={business.name}
                 businessImage={business.cover_image}
                 collectionTitle={resolved.catalog?.name ?? ""}
-                sections={sections}
+                sectionGroups={sectionGroups}
                 style={collectionStyle}
                 mode="public"
+                activityId={business.id}
                 tenantLogoUrl={tenantLogoUrl}
-                activityAddress={[business.address, business.city].filter(Boolean).join(", ") || null}
+                activityAddress={
+                    [business.address, business.city].filter(Boolean).join(", ") || null
+                }
                 socialLinks={{
                     instagram: business.instagram,
                     instagram_public: business.instagram_public,
@@ -421,30 +482,32 @@ export default function PublicCollectionPage() {
                 }}
                 emptyState={emptyState}
                 activeTab={activeTab}
-                onTabChange={setActiveTab}
+                onTabChange={handleTabChange}
                 featuredContents={allFeaturedContents}
                 featuredHeroSlot={
                     resolved.featured?.hero && resolved.featured.hero.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.hero} />
+                        <FeaturedBlock blocks={resolved.featured.hero} activityId={business.id} slot="hero" />
                     ) : null
                 }
                 featuredBeforeCatalogSlot={
                     resolved.featured?.before_catalog &&
                     resolved.featured.before_catalog.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.before_catalog} />
+                        <FeaturedBlock blocks={resolved.featured.before_catalog} activityId={business.id} slot="before_catalog" />
+                    ) : null
+                }
+                featuredAfterCatalogSlot={
+                    resolved.featured?.after_catalog &&
+                    resolved.featured.after_catalog.length > 0 ? (
+                        <FeaturedBlock blocks={resolved.featured.after_catalog} activityId={business.id} slot="after_catalog" />
                     ) : null
                 }
                 reviewsProps={{
                     googleReviewUrl: business.google_review_url,
                     activityId: business.id,
                     sessionId,
-                    supabaseUrl,
+                    supabaseUrl
                 }}
             />
-
-            {activeTab === "menu" && resolved.featured?.after_catalog && resolved.featured.after_catalog.length > 0 && (
-                <FeaturedBlock blocks={resolved.featured.after_catalog} />
-            )}
         </PublicThemeScope>
     );
 }

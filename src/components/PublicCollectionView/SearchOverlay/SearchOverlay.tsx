@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { X, Search } from "lucide-react";
 import type { CollectionViewSection, CollectionViewSectionItem } from "../CollectionView/CollectionView";
+import { trackEvent } from "@/services/analytics/publicAnalytics";
 import styles from "./SearchOverlay.module.scss";
 
 type Props = {
@@ -10,6 +11,7 @@ type Props = {
     /** Usato per scrollare al prodotto selezionato nel container corretto. */
     scrollContainerEl?: HTMLElement | null;
     mode: "public" | "preview";
+    activityId?: string;
 };
 
 function formatPrice(item: CollectionViewSectionItem): string | null {
@@ -18,7 +20,7 @@ function formatPrice(item: CollectionViewSectionItem): string | null {
     return p != null ? `€${p.toFixed(2)}` : null;
 }
 
-export default function SearchOverlay({ isOpen, onClose, sections, scrollContainerEl, mode }: Props) {
+export default function SearchOverlay({ isOpen, onClose, sections, scrollContainerEl, mode, activityId }: Props) {
     const [query, setQuery] = useState("");
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -68,6 +70,13 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
 
     const handleSelect = useCallback(
         (item: CollectionViewSectionItem) => {
+            if (mode === "public" && activityId) {
+                trackEvent(activityId, "search_performed", {
+                    query,
+                    results_count: totalCount,
+                    selected_product_id: item.id
+                });
+            }
             onClose();
             setTimeout(() => {
                 document
@@ -75,7 +84,7 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
                     ?.scrollIntoView({ behavior: "smooth", block: "start" });
             }, 200);
         },
-        [onClose]
+        [onClose, mode, activityId, query, totalCount]
     );
 
     // Escape + navigazione frecce + Invio

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { trackEvent } from "@/services/analytics/publicAnalytics";
 import styles from "./ReviewsView.module.scss";
 
 /* ── Props ───────────────────────────────────────────── */
@@ -25,6 +26,12 @@ const RATING_CONFIG: Record<number, RatingConfig> = {
     4: { emoji: "\u{1F60A}", label: "Buona", colorClass: "ratingGreen" },
     5: { emoji: "\u{1F929}", label: "Eccellente!", colorClass: "ratingGreenDark" },
 };
+
+function ratingCategory(rating: number): "positive" | "neutral" | "negative" {
+    if (rating >= 4) return "positive";
+    if (rating === 3) return "neutral";
+    return "negative";
+}
 
 type Phase = "stars" | "feedback" | "submitting" | "thanks";
 
@@ -111,6 +118,11 @@ export default function ReviewsView({
             if (res.ok) {
                 const body = await res.json();
                 if (body.success) {
+                    trackEvent(activityId, "review_submitted", {
+                        rating: selectedStars,
+                        rating_category: ratingCategory(selectedStars),
+                        has_feedback_text: feedback.trim().length > 0
+                    });
                     setPhase("thanks");
                     return;
                 }
@@ -365,6 +377,11 @@ export default function ReviewsView({
                             target="_blank"
                             rel="noopener noreferrer"
                             className={styles.googleBtn}
+                            onClick={() => {
+                                trackEvent(activityId, "review_google_redirect", {
+                                    rating: selectedStars
+                                });
+                            }}
                         >
                             <GoogleIcon size={16} />
                             Recensisci su Google

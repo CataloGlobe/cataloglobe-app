@@ -205,7 +205,10 @@ export default function PublicCollectionHeader({
                             </button>
                         </div>
 
-                        <div className={styles.infoCardChips}>
+                        <div className={[
+                            styles.infoCardChips,
+                            mode === "preview" ? styles.infoCardChipsPreview : ""
+                        ].filter(Boolean).join(" ")}>
                             {HUB_TABS.map(t => (
                                 <button
                                     key={t.id}

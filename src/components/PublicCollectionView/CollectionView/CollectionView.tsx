@@ -9,6 +9,7 @@ import type {
 import type { HubTab } from "@/types/collectionStyle";
 import Text from "@/components/ui/Text/Text";
 import { Pill } from "@/components/ui/Pill/Pill";
+import { trackEvent } from "@/services/analytics/publicAnalytics";
 // NOTE: CollectionHero e PublicBrandHeader sono sostituiti da PublicCollectionHeader.
 // I file originali restano nel progetto come fallback potenziale.
 // import CollectionHero from "../CollectionHero/CollectionHero";
@@ -23,8 +24,13 @@ import ItemDetail from "../ItemDetail/ItemDetail";
 import SelectionSheet, { type SelectionItem } from "../SelectionSheet/SelectionSheet";
 import ReviewsView, { type ReviewsViewProps } from "../ReviewsView/ReviewsView";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
+import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 
-type SectionNavItem = { id: string; name: string };
+type SectionNavItem = {
+    id: string;
+    name: string;
+    children?: { id: string; name: string; level: number }[];
+};
 
 export type CollectionViewSectionItem = {
     id: string;
@@ -75,6 +81,13 @@ export type CollectionViewSection = {
     id: string;
     name: string;
     items: CollectionViewSectionItem[];
+    level: number;
+    parentCategoryId: string | null;
+};
+
+export type CollectionViewSectionGroup = {
+    root: CollectionViewSection;
+    children: CollectionViewSection[];
 };
 
 // ─── getDisplayPrice — single pricing rule for all product types ─────────────
@@ -448,7 +461,7 @@ type Props = {
     businessName: string;
     businessImage: string | null;
     collectionTitle: string;
-    sections: CollectionViewSection[];
+    sectionGroups: CollectionViewSectionGroup[];
     style: Required<CollectionStyle>;
     mode: "public" | "preview";
     contentId?: string;
@@ -458,6 +471,7 @@ type Props = {
     };
     featuredHeroSlot?: ReactNode;
     featuredBeforeCatalogSlot?: ReactNode;
+    featuredAfterCatalogSlot?: ReactNode;
     /** Tenant logo URL da mostrare nel compact header. */
     tenantLogoUrl?: string | null;
     /** Explicit scroll container. Use when the component lives inside a custom
@@ -476,19 +490,22 @@ type Props = {
     featuredContents?: V2FeaturedContent[];
     /** Props per il tab ReviewsView (solo public). */
     reviewsProps?: ReviewsViewProps;
+    /** ID della sede — usato come chiave sessionStorage per la selezione prodotti. */
+    activityId?: string;
 };
 
 export default function CollectionView({
     businessName,
     businessImage,
     collectionTitle,
-    sections,
+    sectionGroups,
     style,
     mode,
     contentId = "collection-content",
     emptyState,
     featuredHeroSlot,
     featuredBeforeCatalogSlot,
+    featuredAfterCatalogSlot,
     tenantLogoUrl,
     scrollContainerEl,
     activityAddress,
@@ -496,10 +513,11 @@ export default function CollectionView({
     activeTab = "menu",
     onTabChange,
     featuredContents = [],
-    reviewsProps
+    reviewsProps,
+    activityId
 }: Props) {
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
-        () => sections[0]?.id ?? null
+        () => sectionGroups[0]?.root.id ?? null
     );
     const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
     const pageRef = useRef<HTMLElement | null>(null);
@@ -514,8 +532,25 @@ export default function CollectionView({
     const handleCloseSearch = useCallback(() => setIsSearchOpen(false), []);
 
     // ── Selezione prodotti ──────────────────────────────────────────────────
-    const [selection, setSelection] = useState<SelectionItem[]>([]);
+    const selectionStorageKey = activityId ? `catalogobe-selection-${activityId}` : null;
+
+    const [selection, setSelection] = useState<SelectionItem[]>(() => {
+        if (!selectionStorageKey) return [];
+        try {
+            const saved = sessionStorage.getItem(selectionStorageKey);
+            return saved ? (JSON.parse(saved) as SelectionItem[]) : [];
+        } catch {
+            return [];
+        }
+    });
     const [isSelectionOpen, setIsSelectionOpen] = useState(false);
+
+    useEffect(() => {
+        if (!selectionStorageKey) return;
+        try {
+            sessionStorage.setItem(selectionStorageKey, JSON.stringify(selection));
+        } catch { /* sessionStorage non disponibile */ }
+    }, [selection, selectionStorageKey]);
 
     const selectionCount = useMemo(() => selection.reduce((s, i) => s + i.qty, 0), [selection]);
 
@@ -528,23 +563,72 @@ export default function CollectionView({
         return map;
     }, [selection]);
 
+    // Array piatto di tutte le sezioni (L1+L2+L3) — usato da SearchOverlay
+    const sections = useMemo(
+        () => sectionGroups.flatMap(g => [g.root, ...g.children]),
+        [sectionGroups]
+    );
+
+    // Solo le sezioni L1 (root dei gruppi) — usato per scroll tracking e nav
+    const l1Sections = useMemo(
+        () => sectionGroups.map(g => g.root),
+        [sectionGroups]
+    );
+
+    // ── Analytics: product_detail_open wrapper ──────────────────────────
+    const openItemDetail = useCallback(
+        (item: CollectionViewSectionItem) => {
+            setSelectedItem(item);
+            if (mode === "public" && activityId) {
+                const section = sections.find(s => s.items.some(i => i.id === item.id));
+                trackEvent(activityId, "product_detail_open", {
+                    product_id: item.id,
+                    product_name: item.name,
+                    category: section?.name,
+                    price: item.effective_price ?? item.price ?? undefined
+                });
+            }
+        },
+        [mode, activityId, sections]
+    );
+
     const addToSelection = useCallback((id: string, name: string, price: number) => {
         setSelection(prev => {
             const existing = prev.find(i => i.id === id);
+            const newQty = existing ? existing.qty + 1 : 1;
+            const newCount = prev.reduce((s, i) => s + i.qty, 0) + 1;
+            if (mode === "public" && activityId) {
+                trackEvent(activityId, "selection_add", {
+                    product_id: id,
+                    product_name: name,
+                    price,
+                    qty: newQty,
+                    total_selection_count: newCount
+                });
+            }
             if (existing) {
                 return prev.map(i => (i.id === id ? { ...i, qty: i.qty + 1 } : i));
             }
             return [...prev, { id, name, price, qty: 1 }];
         });
-    }, []);
+    }, [mode, activityId]);
 
     const updateSelectionQty = useCallback((id: string, qty: number) => {
         setSelection(prev => prev.map(i => (i.id === id ? { ...i, qty } : i)));
     }, []);
 
     const removeFromSelection = useCallback((id: string) => {
-        setSelection(prev => prev.filter(i => i.id !== id));
-    }, []);
+        setSelection(prev => {
+            const item = prev.find(i => i.id === id);
+            if (mode === "public" && activityId && item) {
+                trackEvent(activityId, "selection_remove", {
+                    product_id: id,
+                    product_name: item.name
+                });
+            }
+            return prev.filter(i => i.id !== id);
+        });
+    }, [mode, activityId]);
 
     const clearSelection = useCallback(() => setSelection([]), []);
 
@@ -579,16 +663,49 @@ export default function CollectionView({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mode]);
 
+    // ── Analytics: section_view (IntersectionObserver, una volta per sezione) ─
+    const viewedSectionsRef = useRef(new Set<string>());
+
+    useEffect(() => {
+        if (mode !== "public" || !activityId) return;
+        const entries = Object.entries(sectionRefs.current);
+        if (entries.length === 0) return;
+
+        const observer = new IntersectionObserver(
+            (observed) => {
+                for (const entry of observed) {
+                    if (!entry.isIntersecting) continue;
+                    const sectionId = (entry.target as HTMLElement).dataset.sectionId;
+                    if (!sectionId || viewedSectionsRef.current.has(sectionId)) continue;
+                    viewedSectionsRef.current.add(sectionId);
+                    const section = l1Sections.find(s => s.id === sectionId);
+                    const sectionIndex = l1Sections.findIndex(s => s.id === sectionId);
+                    trackEvent(activityId, "section_view", {
+                        section_title: section?.name,
+                        section_index: sectionIndex
+                    });
+                }
+            },
+            { threshold: 0.3 }
+        );
+
+        for (const [, el] of entries) {
+            if (el) observer.observe(el);
+        }
+
+        return () => observer.disconnect();
+    }, [mode, activityId, l1Sections, sectionGroups]);
+
     // ── Valuta FAB ──────────────────────────────────────────────────────────
     const [valutaVisible, setValutaVisible] = useState(false);
     const [valutaExpanded, setValutaExpanded] = useState(false);
 
     // ── Keep first section active when sections load asynchronously ─────────
     useEffect(() => {
-        if (!activeSectionId && sections.length > 0) {
-            setActiveSectionId(sections[0].id);
+        if (!activeSectionId && sectionGroups.length > 0) {
+            setActiveSectionId(sectionGroups[0].root.id);
         }
-    }, [activeSectionId, sections]);
+    }, [activeSectionId, sectionGroups]);
 
     // ── Chiudi il dettaglio prodotto al cambio di tab ────────────────────────
     useEffect(() => {
@@ -607,7 +724,7 @@ export default function CollectionView({
 
     // ── Main scroll effect: section tracking + scroll-to-top visibility ─────
     useEffect(() => {
-        if (sections.length === 0) return;
+        if (l1Sections.length === 0) return;
 
         function findScrollContainer(el: HTMLElement | null): HTMLElement | Window {
             let node = el?.parentElement ?? null;
@@ -632,8 +749,8 @@ export default function CollectionView({
             const containerTop =
                 container === window ? 0 : (container as HTMLElement).getBoundingClientRect().top;
 
-            let naturalActive = sections[0].id;
-            for (const section of sections) {
+            let naturalActive = l1Sections[0].id;
+            for (const section of l1Sections) {
                 const el = sectionRefs.current[section.id];
                 if (!el) continue;
                 const sectionTop = el.getBoundingClientRect().top - containerTop;
@@ -677,12 +794,25 @@ export default function CollectionView({
             }
             pendingScrollTargetIdRef.current = null;
         };
-    }, [sections, scrollContainerEl, mode]);
+    }, [l1Sections, scrollContainerEl, mode]);
 
-    // ── Nav items (la ricerca è gestita nel SearchOverlay, sezioni sempre intere) ──
+    // ── Nav items — L1 + children per dropdown sotto-sezioni ────────────────
     const navItems: SectionNavItem[] = useMemo(
-        () => sections.map(s => ({ id: s.id, name: s.name })),
-        [sections]
+        () =>
+            sectionGroups.map(g => ({
+                id: g.root.id,
+                name: g.root.name,
+                ...(g.children.length > 0
+                    ? {
+                          children: g.children.map(c => ({
+                              id: c.id,
+                              name: c.name,
+                              level: c.level
+                          }))
+                      }
+                    : {})
+            })),
+        [sectionGroups]
     );
 
     // ── Scroll to section ───────────────────────────────────────────────────
@@ -718,9 +848,218 @@ export default function CollectionView({
         }
     };
 
+    // ── Scroll to sub-section (L2/L3) — solo scroll, non aggiorna nav active ─
+    const scrollToSubSection = useCallback(
+        (childId: string) => {
+            const el = sectionRefs.current[childId];
+            if (!el) return;
+
+            const dynamicScrollOffset = compactHeaderHeightRef.current + NAV_HEIGHT + VISUAL_GAP;
+            const container = containerRef.current;
+
+            if (container === window) {
+                const top = el.getBoundingClientRect().top + window.scrollY - dynamicScrollOffset;
+                window.scrollTo({ top, behavior: "smooth" });
+            } else {
+                const containerEl = container as HTMLElement;
+                const top =
+                    el.getBoundingClientRect().top -
+                    containerEl.getBoundingClientRect().top +
+                    containerEl.scrollTop -
+                    dynamicScrollOffset;
+                containerEl.scrollTo({ top, behavior: "smooth" });
+            }
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        []
+    );
+
     // ── Derived values for render ───────────────────────────────────────────
     const hasHeader =
         style.showLogo || style.showCoverImage || style.showActivityName || style.showCatalogName;
+
+    // ── renderSectionGrid — grid condivisa per L1, L2, L3 ───────────────────
+    function renderSectionGrid(s: CollectionViewSection) {
+        if (s.items.length === 0) return null;
+        return (
+            <div className={styles.grid} role="list">
+                {s.items.map(item => {
+                    const isDisabled = item.is_disabled === true;
+                    return (
+                        <article
+                            key={item.id}
+                            id={`product-${item.id}`}
+                            role="listitem"
+                            className={
+                                style.productStyle === "compact"
+                                    ? `${styles.compactItem}${isDisabled ? ` ${styles.disabledCard}` : ""}`
+                                    : `${styles.card}${isDisabled ? ` ${styles.disabledCard}` : ""}`
+                            }
+                        >
+                            {isDisabled && style.productStyle !== "compact" && (
+                                <span className={styles.unavailableBadge}>
+                                    Non disponibile
+                                </span>
+                            )}
+                            {/* Case A/B: parent row — only if parentSelected */}
+                            {item.parentSelected &&
+                                (style.productStyle === "compact" ? (
+                                    <ProductCompactRow
+                                        name={item.name}
+                                        fromPrice={item.from_price}
+                                        price={item.price}
+                                        effectivePrice={item.effective_price}
+                                        originalPrice={item.original_price}
+                                        description={item.description}
+                                        onClick={() => openItemDetail(item)}
+                                        allergens={item.allergens}
+                                        onAddToSelection={
+                                            activeTab === "menu"
+                                                ? () =>
+                                                      addToSelection(
+                                                          item.id,
+                                                          item.name,
+                                                          item.effective_price ?? item.price ?? 0
+                                                      )
+                                                : undefined
+                                        }
+                                        selectionQty={selectionMap[item.id]}
+                                    />
+                                ) : (
+                                    <ProductRow
+                                        name={item.name}
+                                        fromPrice={item.from_price}
+                                        price={item.price}
+                                        effectivePrice={item.effective_price}
+                                        originalPrice={item.original_price}
+                                        description={item.description}
+                                        image={item.image}
+                                        showImage={style.cardTemplate !== "no-image"}
+                                        imageRight={style.cardTemplate === "right"}
+                                        mode={mode}
+                                        onClick={() => openItemDetail(item)}
+                                        optionGroups={item.optionGroups}
+                                        attributes={item.attributes}
+                                        allergens={item.allergens}
+                                        onAddToSelection={
+                                            activeTab === "menu"
+                                                ? () =>
+                                                      addToSelection(
+                                                          item.id,
+                                                          item.name,
+                                                          item.effective_price ?? item.price ?? 0
+                                                      )
+                                                : undefined
+                                        }
+                                        selectionQty={selectionMap[item.id]}
+                                    />
+                                ))}
+
+                            {/* Divider + variants */}
+                            {(item.variants?.length ?? 0) > 0 && (
+                                <>
+                                    <div className={styles.variantsDivider}>
+                                        {item.parentSelected && (
+                                            <span className={styles.variantsLabel}>
+                                                Varianti
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {item.variants!.map(v =>
+                                        style.productStyle === "compact" ? (
+                                            <ProductCompactRow
+                                                key={v.id}
+                                                name={v.name}
+                                                price={v.price}
+                                                originalPrice={v.original_price}
+                                                fromPrice={v.from_price}
+                                                description={v.description}
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    openItemDetail({
+                                                        id: v.id,
+                                                        name: v.name,
+                                                        parentSelected: true,
+                                                        price: v.price ?? null,
+                                                        original_price: v.original_price ?? null,
+                                                        from_price: v.from_price ?? null,
+                                                        image: v.image ?? null,
+                                                        description: v.description ?? null,
+                                                        ...(v.optionGroups && v.optionGroups.length > 0
+                                                            ? { optionGroups: v.optionGroups }
+                                                            : {}),
+                                                        ...(item.ingredients && item.ingredients.length > 0
+                                                            ? { ingredients: item.ingredients }
+                                                            : {})
+                                                    });
+                                                }}
+                                                onAddToSelection={
+                                                    activeTab === "menu"
+                                                        ? () =>
+                                                              addToSelection(
+                                                                  v.id,
+                                                                  v.name,
+                                                                  v.price ?? 0
+                                                              )
+                                                        : undefined
+                                                }
+                                                selectionQty={selectionMap[v.id]}
+                                            />
+                                        ) : (
+                                            <ProductRow
+                                                key={v.id}
+                                                name={v.name}
+                                                price={v.price}
+                                                originalPrice={v.original_price}
+                                                fromPrice={v.from_price}
+                                                description={v.description}
+                                                image={v.image}
+                                                showImage={style.cardTemplate !== "no-image"}
+                                                imageRight={style.cardTemplate === "right"}
+                                                mode={mode}
+                                                optionGroups={v.optionGroups}
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    openItemDetail({
+                                                        id: v.id,
+                                                        name: v.name,
+                                                        parentSelected: true,
+                                                        price: v.price ?? null,
+                                                        original_price: v.original_price ?? null,
+                                                        from_price: v.from_price ?? null,
+                                                        image: v.image ?? null,
+                                                        description: v.description ?? null,
+                                                        ...(v.optionGroups && v.optionGroups.length > 0
+                                                            ? { optionGroups: v.optionGroups }
+                                                            : {}),
+                                                        ...(item.ingredients && item.ingredients.length > 0
+                                                            ? { ingredients: item.ingredients }
+                                                            : {})
+                                                    });
+                                                }}
+                                                onAddToSelection={
+                                                    activeTab === "menu"
+                                                        ? () =>
+                                                              addToSelection(
+                                                                  v.id,
+                                                                  v.name,
+                                                                  v.price ?? 0
+                                                              )
+                                                        : undefined
+                                                }
+                                                selectionQty={selectionMap[v.id]}
+                                            />
+                                        )
+                                    )}
+                                </>
+                            )}
+                        </article>
+                    );
+                })}
+            </div>
+        );
+    }
 
     return (
         <main className={styles.page} ref={pageRef}>
@@ -782,6 +1121,7 @@ export default function CollectionView({
                                     <div className={styles.previewHdrLogoPlaceholder} />
                                 ))}
                             <span className={styles.previewHdrName}>{businessName}</span>
+                            <LanguageSelector variant="compact" />
                             <button
                                 type="button"
                                 className={styles.previewHdrSearchBtn}
@@ -802,6 +1142,7 @@ export default function CollectionView({
                 sections={sections}
                 scrollContainerEl={scrollContainerEl}
                 mode={mode}
+                activityId={activityId}
             />
 
             {/* Spacer in-flow che compensa il compact header fixed (solo public).
@@ -824,6 +1165,7 @@ export default function CollectionView({
                             sections={navItems}
                             activeSectionId={activeSectionId}
                             onSelect={scrollToSection}
+                            onChildSelect={scrollToSubSection}
                             variant={mode === "public" ? "public" : "preview"}
                             style={{
                                 shape: style.sectionNavShape,
@@ -856,354 +1198,51 @@ export default function CollectionView({
                                     data-card-layout={style.cardLayout ?? "list"}
                                 >
                                     {featuredBeforeCatalogSlot}
-                                    {sections.map(section => {
-                                        if (section.items.length === 0) return null;
+                                    {sectionGroups.map(group => (
+                                        <section
+                                            key={group.root.id}
+                                            data-section-id={group.root.id}
+                                            ref={el => {
+                                                sectionRefs.current[group.root.id] = el;
+                                            }}
+                                            className={styles.sectionGroup}
+                                            aria-label={group.root.name}
+                                        >
+                                            <Text as="h2" variant="title-sm" weight={700}>
+                                                {group.root.name}
+                                            </Text>
 
-                                        return (
-                                            <section
-                                                key={section.id}
-                                                data-section-id={section.id}
-                                                ref={el => {
-                                                    sectionRefs.current[section.id] = el;
-                                                }}
-                                                className={styles.section}
-                                                aria-label={section.name}
-                                            >
-                                                <Text as="h2" variant="title-sm" weight={700}>
-                                                    {section.name}
-                                                </Text>
+                                            {renderSectionGrid(group.root)}
 
-                                                <div className={styles.grid} role="list">
-                                                    {section.items.map(item => {
-                                                        const isDisabled =
-                                                            item.is_disabled === true;
-                                                        return (
-                                                            <article
-                                                                key={item.id}
-                                                                id={`product-${item.id}`}
-                                                                role="listitem"
-                                                                className={
-                                                                    style.productStyle === "compact"
-                                                                        ? `${styles.compactItem}${isDisabled ? ` ${styles.disabledCard}` : ""}`
-                                                                        : `${styles.card}${isDisabled ? ` ${styles.disabledCard}` : ""}`
-                                                                }
-                                                            >
-                                                                {isDisabled &&
-                                                                    style.productStyle !==
-                                                                        "compact" && (
-                                                                        <span
-                                                                            className={
-                                                                                styles.unavailableBadge
-                                                                            }
-                                                                        >
-                                                                            Non disponibile
-                                                                        </span>
-                                                                    )}
-                                                                {/* Case A/B: parent row — only if parentSelected */}
-                                                                {item.parentSelected &&
-                                                                    (style.productStyle ===
-                                                                    "compact" ? (
-                                                                        <ProductCompactRow
-                                                                            name={item.name}
-                                                                            fromPrice={
-                                                                                item.from_price
-                                                                            }
-                                                                            price={item.price}
-                                                                            effectivePrice={
-                                                                                item.effective_price
-                                                                            }
-                                                                            originalPrice={
-                                                                                item.original_price
-                                                                            }
-                                                                            description={
-                                                                                item.description
-                                                                            }
-                                                                            onClick={() =>
-                                                                                setSelectedItem(
-                                                                                    item
-                                                                                )
-                                                                            }
-                                                                            allergens={
-                                                                                item.allergens
-                                                                            }
-                                                                            onAddToSelection={
-                                                                                activeTab === "menu"
-                                                                                    ? () =>
-                                                                                          addToSelection(
-                                                                                              item.id,
-                                                                                              item.name,
-                                                                                              item.effective_price ??
-                                                                                                  item.price ??
-                                                                                                  0
-                                                                                          )
-                                                                                    : undefined
-                                                                            }
-                                                                            selectionQty={
-                                                                                selectionMap[
-                                                                                    item.id
-                                                                                ]
-                                                                            }
-                                                                        />
-                                                                    ) : (
-                                                                        <ProductRow
-                                                                            name={item.name}
-                                                                            fromPrice={
-                                                                                item.from_price
-                                                                            }
-                                                                            price={item.price}
-                                                                            effectivePrice={
-                                                                                item.effective_price
-                                                                            }
-                                                                            originalPrice={
-                                                                                item.original_price
-                                                                            }
-                                                                            description={
-                                                                                item.description
-                                                                            }
-                                                                            image={item.image}
-                                                                            showImage={
-                                                                                style.cardTemplate !==
-                                                                                "no-image"
-                                                                            }
-                                                                            imageRight={
-                                                                                style.cardTemplate ===
-                                                                                "right"
-                                                                            }
-                                                                            mode={mode}
-                                                                            onClick={() =>
-                                                                                setSelectedItem(
-                                                                                    item
-                                                                                )
-                                                                            }
-                                                                            optionGroups={
-                                                                                item.optionGroups
-                                                                            }
-                                                                            attributes={
-                                                                                item.attributes
-                                                                            }
-                                                                            allergens={
-                                                                                item.allergens
-                                                                            }
-                                                                            onAddToSelection={
-                                                                                activeTab === "menu"
-                                                                                    ? () =>
-                                                                                          addToSelection(
-                                                                                              item.id,
-                                                                                              item.name,
-                                                                                              item.effective_price ??
-                                                                                                  item.price ??
-                                                                                                  0
-                                                                                          )
-                                                                                    : undefined
-                                                                            }
-                                                                            selectionQty={
-                                                                                selectionMap[
-                                                                                    item.id
-                                                                                ]
-                                                                            }
-                                                                        />
-                                                                    ))}
-
-                                                                {/* Divider + variants */}
-                                                                {(item.variants?.length ?? 0) >
-                                                                    0 && (
-                                                                    <>
-                                                                        <div
-                                                                            className={
-                                                                                styles.variantsDivider
-                                                                            }
-                                                                        >
-                                                                            {item.parentSelected && (
-                                                                                <span
-                                                                                    className={
-                                                                                        styles.variantsLabel
-                                                                                    }
-                                                                                >
-                                                                                    Varianti
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-
-                                                                        {item.variants!.map(v =>
-                                                                            style.productStyle ===
-                                                                            "compact" ? (
-                                                                                <ProductCompactRow
-                                                                                    key={v.id}
-                                                                                    name={v.name}
-                                                                                    price={v.price}
-                                                                                    originalPrice={
-                                                                                        v.original_price
-                                                                                    }
-                                                                                    fromPrice={
-                                                                                        v.from_price
-                                                                                    }
-                                                                                    description={
-                                                                                        v.description
-                                                                                    }
-                                                                                    onClick={e => {
-                                                                                        e.stopPropagation();
-                                                                                        setSelectedItem(
-                                                                                            {
-                                                                                                id: v.id,
-                                                                                                name: v.name,
-                                                                                                parentSelected: true,
-                                                                                                price:
-                                                                                                    v.price ??
-                                                                                                    null,
-                                                                                                original_price:
-                                                                                                    v.original_price ??
-                                                                                                    null,
-                                                                                                from_price:
-                                                                                                    v.from_price ??
-                                                                                                    null,
-                                                                                                image:
-                                                                                                    v.image ??
-                                                                                                    null,
-                                                                                                description:
-                                                                                                    v.description ??
-                                                                                                    null,
-                                                                                                ...(v.optionGroups &&
-                                                                                                v
-                                                                                                    .optionGroups
-                                                                                                    .length >
-                                                                                                    0
-                                                                                                    ? {
-                                                                                                          optionGroups:
-                                                                                                              v.optionGroups
-                                                                                                      }
-                                                                                                    : {}),
-                                                                                                ...(item.ingredients &&
-                                                                                                item
-                                                                                                    .ingredients
-                                                                                                    .length >
-                                                                                                    0
-                                                                                                    ? {
-                                                                                                          ingredients:
-                                                                                                              item.ingredients
-                                                                                                      }
-                                                                                                    : {})
-                                                                                            }
-                                                                                        );
-                                                                                    }}
-                                                                                    onAddToSelection={
-                                                                                        activeTab ===
-                                                                                        "menu"
-                                                                                            ? () =>
-                                                                                                  addToSelection(
-                                                                                                      v.id,
-                                                                                                      v.name,
-                                                                                                      v.price ??
-                                                                                                          0
-                                                                                                  )
-                                                                                            : undefined
-                                                                                    }
-                                                                                    selectionQty={
-                                                                                        selectionMap[
-                                                                                            v.id
-                                                                                        ]
-                                                                                    }
-                                                                                />
-                                                                            ) : (
-                                                                                <ProductRow
-                                                                                    key={v.id}
-                                                                                    name={v.name}
-                                                                                    price={v.price}
-                                                                                    originalPrice={
-                                                                                        v.original_price
-                                                                                    }
-                                                                                    fromPrice={
-                                                                                        v.from_price
-                                                                                    }
-                                                                                    description={
-                                                                                        v.description
-                                                                                    }
-                                                                                    image={v.image}
-                                                                                    showImage={
-                                                                                        style.cardTemplate !==
-                                                                                        "no-image"
-                                                                                    }
-                                                                                    imageRight={
-                                                                                        style.cardTemplate ===
-                                                                                        "right"
-                                                                                    }
-                                                                                    mode={mode}
-                                                                                    optionGroups={
-                                                                                        v.optionGroups
-                                                                                    }
-                                                                                    onClick={e => {
-                                                                                        e.stopPropagation();
-                                                                                        setSelectedItem(
-                                                                                            {
-                                                                                                id: v.id,
-                                                                                                name: v.name,
-                                                                                                parentSelected: true,
-                                                                                                price:
-                                                                                                    v.price ??
-                                                                                                    null,
-                                                                                                original_price:
-                                                                                                    v.original_price ??
-                                                                                                    null,
-                                                                                                from_price:
-                                                                                                    v.from_price ??
-                                                                                                    null,
-                                                                                                image:
-                                                                                                    v.image ??
-                                                                                                    null,
-                                                                                                description:
-                                                                                                    v.description ??
-                                                                                                    null,
-                                                                                                ...(v.optionGroups &&
-                                                                                                v
-                                                                                                    .optionGroups
-                                                                                                    .length >
-                                                                                                    0
-                                                                                                    ? {
-                                                                                                          optionGroups:
-                                                                                                              v.optionGroups
-                                                                                                      }
-                                                                                                    : {}),
-                                                                                                ...(item.ingredients &&
-                                                                                                item
-                                                                                                    .ingredients
-                                                                                                    .length >
-                                                                                                    0
-                                                                                                    ? {
-                                                                                                          ingredients:
-                                                                                                              item.ingredients
-                                                                                                      }
-                                                                                                    : {})
-                                                                                            }
-                                                                                        );
-                                                                                    }}
-                                                                                    onAddToSelection={
-                                                                                        activeTab ===
-                                                                                        "menu"
-                                                                                            ? () =>
-                                                                                                  addToSelection(
-                                                                                                      v.id,
-                                                                                                      v.name,
-                                                                                                      v.price ??
-                                                                                                          0
-                                                                                                  )
-                                                                                            : undefined
-                                                                                    }
-                                                                                    selectionQty={
-                                                                                        selectionMap[
-                                                                                            v.id
-                                                                                        ]
-                                                                                    }
-                                                                                />
-                                                                            )
-                                                                        )}
-                                                                    </>
-                                                                )}
-                                                            </article>
-                                                        );
-                                                    })}
+                                            {group.children.map(child => (
+                                                <div
+                                                    key={child.id}
+                                                    className={styles.subsection}
+                                                    ref={el => {
+                                                        sectionRefs.current[child.id] = el;
+                                                    }}
+                                                >
+                                                    <h3
+                                                        className={
+                                                            child.level === 2
+                                                                ? styles.sectionTitleL2
+                                                                : styles.sectionTitleL3
+                                                        }
+                                                    >
+                                                        <span
+                                                            className={
+                                                                child.level === 2
+                                                                    ? styles.dotAccent
+                                                                    : styles.dotMuted
+                                                            }
+                                                        />
+                                                        {child.name}
+                                                    </h3>
+                                                    {renderSectionGrid(child)}
                                                 </div>
-                                            </section>
-                                        );
-                                    })}
+                                            ))}
+                                        </section>
+                                    ))}
                                 </div>
 
                                 <ItemDetail
@@ -1225,8 +1264,10 @@ export default function CollectionView({
                         )}
                     </div>
 
+                    {featuredAfterCatalogSlot}
+
                     {/* ── FOOTER ── */}
-                    {!emptyState && <PublicFooter socialLinks={socialLinks} />}
+                    {!emptyState && <PublicFooter socialLinks={socialLinks} activityId={activityId} />}
                 </>
             )}
 
@@ -1240,7 +1281,16 @@ export default function CollectionView({
                     type="button"
                     className={styles.selectionFab}
                     style={{ bottom: `calc(20px + env(safe-area-inset-bottom, 0px))` }}
-                    onClick={() => setIsSelectionOpen(true)}
+                    onClick={() => {
+                        setIsSelectionOpen(true);
+                        if (activityId) {
+                            const totalPrice = selection.reduce((s, i) => s + i.price * i.qty, 0);
+                            trackEvent(activityId, "selection_sheet_open", {
+                                item_count: selectionCount,
+                                estimated_total: totalPrice
+                            });
+                        }
+                    }}
                     aria-label={`La mia selezione, ${selectionCount} elementi`}
                 >
                     La mia selezione

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { SocialLinks } from "../CollectionView/CollectionView";
+import { trackEvent } from "@/services/analytics/publicAnalytics";
 import styles from "./PublicFooter.module.scss";
 
 /* ── Icone SVG inline ─────────────────────────────────────────
@@ -106,54 +107,63 @@ function CataloGlobeLogo() {
 
 /* ── Componente ───────────────────────────────────────────── */
 
+type SocialType = "website" | "instagram" | "facebook" | "whatsapp" | "phone" | "email";
+
 type Props = {
     socialLinks?: SocialLinks;
+    activityId?: string;
 };
 
-export default function PublicFooter({ socialLinks }: Props) {
+export default function PublicFooter({ socialLinks, activityId }: Props) {
     // Costruisce la lista di social visibili
-    const visibleSocials: { href: string; label: string; icon: ReactNode }[] = [];
+    const visibleSocials: { href: string; label: string; icon: ReactNode; socialType: SocialType }[] = [];
 
     if (socialLinks?.website && socialLinks.website_public) {
         visibleSocials.push({
             href: ensureHttps(socialLinks.website),
             label: "Sito web",
-            icon: <IconGlobe />
+            icon: <IconGlobe />,
+            socialType: "website"
         });
     }
     if (socialLinks?.instagram && socialLinks.instagram_public) {
         visibleSocials.push({
             href: instagramHref(socialLinks.instagram),
             label: "Instagram",
-            icon: <IconInstagram />
+            icon: <IconInstagram />,
+            socialType: "instagram"
         });
     }
     if (socialLinks?.facebook && socialLinks.facebook_public) {
         visibleSocials.push({
             href: facebookHref(socialLinks.facebook),
             label: "Facebook",
-            icon: <IconFacebook />
+            icon: <IconFacebook />,
+            socialType: "facebook"
         });
     }
     if (socialLinks?.whatsapp && socialLinks.whatsapp_public) {
         visibleSocials.push({
             href: whatsappHref(socialLinks.whatsapp),
             label: "WhatsApp",
-            icon: <IconWhatsApp />
+            icon: <IconWhatsApp />,
+            socialType: "whatsapp"
         });
     }
     if (socialLinks?.phone && socialLinks.phone_public) {
         visibleSocials.push({
             href: `tel:${socialLinks.phone}`,
             label: "Telefono",
-            icon: <IconPhone />
+            icon: <IconPhone />,
+            socialType: "phone"
         });
     }
     if (socialLinks?.email_public && socialLinks.email_public_visible) {
         visibleSocials.push({
             href: `mailto:${socialLinks.email_public}`,
             label: "Email",
-            icon: <IconMail />
+            icon: <IconMail />,
+            socialType: "email"
         });
     }
 
@@ -162,7 +172,7 @@ export default function PublicFooter({ socialLinks }: Props) {
             {/* Social icons — visibili solo se configurati e pubblici */}
             {visibleSocials.length > 0 && (
                 <div className={styles.socialRow}>
-                    {visibleSocials.map(({ href, label, icon }) => (
+                    {visibleSocials.map(({ href, label, icon, socialType }) => (
                         <a
                             key={label}
                             href={href}
@@ -170,6 +180,13 @@ export default function PublicFooter({ socialLinks }: Props) {
                             aria-label={label}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={() => {
+                                if (activityId) {
+                                    trackEvent(activityId, "social_click", {
+                                        social_type: socialType
+                                    });
+                                }
+                            }}
                         >
                             {icon}
                         </a>

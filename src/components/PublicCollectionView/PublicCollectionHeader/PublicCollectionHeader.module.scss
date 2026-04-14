@@ -94,10 +94,20 @@
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
+  /* z-index > 0 assicura che i chip catturino i click/touch prima
+     dell'area invisibile dei pulsanti nella riga superiore
+     (iOS estende i touch target < 44px verso il basso). */
+  position: relative;
+  z-index: 1;
 
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* In preview i chip sono puramente visivi — nessun hover, nessun click. */
+.infoCardChipsPreview {
+  pointer-events: none;
 }
 
 .infoCardChip {

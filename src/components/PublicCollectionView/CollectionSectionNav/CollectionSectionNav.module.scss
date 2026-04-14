@@ -255,6 +255,275 @@
 }
 
 /* ---------------------------------------------
+   PILL WITH CHILDREN — wrapper con label + chevron
+--------------------------------------------- */
+
+.pillWithChildren {
+  display: inline-flex;
+  align-items: center;
+  /* Nessun overflow:hidden — il dropdown deve uscire dal container */
+  border-radius: 999px; /* default pill; override via inline style o varianti */
+  color: var(--pub-text-secondary);
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+
+  &:focus-within {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--pub-primary) 35%, transparent);
+  }
+
+  /* Identico alle pill normali: cascade di color verso Text e chevron */
+  &[data-active="true"] {
+    font-weight: 600;
+    background: var(--pub-primary);
+    color: #fff;
+
+    .pillLabel {
+      font-weight: 600;
+    }
+  }
+}
+
+/* Varianti: aggiusta border-radius e active state */
+.nav[data-nav-style="chip"] .pillWithChildren {
+  border-radius: 4px;
+
+  &[data-active="true"] {
+    background: var(--pub-primary);
+
+    .pillLabel,
+    .pillChevron {
+      color: #fff;
+    }
+  }
+}
+
+.nav[data-nav-style="outline"] .pillWithChildren {
+  border-radius: 20px;
+  border: 1.5px solid transparent;
+
+  &[data-active="true"] {
+    background: transparent;
+    border-color: var(--pub-primary);
+
+    .pillLabel,
+    .pillChevron {
+      color: var(--pub-primary);
+    }
+  }
+}
+
+.nav[data-nav-style="tabs"] .pillWithChildren {
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+
+  &[data-active="true"] {
+    background: transparent;
+    border-bottom-color: var(--pub-primary);
+
+    .pillLabel,
+    .pillChevron {
+      color: var(--pub-primary);
+    }
+  }
+}
+
+.nav[data-nav-style="minimal"] .pillWithChildren {
+  border-radius: 4px;
+
+  &[data-active="true"] {
+    background: transparent;
+
+    .pillLabel,
+    .pillChevron {
+      color: var(--pub-primary);
+    }
+  }
+}
+
+.nav[data-nav-style="dot"] .pillWithChildren {
+  position: relative;
+  border-radius: 4px;
+  padding-bottom: 1.1rem;
+
+  &[data-active="true"] {
+    background: transparent;
+
+    .pillLabel,
+    .pillChevron {
+      color: var(--pub-primary);
+    }
+
+    &::after {
+      content: "";
+      position: absolute;
+      bottom: 0.35rem;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--pub-primary);
+    }
+  }
+}
+
+/* Bottone testo (label) della pill con figli */
+.pillLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.4rem 0.5rem 0.9rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  outline: none;
+  font-family: inherit;
+  font-size: inherit;
+  transition: opacity 0.15s;
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--pub-primary) 35%, transparent);
+    outline-offset: -2px;
+    border-radius: 4px;
+  }
+}
+
+/* Bottone chevron — area touch minima 36×36px */
+.pillChevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 0.5rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: color 0.2s ease;
+
+  /* Rotazione chevron quando il dropdown è aperto */
+  &[data-open="true"] svg {
+    transform: rotate(180deg);
+  }
+
+  svg {
+    transition: transform 0.2s ease;
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--pub-primary) 35%, transparent);
+    outline-offset: -2px;
+    border-radius: 4px;
+  }
+}
+
+/* Varianti: padding label per tabs */
+.nav[data-nav-style="tabs"] {
+  .pillLabel {
+    padding: 0.6rem 0.35rem 0.6rem 1rem;
+  }
+
+  .pillChevron {
+    padding: 0.6rem 0.5rem;
+  }
+}
+
+/* ---------------------------------------------
+   DROPDOWN — portal su document.body
+   Usa --pub-* variables (pubbliche) invece delle
+   variabili dashboard usate da DropdownMenu.
+--------------------------------------------- */
+
+.dropdown {
+  position: fixed;
+  z-index: 1000;
+  min-width: 180px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--pub-surface, #fff);
+  border: 1px solid var(--pub-border, #e2e8f0);
+  border-radius: 10px;
+  padding: 0.375rem;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    0 1px 4px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+
+  /* Nasconde scrollbar su WebKit mantenendo la funzionalità */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--pub-text) 15%, transparent) transparent;
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: var(--pub-text, #0f172a);
+  font-family: var(--pub-font-family, inherit);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  white-space: nowrap;
+  transition: background 0.12s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--pub-primary) 40%, transparent);
+    outline-offset: -1px;
+  }
+}
+
+/* L3: indent per comunicare gerarchia */
+.dropdownItemL3 {
+  padding-left: calc(0.75rem + 20px);
+}
+
+/* Voce attiva nel dropdown (sotto-sezione in viewport) */
+.dropdownItemActive {
+  background: color-mix(in srgb, var(--pub-primary, #e8a300) 12%, var(--pub-surface, #fff));
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-primary, #e8a300) 20%, var(--pub-surface, #fff));
+  }
+}
+
+/* Dot gold — L2 */
+.dotL2 {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pub-accent, var(--pub-primary, #e8a300));
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+/* Dot grigio — L3 */
+.dotL3 {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #a0a0a0;
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------
    RESPONSIVE TWEAKS
 --------------------------------------------- */
 @media (max-width: 768px) {
@@ -266,10 +535,18 @@
   .pill {
     padding: 0.45rem 0.85rem;
   }
+
+  .pillLabel {
+    padding: 0.45rem 0.35rem 0.45rem 0.85rem;
+  }
 }
 
 @media (max-width: 480px) {
   .pill {
     padding: 0.4rem 0.75rem;
+  }
+
+  .pillLabel {
+    padding: 0.4rem 0.3rem 0.4rem 0.75rem;
   }
 }

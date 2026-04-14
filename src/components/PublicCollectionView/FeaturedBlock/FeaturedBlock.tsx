@@ -4,9 +4,12 @@ import styles from "./FeaturedBlock.module.scss";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import Text from "@/components/ui/Text/Text";
 import { FeaturedPreviewModal } from "./FeaturedPreviewModal";
+import { trackEvent } from "@/services/analytics/publicAnalytics";
 
 type Props = {
     blocks: V2FeaturedContent[];
+    activityId?: string;
+    slot?: string;
 };
 
 function formatPrice(price: number): string {
@@ -17,7 +20,7 @@ function formatPrice(price: number): string {
     }).format(price);
 }
 
-export default function FeaturedBlock({ blocks }: Props) {
+export default function FeaturedBlock({ blocks, activityId, slot }: Props) {
     const [previewBlock, setPreviewBlock] = useState<V2FeaturedContent | null>(null);
 
     if (!blocks || blocks.length === 0) return null;
@@ -54,7 +57,16 @@ export default function FeaturedBlock({ blocks }: Props) {
                         key={block.id}
                         type="button"
                         className={styles.card}
-                        onClick={() => setPreviewBlock(block)}
+                        onClick={() => {
+                            setPreviewBlock(block);
+                            if (activityId) {
+                                trackEvent(activityId, "featured_click", {
+                                    featured_id: block.id,
+                                    title: block.title,
+                                    slot
+                                });
+                            }
+                        }}
                     >
                         {/* ── Immagine media ─────────────────────────── */}
                         {block.media_id && (

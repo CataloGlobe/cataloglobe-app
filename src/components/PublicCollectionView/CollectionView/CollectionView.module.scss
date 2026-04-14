@@ -16,6 +16,14 @@
   background: var(--pub-bg);
   color: var(--pub-text);
   font-family: var(--pub-font-family, sans-serif);
+
+  /* In preview il device frame ha border-radius e overflow:hidden che può
+     tagliare visivamente il footer. Il padding-bottom garantisce che il footer
+     sia completamente visibile quando si scrolla fino in fondo. */
+  :global(.preview-mobile) &,
+  :global(.preview-desktop) & {
+    padding-bottom: 80px;
+  }
 }
 
 /* Skip link (solo public) */
@@ -79,7 +87,7 @@
 }
 
 /* ----------------------------------------------------
-   SECTION
+   SECTION / SECTION GROUP
 ---------------------------------------------------- */
 
 .section {
@@ -89,6 +97,65 @@
   /* offset: compact header (~60px) + nav (~56px) + gap (16px) ≈ 132px ≈ 8.25rem
      Valore aumentato rispetto al precedente 4.5rem per accomodare il compact header fisso. */
   scroll-margin-top: 8.5rem;
+}
+
+/* sectionGroup: wrapper root per ogni gruppo gerarchico L1 */
+.sectionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  scroll-margin-top: 8.5rem;
+}
+
+/* Sub-sezione L2/L3 — nessun indent, card full-width */
+.subsection {
+  margin-top: 28px;
+}
+
+/* Titolo L2 — dot gold accent */
+.sectionTitleL2 {
+  font-family: var(--pub-font-family, sans-serif);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--pub-text-secondary, #444);
+  line-height: 1.25;
+  margin: 0 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Titolo L3 — dot grigio, più tenue */
+.sectionTitleL3 {
+  font-family: var(--pub-font-family, sans-serif);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #777;
+  line-height: 1.25;
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Dot accent (L2) — gold */
+.dotAccent {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pub-accent, #e8a300);
+  flex-shrink: 0;
+}
+
+/* Dot muted (L3) — grigio */
+.dotMuted {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ccc;
+  flex-shrink: 0;
 }
 
 /* ----------------------------------------------------
@@ -547,6 +614,8 @@
   will-change: transform, opacity;
   transform: translateY(-100%);
   opacity: 0;
+  /* Nascosto fuori schermo: i pulsanti non devono intercettare click/touch. */
+  pointer-events: none;
   transition:
     transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
     opacity 0.18s ease;
@@ -554,6 +623,7 @@
   &.previewHdrBarVisible {
     transform: translateY(0);
     opacity: 1;
+    pointer-events: auto;
   }
 }
 
