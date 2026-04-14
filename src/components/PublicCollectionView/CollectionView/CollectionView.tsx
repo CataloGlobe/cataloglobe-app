@@ -22,6 +22,7 @@ import type { CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
 import ItemDetail from "../ItemDetail/ItemDetail";
 import SelectionSheet, { type SelectionItem } from "../SelectionSheet/SelectionSheet";
+import EventsView from "../EventsView/EventsView";
 import ReviewsView, { type ReviewsViewProps } from "../ReviewsView/ReviewsView";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
@@ -379,67 +380,14 @@ function ProductCompactRow({
 
 // ─── Hub tab views ────────────────────────────────────────────────────────────
 
-function EventsView({ featuredContents }: { featuredContents: V2FeaturedContent[] }) {
-    if (featuredContents.length === 0) {
-        return (
-            <div className={styles.hubEmptyState}>
-                <Text variant="body" colorVariant="muted">
-                    Nessun evento o promozione disponibile al momento.
-                </Text>
-            </div>
-        );
-    }
-
-    return (
-        <div className={styles.eventsContainer}>
-            {featuredContents.map(fc => (
-                <div key={fc.id} className={styles.eventCard}>
-                    {fc.media_id && (
-                        <img
-                            src={fc.media_id}
-                            alt={fc.title}
-                            className={styles.eventCardImage}
-                            loading="lazy"
-                        />
-                    )}
-                    <div className={styles.eventCardContent}>
-                        <Text variant="title-sm" weight={700} className={styles.eventCardTitle}>
-                            {fc.title}
-                        </Text>
-                        {fc.subtitle && (
-                            <Text variant="body-sm" colorVariant="muted">
-                                {fc.subtitle}
-                            </Text>
-                        )}
-                        {fc.description && (
-                            <Text variant="body" className={styles.eventCardDescription}>
-                                {fc.description}
-                            </Text>
-                        )}
-                        {fc.cta_text && fc.cta_url && (
-                            <a
-                                href={fc.cta_url}
-                                className={styles.eventCardCta}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                {fc.cta_text}
-                            </a>
-                        )}
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-}
-
 // ─── Scroll-offset constants ─────────────────────────────────────────────────
 // NAV_HEIGHT: altezza sticky della CollectionSectionNav
 // VISUAL_GAP: breathing room sotto la barra sticky
 // SCROLL_OFFSET e STICKY_OFFSET sono ora calcolati dinamicamente in base
 // all'altezza reale del compact header (via compactHeaderHeightRef).
-const NAV_HEIGHT = 56; // CollectionSectionNav (~3.5rem)
+const NAV_HEIGHT = 67; // CollectionSectionNav (misurato ~66.6px)
 const VISUAL_GAP = 16; // breathing room below sticky bar
+const FINAL_COMPACT_HEIGHT = 60; // altezza compact header a regime (floor per scroll offset)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type SocialLinks = {
@@ -469,7 +417,6 @@ type Props = {
         title?: string;
         description?: string;
     };
-    featuredHeroSlot?: ReactNode;
     featuredBeforeCatalogSlot?: ReactNode;
     featuredAfterCatalogSlot?: ReactNode;
     /** Tenant logo URL da mostrare nel compact header. */
@@ -486,7 +433,7 @@ type Props = {
     activeTab?: HubTab;
     /** Callback per cambio tab. */
     onTabChange?: (tab: HubTab) => void;
-    /** Tutti i featured contents (hero + before_catalog + after_catalog) per la vista eventi. */
+    /** Tutti i featured contents (before_catalog + after_catalog) per la vista eventi. */
     featuredContents?: V2FeaturedContent[];
     /** Props per il tab ReviewsView (solo public). */
     reviewsProps?: ReviewsViewProps;
@@ -503,7 +450,6 @@ export default function CollectionView({
     mode,
     contentId = "collection-content",
     emptyState,
-    featuredHeroSlot,
     featuredBeforeCatalogSlot,
     featuredAfterCatalogSlot,
     tenantLogoUrl,
@@ -830,7 +776,8 @@ export default function CollectionView({
         if (!el) return;
 
         // Offset dinamico: compact header + nav + gap
-        const dynamicScrollOffset = compactHeaderHeightRef.current + NAV_HEIGHT + VISUAL_GAP;
+        const compactH = Math.max(compactHeaderHeightRef.current, FINAL_COMPACT_HEIGHT);
+        const dynamicScrollOffset = compactH + NAV_HEIGHT + VISUAL_GAP;
 
         const container = containerRef.current;
 
@@ -854,7 +801,8 @@ export default function CollectionView({
             const el = sectionRefs.current[childId];
             if (!el) return;
 
-            const dynamicScrollOffset = compactHeaderHeightRef.current + NAV_HEIGHT + VISUAL_GAP;
+            const compactH = Math.max(compactHeaderHeightRef.current, FINAL_COMPACT_HEIGHT);
+            const dynamicScrollOffset = compactH + NAV_HEIGHT + VISUAL_GAP;
             const container = containerRef.current;
 
             if (container === window) {
@@ -1157,8 +1105,6 @@ export default function CollectionView({
 
             {activeTab === "menu" && (
                 <>
-                    {featuredHeroSlot}
-
                     {/* ── NAV – sticky, topOffset dinamico ── */}
                     {!emptyState && (
                         <CollectionSectionNav
@@ -1260,11 +1206,11 @@ export default function CollectionView({
                                     onRemove={removeFromSelection}
                                     onClear={clearSelection}
                                 />
+
+                                {featuredAfterCatalogSlot}
                             </>
                         )}
                     </div>
-
-                    {featuredAfterCatalogSlot}
 
                     {/* ── FOOTER ── */}
                     {!emptyState && <PublicFooter socialLinks={socialLinks} activityId={activityId} />}

@@ -10,6 +10,8 @@ type Props = {
     blocks: V2FeaturedContent[];
     activityId?: string;
     slot?: string;
+    /** Rimuove padding/max-width/margin dal container (usare quando il blocco è già dentro un container con padding). */
+    flush?: boolean;
 };
 
 function formatPrice(price: number): string {
@@ -20,14 +22,14 @@ function formatPrice(price: number): string {
     }).format(price);
 }
 
-export default function FeaturedBlock({ blocks, activityId, slot }: Props) {
+export default function FeaturedBlock({ blocks, activityId, slot, flush }: Props) {
     const [previewBlock, setPreviewBlock] = useState<V2FeaturedContent | null>(null);
 
     if (!blocks || blocks.length === 0) return null;
 
     return (
         <>
-        <div className={styles.container}>
+        <div className={[styles.container, flush ? styles.flush : ""].filter(Boolean).join(" ")}>
             {blocks.map(block => {
                 const showImages = block.layout_style === "with_images";
 

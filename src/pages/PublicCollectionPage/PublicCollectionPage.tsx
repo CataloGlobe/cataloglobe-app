@@ -271,7 +271,6 @@ export default function PublicCollectionPage() {
                 // Empty state (no catalog, no featured)
                 if (
                     !resolved.catalog &&
-                    (!resolved.featured?.hero || resolved.featured.hero.length === 0) &&
                     (!resolved.featured?.before_catalog ||
                         resolved.featured.before_catalog.length === 0) &&
                     (!resolved.featured?.after_catalog ||
@@ -421,7 +420,6 @@ export default function PublicCollectionPage() {
             : undefined;
 
     const allFeaturedContents = [
-        ...(resolved.featured?.hero ?? []),
         ...(resolved.featured?.before_catalog ?? []),
         ...(resolved.featured?.after_catalog ?? [])
     ];
@@ -484,21 +482,16 @@ export default function PublicCollectionPage() {
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
                 featuredContents={allFeaturedContents}
-                featuredHeroSlot={
-                    resolved.featured?.hero && resolved.featured.hero.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.hero} activityId={business.id} slot="hero" />
-                    ) : null
-                }
                 featuredBeforeCatalogSlot={
                     resolved.featured?.before_catalog &&
                     resolved.featured.before_catalog.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.before_catalog} activityId={business.id} slot="before_catalog" />
+                        <FeaturedBlock blocks={resolved.featured.before_catalog} activityId={business.id} slot="before_catalog" flush />
                     ) : null
                 }
                 featuredAfterCatalogSlot={
                     resolved.featured?.after_catalog &&
                     resolved.featured.after_catalog.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.after_catalog} activityId={business.id} slot="after_catalog" />
+                        <FeaturedBlock blocks={resolved.featured.after_catalog} activityId={business.id} slot="after_catalog" flush />
                     ) : null
                 }
                 reviewsProps={{

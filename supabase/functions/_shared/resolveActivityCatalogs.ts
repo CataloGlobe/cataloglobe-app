@@ -145,7 +145,6 @@ export type V2FeaturedContent = {
 export type ResolvedCollections = {
     style?: ResolvedStyle;
     featured?: {
-        hero?: V2FeaturedContent[];
         before_catalog?: V2FeaturedContent[];
         after_catalog?: V2FeaturedContent[];
     };
@@ -1363,7 +1362,7 @@ export async function resolveActivityCatalogs(
     if (!activityExists) {
         console.warn(`[resolveActivityCatalogs] Activity not found: ${activityId}`);
         return {
-            featured: { hero: [], before_catalog: [], after_catalog: [] }
+            featured: { before_catalog: [], after_catalog: [] }
         };
     }
 
@@ -1396,7 +1395,6 @@ export async function resolveActivityCatalogs(
     }
 
     const featured: ResolvedCollections["featured"] = {
-        hero: [],
         before_catalog: [],
         after_catalog: []
     };
@@ -1415,7 +1413,7 @@ export async function resolveActivityCatalogs(
             );
         } else if (featuredData) {
             type RawFeaturedJoin = {
-                slot: "hero" | "before_catalog" | "after_catalog";
+                slot: "before_catalog" | "after_catalog";
                 sort_order: number;
                 featured_content: V2FeaturedContent | V2FeaturedContent[] | null;
             };
@@ -1471,25 +1469,22 @@ export async function resolveActivityCatalogs(
                     (
                         row
                     ): row is {
-                        slot: "hero" | "before_catalog" | "after_catalog";
+                        slot: "before_catalog" | "after_catalog";
                         sort_order: number;
                         featured_content: V2FeaturedContent;
                     } =>
                         row.featured_content !== null && row.featured_content.status === "published"
                 )
                 .sort((a, b) => {
-                    const slotOrder = { hero: 1, before_catalog: 2, after_catalog: 3 };
-                    const aSlot = slotOrder[a.slot] || 99;
-                    const bSlot = slotOrder[b.slot] || 99;
+                    const slotOrder: Record<string, number> = { before_catalog: 1, after_catalog: 2 };
+                    const aSlot = slotOrder[a.slot] ?? 99;
+                    const bSlot = slotOrder[b.slot] ?? 99;
                     if (aSlot !== bSlot) return aSlot - bSlot;
                     return a.sort_order - b.sort_order;
                 });
 
             for (const item of validFeaturedItems) {
-                if (item.slot === "hero") {
-                    if (!featured.hero) featured.hero = [];
-                    featured.hero.push(item.featured_content);
-                } else if (item.slot === "before_catalog") {
+                if (item.slot === "before_catalog") {
                     if (!featured.before_catalog) featured.before_catalog = [];
                     featured.before_catalog.push(item.featured_content);
                 } else if (item.slot === "after_catalog") {

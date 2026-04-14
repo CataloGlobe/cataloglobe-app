@@ -23,7 +23,7 @@ export type VisibilityRuleProductOverride = {
 
 export type LayoutRuleFeaturedContent = {
     featured_content_id: string;
-    slot: "hero" | "before_catalog" | "after_catalog";
+    slot: "before_catalog" | "after_catalog";
     sort_order: number;
     featured_content_title?: string | null;
 };
@@ -674,7 +674,7 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
             const current = featuredContentsByScheduleId.get(row.schedule_id) ?? [];
             current.push({
                 featured_content_id: row.featured_content_id,
-                slot: row.slot as "hero" | "before_catalog" | "after_catalog",
+                slot: row.slot as "before_catalog" | "after_catalog",
                 sort_order: row.sort_order,
                 featured_content_title: normalizeOne(row.featured_content)?.title ?? null
             });
