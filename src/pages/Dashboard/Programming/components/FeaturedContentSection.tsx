@@ -22,7 +22,6 @@ import type { FeaturedContentItem } from "./AssociatedContentSection";
 import styles from "../ProgrammingRuleDetail.module.scss";
 
 const SLOT_OPTIONS: { value: FeaturedContentItem["slot"]; label: string }[] = [
-    { value: "hero", label: "In cima alla pagina" },
     { value: "before_catalog", label: "Prima del catalogo" },
     { value: "after_catalog", label: "Dopo il catalogo" }
 ];
@@ -204,7 +203,7 @@ export function FeaturedContentSection({
     const handleAddFeaturedContent = (id: string) => {
         const next: FeaturedContentItem = {
             featuredContentId: id,
-            slot: "hero",
+            slot: "before_catalog",
             sortOrder: featuredContents.length
         };
         onFormChange({ featuredContents: [...featuredContents, next] });

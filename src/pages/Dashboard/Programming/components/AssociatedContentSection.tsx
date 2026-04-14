@@ -18,7 +18,7 @@ import styles from "../ProgrammingRuleDetail.module.scss";
 
 export interface FeaturedContentItem {
     featuredContentId: string;
-    slot: "hero" | "before_catalog" | "after_catalog";
+    slot: "before_catalog" | "after_catalog";
     sortOrder: number;
 }
 
