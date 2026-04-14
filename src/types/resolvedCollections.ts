@@ -140,7 +140,6 @@ export type V2FeaturedContent = {
 export type ResolvedCollections = {
     style?: ResolvedStyle;
     featured?: {
-        hero?: V2FeaturedContent[];
         before_catalog?: V2FeaturedContent[];
         after_catalog?: V2FeaturedContent[];
     };
