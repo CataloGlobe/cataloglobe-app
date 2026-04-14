@@ -260,10 +260,10 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                             scrollContainerEl={screenEl}
                             activityAddress="Via Example, 1 - Città"
                             featuredBeforeCatalogSlot={
-                                <FeaturedBlock blocks={MOCK_FEATURED} />
+                                <FeaturedBlock blocks={MOCK_FEATURED} flush />
                             }
                             featuredAfterCatalogSlot={
-                                <FeaturedBlock blocks={MOCK_FEATURED} />
+                                <FeaturedBlock blocks={MOCK_FEATURED} flush />
                             }
                         />
                     </div>

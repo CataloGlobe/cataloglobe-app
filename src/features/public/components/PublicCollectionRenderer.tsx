@@ -35,12 +35,6 @@ export default function PublicCollectionRenderer({ business, resolved }: Props) 
                 </header>
 
                 <main id="main-content">
-                    {featured?.hero && featured.hero.length > 0 && (
-                        <section className={styles.section}>
-                            <FeaturedBlock blocks={featured.hero} />
-                        </section>
-                    )}
-
                     {featured?.before_catalog && featured.before_catalog.length > 0 && (
                         <section className={styles.section}>
                             <FeaturedBlock blocks={featured.before_catalog} />
