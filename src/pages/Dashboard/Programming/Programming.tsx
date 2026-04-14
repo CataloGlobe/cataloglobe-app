@@ -32,6 +32,7 @@ import {
     type LayoutRuleOption,
     type RuleType
 } from "@/services/supabase/layoutScheduling";
+import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling";
 import { RuleRow } from "./components/RuleRow";
 import { CalendarView } from "./components/CalendarView";
 import {
@@ -89,6 +90,7 @@ type ActivityGroupMemberRow = {
 
 const RULE_TYPE_TAB_OPTIONS: Array<{ value: RuleType; label: string; description: string }> = [
     { value: "layout", label: "Layout", description: "Definiscono quale catalogo e stile mostrare" },
+    { value: "featured", label: "In evidenza", description: "Programmano quando mostrare contenuti in evidenza" },
     { value: "price", label: "Prezzi", description: "Sovrascrivono il prezzo di prodotti specifici" },
     { value: "visibility", label: "Visibilità", description: "Nascondono prodotti specifici per sede o orario" }
 ];
@@ -98,6 +100,7 @@ const DAILY_TIMELINE_STEP_MINUTES = 30;
 function getRuleTypeLabel(ruleType: RuleType): string {
     if (ruleType === "layout") return "Layout";
     if (ruleType === "price") return "Prezzi";
+    if (ruleType === "featured") return "In evidenza";
     return "Visibilità";
 }
 
@@ -224,7 +227,7 @@ export default function Programming() {
     const [searchTerm, setSearchTerm] = useState("");
     const typeFromUrl = searchParams.get("type") as RuleType | null;
     const [ruleTypeFilter, setRuleTypeFilter] = useState<RuleTypeFilter>(
-        typeFromUrl && ["layout", "price", "visibility"].includes(typeFromUrl)
+        typeFromUrl && ["layout", "featured", "price", "visibility"].includes(typeFromUrl)
             ? typeFromUrl
             : "layout"
     );
@@ -869,12 +872,20 @@ export default function Programming() {
                 RULE_TYPE_TAB_OPTIONS.find(o => o.value === ruleTypeFilter)?.label ?? ruleTypeFilter;
             const name = `Nuova regola ${typeLabel} · ${timestamp}`;
 
-            const newRuleId = await createRuleDraft({
-                tenantId: currentTenantId!,
-                ruleType: ruleTypeFilter,
-                name
-            });
-            navigate(`/business/${currentTenantId}/scheduling/${newRuleId}?fromType=${ruleTypeFilter}`);
+            if (ruleTypeFilter === "featured") {
+                const newRuleId = await createFeaturedRuleDraft({
+                    tenantId: currentTenantId!,
+                    name
+                });
+                navigate(`/business/${currentTenantId}/scheduling/featured/${newRuleId}?fromType=featured`);
+            } else {
+                const newRuleId = await createRuleDraft({
+                    tenantId: currentTenantId!,
+                    ruleType: ruleTypeFilter,
+                    name
+                });
+                navigate(`/business/${currentTenantId}/scheduling/${newRuleId}?fromType=${ruleTypeFilter}`);
+            }
         } catch {
             showToast({ message: "Errore nella creazione della regola.", type: "error" });
         } finally {
@@ -1007,7 +1018,7 @@ export default function Programming() {
                                                 activityById={activityById}
                                                 activityGroups={activityGroups}
                                                 onSelect={handleSelectionChange}
-                                                onClick={r => navigate(`/business/${currentTenantId}/scheduling/${r.id}`)}
+                                                onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
                                                 onDelete={id => { setRuleToDelete(id); setIsDeleteModalOpen(true); }}
                                                 onToggleEnabled={handleToggleEnabled}
                                             />
@@ -1027,7 +1038,7 @@ export default function Programming() {
                                                 activityById={activityById}
                                                 activityGroups={activityGroups}
                                                 onSelect={handleSelectionChange}
-                                                onClick={r => navigate(`/business/${currentTenantId}/scheduling/${r.id}`)}
+                                                onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
                                                 onDelete={id => { setRuleToDelete(id); setIsDeleteModalOpen(true); }}
                                                 onToggleEnabled={handleToggleEnabled}
                                             />
@@ -1053,7 +1064,7 @@ export default function Programming() {
                                                 activityById={activityById}
                                                 activityGroups={activityGroups}
                                                 onSelect={handleSelectionChange}
-                                                onClick={r => navigate(`/business/${currentTenantId}/scheduling/${r.id}`)}
+                                                onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
                                                 onDelete={id => { setRuleToDelete(id); setIsDeleteModalOpen(true); }}
                                                 onToggleEnabled={handleToggleEnabled}
                                             />
@@ -1079,7 +1090,7 @@ export default function Programming() {
                                                 activityById={activityById}
                                                 activityGroups={activityGroups}
                                                 onSelect={handleSelectionChange}
-                                                onClick={r => navigate(`/business/${currentTenantId}/scheduling/${r.id}`)}
+                                                onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
                                                 onDelete={id => { setRuleToDelete(id); setIsDeleteModalOpen(true); }}
                                                 onToggleEnabled={handleToggleEnabled}
                                             />
@@ -1094,7 +1105,11 @@ export default function Programming() {
                 <CalendarView
                     rules={rules}
                     onRuleClick={rule =>
-                        navigate(`/business/${currentTenantId}/scheduling/${rule.id}`)
+                        navigate(
+                            rule.rule_type === "featured"
+                                ? `/business/${currentTenantId}/scheduling/featured/${rule.id}`
+                                : `/business/${currentTenantId}/scheduling/${rule.id}`
+                        )
                     }
                 />
             )}

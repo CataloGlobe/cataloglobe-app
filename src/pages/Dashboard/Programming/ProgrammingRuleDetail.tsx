@@ -22,7 +22,7 @@ import styles from "./ProgrammingRuleDetail.module.scss";
 
 // Componentes
 import { TargetSection, type TargetMode } from "./components/TargetSection";
-import { AssociatedContentSection, type FeaturedContentItem } from "./components/AssociatedContentSection";
+import { AssociatedContentSection } from "./components/AssociatedContentSection";
 import { SchedulingSection } from "./components/SchedulingSection";
 
 type RuleDetailForm = {
@@ -33,7 +33,6 @@ type RuleDetailForm = {
     groupIds: string[];
     catalogId: string;
     styleId: string;
-    featuredContents: FeaturedContentItem[];
     selectedProductIds: string[];
     productOverrides: Record<
         string,
@@ -135,11 +134,6 @@ function buildForm(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>
         groupIds: rule.groupIds ?? [],
         catalogId: rule.layout?.catalog_id ?? "",
         styleId: rule.layout?.style_id ?? "",
-        featuredContents: rule.featured_contents.map(fc => ({
-            featuredContentId: fc.featured_content_id,
-            slot: fc.slot,
-            sortOrder: fc.sort_order
-        })),
         selectedProductIds,
         productOverrides,
         visibilityProductModes,
@@ -175,7 +169,6 @@ export default function ProgrammingRuleDetail() {
     const [productGroupItemsOptions, setProductGroupItemsOptions] = useState<
         ProductGroupAssignmentOption[]
     >([]);
-    const [featuredContentsOptions, setFeaturedContentsOptions] = useState<LayoutRuleOption[]>([]);
 
     const [form, setForm] = useState<RuleDetailForm | null>(null);
     const [initialSnapshot, setInitialSnapshot] = useState<string | null>(null);
@@ -231,14 +224,6 @@ export default function ProgrammingRuleDetail() {
         [productGroupItemsOptions, tenantId]
     );
 
-    const tenantFeaturedContents = useMemo(
-        () =>
-            tenantId
-                ? featuredContentsOptions.filter(item => item.tenant_id === tenantId)
-                : featuredContentsOptions,
-        [featuredContentsOptions, tenantId]
-    );
-
     const snapshot = useMemo(() => (form ? JSON.stringify(form) : null), [form]);
     const isDirty = Boolean(form && initialSnapshot && snapshot !== initialSnapshot);
 
@@ -269,7 +254,6 @@ export default function ProgrammingRuleDetail() {
             setProductsOptions(optionsData.products);
             setProductGroupsOptions(optionsData.productGroups);
             setProductGroupItemsOptions(optionsData.productGroupItems);
-            setFeaturedContentsOptions(optionsData.featuredContents);
 
             const nextForm = buildForm(
                 ruleData,
@@ -481,8 +465,7 @@ export default function ProgrammingRuleDetail() {
                     form.ruleType === "layout"
                         ? {
                               catalogId: form.catalogId || null,
-                              styleId: form.styleId || null,
-                              featuredContents: form.featuredContents
+                              styleId: form.styleId || null
                           }
                         : undefined,
                 priceProducts:
@@ -605,13 +588,11 @@ export default function ProgrammingRuleDetail() {
                         ruleType={form.ruleType}
                         catalogId={form.catalogId}
                         styleId={form.styleId}
-                        featuredContents={form.featuredContents}
                         selectedProductIds={form.selectedProductIds}
                         productOverrides={form.productOverrides}
                         visibilityProductModes={form.visibilityProductModes}
                         tenantCatalogs={tenantCatalogs}
                         tenantStyles={tenantStyles}
-                        tenantFeaturedContents={tenantFeaturedContents}
                         tenantProducts={tenantProducts}
                         tenantProductGroups={tenantProductGroups}
                         tenantProductGroupItems={tenantProductGroupItems}

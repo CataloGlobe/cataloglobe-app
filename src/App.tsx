@@ -31,11 +31,12 @@ import Businesses from "./pages/Dashboard/Businesses/Businesses";
 import Catalogs from "./pages/Dashboard/Catalogs/Catalogs";
 import CatalogEngine from "./pages/Dashboard/Catalogs/CatalogEngine";
 import Reviews from "@pages/Dashboard/Reviews/Reviews";
-import Analytics from "@pages/Dashboard/Analytics/Analytics";
+import AnalyticsPage from "@pages/Dashboard/Analytics/AnalyticsPage";
 import BusinessSettingsPage from "./pages/Business/BusinessSettingsPage";
 import BusinessTeamPage from "./pages/Business/TeamPage";
 import Programming from "./pages/Dashboard/Programming/Programming";
 import ProgrammingRuleDetail from "./pages/Dashboard/Programming/ProgrammingRuleDetail";
+import FeaturedRuleDetail from "./pages/Dashboard/Programming/FeaturedRuleDetail";
 import Products from "./pages/Dashboard/Products/Products";
 import ProductPage from "./pages/Dashboard/Products/ProductPage";
 import Highlights from "./pages/Dashboard/Highlights/Highlights";
@@ -191,6 +192,7 @@ export default function App() {
 
                 <Route path="scheduling" element={<Programming />} />
                 <Route path="scheduling/:ruleId" element={<ProgrammingRuleDetail />} />
+                <Route path="scheduling/featured/:ruleId" element={<FeaturedRuleDetail />} />
 
                 <Route path="catalogs" element={<Catalogs />} />
                 <Route path="catalogs/:id" element={<CatalogEngine />} />
@@ -211,7 +213,7 @@ export default function App() {
                 <Route path="attributes" element={<Attributes />} />
 
                 <Route path="reviews" element={<Reviews />} />
-                <Route path="analytics" element={<Analytics />} />
+                <Route path="analytics" element={<AnalyticsPage />} />
 
                 <Route path="team" element={<BusinessTeamPage />} />
                 <Route path="subscription" element={<SubscriptionPage />} />
