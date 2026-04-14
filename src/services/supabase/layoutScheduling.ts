@@ -3,7 +3,7 @@ import { computePriority, levelFromPriority } from "@utils/priorityUtils";
 import type { PriorityLevel } from "@utils/priorityUtils";
 
 export type LayoutTimeMode = "always" | "window";
-export type RuleType = "layout" | "price" | "visibility";
+export type RuleType = "layout" | "price" | "visibility" | "featured";
 export type RuleTargetType = "activity" | "activity_group";
 export type VisibilityMode = "hide" | "disable";
 
@@ -529,6 +529,10 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
         .filter(rule => rule.rule_type === "layout")
         .map(rule => rule.id);
 
+    const featuredRuleIds = baseRules
+        .filter(rule => rule.rule_type === "featured")
+        .map(rule => rule.id);
+
     let layoutByScheduleId = new Map<
         string,
         { style_id: string | null; catalog_id: string | null }
@@ -647,8 +651,9 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
         );
     }
 
+    const featuredContentRuleIds = [...featuredRuleIds];
     const featuredContentsByScheduleId = new Map<string, LayoutRuleFeaturedContent[]>();
-    if (layoutRuleIds.length > 0) {
+    if (featuredContentRuleIds.length > 0) {
         const { data: fcData, error: fcError } = await supabase
             .from("schedule_featured_contents")
             .select(
@@ -660,7 +665,7 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
                 featured_content:featured_contents(title)
             `
             )
-            .in("schedule_id", layoutRuleIds)
+            .in("schedule_id", featuredContentRuleIds)
             .order("sort_order", { ascending: true });
 
         if (fcError) throw fcError;
@@ -755,7 +760,9 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
                 rule.rule_type === "price" ? (priceOverridesByScheduleId.get(rule.id) ?? []) : [],
             visibility_overrides: visibilityOverrides,
             featured_contents:
-                rule.rule_type === "layout" ? (featuredContentsByScheduleId.get(rule.id) ?? []) : []
+                rule.rule_type === "featured"
+                    ? (featuredContentsByScheduleId.get(rule.id) ?? [])
+                    : []
         };
     });
 }
@@ -891,11 +898,6 @@ export async function createLayoutRule(input: {
     daysOfWeek: number[] | null;
     timeFrom: string | null;
     timeTo: string | null;
-    featuredContents: Array<{
-        featuredContentId: string;
-        slot: "hero" | "before_catalog" | "after_catalog";
-        sortOrder: number;
-    }>;
 }): Promise<void> {
     const schedule = await insertScheduleWithNameFallback(
         {
@@ -929,22 +931,6 @@ export async function createLayoutRule(input: {
         throw layoutError;
     }
 
-    if (input.featuredContents && input.featuredContents.length > 0) {
-        const { error: fcError } = await supabase.from("schedule_featured_contents").insert(
-            input.featuredContents.map(fc => ({
-                tenant_id: input.tenantId,
-                schedule_id: scheduleId,
-                featured_content_id: fc.featuredContentId,
-                slot: fc.slot,
-                sort_order: fc.sortOrder
-            }))
-        );
-
-        if (fcError) {
-            await supabase.from("schedules").delete().eq("id", scheduleId);
-            throw fcError;
-        }
-    }
 }
 
 export async function createPriceRule(input: {
@@ -1078,11 +1064,6 @@ export async function updateLayoutRule(input: {
     daysOfWeek: number[] | null;
     timeFrom: string | null;
     timeTo: string | null;
-    featuredContents?: Array<{
-        featuredContentId: string;
-        slot: "hero" | "before_catalog" | "after_catalog";
-        sortOrder: number;
-    }>;
 }): Promise<void> {
     const schedulePatch: {
         priority: number;
@@ -1145,32 +1126,6 @@ export async function updateLayoutRule(input: {
         if (layoutInsertError) throw layoutInsertError;
     }
 
-    if (input.featuredContents !== undefined) {
-        // Delete existing
-        const { error: delError } = await supabase
-            .from("schedule_featured_contents")
-            .delete()
-            .eq("schedule_id", input.scheduleId);
-
-        if (delError) throw delError;
-
-        // Insert new
-        if (input.featuredContents.length > 0) {
-            const { error: fcInsertError } = await supabase
-                .from("schedule_featured_contents")
-                .insert(
-                    input.featuredContents.map(fc => ({
-                        tenant_id: input.tenantId,
-                        schedule_id: input.scheduleId,
-                        featured_content_id: fc.featuredContentId,
-                        slot: fc.slot,
-                        sort_order: fc.sortOrder
-                    }))
-                );
-
-            if (fcInsertError) throw fcInsertError;
-        }
-    }
 }
 
 export async function getLayoutRuleById(ruleId: string, tenantId: string): Promise<LayoutRule | null> {
@@ -1253,11 +1208,6 @@ export async function updateRule(input: {
     layout?: {
         catalogId: string | null;
         styleId: string | null;
-        featuredContents: Array<{
-            featuredContentId: string;
-            slot: "hero" | "before_catalog" | "after_catalog";
-            sortOrder: number;
-        }>;
     };
     priceProducts?: Array<{
         productId: string;
@@ -1388,28 +1338,6 @@ export async function updateRule(input: {
             }
         }
         // styleId is null → rule stays draft, skip insert/update silently
-
-        const { error: deleteFcError } = await supabase
-            .from("schedule_featured_contents")
-            .delete()
-            .eq("schedule_id", input.scheduleId);
-        if (deleteFcError) throw deleteFcError;
-
-        const featuredContents = input.layout?.featuredContents ?? [];
-        if (featuredContents.length > 0) {
-            const { error: insertFcError } = await supabase
-                .from("schedule_featured_contents")
-                .insert(
-                    featuredContents.map(fc => ({
-                        tenant_id: input.tenantId,
-                        schedule_id: input.scheduleId,
-                        featured_content_id: fc.featuredContentId,
-                        slot: fc.slot,
-                        sort_order: fc.sortOrder
-                    }))
-                );
-            if (insertFcError) throw insertFcError;
-        }
         return;
     }
 

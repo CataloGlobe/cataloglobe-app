@@ -88,6 +88,7 @@ export type ResolvedCategory = {
     name: string;
     level: number;
     sort_order: number;
+    parent_category_id: string | null;
     products: ResolvedProduct[];
 };
 

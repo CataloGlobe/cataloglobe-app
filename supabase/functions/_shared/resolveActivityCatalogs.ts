@@ -93,6 +93,7 @@ export type ResolvedCategory = {
     name: string;
     level: number;
     sort_order: number;
+    parent_category_id: string | null;
     products: ResolvedProduct[];
 };
 
@@ -641,11 +642,13 @@ function normalizeCatalog(
                 })
                 .filter((p): p is ResolvedProduct => p !== null);
 
+            // ⚠️ SYNC — modifiche a questo blocco vanno replicate in src/services/supabase/resolveActivityCatalogs.ts
             const resolvedCategory: ResolvedCategory = {
                 id: cat.id,
                 name: cat.name,
                 level: cat.level,
                 sort_order: cat.sort_order,
+                parent_category_id: cat.parent_category_id,
                 products
             };
 
@@ -1398,10 +1401,12 @@ export async function resolveActivityCatalogs(
         after_catalog: []
     };
 
-    if (layoutScheduleId) {
+    const featuredScheduleId = ruleResolution.featuredRule?.scheduleId ?? null;
+
+    if (featuredScheduleId) {
         // SYNC: identico in src/services/supabase/resolveActivityCatalogs.ts
         const { data: featuredData, error: featuredError } = await supabase
-            .rpc("get_schedule_featured_contents", { p_schedule_id: layoutScheduleId });
+            .rpc("get_schedule_featured_contents", { p_schedule_id: featuredScheduleId });
 
         if (featuredError) {
             console.error(

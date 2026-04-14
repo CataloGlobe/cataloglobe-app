@@ -22,7 +22,7 @@ type RomeDateTime = {
     dayOfWeek: number;
 };
 
-type RuleType = "layout" | "price" | "visibility";
+type RuleType = "layout" | "price" | "visibility" | "featured";
 type RuleSpecificity = 0 | 1 | 2;
 
 type TimeRuleRow = {
@@ -120,6 +120,9 @@ export type ResolveRulesForActivityResult = {
         scheduleId: string;
         mode: VisibilityMode;
     } | null;
+    featuredRule: {
+        scheduleId: string;
+    } | null;
     debug?: {
         candidatesCount: number;
         selectedLayoutRuleId: string | null;
@@ -128,6 +131,8 @@ export type ResolveRulesForActivityResult = {
         selectedPriceRuleSpecificity: RuleSpecificity | null;
         selectedVisibilityRuleId: string | null;
         selectedVisibilityRuleSpecificity: RuleSpecificity | null;
+        selectedFeaturedRuleId: string | null;
+        selectedFeaturedRuleSpecificity: RuleSpecificity | null;
     };
 };
 
@@ -473,7 +478,7 @@ export async function resolveRulesForActivity(
         includeLayoutStyle = false,
         ruleTypes
     } = params;
-    const requestedTypes = new Set<RuleType>(ruleTypes ?? ["layout", "price", "visibility"]);
+    const requestedTypes = new Set<RuleType>(ruleTypes ?? ["layout", "price", "visibility", "featured"]);
     const emptyCandidates: CandidateInfo = {
         rows: [],
         activityCount: 0,
@@ -481,7 +486,7 @@ export async function resolveRulesForActivity(
         applyAllCount: 0,
         targetedCount: 0
     };
-    const [layoutCandidates, priceCandidates, visibilityCandidates] = await Promise.all([
+    const [layoutCandidates, priceCandidates, visibilityCandidates, featuredCandidates] = await Promise.all([
         requestedTypes.has("layout")
             ? listCandidateRuleRowsForActivity(supabase, "layout", activityId)
             : Promise.resolve(emptyCandidates),
@@ -490,6 +495,9 @@ export async function resolveRulesForActivity(
             : Promise.resolve(emptyCandidates),
         requestedTypes.has("visibility")
             ? listCandidateRuleRowsForActivity(supabase, "visibility", activityId)
+            : Promise.resolve(emptyCandidates),
+        requestedTypes.has("featured")
+            ? listCandidateRuleRowsForActivity(supabase, "featured", activityId)
             : Promise.resolve(emptyCandidates)
     ]);
 
@@ -543,6 +551,15 @@ export async function resolveRulesForActivity(
         selectedVisibilityRule?.id
     );
 
+    const validFeaturedRows = featuredCandidates.rows.filter(row =>
+        isTimeRuleActiveNow(row, now)
+    );
+    const selectedFeaturedRule = validFeaturedRows[0] ?? null;
+    const selectedFeaturedRuleSpecificity = getRuleSpecificity(
+        featuredCandidates.rows,
+        selectedFeaturedRule?.id
+    );
+
     return {
         layout: {
             catalogId: selectedLayoutValue?.catalog_id ?? null,
@@ -561,17 +578,23 @@ export async function resolveRulesForActivity(
         },
         priceRuleId: selectedPriceRule?.id ?? null,
         visibilityRule,
+        featuredRule: selectedFeaturedRule
+            ? { scheduleId: selectedFeaturedRule.id }
+            : null,
         debug: {
             candidatesCount:
                 layoutCandidates.rows.length +
                 priceCandidates.rows.length +
-                visibilityCandidates.rows.length,
+                visibilityCandidates.rows.length +
+                featuredCandidates.rows.length,
             selectedLayoutRuleId: selectedLayoutRule?.id ?? null,
             selectedLayoutRuleSpecificity,
             selectedPriceRuleId: selectedPriceRule?.id ?? null,
             selectedPriceRuleSpecificity,
             selectedVisibilityRuleId: selectedVisibilityRule?.id ?? null,
-            selectedVisibilityRuleSpecificity
+            selectedVisibilityRuleSpecificity,
+            selectedFeaturedRuleId: selectedFeaturedRule?.id ?? null,
+            selectedFeaturedRuleSpecificity
         }
     };
 }
