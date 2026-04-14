@@ -342,7 +342,7 @@ export default function PublicCollectionPage() {
     ============================ */
 
     if (state.status === "loading") {
-        return <AppLoader message="Stiamo caricando il catalogo" />;
+        return <AppLoader intent="public" />;
     }
 
     if (state.status === "error") {

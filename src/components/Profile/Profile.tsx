@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@context/useAuth";
 import { getProfile, updateProfile, uploadAvatar } from "@services/supabase/profile";
 import type { Profile } from "@/types/database";
@@ -7,7 +7,6 @@ import { Button } from "@components/ui";
 import styles from "./Profile.module.scss";
 import { TextInput } from "../ui/Input/TextInput";
 import { FileInput } from "../ui/Input/FileInput";
-import { supabase } from "@/services/supabase/client";
 
 export default function Profile() {
     const { user } = useAuth();
@@ -17,29 +16,16 @@ export default function Profile() {
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
+    const userId = user?.id;
+
     useEffect(() => {
-        if (user) {
-            getProfile(user.id).then(data => {
-                setProfile(data);
-                setAvatarPreview(null);
-            });
-        }
-    }, [user]);
+        if (!userId) return;
 
-    const displayName = useMemo(() => {
-        const parts = [profile?.first_name, profile?.last_name].filter(Boolean);
-        return parts.length ? parts.join(" ") : "utente";
-    }, [profile?.first_name, profile?.last_name]);
-
-    const avatarUrl = useMemo(() => {
-        if (avatarPreview && avatarPreview.startsWith("blob:")) {
-            return avatarPreview;
-        }
-        if (profile?.avatar_url) {
-            return supabase.storage.from("avatars").getPublicUrl(profile.avatar_url).data.publicUrl;
-        }
-        return "/default-avatar.svg";
-    }, [avatarPreview, profile?.avatar_url]);
+        getProfile(userId).then(data => {
+            setProfile(data);
+            setAvatarPreview(data?.avatar_url || null);
+        });
+    }, [userId]);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -49,20 +35,23 @@ export default function Profile() {
         setMessage("");
 
         try {
-            let avatarPath = profile.avatar_url || "";
+            let avatarUrl = profile.avatar_url || "";
 
             if (avatarFile) {
-                avatarPath = await uploadAvatar(user.id, avatarFile);
+                avatarUrl = await uploadAvatar(
+                    user.id,
+                    avatarFile,
+                    profile.avatar_url || undefined
+                );
             }
 
             await updateProfile(user.id, {
-                first_name: profile.first_name || null,
-                last_name: profile.last_name || null,
-                avatar_url: avatarPath
+                name: profile.name || "",
+                avatar_url: avatarUrl
             });
 
-            setProfile({ ...profile, avatar_url: avatarPath });
-            setAvatarPreview(null);
+            setProfile({ ...profile, avatar_url: avatarUrl });
+            setAvatarPreview(avatarUrl);
             setMessage("Profilo aggiornato con successo!");
         } catch (err) {
             console.error(err);
@@ -78,7 +67,7 @@ export default function Profile() {
         if (file) {
             setAvatarPreview(URL.createObjectURL(file));
         } else {
-            setAvatarPreview(null);
+            setAvatarPreview(profile?.avatar_url || null);
         }
     }
 
@@ -91,8 +80,8 @@ export default function Profile() {
                     {/* Avatar */}
                     <div className={styles.avatarSection}>
                         <img
-                            src={avatarUrl}
-                            alt={`Avatar di ${displayName}`}
+                            src={avatarPreview || "/default-avatar.svg"}
+                            alt={`Avatar di ${profile?.name || "utente"}`}
                             className={styles.avatar}
                         />
                     </div>
@@ -101,14 +90,8 @@ export default function Profile() {
                     <div className={styles.formFields}>
                         <TextInput
                             label="Nome"
-                            value={profile?.first_name || ""}
-                            onChange={e => setProfile({ ...profile!, first_name: e.target.value })}
-                        />
-
-                        <TextInput
-                            label="Cognome"
-                            value={profile?.last_name || ""}
-                            onChange={e => setProfile({ ...profile!, last_name: e.target.value })}
+                            value={profile?.name || ""}
+                            onChange={e => setProfile({ ...profile!, name: e.target.value })}
                         />
 
                         <TextInput label="Email" type={"email"} value={user.email ?? ""} disabled />
