@@ -133,7 +133,7 @@ Dominio/
 - `SelectionSheet` — sheet opzioni/varianti prodotto
 - `ItemDetail` — dettaglio prodotto
 - `ReviewsView` — tab recensioni (hub)
-- `FeaturedBlock` — slot contenuti in evidenza (hero / before_catalog / after_catalog)
+- `FeaturedBlock` — slot contenuti in evidenza (before_catalog / after_catalog)
 - `FeaturedPreviewModal` — modal preview contenuto in evidenza
 - `PublicCatalogTree` — navigazione categorie ad albero
 - `CollectionSectionNav` — nav sezioni orizzontale (pills/tabs/minimal)
@@ -146,7 +146,6 @@ Dominio/
 - `reviews` — recensioni via `submit-review` edge function
 
 **Slot FeaturedBlock**:
-- `hero` — sopra header
 - `before_catalog` — tra header e catalogo
 - `after_catalog` — sotto catalogo (visibile solo se activeTab === "menu")
 
