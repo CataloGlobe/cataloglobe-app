@@ -44,14 +44,10 @@
 /* ===== KPI GRID ===== */
 .kpiGrid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
 
   @media (max-width: 1024px) {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  @media (max-width: 720px) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -159,5 +155,352 @@
 
   @media (max-width: 480px) {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ===== KPI ICON ===== */
+.kpiIcon {
+  color: var(--text-muted, #94a3b8);
+  opacity: 0.6;
+}
+
+/* ===== EMPTY STATE ===== */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-align: center;
+  padding: 4rem 2rem;
+  background: var(--card-bg, #fff);
+  border-radius: 16px;
+  border: 1px solid var(--border, #e2e8f0);
+}
+
+/* ===== CHART EMPTY ===== */
+.chartEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 200px;
+}
+
+/* ===== TABLE SKELETONS ===== */
+.tableSkeletons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* ===== TOP PRODUCTS TABLE ===== */
+.topTable {
+  width: 100%;
+  border-collapse: collapse;
+
+  th, td {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.85rem;
+    text-align: left;
+  }
+
+  th {
+    font-weight: 600;
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border-light, rgba(148, 163, 184, 0.12));
+    transition: background 0.15s;
+
+    &:hover {
+      background: var(--hover-bg, rgba(0, 0, 0, 0.02));
+    }
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+}
+
+.topTableRank {
+  width: 40px;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 500;
+}
+
+.topTableName {
+  font-weight: 500;
+}
+
+.topTableCount {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--brand-primary, #6366f1);
+}
+
+/* ===== BUSINESS SELECTOR ===== */
+.businessSelector {
+  min-width: 200px;
+  max-width: 320px;
+}
+
+/* ===== SECTION DIVIDER ===== */
+.sectionDivider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.06);
+  border: none;
+  margin: 0;
+}
+
+/* ===== REVIEW GUARD CARD ===== */
+.reviewContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.reviewKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.reviewKpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.reviewKpiIcon {
+  color: var(--text-muted, #94a3b8);
+  margin-bottom: 0.1rem;
+}
+
+.reviewKpiIconGreen {
+  color: #16a34a;
+}
+
+.reviewKpiStarRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.starRating {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.starFilled {
+  color: #f59e0b;
+}
+
+.starEmpty {
+  color: #cbd5e1;
+}
+
+.reviewDistribution {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.reviewDistributionRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reviewDistributionLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 28px;
+}
+
+.reviewBar {
+  flex: 1;
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.reviewBarFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+/* ===== DEVICE DISTRIBUTION ===== */
+.deviceBody {
+  display: flex;
+  align-items: center;
+}
+
+.deviceLoadingRow {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.deviceRow {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.donutWrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.donutCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.deviceLegend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  flex: 1;
+  min-width: 120px;
+}
+
+.deviceLegendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.deviceDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ===== SOCIAL CLICKS CHART ===== */
+.socialBars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.socialBarRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.socialBarLabel {
+  min-width: 72px;
+  flex-shrink: 0;
+}
+
+.socialBarTrack {
+  flex: 1;
+  height: 10px;
+  background: #f1f5f9;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.socialBarFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.socialBarCount {
+  min-width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ===== HOURLY CHART ===== */
+.hourlyWrapper {
+  position: relative;
+  width: 100%;
+}
+
+.hourlyBars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 200px;
+  padding-bottom: 20px;
+  width: 100%;
+}
+
+.hourlyBarCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  cursor: default;
+}
+
+.hourlyBarTrack {
+  width: 100%;
+  height: calc(100% - 20px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.hourlyBarFill {
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  transition: height 0.3s ease, background 0.2s ease;
+  min-height: 2px;
+}
+
+.hourlyLabel {
+  font-size: 9px;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.hourlyTooltip {
+  background: #1e293b;
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  z-index: 100;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  * {
+    color: #fff !important;
   }
 }
