@@ -504,3 +504,81 @@
     color: #fff !important;
   }
 }
+
+/* ===== CONVERSION FUNNEL ===== */
+.funnelSteps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.funnelStep {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.funnelStepLabel {
+  min-width: 180px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.funnelStepBar {
+  flex: 1;
+  height: 20px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.funnelStepBarFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.funnelStepCount {
+  min-width: 60px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.funnelTransition {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-left: 180px;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.75rem;
+}
+
+.funnelSummary {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+  font-size: 0.8125rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+/* ===== SEARCH TERMS ===== */
+.zeroResults {
+  color: #ef4444;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* ===== SLOT BADGE ===== */
+.slotBadge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  background: rgba(99, 102, 241, 0.08);
+  color: #6366f1;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  white-space: nowrap;
+}

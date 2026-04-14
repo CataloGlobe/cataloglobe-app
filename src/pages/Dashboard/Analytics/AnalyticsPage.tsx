@@ -13,6 +13,9 @@ import {
     getSearchRate,
     getHourlyDistribution,
     getDeviceDistribution,
+    getTopSearchTerms,
+    getConversionFunnel,
+    getFeaturedPerformance,
     type TrendDataPoint,
     type TopProduct,
     type OverviewStats,
@@ -20,11 +23,16 @@ import {
     type ReviewMetrics,
     type HourlyData,
     type DeviceData,
+    type SearchTermData,
+    type FunnelStep,
+    type FeaturedPerformanceData,
     type DateRange
 } from "@/services/supabase/analytics";
 import type { V2Activity } from "@/types/activity";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import Text from "@/components/ui/Text/Text";
+import { Select } from "@/components/ui/Select/Select";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import AnalyticsFilters, { type PeriodKey } from "./components/AnalyticsFilters";
 import OverviewCards from "./components/OverviewCards";
 import PageViewsChart from "./components/PageViewsChart";
@@ -33,6 +41,9 @@ import ReviewGuardCard from "./components/ReviewGuardCard";
 import DeviceDistribution from "./components/DeviceDistribution";
 import SocialClicksChart from "./components/SocialClicksChart";
 import HourlyChart from "./components/HourlyChart";
+import ConversionFunnel from "./components/ConversionFunnel";
+import TopSearchTerms from "./components/TopSearchTerms";
+import FeaturedPerformance from "./components/FeaturedPerformance";
 import styles from "./Analytics.module.scss";
 
 function periodToDateRange(period: PeriodKey): DateRange {
@@ -75,6 +86,11 @@ export default function AnalyticsPage() {
     const [hourlyData, setHourlyData] = useState<HourlyData[]>([]);
     const [deviceData, setDeviceData] = useState<DeviceData[]>([]);
 
+    // ── Dati 4C ──────────────────────────────────────────────────────────
+    const [searchTerms, setSearchTerms] = useState<SearchTermData[]>([]);
+    const [funnelData, setFunnelData] = useState<FunnelStep[]>([]);
+    const [featuredPerf, setFeaturedPerf] = useState<FeaturedPerformanceData[]>([]);
+
     const [isLoading, setIsLoading] = useState(true);
 
     // ── Load activities (una volta) ──────────────────────────────────────
@@ -94,7 +110,7 @@ export default function AnalyticsPage() {
             const dateRange = periodToDateRange(period);
             const activityId = selectedActivityId === "all" ? undefined : selectedActivityId;
 
-            const [stats, trend, viewed, selected, social, reviews, search, hourly, devices] =
+            const [stats, trend, viewed, selected, social, reviews, search, hourly, devices, searchTermsData, funnel, featured] =
                 await Promise.all([
                     getOverviewStats(tenantId, dateRange, activityId),
                     getPageViewsTrend(tenantId, dateRange, activityId),
@@ -104,7 +120,10 @@ export default function AnalyticsPage() {
                     getReviewMetrics(tenantId, dateRange, activityId),
                     getSearchRate(tenantId, dateRange, activityId),
                     getHourlyDistribution(tenantId, dateRange, activityId),
-                    getDeviceDistribution(tenantId, dateRange, activityId)
+                    getDeviceDistribution(tenantId, dateRange, activityId),
+                    getTopSearchTerms(tenantId, dateRange, activityId),
+                    getConversionFunnel(tenantId, dateRange, activityId),
+                    getFeaturedPerformance(tenantId, dateRange, activityId)
                 ]);
 
             setOverviewStats(stats);
@@ -116,6 +135,9 @@ export default function AnalyticsPage() {
             setSearchRate(search.rate);
             setHourlyData(hourly);
             setDeviceData(devices);
+            setSearchTerms(searchTermsData);
+            setFunnelData(funnel);
+            setFeaturedPerf(featured);
         } catch {
             showToast({ message: "Errore nel caricamento analytics", type: "error" });
         } finally {
@@ -136,14 +158,28 @@ export default function AnalyticsPage() {
                 title="Analitiche"
                 businessName={selectedTenant?.name}
                 subtitle="Monitora le performance delle tue sedi."
-            />
-
-            <AnalyticsFilters
-                activities={activities}
-                selectedActivityId={selectedActivityId}
-                onActivityChange={setSelectedActivityId}
-                period={period}
-                onPeriodChange={setPeriod}
+                actions={
+                    <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                        <Select
+                            value={selectedActivityId}
+                            onChange={e => setSelectedActivityId(e.target.value)}
+                            options={[
+                                { value: "all", label: "Tutte le sedi" },
+                                ...activities.map(a => ({ value: a.id, label: a.name }))
+                            ]}
+                            containerClassName={styles.activitySelectContainer}
+                        />
+                        <SegmentedControl
+                            value={period}
+                            onChange={setPeriod}
+                            options={[
+                                { value: "today", label: "Oggi" },
+                                { value: "7d", label: "7 giorni" },
+                                { value: "30d", label: "30 giorni" }
+                            ]}
+                        />
+                    </div>
+                }
             />
 
             {isEmpty ? (
@@ -165,6 +201,8 @@ export default function AnalyticsPage() {
 
                     <PageViewsChart data={pageViewsTrend} isLoading={isLoading} />
 
+                    <ConversionFunnel data={funnelData} isLoading={isLoading} />
+
                     <div className={styles.chartsGrid}>
                         <TopProductsTable
                             title="Prodotti più visti"
@@ -178,6 +216,11 @@ export default function AnalyticsPage() {
                             countLabel="Aggiunte"
                             isLoading={isLoading}
                         />
+                    </div>
+
+                    <div className={styles.chartsGrid}>
+                        <TopSearchTerms data={searchTerms} isLoading={isLoading} />
+                        <FeaturedPerformance data={featuredPerf} isLoading={isLoading} />
                     </div>
 
                     <hr className={styles.sectionDivider} />

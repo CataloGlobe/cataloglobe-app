@@ -269,3 +269,89 @@ export async function getDeviceDistribution(
         percentage: Number(row.percentage)
     }));
 }
+
+// ── 4C: Insights ──────────────────────────────────────────────────────────
+
+export type SearchTermData = {
+    search_term: string;
+    search_count: number;
+    avg_results: number;
+};
+
+export type FunnelStep = {
+    step_name: string;
+    step_label: string;
+    session_count: number;
+    percentage: number;
+};
+
+export type FeaturedPerformanceData = {
+    title: string;
+    slot: string;
+    click_count: number;
+};
+
+export async function getTopSearchTerms(
+    tenantId: string,
+    dateRange: DateRange,
+    activityId?: string,
+    limit = 10
+): Promise<SearchTermData[]> {
+    const { data, error } = await supabase.rpc("analytics_top_search_terms", {
+        p_tenant_id: tenantId,
+        p_from: dateRange.from.toISOString(),
+        p_to: dateRange.to.toISOString(),
+        p_activity_id: activityId ?? null,
+        p_limit: limit
+    });
+
+    if (error) throw error;
+    return (data ?? []).map((row: { search_term: string; search_count: number; avg_results: number }) => ({
+        search_term: row.search_term,
+        search_count: Number(row.search_count),
+        avg_results: Number(row.avg_results)
+    }));
+}
+
+export async function getConversionFunnel(
+    tenantId: string,
+    dateRange: DateRange,
+    activityId?: string
+): Promise<FunnelStep[]> {
+    const { data, error } = await supabase.rpc("analytics_conversion_funnel", {
+        p_tenant_id: tenantId,
+        p_from: dateRange.from.toISOString(),
+        p_to: dateRange.to.toISOString(),
+        p_activity_id: activityId ?? null
+    });
+
+    if (error) throw error;
+    return (data ?? []).map((row: { step_name: string; step_label: string; session_count: number; percentage: number }) => ({
+        step_name: row.step_name,
+        step_label: row.step_label,
+        session_count: Number(row.session_count),
+        percentage: Number(row.percentage)
+    }));
+}
+
+export async function getFeaturedPerformance(
+    tenantId: string,
+    dateRange: DateRange,
+    activityId?: string,
+    limit = 10
+): Promise<FeaturedPerformanceData[]> {
+    const { data, error } = await supabase.rpc("analytics_featured_performance", {
+        p_tenant_id: tenantId,
+        p_from: dateRange.from.toISOString(),
+        p_to: dateRange.to.toISOString(),
+        p_activity_id: activityId ?? null,
+        p_limit: limit
+    });
+
+    if (error) throw error;
+    return (data ?? []).map((row: { title: string; slot: string; click_count: number }) => ({
+        title: row.title,
+        slot: row.slot,
+        click_count: Number(row.click_count)
+    }));
+}
