@@ -609,6 +609,35 @@ export default function CollectionView({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mode]);
 
+    // ── Ricalcolo scroll se compactHeaderHeight cambia durante uno scroll programmato ─
+    // Quando ResizeObserver della PublicCollectionHeader triggerato e aggiorna l'altezza
+    // reale del compact bar, se c'è uno scroll programmato in corso, ricalcola la
+    // posizione target con i valori CORRETTI e ri-lancia lo scroll.
+    useEffect(() => {
+        if (!pendingScrollTargetIdRef.current || compactHeaderHeight === 0) return;
+
+        const sectionId = pendingScrollTargetIdRef.current;
+        const el = sectionRefs.current[sectionId];
+        if (!el) return;
+
+        const compactH = Math.max(compactHeaderHeightRef.current, FINAL_COMPACT_HEIGHT);
+        const dynamicScrollOffset = compactH + NAV_HEIGHT + VISUAL_GAP;
+        const container = containerRef.current;
+
+        if (container === window) {
+            const top = el.getBoundingClientRect().top + window.scrollY - dynamicScrollOffset;
+            window.scrollTo({ top, behavior: "smooth" });
+        } else {
+            const containerEl = container as HTMLElement;
+            const top =
+                el.getBoundingClientRect().top -
+                containerEl.getBoundingClientRect().top +
+                containerEl.scrollTop -
+                dynamicScrollOffset;
+            containerEl.scrollTo({ top, behavior: "smooth" });
+        }
+    }, [compactHeaderHeight]);
+
     // ── Analytics: section_view (IntersectionObserver, una volta per sezione) ─
     const viewedSectionsRef = useRef(new Set<string>());
 
