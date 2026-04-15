@@ -775,12 +775,9 @@ export default function CollectionView({
         const el = sectionRefs.current[sectionId];
         if (!el) return;
 
-        // Offset dinamico: quando l'hero è visibile, il compactSpacer inserirà
-        // altezza nel DOM durante lo scroll, compensando esattamente la barra sticky.
-        // Includere compactH qui conterebbe due volte. Includilo solo se hero è collassato.
-        const dynamicScrollOffset = isCompactHeaderVisible
-            ? NAV_HEIGHT + VISUAL_GAP
-            : Math.max(compactHeaderHeightRef.current, FINAL_COMPACT_HEIGHT) + NAV_HEIGHT + VISUAL_GAP;
+        // Offset dinamico: compact header + nav + gap
+        const compactH = Math.max(compactHeaderHeightRef.current, FINAL_COMPACT_HEIGHT);
+        const dynamicScrollOffset = compactH + NAV_HEIGHT + VISUAL_GAP;
 
         const container = containerRef.current;
 
@@ -804,12 +801,8 @@ export default function CollectionView({
             const el = sectionRefs.current[childId];
             if (!el) return;
 
-            // Stessa logica di scrollToSection: quando hero è visibile, il compactSpacer
-            // inserirà altezza durante lo scroll, compensando la barra sticky.
-            const dynamicScrollOffset = isCompactHeaderVisible
-                ? NAV_HEIGHT + VISUAL_GAP
-                : Math.max(compactHeaderHeightRef.current, FINAL_COMPACT_HEIGHT) + NAV_HEIGHT + VISUAL_GAP;
-
+            const compactH = Math.max(compactHeaderHeightRef.current, FINAL_COMPACT_HEIGHT);
+            const dynamicScrollOffset = compactH + NAV_HEIGHT + VISUAL_GAP;
             const container = containerRef.current;
 
             if (container === window) {
@@ -825,7 +818,8 @@ export default function CollectionView({
                 containerEl.scrollTo({ top, behavior: "smooth" });
             }
         },
-        [isCompactHeaderVisible]
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        []
     );
 
     // ── Derived values for render ───────────────────────────────────────────
