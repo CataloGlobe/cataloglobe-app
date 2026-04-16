@@ -28,5 +28,7 @@ export function getPreviousPeriodLabel(period: PeriodKey): string {
             return "30 giorni prima";
         case "90d":
             return "90 giorni prima";
+        case "all":
+            return "periodo precedente";
     }
 }
