@@ -43,8 +43,8 @@ export const ActivityHoursServicesTab: React.FC<ActivityHoursServicesTabProps> =
     }, [loadHours]);
 
     const handleHoursSaved = useCallback(async () => {
-        await loadHours();
-    }, [loadHours]);
+        await Promise.all([loadHours(), onReload()]);
+    }, [loadHours, onReload]);
 
     const handleActivitySaved = useCallback(async () => {
         await onReload();
@@ -64,9 +64,7 @@ export const ActivityHoursServicesTab: React.FC<ActivityHoursServicesTabProps> =
             <ActivityHoursSection
                 hours={hours}
                 activity={activity}
-                tenantId={tenantId}
                 onEditRequest={() => setIsHoursDrawerOpen(true)}
-                onSaved={handleHoursSaved}
             />
             <PaymentMethodsSection
                 activity={activity}
