@@ -28,6 +28,7 @@ export interface V2Activity {
     payment_methods_public: boolean;
     services: string[];
     services_public: boolean;
+    hours_public: boolean;
     qr_fg_color: string | null;
     qr_bg_color: string | null;
     google_review_url: string | null;
@@ -36,3 +37,10 @@ export interface V2Activity {
 }
 
 export type V2ActivityType = string; // can be refined later if there are fixed types
+
+export interface ActivitySlugAlias {
+    id: string;
+    activity_id: string;
+    slug: string;
+    created_at: string;
+}
