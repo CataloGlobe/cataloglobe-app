@@ -11,7 +11,7 @@ import {
     type SectionNavShape
 } from "@/types/collectionStyle";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
-import type { OpeningHoursEntry } from "@/components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
+import type { OpeningHoursEntry, UpcomingClosure } from "@/components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 import previewStyles from "./StylePreview.module.scss";
 
 type StylePreviewProps = {
@@ -232,6 +232,12 @@ const MOCK_OPENING_HOURS: OpeningHoursEntry[] = [
     { day_of_week: 6, slot_index: 0, opens_at: null, closes_at: null, is_closed: true },
 ];
 
+const MOCK_UPCOMING_CLOSURES: UpcomingClosure[] = [
+    { closure_date: "2026-04-24", label: "Giovedì Santo", is_closed: true, opens_at: null, closes_at: null },
+    { closure_date: "2026-05-01", label: "Festa del Lavoro", is_closed: true, opens_at: null, closes_at: null },
+    { closure_date: "2026-06-02", label: "Festa della Repubblica", is_closed: false, opens_at: "10:00", closes_at: "15:00" },
+];
+
 const NAV_SHAPE_MAP: Record<string, SectionNavShape> = {
     pill: "pill",
     chip: "pill",
@@ -335,6 +341,7 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                             scrollContainerEl={screenEl}
                             activityAddress="Via Example, 1 - Città"
                             openingHours={MOCK_OPENING_HOURS}
+                            upcomingClosures={MOCK_UPCOMING_CLOSURES}
                             featuredBeforeCatalogSlot={
                                 <FeaturedBlock blocks={MOCK_FEATURED} />
                             }

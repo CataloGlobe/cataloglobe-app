@@ -9,7 +9,7 @@ import CollectionView, {
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { HubTab } from "@/types/collectionStyle";
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
-import type { OpeningHoursEntry } from "@/components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
+import type { OpeningHoursEntry, UpcomingClosure } from "@/components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 
 import { supabase } from "@/services/supabase/client";
 import type {
@@ -203,6 +203,7 @@ type PageState =
           resolved: ResolvedCollections;
           tenantLogoUrl: string | null;
           openingHours?: OpeningHoursEntry[];
+          upcomingClosures?: UpcomingClosure[];
       }
     | {
           status: "empty";
@@ -254,13 +255,14 @@ export default function PublicCollectionPage() {
 
                 if (error) throw error;
 
-                const { business, tenantLogoUrl, resolved, subscription_inactive, canonical_slug, opening_hours } = data as {
+                const { business, tenantLogoUrl, resolved, subscription_inactive, canonical_slug, opening_hours, upcoming_closures } = data as {
                     business: PublicBusiness;
                     tenantLogoUrl: string | null;
                     resolved: ResolvedCollections;
                     subscription_inactive?: boolean;
                     canonical_slug?: string | null;
                     opening_hours?: OpeningHoursEntry[];
+                    upcoming_closures?: UpcomingClosure[];
                 };
 
                 // Slug cercato era un alias — redirect verso lo slug canonico
@@ -301,7 +303,8 @@ export default function PublicCollectionPage() {
                     business,
                     resolved,
                     tenantLogoUrl,
-                    openingHours: opening_hours
+                    openingHours: opening_hours,
+                    upcomingClosures: upcoming_closures
                 });
             } catch (err) {
                 if (cancelled) return;
@@ -403,7 +406,7 @@ export default function PublicCollectionPage() {
         );
     }
 
-    const { business, resolved, tenantLogoUrl, openingHours } = state;
+    const { business, resolved, tenantLogoUrl, openingHours, upcomingClosures } = state;
 
     // Derive CollectionStyle from stored tokens so runtime matches preview
     const tokens = parseTokens(resolved.style?.config ?? null);
@@ -502,6 +505,7 @@ export default function PublicCollectionPage() {
                     email_public_visible: business.email_public_visible
                 }}
                 openingHours={openingHours}
+                upcomingClosures={upcomingClosures}
                 emptyState={emptyState}
                 activeTab={activeTab}
                 onTabChange={handleTabChange}

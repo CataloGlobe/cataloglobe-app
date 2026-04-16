@@ -59,3 +59,66 @@
   font-style: italic;
   color: var(--pub-text-muted);
 }
+
+/* ── Upcoming closures ───────────────────────────────────────────────── */
+
+.closuresSection {
+  width: 100%;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--pub-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.closuresTitle {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--pub-text-muted);
+  font-family: var(--pub-font-family, sans-serif);
+  margin: 0;
+}
+
+.closuresList {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.closureRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0.2rem 0;
+}
+
+.closureDate {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--pub-text);
+  font-family: var(--pub-font-family, sans-serif);
+  flex-shrink: 0;
+}
+
+.closureInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+}
+
+.closureLabel {
+  font-size: 0.75rem;
+  color: var(--pub-text-muted);
+  font-family: var(--pub-font-family, sans-serif);
+}
+
+.closureStatus {
+  font-size: 0.8125rem;
+  font-style: italic;
+  color: var(--pub-text-muted);
+  font-family: var(--pub-font-family, sans-serif);
+}
