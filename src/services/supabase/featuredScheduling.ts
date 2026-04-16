@@ -210,7 +210,7 @@ export async function createFeaturedRuleDraft(input: {
             priority: 21,
             priority_level: "medium",
             display_order: 0,
-            enabled: true,
+            enabled: false,
             time_mode: "always",
             days_of_week: null,
             time_from: null,

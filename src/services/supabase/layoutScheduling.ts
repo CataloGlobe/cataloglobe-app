@@ -1153,7 +1153,7 @@ export async function createRuleDraft(input: {
             priority: 21,
             priority_level: 'medium' as PriorityLevel,
             display_order: 0,
-            enabled: true,
+            enabled: false,
             time_mode: "always",
             days_of_week: null,
             time_from: null,
@@ -1421,4 +1421,116 @@ export async function reorderSchedulesInLevel(
 
         if (error) throw error;
     }
+}
+
+// ---------------------------------------------------------------------------
+// duplicateRule
+// ---------------------------------------------------------------------------
+
+export async function duplicateRule(ruleId: string, tenantId: string): Promise<string> {
+    const original = await getLayoutRuleById(ruleId, tenantId);
+    if (!original) throw new Error("Regola non trovata.");
+
+    // 1. Create new schedule row
+    const schedule = await insertScheduleWithNameFallback(
+        {
+            tenant_id: tenantId,
+            rule_type: original.rule_type,
+            target_type: original.target_type || null,
+            target_id: original.target_id || null,
+            priority: original.priority,
+            priority_level: original.priority_level,
+            display_order: 0,
+            enabled: false,
+            time_mode: original.time_mode,
+            days_of_week: original.days_of_week,
+            time_from: original.time_from,
+            time_to: original.time_to,
+        },
+        `Copia di ${original.name ?? original.id.slice(0, 6)}`
+    );
+
+    const newId = schedule.id;
+
+    // 2. Copy apply_to_all
+    const { error: applyAllErr } = await supabase
+        .from("schedules")
+        .update({
+            apply_to_all: original.applyToAll,
+            start_at: original.start_at,
+            end_at: original.end_at,
+        })
+        .eq("id", newId);
+    if (applyAllErr && !isMissingColumnError(applyAllErr, "apply_to_all")) {
+        throw applyAllErr;
+    }
+
+    // 3. Copy schedule_targets
+    if (!original.applyToAll) {
+        const targetRows = [
+            ...original.activityIds.map(id => ({
+                schedule_id: newId,
+                target_type: "activity" as const,
+                target_id: id,
+            })),
+            ...original.groupIds.map(id => ({
+                schedule_id: newId,
+                target_type: "activity_group" as const,
+                target_id: id,
+            })),
+        ];
+        if (targetRows.length > 0) {
+            await supabase.from("schedule_targets").insert(targetRows);
+        }
+    }
+
+    // 4. Copy type-specific data
+    if (original.rule_type === "layout" && original.layout) {
+        if (original.layout.catalog_id || original.layout.style_id) {
+            await supabase.from("schedule_layout").insert({
+                tenant_id: tenantId,
+                schedule_id: newId,
+                catalog_id: original.layout.catalog_id,
+                style_id: original.layout.style_id,
+            });
+        }
+    }
+
+    if (original.rule_type === "price" && original.price_overrides.length > 0) {
+        await supabase.from("schedule_price_overrides").insert(
+            original.price_overrides.map(po => ({
+                tenant_id: tenantId,
+                schedule_id: newId,
+                product_id: po.product_id,
+                option_value_id: po.option_value_id,
+                override_price: po.override_price,
+                show_original_price: po.show_original_price,
+            }))
+        );
+    }
+
+    if (original.rule_type === "visibility" && original.visibility_overrides.length > 0) {
+        await supabase.from("schedule_visibility_overrides").insert(
+            original.visibility_overrides.map(vo => ({
+                tenant_id: tenantId,
+                schedule_id: newId,
+                product_id: vo.product_id,
+                mode: vo.mode,
+            }))
+        );
+    }
+
+    if (original.rule_type === "featured" && original.featured_contents.length > 0) {
+        await supabase.from("schedule_featured_contents").insert(
+            original.featured_contents.map(fc => ({
+                tenant_id: tenantId,
+                schedule_id: newId,
+                featured_content_id: fc.featured_content_id,
+                slot: fc.slot,
+                sort_order: fc.sort_order,
+            }))
+        );
+    }
+
+    return newId;
 }

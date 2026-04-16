@@ -1,0 +1,3 @@
+ALTER TABLE activities
+  ADD COLUMN IF NOT EXISTS street_number TEXT NULL,
+  ADD COLUMN IF NOT EXISTS postal_code TEXT NULL;

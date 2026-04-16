@@ -1,7 +1,10 @@
-import { Globe, Building2, Users, AlertCircle, FileText, Loader2, Trash2 } from "lucide-react";
+import { Globe, Building2, Users, AlertCircle, Loader2, MoreVertical, Copy, Trash2 } from "lucide-react";
 import Text from "@components/ui/Text/Text";
 import { Tooltip } from "@components/ui/Tooltip/Tooltip";
 import { Switch } from "@components/ui/Switch/Switch";
+import { DropdownMenu } from "@components/ui/DropdownMenu/DropdownMenu";
+import { DropdownItem } from "@components/ui/DropdownMenu/DropdownItem";
+import { useToast } from "@/context/Toast/ToastContext";
 import { buildRuleSummary } from "@utils/ruleHelpers";
 import type { LayoutRule, LayoutRuleOption } from "@services/supabase/layoutScheduling";
 import styles from "./PriorityGroup.module.scss";
@@ -13,6 +16,7 @@ export type RuleInsight = {
     isNeverUsed: boolean;
     conflictingWithName?: string;
     overriddenByName?: string;
+    excludedActivityNames?: string[];
 };
 
 export interface RuleRowProps {
@@ -20,25 +24,21 @@ export interface RuleRowProps {
     isSelected: boolean;
     insight: RuleInsight | undefined;
     isUpdating: boolean;
+    showTypeBadge?: boolean;
     activityById: Map<string, Pick<LayoutRuleOption, "name">>;
     activityGroups: Array<Pick<LayoutRuleOption, "id" | "name">>;
     onSelect: (id: string, checked: boolean) => void;
     onClick: (rule: LayoutRule) => void;
     onDelete: (ruleId: string) => void;
+    onDuplicate: (ruleId: string) => void;
     onToggleEnabled: (ruleId: string, enabled: boolean) => void;
 }
 
 function getRuleTypeLabel(ruleType: LayoutRule["rule_type"]): string {
     if (ruleType === "layout") return "Layout";
-    if (ruleType === "price") return "Prezzo";
+    if (ruleType === "featured") return "In evidenza";
+    if (ruleType === "price") return "Prezzi";
     return "Visibilità";
-}
-
-function isDraft(rule: LayoutRule): boolean {
-    if (rule.rule_type === "layout") return !rule.layout?.catalog_id || !rule.layout?.style_id;
-    if (rule.rule_type === "price") return rule.price_overrides.length === 0;
-    if (rule.rule_type === "visibility") return rule.visibility_overrides.length === 0;
-    return false;
 }
 
 export function RuleRow({
@@ -46,14 +46,26 @@ export function RuleRow({
     isSelected,
     insight,
     isUpdating,
+    showTypeBadge,
     activityById,
     activityGroups,
     onSelect,
     onClick,
     onDelete,
+    onDuplicate,
     onToggleEnabled
 }: RuleRowProps) {
-    const draft = isDraft(rule);
+    const { showToast } = useToast();
+
+    const ruleIsDraft = (() => {
+        if (!rule.applyToAll && rule.activityIds.length === 0 && rule.groupIds.length === 0) return true;
+        if (rule.rule_type === "layout") return !rule.layout?.catalog_id || !rule.layout?.style_id;
+        if (rule.rule_type === "featured") return rule.featured_contents.length === 0;
+        if (rule.rule_type === "price") return rule.price_overrides.length === 0;
+        if (rule.rule_type === "visibility") return rule.visibility_overrides.length === 0;
+        return false;
+    })();
+
     const displayName = (
         rule.name ?? `${getRuleTypeLabel(rule.rule_type)} · ${rule.id.slice(0, 6)}`
     ).trim();
@@ -167,11 +179,13 @@ export function RuleRow({
                     >
                         {displayName}
                     </Text>
-                    {draft && (
-                        <span className={styles.badgeDraft}>
-                            <FileText size={9} />
-                            Bozza
+                    {showTypeBadge && (
+                        <span className={styles.badgeType} data-type={rule.rule_type}>
+                            {getRuleTypeLabel(rule.rule_type)}
                         </span>
+                    )}
+                    {ruleIsDraft && (
+                        <span className={styles.badgeDraft}>Bozza</span>
                     )}
                 </div>
                 {insight && rule.enabled && (
@@ -197,6 +211,16 @@ export function RuleRow({
                         )}
                     </div>
                 )}
+                {insight && !insight.isOverridden && insight.excludedActivityNames && insight.excludedActivityNames.length > 0 && (
+                    <Tooltip
+                        content={`Sovrascritta da regole più specifiche per: ${insight.excludedActivityNames.join(", ")}`}
+                        side="top"
+                    >
+                        <span className={styles.exclusionNote}>
+                            Escluse {insight.excludedActivityNames.length} sedi
+                        </span>
+                    </Tooltip>
+                )}
                 <Text variant="caption" colorVariant="muted">
                     {buildRuleSummary(rule)}
                 </Text>
@@ -209,25 +233,51 @@ export function RuleRow({
             <div className={styles.statusCell} data-no-click="true">
                 <Switch
                     checked={rule.enabled}
-                    onChange={checked => onToggleEnabled(rule.id, checked)}
+                    onChange={checked => {
+                        if (checked && rule.end_at && new Date(rule.end_at) < new Date()) {
+                            showToast({
+                                type: "error",
+                                message: "Questa regola è scaduta. Aggiorna la data di fine prima di riattivarla.",
+                                duration: 3000
+                            });
+                            return;
+                        }
+                        if (checked && ruleIsDraft) {
+                            showToast({
+                                type: "error",
+                                message: "Completa i campi obbligatori prima di attivare la regola.",
+                                duration: 3000
+                            });
+                            return;
+                        }
+                        onToggleEnabled(rule.id, checked);
+                    }}
                     disabled={isUpdating}
                 />
                 {isUpdating && <Loader2 size={12} className={styles.miniLoader} />}
             </div>
 
-            {/* Delete */}
+            {/* Actions menu */}
             <div className={styles.rowActions} data-no-click="true">
-                <button
-                    type="button"
-                    className={styles.deleteButton}
-                    onClick={e => {
-                        e.stopPropagation();
-                        onDelete(rule.id);
-                    }}
-                    title="Elimina regola"
-                >
-                    <Trash2 size={14} />
-                </button>
+                <div className={styles.rowMenuDropdown}>
+                    <DropdownMenu
+                        trigger={
+                            <button type="button" className={styles.menuButton} title="Azioni">
+                                <MoreVertical size={16} />
+                            </button>
+                        }
+                        placement="bottom-end"
+                    >
+                        <DropdownItem onClick={() => onDuplicate(rule.id)}>
+                            <Copy size={14} />
+                            <span>Duplica</span>
+                        </DropdownItem>
+                        <DropdownItem onClick={() => onDelete(rule.id)} danger>
+                            <Trash2 size={14} />
+                            <span>Elimina</span>
+                        </DropdownItem>
+                    </DropdownMenu>
+                </div>
             </div>
         </div>
     );

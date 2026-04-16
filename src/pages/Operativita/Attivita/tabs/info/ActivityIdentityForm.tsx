@@ -4,6 +4,7 @@ import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { updateActivity } from "@/services/supabase/activities";
 import type { V2Activity } from "@/types/activity";
 import { useToast } from "@/context/Toast/ToastContext";
+import styles from "./ActivityIdentityForm.module.scss";
 
 type ActivityIdentityFormProps = {
     formId: string;
@@ -23,12 +24,16 @@ export function ActivityIdentityForm({
     const { showToast } = useToast();
     const [name, setName] = useState(entityData.name);
     const [address, setAddress] = useState(entityData.address ?? "");
+    const [streetNumber, setStreetNumber] = useState(entityData.street_number ?? "");
+    const [postalCode, setPostalCode] = useState(entityData.postal_code ?? "");
     const [city, setCity] = useState(entityData.city ?? "");
     const [description, setDescription] = useState(entityData.description ?? "");
 
     useEffect(() => {
         setName(entityData.name);
         setAddress(entityData.address ?? "");
+        setStreetNumber(entityData.street_number ?? "");
+        setPostalCode(entityData.postal_code ?? "");
         setCity(entityData.city ?? "");
         setDescription(entityData.description ?? "");
     }, [entityData]);
@@ -47,6 +52,8 @@ export function ActivityIdentityForm({
             await updateActivity(entityData.id, tenantId, {
                 name: trimmedName,
                 address: address.trim() || null,
+                street_number: streetNumber.trim() || null,
+                postal_code: postalCode.trim() || null,
                 city: city.trim() || null,
                 description: description.trim() || null
             });
@@ -81,8 +88,24 @@ export function ActivityIdentityForm({
                     label="Indirizzo"
                     value={address}
                     onChange={e => setAddress(e.target.value)}
-                    placeholder="Es. Via Roma 10"
+                    placeholder="Es. Via Roma"
                 />
+
+                <div className={styles.addressRow}>
+                    <TextInput
+                        label="Civico"
+                        value={streetNumber}
+                        onChange={e => setStreetNumber(e.target.value)}
+                        placeholder="es. 12"
+                    />
+                    <TextInput
+                        label="CAP"
+                        value={postalCode}
+                        onChange={e => setPostalCode(e.target.value)}
+                        placeholder="es. 20100"
+                        maxLength={5}
+                    />
+                </div>
 
                 <TextInput
                     label="Città"

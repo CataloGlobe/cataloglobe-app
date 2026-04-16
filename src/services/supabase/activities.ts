@@ -232,6 +232,8 @@ export async function createActivity(
         activity_type: string | null;
         city: string | null;
         address: string | null;
+        street_number?: string | null;
+        postal_code?: string | null;
     }
 ): Promise<V2Activity> {
     const { data, error } = await supabase

@@ -45,6 +45,11 @@
   border-color: color.scale(#1d4ed8, $lightness: -10%);
 }
 
+.toastWarning {
+  background: #b45309;
+  border-color: color.scale(#b45309, $lightness: -10%);
+}
+
 /* Contenuto */
 .toastContent {
   flex: 1;

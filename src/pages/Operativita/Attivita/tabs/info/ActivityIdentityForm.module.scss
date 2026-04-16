@@ -1,0 +1,11 @@
+@use "@/styles/variables" as v;
+
+.addressRow {
+    display: grid;
+    grid-template-columns: 30fr 70fr;
+    gap: 0.75rem;
+
+    @media (max-width: 767px) {
+        grid-template-columns: 1fr;
+    }
+}

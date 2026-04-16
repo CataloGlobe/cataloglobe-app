@@ -6,7 +6,6 @@
   background: var(--card-bg, #fff);
   border: 1px solid var(--border, #e2e8f0);
   border-radius: var(--radius-lg, 10px);
-  overflow: hidden;
 }
 
 .groupHeader {
@@ -39,7 +38,6 @@
   align-items: center;
   gap: 0.55rem;
 }
-
 
 .countBadge {
   display: inline-flex;
@@ -100,7 +98,9 @@
 }
 
 .rowDisabled {
-  opacity: 0.6;
+  > *:not(.rowActions):not(.statusCell) {
+    opacity: 0.6;
+  }
 }
 
 .rowSelected {
@@ -139,7 +139,9 @@
   cursor: grab;
   color: var(--color-gray-400, #9ca3af);
   opacity: 0;
-  transition: opacity 0.12s, color 0.12s;
+  transition:
+    opacity 0.12s,
+    color 0.12s;
   border-radius: 4px;
   padding: 2px;
 
@@ -174,6 +176,55 @@
   text-overflow: ellipsis;
 }
 
+.badgeType {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  &[data-type="layout"] {
+    background: color-mix(in srgb, #6366f1 16%, white 84%);
+    color: #4338ca;
+    border: 1px solid color-mix(in srgb, #6366f1 28%, var(--border, #e2e8f0) 72%);
+  }
+
+  &[data-type="featured"] {
+    background: color-mix(in srgb, #14b8a6 16%, white 84%);
+    color: #0f766e;
+    border: 1px solid color-mix(in srgb, #14b8a6 28%, var(--border, #e2e8f0) 72%);
+  }
+
+  &[data-type="price"] {
+    background: color-mix(in srgb, #f59e0b 16%, white 84%);
+    color: #92400e;
+    border: 1px solid color-mix(in srgb, #f59e0b 28%, var(--border, #e2e8f0) 72%);
+  }
+
+  &[data-type="visibility"] {
+    background: color-mix(in srgb, #ef4444 14%, white 86%);
+    color: #b91c1c;
+    border: 1px solid color-mix(in srgb, #ef4444 24%, var(--border, #e2e8f0) 76%);
+  }
+}
+
+.badgeDraft {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  background: color-mix(in srgb, #f59e0b 18%, white 82%);
+  color: #92400e;
+  border: 1px solid color-mix(in srgb, #f59e0b 30%, var(--border, #e2e8f0) 70%);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .insightBadges {
   display: flex;
   flex-wrap: wrap;
@@ -205,6 +256,14 @@
 
 .insightNeverUsed {
   background: color-mix(in srgb, #ef4444 14%, white 86%);
+}
+
+.exclusionNote {
+  width: fit-content;
+  font-size: 12px;
+  color: var(--text-secondary, #64748b);
+  border-bottom: 1px dashed var(--text-secondary, #64748b);
+  cursor: default;
 }
 
 .activeDot {
@@ -253,21 +312,6 @@
 
 .statusDotIdle {
   background: var(--color-gray-300, #d1d5db);
-}
-
-.badgeDraft {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 1px 5px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  background: var(--hover-bg, #f1f5f9);
-  border: 1px solid var(--border, #e2e8f0);
-  color: var(--color-gray-500, #6b7280);
-  flex-shrink: 0;
 }
 
 /* ─── Type badge ──────────────────────────────────────────────── */
@@ -330,8 +374,12 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ─── Row actions ─────────────────────────────────────────────── */
@@ -353,11 +401,81 @@
   border-radius: 6px;
   cursor: pointer;
   color: var(--color-gray-400, #9ca3af);
-  transition: background 0.1s, color 0.1s;
+  transition:
+    background 0.1s,
+    color 0.1s;
 
   &:hover {
     background: color-mix(in srgb, #ef4444 12%, white 88%);
     color: #dc2626;
+  }
+}
+
+.menuButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-gray-400, #9ca3af);
+  transition:
+    background 0.1s,
+    color 0.1s;
+
+  &:hover {
+    background: var(--hover-bg, #f1f5f9);
+    color: var(--text, #0f172a);
+  }
+}
+
+.rowMenuDropdown {
+  [role="menu"] {
+    width: 140px;
+    min-width: 140px;
+    gap: 0;
+    padding: 4px;
+    border: 0.5px solid var(--border, #e2e8f0);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  [role="menuitem"],
+  button[role="menuitem"] {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    box-shadow: none;
+    transition: background-color 0.12s ease;
+
+    // Ensure icon+text inside Button's .label span are spaced
+    span {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    &:hover {
+      background: var(--hover-bg, #f1f5f9);
+    }
+
+    &:focus-visible {
+      background: var(--hover-bg, #f1f5f9);
+      outline: none;
+    }
   }
 }
 

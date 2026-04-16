@@ -11,7 +11,9 @@ import type { V2Activity } from "@/types/activity";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./ActivitySlugForm.module.scss";
 
-const SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
+// ⚠️ SYNC con DB: activities_slug_format CHECK constraint
+const SLUG_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+const SLUG_NO_CONSECUTIVE_DASHES = /--/;
 const DEBOUNCE_MS = 600;
 
 type SlugStatus = "idle" | "checking" | "available" | "taken" | "reserved" | "invalid";
@@ -28,12 +30,14 @@ type ActivitySlugFormProps = {
 export function ActivitySlugForm({
     formId,
     entityData,
-    tenantId,
+    tenantId: _tenantId,
     onSuccess,
     onSavingChange,
     onCanSubmitChange
 }: ActivitySlugFormProps) {
     const { showToast } = useToast();
+    const isActive = entityData.status === "active";
+
     const [slug, setSlug] = useState(entityData.slug);
     const [slugStatus, setSlugStatus] = useState<SlugStatus>("idle");
     const [hasConfirmed, setHasConfirmed] = useState(false);
@@ -52,8 +56,14 @@ export function ActivitySlugForm({
                 return;
             }
 
+            // ⚠️ SYNC con DB: is_reserved_slug() — enforcement definitivo a DB level
             if (RESERVED_SLUGS.has(candidate)) {
                 setSlugStatus("reserved");
+                return;
+            }
+
+            if (SLUG_NO_CONSECUTIVE_DASHES.test(candidate)) {
+                setSlugStatus("invalid");
                 return;
             }
 
@@ -64,7 +74,8 @@ export function ActivitySlugForm({
 
             setSlugStatus("checking");
             try {
-                const unique = await ensureUniqueBusinessSlug(candidate, tenantId);
+                // Esclude la sede corrente dal controllo disponibilità (modalità edit)
+                const unique = await ensureUniqueBusinessSlug(candidate, entityData.id);
                 if (unique !== candidate) {
                     setSlugStatus("taken");
                 } else {
@@ -74,7 +85,7 @@ export function ActivitySlugForm({
                 setSlugStatus("invalid");
             }
         },
-        [entityData.slug, tenantId]
+        [entityData.slug, entityData.id]
     );
 
     const handleSlugChange = useCallback(
@@ -107,11 +118,15 @@ export function ActivitySlugForm({
         async (e: React.FormEvent) => {
             e.preventDefault();
 
-            if (slugStatus !== "available" || !hasConfirmed || slug === entityData.slug) return;
+            const canSubmit = isActive
+                ? slugStatus === "available" && hasConfirmed && slug !== entityData.slug
+                : slugStatus === "available" && slug !== entityData.slug;
+
+            if (!canSubmit) return;
 
             onSavingChange(true);
             try {
-                await updateActivity(entityData.id, tenantId, { slug });
+                await updateActivity(entityData.id, entityData.tenant_id, { slug });
                 showToast({ message: "Indirizzo web aggiornato.", type: "success" });
                 onSuccess();
             } catch (error: unknown) {
@@ -124,10 +139,12 @@ export function ActivitySlugForm({
                 onSavingChange(false);
             }
         },
-        [slug, slugStatus, hasConfirmed, entityData.id, entityData.slug, tenantId, onSuccess, onSavingChange, showToast]
+        [slug, slugStatus, hasConfirmed, isActive, entityData.id, entityData.tenant_id, entityData.slug, onSuccess, onSavingChange, showToast]
     );
 
-    const canSubmit = slugStatus === "available" && hasConfirmed && slug !== entityData.slug;
+    const canSubmit = isActive
+        ? slugStatus === "available" && hasConfirmed && slug !== entityData.slug
+        : slugStatus === "available" && slug !== entityData.slug;
 
     useEffect(() => {
         onCanSubmitChange(canSubmit);
@@ -170,27 +187,34 @@ export function ActivitySlugForm({
                     {slugStatus === "invalid" && (
                         <div className={`${styles.statusMessage} ${styles.error}`}>
                             <IconX size={14} />
-                            Solo lettere minuscole, numeri e trattini (min. 3 caratteri)
+                            {SLUG_NO_CONSECUTIVE_DASHES.test(slug)
+                                ? "Non puoi usare trattini consecutivi (--)"
+                                : "Solo lettere minuscole, numeri e trattini (min. 3 caratteri)"}
                         </div>
                     )}
                 </div>
 
-                <div className={styles.warningBox}>
-                    <IconAlertTriangle size={18} className={styles.warningIcon} />
-                    <Text as="span" className={styles.warningText}>
-                        Attenzione: modificando l&apos;indirizzo web, tutti i QR code stampati e i
-                        link condivisi in precedenza smetteranno di funzionare. Dovrai scaricare e
-                        ridistribuire un nuovo QR code.
-                    </Text>
-                </div>
+                {/* Warning forte: solo per sedi attive */}
+                {isActive && (
+                    <>
+                        <div className={styles.warningBox} role="alert">
+                            <IconAlertTriangle size={18} className={styles.warningIcon} />
+                            <Text as="span" className={styles.warningText}>
+                                ⚠️ Stai cambiando l&apos;URL pubblico di una sede attiva. Tutti i
+                                QR code e i link esistenti smetteranno di funzionare. Dovrai
+                                scaricare e ridistribuire un nuovo QR code. Sei sicuro?
+                            </Text>
+                        </div>
 
-                <CheckboxInput
-                    label="Conferma modifica"
-                    description="Ho capito che i QR code e i link esistenti non funzioneranno più dopo questa modifica"
-                    checked={hasConfirmed}
-                    onChange={e => setHasConfirmed(e.target.checked)}
-                    disabled={slugStatus !== "available" || slug === entityData.slug}
-                />
+                        <CheckboxInput
+                            label="Conferma modifica"
+                            description="Ho capito che i QR code e i link esistenti non funzioneranno più dopo questa modifica"
+                            checked={hasConfirmed}
+                            onChange={e => setHasConfirmed(e.target.checked)}
+                            disabled={slugStatus !== "available" || slug === entityData.slug}
+                        />
+                    </>
+                )}
 
                 {/* Hidden submit — actual button in DrawerLayout footer */}
                 <button

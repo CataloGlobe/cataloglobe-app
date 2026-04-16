@@ -65,6 +65,10 @@ function getRuleTypeBadgeColor(ruleType: RuleType): string {
     return "#16a34a";
 }
 
+function toLocalDateString(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function buildForm(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>): RuleDetailForm {
     const productOverrides: RuleDetailForm["productOverrides"] = {};
     const visibilityProductModes: RuleDetailForm["visibilityProductModes"] = {};
@@ -140,8 +144,8 @@ function buildForm(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>
         enabled: rule.enabled,
         alwaysActive: rule.time_mode === "always",
         timeMode: rule.time_mode,
-        startAt: rule.start_at ? new Date(rule.start_at).toISOString().split("T")[0] : "",
-        endAt: rule.end_at ? new Date(rule.end_at).toISOString().split("T")[0] : "",
+        startAt: rule.start_at ? toLocalDateString(new Date(rule.start_at)) : "",
+        endAt: rule.end_at ? toLocalDateString(new Date(rule.end_at)) : "",
         daysOfWeek: (rule.days_of_week ?? []).map(day => String(day)),
         timeFrom: rule.time_from?.slice(0, 5) ?? "",
         timeTo: rule.time_to?.slice(0, 5) ?? ""
@@ -311,23 +315,29 @@ export default function ProgrammingRuleDetail() {
                 return;
             }
 
-            if (!hasDays && !hasBothTimes) {
+            const hasPeriod = !!(form.startAt || form.endAt);
+            if (!hasPeriod && !hasDays && !hasBothTimes) {
                 showToast({
                     type: "error",
-                    message: "In modalità window imposta almeno giorni o fascia oraria.",
+                    message: "In modalità window imposta almeno un periodo, giorni o fascia oraria.",
                     duration: 3000
                 });
                 return;
             }
         }
 
+        // ── Validazioni BOZZA: campi mancanti → salva come bozza (enabled=false) ──
+        const missingFields: string[] = [];
+
         if (form.targetMode === "activities" && form.activityIds.length === 0) {
-            showToast({
-                type: "error",
-                message: "Seleziona almeno una sede o cambia modalità target.",
-                duration: 2600
-            });
-            return;
+            missingFields.push("sedi target");
+        }
+        if (form.targetMode === "groups" && form.groupIds.length === 0) {
+            missingFields.push("gruppi target");
+        }
+        if (form.ruleType === "layout") {
+            if (!form.catalogId) missingFields.push("catalogo");
+            if (!form.styleId) missingFields.push("stile");
         }
 
         // Build legacy target_type / target_id for backward compat with Edge Functions
@@ -374,7 +384,20 @@ export default function ProgrammingRuleDetail() {
             targetId = systemGroupId;
         }
 
-        const today = new Date().toISOString().split("T")[0];
+        const nowLocal = new Date();
+        const today = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, "0")}-${String(nowLocal.getDate()).padStart(2, "0")}`;
+        const hasPeriod = !!(form.startAt || form.endAt);
+
+        if (form.timeMode === "window" && hasPeriod) {
+            if (!form.startAt) {
+                showToast({ type: "error", message: "Inserisci la data di inizio.", duration: 2800 });
+                return;
+            }
+            if (!form.endAt) {
+                showToast({ type: "error", message: "Inserisci la data di fine.", duration: 2800 });
+                return;
+            }
+        }
 
         if (form.startAt && form.startAt < today) {
             showToast({
@@ -413,7 +436,27 @@ export default function ProgrammingRuleDetail() {
             return;
         }
 
-        if (form.ruleType === "price") {
+        if (form.ruleType === "price" && form.selectedProductIds.length === 0) {
+            missingFields.push("prodotti con override prezzo");
+        }
+
+        if (form.ruleType === "visibility" && form.selectedProductIds.length === 0) {
+            missingFields.push("prodotti da nascondere");
+        }
+
+        // ── Determine effective enabled ──
+        const isForcedDraft = missingFields.length > 0;
+        const wasOriginallyDraft = (() => {
+            if (!rule.applyToAll && rule.activityIds.length === 0 && rule.groupIds.length === 0) return true;
+            if (rule.rule_type === "layout") return !rule.layout?.catalog_id || !rule.layout?.style_id;
+            if (rule.rule_type === "price") return rule.price_overrides.length === 0;
+            if (rule.rule_type === "visibility") return rule.visibility_overrides.length === 0;
+            return false;
+        })();
+        const autoActivate = !isForcedDraft && !rule.enabled && wasOriginallyDraft;
+        const effectiveEnabled = isForcedDraft ? false : autoActivate ? true : form.enabled;
+
+        if (form.ruleType === "price" && form.selectedProductIds.length > 0) {
             const invalidOverride = form.selectedProductIds.some(productId => {
                 const product = productsOptions.find(p => p.id === productId);
                 const hasFormats = (product?.format_values?.length ?? 0) > 0;
@@ -453,14 +496,14 @@ export default function ProgrammingRuleDetail() {
                 groupIds: form.groupIds,
                 targetType,
                 targetId,
-                enabled: form.enabled,
+                enabled: effectiveEnabled,
                 timeMode: form.timeMode,
                 daysOfWeek:
                     form.timeMode === "window" && hasDays ? form.daysOfWeek.map(Number) : null,
                 timeFrom: form.timeMode === "window" && hasBothTimes ? form.timeFrom : null,
                 timeTo: form.timeMode === "window" && hasBothTimes ? form.timeTo : null,
-                startAt: form.startAt ? new Date(form.startAt).toISOString() : null,
-                endAt: form.endAt ? new Date(form.endAt).toISOString() : null,
+                startAt: form.startAt ? new Date(form.startAt + "T00:00:00").toISOString() : null,
+                endAt: form.endAt ? new Date(form.endAt + "T23:59:59").toISOString() : null,
                 layout:
                     form.ruleType === "layout"
                         ? {
@@ -509,7 +552,17 @@ export default function ProgrammingRuleDetail() {
                         : undefined
             });
 
-            showToast({ type: "success", message: "Regola salvata.", duration: 2200 });
+            if (isForcedDraft) {
+                showToast({
+                    type: "warning",
+                    message: `Regola salvata come bozza. Manca: ${missingFields.join(", ")}`,
+                    duration: 4000
+                });
+            } else if (autoActivate) {
+                showToast({ type: "success", message: "Regola salvata e attivata.", duration: 2200 });
+            } else {
+                showToast({ type: "success", message: "Regola salvata.", duration: 2200 });
+            }
             await loadData();
         } catch (error) {
             console.error("Errore salvataggio regola:", error);

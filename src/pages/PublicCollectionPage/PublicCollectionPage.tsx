@@ -132,14 +132,17 @@ function mapCatalogToSectionGroups(resolved: ResolvedCollections): CollectionVie
 
     const result = l1Sections
         .map(root => {
-            const l2Children = allSections.filter(
-                s => s.level === 2 && s.parentCategoryId === root.id && s.items.length > 0
+            const l3WithItems = allSections.filter(
+                s => s.level === 3 && s.items.length > 0
             );
-            const l3Children = allSections.filter(
+            const l2Children = allSections.filter(
                 s =>
-                    s.level === 3 &&
-                    l2Children.some(l2 => l2.id === s.parentCategoryId) &&
-                    s.items.length > 0
+                    s.level === 2 &&
+                    s.parentCategoryId === root.id &&
+                    (s.items.length > 0 || l3WithItems.some(l3 => l3.parentCategoryId === s.id))
+            );
+            const l3Children = l3WithItems.filter(
+                s => l2Children.some(l2 => l2.id === s.parentCategoryId)
             );
 
             // Ordine originale: intercala L3 dopo il loro L2 parent
@@ -170,6 +173,8 @@ type PublicBusiness = {
     status: "active" | "inactive";
     inactive_reason: "maintenance" | "closed" | "unavailable" | null;
     address: string | null;
+    street_number: string | null;
+    postal_code: string | null;
     city: string | null;
     instagram: string | null;
     instagram_public: boolean;
@@ -461,9 +466,15 @@ export default function PublicCollectionPage() {
                 mode="public"
                 activityId={business.id}
                 tenantLogoUrl={tenantLogoUrl}
-                activityAddress={
-                    [business.address, business.city].filter(Boolean).join(", ") || null
-                }
+                activityAddress={(() => {
+                    const street = [business.address, business.street_number]
+                        .filter(Boolean)
+                        .join(", ");
+                    const location = [business.postal_code, business.city]
+                        .filter(Boolean)
+                        .join(" ");
+                    return [street, location].filter(Boolean).join(" — ") || null;
+                })()}
                 socialLinks={{
                     instagram: business.instagram,
                     instagram_public: business.instagram_public,
@@ -485,13 +496,13 @@ export default function PublicCollectionPage() {
                 featuredBeforeCatalogSlot={
                     resolved.featured?.before_catalog &&
                     resolved.featured.before_catalog.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.before_catalog} activityId={business.id} slot="before_catalog" flush />
+                        <FeaturedBlock blocks={resolved.featured.before_catalog} activityId={business.id} slot="before_catalog" />
                     ) : null
                 }
                 featuredAfterCatalogSlot={
                     resolved.featured?.after_catalog &&
                     resolved.featured.after_catalog.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.after_catalog} activityId={business.id} slot="after_catalog" flush />
+                        <FeaturedBlock blocks={resolved.featured.after_catalog} activityId={business.id} slot="after_catalog" />
                     ) : null
                 }
                 reviewsProps={{

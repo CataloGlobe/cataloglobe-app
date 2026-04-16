@@ -145,9 +145,9 @@ Dominio/
 - `events` — tab eventi/promo (da sviluppare)
 - `reviews` — recensioni via `submit-review` edge function
 
-**Slot FeaturedBlock**:
-- `before_catalog` — tra header e catalogo
-- `after_catalog` — sotto catalogo (visibile solo se activeTab === "menu")
+**Slot FeaturedBlock** (solo 2, hero rimosso con migration `20260414190000`):
+- `before_catalog` — tra header e catalogo, a livello `.frame` (fuori da `.container`)
+- `after_catalog` — sotto catalogo, passato come prop `featuredAfterCatalogSlot` a `CollectionView`, a livello `.frame`
 
 **Stati pagina**: `loading | error | inactive | subscription_inactive | empty | ready`
 
@@ -196,12 +196,30 @@ Due tipi di regola sullo stesso modello `schedules`:
 | `rule_type` | Route detail | Service | Scopo |
 |-------------|-------------|---------|-------|
 | `"catalog"` (default) | `/scheduling/:ruleId` → `ProgrammingRuleDetail` | `layoutScheduling.ts` | Assegna catalogo a sede in una finestra temporale |
-| `"featured"` | `/scheduling/featured/:ruleId` → `FeaturedRuleDetail` | `featuredScheduling.ts` | Assegna contenuti in evidenza (hero/before/after) in una finestra |
+| `"featured"` | `/scheduling/featured/:ruleId` → `FeaturedRuleDetail` | `featuredScheduling.ts` | Assegna contenuti in evidenza (before/after catalog) in una finestra |
+
+**Risoluzione regole**: tutti e 4 i tipi (layout, featured, price, visibility) usano **competizione** (1 sola regola vince per sede per tipo). Ordine: specificità target (DESC) → specificità temporale (DESC) → priority (ASC) → created_at (ASC) → id (ASC).
+
+**Sistema bozze**:
+- Regole create con `enabled: false`. Salvate come bozza se campi obbligatori mancanti (target, catalogo/stile, prodotti, contenuti).
+- `isDraft(rule)`: `!applyToAll && 0 activityIds && 0 groupIds` OPPURE campi tipo-specifici vuoti (layout: no catalog/style, featured: no contents, price/visibility: no overrides).
+- Lista: 5 gruppi — In esecuzione, Programmate, **Bozze** (ambra), Disabilitate, Scadute. Badge "Bozza" sulla riga.
+- Toggle: bloccato per bozze (toast error) e regole scadute (toast error). Toggle OFF sempre permesso.
+- Auto-attivazione: al salvataggio, se la regola era bozza (`isDraft(originalRule)`) e ora e' completa → `enabled = true` automatico + toast "Regola salvata e attivata".
+- Validazione: nome vuoto/date invalide/orari invalidi → bloccanti (return). Campi incompleti → bozza (enabled=false + toast warning).
+
+**Periodo + giorni**: combinabili nel form. Il resolver supporta `start_at`/`end_at` + `days_of_week` combinati.
+
+**Featured slot**: solo `before_catalog` e `after_catalog` (hero rimosso, migration `20260414190000`). Form featured: due SlotGroup separati con DnD indipendente, `sortOrder` per-gruppo.
+
+**Simulatore regole**: drawer con 4 blocchi risultato — Catalogo, In evidenza, Prezzi, Visibilità (griglia 2x2). Usa `resolveRulesForActivity()` con data/ora simulata.
+
+**"Escluse N sedi"**: regole con target "Tutte" mostrano tooltip con sedi sovrascritte da regole più specifiche. Funziona per tutti e 4 i tipi.
 
 **Tabelle coinvolte**:
 - `schedules` — riga principale (tenant_id, rule_type, time_mode, priority, ecc.)
 - `schedule_targets` — relazione N:N con activity/activity_group (no tenant_id, no RLS — security gap noto)
-- `schedule_featured_contents` — join featured rules ↔ featured_contents (slot, sort_order)
+- `schedule_featured_contents` — join featured rules ↔ featured_contents (slot, sort_order). Solo 2 slot: `before_catalog`, `after_catalog`.
 - RPC: `get_schedule_featured_contents(schedule_id)` — `20260409120000`
 
 ---
@@ -231,6 +249,9 @@ Due tipi di regola sullo stesso modello `schedules`:
 - `v2_activity_schedules` — ELIMINATA (migration `20260302130000`). Non referenziare mai.
 - `schedule_targets` — NO `tenant_id`, NO RLS (gap noto, non correggere senza richiesta)
 - `product_attribute_definitions.tenant_id` — NULLABLE (attributi piattaforma usano NULL)
+- `schedule_featured_contents.slot` — constraint CHECK a 2 valori: `before_catalog`, `after_catalog` (migration `20260414190000`, hero rimosso)
+- `schedules.start_at` — salvato come inizio giornata locale (`T00:00:00` locale → UTC via `toISOString()`)
+- `schedules.end_at` — salvato come fine giornata locale (`T23:59:59` locale → UTC via `toISOString()`)
 
 ---
 
@@ -299,5 +320,7 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 **Database**: prefisso `v2_` nelle query service | tabelle senza `tenant_id` | `CASCADE` cross-dominio senza richiesta | modificare `get_my_tenant_ids()`
 
 **Frontend**: CSS inline | testi in inglese | esporre `owner_user_id` | librerie npm non richieste | submit button dentro `<form>` nei drawer | SystemDrawer/DrawerLayout nella pagina pubblica (usare PublicSheet)
+
+**Scheduling**: salvare `end_at` come mezzanotte UTC (usare `T23:59:59` locale) | disabilitare i giorni della settimana quando un periodo è attivo (sono combinabili) | slot `hero` nei featured (rimosso, solo `before_catalog`/`after_catalog`)
 
 **Pattern**: `null` da `list*` | `useEffect` senza `useCallback` | omettere toast nei catch | no reload dopo CRUD success | form con logica drawer | modificare scheduleResolver in un solo posto

@@ -14,10 +14,13 @@ import {
     arrayMove
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Trash2, Globe, Building2, Users, AlertCircle, Loader2, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { GripVertical, MoreVertical, Copy, Trash2, Globe, Building2, Users, AlertCircle, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import Text from "@components/ui/Text/Text";
 import { Tooltip } from "@components/ui/Tooltip/Tooltip";
 import { Switch } from "@components/ui/Switch/Switch";
+import { DropdownMenu } from "@components/ui/DropdownMenu/DropdownMenu";
+import { DropdownItem } from "@components/ui/DropdownMenu/DropdownItem";
+import { useToast } from "@/context/Toast/ToastContext";
 import { buildRuleSummary } from "@utils/ruleHelpers";
 import type { LayoutRule, LayoutRuleOption } from "@services/supabase/layoutScheduling";
 import type { PriorityLevel } from "@utils/priorityUtils";
@@ -43,21 +46,17 @@ interface SortableRuleRowProps {
     onSelect: (id: string, checked: boolean) => void;
     onClick: (rule: LayoutRule) => void;
     onDelete: (ruleId: string) => void;
+    onDuplicate: (ruleId: string) => void;
     onToggleEnabled: (ruleId: string, enabled: boolean) => void;
 }
 
 function getRuleTypeLabel(ruleType: LayoutRule["rule_type"]): string {
     if (ruleType === "layout") return "Layout";
-    if (ruleType === "price") return "Prezzo";
+    if (ruleType === "featured") return "In evidenza";
+    if (ruleType === "price") return "Prezzi";
     return "Visibilità";
 }
 
-function isDraft(rule: LayoutRule): boolean {
-    if (rule.rule_type === "layout") return !rule.layout?.catalog_id || !rule.layout?.style_id;
-    if (rule.rule_type === "price") return rule.price_overrides.length === 0;
-    if (rule.rule_type === "visibility") return rule.visibility_overrides.length === 0;
-    return false;
-}
 
 function SortableRuleRow({
     rule,
@@ -70,8 +69,20 @@ function SortableRuleRow({
     onSelect,
     onClick,
     onDelete,
+    onDuplicate,
     onToggleEnabled
 }: SortableRuleRowProps) {
+    const { showToast } = useToast();
+
+    const ruleIsDraft = (() => {
+        if (!rule.applyToAll && rule.activityIds.length === 0 && rule.groupIds.length === 0) return true;
+        if (rule.rule_type === "layout") return !rule.layout?.catalog_id || !rule.layout?.style_id;
+        if (rule.rule_type === "featured") return rule.featured_contents.length === 0;
+        if (rule.rule_type === "price") return rule.price_overrides.length === 0;
+        if (rule.rule_type === "visibility") return rule.visibility_overrides.length === 0;
+        return false;
+    })();
+
     const {
         attributes,
         listeners,
@@ -88,7 +99,6 @@ function SortableRuleRow({
         opacity: isDragging ? 0.4 : undefined
     };
 
-    const draft = isDraft(rule);
     const displayName = (
         rule.name ?? `${getRuleTypeLabel(rule.rule_type)} · ${rule.id.slice(0, 6)}`
     ).trim();
@@ -216,12 +226,6 @@ function SortableRuleRow({
                     >
                         {displayName}
                     </Text>
-                    {draft && (
-                        <span className={styles.badgeDraft}>
-                            <FileText size={9} />
-                            Bozza
-                        </span>
-                    )}
                 </div>
                 {insight && rule.enabled && (
                     <div className={styles.insightBadges}>
@@ -262,25 +266,51 @@ function SortableRuleRow({
             <div className={styles.statusCell} data-no-click="true">
                 <Switch
                     checked={rule.enabled}
-                    onChange={checked => onToggleEnabled(rule.id, checked)}
+                    onChange={checked => {
+                        if (checked && rule.end_at && new Date(rule.end_at) < new Date()) {
+                            showToast({
+                                type: "error",
+                                message: "Questa regola è scaduta. Aggiorna la data di fine prima di riattivarla.",
+                                duration: 3000
+                            });
+                            return;
+                        }
+                        if (checked && ruleIsDraft) {
+                            showToast({
+                                type: "error",
+                                message: "Completa i campi obbligatori prima di attivare la regola.",
+                                duration: 3000
+                            });
+                            return;
+                        }
+                        onToggleEnabled(rule.id, checked);
+                    }}
                     disabled={isUpdating}
                 />
                 {isUpdating && <Loader2 size={12} className={styles.miniLoader} />}
             </div>
 
-            {/* Delete */}
+            {/* Actions menu */}
             <div className={styles.rowActions} data-no-click="true">
-                <button
-                    type="button"
-                    className={styles.deleteButton}
-                    onClick={e => {
-                        e.stopPropagation();
-                        onDelete(rule.id);
-                    }}
-                    title="Elimina regola"
-                >
-                    <Trash2 size={14} />
-                </button>
+                <div className={styles.rowMenuDropdown}>
+                    <DropdownMenu
+                        trigger={
+                            <button type="button" className={styles.menuButton} title="Azioni">
+                                <MoreVertical size={16} />
+                            </button>
+                        }
+                        placement="bottom-end"
+                    >
+                        <DropdownItem onClick={() => onDuplicate(rule.id)}>
+                            <Copy size={14} />
+                            <span>Duplica</span>
+                        </DropdownItem>
+                        <DropdownItem onClick={() => onDelete(rule.id)} danger>
+                            <Trash2 size={14} />
+                            <span>Elimina</span>
+                        </DropdownItem>
+                    </DropdownMenu>
+                </div>
             </div>
         </div>
     );
@@ -295,6 +325,7 @@ export interface PriorityGroupProps {
     onReorder: (level: PriorityLevel, reorderedRules: LayoutRule[]) => void;
     onRuleClick: (rule: LayoutRule) => void;
     onDeleteRule: (ruleId: string) => void;
+    onDuplicateRule: (ruleId: string) => void;
     onToggleEnabled: (ruleId: string, enabled: boolean) => void;
     updatingRules: Set<string>;
     activityById: Map<string, Pick<LayoutRuleOption, "name">>;
@@ -312,6 +343,7 @@ export function PriorityGroup({
     onReorder,
     onRuleClick,
     onDeleteRule,
+    onDuplicateRule,
     onToggleEnabled,
     updatingRules,
     activityById,
@@ -386,6 +418,7 @@ export function PriorityGroup({
                                         onSelect={onSelectionChange}
                                         onClick={onRuleClick}
                                         onDelete={onDeleteRule}
+                                        onDuplicate={onDuplicateRule}
                                         onToggleEnabled={onToggleEnabled}
                                     />
                                 ))}

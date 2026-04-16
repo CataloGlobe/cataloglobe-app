@@ -70,7 +70,9 @@ export function SchedulingSection({
     };
 
     const handleStartAtBlur = () => {
-        if (startAt && startAt < today) {
+        if (!startAt && hasPeriod) {
+            setStartAtError("Inserisci la data di inizio");
+        } else if (startAt && startAt < today) {
             setStartAtError("La data di inizio non può essere nel passato");
         } else {
             setStartAtError("");
@@ -79,7 +81,11 @@ export function SchedulingSection({
     };
 
     const handleEndAtBlur = () => {
-        validateEndAt(endAt, startAt);
+        if (!endAt && hasPeriod) {
+            setEndAtError("Inserisci la data di fine");
+        } else {
+            validateEndAt(endAt, startAt);
+        }
     };
 
     const handleToggleAlways = (checked: boolean) => {
@@ -91,11 +97,7 @@ export function SchedulingSection({
 
     const handleTogglePeriod = (checked: boolean) => {
         setHasPeriod(checked);
-        if (checked) {
-            // Disable and reset days when period is active
-            setHasDays(false);
-            onFormChange({ daysOfWeek: [] });
-        } else {
+        if (!checked) {
             setStartAtError("");
             setEndAtError("");
             onFormChange({ startAt: "", endAt: "" });
@@ -143,7 +145,7 @@ export function SchedulingSection({
                                 <div className={styles.sectionGrid}>
                                     <div>
                                         <DateInput
-                                            label="Data inizio"
+                                            label="Data inizio *"
                                             value={startAt}
                                             onChange={event => {
                                                 const newStart = event.target.value;
@@ -162,7 +164,7 @@ export function SchedulingSection({
                                     </div>
                                     <div>
                                         <DateInput
-                                            label="Data fine"
+                                            label="Data fine *"
                                             value={endAt}
                                             min={startAt || undefined}
                                             onChange={event => onFormChange({ endAt: event.target.value })}
@@ -221,21 +223,12 @@ export function SchedulingSection({
                             <Switch
                                 checked={hasDays}
                                 onChange={handleToggleDays}
-                                disabled={hasPeriod}
                             />
-                            <Text
-                                variant="body-sm"
-                                colorVariant={hasPeriod ? "muted" : undefined}
-                            >
+                            <Text variant="body-sm">
                                 Vale solo in certi giorni della settimana?
                             </Text>
                         </div>
-                        {hasPeriod && (
-                            <Text variant="caption" colorVariant="muted">
-                                I giorni sono già definiti dal periodo selezionato.
-                            </Text>
-                        )}
-                        {hasDays && !hasPeriod && (
+                        {hasDays && (
                             <div className={styles.daysCompact}>
                                 <PillGroupMultiple
                                     ariaLabel="Seleziona giorni della settimana"

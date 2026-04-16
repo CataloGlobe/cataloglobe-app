@@ -913,10 +913,32 @@ function applyVisibilityOverridesToCatalog(
                                   (!item.parentSelected ? (item.variants ?? []).length > 0 : true)
                               )
                       }))
-                      .filter(category => category.products.length > 0)
               }
+            : {}),
+        ...(catalog.categories
+            ? { categories: filterEmptyCategories(catalog.categories) }
             : {})
     };
+}
+
+// ── Hierarchy-aware empty category filter ────────────────────────────────────
+// Keeps categories that have products OR whose descendants have products.
+// Two passes cover L1→L2→L3 (3 levels max).
+function filterEmptyCategories(categories: ResolvedCategory[]): ResolvedCategory[] {
+    const keepIds = new Set(categories.filter(c => c.products.length > 0).map(c => c.id));
+    // Pass 1: L3 with products → keep their L2 parent
+    for (const cat of categories) {
+        if (cat.parent_category_id && keepIds.has(cat.id)) {
+            keepIds.add(cat.parent_category_id);
+        }
+    }
+    // Pass 2: L2 (now kept) → keep their L1 parent
+    for (const cat of categories) {
+        if (cat.parent_category_id && keepIds.has(cat.id)) {
+            keepIds.add(cat.parent_category_id);
+        }
+    }
+    return categories.filter(c => keepIds.has(c.id));
 }
 
 // ── Apply price overrides ────────────────────────────────────────────────────
@@ -1180,8 +1202,10 @@ function applyActivityVisibilityOverridesToCatalog(
 
                           return { ...category, products: finalProducts };
                       })
-                      .filter(category => category.products.length > 0)
               }
+            : {}),
+        ...(catalog.categories
+            ? { categories: filterEmptyCategories(catalog.categories) }
             : {})
     };
 }

@@ -74,4 +74,3 @@ export const DEFAULT_COLLECTION_STYLE: Required<CollectionStyle> = {
     cardLayout: "list",
     productStyle: "card"
 };
-

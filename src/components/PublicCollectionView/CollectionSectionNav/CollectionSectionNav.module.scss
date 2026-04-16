@@ -463,7 +463,6 @@
 .dropdownItem {
   display: flex;
   align-items: center;
-  gap: 8px;
   width: 100%;
   padding: 0.5rem 0.75rem;
   border: none;
@@ -490,7 +489,9 @@
 
 /* L3: indent per comunicare gerarchia */
 .dropdownItemL3 {
-  padding-left: calc(0.75rem + 20px);
+  padding-left: calc(0.75rem + 16px);
+  font-size: 0.825rem;
+  color: var(--pub-text-secondary, #666);
 }
 
 /* Voce attiva nel dropdown (sotto-sezione in viewport) */
@@ -502,26 +503,6 @@
   }
 }
 
-/* Dot gold — L2 */
-.dotL2 {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--pub-accent, var(--pub-primary, #e8a300));
-  flex-shrink: 0;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
-}
-
-/* Dot grigio — L3 */
-.dotL3 {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #a0a0a0;
-  flex-shrink: 0;
-}
 
 /* ---------------------------------------------
    RESPONSIVE TWEAKS

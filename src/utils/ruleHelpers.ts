@@ -71,7 +71,7 @@ export function buildRuleSummary(rule: RuleSummaryParams): string {
             const start = rule.start_at ? formatDate(rule.start_at) : "";
             const end = rule.end_at ? formatDate(rule.end_at) : "";
             if (start && end) {
-                segments.push(`${start}–${end}`);
+                segments.push(start === end ? start : `${start}–${end}`);
             } else if (start) {
                 segments.push(`Dal ${start}`);
             } else if (end) {
