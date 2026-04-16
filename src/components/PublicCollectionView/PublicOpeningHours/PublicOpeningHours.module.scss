@@ -1,0 +1,61 @@
+/* ─────────────────────────────────────────────────────────
+   PublicOpeningHours
+   Orari di apertura — sezione nel footer pubblico
+───────────────────────────────────────────────────────── */
+
+.hoursSection {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hoursTitle {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--pub-text-muted);
+  font-family: var(--pub-font-family, sans-serif);
+  margin: 0;
+}
+
+.hoursList {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.hoursRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--pub-border);
+  opacity: 0.85;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.hoursDay {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--pub-text);
+  font-family: var(--pub-font-family, sans-serif);
+}
+
+.hoursTime {
+  font-size: 0.8125rem;
+  color: var(--pub-text-secondary);
+  font-family: var(--pub-font-family, sans-serif);
+  text-align: right;
+}
+
+.hoursTimeClosed {
+  font-style: italic;
+  color: var(--pub-text-muted);
+}
