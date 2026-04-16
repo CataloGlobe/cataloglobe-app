@@ -13,7 +13,7 @@ function formatDateIT(dateStr: string): string {
 
 function formatClosureStatus(c: V2ActivityClosure): string {
     if (c.is_closed) return "Chiuso";
-    return `${c.opens_at!.slice(0, 5)} – ${c.closes_at!.slice(0, 5)}`;
+    return `${c.opens_at?.slice(0, 5) ?? "?"} – ${c.closes_at?.slice(0, 5) ?? "?"}`;
 }
 
 interface ActivityClosuresSectionProps {
