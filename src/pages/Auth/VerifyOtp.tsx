@@ -7,7 +7,7 @@ import {
     type FormEvent,
     useCallback
 } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -35,10 +35,8 @@ function mapOtpError(error: unknown): OtpErrorCode {
 }
 
 export default function VerifyOtp() {
-    const { refreshOtp } = useAuth();
+    const { forceOtpCheck } = useAuth();
     const navigate = useNavigate();
-    const location = useLocation();
-    const from = location.state?.from || "/workspace";
 
     const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
     const [loading, setLoading] = useState(false);
@@ -63,13 +61,16 @@ export default function VerifyOtp() {
             setInfo(null);
 
             const { data } = await supabase.auth.getSession();
+            const jwt = data.session?.access_token;
 
-            if (!data.session) {
+            if (!jwt) {
                 navigate("/login", { replace: true });
                 return;
             }
 
-            const { error } = await supabase.functions.invoke("send-otp");
+            const { error } = await supabase.functions.invoke("send-otp", {
+                headers: { Authorization: `Bearer ${jwt}` }
+            });
 
             if (error) {
                 const code = mapOtpError(error);
@@ -113,9 +114,12 @@ export default function VerifyOtp() {
 
     const loadOtpStatus = useCallback(async () => {
         const { data } = await supabase.auth.getSession();
-        if (!data.session) return;
+        const jwt = data.session?.access_token;
+        if (!jwt) return;
 
-        const { data: status, error } = await supabase.functions.invoke("status-otp");
+        const { data: status, error } = await supabase.functions.invoke("status-otp", {
+            headers: { Authorization: `Bearer ${jwt}` }
+        });
 
         if (error || !status) return;
 
@@ -248,14 +252,16 @@ export default function VerifyOtp() {
             setInfo("Verifica in corso...");
 
             const { data: sessionData } = await supabase.auth.getSession();
+            const jwt = sessionData.session?.access_token;
 
-            if (!sessionData.session) {
+            if (!jwt) {
                 navigate("/login", { replace: true });
                 return;
             }
 
             const { data, error } = await supabase.functions.invoke("verify-otp", {
-                body: { code }
+                body: { code },
+                headers: { Authorization: `Bearer ${jwt}` }
             });
 
             if (error) {
@@ -330,8 +336,8 @@ export default function VerifyOtp() {
                 return;
             }
 
-            await refreshOtp();
-            navigate(from, { replace: true });
+            await forceOtpCheck();
+            navigate("/dashboard", { replace: true });
         } finally {
             setLoading(false);
             setStatus("idle");
@@ -428,8 +434,8 @@ export default function VerifyOtp() {
                     {resendSeconds === null
                         ? "Reinvia codice"
                         : resendSeconds > 0
-                          ? `Reinvia codice (${resendSeconds}s)`
-                          : "Reinvia codice"}
+                        ? `Reinvia codice (${resendSeconds}s)`
+                        : "Reinvia codice"}
                 </Button>
             </div>
 

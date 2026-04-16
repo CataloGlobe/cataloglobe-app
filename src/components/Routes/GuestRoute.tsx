@@ -9,15 +9,21 @@ type GuestRouteProps = {
 
 export const GuestRoute = ({ children }: GuestRouteProps) => {
     const isRecovery = sessionStorage.getItem("passwordRecoveryFlow") === "true";
-    const { user, loading, otpVerified, otpLoading } = useAuth();
+    const { user, loading, otpVerified, otpLoading, otpRefreshing } = useAuth();
 
     if (isRecovery) {
         return <>{children}</>;
     }
 
-    if (loading) return <AppLoader />;
+    // Bootstrap auth (sessione, utente, token, ecc.)
+    if (loading) {
+        return <AppLoader intent="auth" />;
+    }
 
-    if (user && otpLoading) return <AppLoader />;
+    // Verifica OTP in corso
+    if (user && otpLoading && !otpRefreshing) {
+        return <AppLoader intent="otp" />;
+    }
 
     if (user) {
         return <Navigate to={otpVerified ? "/workspace" : "/verify-otp"} replace />;

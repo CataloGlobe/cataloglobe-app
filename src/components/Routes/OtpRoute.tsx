@@ -9,17 +9,22 @@ type OtpRouteProps = {
 
 export const OtpRoute = ({ children }: OtpRouteProps) => {
     const isRecovery = sessionStorage.getItem("passwordRecoveryFlow") === "true";
-    const { user, loading, otpVerified, otpLoading } = useAuth();
+    const { user, loading, otpVerified, otpLoading, otpRefreshing } = useAuth();
     const location = useLocation();
 
     if (isRecovery) {
         return <>{children}</>;
     }
 
-    if (loading) return <AppLoader />;
+    // Bootstrap auth
+    if (loading) {
+        return <AppLoader intent="auth" />;
+    }
 
-    // otpLoading ha senso SOLO se l'utente è loggato
-    if (user && otpLoading) return <AppLoader />;
+    // Verifica OTP in corso (solo se loggato)
+    if (user && otpLoading && !otpRefreshing) {
+        return <AppLoader intent="otp" />;
+    }
 
     // Non loggato → login
     if (!user) {
