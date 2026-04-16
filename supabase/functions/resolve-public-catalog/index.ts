@@ -137,7 +137,7 @@ serve(async (req: Request) => {
         }
 
         // 3. Resolve catalogs + tenant info in parallel
-        const [resolved, tenantInfo, hoursResult] = await Promise.all([
+        const [resolved, tenantInfo, hoursResult, closuresResult] = await Promise.all([
             resolveActivityCatalogs(supabase, activity.id, simulatedAt),
             supabase.rpc("get_tenant_public_info", { p_tenant_id: activity.tenant_id }),
             activity.hours_public
@@ -148,9 +148,25 @@ serve(async (req: Request) => {
                       .order("day_of_week", { ascending: true })
                       .order("slot_index", { ascending: true })
                 : Promise.resolve({ data: null, error: null }),
+            activity.hours_public
+                ? (() => {
+                      const now = new Date();
+                      const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(now);
+                      const future = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
+                      const futureStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(future);
+                      return supabase
+                          .from("activity_closures")
+                          .select("closure_date, label, is_closed, opens_at, closes_at")
+                          .eq("activity_id", activity.id)
+                          .gte("closure_date", todayStr)
+                          .lte("closure_date", futureStr)
+                          .order("closure_date", { ascending: true });
+                  })()
+                : Promise.resolve({ data: null, error: null }),
         ]);
 
         const opening_hours = hoursResult.data ?? undefined;
+        const upcoming_closures = closuresResult.data ?? undefined;
 
         // 3b. Check subscription status — block if canceled or suspended
         const subscriptionStatus = tenantInfo.data?.subscription_status;
@@ -184,7 +200,8 @@ serve(async (req: Request) => {
                 tenantLogoUrl,
                 resolved,
                 canonical_slug: isAliasMatch ? activity.slug : null,
-                ...(opening_hours ? { opening_hours } : {})
+                ...(opening_hours ? { opening_hours } : {}),
+                ...(upcoming_closures ? { upcoming_closures } : {})
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
