@@ -11,6 +11,7 @@ import {
     type SectionNavShape
 } from "@/types/collectionStyle";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
+import type { OpeningHoursEntry } from "@/components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 import previewStyles from "./StylePreview.module.scss";
 
 type StylePreviewProps = {
@@ -215,6 +216,22 @@ const MOCK_SECTION_GROUPS: CollectionViewSectionGroup[] = [
     }
 ];
 
+const MOCK_OPENING_HOURS: OpeningHoursEntry[] = [
+    { day_of_week: 0, slot_index: 0, opens_at: "09:00", closes_at: "13:00", is_closed: false },
+    { day_of_week: 0, slot_index: 1, opens_at: "19:00", closes_at: "23:00", is_closed: false },
+    { day_of_week: 1, slot_index: 0, opens_at: "09:00", closes_at: "13:00", is_closed: false },
+    { day_of_week: 1, slot_index: 1, opens_at: "19:00", closes_at: "23:00", is_closed: false },
+    { day_of_week: 2, slot_index: 0, opens_at: "09:00", closes_at: "13:00", is_closed: false },
+    { day_of_week: 2, slot_index: 1, opens_at: "19:00", closes_at: "23:00", is_closed: false },
+    { day_of_week: 3, slot_index: 0, opens_at: "09:00", closes_at: "13:00", is_closed: false },
+    { day_of_week: 3, slot_index: 1, opens_at: "19:00", closes_at: "23:00", is_closed: false },
+    { day_of_week: 4, slot_index: 0, opens_at: "09:00", closes_at: "13:00", is_closed: false },
+    { day_of_week: 4, slot_index: 1, opens_at: "19:00", closes_at: "23:00", is_closed: false },
+    { day_of_week: 5, slot_index: 0, opens_at: "12:00", closes_at: "15:00", is_closed: false },
+    { day_of_week: 5, slot_index: 1, opens_at: "19:00", closes_at: "23:30", is_closed: false },
+    { day_of_week: 6, slot_index: 0, opens_at: null, closes_at: null, is_closed: true },
+];
+
 const NAV_SHAPE_MAP: Record<string, SectionNavShape> = {
     pill: "pill",
     chip: "pill",
@@ -317,6 +334,7 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                             mode="preview"
                             scrollContainerEl={screenEl}
                             activityAddress="Via Example, 1 - Città"
+                            openingHours={MOCK_OPENING_HOURS}
                             featuredBeforeCatalogSlot={
                                 <FeaturedBlock blocks={MOCK_FEATURED} />
                             }
