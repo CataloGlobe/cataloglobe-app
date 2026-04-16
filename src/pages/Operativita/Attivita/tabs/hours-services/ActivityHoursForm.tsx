@@ -423,7 +423,7 @@ export function ActivityHoursForm({
                             <Text variant="body-sm" weight={500}>
                                 Mostra orari sulla pagina pubblica
                             </Text>
-                            <Text variant="body-xs" colorVariant="muted">
+                            <Text variant="caption" colorVariant="muted">
                                 Se attivo, gli orari appaiono sull'hub visto dai clienti.
                             </Text>
                         </div>
