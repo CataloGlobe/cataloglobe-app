@@ -26,6 +26,7 @@ import EventsView from "../EventsView/EventsView";
 import ReviewsView, { type ReviewsViewProps } from "../ReviewsView/ReviewsView";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
+import type { OpeningHoursEntry } from "../PublicOpeningHours/PublicOpeningHours";
 
 type SectionNavItem = {
     id: string;
@@ -429,6 +430,8 @@ type Props = {
     activityAddress?: string | null;
     /** Link social dell'attività (opzionale, mostrati nel footer). */
     socialLinks?: SocialLinks;
+    /** Orari di apertura dell'attività (opzionale, mostrati nel footer). */
+    openingHours?: OpeningHoursEntry[];
     /** Hub navigation tab attiva. Default "menu" (solo public). */
     activeTab?: HubTab;
     /** Callback per cambio tab. */
@@ -456,6 +459,7 @@ export default function CollectionView({
     scrollContainerEl,
     activityAddress,
     socialLinks,
+    openingHours,
     activeTab = "menu",
     onTabChange,
     featuredContents = [],
@@ -1325,7 +1329,7 @@ export default function CollectionView({
                     </div>
 
                     {/* ── FOOTER ── */}
-                    {!emptyState && <PublicFooter socialLinks={socialLinks} activityId={activityId} />}
+                    {!emptyState && <PublicFooter socialLinks={socialLinks} activityId={activityId} openingHours={openingHours} />}
                 </>
             )}
 

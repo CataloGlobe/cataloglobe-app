@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import CollectionView, {
@@ -9,6 +9,7 @@ import CollectionView, {
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { HubTab } from "@/types/collectionStyle";
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
+import type { OpeningHoursEntry } from "@/components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 
 import { supabase } from "@/services/supabase/client";
 import type {
@@ -201,6 +202,7 @@ type PageState =
           business: PublicBusiness;
           resolved: ResolvedCollections;
           tenantLogoUrl: string | null;
+          openingHours?: OpeningHoursEntry[];
       }
     | {
           status: "empty";
@@ -210,6 +212,7 @@ type PageState =
 
 export default function PublicCollectionPage() {
     const { slug } = useParams<{ slug: string }>();
+    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const simulateParam = searchParams.get("simulate");
     const [effectiveSimulate, setEffectiveSimulate] = useState<string | null>(null);
@@ -251,12 +254,20 @@ export default function PublicCollectionPage() {
 
                 if (error) throw error;
 
-                const { business, tenantLogoUrl, resolved, subscription_inactive } = data as {
+                const { business, tenantLogoUrl, resolved, subscription_inactive, canonical_slug, opening_hours } = data as {
                     business: PublicBusiness;
                     tenantLogoUrl: string | null;
                     resolved: ResolvedCollections;
                     subscription_inactive?: boolean;
+                    canonical_slug?: string | null;
+                    opening_hours?: OpeningHoursEntry[];
                 };
+
+                // Slug cercato era un alias — redirect verso lo slug canonico
+                if (canonical_slug && canonical_slug !== slug) {
+                    navigate(`/${canonical_slug}`, { replace: true });
+                    return;
+                }
 
                 // Subscription not active — show unavailable page
                 if (subscription_inactive) {
@@ -289,7 +300,8 @@ export default function PublicCollectionPage() {
                     status: "ready",
                     business,
                     resolved,
-                    tenantLogoUrl
+                    tenantLogoUrl,
+                    openingHours: opening_hours
                 });
             } catch (err) {
                 if (cancelled) return;
@@ -391,7 +403,7 @@ export default function PublicCollectionPage() {
         );
     }
 
-    const { business, resolved, tenantLogoUrl } = state;
+    const { business, resolved, tenantLogoUrl, openingHours } = state;
 
     // Derive CollectionStyle from stored tokens so runtime matches preview
     const tokens = parseTokens(resolved.style?.config ?? null);
@@ -489,6 +501,7 @@ export default function PublicCollectionPage() {
                     email_public: business.email_public,
                     email_public_visible: business.email_public_visible
                 }}
+                openingHours={openingHours}
                 emptyState={emptyState}
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
