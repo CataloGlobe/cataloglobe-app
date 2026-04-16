@@ -237,7 +237,7 @@
   }
 
   &:focus-visible {
-    outline: 2px solid var(--color-focus-ring, v.$primary);
+    outline: 2px solid var(--color-focus-ring, v.$brand-primary);
     outline-offset: 2px;
   }
 }
@@ -249,7 +249,7 @@
   padding: 4px 0;
   border: none;
   background: transparent;
-  color: var(--color-primary, v.$primary);
+  color: var(--color-primary, v.$brand-primary);
   font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
@@ -260,7 +260,7 @@
   }
 
   &:focus-visible {
-    outline: 2px solid var(--color-focus-ring, v.$primary);
+    outline: 2px solid var(--color-focus-ring, v.$brand-primary);
     outline-offset: 2px;
   }
 }
