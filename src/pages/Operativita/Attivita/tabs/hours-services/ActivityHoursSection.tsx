@@ -24,7 +24,7 @@ function formatDaySlots(slots: V2ActivityHours[]): React.ReactNode {
     }
     const parts = slots
         .filter(s => !s.is_closed && s.opens_at && s.closes_at)
-        .map(s => `${s.opens_at} – ${s.closes_at}`);
+        .map(s => `${s.opens_at!.slice(0, 5)} – ${s.closes_at!.slice(0, 5)}`);
     if (parts.length === 0) {
         return <span className={styles.notConfigured}>&mdash;</span>;
     }

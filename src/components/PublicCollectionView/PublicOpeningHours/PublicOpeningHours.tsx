@@ -19,7 +19,7 @@ function formatDaySlots(slots: OpeningHoursEntry[]): string {
     if (slots[0].is_closed) return "Chiuso";
     const parts = slots
         .filter(s => !s.is_closed && s.opens_at && s.closes_at)
-        .map(s => `${s.opens_at} – ${s.closes_at}`);
+        .map(s => `${s.opens_at!.slice(0, 5)} – ${s.closes_at!.slice(0, 5)}`);
     return parts.length > 0 ? parts.join(" · ") : "—";
 }
 
