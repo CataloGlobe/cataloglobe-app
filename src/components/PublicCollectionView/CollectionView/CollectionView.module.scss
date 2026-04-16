@@ -73,7 +73,7 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 3rem; /* 48px — distanza tra categorie L1 */
   padding: 1.5rem 1rem;
 
   @media (min-width: 640px) {
@@ -99,63 +99,64 @@
   scroll-margin-top: 8.5rem;
 }
 
-/* sectionGroup: wrapper root per ogni gruppo gerarchico L1 */
+/* sectionGroup: wrapper root per ogni gruppo gerarchico L1.
+   Nessun gap — le distanze tra sotto-sezioni sono gestite inline
+   perché dipendono dal contesto (child precedente). */
 .sectionGroup {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
   scroll-margin-top: 8.5rem;
+
+  /* 14px tra titolo L1 e la sua griglia prodotti */
+  > .grid {
+    margin-top: 14px;
+  }
 }
 
-/* Sub-sezione L2/L3 — nessun indent, card full-width */
+/* Sub-sezione L2/L3 — margin-top gestito inline per contesto gerarchico */
 .subsection {
-  margin-top: 28px;
+  /* margin-top impostato via style inline (dipende dal child precedente) */
 }
 
-/* Titolo L2 — dot gold accent */
+/* Breadcrumb — percorso antenati sopra il titolo L2/L3 */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.breadcrumbText {
+  font-size: 0.75rem;
+  color: var(--pub-text-muted, #aaa);
+  font-weight: 500;
+}
+
+.breadcrumbSeparator {
+  font-size: 0.6875rem;
+  color: var(--pub-text-muted, #ccc);
+  margin-left: 2px;
+}
+
+/* Titolo L2 */
 .sectionTitleL2 {
   font-family: var(--pub-font-family, sans-serif);
   font-size: 1.0625rem;
   font-weight: 700;
   color: var(--pub-text-secondary, #444);
   line-height: 1.25;
-  margin: 0 0 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  margin: 0 0 12px;
 }
 
-/* Titolo L3 — dot grigio, più tenue */
+/* Titolo L3 */
 .sectionTitleL3 {
   font-family: var(--pub-font-family, sans-serif);
   font-size: 0.9375rem;
   font-weight: 600;
   color: #777;
   line-height: 1.25;
-  margin: 0 0 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Dot accent (L2) — gold */
-.dotAccent {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--pub-accent, #e8a300);
-  flex-shrink: 0;
-}
-
-/* Dot muted (L3) — grigio */
-.dotMuted {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #ccc;
-  flex-shrink: 0;
+  margin: 0 0 10px;
 }
 
 /* ----------------------------------------------------

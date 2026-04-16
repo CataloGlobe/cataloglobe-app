@@ -20,9 +20,56 @@ type StylePreviewProps = {
 const MOCK_FEATURED: V2FeaturedContent[] = [
     {
         id: "f1",
-        internal_name: "preview-featured",
-        title: "In evidenza",
-        subtitle: "Una selezione pensata per te",
+        internal_name: "happy-hour",
+        title: "Happy Hour Estivo",
+        subtitle: "Ogni giorno dalle 17 alle 19",
+        description: null,
+        media_id: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=400&h=200&fit=crop",
+        cta_text: null,
+        cta_url: null,
+        status: "published",
+        layout_style: null,
+        pricing_mode: "none",
+        bundle_price: null,
+        show_original_total: false,
+        products: [],
+        created_at: "",
+        updated_at: ""
+    },
+    {
+        id: "f2",
+        internal_name: "brunch-weekend",
+        title: "Menu Brunch Weekend",
+        subtitle: "Sabato e Domenica",
+        description: null,
+        media_id: null,
+        cta_text: null,
+        cta_url: null,
+        status: "published",
+        layout_style: null,
+        pricing_mode: "bundle",
+        bundle_price: 9.9,
+        show_original_total: false,
+        products: [
+            {
+                sort_order: 0,
+                note: null,
+                product: { id: "fp1", name: "Spremuta fresca", description: null, base_price: 4.0, image_url: null, fromPrice: null, is_from_price: false, price_variants: [] }
+            },
+            {
+                sort_order: 1,
+                note: null,
+                product: { id: "fp2", name: "Toast misto", description: null, base_price: 6.0, image_url: null, fromPrice: null, is_from_price: false, price_variants: [] }
+            }
+        ],
+        created_at: "",
+        updated_at: ""
+    },
+    {
+        id: "f3",
+        internal_name: "degustazione",
+        title: "Serata Degustazione",
+        subtitle: "15 Maggio 2026",
         description: null,
         media_id: null,
         cta_text: null,
@@ -36,17 +83,12 @@ const MOCK_FEATURED: V2FeaturedContent[] = [
             {
                 sort_order: 0,
                 note: null,
-                product: { id: "fp1", name: "Elemento in evidenza", description: null, base_price: 14.0, image_url: null, fromPrice: null, is_from_price: false, price_variants: [] }
+                product: { id: "fp3", name: "Calice rosso riserva", description: null, base_price: 12.0, image_url: null, fromPrice: null, is_from_price: false, price_variants: [] }
             },
             {
                 sort_order: 1,
                 note: null,
-                product: { id: "fp2", name: "Offerta speciale", description: null, base_price: 9.5, image_url: null, fromPrice: null, is_from_price: false, price_variants: [] }
-            },
-            {
-                sort_order: 2,
-                note: null,
-                product: { id: "fp3", name: "Selezione del mese", description: null, base_price: 18.0, image_url: null, fromPrice: null, is_from_price: false, price_variants: [] }
+                product: { id: "fp4", name: "Tagliere salumi", description: null, base_price: 18.0, image_url: null, fromPrice: null, is_from_price: false, price_variants: [] }
             }
         ],
         created_at: "",
@@ -92,6 +134,22 @@ const MOCK_SECTION_GROUPS: CollectionViewSectionGroup[] = [
                         name: "Articolo Standard",
                         description: "Adatto a diversi contesti e necessità.",
                         price: 9.0,
+                        image: null,
+                        parentSelected: true
+                    }
+                ]
+            },
+            {
+                id: "s1-sub-sub",
+                name: "Dettaglio",
+                level: 3,
+                parentCategoryId: "s1-sub",
+                items: [
+                    {
+                        id: "i3b",
+                        name: "Variante Specifica",
+                        description: "Un esempio di sotto-sottocategoria.",
+                        price: 7.5,
                         image: null,
                         parentSelected: true
                     }
@@ -260,10 +318,10 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                             scrollContainerEl={screenEl}
                             activityAddress="Via Example, 1 - Città"
                             featuredBeforeCatalogSlot={
-                                <FeaturedBlock blocks={MOCK_FEATURED} flush />
+                                <FeaturedBlock blocks={MOCK_FEATURED} />
                             }
                             featuredAfterCatalogSlot={
-                                <FeaturedBlock blocks={MOCK_FEATURED} flush />
+                                <FeaturedBlock blocks={MOCK_FEATURED} />
                             }
                         />
                     </div>

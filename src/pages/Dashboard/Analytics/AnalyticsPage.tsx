@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { FileDown } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -31,9 +32,12 @@ import {
 import type { V2Activity } from "@/types/activity";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import Text from "@/components/ui/Text/Text";
+import { Button } from "@/components/ui/Button/Button";
 import { Select } from "@/components/ui/Select/Select";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import AnalyticsFilters, { type PeriodKey } from "./components/AnalyticsFilters";
+import AnalyticsFilters from "./components/AnalyticsFilters";
+import { buildXlsxWorkbook, downloadXlsx, type XlsxSection } from "./utils/exportXlsx";
+import { getPreviousRange, getPreviousPeriodLabel, type PeriodKey } from "./utils/periodComparison";
 import OverviewCards from "./components/OverviewCards";
 import PageViewsChart from "./components/PageViewsChart";
 import TopProductsTable from "./components/TopProductsTable";
@@ -59,6 +63,11 @@ function periodToDateRange(period: PeriodKey): DateRange {
         case "30d":
             from.setDate(from.getDate() - 30);
             break;
+        case "90d":
+            from.setDate(from.getDate() - 90);
+            break;
+        case "all":
+            return { from: new Date(2020, 0, 1), to };
     }
     return { from, to };
 }
@@ -72,6 +81,10 @@ export default function AnalyticsPage() {
     const [activities, setActivities] = useState<V2Activity[]>([]);
     const [selectedActivityId, setSelectedActivityId] = useState("all");
     const [period, setPeriod] = useState<PeriodKey>("7d");
+
+    // ── Confronto periodo precedente ─────────────────────────────────────
+    const [previousOverviewStats, setPreviousOverviewStats] = useState<OverviewStats | null>(null);
+    const [previousSearchRate, setPreviousSearchRate] = useState<number | null>(null);
 
     // ── Dati 4A ──────────────────────────────────────────────────────────
     const [overviewStats, setOverviewStats] = useState<OverviewStats | null>(null);
@@ -109,8 +122,10 @@ export default function AnalyticsPage() {
             setIsLoading(true);
             const dateRange = periodToDateRange(period);
             const activityId = selectedActivityId === "all" ? undefined : selectedActivityId;
+            const comparePeriod = period !== "all";
+            const previousRange = comparePeriod ? getPreviousRange(dateRange) : dateRange;
 
-            const [stats, trend, viewed, selected, social, reviews, search, hourly, devices, searchTermsData, funnel, featured] =
+            const [stats, trend, viewed, selected, social, reviews, search, hourly, devices, searchTermsData, funnel, featured, prevStats, prevSearch] =
                 await Promise.all([
                     getOverviewStats(tenantId, dateRange, activityId),
                     getPageViewsTrend(tenantId, dateRange, activityId),
@@ -123,7 +138,9 @@ export default function AnalyticsPage() {
                     getDeviceDistribution(tenantId, dateRange, activityId),
                     getTopSearchTerms(tenantId, dateRange, activityId),
                     getConversionFunnel(tenantId, dateRange, activityId),
-                    getFeaturedPerformance(tenantId, dateRange, activityId)
+                    getFeaturedPerformance(tenantId, dateRange, activityId),
+                    comparePeriod ? getOverviewStats(tenantId, previousRange, activityId) : Promise.resolve(null),
+                    comparePeriod ? getSearchRate(tenantId, previousRange, activityId) : Promise.resolve(null)
                 ]);
 
             setOverviewStats(stats);
@@ -138,6 +155,8 @@ export default function AnalyticsPage() {
             setSearchTerms(searchTermsData);
             setFunnelData(funnel);
             setFeaturedPerf(featured);
+            setPreviousOverviewStats(prevStats ?? null);
+            setPreviousSearchRate(prevSearch?.rate ?? null);
         } catch {
             showToast({ message: "Errore nel caricamento analytics", type: "error" });
         } finally {
@@ -151,6 +170,141 @@ export default function AnalyticsPage() {
 
     // ── Stato vuoto globale ──────────────────────────────────────────────
     const isEmpty = !isLoading && overviewStats?.total_views === 0;
+
+    // ── Export Excel ─────────────────────────────────────────────────────
+    const handleExportXlsx = useCallback(() => {
+        const SLOT_LABELS: Record<string, string> = {
+            hero: "Hero",
+            before_catalog: "Prima del catalogo",
+            after_catalog: "Dopo il catalogo"
+        };
+
+        const sections: XlsxSection[] = [
+            {
+                name: "Panoramica",
+                headers: ["Metrica", "Valore"],
+                rows: overviewStats
+                    ? [
+                          ["Visite totali", overviewStats.total_views],
+                          ["Sessioni uniche", overviewStats.unique_sessions],
+                          ["Media eventi/sessione", overviewStats.avg_events_per_session],
+                          ["Tasso di ricerca (%)", searchRate ?? 0]
+                      ]
+                    : [],
+                columnWidths: [28, 14]
+            },
+            {
+                name: "Visite nel tempo",
+                headers: ["Data", "Visite"],
+                rows: pageViewsTrend.map(r => [r.date, r.count]),
+                columnWidths: [14, 10]
+            },
+            {
+                name: "Prodotti più visti",
+                headers: ["#", "Prodotto", "Visualizzazioni"],
+                rows: topViewed.map((r, i) => [i + 1, r.product_name, r.count])
+            },
+            {
+                name: "Prodotti più selezionati",
+                headers: ["#", "Prodotto", "Aggiunte"],
+                rows: topSelected.map((r, i) => [i + 1, r.product_name, r.count])
+            },
+            {
+                name: "Funnel conversione",
+                headers: ["Step", "Sessioni", "Percentuale"],
+                rows: funnelData.map(r => [r.step_label, r.session_count, r.percentage / 100]),
+                columnFormats: [undefined, undefined, "0.0%"],
+                columnWidths: [24, 12, 14]
+            },
+            {
+                name: "Termini di ricerca",
+                headers: ["#", "Termine", "Ricerche", "Media risultati"],
+                rows: searchTerms.map((r, i) => [i + 1, r.search_term, r.search_count, r.avg_results])
+            },
+            {
+                name: "Contenuti in evidenza",
+                headers: ["#", "Titolo", "Posizione", "Click"],
+                rows: featuredPerf.map((r, i) => [
+                    i + 1,
+                    r.title,
+                    SLOT_LABELS[r.slot] ?? r.slot,
+                    r.click_count
+                ]),
+                columnWidths: [6, 32, 22, 10]
+            },
+            {
+                name: "Review Guard",
+                headers: ["Metrica", "Valore"],
+                rows: reviewMetrics
+                    ? [
+                          ["Totale recensioni", reviewMetrics.total],
+                          ["Media stelle", reviewMetrics.avg_rating],
+                          ["Redirect a Google", reviewMetrics.google_redirects]
+                      ]
+                    : [],
+                columnWidths: [22, 14]
+            },
+            {
+                name: "Distribuzione stelle",
+                headers: ["Stelle", "Conteggio"],
+                rows: reviewMetrics?.distribution.map(r => [r.stars, r.count]) ?? [],
+                columnWidths: [10, 12]
+            },
+            {
+                name: "Dispositivi",
+                headers: ["Tipo", "Percentuale"],
+                rows: deviceData.map(r => [r.device_type, r.percentage / 100]),
+                columnFormats: [undefined, "0.0%"],
+                columnWidths: [14, 14]
+            },
+            {
+                name: "Click social",
+                headers: ["Piattaforma", "Click"],
+                rows: socialClicks.map(r => [r.social_type, r.click_count]),
+                columnWidths: [18, 10]
+            },
+            {
+                name: "Fasce orarie",
+                headers: ["Ora", "Visite"],
+                rows: hourlyData.map(r => [r.hour, r.view_count]),
+                columnWidths: [8, 10]
+            }
+        ];
+
+        const wb = buildXlsxWorkbook(sections);
+
+        const sedeSlug =
+            selectedActivityId === "all"
+                ? "tutte-le-sedi"
+                : (activities.find(a => a.id === selectedActivityId)?.slug ?? selectedActivityId);
+        const periodoLabel: Record<PeriodKey, string> = {
+            today: "oggi",
+            "7d": "7-giorni",
+            "30d": "30-giorni",
+            "90d": "90-giorni",
+            all: "tutto"
+        };
+        const date = new Date().toISOString().split("T")[0];
+        const filename = `analytics_cataloglobe_${sedeSlug}_${periodoLabel[period]}_${date}.xlsx`;
+
+        downloadXlsx(wb, filename);
+    }, [
+        overviewStats,
+        searchRate,
+        pageViewsTrend,
+        topViewed,
+        topSelected,
+        funnelData,
+        searchTerms,
+        featuredPerf,
+        reviewMetrics,
+        deviceData,
+        socialClicks,
+        hourlyData,
+        selectedActivityId,
+        activities,
+        period
+    ]);
 
     return (
         <main className={styles.analytics}>
@@ -175,9 +329,20 @@ export default function AnalyticsPage() {
                             options={[
                                 { value: "today", label: "Oggi" },
                                 { value: "7d", label: "7 giorni" },
-                                { value: "30d", label: "30 giorni" }
+                                { value: "30d", label: "30 giorni" },
+                                { value: "90d", label: "90 giorni" },
+                                { value: "all", label: "Tutto" }
                             ]}
                         />
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            leftIcon={<FileDown size={14} />}
+                            disabled={isLoading || isEmpty}
+                            onClick={handleExportXlsx}
+                        >
+                            Esporta Excel
+                        </Button>
                     </div>
                 }
             />
@@ -196,6 +361,9 @@ export default function AnalyticsPage() {
                     <OverviewCards
                         stats={overviewStats}
                         searchRate={searchRate}
+                        previousStats={previousOverviewStats}
+                        previousSearchRate={previousSearchRate}
+                        previousPeriodLabel={getPreviousPeriodLabel(period)}
                         isLoading={isLoading}
                     />
 

@@ -303,7 +303,6 @@
   }
 }
 
-.badgeDraft,
 .badgeExpired {
   display: inline-flex;
   align-items: center;
@@ -313,12 +312,6 @@
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-}
-
-.badgeDraft {
-  background: var(--color-gray-100);
-  color: var(--text-muted);
-  border: 1px solid var(--border);
 }
 
 .badgeExpired {
@@ -448,6 +441,29 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
+}
+
+.tabEmptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.tabEmptyIcon {
+  display: flex;
+  justify-content: center;
+  color: var(--text-tertiary, #94a3b8);
+  margin-bottom: 1rem;
+}
+
+.tabEmptyDescription {
+  font-size: 14px;
+  color: var(--text-secondary, #64748b);
+  max-width: 400px;
+  margin: 0 auto 1.5rem;
+  line-height: 1.5;
 }
 
 .emptyIcon {
@@ -655,7 +671,7 @@
 
 .simResultGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.5rem;
 
   @media (max-width: 560px) {
@@ -671,6 +687,16 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   background: color-mix(in srgb, var(--hover-bg) 84%, white 16%);
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.simResultCardClickable {
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-background-secondary, #f1f5f9);
+    border-color: color-mix(in srgb, var(--border) 60%, var(--text) 40%);
+  }
 }
 
 /* ─── Timeline toggle ────────────────────────────────────── */
@@ -782,7 +808,6 @@
   background: var(--card-bg, #fff);
   border: 1px solid var(--border, #e2e8f0);
   border-radius: var(--radius-lg, 10px);
-  overflow: hidden;
 }
 
 .ruleBlockHeader {
@@ -810,6 +835,18 @@
   gap: 0.55rem;
 }
 
+.ruleBlockHeaderText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ruleBlockTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
 .ruleBlockCount {
   display: inline-flex;
   align-items: center;
@@ -828,6 +865,57 @@
   color: var(--color-gray-500, #6b7280);
   flex-shrink: 0;
   transition: transform 0.15s ease;
+}
+
+/* ── New rule dropdown ────────────────────────────────── */
+
+.newRuleDropdown {
+  display: inline-block;
+
+  [role="menu"] {
+    width: 160px;
+    min-width: 160px;
+    gap: 0;
+    padding: 4px;
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  [role="menuitem"],
+  button[role="menuitem"] {
+    display: block;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text);
+    background: transparent;
+    border: none;
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+    border-radius: 0;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    box-shadow: none;
+    transition: background-color 0.15s ease;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover {
+      background: var(--color-background-secondary, #f1f5f9);
+    }
+
+    &:active {
+      background: var(--color-background-tertiary, #e2e8f0);
+    }
+
+    &:focus-visible {
+      background: var(--color-background-secondary, #f1f5f9);
+      outline: none;
+    }
+  }
 }
 
 .tabDescription {

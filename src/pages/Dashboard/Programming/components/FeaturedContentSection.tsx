@@ -15,27 +15,20 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, X } from "lucide-react";
-import { Select } from "@/components/ui/Select/Select";
 import Text from "@/components/ui/Text/Text";
 import type { LayoutRuleOption } from "@/services/supabase/layoutScheduling";
 import type { FeaturedContentItem } from "./AssociatedContentSection";
 import styles from "../ProgrammingRuleDetail.module.scss";
-
-const SLOT_OPTIONS: { value: FeaturedContentItem["slot"]; label: string }[] = [
-    { value: "before_catalog", label: "Prima del catalogo" },
-    { value: "after_catalog", label: "Dopo il catalogo" }
-];
 
 // ─── SortableFeaturedRow ─────────────────────────────────────────────────────
 
 interface SortableFeaturedRowProps {
     item: FeaturedContentItem;
     name: string;
-    onSlotChange: (slot: FeaturedContentItem["slot"]) => void;
     onRemove: () => void;
 }
 
-function SortableFeaturedRow({ item, name, onSlotChange, onRemove }: SortableFeaturedRowProps) {
+function SortableFeaturedRow({ item, name, onRemove }: SortableFeaturedRowProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: item.featuredContentId
     });
@@ -64,14 +57,6 @@ function SortableFeaturedRow({ item, name, onSlotChange, onRemove }: SortableFea
             <Text variant="body-sm" className={styles.featuredRowName}>
                 {name}
             </Text>
-
-            <div className={styles.featuredRowSlot}>
-                <Select
-                    value={item.slot}
-                    onChange={e => onSlotChange(e.target.value as FeaturedContentItem["slot"])}
-                    options={SLOT_OPTIONS}
-                />
-            </div>
 
             <button
                 type="button"
@@ -126,7 +111,7 @@ function FeaturedContentPicker({ available, allEmpty, onSelect }: FeaturedConten
                 className={styles.featuredPickerTrigger}
                 onClick={() => setIsOpen(v => !v)}
             >
-                + Aggiungi contenuto in evidenza
+                + Aggiungi contenuto
             </button>
 
             {isOpen && (
@@ -160,6 +145,82 @@ function FeaturedContentPicker({ available, allEmpty, onSelect }: FeaturedConten
     );
 }
 
+// ─── SlotGroup ───────────────────────────────────────────────────────────────
+
+type SlotGroupProps = {
+    title: string;
+    slot: FeaturedContentItem["slot"];
+    items: FeaturedContentItem[];
+    nameById: Map<string, string>;
+    availableContents: LayoutRuleOption[];
+    allEmpty: boolean;
+    onAdd: (id: string, slot: FeaturedContentItem["slot"]) => void;
+    onRemove: (id: string) => void;
+    onReorder: (slot: FeaturedContentItem["slot"], activeId: string, overId: string) => void;
+};
+
+function SlotGroup({
+    title,
+    slot,
+    items,
+    nameById,
+    availableContents,
+    allEmpty,
+    onAdd,
+    onRemove,
+    onReorder
+}: SlotGroupProps) {
+    const sensors = useSensors(useSensor(PointerSensor));
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+        onReorder(slot, active.id as string, over.id as string);
+    };
+
+    return (
+        <div className={styles.slotGroup}>
+            <Text as="h4" variant="body-sm" weight={600} className={styles.slotGroupTitle}>
+                {title}
+            </Text>
+
+            {items.length > 0 ? (
+                <div className={styles.featuredListBorder}>
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <SortableContext
+                            items={items.map(fc => fc.featuredContentId)}
+                            strategy={verticalListSortingStrategy}
+                        >
+                            {items.map(fc => (
+                                <SortableFeaturedRow
+                                    key={fc.featuredContentId}
+                                    item={fc}
+                                    name={nameById.get(fc.featuredContentId) ?? fc.featuredContentId}
+                                    onRemove={() => onRemove(fc.featuredContentId)}
+                                />
+                            ))}
+                        </SortableContext>
+                    </DndContext>
+                </div>
+            ) : (
+                <Text variant="caption" colorVariant="muted" className={styles.slotGroupEmpty}>
+                    Nessun contenuto
+                </Text>
+            )}
+
+            <FeaturedContentPicker
+                available={availableContents}
+                allEmpty={allEmpty}
+                onSelect={id => onAdd(id, slot)}
+            />
+        </div>
+    );
+}
+
 // ─── FeaturedContentSection ──────────────────────────────────────────────────
 
 export interface FeaturedContentSectionProps {
@@ -173,54 +234,68 @@ export function FeaturedContentSection({
     tenantFeaturedContents,
     onFormChange
 }: FeaturedContentSectionProps) {
-    const sensors = useSensors(useSensor(PointerSensor));
-
     const featuredNameById = useMemo(
         () => new Map(tenantFeaturedContents.map(fc => [fc.id, fc.name])),
         [tenantFeaturedContents]
     );
 
-    const availableFeaturedContents = tenantFeaturedContents.filter(
-        fc => !featuredContents.find(sel => sel.featuredContentId === fc.id)
+    const usedIds = useMemo(
+        () => new Set(featuredContents.map(fc => fc.featuredContentId)),
+        [featuredContents]
     );
 
-    const handleFeaturedDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
-        if (!over || active.id === over.id) return;
+    const availableFeaturedContents = tenantFeaturedContents.filter(fc => !usedIds.has(fc.id));
 
-        const oldIndex = featuredContents.findIndex(fc => fc.featuredContentId === active.id);
-        const newIndex = featuredContents.findIndex(fc => fc.featuredContentId === over.id);
+    const beforeItems = useMemo(
+        () => featuredContents
+            .filter(fc => fc.slot === "before_catalog")
+            .sort((a, b) => a.sortOrder - b.sortOrder),
+        [featuredContents]
+    );
+
+    const afterItems = useMemo(
+        () => featuredContents
+            .filter(fc => fc.slot === "after_catalog")
+            .sort((a, b) => a.sortOrder - b.sortOrder),
+        [featuredContents]
+    );
+
+    const rebuildArray = (
+        before: FeaturedContentItem[],
+        after: FeaturedContentItem[]
+    ): FeaturedContentItem[] => [
+        ...before.map((fc, i) => ({ ...fc, sortOrder: i })),
+        ...after.map((fc, i) => ({ ...fc, sortOrder: i }))
+    ];
+
+    const handleAdd = (id: string, slot: FeaturedContentItem["slot"]) => {
+        const slotItems = slot === "before_catalog" ? beforeItems : afterItems;
+        const newItem: FeaturedContentItem = {
+            featuredContentId: id,
+            slot,
+            sortOrder: slotItems.length
+        };
+        const newBefore = slot === "before_catalog" ? [...beforeItems, newItem] : beforeItems;
+        const newAfter = slot === "after_catalog" ? [...afterItems, newItem] : afterItems;
+        onFormChange({ featuredContents: rebuildArray(newBefore, newAfter) });
+    };
+
+    const handleRemove = (id: string) => {
+        const newBefore = beforeItems.filter(fc => fc.featuredContentId !== id);
+        const newAfter = afterItems.filter(fc => fc.featuredContentId !== id);
+        onFormChange({ featuredContents: rebuildArray(newBefore, newAfter) });
+    };
+
+    const handleReorder = (slot: FeaturedContentItem["slot"], activeId: string, overId: string) => {
+        const items = slot === "before_catalog" ? [...beforeItems] : [...afterItems];
+        const oldIndex = items.findIndex(fc => fc.featuredContentId === activeId);
+        const newIndex = items.findIndex(fc => fc.featuredContentId === overId);
         if (oldIndex === -1 || newIndex === -1) return;
 
-        const reordered = arrayMove(featuredContents, oldIndex, newIndex).map((fc, i) => ({
-            ...fc,
-            sortOrder: i
-        }));
-
-        onFormChange({ featuredContents: reordered });
-    };
-
-    const handleAddFeaturedContent = (id: string) => {
-        const next: FeaturedContentItem = {
-            featuredContentId: id,
-            slot: "before_catalog",
-            sortOrder: featuredContents.length
-        };
-        onFormChange({ featuredContents: [...featuredContents, next] });
-    };
-
-    const handleRemoveFeaturedContent = (id: string) => {
-        const filtered = featuredContents
-            .filter(fc => fc.featuredContentId !== id)
-            .map((fc, i) => ({ ...fc, sortOrder: i }));
-        onFormChange({ featuredContents: filtered });
-    };
-
-    const handleSlotChange = (id: string, slot: FeaturedContentItem["slot"]) => {
-        const updated = featuredContents.map(fc =>
-            fc.featuredContentId === id ? { ...fc, slot } : fc
-        );
-        onFormChange({ featuredContents: updated });
+        const reordered = arrayMove(items, oldIndex, newIndex);
+        const newBefore = slot === "before_catalog" ? reordered : beforeItems;
+        const newAfter = slot === "after_catalog" ? reordered : afterItems;
+        onFormChange({ featuredContents: rebuildArray(newBefore, newAfter) });
     };
 
     return (
@@ -229,43 +304,29 @@ export function FeaturedContentSection({
                 Contenuti in evidenza
             </Text>
 
-            <div className={styles.featuredList}>
-                {featuredContents.length > 0 && (
-                    <div className={styles.featuredListBorder}>
-                        <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            onDragEnd={handleFeaturedDragEnd}
-                        >
-                            <SortableContext
-                                items={featuredContents.map(fc => fc.featuredContentId)}
-                                strategy={verticalListSortingStrategy}
-                            >
-                                {featuredContents.map(fc => (
-                                    <SortableFeaturedRow
-                                        key={fc.featuredContentId}
-                                        item={fc}
-                                        name={
-                                            featuredNameById.get(fc.featuredContentId) ??
-                                            fc.featuredContentId
-                                        }
-                                        onSlotChange={slot =>
-                                            handleSlotChange(fc.featuredContentId, slot)
-                                        }
-                                        onRemove={() =>
-                                            handleRemoveFeaturedContent(fc.featuredContentId)
-                                        }
-                                    />
-                                ))}
-                            </SortableContext>
-                        </DndContext>
-                    </div>
-                )}
-
-                <FeaturedContentPicker
-                    available={availableFeaturedContents}
+            <div className={styles.slotGroupsContainer}>
+                <SlotGroup
+                    title="Prima del catalogo"
+                    slot="before_catalog"
+                    items={beforeItems}
+                    nameById={featuredNameById}
+                    availableContents={availableFeaturedContents}
                     allEmpty={tenantFeaturedContents.length === 0}
-                    onSelect={handleAddFeaturedContent}
+                    onAdd={handleAdd}
+                    onRemove={handleRemove}
+                    onReorder={handleReorder}
+                />
+
+                <SlotGroup
+                    title="Dopo il catalogo"
+                    slot="after_catalog"
+                    items={afterItems}
+                    nameById={featuredNameById}
+                    availableContents={availableFeaturedContents}
+                    allEmpty={tenantFeaturedContents.length === 0}
+                    onAdd={handleAdd}
+                    onRemove={handleRemove}
+                    onReorder={handleReorder}
                 />
             </div>
         </section>

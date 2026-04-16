@@ -79,7 +79,67 @@
 
 .slugSuggestions {
   display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Primo suggerimento — opzione primaria evidenziata */
+.slugSuggestionPrimary {
+  display: flex;
   align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  background: var(--color-surface-raised, #f8fafc);
+  border: 1.5px solid var(--color-primary, #3b82f6);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+
+  &:hover {
+    background: var(--color-primary-50, #eff6ff);
+  }
+}
+
+.slugSuggestionLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-primary, #3b82f6);
+  white-space: nowrap;
+}
+
+.slugSuggestionText {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-primary, #0f172a);
+  font-family: monospace;
+}
+
+/* Riga suggerimenti secondari */
+.slugSuggestionSecondaryRow {
+  display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.5rem;
+}
+
+.slugSuggestionSecondary {
+  padding: 0.3125rem 0.75rem;
+  background: transparent;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary, #475569);
+  font-family: monospace;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+
+  &:hover {
+    border-color: var(--color-primary, #3b82f6);
+    color: var(--color-primary, #3b82f6);
+    background: var(--color-primary-50, #eff6ff);
+  }
 }

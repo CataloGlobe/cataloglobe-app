@@ -266,11 +266,6 @@ export default function CollectionSectionNav({
                                         .join(" ")}
                                     onClick={() => handleChildClick(child.id)}
                                 >
-                                    <span
-                                        className={
-                                            child.level === 2 ? styles.dotL2 : styles.dotL3
-                                        }
-                                    />
                                     {child.name}
                                 </button>
                             ))}

@@ -5,6 +5,8 @@ export interface V2Activity {
     slug: string;
     activity_type: string | null;
     address: string | null;
+    street_number: string | null;
+    postal_code: string | null;
     city: string | null;
     cover_image: string | null;
     description: string | null;

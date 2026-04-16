@@ -41,6 +41,8 @@ export const ToastItem: React.FC<ToastItemProps> = ({ toast, onRemove }) => {
             ? styles.toastSuccess
             : toast.type === "error"
             ? styles.toastError
+            : toast.type === "warning"
+            ? styles.toastWarning
             : styles.toastInfo;
 
     const stateClass = isLeaving ? styles.toastLeaving : styles.toastEntering;

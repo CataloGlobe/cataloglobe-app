@@ -39,6 +39,10 @@ type FeaturedRuleDetailForm = {
     timeTo: string;
 };
 
+function toLocalDateString(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function buildForm(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>): FeaturedRuleDetailForm {
     const targetMode: TargetMode = rule.applyToAll
         ? "all"
@@ -71,8 +75,8 @@ function buildForm(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>
         enabled: rule.enabled,
         alwaysActive: rule.time_mode === "always",
         timeMode: rule.time_mode,
-        startAt: rule.start_at ? new Date(rule.start_at).toISOString().split("T")[0] : "",
-        endAt: rule.end_at ? new Date(rule.end_at).toISOString().split("T")[0] : "",
+        startAt: rule.start_at ? toLocalDateString(new Date(rule.start_at)) : "",
+        endAt: rule.end_at ? toLocalDateString(new Date(rule.end_at)) : "",
         daysOfWeek: (rule.days_of_week ?? []).map(day => String(day)),
         timeFrom: rule.time_from?.slice(0, 5) ?? "",
         timeTo: rule.time_to?.slice(0, 5) ?? ""
@@ -199,26 +203,54 @@ export default function FeaturedRuleDetail() {
                 });
                 return;
             }
-            if (!hasDays && !hasBothTimes) {
+            const hasPeriod = !!(form.startAt || form.endAt);
+            if (!hasPeriod && !hasDays && !hasBothTimes) {
                 showToast({
                     type: "error",
-                    message: "In modalità window imposta almeno giorni o fascia oraria.",
+                    message: "In modalità window imposta almeno un periodo, giorni o fascia oraria.",
                     duration: 3000
                 });
                 return;
             }
         }
 
+        // ── Validazioni BOZZA: campi mancanti → salva come bozza (enabled=false) ──
+        const missingFields: string[] = [];
+
         if (form.targetMode === "activities" && form.activityIds.length === 0) {
-            showToast({
-                type: "error",
-                message: "Seleziona almeno una sede o cambia modalità target.",
-                duration: 2600
-            });
-            return;
+            missingFields.push("sedi target");
+        }
+        if (form.targetMode === "groups" && form.groupIds.length === 0) {
+            missingFields.push("gruppi target");
+        }
+        if (form.featuredContents.length === 0) {
+            missingFields.push("contenuti in evidenza");
         }
 
-        const today = new Date().toISOString().split("T")[0];
+        // ── Determine effective enabled ──
+        const isForcedDraft = missingFields.length > 0;
+        const wasOriginallyDraft = (() => {
+            if (!rule.applyToAll && rule.activityIds.length === 0 && rule.groupIds.length === 0) return true;
+            if (rule.rule_type === "featured") return rule.featured_contents.length === 0;
+            return false;
+        })();
+        const autoActivate = !isForcedDraft && !rule.enabled && wasOriginallyDraft;
+        const effectiveEnabled = isForcedDraft ? false : autoActivate ? true : form.enabled;
+
+        const nowLocal = new Date();
+        const today = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, "0")}-${String(nowLocal.getDate()).padStart(2, "0")}`;
+        const hasPeriod = !!(form.startAt || form.endAt);
+
+        if (form.timeMode === "window" && hasPeriod) {
+            if (!form.startAt) {
+                showToast({ type: "error", message: "Inserisci la data di inizio.", duration: 2800 });
+                return;
+            }
+            if (!form.endAt) {
+                showToast({ type: "error", message: "Inserisci la data di fine.", duration: 2800 });
+                return;
+            }
+        }
 
         if (form.startAt && form.startAt < today) {
             showToast({
@@ -269,9 +301,9 @@ export default function FeaturedRuleDetail() {
                 id: ruleId,
                 tenantId: rule.tenant_id,
                 name: trimmedName,
-                enabled: form.enabled,
-                startAt: form.startAt ? new Date(form.startAt).toISOString() : null,
-                endAt: form.endAt ? new Date(form.endAt).toISOString() : null,
+                enabled: effectiveEnabled,
+                startAt: form.startAt ? new Date(form.startAt + "T00:00:00").toISOString() : null,
+                endAt: form.endAt ? new Date(form.endAt + "T23:59:59").toISOString() : null,
                 timeFrom: form.timeMode === "window" && hasBothTimes ? form.timeFrom : null,
                 timeTo: form.timeMode === "window" && hasBothTimes ? form.timeTo : null,
                 daysOfWeek: form.timeMode === "window" && hasDays ? form.daysOfWeek.map(Number) : [],
@@ -282,7 +314,17 @@ export default function FeaturedRuleDetail() {
                 featuredContents: featuredRuleContents
             });
 
-            showToast({ type: "success", message: "Regola salvata.", duration: 2200 });
+            if (isForcedDraft) {
+                showToast({
+                    type: "warning",
+                    message: `Regola salvata come bozza. Manca: ${missingFields.join(", ")}`,
+                    duration: 4000
+                });
+            } else if (autoActivate) {
+                showToast({ type: "success", message: "Regola salvata e attivata.", duration: 2200 });
+            } else {
+                showToast({ type: "success", message: "Regola salvata.", duration: 2200 });
+            }
             await loadData();
         } catch (error) {
             console.error("Errore salvataggio regola in evidenza:", error);

@@ -609,6 +609,35 @@ export default function CollectionView({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mode]);
 
+    // ── Ricalcolo scroll se compactHeaderHeight cambia durante uno scroll programmato ─
+    // Quando ResizeObserver della PublicCollectionHeader triggerato e aggiorna l'altezza
+    // reale del compact bar, se c'è uno scroll programmato in corso, ricalcola la
+    // posizione target con i valori CORRETTI e ri-lancia lo scroll.
+    useEffect(() => {
+        if (!pendingScrollTargetIdRef.current || compactHeaderHeight === 0) return;
+
+        const sectionId = pendingScrollTargetIdRef.current;
+        const el = sectionRefs.current[sectionId];
+        if (!el) return;
+
+        const compactH = Math.max(compactHeaderHeightRef.current, FINAL_COMPACT_HEIGHT);
+        const dynamicScrollOffset = compactH + NAV_HEIGHT + VISUAL_GAP;
+        const container = containerRef.current;
+
+        if (container === window) {
+            const top = el.getBoundingClientRect().top + window.scrollY - dynamicScrollOffset;
+            window.scrollTo({ top, behavior: "smooth" });
+        } else {
+            const containerEl = container as HTMLElement;
+            const top =
+                el.getBoundingClientRect().top -
+                containerEl.getBoundingClientRect().top +
+                containerEl.scrollTop -
+                dynamicScrollOffset;
+            containerEl.scrollTo({ top, behavior: "smooth" });
+        }
+    }, [compactHeaderHeight]);
+
     // ── Analytics: section_view (IntersectionObserver, una volta per sezione) ─
     const viewedSectionsRef = useRef(new Set<string>());
 
@@ -795,10 +824,69 @@ export default function CollectionView({
         }
     };
 
+    // ── Subsection margin — distanza dipende dal contesto (child precedente) ──
+    const getSubsectionMarginTop = useCallback(
+        (
+            child: CollectionViewSection,
+            prevChild: CollectionViewSection | null,
+            groupHasProducts: boolean
+        ): number => {
+            if (!prevChild) {
+                return groupHasProducts ? 24 : 14;
+            }
+            if (child.level === 2) {
+                return 20;
+            }
+            if (child.level === 3) {
+                if (prevChild.level === 2 && prevChild.id === child.parentCategoryId) {
+                    return 12;
+                }
+                if (prevChild.level === 3 && prevChild.parentCategoryId === child.parentCategoryId) {
+                    return 10;
+                }
+                return 20;
+            }
+            return 20;
+        },
+        []
+    );
+
+    // ── Breadcrumb builder — ancestors path for L2/L3 children ─────────────
+    const getBreadcrumb = useCallback(
+        (child: CollectionViewSection, group: CollectionViewSectionGroup): string[] => {
+            if (child.level === 2) {
+                return [group.root.name];
+            }
+            if (child.level === 3) {
+                const parentL2 = group.children.find(c => c.id === child.parentCategoryId);
+                return [group.root.name, parentL2?.name ?? ""].filter(Boolean);
+            }
+            return [];
+        },
+        []
+    );
+
     // ── Scroll to sub-section (L2/L3) — solo scroll, non aggiorna nav active ─
     const scrollToSubSection = useCallback(
         (childId: string) => {
-            const el = sectionRefs.current[childId];
+            let el = sectionRefs.current[childId];
+
+            // Se l'elemento non esiste (sezione senza prodotti, non renderizzata),
+            // cerca il primo figlio con prodotti
+            if (!el) {
+                const group = sectionGroups.find(g =>
+                    g.children.some(c => c.id === childId)
+                );
+                if (group) {
+                    const childrenOfTarget = group.children.filter(
+                        c => c.parentCategoryId === childId && c.items.length > 0
+                    );
+                    if (childrenOfTarget.length > 0) {
+                        el = sectionRefs.current[childrenOfTarget[0].id];
+                    }
+                }
+            }
+
             if (!el) return;
 
             const compactH = Math.max(compactHeaderHeightRef.current, FINAL_COMPACT_HEIGHT);
@@ -818,8 +906,7 @@ export default function CollectionView({
                 containerEl.scrollTo({ top, behavior: "smooth" });
             }
         },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        []
+        [sectionGroups]
     );
 
     // ── Derived values for render ───────────────────────────────────────────
@@ -1160,33 +1247,58 @@ export default function CollectionView({
 
                                             {renderSectionGrid(group.root)}
 
-                                            {group.children.map(child => (
-                                                <div
-                                                    key={child.id}
-                                                    className={styles.subsection}
-                                                    ref={el => {
-                                                        sectionRefs.current[child.id] = el;
-                                                    }}
-                                                >
-                                                    <h3
-                                                        className={
-                                                            child.level === 2
-                                                                ? styles.sectionTitleL2
-                                                                : styles.sectionTitleL3
-                                                        }
-                                                    >
-                                                        <span
+                                            {(() => {
+                                                let prevRendered: CollectionViewSection | null = null;
+                                                const groupHasProducts = group.root.items.length > 0;
+                                                return group.children.map(child => {
+                                                    // Skip sezioni senza prodotti — i figli portano il nome nel breadcrumb
+                                                    if (child.items.length === 0) return null;
+
+                                                    const breadcrumb = getBreadcrumb(child, group);
+                                                    const marginTop = getSubsectionMarginTop(
+                                                        child,
+                                                        prevRendered,
+                                                        groupHasProducts
+                                                    );
+                                                    prevRendered = child;
+
+                                                    return (
+                                                        <div
+                                                            key={child.id}
+                                                            className={styles.subsection}
+                                                            style={{ marginTop }}
+                                                            ref={el => {
+                                                                sectionRefs.current[child.id] = el;
+                                                            }}
+                                                        >
+                                                        {breadcrumb.length > 0 && (
+                                                            <div className={styles.breadcrumb}>
+                                                                {breadcrumb.map((crumb, i) => (
+                                                                    <span key={i}>
+                                                                        <span className={styles.breadcrumbText}>
+                                                                            {crumb}
+                                                                        </span>
+                                                                        <span className={styles.breadcrumbSeparator}>
+                                                                            ›
+                                                                        </span>
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        <h3
                                                             className={
                                                                 child.level === 2
-                                                                    ? styles.dotAccent
-                                                                    : styles.dotMuted
+                                                                    ? styles.sectionTitleL2
+                                                                    : styles.sectionTitleL3
                                                             }
-                                                        />
-                                                        {child.name}
-                                                    </h3>
-                                                    {renderSectionGrid(child)}
-                                                </div>
-                                            ))}
+                                                        >
+                                                            {child.name}
+                                                        </h3>
+                                                        {renderSectionGrid(child)}
+                                                    </div>
+                                                );
+                                                });
+                                            })()}
                                         </section>
                                     ))}
                                 </div>

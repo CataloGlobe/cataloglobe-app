@@ -5,7 +5,6 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import type { BusinessFormValues } from "@/types/Businesses";
 import styles from "./BusinessCreateCard.module.scss";
 import { FileInput } from "@/components/ui/Input/FileInput";
-import { Button } from "@/components/ui";
 import { InfoTooltip } from "@/components/ui/Tooltip/InfoTooltip";
 
 interface BusinessCreateCardProps {
@@ -108,21 +107,40 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                         {slugState.type === "conflict" && (
                             <div className={styles.slugConflict} role="alert" aria-live="polite">
                                 <Text variant="caption" colorVariant="warning">
-                                    Questo slug è già in uso. Scegli un&apos;alternativa:
+                                    Questo indirizzo è già in uso. Scegli un&apos;alternativa:
                                 </Text>
 
-                                <div className={styles.slugSuggestions}>
-                                    {slugState.suggestions.map(s => (
-                                        <Button
-                                            key={s}
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => onPickSlugSuggestion(s)}
+                                {slugState.suggestions.length > 0 && (
+                                    <div className={styles.slugSuggestions}>
+                                        {/* Prima opzione: evidenziata come consigliata */}
+                                        <button
+                                            type="button"
+                                            className={styles.slugSuggestionPrimary}
+                                            onClick={() => onPickSlugSuggestion(slugState.suggestions[0])}
                                         >
-                                            {s}
-                                        </Button>
-                                    ))}
-                                </div>
+                                            <span className={styles.slugSuggestionLabel}>Consigliato</span>
+                                            <span className={styles.slugSuggestionText}>
+                                                {slugState.suggestions[0]}
+                                            </span>
+                                        </button>
+
+                                        {/* Opzioni secondarie */}
+                                        {slugState.suggestions.slice(1).length > 0 && (
+                                            <div className={styles.slugSuggestionSecondaryRow}>
+                                                {slugState.suggestions.slice(1).map(s => (
+                                                    <button
+                                                        key={s}
+                                                        type="button"
+                                                        className={styles.slugSuggestionSecondary}
+                                                        onClick={() => onPickSlugSuggestion(s)}
+                                                    >
+                                                        {s}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

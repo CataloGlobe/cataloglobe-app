@@ -31,7 +31,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 import { ensureUniqueBusinessSlug } from "@/utils/businessSlug";
-import { generateRandomSuffix, sanitizeSlugForSave } from "@/utils/slugify";
+import { sanitizeSlugForSave } from "@/utils/slugify";
 
 // Tipi importati da "@/types/Businesses"
 
@@ -183,7 +183,7 @@ export default function Businesses() {
         if (!tenantId) return;
 
         async function compute() {
-            const unique = await ensureUniqueBusinessSlug(debouncedName, tenantId!);
+            const unique = await ensureUniqueBusinessSlug(debouncedName);
             if (isReservedSlug(unique)) return;
             setCreateForm(prev => ({ ...prev, slug: unique }));
         }
@@ -312,11 +312,11 @@ export default function Businesses() {
             }
 
             // 2. Calcoliamo lo slug univoco
-            const uniqueSlug = await ensureUniqueBusinessSlug(baseSlug, tenantId);
+            const uniqueSlug = await ensureUniqueBusinessSlug(baseSlug);
 
             // 3. Se è diverso → significa che lo slug scelto ESISTE GIÀ
             if (uniqueSlug !== baseSlug) {
-                const suggestions = await getSlugSuggestions(baseSlug, uniqueSlug);
+                const suggestions = await getSlugSuggestions(baseSlug, createForm.city);
                 setCreateSlugState({ type: "conflict", suggestions });
                 return;
             }
@@ -543,7 +543,7 @@ export default function Businesses() {
             );
 
             if (slugAlreadyUsed) {
-                const suggestions = await getSlugSuggestions(cleanedSlug);
+                const suggestions = await getSlugSuggestions(cleanedSlug, editForm?.city);
                 setEditSlugState({ type: "conflict", suggestions });
                 return;
             }
@@ -610,25 +610,41 @@ export default function Businesses() {
         setCreateSlugTouched(false);
     }, []);
 
-    async function getSlugSuggestions(base: string, uniqueSlug?: string): Promise<string[]> {
+    async function getSlugSuggestions(base: string, city?: string): Promise<string[]> {
         const baseSlug = sanitizeSlugForSave(base);
-        const suggestions: string[] = [];
+        const year = new Date().getFullYear().toString();
 
-        // Prima proposta: lo slug unico calcolato da ensureUniqueBusinessSlug, se diverso dal base
-        if (uniqueSlug && uniqueSlug !== baseSlug) {
-            suggestions.push(uniqueSlug);
+        const candidates: string[] = [];
+
+        // 1. {baseSlug}-{city} se disponibile
+        if (city?.trim()) {
+            const citySlug = sanitizeSlugForSave(city.trim());
+            if (citySlug) candidates.push(`${baseSlug}-${citySlug}`);
         }
 
-        const commonSuffixes = ["01", "milano", "center", "plus", generateRandomSuffix()];
+        // 2. suffissi numerici leggibili
+        candidates.push(`${baseSlug}-01`, `${baseSlug}-02`, `${baseSlug}-03`);
 
-        for (const suffix of commonSuffixes) {
-            const candidate = `${baseSlug}-${suffix}`;
-            if (!suggestions.includes(candidate)) {
-                suggestions.push(candidate);
+        // 3. suffissi semantici
+        candidates.push(`${baseSlug}-locale`, `${baseSlug}-store`, `${baseSlug}-hub`);
+
+        // 4. anno come fallback
+        candidates.push(`${baseSlug}-${year}`);
+
+        // Deduplica, poi verifica disponibilità per ciascuno (max 4)
+        const seen = new Set<string>();
+        const verified: string[] = [];
+        for (const candidate of candidates) {
+            if (verified.length >= 4) break;
+            if (seen.has(candidate)) continue;
+            seen.add(candidate);
+            const result = await ensureUniqueBusinessSlug(candidate);
+            if (result === candidate) {
+                verified.push(candidate);
             }
         }
 
-        return suggestions;
+        return verified;
     }
 
     function BusinessCardSkeleton() {

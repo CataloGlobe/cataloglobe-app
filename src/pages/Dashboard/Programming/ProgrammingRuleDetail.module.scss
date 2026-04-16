@@ -576,21 +576,40 @@
 
 /* ─── Featured contents DnD list ─────────────────────────────── */
 
+.slotGroupsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.slotGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--surface, #fafafa);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: var(--radius-md, 8px);
+}
+
+.slotGroupTitle {
+  color: var(--text-secondary, #64748b);
+  font-size: 0.875rem;
+}
+
+.slotGroupEmpty {
+  padding: 0.75rem 0;
+}
+
 .featuredListBorder {
   border: 1px solid var(--border, #e2e8f0);
   border-radius: var(--radius-md, 8px);
   overflow: hidden;
 }
 
-.featuredList {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
 .featuredRow {
   display: grid;
-  grid-template-columns: 20px 1fr 180px 24px;
+  grid-template-columns: 20px 1fr 24px;
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0.75rem;
@@ -638,11 +657,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.featuredRowSlot {
-  min-width: 0;
-  max-width: 180px;
 }
 
 .featuredRemoveButton {

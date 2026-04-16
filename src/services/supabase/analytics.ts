@@ -52,12 +52,6 @@ export type DeviceData = {
     percentage: number;
 };
 
-// ── Helpers ──────────────────────────────────────────────────────────────
-
-function diffDays(range: DateRange): number {
-    return Math.ceil((range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24));
-}
-
 // ── Service functions ────────────────────────────────────────────────────
 
 export async function getPageViewsTrend(
@@ -65,14 +59,11 @@ export async function getPageViewsTrend(
     dateRange: DateRange,
     activityId?: string
 ): Promise<TrendDataPoint[]> {
-    const granularity = diffDays(dateRange) > 30 ? "week" : "day";
-
     const { data, error } = await supabase.rpc("analytics_page_views_trend", {
         p_tenant_id: tenantId,
         p_from: dateRange.from.toISOString(),
         p_to: dateRange.to.toISOString(),
-        p_activity_id: activityId ?? null,
-        p_granularity: granularity
+        p_activity_id: activityId ?? null
     });
 
     if (error) throw error;

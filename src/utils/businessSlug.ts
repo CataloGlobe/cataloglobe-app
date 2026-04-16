@@ -1,18 +1,35 @@
 import { supabase } from "@/services/supabase/client";
 import { generateSlug, generateRandomSuffix } from "./slugify";
 
-export async function ensureUniqueBusinessSlug(rawName: string, tenantId: string): Promise<string> {
+/**
+ * Cerca uno slug univoco GLOBALMENTE (non scoped a tenant).
+ * Usata sia per la creazione di una nuova sede, sia per l'edit
+ * (in quel caso passare excludeActivityId per escludere la sede corrente).
+ *
+ * @param rawName         - Il nome/slug di partenza (verrà normalizzato)
+ * @param excludeActivityId - ID della sede da escludere dal controllo (modalità edit)
+ * @returns Lo slug disponibile (uguale al base se libero, altrimenti con suffisso)
+ */
+export async function ensureUniqueBusinessSlug(
+    rawName: string,
+    excludeActivityId?: string
+): Promise<string> {
     const base = generateSlug(rawName || "");
 
     // fallback minimale se il nome è vuoto o slug è vuoto
     const baseSlug = base || "business";
 
-    // 1) recuperiamo tutti gli slug che iniziano con baseSlug, scoped per tenant
-    const { data, error } = await supabase
+    // 1) recupera tutti gli slug che iniziano con baseSlug, globalmente
+    let query = supabase
         .from("activities")
         .select("slug")
-        .eq("tenant_id", tenantId)
         .ilike("slug", `${baseSlug}%`);
+
+    if (excludeActivityId) {
+        query = query.neq("id", excludeActivityId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         console.error("Errore fetch slug:", error);
@@ -28,7 +45,6 @@ export async function ensureUniqueBusinessSlug(rawName: string, tenantId: string
     }
 
     // 3) altrimenti generiamo un suffisso random finché non troviamo uno slug libero
-    // (probabilità di collisione praticamente nulla già al primo tentativo)
     for (let i = 0; i < 10; i++) {
         const candidate = `${baseSlug}-${generateRandomSuffix(4)}`;
         if (!existingSlugs.includes(candidate)) {
