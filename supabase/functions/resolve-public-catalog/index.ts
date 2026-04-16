@@ -33,21 +33,49 @@ serve(async (req: Request) => {
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
         );
 
-        // 1. Look up activity by slug (any status)
-        const { data: activity, error: activityError } = await supabase
+        const ACTIVITY_SELECT =
+            "id, tenant_id, name, slug, cover_image, status, inactive_reason, " +
+            "address, street_number, postal_code, city, " +
+            "instagram, instagram_public, facebook, facebook_public, " +
+            "whatsapp, whatsapp_public, website, website_public, " +
+            "phone, phone_public, email_public, email_public_visible, " +
+            "google_review_url, hours_public";
+
+        // 1. Lookup primario: activities.slug
+        const { data: activityDirect, error: activityError } = await supabase
             .from("activities")
-            .select(
-                "id, tenant_id, name, slug, cover_image, status, inactive_reason, " +
-                "address, street_number, postal_code, city, " +
-                "instagram, instagram_public, facebook, facebook_public, " +
-                "whatsapp, whatsapp_public, website, website_public, " +
-                "phone, phone_public, email_public, email_public_visible, " +
-                "google_review_url"
-            )
+            .select(ACTIVITY_SELECT)
             .eq("slug", slug)
             .maybeSingle();
 
         if (activityError) throw activityError;
+
+        // 1b. Fallback alias: se non trovato, cerca in activity_slug_aliases
+        let activity = activityDirect;
+        let isAliasMatch = false;
+
+        if (!activity) {
+            const { data: alias, error: aliasError } = await supabase
+                .from("activity_slug_aliases")
+                .select("activity_id")
+                .eq("slug", slug)
+                .maybeSingle();
+
+            if (aliasError) throw aliasError;
+
+            if (alias) {
+                const { data: aliasActivity, error: aliasActivityError } = await supabase
+                    .from("activities")
+                    .select(ACTIVITY_SELECT)
+                    .eq("id", alias.activity_id)
+                    .maybeSingle();
+
+                if (aliasActivityError) throw aliasActivityError;
+
+                activity = aliasActivity;
+                isAliasMatch = true;
+            }
+        }
 
         if (!activity) {
             return new Response(
@@ -80,7 +108,8 @@ serve(async (req: Request) => {
             phone_public: activity.phone_public ?? false,
             email_public: activity.email_public ?? null,
             email_public_visible: activity.email_public_visible ?? false,
-            google_review_url: activity.google_review_url ?? null
+            google_review_url: activity.google_review_url ?? null,
+            hours_public: activity.hours_public ?? false
         };
 
         // For inactive venues, return early with business info only
@@ -91,7 +120,8 @@ serve(async (req: Request) => {
                     tenantLogoUrl: null,
                     resolved: {
                         featured: { hero: [], before_catalog: [], after_catalog: [] }
-                    }
+                    },
+                    canonical_slug: isAliasMatch ? activity.slug : null
                 }),
                 { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
@@ -107,10 +137,20 @@ serve(async (req: Request) => {
         }
 
         // 3. Resolve catalogs + tenant info in parallel
-        const [resolved, tenantInfo] = await Promise.all([
+        const [resolved, tenantInfo, hoursResult] = await Promise.all([
             resolveActivityCatalogs(supabase, activity.id, simulatedAt),
             supabase.rpc("get_tenant_public_info", { p_tenant_id: activity.tenant_id }),
+            activity.hours_public
+                ? supabase
+                      .from("activity_hours")
+                      .select("day_of_week, slot_index, opens_at, closes_at, is_closed")
+                      .eq("activity_id", activity.id)
+                      .order("day_of_week", { ascending: true })
+                      .order("slot_index", { ascending: true })
+                : Promise.resolve({ data: null, error: null }),
         ]);
+
+        const opening_hours = hoursResult.data ?? undefined;
 
         // 3b. Check subscription status — block if canceled or suspended
         const subscriptionStatus = tenantInfo.data?.subscription_status;
@@ -122,7 +162,8 @@ serve(async (req: Request) => {
                     tenantLogoUrl: null,
                     resolved: {
                         featured: { hero: [], before_catalog: [], after_catalog: [] }
-                    }
+                    },
+                    canonical_slug: isAliasMatch ? activity.slug : null
                 }),
                 { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
@@ -142,6 +183,8 @@ serve(async (req: Request) => {
                 business,
                 tenantLogoUrl,
                 resolved,
+                canonical_slug: isAliasMatch ? activity.slug : null,
+                ...(opening_hours ? { opening_hours } : {})
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
