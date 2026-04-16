@@ -150,3 +150,144 @@
   color: v.$gray-400;
   margin: 16px 0 10px;
 }
+
+// ── Multi-slot day rows ─────────────────────────────────────────────────────
+
+.dayRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid v.$gray-200;
+
+  &:first-child {
+    border-top: none;
+  }
+}
+
+.dayName {
+  width: 90px;
+  flex-shrink: 0;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  color: v.$text-color;
+  padding-top: 8px;
+  white-space: nowrap;
+}
+
+.daySlotsCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dayClosedCol {
+  width: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+.closedLabel {
+  font-size: 0.875rem;
+  font-style: italic;
+  color: v.$gray-400;
+  padding: 8px 0;
+}
+
+.slotRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.slotInputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slotSeparator {
+  color: v.$gray-400;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.removeSlotBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: v.$gray-400;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: v.$gray-100;
+    color: v.$gray-600;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring, v.$primary);
+    outline-offset: 2px;
+  }
+}
+
+.addSlotBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  color: var(--color-primary, v.$primary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+
+  &:hover {
+    opacity: 0.75;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring, v.$primary);
+    outline-offset: 2px;
+  }
+}
+
+.slotError {
+  font-size: 0.75rem;
+  color: var(--color-error, #ef4444);
+  padding-left: 2px;
+}
+
+// ── Hours public toggle ─────────────────────────────────────────────────────
+
+.hoursPublicSection {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid v.$gray-200;
+}
+
+.hoursPublicRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.hoursPublicText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
