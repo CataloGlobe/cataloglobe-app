@@ -152,15 +152,13 @@ serve(async (req: Request) => {
                 ? (() => {
                       const now = new Date();
                       const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(now);
-                      const future = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
-                      const futureStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(future);
                       return supabase
                           .from("activity_closures")
-                          .select("closure_date, label, is_closed, opens_at, closes_at")
+                          .select("closure_date, end_date, label, is_closed, slots")
                           .eq("activity_id", activity.id)
-                          .gte("closure_date", todayStr)
-                          .lte("closure_date", futureStr)
-                          .order("closure_date", { ascending: true });
+                          .or(`closure_date.gte.${todayStr},end_date.gte.${todayStr}`)
+                          .order("closure_date", { ascending: true })
+                          .limit(10);
                   })()
                 : Promise.resolve({ data: null, error: null }),
         ]);
