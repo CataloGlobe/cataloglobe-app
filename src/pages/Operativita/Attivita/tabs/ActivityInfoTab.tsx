@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     IconCircleCheck,
     IconCircleX,
@@ -13,16 +13,23 @@ import {
     IconBrandWhatsapp,
     IconPencil
 } from "@tabler/icons-react";
+import { Trash2 } from "lucide-react";
 import { Button, Card } from "@/components/ui";
-import { V2Activity } from "@/types/activity";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
+import { V2Activity, ActivitySlugAlias } from "@/types/activity";
 import { V2ActivityGroup } from "@/types/activity-group";
 import { useTenantId } from "@/context/useTenantId";
+import {
+    getActivitySlugAliases,
+    deleteActivitySlugAlias
+} from "@/services/supabase/activitySlugAliases";
 import { ContactField } from "../components/ContactField";
 import { ContactsMainDrawer } from "./contacts/ContactsMainDrawer";
 import { ContactsSocialDrawer } from "./contacts/ContactsSocialDrawer";
 import { ActivityIdentityDrawer } from "./info/ActivityIdentityDrawer";
 import { ActivitySlugDrawer } from "./info/ActivitySlugDrawer";
 import styles from "../ActivityDetailPage.module.scss";
+import { useToast } from "@/context/Toast/ToastContext";
 
 interface ActivityInfoTabProps {
     activity: V2Activity;
@@ -42,11 +49,48 @@ export const ActivityInfoTab: React.FC<ActivityInfoTabProps> = ({
     onReload
 }) => {
     const tenantId = useTenantId();
+    const { showToast } = useToast();
 
     const [isIdentityDrawerOpen, setIsIdentityDrawerOpen] = useState(false);
     const [isSlugDrawerOpen, setIsSlugDrawerOpen] = useState(false);
     const [mainDrawerOpen, setMainDrawerOpen] = useState(false);
     const [socialDrawerOpen, setSocialDrawerOpen] = useState(false);
+
+    const [aliases, setAliases] = useState<ActivitySlugAlias[]>([]);
+
+    const loadAliases = useCallback(async () => {
+        if (!tenantId) return;
+        try {
+            const data = await getActivitySlugAliases(activity.id, tenantId);
+            setAliases(data);
+        } catch {
+            // Non critico — ignora silenziosamente
+        }
+    }, [activity.id, tenantId]);
+
+    useEffect(() => {
+        loadAliases();
+    }, [loadAliases]);
+
+    const handleDeleteAlias = useCallback(
+        async (aliasId: string) => {
+            if (!tenantId) return;
+            try {
+                await deleteActivitySlugAlias(aliasId, tenantId);
+                await loadAliases();
+                showToast({ message: "URL precedente rimosso.", type: "success" });
+            } catch {
+                showToast({ message: "Impossibile rimuovere l'URL precedente.", type: "error" });
+            }
+        },
+        [tenantId, loadAliases, showToast]
+    );
+
+    // Ricarica gli alias dopo un cambio slug riuscito
+    const handleSlugSuccess = useCallback(async () => {
+        await onReload();
+        await loadAliases();
+    }, [onReload, loadAliases]);
 
     return (
         <>
@@ -110,6 +154,36 @@ export const ActivityInfoTab: React.FC<ActivityInfoTabProps> = ({
                                         <IconPencil size={14} />
                                     </button>
                                 </span>
+
+                                {aliases.length > 0 && (
+                                    <div className={styles.aliasSection}>
+                                        <label>URL precedenti</label>
+                                        <div className={styles.aliasList}>
+                                            {aliases.map(alias => (
+                                                <Tooltip
+                                                    key={alias.id}
+                                                    content="Questo URL reindirizza alla sede attuale. Eliminalo per renderlo disponibile ad altri."
+                                                    side="top"
+                                                >
+                                                    <span className={styles.aliasChip}>
+                                                        <span className={styles.aliasChipText}>
+                                                            {alias.slug}
+                                                        </span>
+                                                        <button
+                                                            className={styles.aliasChipDelete}
+                                                            onClick={() =>
+                                                                handleDeleteAlias(alias.id)
+                                                            }
+                                                            aria-label={`Rimuovi URL precedente ${alias.slug}`}
+                                                        >
+                                                            <Trash2 size={12} />
+                                                        </button>
+                                                    </span>
+                                                </Tooltip>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className={styles.field + " " + styles.descriptionField}>
@@ -134,7 +208,9 @@ export const ActivityInfoTab: React.FC<ActivityInfoTabProps> = ({
                                                 </span>
                                             ))
                                         ) : (
-                                            <span className={styles.placeholder}>Nessun gruppo</span>
+                                            <span className={styles.placeholder}>
+                                                Nessun gruppo
+                                            </span>
                                         )}
                                         <Button
                                             variant="ghost"
@@ -185,7 +261,9 @@ export const ActivityInfoTab: React.FC<ActivityInfoTabProps> = ({
                                 visible={activity.website_public}
                             />
                             <div className={styles.field}>
-                                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <label
+                                    style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+                                >
                                     <IconBrandGoogle size={14} /> Google Reviews
                                 </label>
                                 <span>
@@ -196,7 +274,11 @@ export const ActivityInfoTab: React.FC<ActivityInfoTabProps> = ({
                                             rel="noopener noreferrer"
                                             className={styles.slugLink}
                                             title={activity.google_review_url}
-                                            style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: "0.25rem"
+                                            }}
                                         >
                                             {activity.google_review_url.length > 50
                                                 ? activity.google_review_url.slice(0, 50) + "…"
@@ -265,7 +347,7 @@ export const ActivityInfoTab: React.FC<ActivityInfoTabProps> = ({
                         onClose={() => setIsSlugDrawerOpen(false)}
                         activity={activity}
                         tenantId={tenantId}
-                        onSuccess={onReload}
+                        onSuccess={handleSlugSuccess}
                     />
 
                     <ContactsMainDrawer

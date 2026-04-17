@@ -1,0 +1,148 @@
+/* ─────────────────────────────────────────────────────────
+   PublicOpeningHours
+   Orari di apertura — sezione nel footer pubblico
+───────────────────────────────────────────────────────── */
+
+.hoursSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hoursTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--pub-text-muted);
+  font-family: var(--pub-font-family, sans-serif);
+  margin: 0;
+}
+
+.hoursList {
+  width: 100%;
+  max-width: 280px;
+  margin: 0;
+  padding: 0;
+
+  @media (min-width: 640px) {
+    max-width: 340px;
+  }
+}
+
+.hoursRow {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 2px 16px;
+  align-items: start;
+  padding: 0.2rem 0;
+
+  @media (min-width: 640px) {
+    grid-template-columns: 100px 1fr;
+    gap: 2px 24px;
+  }
+}
+
+.hoursDay {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--pub-text);
+  font-family: var(--pub-font-family, sans-serif);
+  align-self: start;
+  padding-top: 0.05rem;
+}
+
+.hoursSlotsCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.05rem;
+}
+
+.hoursSlot {
+  font-size: 0.8125rem;
+  color: var(--pub-text-secondary);
+  font-family: var(--pub-font-family, sans-serif);
+  line-height: 1.4;
+}
+
+.hoursSlotClosed {
+  font-style: italic;
+  color: var(--pub-text-muted);
+}
+
+/* ── Upcoming closures ───────────────────────────────────────────────── */
+
+.closuresSection {
+  width: 100%;
+  max-width: 280px;
+  padding-top: 0.75rem;
+  border-top: 0.5px solid var(--pub-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+
+  @media (min-width: 640px) {
+    max-width: 340px;
+  }
+}
+
+.closuresTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--pub-text-muted);
+  font-family: var(--pub-font-family, sans-serif);
+  margin: 0;
+}
+
+.closuresList {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.closureRow {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 2px 16px;
+  align-items: start;
+  padding: 0.2rem 0;
+
+  @media (min-width: 640px) {
+    grid-template-columns: 100px 1fr;
+    gap: 2px 24px;
+  }
+}
+
+.closureDate {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--pub-text);
+  font-family: var(--pub-font-family, sans-serif);
+  align-self: start;
+  padding-top: 0.05rem;
+}
+
+.closureInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+}
+
+.closureLabel {
+  font-size: 0.75rem;
+  color: var(--pub-text-muted);
+  font-family: var(--pub-font-family, sans-serif);
+}
+
+.closureStatus {
+  font-size: 0.8125rem;
+  font-style: italic;
+  color: var(--pub-text-muted);
+  font-family: var(--pub-font-family, sans-serif);
+}

@@ -14,6 +14,7 @@ import {
     type RenderableCatalog
 } from "@/services/supabase/activeCatalog";
 import { getDisplayPrice } from "@/utils/priceDisplay";
+import { useTenantId } from "@/context/useTenantId";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import styles from "./ActivityVisibilityDrawer.module.scss";
 
@@ -30,6 +31,7 @@ export const ActivityVisibilityDrawer: React.FC<Props> = ({
     activityId,
     activityName
 }) => {
+    const tenantId = useTenantId();
     const [isLoading, setIsLoading] = useState(true);
     const [catalog, setCatalog] = useState<RenderableCatalog | null>(null);
     const [overrides, setOverrides] = useState<
@@ -41,7 +43,7 @@ export const ActivityVisibilityDrawer: React.FC<Props> = ({
         setIsLoading(true);
         try {
             const [cat, ovs] = await Promise.all([
-                getRenderableCatalogForActivity(activityId),
+                getRenderableCatalogForActivity(activityId, tenantId!),
                 getActivityProductOverrides(activityId)
             ]);
             setCatalog(cat);
@@ -65,7 +67,7 @@ export const ActivityVisibilityDrawer: React.FC<Props> = ({
             await updateActivityProductVisibility(activityId, productId, !currentEffectiveVisible);
 
             const [cat, ovs] = await Promise.all([
-                getRenderableCatalogForActivity(activityId),
+                getRenderableCatalogForActivity(activityId, tenantId!),
                 getActivityProductOverrides(activityId)
             ]);
             setCatalog(cat);

@@ -6,6 +6,8 @@ import { toRomeDateTime, type RomeDateTime } from "@/services/supabase/schedulin
 type TableRows = Record<string, Array<Record<string, unknown>>>;
 type UiRuleType = "layout" | "price" | "visibility";
 
+const TEST_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+
 class FakeQueryBuilder implements PromiseLike<{ data: unknown[] | null; error: unknown | null }> {
     private readonly filters: Array<(row: Record<string, unknown>) => boolean> = [];
     private selectClause = "";
@@ -126,12 +128,14 @@ async function resolveIds(params: {
     const web = await resolveWebRules({
         supabase: fakeSupabase,
         activityId: params.activityId,
+        tenantId: TEST_TENANT_ID,
         now: params.now,
         includeLayoutStyle: false
     });
     const edge = await resolveEdgeRules({
         supabase: fakeSupabase,
         activityId: params.activityId,
+        tenantId: TEST_TENANT_ID,
         now: params.now,
         includeLayoutStyle: false
     });

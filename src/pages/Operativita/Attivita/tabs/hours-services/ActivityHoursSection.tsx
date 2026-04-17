@@ -1,12 +1,9 @@
-import React, { useCallback } from "react";
+import React from "react";
 import { IconEdit } from "@tabler/icons-react";
 import { Card, Button } from "@/components/ui";
-import { Switch } from "@/components/ui/Switch/Switch";
 import Text from "@/components/ui/Text/Text";
-import { upsertActivityHours } from "@/services/supabase/activityHours";
 import type { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
-import { useToast } from "@/context/Toast/ToastContext";
 import pageStyles from "../../ActivityDetailPage.module.scss";
 import styles from "./HoursServices.module.scss";
 
@@ -15,60 +12,48 @@ const DAY_NAMES = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", 
 interface ActivityHoursSectionProps {
     hours: V2ActivityHours[];
     activity: V2Activity;
-    tenantId: string;
     onEditRequest: () => void;
-    onSaved: () => void;
+}
+
+function formatDaySlots(slots: V2ActivityHours[]): React.ReactNode {
+    if (slots.length === 0) {
+        return <span className={styles.notConfigured}>&mdash;</span>;
+    }
+    if (slots[0].is_closed) {
+        return <span className={styles.closedBadge}>Chiuso</span>;
+    }
+    const parts = slots
+        .filter(s => !s.is_closed && s.opens_at && s.closes_at)
+        .map(s => `${s.opens_at!.slice(0, 5)} – ${s.closes_at!.slice(0, 5)}`);
+    if (parts.length === 0) {
+        return <span className={styles.notConfigured}>&mdash;</span>;
+    }
+    return parts.join(" · ");
 }
 
 export const ActivityHoursSection: React.FC<ActivityHoursSectionProps> = ({
     hours,
     activity,
-    tenantId,
-    onEditRequest,
-    onSaved
+    onEditRequest
 }) => {
-    const { showToast } = useToast();
     const hasHours = hours.length > 0;
-    const allPublic = hasHours && hours.every(h => h.hours_public);
 
-    const handlePublicToggle = useCallback(async (checked: boolean) => {
-        const updatedRows = hours.map(h => ({
-            day_of_week: h.day_of_week,
-            opens_at: h.opens_at,
-            closes_at: h.closes_at,
-            is_closed: h.is_closed,
-            hours_public: checked
-        }));
-        try {
-            await upsertActivityHours(tenantId, activity.id, updatedRows);
-            showToast({ message: "Visibilità orari aggiornata.", type: "success" });
-            await onSaved();
-        } catch {
-            showToast({ message: "Impossibile aggiornare la visibilità.", type: "error" });
-        }
-    }, [hours, tenantId, activity.id, onSaved, showToast]);
-
-    const formatTime = (opens: string | null, closes: string | null, isClosed: boolean): React.ReactNode => {
-        if (isClosed) {
-            return <span className={styles.closedBadge}>Chiuso</span>;
-        }
-        if (!opens && !closes) {
-            return <span className={styles.notConfigured}>&mdash;</span>;
-        }
-        return `${opens ?? "—"} – ${closes ?? "—"}`;
-    };
+    // Group by day_of_week
+    const byDay = new Map<number, V2ActivityHours[]>();
+    for (const h of hours) {
+        const list = byDay.get(h.day_of_week) ?? [];
+        list.push(h);
+        byDay.set(h.day_of_week, list);
+    }
 
     return (
         <Card className={pageStyles.card}>
             <div className={styles.cardHeader}>
                 <div className={styles.headerLeft}>
                     <h3 className={styles.sectionTitle}>Orari di apertura</h3>
-                    <Switch
-                        label="Mostra nella pagina pubblica"
-                        checked={allPublic}
-                        onChange={handlePublicToggle}
-                        disabled={!hasHours}
-                    />
+                    {activity.hours_public && (
+                        <span className={styles.visibilityHint}>Visibili nella pagina pubblica</span>
+                    )}
                 </div>
                 <Button
                     variant="ghost"
@@ -93,20 +78,14 @@ export const ActivityHoursSection: React.FC<ActivityHoursSectionProps> = ({
                             </tr>
                         </thead>
                         <tbody>
-                            {DAY_NAMES.map((name, i) => {
-                                const row = hours.find(h => h.day_of_week === i);
-                                return (
-                                    <tr key={i} className={styles.hoursTableRow}>
-                                        <td className={styles.hoursTableDay}>{name}</td>
-                                        <td className={styles.hoursTableTime}>
-                                            {row
-                                                ? formatTime(row.opens_at, row.closes_at, row.is_closed)
-                                                : <span className={styles.notConfigured}>&mdash;</span>
-                                            }
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                            {DAY_NAMES.map((name, i) => (
+                                <tr key={i} className={styles.hoursTableRow}>
+                                    <td className={styles.hoursTableDay}>{name}</td>
+                                    <td className={styles.hoursTableTime}>
+                                        {formatDaySlots(byDay.get(i) ?? [])}
+                                    </td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 )}

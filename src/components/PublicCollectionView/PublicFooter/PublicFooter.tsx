@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import type { SocialLinks } from "../CollectionView/CollectionView";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
+import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
+import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
 import styles from "./PublicFooter.module.scss";
 
 /* ── Icone SVG inline ─────────────────────────────────────────
@@ -112,9 +114,11 @@ type SocialType = "website" | "instagram" | "facebook" | "whatsapp" | "phone" | 
 type Props = {
     socialLinks?: SocialLinks;
     activityId?: string;
+    openingHours?: OpeningHoursEntry[];
+    upcomingClosures?: UpcomingClosure[];
 };
 
-export default function PublicFooter({ socialLinks, activityId }: Props) {
+export default function PublicFooter({ socialLinks, activityId, openingHours, upcomingClosures }: Props) {
     // Costruisce la lista di social visibili
     const visibleSocials: { href: string; label: string; icon: ReactNode; socialType: SocialType }[] = [];
 
@@ -169,6 +173,11 @@ export default function PublicFooter({ socialLinks, activityId }: Props) {
 
     return (
         <footer className={styles.footer}>
+            {/* Opening hours */}
+            {openingHours && openingHours.length > 0 && (
+                <PublicOpeningHours openingHours={openingHours} upcomingClosures={upcomingClosures} />
+            )}
+
             {/* Social icons — visibili solo se configurati e pubblici */}
             {visibleSocials.length > 0 && (
                 <div className={styles.socialRow}>

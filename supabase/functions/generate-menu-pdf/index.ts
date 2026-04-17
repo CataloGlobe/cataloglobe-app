@@ -551,6 +551,7 @@ serve(async req => {
             const resolved = await resolveRulesForActivity({
                 supabase,
                 activityId,
+                tenantId: activity.tenant_id as string,
                 now,
                 includeLayoutStyle: false
             });
@@ -562,7 +563,8 @@ serve(async req => {
             ruleResolution = resolved;
         }
 
-        // 4) Load Catalog
+        // 4) Load Catalog (tenant-scoped to prevent cross-tenant data leak)
+        const tenantId = activity.tenant_id as string;
         const { data: catalogData, error: catalogError } = await supabase
             .from("catalogs")
             .select(
@@ -622,6 +624,7 @@ serve(async req => {
             )
         `
             )
+            .eq("tenant_id", tenantId)
             .eq("id", layoutCatalogId)
             .maybeSingle();
 
@@ -679,6 +682,7 @@ serve(async req => {
             const { data: visibilityOverrideData } = await supabase
                 .from("schedule_visibility_overrides")
                 .select("product_id, visible")
+                .eq("tenant_id", tenantId)
                 .eq("schedule_id", activeVisibilityRuleScheduleId)
                 .in("product_id", productIds);
 
@@ -726,6 +730,7 @@ serve(async req => {
             const { data: priceOverrideData } = await supabase
                 .from("schedule_price_overrides")
                 .select("product_id, override_price, show_original_price")
+                .eq("tenant_id", tenantId)
                 .eq("schedule_id", activePriceRuleScheduleId)
                 .in("product_id", visibleProductIds);
 

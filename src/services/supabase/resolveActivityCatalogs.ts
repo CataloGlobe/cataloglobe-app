@@ -679,7 +679,7 @@ function normalizeCatalog(
     };
 }
 
-export async function loadCatalogById(catalogId: string): Promise<ResolvedCatalog | undefined> {
+export async function loadCatalogById(catalogId: string, tenantId: string): Promise<ResolvedCatalog | undefined> {
     const { data, error } = await supabase
         .from("catalogs")
         .select(
@@ -813,6 +813,7 @@ export async function loadCatalogById(catalogId: string): Promise<ResolvedCatalo
             )
         `
         )
+        .eq("tenant_id", tenantId)
         .eq("id", catalogId)
         .maybeSingle();
 
@@ -825,11 +826,13 @@ export async function loadCatalogById(catalogId: string): Promise<ResolvedCatalo
 
 export async function findLayoutCatalogId(
     activityId: string,
-    now: RomeDateTime
+    now: RomeDateTime,
+    tenantId: string
 ): Promise<{ catalogId: string | null; scheduleId: string | null; styleData?: ResolvedStyle }> {
     const result = await resolveRulesForActivity({
         supabase,
         activityId,
+        tenantId,
         now,
         includeLayoutStyle: true,
         ruleTypes: ["layout"]
@@ -843,11 +846,13 @@ export async function findLayoutCatalogId(
 
 export async function findActivePriceRuleScheduleId(
     activityId: string,
-    now: RomeDateTime
+    now: RomeDateTime,
+    tenantId: string
 ): Promise<string | null> {
     const result = await resolveRulesForActivity({
         supabase,
         activityId,
+        tenantId,
         now,
         ruleTypes: ["price"]
     });
@@ -856,13 +861,15 @@ export async function findActivePriceRuleScheduleId(
 
 async function selectVisibilityOverridesWithModeFallback(
     scheduleId: string,
-    productIds: string[]
+    productIds: string[],
+    tenantId: string
 ): Promise<VisibilityOverrideRow[]> {
     if (productIds.length === 0) return [];
 
     const withModeRes = await supabase
         .from("schedule_visibility_overrides")
         .select("product_id, mode, visible")
+        .eq("tenant_id", tenantId)
         .eq("schedule_id", scheduleId)
         .in("product_id", productIds);
 
@@ -877,6 +884,7 @@ async function selectVisibilityOverridesWithModeFallback(
     const withoutModeRes = await supabase
         .from("schedule_visibility_overrides")
         .select("product_id, visible")
+        .eq("tenant_id", tenantId)
         .eq("schedule_id", scheduleId)
         .in("product_id", productIds);
 
@@ -1475,9 +1483,13 @@ export async function resolveActivityCatalogs(
         };
     }
 
+    const tenantId = activityExists.tenant_id as string;
+    if (!tenantId) throw new Error("Activity missing tenant_id");
+
     const ruleResolution = await resolveRulesForActivity({
         supabase,
         activityId,
+        tenantId,
         now: effectiveNow,
         includeLayoutStyle: true
     });
@@ -1513,7 +1525,7 @@ export async function resolveActivityCatalogs(
     if (featuredScheduleId) {
         // SYNC: identico in supabase/functions/_shared/resolveActivityCatalogs.ts
         const { data: featuredData, error: featuredError } = await supabase
-            .rpc("get_schedule_featured_contents", { p_schedule_id: featuredScheduleId });
+            .rpc("get_schedule_featured_contents", { p_schedule_id: featuredScheduleId, p_tenant_id: tenantId });
 
         if (featuredError) {
             console.error(
@@ -1612,7 +1624,7 @@ export async function resolveActivityCatalogs(
         };
     }
 
-    const layoutCatalog = await loadCatalogById(layoutCatalogId);
+    const layoutCatalog = await loadCatalogById(layoutCatalogId, tenantId);
 
     // Preserve the base catalog (pre-schedule-filter) so the activity visibility
     // override layer can restore products that were hidden by a schedule rule.
@@ -1659,7 +1671,8 @@ export async function resolveActivityCatalogs(
     if (activeVisibilityRuleScheduleId && productIds.length > 0) {
         const visibilityOverrideRows = await selectVisibilityOverridesWithModeFallback(
             activeVisibilityRuleScheduleId,
-            productIds
+            productIds,
+            tenantId
         );
 
         for (const row of visibilityOverrideRows) {
@@ -1733,6 +1746,7 @@ export async function resolveActivityCatalogs(
         const { data: priceOverrideData, error: priceOverrideError } = await supabase
             .from("schedule_price_overrides")
             .select("product_id, override_price, show_original_price, option_value_id")
+            .eq("tenant_id", tenantId)
             .eq("schedule_id", activePriceRuleScheduleId)
             .in("product_id", allPriceTargetIds);
 

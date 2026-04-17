@@ -297,6 +297,65 @@
   gap: 0.5rem;
 }
 
+/* =====================================================
+   ALIAS SLUG
+   ===================================================== */
+.aliasSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 0.5rem;
+}
+
+.aliasLabel {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: v.$gray-400;
+}
+
+.aliasList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.aliasChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: v.$gray-100;
+  border: 0.5px solid v.$gray-200;
+  border-radius: 6px;
+  cursor: default;
+}
+
+.aliasChipText {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  color: v.$gray-500;
+  line-height: 1;
+}
+
+.aliasChipDelete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: v.$gray-400;
+  flex-shrink: 0;
+  transition: color 0.15s;
+
+  &:hover {
+    color: v.$error;
+  }
+}
+
 .groupBadge {
   padding: 0.25rem 0.75rem;
   background: v.$gray-100;

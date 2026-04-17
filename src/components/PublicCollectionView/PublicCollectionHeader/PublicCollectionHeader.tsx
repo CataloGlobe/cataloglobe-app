@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ImageIcon, Search } from "lucide-react";
+import { Clock, ImageIcon, Search } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
@@ -35,6 +35,10 @@ export type PublicCollectionHeaderProps = {
     activeTab: HubTab;
     /** Callback per cambio tab. */
     onTabChange: (tab: HubTab) => void;
+    /** True se ci sono orari di apertura da mostrare. */
+    hasHours?: boolean;
+    /** Chiamato al tap sull'icona orologio. */
+    onHoursPress?: () => void;
 };
 
 export default function PublicCollectionHeader({
@@ -52,7 +56,9 @@ export default function PublicCollectionHeader({
     onCompactHeightChange,
     scrollContainerEl,
     activeTab,
-    onTabChange
+    onTabChange,
+    hasHours,
+    onHoursPress
 }: PublicCollectionHeaderProps) {
     const heroAreaRef = useRef<HTMLDivElement | null>(null);
     const compactBarRef = useRef<HTMLDivElement | null>(null);
@@ -192,6 +198,17 @@ export default function PublicCollectionHeader({
                                     <span className={styles.infoCardCatalogName}>{catalogName}</span>
                                 )}
                             </div>
+
+                            {hasHours && onHoursPress && (
+                                <button
+                                    type="button"
+                                    className={styles.infoCardHoursBtn}
+                                    onClick={onHoursPress}
+                                    aria-label="Orari di apertura"
+                                >
+                                    <Clock size={15} strokeWidth={2} />
+                                </button>
+                            )}
 
                             <LanguageSelector variant="hero" />
 

@@ -795,11 +795,13 @@ const CATALOG_SELECT = `
 
 async function loadCatalogById(
     supabase: SupabaseLike,
-    catalogId: string
+    catalogId: string,
+    tenantId: string
 ): Promise<ResolvedCatalog | undefined> {
     const { data, error } = await supabase
         .from("catalogs")
         .select(CATALOG_SELECT)
+        .eq("tenant_id", tenantId)
         .eq("id", catalogId)
         .maybeSingle();
 
@@ -812,13 +814,15 @@ async function loadCatalogById(
 async function selectVisibilityOverridesWithModeFallback(
     supabase: SupabaseLike,
     scheduleId: string,
-    productIds: string[]
+    productIds: string[],
+    tenantId: string
 ): Promise<VisibilityOverrideRow[]> {
     if (productIds.length === 0) return [];
 
     const withModeRes = await supabase
         .from("schedule_visibility_overrides")
         .select("product_id, mode, visible")
+        .eq("tenant_id", tenantId)
         .eq("schedule_id", scheduleId)
         .in("product_id", productIds);
 
@@ -833,6 +837,7 @@ async function selectVisibilityOverridesWithModeFallback(
     const withoutModeRes = await supabase
         .from("schedule_visibility_overrides")
         .select("product_id, visible")
+        .eq("tenant_id", tenantId)
         .eq("schedule_id", scheduleId)
         .in("product_id", productIds);
 
@@ -1390,9 +1395,13 @@ export async function resolveActivityCatalogs(
         };
     }
 
+    const tenantId = activityExists.tenant_id as string;
+    if (!tenantId) throw new Error("Activity missing tenant_id");
+
     const ruleResolution = await resolveRulesForActivity({
         supabase,
         activityId,
+        tenantId,
         now: effectiveNow,
         includeLayoutStyle: true
     });
@@ -1428,7 +1437,7 @@ export async function resolveActivityCatalogs(
     if (featuredScheduleId) {
         // SYNC: identico in src/services/supabase/resolveActivityCatalogs.ts
         const { data: featuredData, error: featuredError } = await supabase
-            .rpc("get_schedule_featured_contents", { p_schedule_id: featuredScheduleId });
+            .rpc("get_schedule_featured_contents", { p_schedule_id: featuredScheduleId, p_tenant_id: tenantId });
 
         if (featuredError) {
             console.error(
@@ -1525,7 +1534,7 @@ export async function resolveActivityCatalogs(
         return { featured };
     }
 
-    const layoutCatalog = await loadCatalogById(supabase, layoutCatalogId);
+    const layoutCatalog = await loadCatalogById(supabase, layoutCatalogId, tenantId);
     const baseCatalog: ResolvedCatalog | undefined = layoutCatalog
         ? JSON.parse(JSON.stringify(layoutCatalog))
         : undefined;
@@ -1570,7 +1579,8 @@ export async function resolveActivityCatalogs(
         const visibilityOverrideRows = await selectVisibilityOverridesWithModeFallback(
             supabase,
             activeVisibilityRuleScheduleId,
-            productIds
+            productIds,
+            tenantId
         );
         for (const row of visibilityOverrideRows) {
             visibilityOverridesByProductId[row.product_id] = row;
@@ -1637,6 +1647,7 @@ export async function resolveActivityCatalogs(
         const { data: priceOverrideData, error: priceOverrideError } = await supabase
             .from("schedule_price_overrides")
             .select("product_id, override_price, show_original_price, option_value_id")
+            .eq("tenant_id", tenantId)
             .eq("schedule_id", activePriceRuleScheduleId)
             .in("product_id", allPriceTargetIds);
 

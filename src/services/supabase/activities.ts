@@ -341,6 +341,20 @@ export async function deleteActivityAtomic(activityId: string): Promise<void> {
     throw error;
 }
 
+export async function updateActivityHoursPublic(
+    activityId: string,
+    tenantId: string,
+    hoursPublic: boolean
+): Promise<void> {
+    const { error } = await supabase
+        .from("activities")
+        .update({ hours_public: hoursPublic, updated_at: new Date().toISOString() })
+        .eq("id", activityId)
+        .eq("tenant_id", tenantId);
+
+    if (error) throw error;
+}
+
 /* =====================================================
    STORAGE (COVER IMAGE)
  ===================================================== */

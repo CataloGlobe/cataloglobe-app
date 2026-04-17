@@ -4,6 +4,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import Text from "@/components/ui/Text/Text";
 import { updateActivity } from "@/services/supabase/activities";
+import { createActivitySlugAlias } from "@/services/supabase/activitySlugAliases";
 import { ensureUniqueBusinessSlug } from "@/utils/businessSlug";
 import { sanitizeSlugForSave } from "@/utils/slugify";
 import { RESERVED_SLUGS } from "@/constants/reservedSlugs";
@@ -126,7 +127,14 @@ export function ActivitySlugForm({
 
             onSavingChange(true);
             try {
+                const oldSlug = entityData.slug;
                 await updateActivity(entityData.id, entityData.tenant_id, { slug });
+                // Salva il vecchio slug come alias — fire-and-forget, non blocca il flusso
+                try {
+                    await createActivitySlugAlias(entityData.id, entityData.tenant_id, oldSlug);
+                } catch {
+                    // Ignorato: non critico per il flusso principale
+                }
                 showToast({ message: "Indirizzo web aggiornato.", type: "success" });
                 onSuccess();
             } catch (error: unknown) {
@@ -200,15 +208,17 @@ export function ActivitySlugForm({
                         <div className={styles.warningBox} role="alert">
                             <IconAlertTriangle size={18} className={styles.warningIcon} />
                             <Text as="span" className={styles.warningText}>
-                                ⚠️ Stai cambiando l&apos;URL pubblico di una sede attiva. Tutti i
-                                QR code e i link esistenti smetteranno di funzionare. Dovrai
-                                scaricare e ridistribuire un nuovo QR code. Sei sicuro?
+                                Stai cambiando l&apos;URL pubblico di una sede attiva. Il vecchio
+                                indirizzo rimarrà attivo come redirect automatico — puoi
+                                rimuoverlo in qualsiasi momento dalla sezione URL precedenti.
+                                I QR code esistenti continueranno a funzionare, ma ti
+                                consigliamo di aggiornarlo.
                             </Text>
                         </div>
 
                         <CheckboxInput
                             label="Conferma modifica"
-                            description="Ho capito che i QR code e i link esistenti non funzioneranno più dopo questa modifica"
+                            description="Ho capito che l'URL pubblico della sede cambierà"
                             checked={hasConfirmed}
                             onChange={e => setHasConfirmed(e.target.checked)}
                             disabled={slugStatus !== "available" || slug === entityData.slug}
