@@ -38,7 +38,7 @@ function formatSlots(slots: ClosureSlot[]): string {
 function buildSubtitle(c: V2ActivityClosure): string {
     let dateStr: string;
     if (c.end_date) {
-        dateStr = `${formatDateShort(c.closure_date)} – ${formatDateShort(c.end_date)} ${parseDateStr(c.closure_date).getFullYear()}`;
+        dateStr = `${parseDateStr(c.closure_date).getDate()} – ${formatDateShort(c.end_date)} ${parseDateStr(c.closure_date).getFullYear()}`;
     } else {
         dateStr = formatDateLong(c.closure_date);
     }
