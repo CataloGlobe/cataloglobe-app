@@ -246,8 +246,8 @@ const MOCK_UPCOMING_CLOSURES: UpcomingClosure[] = [
         label: "Vigilia",
         is_closed: false,
         slots: [
-            { start_time: "09:00", end_time: "13:00" },
-            { start_time: "18:00", end_time: "20:00" },
+            { opens_at: "09:00", closes_at: "13:00" },
+            { opens_at: "18:00", closes_at: "20:00" },
         ],
     },
     {
