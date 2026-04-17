@@ -233,9 +233,30 @@ const MOCK_OPENING_HOURS: OpeningHoursEntry[] = [
 ];
 
 const MOCK_UPCOMING_CLOSURES: UpcomingClosure[] = [
-    { closure_date: "2026-04-24", label: "Giovedì Santo", is_closed: true, opens_at: null, closes_at: null },
-    { closure_date: "2026-05-01", label: "Festa del Lavoro", is_closed: true, opens_at: null, closes_at: null },
-    { closure_date: "2026-06-02", label: "Festa della Repubblica", is_closed: false, opens_at: "10:00", closes_at: "15:00" },
+    {
+        closure_date: "2026-12-25",
+        end_date: null,
+        label: "Natale",
+        is_closed: true,
+        slots: null,
+    },
+    {
+        closure_date: "2026-12-24",
+        end_date: null,
+        label: "Vigilia",
+        is_closed: false,
+        slots: [
+            { opens_at: "09:00", closes_at: "13:00" },
+            { opens_at: "18:00", closes_at: "20:00" },
+        ],
+    },
+    {
+        closure_date: "2026-08-10",
+        end_date: "2026-08-25",
+        label: "Ferie estive",
+        is_closed: true,
+        slots: null,
+    },
 ];
 
 const NAV_SHAPE_MAP: Record<string, SectionNavShape> = {

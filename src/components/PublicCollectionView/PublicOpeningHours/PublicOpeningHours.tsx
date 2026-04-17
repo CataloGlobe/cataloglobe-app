@@ -1,4 +1,5 @@
 import styles from "./PublicOpeningHours.module.scss";
+import type { ClosureSlot } from "@/types/activity-closures";
 
 export type OpeningHoursEntry = {
     day_of_week: number;
@@ -9,11 +10,11 @@ export type OpeningHoursEntry = {
 };
 
 export type UpcomingClosure = {
-    closure_date: string; // "YYYY-MM-DD"
+    closure_date: string;    // "YYYY-MM-DD"
+    end_date: string | null; // "YYYY-MM-DD" or null
     label: string | null;
     is_closed: boolean;
-    opens_at: string | null;
-    closes_at: string | null;
+    slots: ClosureSlot[] | null;
 };
 
 type Props = {
@@ -22,26 +23,22 @@ type Props = {
 };
 
 const DAY_NAMES = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
-const IT_DAY_SHORT = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
 const IT_MONTH_SHORT = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
 
-function formatDaySlots(slots: OpeningHoursEntry[]): string {
-    if (slots.length === 0) return "—";
-    if (slots[0].is_closed) return "Chiuso";
-    const parts = slots
-        .filter(s => !s.is_closed && s.opens_at && s.closes_at)
-        .map(s => `${s.opens_at!.slice(0, 5)} – ${s.closes_at!.slice(0, 5)}`);
-    return parts.length > 0 ? parts.join(" · ") : "—";
+function parseDate(s: string): Date {
+    return new Date(s + "T12:00:00");
 }
 
-function formatClosureDate(dateStr: string): string {
-    const d = new Date(dateStr + "T12:00:00");
-    return `${IT_DAY_SHORT[d.getDay()]} ${d.getDate()} ${IT_MONTH_SHORT[d.getMonth()]}`;
+function formatShort(dateStr: string): string {
+    const d = parseDate(dateStr);
+    return `${d.getDate()} ${IT_MONTH_SHORT[d.getMonth()]}`;
 }
 
-function formatClosureStatus(c: UpcomingClosure): string {
-    if (c.is_closed) return "Chiuso";
-    return `${c.opens_at?.slice(0, 5) ?? "?"} – ${c.closes_at?.slice(0, 5) ?? "?"}`;
+function formatClosureDateLabel(c: UpcomingClosure): string {
+    if (c.end_date) {
+        return `${formatShort(c.closure_date)} – ${formatShort(c.end_date)}`;
+    }
+    return formatShort(c.closure_date);
 }
 
 export default function PublicOpeningHours({ openingHours, upcomingClosures }: Props) {
@@ -59,15 +56,24 @@ export default function PublicOpeningHours({ openingHours, upcomingClosures }: P
                 {DAY_NAMES.map((name, i) => {
                     const slots = byDay.get(i) ?? [];
                     const isClosed = slots.length > 0 && slots[0].is_closed;
+                    const openSlots = slots.filter(s => !s.is_closed && s.opens_at && s.closes_at);
                     return (
                         <div key={i} className={styles.hoursRow}>
                             <dt className={styles.hoursDay}>{name}</dt>
-                            <dd
-                                className={`${styles.hoursTime} ${
-                                    isClosed ? styles.hoursTimeClosed : ""
-                                }`}
-                            >
-                                {formatDaySlots(slots)}
+                            <dd className={styles.hoursSlotsCol}>
+                                {isClosed || slots.length === 0 ? (
+                                    <span className={`${styles.hoursSlot} ${styles.hoursSlotClosed}`}>
+                                        {isClosed ? "Chiuso" : "—"}
+                                    </span>
+                                ) : openSlots.length === 0 ? (
+                                    <span className={`${styles.hoursSlot} ${styles.hoursSlotClosed}`}>—</span>
+                                ) : (
+                                    openSlots.map((s, idx) => (
+                                        <span key={idx} className={styles.hoursSlot}>
+                                            {s.opens_at!.slice(0, 5)} – {s.closes_at!.slice(0, 5)}
+                                        </span>
+                                    ))
+                                )}
                             </dd>
                         </div>
                     );
@@ -81,15 +87,21 @@ export default function PublicOpeningHours({ openingHours, upcomingClosures }: P
                         {upcomingClosures.map((c) => (
                             <div key={c.closure_date} className={styles.closureRow}>
                                 <dt className={styles.closureDate}>
-                                    {formatClosureDate(c.closure_date)}
+                                    {formatClosureDateLabel(c)}
                                 </dt>
                                 <dd className={styles.closureInfo}>
                                     {c.label && (
                                         <span className={styles.closureLabel}>{c.label}</span>
                                     )}
-                                    <span className={styles.closureStatus}>
-                                        {formatClosureStatus(c)}
-                                    </span>
+                                    {c.is_closed ? (
+                                        <span className={styles.closureStatus}>Chiuso</span>
+                                    ) : (
+                                        c.slots?.map((slot, i) => (
+                                            <span key={i} className={styles.closureStatus}>
+                                                {slot.opens_at} – {slot.closes_at}
+                                            </span>
+                                        ))
+                                    )}
                                 </dd>
                             </div>
                         ))}

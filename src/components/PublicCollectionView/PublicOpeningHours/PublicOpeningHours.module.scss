@@ -29,10 +29,10 @@
 }
 
 .hoursRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 0.25rem 0;
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  align-items: start;
+  padding: 0.35rem 0;
   border-bottom: 1px solid var(--pub-border);
   opacity: 0.85;
 
@@ -46,16 +46,23 @@
   font-weight: 500;
   color: var(--pub-text);
   font-family: var(--pub-font-family, sans-serif);
+  padding-top: 0.1rem;
 }
 
-.hoursTime {
+.hoursSlotsCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+}
+
+.hoursSlot {
   font-size: 0.8125rem;
   color: var(--pub-text-secondary);
   font-family: var(--pub-font-family, sans-serif);
-  text-align: right;
 }
 
-.hoursTimeClosed {
+.hoursSlotClosed {
   font-style: italic;
   color: var(--pub-text-muted);
 }
@@ -89,10 +96,15 @@
 }
 
 .closureRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 0.2rem 0;
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  align-items: start;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--pub-border);
+
+  &:last-child {
+    border-bottom: none;
+  }
 }
 
 .closureDate {
