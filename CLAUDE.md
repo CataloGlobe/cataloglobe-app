@@ -274,6 +274,7 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 | `stripe-checkout` / `stripe-webhook` / `stripe-portal` / `stripe-update-seats` | ✅ | Sottoscrizione Stripe |
 | `submit-review` | ✅ | Invio recensione dalla pagina pubblica |
 | `search-google-places` | ✅ | Ricerca luoghi Google Places (form contatti sede) |
+| `cleanup-draft-schedules` | ✅ | Elimina bozze schedules incomplete > 7 giorni (chiamata via pg_cron con PURGE_SECRET) |
 | `menu-ai-import` | ❌ DISABLED | Import AI da menu (non deployare senza abilitare) |
 
 **scheduleResolver.ts** esiste in DUE posti: `src/services/supabase/` e `supabase/functions/_shared/`. Sincronizzarli ENTRAMBI ad ogni modifica.
@@ -311,6 +312,8 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 - **`menu-ai-import`** — disabilitata, richiede abilitazione esplicita
 - **Seat enforcement** — logica Stripe seats introdotta (`20260413100000`, `20260413110000`)
 - **`schedule_targets` RLS** — gap noto, nessuna RLS sulla tabella
+- **Real-time sync regole** — la lista regole non ha Supabase Realtime. Modifiche di altri utenti del team non visibili senza refresh pagina. Da implementare se il caso d'uso multi-utente lo richiede.
+- **Filtri avanzati Programmazione** — la search attuale è solo testuale. Filtri per sede, periodo, stato (attiva/bozza/scaduta) da valutare in futuro se la lista diventa troppo lunga.
 
 ---
 

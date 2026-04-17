@@ -953,11 +953,8 @@ export default function Programming() {
         }
     };
 
-    // TODO: implementare cleanup bozze abbandonate.
-    // Le regole create con "Nuova regola" e mai completate
-    // restano nel DB con enabled=false. Possibile soluzione:
-    // edge function schedulata che elimina regole con
-    // enabled=false + created_at > 7 giorni + nessun update.
+    // Cleanup bozze abbandonate: gestito da edge function
+    // cleanup-draft-schedules (elimina bozze > 7 giorni)
     const handleCreateRule = useCallback(async (overrideType?: RuleType) => {
         const effectiveType = overrideType ?? (ruleTypeFilter === "all" ? undefined : ruleTypeFilter as RuleType);
         if (!effectiveType) return;
