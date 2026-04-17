@@ -45,6 +45,9 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
     const pubRadius = br === "none" ? "0px" : br === "soft" ? "10px" : "20px";
     const btnRadius = br === "none" ? "0px" : br === "soft" ? "6px" : "10px";
 
+    const bgIsDark = hexLuminance(tokens.colors.pageBackground) <= 0.35;
+    const surfaceIsDark = hexLuminance(tokens.colors.surface) <= 0.35;
+
     return {
         // ── Existing pub vars ────────────────────────────────────────────
         "--pub-bg": tokens.colors.pageBackground,
@@ -77,5 +80,24 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         "--pub-btn-radius": btnRadius,
         // --pub-page-background: alias di --pub-bg per PublicBrandHeader
         "--pub-page-background": tokens.colors.pageBackground,
+
+        // ── Contrast-safe text on configurable backgrounds ───────────────────
+        // Text directly on --pub-bg (page background)
+        "--pub-bg-text": contrastText(tokens.colors.pageBackground),
+        "--pub-bg-text-secondary": bgIsDark
+            ? "rgba(255, 255, 255, 0.6)"
+            : tokens.colors.textSecondary,
+        "--pub-bg-text-muted": bgIsDark
+            ? "rgba(255, 255, 255, 0.4)"
+            : `color-mix(in srgb, ${tokens.colors.textSecondary} 60%, transparent)`,
+
+        // Text directly on --pub-surface / --pub-card-bg (content areas, cards, nav bar)
+        "--pub-surface-text": contrastText(tokens.colors.surface),
+        "--pub-surface-text-secondary": surfaceIsDark
+            ? "rgba(255, 255, 255, 0.6)"
+            : tokens.colors.textSecondary,
+        "--pub-surface-text-muted": surfaceIsDark
+            ? "rgba(255, 255, 255, 0.4)"
+            : `color-mix(in srgb, ${tokens.colors.textSecondary} 60%, transparent)`,
     };
 }

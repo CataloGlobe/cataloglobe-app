@@ -83,7 +83,7 @@
   border: none;
   outline: none;
   background: transparent;
-  color: var(--pub-text-secondary);
+  color: var(--pub-surface-text-secondary);
   cursor: pointer;
 
   border-radius: 999px;
@@ -167,7 +167,7 @@
     background: transparent;
     border: none;
     border-bottom: 2px solid transparent;
-    color: var(--pub-text-secondary);
+    color: var(--pub-surface-text-secondary);
 
     &[data-active="true"] {
       background: transparent;
@@ -194,7 +194,7 @@
     border-radius: 4px;
     background: transparent;
     border: none;
-    color: var(--pub-text-secondary);
+    color: var(--pub-surface-text-secondary);
     font-weight: 400;
 
     &[data-active="true"] {
@@ -226,7 +226,7 @@
     border-radius: 4px;
     background: transparent;
     border: none;
-    color: var(--pub-text-secondary);
+    color: var(--pub-surface-text-secondary);
     font-weight: 400;
     padding-bottom: 1.1rem;
 
@@ -263,7 +263,7 @@
   align-items: center;
   /* Nessun overflow:hidden — il dropdown deve uscire dal container */
   border-radius: 999px; /* default pill; override via inline style o varianti */
-  color: var(--pub-text-secondary);
+  color: var(--pub-surface-text-secondary);
   transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 
   &:focus-within {
@@ -457,7 +457,7 @@
 
   /* Nasconde scrollbar su WebKit mantenendo la funzionalità */
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--pub-text) 15%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--pub-surface-text) 15%, transparent) transparent;
 }
 
 .dropdownItem {
@@ -467,7 +467,7 @@
   padding: 0.5rem 0.75rem;
   border: none;
   background: transparent;
-  color: var(--pub-text, #0f172a);
+  color: var(--pub-surface-text, #0f172a);
   font-family: var(--pub-font-family, inherit);
   font-size: 0.875rem;
   line-height: 1.4;
@@ -491,7 +491,7 @@
 .dropdownItemL3 {
   padding-left: calc(0.75rem + 16px);
   font-size: 0.825rem;
-  color: var(--pub-text-secondary, #666);
+  color: var(--pub-surface-text-secondary, #666);
 }
 
 /* Voce attiva nel dropdown (sotto-sezione in viewport) */

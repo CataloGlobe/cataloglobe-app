@@ -27,7 +27,7 @@
   border-radius: 10px;
   border: 1px solid var(--pub-border);
   background: var(--pub-surface);
-  color: var(--pub-text-secondary);
+  color: var(--pub-surface-text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -72,7 +72,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--pub-text-muted);
+  color: var(--pub-bg-text-muted);
   font-family: var(--pub-font-family, sans-serif);
 }
 
@@ -101,18 +101,18 @@
 }
 
 .legalLink {
-  color: var(--pub-text-muted);
+  color: var(--pub-bg-text-muted);
   text-decoration: none;
   transition: color 0.15s ease;
 
   &:hover {
-    color: var(--pub-text-secondary);
+    color: var(--pub-bg-text-secondary);
     text-decoration: underline;
   }
 }
 
 .legalDot {
-  color: var(--pub-text-muted);
+  color: var(--pub-bg-text-muted);
   opacity: 0.45;
   user-select: none;
 }

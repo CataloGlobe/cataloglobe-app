@@ -129,13 +129,13 @@
 
 .breadcrumbText {
   font-size: 0.75rem;
-  color: var(--pub-text-muted, #aaa);
+  color: var(--pub-bg-text-muted, #aaa);
   font-weight: 500;
 }
 
 .breadcrumbSeparator {
   font-size: 0.6875rem;
-  color: var(--pub-text-muted, #ccc);
+  color: var(--pub-bg-text-muted, #ccc);
   margin-left: 2px;
 }
 
@@ -144,7 +144,7 @@
   font-family: var(--pub-font-family, sans-serif);
   font-size: 1.0625rem;
   font-weight: 700;
-  color: var(--pub-text-secondary, #444);
+  color: var(--pub-bg-text-secondary, #444);
   line-height: 1.25;
   margin: 0 0 12px;
 }
@@ -154,7 +154,7 @@
   font-family: var(--pub-font-family, sans-serif);
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #777;
+  color: var(--pub-bg-text-muted, #777);
   line-height: 1.25;
   margin: 0 0 10px;
 }
