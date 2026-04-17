@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { IconClock, IconX, IconPlus } from "@tabler/icons-react";
+import { IconClock, IconX, IconPlus, IconEdit } from "@tabler/icons-react";
 import { Card, Button } from "@/components/ui";
 import Text from "@/components/ui/Text/Text";
 import type { V2ActivityClosure, ClosureSlot } from "@/types/activity-closures";
@@ -132,7 +132,7 @@ export const ActivityClosuresSection: React.FC<ActivityClosuresSectionProps> = (
                                         <span className={styles.closureCardSubtitle}>{buildSubtitle(c)}</span>
                                     </div>
 
-                                    {/* Right: badge + delete */}
+                                    {/* Right: badge + actions */}
                                     <div className={styles.closureCardRight}>
                                         {past ? (
                                             <span className={`${styles.closureBadge} ${styles.closureBadgePast}`}>
@@ -147,6 +147,17 @@ export const ActivityClosuresSection: React.FC<ActivityClosuresSectionProps> = (
                                                 Orario speciale
                                             </span>
                                         )}
+                                        <button
+                                            type="button"
+                                            className={styles.closuresActionBtn}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onEditRequest(c);
+                                            }}
+                                            aria-label="Modifica"
+                                        >
+                                            <IconEdit size={14} />
+                                        </button>
                                         <button
                                             type="button"
                                             className={`${styles.closuresActionBtn} ${styles.closuresActionBtnDanger}`}
