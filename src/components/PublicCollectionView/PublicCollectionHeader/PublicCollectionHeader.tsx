@@ -199,6 +199,17 @@ export default function PublicCollectionHeader({
                                 )}
                             </div>
 
+                            {hasHours && onHoursPress && (
+                                <button
+                                    type="button"
+                                    className={styles.infoCardHoursBtn}
+                                    onClick={onHoursPress}
+                                    aria-label="Orari di apertura"
+                                >
+                                    <Clock size={15} strokeWidth={2} />
+                                </button>
+                            )}
+
                             <LanguageSelector variant="hero" />
 
                             <button
@@ -263,17 +274,6 @@ export default function PublicCollectionHeader({
                                 )}
 
                                 <span className={styles.compactName}>{activityName}</span>
-
-                                {hasHours && onHoursPress && (
-                                    <button
-                                        type="button"
-                                        className={styles.compactHoursBtn}
-                                        onClick={onHoursPress}
-                                        aria-label="Orari di apertura"
-                                    >
-                                        <Clock size={16} strokeWidth={2} />
-                                    </button>
-                                )}
 
                                 <LanguageSelector variant="compact" />
 

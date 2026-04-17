@@ -1171,16 +1171,6 @@ export default function CollectionView({
                                     <div className={styles.previewHdrLogoPlaceholder} />
                                 ))}
                             <span className={styles.previewHdrName}>{businessName}</span>
-                            {hasHours && (
-                                <button
-                                    type="button"
-                                    className={styles.previewHdrHoursBtn}
-                                    onClick={() => setIsHoursSheetOpen(true)}
-                                    aria-label="Orari di apertura"
-                                >
-                                    <Clock size={16} strokeWidth={2} />
-                                </button>
-                            )}
                             <LanguageSelector variant="compact" />
                             <button
                                 type="button"
