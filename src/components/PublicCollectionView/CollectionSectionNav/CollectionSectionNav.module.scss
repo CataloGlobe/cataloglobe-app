@@ -97,7 +97,7 @@
   &[data-active="true"] {
     font-weight: 600;
     background: var(--pub-primary);
-    color: #fff;
+    color: var(--pub-cta-text);
   }
 }
 
@@ -117,7 +117,7 @@
 
     &[data-active="true"] {
       background: var(--pub-primary);
-      color: #fff;
+      color: var(--pub-cta-text);
       border-radius: 4px;
 
       * {
@@ -274,7 +274,7 @@
   &[data-active="true"] {
     font-weight: 600;
     background: var(--pub-primary);
-    color: #fff;
+    color: var(--pub-cta-text);
 
     .pillLabel {
       font-weight: 600;
@@ -291,7 +291,7 @@
 
     .pillLabel,
     .pillChevron {
-      color: #fff;
+      color: var(--pub-cta-text);
     }
   }
 }

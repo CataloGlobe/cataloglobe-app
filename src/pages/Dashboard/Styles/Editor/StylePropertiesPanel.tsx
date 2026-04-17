@@ -1,5 +1,6 @@
 import React from "react";
 import Text from "@/components/ui/Text/Text";
+import { InfoTooltip } from "@components/ui/Tooltip/InfoTooltip";
 import {
     StyleTokenModel,
     NavigationStyle,
@@ -116,13 +117,14 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                 />
                 <StyleColorPicker
                     label="Colore primario"
+                    labelSuffix={<InfoTooltip content="Applicato a: pulsanti attivi, navigazione categorie, prezzi, accenti e indicatori." />}
                     value={model.colors.primary}
                     onChange={val => updateColor("primary", val)}
                 />
 
                 <div className={styles.controlField}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Arrotondamento
+                        Arrotondamento<InfoTooltip content="Controlla la curvatura degli angoli di card prodotti, pulsanti e immagini." />
                     </Text>
                     <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
                         {borderRadiusOptions.map(option => {
@@ -154,25 +156,24 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     Header
                 </Text>
 
-                <StyleColorPicker
-                    label="Colore header"
-                    value={model.colors.headerBackground}
-                    onChange={val => updateColor("headerBackground", val)}
-                />
-
                 {(
                     [
                         { key: "showLogo", label: "Logo" },
-                        { key: "showCoverImage", label: "Immagine copertina" },
+                        {
+                            key: "showCoverImage",
+                            label: "Header espanso",
+                            tooltip: "Mostra l'header grande con immagine di copertina, logo e informazioni. Se disattivato, viene mostrato solo l'header compatto."
+                        },
                         { key: "showCatalogName", label: "Nome catalogo" }
                     ] as Array<{
                         key: "showLogo" | "showCoverImage" | "showCatalogName";
                         label: string;
+                        tooltip?: string;
                     }>
-                ).map(({ key, label }) => (
+                ).map(({ key, label, tooltip }) => (
                     <div key={key} className={`${styles.controlField} ${styles.controlFieldMt8}`}>
                         <Text variant="body" weight={500} className={styles.fieldLabel}>
-                            {label}
+                            {label}{tooltip && <InfoTooltip content={tooltip} />}
                         </Text>
                         <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
                             {(
@@ -397,23 +398,21 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
                 <StyleColorPicker
                     label="Colore testo principale"
+                    labelSuffix={<InfoTooltip content="Colore di nomi prodotti, titoli categorie e testi principali." />}
                     value={model.colors.textPrimary}
                     onChange={val => updateColor("textPrimary", val)}
                 />
                 <StyleColorPicker
                     label="Colore testo secondario"
+                    labelSuffix={<InfoTooltip content="Colore di descrizioni prodotti, dettagli e testi secondari." />}
                     value={model.colors.textSecondary}
                     onChange={val => updateColor("textSecondary", val)}
                 />
                 <StyleColorPicker
                     label="Sfondo contenuti (card / liste)"
+                    labelSuffix={<InfoTooltip content="Sfondo delle card prodotti e delle aree contenuto." />}
                     value={model.colors.surface}
                     onChange={val => updateColor("surface", val)}
-                />
-                <StyleColorPicker
-                    label="Colore bordi"
-                    value={model.colors.border}
-                    onChange={val => updateColor("border", val)}
                 />
             </section>
 

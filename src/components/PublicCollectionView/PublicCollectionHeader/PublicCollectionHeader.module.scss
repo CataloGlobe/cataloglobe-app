@@ -112,6 +112,9 @@
 
 .infoCardChip {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 4px 12px;
   border-radius: 20px;
   font-size: 0.72rem;
@@ -133,14 +136,14 @@
 }
 
 .infoCardChipActive {
-  background: #F59E0B;
-  color: #1C1917;
+  background: var(--pub-accent);
+  color: var(--pub-cta-text);
   border-color: transparent;
   font-weight: 700;
 
   &:hover {
-    background: #FBBF24;
-    color: #1C1917;
+    background: color-mix(in srgb, var(--pub-accent) 85%, white);
+    color: var(--pub-cta-text);
   }
 }
 
@@ -346,6 +349,9 @@
 
 .compactChip {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 4px 12px;
   border-radius: 20px;
   font-size: 0.72rem;

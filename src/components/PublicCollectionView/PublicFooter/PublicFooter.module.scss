@@ -85,7 +85,7 @@
 .brandName {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #6366f1;
+  color: var(--pub-accent);
   font-family: var(--pub-font-family, sans-serif);
   transition: opacity 0.15s ease;
   letter-spacing: -0.01em;

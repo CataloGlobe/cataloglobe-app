@@ -49,7 +49,7 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         // ── Existing pub vars ────────────────────────────────────────────
         "--pub-bg": tokens.colors.pageBackground,
         "--pub-primary": tokens.colors.primary,
-        "--pub-header-bg": tokens.colors.headerBackground,
+        "--pub-header-bg": tokens.colors.primary,
         "--pub-font-family": fontFamily,
         // --pub-card-bg kept for backward compat with existing SCSS modules
         "--pub-card-bg": tokens.colors.surface,
@@ -64,7 +64,7 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         // Derived: muted text at 60% opacity, primary tint at 10%
         "--pub-text-muted": `color-mix(in srgb, ${tokens.colors.textSecondary} 60%, transparent)`,
         "--pub-primary-soft": `color-mix(in srgb, ${tokens.colors.primary} 10%, transparent)`,
-        "--pub-border": tokens.colors.border,
+        "--pub-border": "rgba(0, 0, 0, 0.06)",
 
         // ── FeaturedBlock / CTA vars ─────────────────────────────────────
         // --pub-accent: colore accento testi (es. titolo CTA) → primario brand

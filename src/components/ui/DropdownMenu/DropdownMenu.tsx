@@ -9,6 +9,7 @@ import {
     isValidElement,
     ReactElement
 } from "react";
+import { createPortal } from "react-dom";
 import type { DropdownItemProps } from "./DropdownItem";
 import { motion, AnimatePresence } from "framer-motion";
 import styles from "./DropdownMenu.module.scss";
@@ -21,9 +22,16 @@ interface DropdownMenuProps {
     placement?: DropdownPlacement;
 }
 
+interface MenuPosition {
+    top?: number;
+    bottom?: number;
+    left?: number;
+    right?: number;
+}
+
 export function DropdownMenu({ trigger, children, placement = "bottom-start" }: DropdownMenuProps) {
     const [open, setOpen] = useState(false);
-    const [computedPlacement, setComputedPlacement] = useState<DropdownPlacement>(placement);
+    const [position, setPosition] = useState<MenuPosition>({});
 
     const triggerRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -32,12 +40,11 @@ export function DropdownMenu({ trigger, children, placement = "bottom-start" }: 
     const toggle = () => setOpen(v => !v);
     const close = () => setOpen(false);
 
-    // Close on outside click
+    // Close on outside click + focus first item
     useEffect(() => {
         if (!open) return;
 
         requestAnimationFrame(() => {
-            // Focus on first actual button/item if possible
             const firstButton = itemRefs.current.find(ref => ref);
             firstButton?.focus();
         });
@@ -55,25 +62,31 @@ export function DropdownMenu({ trigger, children, placement = "bottom-start" }: 
         return () => document.removeEventListener("mousedown", handler);
     }, [open]);
 
-    // Auto flip
+    // Calculate fixed position from trigger rect (escapes overflow:hidden parents)
     useEffect(() => {
-        if (!open || !menuRef.current || !triggerRef.current) return;
+        if (!open || !triggerRef.current) return;
 
-        const menuRect = menuRef.current.getBoundingClientRect();
-        const triggerRect = triggerRef.current.getBoundingClientRect();
+        const rect = triggerRef.current.getBoundingClientRect();
+        const APPROX_MENU_HEIGHT = 100;
+        const GAP = 6;
 
-        const spaceBelow = window.innerHeight - triggerRect.bottom;
-        const spaceAbove = triggerRect.top;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const showAbove = placement.startsWith("top") ||
+            (spaceBelow < APPROX_MENU_HEIGHT && rect.top > spaceBelow);
 
-        if (spaceBelow < menuRect.height && spaceAbove > spaceBelow) {
-            setComputedPlacement(prev =>
-                prev.startsWith("bottom")
-                    ? (prev.replace("bottom", "top") as DropdownPlacement)
-                    : prev
-            );
+        const isEndAligned = placement.endsWith("end");
+
+        const pos: MenuPosition = showAbove
+            ? { bottom: window.innerHeight - rect.top + GAP }
+            : { top: rect.bottom + GAP };
+
+        if (isEndAligned) {
+            pos.right = window.innerWidth - rect.right;
         } else {
-            setComputedPlacement(placement);
+            pos.left = rect.left;
         }
+
+        setPosition(pos);
     }, [open, placement]);
 
     function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
@@ -111,43 +124,44 @@ export function DropdownMenu({ trigger, children, placement = "bottom-start" }: 
                 {trigger}
             </div>
 
-            <AnimatePresence>
-                {open && (
-                    <motion.div
-                        ref={menuRef}
-                        role="menu"
-                        tabIndex={-1}
-                        onKeyDown={handleKeyDown}
-                        className={`${styles.menu} ${styles[computedPlacement]}`}
-                        initial="hidden"
-                        animate="visible"
-                        exit="exit"
-                        variants={dropdownVariants}
-                        transition={{ duration: 0.15, ease: "easeOut" }}
-                    >
-                        {Children.map(children, (child, index) => {
-                            if (!isValidElement(child)) return child;
+            {createPortal(
+                <AnimatePresence>
+                    {open && (
+                        <motion.div
+                            ref={menuRef}
+                            role="menu"
+                            tabIndex={-1}
+                            onKeyDown={handleKeyDown}
+                            className={styles.menu}
+                            style={position}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                            variants={dropdownVariants}
+                            transition={{ duration: 0.15, ease: "easeOut" }}
+                        >
+                            {Children.map(children, (child, index) => {
+                                if (!isValidElement(child)) return child;
 
-                            // Solo se il componente accetta itemRef e onSelect (DropdownItem)
-                            // Facciamo un check "alla cieca" o per tipo se possibile
-                            if (
-                                typeof child.type === "function" &&
-                                child.type.name === "DropdownItem"
-                            ) {
-                                return cloneElement(child as ReactElement<any>, {
-                                    itemRef: (el: HTMLButtonElement | null) => {
-                                        if (el) itemRefs.current[index] = el;
-                                    },
-                                    onSelect: close
-                                });
-                            }
+                                if (
+                                    typeof child.type === "function" &&
+                                    child.type.name === "DropdownItem"
+                                ) {
+                                    return cloneElement(child as ReactElement<DropdownItemProps>, {
+                                        itemRef: (el: HTMLButtonElement | null) => {
+                                            if (el) itemRefs.current[index] = el;
+                                        },
+                                        onSelect: close
+                                    });
+                                }
 
-                            // Altrimenti (es: Separator) torniamo il figlio così com'è
-                            return child;
-                        })}
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                                return child;
+                            })}
+                        </motion.div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
         </div>
     );
 }

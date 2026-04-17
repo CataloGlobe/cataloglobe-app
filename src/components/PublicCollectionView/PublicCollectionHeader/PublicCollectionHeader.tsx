@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from "react";
-import { Clock, ImageIcon, Search } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { BookOpen, CalendarDays, Clock, ImageIcon, MessageSquareHeart, Search } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
 
-const HUB_TABS: { id: HubTab; label: string }[] = [
-    { id: "menu", label: "📋 Menu" },
-    { id: "events", label: "🎉 Eventi & Promo" },
-    { id: "reviews", label: "⭐ Dicci la tua" },
+const HUB_TABS: { id: HubTab; icon: ReactNode; label: string }[] = [
+    { id: "menu", icon: <BookOpen size={14} />, label: "Menu" },
+    { id: "events", icon: <CalendarDays size={14} />, label: "Eventi & Promo" },
+    { id: "reviews", icon: <MessageSquareHeart size={14} />, label: "Dicci la tua" },
 ];
 
 export type PublicCollectionHeaderProps = {
@@ -236,7 +236,7 @@ export default function PublicCollectionHeader({
                                     ].filter(Boolean).join(" ")}
                                     onClick={() => onTabChange(t.id)}
                                 >
-                                    {t.label}
+                                    {t.icon} {t.label}
                                 </button>
                             ))}
                         </div>
@@ -298,7 +298,7 @@ export default function PublicCollectionHeader({
                                         ].filter(Boolean).join(" ")}
                                         onClick={() => onTabChange(t.id)}
                                     >
-                                        {t.label}
+                                        {t.icon} {t.label}
                                     </button>
                                 ))}
                             </div>

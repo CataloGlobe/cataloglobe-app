@@ -749,12 +749,12 @@
   border-radius: 12px;
   border: none;
   background: var(--pub-accent, #F59E0B);
-  color: #1C1917;
+  color: var(--pub-cta-text);
   font-size: 1.1rem;
   font-weight: 700;
   font-family: var(--pub-font-family, sans-serif);
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--pub-accent, #F59E0B) 30%, transparent);
   overflow: hidden;
   white-space: nowrap;
   /* Slide-in animation */
@@ -764,7 +764,7 @@
               opacity 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   &:hover {
-    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.45);
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--pub-accent, #F59E0B) 45%, transparent);
   }
 
   &:active {

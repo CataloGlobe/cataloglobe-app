@@ -128,15 +128,6 @@ type ProductRow = {
     hasVariants: boolean; // true for a parent row that has at least one variant link in this category
 };
 
-type AssignRow = {
-    id: string;
-    kind: "parent" | "variant";
-    product: V2Product;
-    variant?: V2Product;
-    hasVariants: boolean;
-    isExpanded: boolean;
-};
-
 type ProductAttributeValueRow = {
     product_id: string;
     attribute_definition_id: string;
@@ -336,9 +327,8 @@ export default function CatalogEngine() {
     const [isDeletingCategory, setIsDeletingCategory] = useState(false);
 
     const [assignProductSearch, setAssignProductSearch] = useState("");
-    type AssignSelection = { parentSelected: boolean; variantIds: Set<string> };
-    const [assignSelection, setAssignSelection] = useState<Map<string, AssignSelection>>(new Map());
-    const [expandedAssignIds, setExpandedAssignIds] = useState<Set<string>>(new Set());
+    const [assignSelectedIds, setAssignSelectedIds] = useState<string[]>([]);
+    const [assignInitialIds, setAssignInitialIds] = useState<Set<string>>(new Set());
     const [expandedProductGroupIds, setExpandedProductGroupIds] = useState<Set<string>>(new Set());
     const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
     const [productGroupMap, setProductGroupMap] = useState<Map<string, string[]>>(new Map());
@@ -491,27 +481,32 @@ export default function CatalogEngine() {
         });
     }, [filteredRows, expandedProductGroupIds]);
 
-    const selectedCategoryAssignedItems = useMemo((): Map<string, { parentAssigned: boolean; assignedVariantIds: Set<string> }> => {
-        const map = new Map<string, { parentAssigned: boolean; assignedVariantIds: Set<string> }>();
+    const inheritedProductIds = useMemo((): Set<string> => {
+        if (!selectedCategoryId) return new Set();
+        const parentMap = new Map(categories.map(c => [c.id, c.parent_category_id]));
+        const ancestors = new Set<string>();
+        let current = parentMap.get(selectedCategoryId);
+        while (current) {
+            ancestors.add(current);
+            current = parentMap.get(current);
+        }
+        if (ancestors.size === 0) return new Set();
+        const inherited = new Set<string>();
         for (const cp of categoryProducts) {
-            if (cp.category_id !== selectedCategoryId) continue;
-            const parentId = cp.product_id;
-            if (!map.has(parentId)) map.set(parentId, { parentAssigned: false, assignedVariantIds: new Set() });
-            const entry = map.get(parentId)!;
-            if (cp.variant_product_id === null) entry.parentAssigned = true;
-            else if (cp.variant_product_id) entry.assignedVariantIds.add(cp.variant_product_id);
+            if (ancestors.has(cp.category_id) && cp.variant_product_id === null) {
+                inherited.add(cp.product_id);
+            }
         }
-        return map;
-    }, [categoryProducts, selectedCategoryId]);
+        return inherited;
+    }, [categories, categoryProducts, selectedCategoryId]);
 
-    const assignSelectionCount = useMemo(() => {
-        let count = 0;
-        for (const sel of assignSelection.values()) {
-            if (sel.parentSelected) count++;
-            count += sel.variantIds.size;
+    const assignHasChanges = useMemo(() => {
+        if (assignSelectedIds.some(id => !assignInitialIds.has(id))) return true;
+        for (const id of assignInitialIds) {
+            if (!assignSelectedIds.includes(id)) return true;
         }
-        return count;
-    }, [assignSelection]);
+        return false;
+    }, [assignSelectedIds, assignInitialIds]);
 
     const assignableProducts = useMemo(() => {
         const normalizedSearch = assignProductSearch.trim().toLowerCase();
@@ -525,27 +520,6 @@ export default function CatalogEngine() {
         });
     }, [allProducts, assignProductSearch, assignGroupId, productGroupMap]);
 
-    const assignRows = useMemo<AssignRow[]>(() => {
-        const rows: AssignRow[] = [];
-        for (const product of assignableProducts) {
-            const hasVariants = (product.variants?.length ?? 0) > 0;
-            const isExpanded = expandedAssignIds.has(product.id);
-            rows.push({ id: `parent_${product.id}`, kind: "parent", product, hasVariants, isExpanded });
-            if (hasVariants && isExpanded) {
-                for (const v of product.variants!) {
-                    rows.push({
-                        id: `variant_${v.id}`,
-                        kind: "variant",
-                        product,
-                        variant: v,
-                        hasVariants: false,
-                        isExpanded: false
-                    });
-                }
-            }
-        }
-        return rows;
-    }, [assignableProducts, expandedAssignIds]);
 
     const getNextSortOrder = useCallback(
         (parentId: string | null) => {
@@ -719,12 +693,23 @@ export default function CatalogEngine() {
     }, [categoriesById, selectedCategoryId, setSelectedCategoryInUrl, tree]);
 
     useEffect(() => {
-        setAssignSelection(new Map());
-        setExpandedAssignIds(new Set());
+        setAssignSelectedIds([]);
+        setAssignInitialIds(new Set());
         setExpandedProductGroupIds(new Set());
         setAssignGroupId(null);
         setAssignProductSearch("");
     }, [selectedCategoryId]);
+
+    // Initialize selection snapshot when the "Esistente" tab drawer opens
+    useEffect(() => {
+        if (!isUnifiedAddProductDrawerOpen || !selectedCategoryId) return;
+        const ids = categoryProducts
+            .filter(cp => cp.category_id === selectedCategoryId && cp.variant_product_id === null)
+            .map(cp => cp.product_id);
+        setAssignInitialIds(new Set(ids));
+        setAssignSelectedIds(ids);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isUnifiedAddProductDrawerOpen]);
 
     const createParentOptions = useMemo(() => {
         const options = [{ value: "", label: "Nessuna (categoria root)" }];
@@ -1046,87 +1031,57 @@ export default function CatalogEngine() {
     );
 
     const handleBulkAssignItems = useCallback(() => {
-        if (!currentTenantId || !catalogId || !selectedCategoryId || assignSelectionCount === 0) return;
+        if (!currentTenantId || !catalogId || !selectedCategoryId) return;
+
+        const currentCategoryLinks = categoryProducts.filter(
+            cp => cp.category_id === selectedCategoryId && cp.variant_product_id === null
+        );
+        const currentProductIds = new Set(currentCategoryLinks.map(cp => cp.product_id));
+        const selectedSet = new Set(assignSelectedIds);
+
+        const toAdd = assignSelectedIds.filter(id => !currentProductIds.has(id));
+        const toRemove = currentCategoryLinks.filter(cp => !selectedSet.has(cp.product_id));
+
+        if (toAdd.length === 0 && toRemove.length === 0) {
+            setIsUnifiedAddProductDrawerOpen(false);
+            return;
+        }
 
         const currentMaxOrder =
-            selectedCategoryLinks.length > 0
-                ? Math.max(...selectedCategoryLinks.map(link => link.sort_order))
+            currentCategoryLinks.length > 0
+                ? Math.max(...currentCategoryLinks.map(l => l.sort_order))
                 : -10;
 
-        let successCount = 0;
-        let failedCount = 0;
-        const newLinks: V2CatalogCategoryProduct[] = [];
-        let workingProducts = [...categoryProducts];
-        let sortIdx = 0;
+        const newLinks: V2CatalogCategoryProduct[] = toAdd.map((productId, i) => ({
+            id: `${LOCAL_LINK_PREFIX}${selectedCategoryId}_${productId}_parent`,
+            tenant_id: currentTenantId,
+            catalog_id: catalogId,
+            category_id: selectedCategoryId,
+            product_id: productId,
+            variant_product_id: null,
+            sort_order: currentMaxOrder + (i + 1) * 10,
+            created_at: new Date().toISOString()
+        }));
 
-        for (const [productId, sel] of assignSelection) {
-            if (sel.parentSelected) {
-                const alreadyAssigned = workingProducts.some(
-                    cp => cp.category_id === selectedCategoryId
-                       && cp.product_id === productId
-                       && cp.variant_product_id === null
-                );
-                if (alreadyAssigned) { failedCount++; }
-                else {
-                    const link: V2CatalogCategoryProduct = {
-                        id: `${LOCAL_LINK_PREFIX}${selectedCategoryId}_${productId}_parent`,
-                        tenant_id: currentTenantId,
-                        catalog_id: catalogId,
-                        category_id: selectedCategoryId,
-                        product_id: productId,
-                        variant_product_id: null,
-                        sort_order: currentMaxOrder + (++sortIdx) * 10,
-                        created_at: new Date().toISOString()
-                    };
-                    newLinks.push(link);
-                    workingProducts = [...workingProducts, link];
-                    successCount++;
-                }
-            }
+        const removeIds = new Set(toRemove.map(cp => cp.id));
 
-            for (const variantId of sel.variantIds) {
-                const alreadyAssigned = workingProducts.some(
-                    cp => cp.category_id === selectedCategoryId
-                       && cp.product_id === productId
-                       && cp.variant_product_id === variantId
-                );
-                if (alreadyAssigned) { failedCount++; continue; }
+        setCategoryProducts(prev => [
+            ...prev.filter(cp => !removeIds.has(cp.id)),
+            ...newLinks
+        ]);
+        setIsDirty(true);
 
-                const link: V2CatalogCategoryProduct = {
-                    id: `${LOCAL_LINK_PREFIX}${selectedCategoryId}_${productId}_${variantId}`,
-                    tenant_id: currentTenantId,
-                    catalog_id: catalogId,
-                    category_id: selectedCategoryId,
-                    product_id: productId,
-                    variant_product_id: variantId,
-                    sort_order: currentMaxOrder + (++sortIdx) * 10,
-                    created_at: new Date().toISOString()
-                };
-                newLinks.push(link);
-                workingProducts = [...workingProducts, link];
-                successCount++;
-            }
-        }
+        const msgs: string[] = [];
+        if (toAdd.length > 0) msgs.push(`${toAdd.length} ${toAdd.length === 1 ? "prodotto associato" : "prodotti associati"}`);
+        if (toRemove.length > 0) msgs.push(`${toRemove.length} ${toRemove.length === 1 ? "rimosso" : "rimossi"}`);
+        showToast({ message: msgs.join(", ") + ".", type: "success" });
 
-        if (successCount > 0) {
-            setCategoryProducts(prev => [...prev, ...newLinks]);
-            setIsDirty(true);
-            showToast({
-                message: failedCount === 0
-                    ? `${successCount} elementi associati con successo.`
-                    : `${successCount} associati, ${failedCount} non associati (già presenti).`,
-                type: failedCount === 0 ? "success" : "info"
-            });
-        } else {
-            showToast({ message: "Impossibile associare gli elementi selezionati.", type: "error" });
-        }
-
-        setAssignSelection(new Map());
-        setExpandedAssignIds(new Set());
+        setAssignSelectedIds([]);
+        setAssignInitialIds(new Set());
         setIsUnifiedAddProductDrawerOpen(false);
     }, [
-        assignSelection, assignSelectionCount, catalogId, categoryProducts,
-        currentTenantId, selectedCategoryId, selectedCategoryLinks, showToast
+        assignSelectedIds, catalogId, categoryProducts,
+        currentTenantId, selectedCategoryId, showToast
     ]);
 
     const handleProductCreated = useCallback(
@@ -1389,21 +1344,74 @@ export default function CatalogEngine() {
         [expandedProductGroupIds]
     );
 
-    const assignableColumns = useMemo<ColumnDefinition<V2Product>[]>(
-        () => [
+    const assignColumns = useMemo<ColumnDefinition<V2Product>[]>(() => {
+        const selectableIds = assignableProducts
+            .filter(p => !inheritedProductIds.has(p.id))
+            .map(p => p.id);
+        const allSelected =
+            selectableIds.length > 0 && selectableIds.every(id => assignSelectedIds.includes(id));
+        const someSelected =
+            !allSelected && selectableIds.some(id => assignSelectedIds.includes(id));
+
+        return [
+            {
+                id: "select",
+                header: (
+                    <input
+                        type="checkbox"
+                        checked={allSelected}
+                        ref={(el: HTMLInputElement | null) => {
+                            if (el) el.indeterminate = someSelected;
+                        }}
+                        onChange={e => {
+                            if (e.target.checked) {
+                                setAssignSelectedIds(prev => {
+                                    const next = new Set(prev);
+                                    selectableIds.forEach(id => next.add(id));
+                                    return Array.from(next);
+                                });
+                            } else {
+                                setAssignSelectedIds(prev =>
+                                    prev.filter(id => !selectableIds.includes(id))
+                                );
+                            }
+                        }}
+                        aria-label="Seleziona tutti"
+                    />
+                ),
+                width: "48px",
+                cell: (_value, row) => {
+                    const isInherited = inheritedProductIds.has(row.id);
+                    const isSelected = isInherited || assignSelectedIds.includes(row.id);
+                    return (
+                        <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={isInherited}
+                            onChange={e => {
+                                setAssignSelectedIds(prev =>
+                                    e.target.checked
+                                        ? prev.includes(row.id) ? prev : [...prev, row.id]
+                                        : prev.filter(id => id !== row.id)
+                                );
+                            }}
+                            aria-label="Seleziona"
+                        />
+                    );
+                }
+            },
             {
                 id: "name",
                 header: "Prodotto",
                 accessor: row => row.name,
-                width: "2fr",
                 cell: (value, row) => (
-                    <div className={styles.assignMeta}>
+                    <div className={styles.productNameCell}>
                         <Text variant="body-sm" weight={600}>
                             {String(value)}
                         </Text>
-                        {row.parent_product_id && (
+                        {inheritedProductIds.has(row.id) && (
                             <Text variant="caption" colorVariant="muted">
-                                Variante
+                                Ereditato dalla categoria padre
                             </Text>
                         )}
                     </div>
@@ -1413,20 +1421,31 @@ export default function CatalogEngine() {
                 id: "price",
                 header: "Prezzo",
                 accessor: row => row.id,
-                width: "130px",
+                width: "120px",
                 align: "right",
                 cell: (_value, row) => (
                     <Text variant="body-sm" colorVariant="muted">
                         {getDisplayPrice({
-                            base_price: (formatsCountByProductId[row.id] ?? 0) === 1 ? (formatPriceByProductId[row.id] ?? null) : row.base_price,
-                            from_price: (formatsCountByProductId[row.id] ?? 0) > 1 ? (formatPriceByProductId[row.id] ?? null) : null
+                            base_price:
+                                (formatsCountByProductId[row.id] ?? 0) === 1
+                                    ? (formatPriceByProductId[row.id] ?? null)
+                                    : row.base_price,
+                            from_price:
+                                (formatsCountByProductId[row.id] ?? 0) > 1
+                                    ? (formatPriceByProductId[row.id] ?? null)
+                                    : null
                         }).label}
                     </Text>
                 )
             }
-        ],
-        [formatPriceByProductId, formatsCountByProductId]
-    );
+        ];
+    }, [
+        assignableProducts,
+        inheritedProductIds,
+        assignSelectedIds,
+        formatPriceByProductId,
+        formatsCountByProductId
+    ]);
 
     const renderRightPane = () => {
         if (!selectedCategory) {
@@ -1704,8 +1723,8 @@ export default function CatalogEngine() {
                 open={isUnifiedAddProductDrawerOpen}
                 onClose={() => {
                     setIsUnifiedAddProductDrawerOpen(false);
-                    setAssignSelection(new Map());
-                    setExpandedAssignIds(new Set());
+                    setAssignSelectedIds([]);
+                    setAssignInitialIds(new Set());
                     setAssignGroupId(null);
                     setAssignProductSearch("");
                 }}
@@ -1752,9 +1771,9 @@ export default function CatalogEngine() {
                                 <Button
                                     variant="primary"
                                     onClick={handleBulkAssignItems}
-                                    disabled={assignSelectionCount === 0}
+                                    disabled={!assignHasChanges}
                                 >
-                                    Associa selezionati ({assignSelectionCount})
+                                    Associa selezionati ({assignSelectedIds.length})
                                 </Button>
                             ) : (
                                 <SplitButton
@@ -1807,104 +1826,22 @@ export default function CatalogEngine() {
                             </div>
 
                             <div className={styles.assignTableWrap}>
-                                {assignableProducts.length === 0 ? (
-                                    <Text variant="body-sm" colorVariant="muted" style={{ padding: "16px 0" }}>
-                                        Nessun prodotto disponibile da associare.
-                                    </Text>
-                                ) : (
-                                    <div>
-                                        {assignRows.map(row => {
-                                            const sel = assignSelection.get(row.product.id);
-                                            const assigned = selectedCategoryAssignedItems.get(row.product.id);
-
-                                            if (row.kind === "parent") {
-                                                const parentChecked = sel?.parentSelected ?? false;
-                                                const parentAssigned = assigned?.parentAssigned ?? false;
-                                                return (
-                                                    <div key={row.id} className={styles.assignTableRow}>
-                                                        <span className={styles.assignCheckCell}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={parentChecked || parentAssigned}
-                                                                disabled={parentAssigned}
-                                                                onChange={e => {
-                                                                    setAssignSelection(prev => {
-                                                                        const next = new Map(prev);
-                                                                        const cur = next.get(row.product.id) ?? { parentSelected: false, variantIds: new Set() };
-                                                                        const newParentSelected = e.target.checked;
-                                                                        const newVariantIds = new Set(cur.variantIds);
-                                                                        if (newParentSelected && row.hasVariants) {
-                                                                            for (const v of row.product.variants!) {
-                                                                                if (!(assigned?.assignedVariantIds.has(v.id) ?? false)) {
-                                                                                    newVariantIds.add(v.id);
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                        next.set(row.product.id, { parentSelected: newParentSelected, variantIds: newVariantIds });
-                                                                        return next;
-                                                                    });
-                                                                }}
-                                                            />
-                                                        </span>
-                                                        {row.hasVariants ? (
-                                                            <button
-                                                                type="button"
-                                                                className={styles.assignExpandBtn}
-                                                                onClick={() => setExpandedAssignIds(prev => {
-                                                                    const next = new Set(prev);
-                                                                    if (next.has(row.product.id)) next.delete(row.product.id);
-                                                                    else next.add(row.product.id);
-                                                                    return next;
-                                                                })}
-                                                            >
-                                                                {row.isExpanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-                                                            </button>
-                                                        ) : (
-                                                            <span className={styles.assignExpandSpacer} />
-                                                        )}
-                                                        <span className={styles.assignNameCell}>{row.product.name}</span>
-                                                        <span className={styles.assignPriceCell}>{getDisplayPrice({
-                                                            base_price: (formatsCountByProductId[row.product.id] ?? 0) === 1 ? (formatPriceByProductId[row.product.id] ?? null) : row.product.base_price,
-                                                            from_price: (formatsCountByProductId[row.product.id] ?? 0) > 1 ? (formatPriceByProductId[row.product.id] ?? null) : null
-                                                        }).label}</span>
-                                                    </div>
-                                                );
-                                            }
-
-                                            // variant row
-                                            const v = row.variant!;
-                                            const varChecked = sel?.variantIds.has(v.id) ?? false;
-                                            const varAssigned = assigned?.assignedVariantIds.has(v.id) ?? false;
-                                            return (
-                                                <div key={row.id} className={`${styles.assignTableRow} ${styles.assignTableRowVariant}`}>
-                                                    <span className={styles.assignCheckCell}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={varChecked || varAssigned}
-                                                            disabled={varAssigned}
-                                                            onChange={e => {
-                                                                setAssignSelection(prev => {
-                                                                    const next = new Map(prev);
-                                                                    const cur = next.get(row.product.id) ?? { parentSelected: false, variantIds: new Set() };
-                                                                    const newIds = new Set(cur.variantIds);
-                                                                    if (e.target.checked) newIds.add(v.id);
-                                                                    else newIds.delete(v.id);
-                                                                    next.set(row.product.id, { parentSelected: cur.parentSelected, variantIds: newIds });
-                                                                    return next;
-                                                                });
-                                                            }}
-                                                        />
-                                                    </span>
-                                                    <span className={styles.assignNameCell}>{v.name}</span>
-                                                    <span className={styles.assignPriceCell}>{getDisplayPrice({
-                                                        base_price: (formatsCountByProductId[v.id] ?? 0) === 1 ? (formatPriceByProductId[v.id] ?? null) : v.base_price,
-                                                        from_price: (formatsCountByProductId[v.id] ?? 0) > 1 ? (formatPriceByProductId[v.id] ?? null) : null
-                                                    }).label}</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+                                <DataTable<V2Product>
+                                    data={assignableProducts}
+                                    columns={assignColumns}
+                                    emptyState={
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Nessun prodotto disponibile da associare.
+                                        </Text>
+                                    }
+                                    rowsPerPage={8}
+                                    rowClassName={row =>
+                                        inheritedProductIds.has(row.id)
+                                            ? styles.assignRowInherited
+                                            : undefined
+                                    }
+                                    showSelectionBar={false}
+                                />
                             </div>
                         </div>
                     ) : (

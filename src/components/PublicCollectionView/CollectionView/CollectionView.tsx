@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Clock, Info, Package, Plus, Search } from "lucide-react";
+import { Clock, Info, MessageSquareHeart, Package, Plus, Search } from "lucide-react";
 import type {
     ResolvedAllergen,
     ResolvedIngredient,
@@ -1362,7 +1362,11 @@ export default function CollectionView({
                 </>
             )}
 
-            {activeTab === "events" && <EventsView featuredContents={featuredContents} />}
+            {activeTab === "events" && (
+                <div className={styles.frame}>
+                    <EventsView featuredContents={featuredContents} />
+                </div>
+            )}
 
             {activeTab === "reviews" && reviewsProps && <ReviewsView {...reviewsProps} />}
 
@@ -1411,7 +1415,7 @@ export default function CollectionView({
                     }}
                     aria-label="Com'è andata?"
                 >
-                    ⭐<span className={styles.valutaFabText}>Com'è andata?</span>
+                    <MessageSquareHeart size={20} /><span className={styles.valutaFabText}>{"Com'è andata?"}</span>
                 </button>
             )}
         </main>
