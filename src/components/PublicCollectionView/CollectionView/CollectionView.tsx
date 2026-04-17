@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Info, Package, Plus, Search } from "lucide-react";
+import { Clock, Info, Package, Plus, Search } from "lucide-react";
 import type {
     ResolvedAllergen,
     ResolvedIngredient,
@@ -27,6 +27,8 @@ import ReviewsView, { type ReviewsViewProps } from "../ReviewsView/ReviewsView";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
+import PublicSheet from "../PublicSheet/PublicSheet";
+import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
 
 type SectionNavItem = {
     id: string;
@@ -483,6 +485,10 @@ export default function CollectionView({
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const handleOpenSearch = useCallback(() => setIsSearchOpen(true), []);
     const handleCloseSearch = useCallback(() => setIsSearchOpen(false), []);
+
+    // ── Hours sheet ─────────────────────────────────────────────────────────
+    const [isHoursSheetOpen, setIsHoursSheetOpen] = useState(false);
+    const hasHours = (openingHours?.length ?? 0) > 0;
 
     // ── Selezione prodotti ──────────────────────────────────────────────────
     const selectionStorageKey = activityId ? `catalogobe-selection-${activityId}` : null;
@@ -1130,6 +1136,8 @@ export default function CollectionView({
                     scrollContainerEl={scrollContainerEl}
                     activeTab={activeTab}
                     onTabChange={onTabChange ?? (() => {})}
+                    hasHours={hasHours}
+                    onHoursPress={() => setIsHoursSheetOpen(true)}
                 />
             )}
 
@@ -1163,6 +1171,16 @@ export default function CollectionView({
                                     <div className={styles.previewHdrLogoPlaceholder} />
                                 ))}
                             <span className={styles.previewHdrName}>{businessName}</span>
+                            {hasHours && (
+                                <button
+                                    type="button"
+                                    className={styles.previewHdrHoursBtn}
+                                    onClick={() => setIsHoursSheetOpen(true)}
+                                    aria-label="Orari di apertura"
+                                >
+                                    <Clock size={16} strokeWidth={2} />
+                                </button>
+                            )}
                             <LanguageSelector variant="compact" />
                             <button
                                 type="button"
@@ -1186,6 +1204,24 @@ export default function CollectionView({
                 mode={mode}
                 activityId={activityId}
             />
+
+            {/* ── HOURS SHEET ── */}
+            {hasHours && (
+                <PublicSheet
+                    isOpen={isHoursSheetOpen}
+                    onClose={() => setIsHoursSheetOpen(false)}
+                    ariaLabel="Orari di apertura"
+                >
+                    <div className={styles.hoursSheetContent}>
+                        <h2 className={styles.hoursSheetTitle}>Orari di apertura</h2>
+                        <PublicOpeningHours
+                            openingHours={openingHours ?? []}
+                            upcomingClosures={upcomingClosures}
+                            showHeading={false}
+                        />
+                    </div>
+                </PublicSheet>
+            )}
 
             {/* Spacer in-flow che compensa il compact header fixed (solo public).
                 Usa CSS transition per evitare layout jump durante l'animazione slide-in. */}

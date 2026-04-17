@@ -20,6 +20,7 @@ export type UpcomingClosure = {
 type Props = {
     openingHours: OpeningHoursEntry[];
     upcomingClosures?: UpcomingClosure[];
+    showHeading?: boolean;
 };
 
 const DAY_NAMES = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
@@ -41,7 +42,7 @@ function formatClosureDateLabel(c: UpcomingClosure): string {
     return formatShort(c.closure_date);
 }
 
-export default function PublicOpeningHours({ openingHours, upcomingClosures }: Props) {
+export default function PublicOpeningHours({ openingHours, upcomingClosures, showHeading = true }: Props) {
     const byDay = new Map<number, OpeningHoursEntry[]>();
     for (const entry of openingHours) {
         const list = byDay.get(entry.day_of_week) ?? [];
@@ -51,7 +52,9 @@ export default function PublicOpeningHours({ openingHours, upcomingClosures }: P
 
     return (
         <div className={styles.hoursSection}>
-            <h3 className={styles.hoursTitle}>Orari</h3>
+            {showHeading !== false && (
+                <h3 className={styles.hoursTitle}>Orari di apertura</h3>
+            )}
             <dl className={styles.hoursList}>
                 {DAY_NAMES.map((name, i) => {
                     const slots = byDay.get(i) ?? [];
