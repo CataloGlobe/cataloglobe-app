@@ -9,9 +9,15 @@ import { useToast } from "@/context/Toast/ToastContext";
 import type { V2ActivityClosure } from "@/types/activity-closures";
 import styles from "./HoursServices.module.scss";
 
-function formatDateIT(dateStr: string): string {
-    const d = new Date(dateStr + "T12:00:00");
-    return d.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
+function formatClosureTitle(c: V2ActivityClosure): string {
+    const d = new Date(c.closure_date + "T12:00:00");
+    const dateStr = d.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
+    if (c.end_date) {
+        const e = new Date(c.end_date + "T12:00:00");
+        const endStr = e.toLocaleDateString("it-IT", { day: "numeric", month: "long" });
+        return `${dateStr} – ${endStr}`;
+    }
+    return dateStr;
 }
 
 type Props = {
@@ -84,7 +90,7 @@ export function ActivityClosureDeleteDrawer({
                         />
                         <div className={styles.closureDeleteText}>
                             <Text variant="body-sm" weight={600}>
-                                {formatDateIT(closure.closure_date)}
+                                {formatClosureTitle(closure)}
                                 {closure.label ? ` — ${closure.label}` : ""}
                             </Text>
                             <Text variant="body-sm" colorVariant="muted">
