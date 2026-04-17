@@ -1,4 +1,4 @@
-// ⚠️ SYNC: questo file è duplicato. L'altra copia è in supabase/functions/_shared/scheduleResolver.ts.
+// ⚠️ SYNC: questo file è duplicato. L'altra copia è in src/services/supabase/scheduleResolver.ts.
 // Qualsiasi modifica va replicata in ENTRAMBI i file.
 
 export type VisibilityMode = "hide" | "disable";
@@ -100,6 +100,7 @@ type SupabaseLike = {
 export type ResolveRulesForActivityParams = {
     supabase: SupabaseLike;
     activityId: string;
+    tenantId: string;
     now: RomeDateTime;
     includeLayoutStyle?: boolean;
     ruleTypes?: RuleType[];
@@ -254,13 +255,15 @@ export function isTimeRuleActiveNow(
 async function listCandidateRuleRowsForActivity(
     supabase: SupabaseLike,
     ruleType: RuleType,
-    activityId: string
+    activityId: string,
+    tenantId: string
 ): Promise<CandidateInfo> {
     const [groupMembersRes, activityRulesRes] = await Promise.all([
         supabase.from("activity_group_members").select("group_id").eq("activity_id", activityId),
         supabase
             .from("schedules")
             .select(TIME_RULE_SELECT)
+            .eq("tenant_id", tenantId)
             .eq("rule_type", ruleType)
             .eq("enabled", true)
             .eq("target_type", "activity")
@@ -281,6 +284,7 @@ async function listCandidateRuleRowsForActivity(
         const groupRulesRes = await supabase
             .from("schedules")
             .select(TIME_RULE_SELECT)
+            .eq("tenant_id", tenantId)
             .eq("rule_type", ruleType)
             .eq("enabled", true)
             .eq("target_type", "activity_group")
@@ -293,6 +297,7 @@ async function listCandidateRuleRowsForActivity(
     const applyAllRes = await supabase
         .from("schedules")
         .select(TIME_RULE_SELECT)
+        .eq("tenant_id", tenantId)
         .eq("rule_type", ruleType)
         .eq("enabled", true)
         .eq("apply_to_all", true);
@@ -349,6 +354,7 @@ async function listCandidateRuleRowsForActivity(
         const targetedRes = await supabase
             .from("schedules")
             .select(TIME_RULE_SELECT)
+            .eq("tenant_id", tenantId)
             .eq("rule_type", ruleType)
             .eq("enabled", true)
             .in("id", Array.from(targetedSpecificityById.keys()));
@@ -410,11 +416,13 @@ function getRuleSpecificity(
 
 async function getVisibilityModeForSchedule(
     supabase: SupabaseLike,
-    scheduleId: string
+    scheduleId: string,
+    tenantId: string
 ): Promise<VisibilityMode> {
     const { data, error } = await supabase
         .from("schedules")
         .select("visibility_mode")
+        .eq("tenant_id", tenantId)
         .eq("id", scheduleId)
         .maybeSingle();
 
@@ -474,6 +482,7 @@ export async function resolveRulesForActivity(
     const {
         supabase,
         activityId,
+        tenantId,
         now,
         includeLayoutStyle = false,
         ruleTypes
@@ -488,16 +497,16 @@ export async function resolveRulesForActivity(
     };
     const [layoutCandidates, priceCandidates, visibilityCandidates, featuredCandidates] = await Promise.all([
         requestedTypes.has("layout")
-            ? listCandidateRuleRowsForActivity(supabase, "layout", activityId)
+            ? listCandidateRuleRowsForActivity(supabase, "layout", activityId, tenantId)
             : Promise.resolve(emptyCandidates),
         requestedTypes.has("price")
-            ? listCandidateRuleRowsForActivity(supabase, "price", activityId)
+            ? listCandidateRuleRowsForActivity(supabase, "price", activityId, tenantId)
             : Promise.resolve(emptyCandidates),
         requestedTypes.has("visibility")
-            ? listCandidateRuleRowsForActivity(supabase, "visibility", activityId)
+            ? listCandidateRuleRowsForActivity(supabase, "visibility", activityId, tenantId)
             : Promise.resolve(emptyCandidates),
         requestedTypes.has("featured")
-            ? listCandidateRuleRowsForActivity(supabase, "featured", activityId)
+            ? listCandidateRuleRowsForActivity(supabase, "featured", activityId, tenantId)
             : Promise.resolve(emptyCandidates)
     ]);
 
@@ -507,6 +516,7 @@ export async function resolveRulesForActivity(
         const layoutRes = await supabase
             .from("schedules")
             .select(buildLayoutSelect(includeLayoutStyle))
+            .eq("tenant_id", tenantId)
             .in("id", layoutCandidateIds);
         if (layoutRes.error) throw layoutRes.error;
         layoutRows = orderRowsByCandidateIds(
@@ -534,7 +544,7 @@ export async function resolveRulesForActivity(
     const visibilityRule = selectedVisibilityRule
         ? {
               scheduleId: selectedVisibilityRule.id,
-              mode: await getVisibilityModeForSchedule(supabase, selectedVisibilityRule.id)
+              mode: await getVisibilityModeForSchedule(supabase, selectedVisibilityRule.id, tenantId)
           }
         : null;
 

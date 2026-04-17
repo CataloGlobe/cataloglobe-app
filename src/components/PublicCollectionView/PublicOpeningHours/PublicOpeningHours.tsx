@@ -98,7 +98,7 @@ export default function PublicOpeningHours({ openingHours, upcomingClosures }: P
                                     ) : (
                                         c.slots?.map((slot, i) => (
                                             <span key={i} className={styles.closureStatus}>
-                                                {slot.opens_at} – {slot.closes_at}
+                                                {slot.start_time} – {slot.end_time}
                                             </span>
                                         ))
                                     )}

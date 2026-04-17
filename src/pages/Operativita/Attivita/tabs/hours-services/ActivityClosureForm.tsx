@@ -16,36 +16,36 @@ function timesToMinutes(t: string): number {
 }
 
 function slotsOverlap(a: ClosureSlot, b: ClosureSlot): boolean {
-    const aS = timesToMinutes(a.opens_at), aE = timesToMinutes(a.closes_at);
-    const bS = timesToMinutes(b.opens_at), bE = timesToMinutes(b.closes_at);
+    const aS = timesToMinutes(a.start_time), aE = timesToMinutes(a.end_time);
+    const bS = timesToMinutes(b.start_time), bE = timesToMinutes(b.end_time);
     return aS < bE && bS < aE;
 }
 
-type SlotDraft = { opens_at: string | null; closes_at: string | null };
+type SlotDraft = { start_time: string | null; end_time: string | null };
 type SlotError = { index: number; message: string };
 
 function validateSlots(slots: SlotDraft[]): SlotError[] {
     const errors: SlotError[] = [];
     for (let i = 0; i < slots.length; i++) {
         const s = slots[i];
-        const hasOpen = !!s.opens_at;
-        const hasClose = !!s.closes_at;
+        const hasOpen = !!s.start_time;
+        const hasClose = !!s.end_time;
         if (!hasOpen || !hasClose) {
             if (hasOpen || hasClose) {
                 errors.push({ index: i, message: "Inserisci entrambi gli orari." });
             }
             continue;
         }
-        if (timesToMinutes(s.closes_at!) <= timesToMinutes(s.opens_at!)) {
+        if (timesToMinutes(s.end_time!) <= timesToMinutes(s.start_time!)) {
             errors.push({ index: i, message: "L'orario di chiusura deve essere successivo all'apertura." });
             continue;
         }
         for (let j = i + 1; j < slots.length; j++) {
             const b = slots[j];
-            if (b.opens_at && b.closes_at &&
+            if (b.start_time && b.end_time &&
                 slotsOverlap(
-                    { opens_at: s.opens_at!, closes_at: s.closes_at! },
-                    { opens_at: b.opens_at, closes_at: b.closes_at }
+                    { start_time: s.start_time!, end_time: s.end_time! },
+                    { start_time: b.start_time, end_time: b.end_time }
                 )
             ) {
                 errors.push({ index: i, message: "Le fasce orarie si sovrappongono." });
@@ -83,8 +83,8 @@ export const ActivityClosureForm: React.FC<ActivityClosureFormProps> = ({
     const [isClosed, setIsClosed] = useState(entityData?.is_closed ?? true);
     const [slots, setSlots] = useState<SlotDraft[]>(
         entityData?.slots
-            ? entityData.slots.map(s => ({ opens_at: s.opens_at, closes_at: s.closes_at }))
-            : [{ opens_at: null, closes_at: null }]
+            ? entityData.slots.map(s => ({ start_time: s.start_time, end_time: s.end_time }))
+            : [{ start_time: null, end_time: null }]
     );
 
     const [dateError, setDateError] = useState<string>();
@@ -104,7 +104,7 @@ export const ActivityClosureForm: React.FC<ActivityClosureFormProps> = ({
     const handleIsClosedChange = useCallback((checked: boolean) => {
         setIsClosed(checked);
         if (!checked && slots.length === 0) {
-            setSlots([{ opens_at: null, closes_at: null }]);
+            setSlots([{ start_time: null, end_time: null }]);
         }
     }, [slots.length]);
 
@@ -113,14 +113,14 @@ export const ActivityClosureForm: React.FC<ActivityClosureFormProps> = ({
     }, []);
 
     const addSlot = useCallback(() => {
-        setSlots(prev => prev.length < MAX_SLOTS ? [...prev, { opens_at: null, closes_at: null }] : prev);
+        setSlots(prev => prev.length < MAX_SLOTS ? [...prev, { start_time: null, end_time: null }] : prev);
     }, []);
 
     const removeSlot = useCallback((i: number) => {
         setSlots(prev => {
             if (prev.length <= 1) {
                 setIsClosed(true);
-                return [{ opens_at: null, closes_at: null }];
+                return [{ start_time: null, end_time: null }];
             }
             return prev.filter((_, idx) => idx !== i);
         });
@@ -155,8 +155,8 @@ export const ActivityClosureForm: React.FC<ActivityClosureFormProps> = ({
                 slots: isClosed
                     ? null
                     : slots
-                          .filter(s => s.opens_at && s.closes_at)
-                          .map(s => ({ opens_at: s.opens_at!, closes_at: s.closes_at! })),
+                          .filter(s => s.start_time && s.end_time)
+                          .map(s => ({ start_time: s.start_time!, end_time: s.end_time! })),
             };
             if (mode === "create") {
                 await createActivityClosure(tenantId, { ...payload, activity_id: activityId });
@@ -273,14 +273,14 @@ export const ActivityClosureForm: React.FC<ActivityClosureFormProps> = ({
                                     <div key={i} className={styles.slotRow}>
                                         <div className={styles.slotInputs}>
                                             <TimeInput
-                                                value={slot.opens_at ?? ""}
-                                                onChange={e => updateSlot(i, { opens_at: e.target.value || null })}
+                                                value={slot.start_time ?? ""}
+                                                onChange={e => updateSlot(i, { start_time: e.target.value || null })}
                                                 aria-label={`Fascia ${i + 1} apertura`}
                                             />
                                             <span className={styles.slotSeparator}>–</span>
                                             <TimeInput
-                                                value={slot.closes_at ?? ""}
-                                                onChange={e => updateSlot(i, { closes_at: e.target.value || null })}
+                                                value={slot.end_time ?? ""}
+                                                onChange={e => updateSlot(i, { end_time: e.target.value || null })}
                                                 aria-label={`Fascia ${i + 1} chiusura`}
                                             />
                                             <button

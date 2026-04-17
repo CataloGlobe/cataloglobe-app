@@ -1,6 +1,6 @@
 export interface ClosureSlot {
-    opens_at: string; // "HH:MM"
-    closes_at: string; // "HH:MM"
+    start_time: string; // "HH:MM"
+    end_time: string; // "HH:MM"
 }
 
 export interface V2ActivityClosure {

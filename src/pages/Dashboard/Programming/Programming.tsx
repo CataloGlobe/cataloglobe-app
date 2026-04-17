@@ -727,6 +727,7 @@ export default function Programming() {
             const result = await resolveRulesForActivity({
                 supabase,
                 activityId: simActivityId,
+                tenantId: currentTenantId!,
                 now: toRomeDateTime(selectedDate),
                 includeLayoutStyle: true
             });
@@ -780,6 +781,7 @@ export default function Programming() {
                 const result = await resolveRulesForActivity({
                     supabase,
                     activityId: simActivityId,
+                    tenantId: currentTenantId!,
                     now: toRomeDateTime(slotTime),
                     includeLayoutStyle: false
                 });

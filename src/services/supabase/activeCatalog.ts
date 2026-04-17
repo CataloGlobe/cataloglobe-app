@@ -108,17 +108,18 @@ export async function getActiveCatalogForActivities(
  * This reflects the final deterministic state (Schedule + Activity Overrides).
  */
 export async function getRenderableCatalogForActivity(
-    activityId: string
+    activityId: string,
+    tenantId: string
 ): Promise<RenderableCatalog> {
     const now = getNowInRome();
-    const { catalogId } = await findLayoutCatalogId(activityId, now);
+    const { catalogId } = await findLayoutCatalogId(activityId, now, tenantId);
 
     if (!catalogId) {
         return { catalogId: null, catalogName: null, products: [] };
     }
 
     const [catalog, overrides] = await Promise.all([
-        loadCatalogById(catalogId),
+        loadCatalogById(catalogId, tenantId),
         getActivityProductOverrides(activityId)
     ]);
 

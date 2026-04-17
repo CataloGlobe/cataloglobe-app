@@ -234,6 +234,7 @@ Due tipi di regola sullo stesso modello `schedules`:
 **Tabelle principali** (selezionate):
 - `tenants` — aziende/brand
 - `activities` — sedi (slug, status, inactive_reason, cover_image, contatti, social)
+- `activity_slug_aliases` — alias slug storici per redirect (slug UNIQUE globale, ON DELETE CASCADE da activities)
 - `schedules` — regole scheduling (rule_type: "catalog" | "featured")
 - `schedule_targets` — target N:N (no RLS — security gap noto)
 - `schedule_featured_contents` — contenuti in evidenza per slot
@@ -247,6 +248,8 @@ Due tipi di regola sullo stesso modello `schedules`:
 
 **Schema facts critici**:
 - `v2_activity_schedules` — ELIMINATA (migration `20260302130000`). Non referenziare mai.
+- `activities.slug` — UNIQUE globale (non per tenant), constraint `activities_slug_unique`. CHECK formato: `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$` + no `--`. Reserved slugs enforced a DB level via `is_reserved_slug()` (migration `20260416140000`).
+- `activity_slug_aliases` — NO policy UPDATE (alias si eliminano, non si modificano). Lookup pubblico via `service_role` nella Edge Function `resolve-public-catalog`.
 - `schedule_targets` — NO `tenant_id`, NO RLS (gap noto, non correggere senza richiesta)
 - `product_attribute_definitions.tenant_id` — NULLABLE (attributi piattaforma usano NULL)
 - `schedule_featured_contents.slot` — constraint CHECK a 2 valori: `before_catalog`, `after_catalog` (migration `20260414190000`, hero rimosso)
@@ -261,7 +264,7 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 
 | Funzione | Abilitata | Scopo |
 |----------|-----------|-------|
-| `resolve-public-catalog` | ✅ | Risolve catalogo pubblico per slug (pagina pubblica) |
+| `resolve-public-catalog` | ✅ | Risolve catalogo pubblico per slug (pagina pubblica); fallback su `activity_slug_aliases` se slug non trovato → risponde con `canonical_slug` per redirect lato client |
 | `send-otp` / `status-otp` / `verify-otp` | ✅ | OTP auth flow |
 | `delete-account` / `recover-account` / `purge-accounts` | ✅ | Gestione account utente |
 | `delete-tenant` / `purge-tenants` / `restore-tenant` / `purge-tenant-now` | ✅ | Lifecycle tenant |

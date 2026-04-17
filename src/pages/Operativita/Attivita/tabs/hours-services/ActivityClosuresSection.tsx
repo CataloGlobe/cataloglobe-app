@@ -32,7 +32,7 @@ function formatDateShort(dateStr: string): string {
 }
 
 function formatSlots(slots: ClosureSlot[]): string {
-    return slots.map(s => `${s.opens_at} – ${s.closes_at}`).join(", ");
+    return slots.map(s => `${s.start_time} – ${s.end_time}`).join(", ");
 }
 
 function buildSubtitle(c: V2ActivityClosure): string {
