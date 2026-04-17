@@ -1,5 +1,5 @@
 import { supabase } from "./client";
-import type { V2ActivityClosure } from "@/types/activity-closures";
+import type { V2ActivityClosure, ClosureSlot } from "@/types/activity-closures";
 
 export async function listActivityClosures(
     activityId: string,
@@ -37,10 +37,10 @@ export async function getActivityClosure(
 type ClosurePayload = {
     activity_id: string;
     closure_date: string;
+    end_date: string | null;
     label: string | null;
     is_closed: boolean;
-    opens_at: string | null;
-    closes_at: string | null;
+    slots: ClosureSlot[] | null;
 };
 
 export async function createActivityClosure(
@@ -58,10 +58,10 @@ export async function createActivityClosure(
 
 type ClosureUpdatePayload = {
     closure_date: string;
+    end_date: string | null;
     label: string | null;
     is_closed: boolean;
-    opens_at: string | null;
-    closes_at: string | null;
+    slots: ClosureSlot[] | null;
 };
 
 export async function updateActivityClosure(
