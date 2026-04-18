@@ -2,7 +2,9 @@
   background: var(--pub-card-bg);
   border-radius: var(--pub-radius);
   padding: 16px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 1px 4px color-mix(in srgb, var(--pub-bg-text) 6%, transparent),
+    0 0 1px color-mix(in srgb, var(--pub-surface-text) 6%, transparent);
   display: flex;
   gap: 16px;
   overflow: hidden;

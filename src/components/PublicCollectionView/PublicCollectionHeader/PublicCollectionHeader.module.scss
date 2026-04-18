@@ -358,7 +358,7 @@
   font-weight: 500;
   font-family: var(--pub-font-family, sans-serif);
   background: transparent;
-  color: var(--pub-text-muted, #888);
+  color: var(--pub-bg-text-muted, #888);
   border: 1px solid var(--pub-border, #e2e8f0);
   cursor: pointer;
   transition:
@@ -368,9 +368,9 @@
   white-space: nowrap;
 
   &:hover {
-    background: color-mix(in srgb, var(--pub-text) 5%, transparent);
-    color: var(--pub-text-secondary, #475569);
-    border-color: color-mix(in srgb, var(--pub-text) 25%, transparent);
+    background: color-mix(in srgb, var(--pub-bg-text) 5%, transparent);
+    color: var(--pub-bg-text-secondary, #475569);
+    border-color: color-mix(in srgb, var(--pub-bg-text) 25%, transparent);
   }
 }
 
@@ -413,7 +413,7 @@
   min-width: 0;
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--pub-text);
+  color: var(--pub-bg-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

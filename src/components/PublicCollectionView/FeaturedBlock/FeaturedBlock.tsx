@@ -125,6 +125,16 @@ export default function FeaturedBlock({ blocks, activityId, slot }: Props) {
         }
     };
 
+    const handleCtaClick = (block: V2FeaturedContent) => {
+        if (activityId) {
+            trackEvent(activityId, "featured_cta_click", {
+                featured_id: block.id,
+                cta_url: block.cta_url,
+                source: "overview"
+            });
+        }
+    };
+
     const handleDotClick = (idx: number) => {
         const el = trackRef.current;
         if (!el) return;
@@ -139,6 +149,7 @@ export default function FeaturedBlock({ blocks, activityId, slot }: Props) {
                 <FeaturedCard
                     block={blocks[0]}
                     onClick={() => handleCardClick(blocks[0])}
+                    onCtaClick={() => handleCtaClick(blocks[0])}
                     className={styles.cardSingle}
                 />
             </div>
@@ -176,6 +187,7 @@ export default function FeaturedBlock({ blocks, activityId, slot }: Props) {
                         key={block.id}
                         block={block}
                         onClick={() => handleCardClick(block)}
+                        onCtaClick={() => handleCtaClick(block)}
                         className={styles.cardCarousel}
                     />
                 ))}

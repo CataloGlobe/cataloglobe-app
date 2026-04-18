@@ -6,6 +6,8 @@ import styles from "./FeaturedCard.module.scss";
 export type FeaturedCardProps = {
     block: V2FeaturedContent;
     onClick: () => void;
+    /** Chiamato al click sul pulsante CTA (solo per analytics — la navigazione è gestita dall'<a>). */
+    onCtaClick?: () => void;
     className?: string;
 };
 
@@ -50,15 +52,17 @@ function getPlaceholderIcon(pricingMode: string | null): ReactNode {
     }
 }
 
-export default function FeaturedCard({ block, onClick, className }: FeaturedCardProps) {
+export default function FeaturedCard({ block, onClick, onCtaClick, className }: FeaturedCardProps) {
     const hasImage = !!block.media_id;
+    const hasCta = !!block.cta_text && !!block.cta_url;
 
     return (
-        <button
-            type="button"
+        <div
             role="listitem"
+            tabIndex={0}
             className={`${styles.card} ${className ?? ""}`}
             onClick={onClick}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
         >
             <div className={styles.cardThumb}>
                 {hasImage ? (
@@ -87,7 +91,20 @@ export default function FeaturedCard({ block, onClick, className }: FeaturedCard
                 {block.pricing_mode === "bundle" && block.bundle_price != null && (
                     <span className={styles.cardPrice}>{formatPrice(block.bundle_price)}</span>
                 )}
+                {hasCta && (
+                    <div className={styles.cardCtaWrapper}>
+                        <a
+                            href={block.cta_url!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.cardCta}
+                            onClick={(e) => { e.stopPropagation(); onCtaClick?.(); }}
+                        >
+                            {block.cta_text}
+                        </a>
+                    </div>
+                )}
             </div>
-        </button>
+        </div>
     );
 }

@@ -390,27 +390,15 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                 )}
             </section>
 
-            {/* TESTI E SUPERFICI */}
+            {/* SUPERFICI */}
             <section className={styles.panelSection}>
                 <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
-                    Testi e superfici
+                    Superfici
                 </Text>
 
                 <StyleColorPicker
-                    label="Colore testo principale"
-                    labelSuffix={<InfoTooltip content="Colore di nomi prodotti, titoli categorie e testi principali." />}
-                    value={model.colors.textPrimary}
-                    onChange={val => updateColor("textPrimary", val)}
-                />
-                <StyleColorPicker
-                    label="Colore testo secondario"
-                    labelSuffix={<InfoTooltip content="Colore di descrizioni prodotti, dettagli e testi secondari." />}
-                    value={model.colors.textSecondary}
-                    onChange={val => updateColor("textSecondary", val)}
-                />
-                <StyleColorPicker
                     label="Sfondo contenuti (card / liste)"
-                    labelSuffix={<InfoTooltip content="Sfondo delle card prodotti e delle aree contenuto." />}
+                    labelSuffix={<InfoTooltip content="Sfondo delle card prodotti e delle aree contenuto. Il colore del testo si adatta automaticamente per garantire la leggibilità." />}
                     value={model.colors.surface}
                     onChange={val => updateColor("surface", val)}
                 />

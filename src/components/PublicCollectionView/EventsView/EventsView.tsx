@@ -17,7 +17,7 @@ export default function EventsView({ featuredContents }: EventsViewProps) {
         return (
             <div className={styles.emptyState}>
                 <CalendarDays size={48} strokeWidth={1.5} className={styles.emptyIcon} />
-                <Text variant="body" colorVariant="muted">
+                <Text variant="body" color="var(--pub-bg-text-muted)">
                     Nessun evento o promozione attiva al momento.
                 </Text>
             </div>

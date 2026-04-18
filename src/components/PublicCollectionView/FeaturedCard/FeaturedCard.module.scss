@@ -8,9 +8,11 @@
   border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--pub-surface-border);
   background: var(--pub-card-bg, #fff);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 2px 8px color-mix(in srgb, var(--pub-bg-text) 10%, transparent),
+    0 0 1px color-mix(in srgb, var(--pub-surface-text) 8%, transparent);
   text-align: left;
   font: inherit;
   color: inherit;
@@ -18,7 +20,9 @@
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 
   &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow:
+      0 4px 14px color-mix(in srgb, var(--pub-bg-text) 14%, transparent),
+      0 0 2px color-mix(in srgb, var(--pub-surface-text) 10%, transparent);
     transform: translateY(-1px);
   }
 }
@@ -151,4 +155,34 @@
   font-size: 15px;
   font-weight: 700;
   color: var(--pub-accent, #F59E0B);
+}
+
+/* ── CTA button ─────────────────────────────────────────────────────── */
+
+.cardCtaWrapper {
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+.cardCta {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: var(--pub-btn-radius, 6px);
+  background: var(--pub-cta-bg, #F59E0B);
+  color: var(--pub-cta-text, #fff);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+
+  &:hover {
+    opacity: 0.88;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-cta-bg, #F59E0B);
+    outline-offset: 2px;
+  }
 }
