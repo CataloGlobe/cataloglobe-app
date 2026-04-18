@@ -169,6 +169,17 @@ export async function purgeTenantNow(tenantId: string): Promise<void> {
 }
 
 /**
+ * Updates the name of a tenant. Only fields explicitly passed are updated.
+ */
+export async function updateTenantName(tenantId: string, name: string): Promise<void> {
+    const { error } = await supabase
+        .from("tenants")
+        .update({ name })
+        .eq("id", tenantId);
+    if (error) throw error;
+}
+
+/**
  * Sets the calling user's membership status to 'left' for the given tenant.
  *
  * Calls the leave_tenant SECURITY DEFINER RPC which:

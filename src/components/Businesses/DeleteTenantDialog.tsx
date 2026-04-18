@@ -25,6 +25,7 @@ export function DeleteTenantDialog({ isOpen, tenantName, onClose, onConfirm }: P
     useEffect(() => {
         if (!isOpen) {
             setConfirmName("");
+            setLoading(false);
             setError(null);
         }
     }, [isOpen]);

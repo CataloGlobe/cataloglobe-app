@@ -98,6 +98,9 @@ export default function Businesses() {
         name: "",
         city: "",
         address: "",
+        street_number: "",
+        postal_code: "",
+        province: "",
         slug: "",
         coverPreview: null
     });
@@ -338,6 +341,9 @@ export default function Businesses() {
                     name: createForm.name,
                     city: createForm.city,
                     address: createForm.address,
+                    street_number: createForm.street_number || null,
+                    postal_code: createForm.postal_code || null,
+                    province: createForm.province || null,
                     slug: uniqueSlug,
                     activity_type: selectedTenant?.vertical_type ?? null
                 });
@@ -354,6 +360,9 @@ export default function Businesses() {
                     name: "",
                     city: "",
                     address: "",
+                    street_number: "",
+                    postal_code: "",
+                    province: "",
                     slug: "",
                     coverPreview: null
                 });
@@ -440,6 +449,9 @@ export default function Businesses() {
             name: business.name,
             city: business.city ?? "",
             address: business.address ?? "",
+            street_number: business.street_number ?? "",
+            postal_code: business.postal_code ?? "",
+            province: business.province ?? "",
             slug: business.slug,
             coverPreview: business.cover_image ?? null
         });
@@ -555,6 +567,9 @@ export default function Businesses() {
                     name: editForm.name,
                     city: editForm.city,
                     address: editForm.address,
+                    street_number: editForm.street_number || null,
+                    postal_code: editForm.postal_code || null,
+                    province: editForm.province || null,
                     slug: cleanedSlug
                 });
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
@@ -10,19 +10,22 @@ import { Button } from "@/components/ui/Button/Button";
 import { FileInput } from "@/components/ui/Input/FileInput";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
-import { uploadTenantLogo, updateTenantLogoUrl } from "@/services/supabase/tenants";
+import { uploadTenantLogo, updateTenantLogoUrl, updateTenantName, getTenantLogoPublicUrl } from "@/services/supabase/tenants";
 import { createCheckoutSession } from "@/services/supabase/billing";
 import { formatPrice, MAX_SEATS } from "@/utils/pricing";
 
 import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
-import { SUBTYPE_OPTIONS, DEFAULT_SUBTYPE, type BusinessSubtype } from "@/constants/verticalTypes";
+import { SUBTYPE_OPTIONS, SUBTYPE_LABELS, DEFAULT_SUBTYPE, type BusinessSubtype } from "@/constants/verticalTypes";
 
 interface CreateBusinessDrawerProps {
     open: boolean;
     onClose: () => void;
+    mode?: "create" | "edit";
+    tenantData?: { id: string; name: string; logo_url?: string | null; business_subtype?: BusinessSubtype | null };
+    onSuccess?: () => void;
 }
 
-export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProps) {
+export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantData, onSuccess }: CreateBusinessDrawerProps) {
     const { user } = useAuth();
     const { showToast } = useToast();
 
@@ -33,6 +36,20 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
     const [submitting, setSubmitting] = useState(false);
 
     const overLimit = seats > MAX_SEATS;
+
+    // Sync state when drawer opens
+    useEffect(() => {
+        if (!open) return;
+        if (mode === "edit" && tenantData) {
+            setName(tenantData.name);
+            setLogoFile(null);
+        } else if (mode === "create") {
+            setName("");
+            setSubtype(DEFAULT_SUBTYPE);
+            setLogoFile(null);
+            setSeats(1);
+        }
+    }, [open, mode, tenantData?.id]);
 
     const handleSeatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = parseInt(e.target.value, 10);
@@ -49,15 +66,11 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
         onClose();
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleCreateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!name.trim()) {
-            showToast({
-                type: "error",
-                message: "Il nome dell'attività è obbligatorio",
-                duration: 3000
-            });
+            showToast({ type: "error", message: "Il nome dell'attività è obbligatorio", duration: 3000 });
             return;
         }
 
@@ -85,7 +98,6 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
 
             localStorage.setItem(STORAGE_KEY, data.id);
 
-            // Redirect to Stripe Checkout — payment method required before accessing tenant
             try {
                 const checkoutUrl = await createCheckoutSession(
                     data.id,
@@ -95,7 +107,6 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
                 );
                 window.location.href = checkoutUrl;
             } catch {
-                // Checkout creation failed — send user to subscription page as fallback
                 window.location.href = `/business/${data.id}/subscription`;
             }
         } catch (err) {
@@ -105,12 +116,48 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
         }
     };
 
+    const handleEditSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!name.trim()) {
+            showToast({ type: "error", message: "Il nome dell'attività è obbligatorio", duration: 3000 });
+            return;
+        }
+
+        if (!tenantData) return;
+
+        try {
+            setSubmitting(true);
+
+            await updateTenantName(tenantData.id, name.trim());
+
+            if (logoFile) {
+                try {
+                    const logoPath = await uploadTenantLogo(tenantData.id, logoFile);
+                    await updateTenantLogoUrl(tenantData.id, logoPath);
+                } catch {
+                    // logo upload failure is non-blocking
+                }
+            }
+
+            onSuccess?.();
+            handleClose();
+        } catch (err) {
+            console.error("[CreateBusinessDrawer] edit failed:", err);
+            showToast({ type: "error", message: "Errore durante il salvataggio" });
+            setSubmitting(false);
+        }
+    };
+
+    const isEdit = mode === "edit";
+    const formId = isEdit ? "edit-business-form" : "create-business-form";
+
     return (
         <SystemDrawer open={open} onClose={handleClose} width={480}>
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={700}>
-                        Crea attività
+                        {isEdit ? "Modifica attività" : "Crea attività"}
                     </Text>
                 }
                 footer={
@@ -121,18 +168,18 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
                         <Button
                             variant="primary"
                             type="submit"
-                            form="create-business-form"
+                            form={formId}
                             loading={submitting}
-                            disabled={overLimit}
+                            disabled={!isEdit && overLimit}
                         >
-                            Crea attività
+                            {isEdit ? "Salva modifiche" : "Crea attività"}
                         </Button>
                     </>
                 }
             >
                 <form
-                    id="create-business-form"
-                    onSubmit={handleSubmit}
+                    id={formId}
+                    onSubmit={isEdit ? handleEditSubmit : handleCreateSubmit}
                     style={{ display: "flex", flexDirection: "column", gap: "20px" }}
                 >
                     <TextInput
@@ -144,49 +191,87 @@ export function CreateBusinessDrawer({ open, onClose }: CreateBusinessDrawerProp
                         required
                     />
 
-                    <Select
-                        label="Tipo di attività"
-                        value={subtype}
-                        onChange={e => setSubtype(e.target.value as BusinessSubtype)}
-                        options={SUBTYPE_OPTIONS}
-                        disabled={submitting}
-                    />
+                    {isEdit && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <Text variant="body-sm" weight={500}>Tipo di attività</Text>
+                            <span style={{
+                                background: "#f1f5f9",
+                                color: "#475569",
+                                fontSize: "11px",
+                                fontWeight: 500,
+                                borderRadius: "4px",
+                                padding: "1px 8px",
+                                lineHeight: 1.6,
+                                whiteSpace: "nowrap",
+                                display: "inline-block",
+                                width: "fit-content",
+                            }}>
+                                {SUBTYPE_LABELS[tenantData?.business_subtype ?? DEFAULT_SUBTYPE]}
+                            </span>
+                            <span style={{ fontSize: "12px", color: "var(--text-muted, #94a3b8)" }}>
+                                Il tipo di attività non può essere modificato dopo la creazione
+                            </span>
+                        </div>
+                    )}
+
+                    {!isEdit && (
+                        <Select
+                            label="Tipo di attività"
+                            value={subtype}
+                            onChange={e => setSubtype(e.target.value as BusinessSubtype)}
+                            options={SUBTYPE_OPTIONS}
+                            disabled={submitting}
+                        />
+                    )}
+
+                    {isEdit && tenantData?.logo_url && !logoFile && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <Text variant="body-sm" weight={600}>Logo attuale</Text>
+                            <img
+                                src={getTenantLogoPublicUrl(tenantData.logo_url)}
+                                alt="Logo attuale"
+                                style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 8, border: "1px solid var(--border-color)" }}
+                            />
+                        </div>
+                    )}
 
                     <FileInput
-                        label="Logo (opzionale)"
+                        label={isEdit ? "Cambia logo (opzionale)" : "Logo (opzionale)"}
                         accept="image/png,image/jpeg,image/webp"
                         helperText="PNG, JPG o WEBP, max 5MB."
                         maxSizeMb={5}
                         onChange={setLogoFile}
                     />
 
-                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                        <NumberInput
-                            label="Quante sedi ha la tua attività?"
-                            value={seats}
-                            onChange={handleSeatsChange}
-                            min={1}
-                            step={1}
-                            disabled={submitting}
-                        />
+                    {!isEdit && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                            <NumberInput
+                                label="Quante sedi ha la tua attività?"
+                                value={seats}
+                                onChange={handleSeatsChange}
+                                min={1}
+                                step={1}
+                                disabled={submitting}
+                            />
 
-                        {overLimit ? (
-                            <div style={{ background: "var(--hover-bg, #f1f5f9)", borderRadius: "8px", padding: "10px 12px" }}>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Per più di 25 sedi, contattaci per un preventivo personalizzato:{" "}
-                                    <a href="mailto:admin@cataloglobe.com" style={{ color: "var(--brand-primary)" }}>
-                                        admin@cataloglobe.com
-                                    </a>
-                                </Text>
-                            </div>
-                        ) : (
-                            <div style={{ background: "var(--hover-bg, #f1f5f9)", borderRadius: "8px", padding: "10px 12px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                                <Text variant="body-sm" weight={600}>
-                                    {formatPrice(seats)} · Primi 30 giorni gratuiti
-                                </Text>
-                            </div>
-                        )}
-                    </div>
+                            {overLimit ? (
+                                <div style={{ background: "var(--hover-bg, #f1f5f9)", borderRadius: "8px", padding: "10px 12px" }}>
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        Per più di 25 sedi, contattaci per un preventivo personalizzato:{" "}
+                                        <a href="mailto:admin@cataloglobe.com" style={{ color: "var(--brand-primary)" }}>
+                                            admin@cataloglobe.com
+                                        </a>
+                                    </Text>
+                                </div>
+                            ) : (
+                                <div style={{ background: "var(--hover-bg, #f1f5f9)", borderRadius: "8px", padding: "10px 12px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                                    <Text variant="body-sm" weight={600}>
+                                        {formatPrice(seats)} · Primi 30 giorni gratuiti
+                                    </Text>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </form>
             </DrawerLayout>
         </SystemDrawer>
