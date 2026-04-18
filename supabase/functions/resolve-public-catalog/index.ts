@@ -35,7 +35,7 @@ serve(async (req: Request) => {
 
         const ACTIVITY_SELECT =
             "id, tenant_id, name, slug, cover_image, status, inactive_reason, " +
-            "address, street_number, postal_code, city, " +
+            "address, street_number, postal_code, city, province, " +
             "instagram, instagram_public, facebook, facebook_public, " +
             "whatsapp, whatsapp_public, website, website_public, " +
             "phone, phone_public, email_public, email_public_visible, " +
@@ -96,6 +96,7 @@ serve(async (req: Request) => {
             street_number: activity.street_number ?? null,
             postal_code: activity.postal_code ?? null,
             city: activity.city ?? null,
+            province: activity.province ?? null,
             instagram: activity.instagram ?? null,
             instagram_public: activity.instagram_public ?? false,
             facebook: activity.facebook ?? null,

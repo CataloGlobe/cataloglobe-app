@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
+import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete/AddressAutocomplete";
 import { updateActivity } from "@/services/supabase/activities";
 import type { V2Activity } from "@/types/activity";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -27,6 +28,7 @@ export function ActivityIdentityForm({
     const [streetNumber, setStreetNumber] = useState(entityData.street_number ?? "");
     const [postalCode, setPostalCode] = useState(entityData.postal_code ?? "");
     const [city, setCity] = useState(entityData.city ?? "");
+    const [province, setProvince] = useState(entityData.province ?? "");
     const [description, setDescription] = useState(entityData.description ?? "");
 
     useEffect(() => {
@@ -35,6 +37,7 @@ export function ActivityIdentityForm({
         setStreetNumber(entityData.street_number ?? "");
         setPostalCode(entityData.postal_code ?? "");
         setCity(entityData.city ?? "");
+        setProvince(entityData.province ?? "");
         setDescription(entityData.description ?? "");
     }, [entityData]);
 
@@ -55,6 +58,7 @@ export function ActivityIdentityForm({
                 street_number: streetNumber.trim() || null,
                 postal_code: postalCode.trim() || null,
                 city: city.trim() || null,
+                province: province.trim() || null,
                 description: description.trim() || null
             });
             showToast({ message: "Identità aggiornata con successo.", type: "success" });
@@ -84,8 +88,19 @@ export function ActivityIdentityForm({
                     placeholder="Es. McDonald's - Via Certosa"
                 />
 
+                <AddressAutocomplete
+                    placeholder="Cerca via, piazza, corso..."
+                    onSelect={result => {
+                        setAddress(result.address);
+                        setStreetNumber(result.street_number);
+                        setPostalCode(result.postal_code);
+                        setCity(result.city);
+                        setProvince(result.province);
+                    }}
+                />
+
                 <TextInput
-                    label="Indirizzo"
+                    label="Via"
                     value={address}
                     onChange={e => setAddress(e.target.value)}
                     placeholder="Es. Via Roma"
@@ -104,6 +119,13 @@ export function ActivityIdentityForm({
                         onChange={e => setPostalCode(e.target.value)}
                         placeholder="es. 20100"
                         maxLength={5}
+                    />
+                    <TextInput
+                        label="Provincia"
+                        value={province}
+                        onChange={e => setProvince(e.target.value.toUpperCase())}
+                        placeholder="es. MI"
+                        maxLength={2}
                     />
                 </div>
 

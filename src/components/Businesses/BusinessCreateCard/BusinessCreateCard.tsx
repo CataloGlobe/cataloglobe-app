@@ -6,6 +6,7 @@ import type { BusinessFormValues } from "@/types/Businesses";
 import styles from "./BusinessCreateCard.module.scss";
 import { FileInput } from "@/components/ui/Input/FileInput";
 import { InfoTooltip } from "@/components/ui/Tooltip/InfoTooltip";
+import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete/AddressAutocomplete";
 
 interface BusinessCreateCardProps {
     values: BusinessFormValues;
@@ -61,6 +62,58 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                     required
                 />
 
+                {/* Ricerca indirizzo */}
+                <AddressAutocomplete
+                    placeholder="Cerca via, piazza, corso..."
+                    onSelect={result => {
+                        onFieldChange("address", result.address);
+                        onFieldChange("street_number", result.street_number);
+                        onFieldChange("postal_code", result.postal_code);
+                        onFieldChange("city", result.city);
+                        onFieldChange("province", result.province);
+                    }}
+                />
+
+                {/* Via */}
+                <TextInput
+                    label="Via"
+                    tooltip={
+                        <InfoTooltip content="Utilizzato per la visualizzazione e per eventuali integrazioni con mappe" />
+                    }
+                    placeholder="Es. Via Roma"
+                    value={values.address}
+                    onChange={e => onFieldChange("address", e.target.value)}
+                    error={errors?.address}
+                    required
+                />
+
+                {/* Civico | CAP | Provincia */}
+                <div className={styles.row3}>
+                    <TextInput
+                        label="Civico"
+                        placeholder="Es. 10"
+                        value={values.street_number}
+                        onChange={e => onFieldChange("street_number", e.target.value)}
+                        error={errors?.street_number}
+                    />
+                    <TextInput
+                        label="CAP"
+                        placeholder="Es. 20100"
+                        value={values.postal_code}
+                        onChange={e => onFieldChange("postal_code", e.target.value)}
+                        error={errors?.postal_code}
+                        maxLength={5}
+                    />
+                    <TextInput
+                        label="Provincia"
+                        placeholder="Es. MI"
+                        value={values.province}
+                        onChange={e => onFieldChange("province", e.target.value.toUpperCase())}
+                        error={errors?.province}
+                        maxLength={2}
+                    />
+                </div>
+
                 {/* Città */}
                 <TextInput
                     label="Città"
@@ -68,19 +121,6 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                     value={values.city}
                     onChange={e => onFieldChange("city", e.target.value)}
                     error={errors?.city}
-                    required
-                />
-
-                {/* Indirizzo */}
-                <TextInput
-                    label="Indirizzo"
-                    tooltip={
-                        <InfoTooltip content="Utilizzato per la visualizzazione e per eventuali integrazioni con mappe" />
-                    }
-                    placeholder="Es. Via Roma 10"
-                    value={values.address}
-                    onChange={e => onFieldChange("address", e.target.value)}
-                    error={errors?.address}
                     required
                 />
 
