@@ -21,7 +21,11 @@ import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
 import type { CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
 import ItemDetail from "../ItemDetail/ItemDetail";
-import SelectionSheet, { type SelectionItem } from "../SelectionSheet/SelectionSheet";
+import SelectionSheet, {
+    type SelectionItem,
+    type SelectedFormat,
+    type SelectedAddon
+} from "../SelectionSheet/SelectionSheet";
 import EventsView from "../EventsView/EventsView";
 import ReviewsView, { type ReviewsViewProps } from "../ReviewsView/ReviewsView";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
@@ -29,6 +33,34 @@ import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/
 import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
+
+// ─── Selection helpers ────────────────────────────────────────────────────────
+
+function generateSelectionKey(
+    productId: string,
+    format: SelectedFormat | null | undefined,
+    addons: SelectedAddon[]
+): string {
+    const formatPart = format ? format.id : "no-format";
+    const addonPart = addons.map(a => a.id).sort().join(",") || "no-addons";
+    return `${productId}__${formatPart}__${addonPart}`;
+}
+
+function migrateSelectionItem(item: Record<string, unknown>): SelectionItem {
+    if ("unitPrice" in item) return item as unknown as SelectionItem;
+    const price = typeof item.price === "number" ? item.price : 0;
+    return {
+        id: item.id as string,
+        name: item.name as string,
+        basePrice: price,
+        qty: typeof item.qty === "number" ? item.qty : 1,
+        selectedFormat: null,
+        selectedAddons: [],
+        unitPrice: price,
+    };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 type SectionNavItem = {
     id: string;
@@ -194,7 +226,7 @@ function ProductRow({
             <div className={styles.rowBody}>
                 <div className={styles.titleRow}>
                     <div className={styles.titleRowLeft}>
-                        <Text variant="body" weight={700} className={styles.title}>
+                        <Text variant="body" weight={700} className={styles.title} color="var(--pub-surface-text)">
                             {name}
                         </Text>
                         {dp.type !== "none" && dp.originalPrice != null && (
@@ -207,7 +239,7 @@ function ProductRow({
                 </div>
 
                 {dp.type === "from" ? (
-                    <Text variant="caption" colorVariant="muted" className={styles.price}>
+                    <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
                         {dp.originalPrice != null && (
                             <span className={styles.priceOriginal}>
                                 da € {dp.originalPrice.toFixed(2)}
@@ -220,7 +252,7 @@ function ProductRow({
                         </span>
                     </Text>
                 ) : dp.type === "single" ? (
-                    <Text variant="caption" colorVariant="muted" className={styles.price}>
+                    <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
                         {dp.originalPrice != null && (
                             <span className={styles.priceOriginal}>
                                 € {dp.originalPrice.toFixed(2)}
@@ -235,7 +267,7 @@ function ProductRow({
                 ) : null}
 
                 {description && (
-                    <Text variant="caption" colorVariant="muted" className={styles.description}>
+                    <Text variant="caption" className={styles.description} color="var(--pub-surface-text-muted)">
                         {description}
                     </Text>
                 )}
@@ -497,12 +529,15 @@ export default function CollectionView({
         if (!selectionStorageKey) return [];
         try {
             const saved = sessionStorage.getItem(selectionStorageKey);
-            return saved ? (JSON.parse(saved) as SelectionItem[]) : [];
+            if (!saved) return [];
+            const parsed = JSON.parse(saved) as Record<string, unknown>[];
+            return parsed.map(migrateSelectionItem);
         } catch {
             return [];
         }
     });
     const [isSelectionOpen, setIsSelectionOpen] = useState(false);
+    const [editingSelectionIndex, setEditingSelectionIndex] = useState<number | null>(null);
 
     useEffect(() => {
         if (!selectionStorageKey) return;
@@ -513,11 +548,11 @@ export default function CollectionView({
 
     const selectionCount = useMemo(() => selection.reduce((s, i) => s + i.qty, 0), [selection]);
 
-    // Map id → qty per lookups O(1) nel render
+    // Map id → total qty per lookups O(1) nel render (somma tutte le configurazioni)
     const selectionMap = useMemo(() => {
         const map: Record<string, number> = {};
         selection.forEach(s => {
-            map[s.id] = s.qty;
+            map[s.id] = (map[s.id] ?? 0) + s.qty;
         });
         return map;
     }, [selection]);
@@ -551,45 +586,142 @@ export default function CollectionView({
         [mode, activityId, sections]
     );
 
-    const addToSelection = useCallback((id: string, name: string, price: number) => {
+    const addToSelection = useCallback((
+        id: string,
+        name: string,
+        basePrice: number,
+        selectedFormat?: SelectedFormat | null,
+        selectedAddons?: SelectedAddon[]
+    ) => {
+        const addons = selectedAddons ?? [];
+        const unitPrice = basePrice + addons.reduce((sum, a) => sum + a.priceDelta, 0);
+        const selectionKey = generateSelectionKey(id, selectedFormat, addons);
+
         setSelection(prev => {
-            const existing = prev.find(i => i.id === id);
-            const newQty = existing ? existing.qty + 1 : 1;
+            const existingIndex = prev.findIndex(i =>
+                generateSelectionKey(i.id, i.selectedFormat, i.selectedAddons ?? []) === selectionKey
+            );
+            const newQty = existingIndex >= 0 ? prev[existingIndex].qty + 1 : 1;
             const newCount = prev.reduce((s, i) => s + i.qty, 0) + 1;
             if (mode === "public" && activityId) {
                 trackEvent(activityId, "selection_add", {
                     product_id: id,
                     product_name: name,
-                    price,
+                    price: unitPrice,
+                    base_price: basePrice,
+                    format: selectedFormat?.name ?? null,
+                    addons: addons.map(a => a.name),
                     qty: newQty,
                     total_selection_count: newCount
                 });
             }
-            if (existing) {
-                return prev.map(i => (i.id === id ? { ...i, qty: i.qty + 1 } : i));
+            if (existingIndex >= 0) {
+                return prev.map((i, idx) =>
+                    idx === existingIndex ? { ...i, qty: i.qty + 1 } : i
+                );
             }
-            return [...prev, { id, name, price, qty: 1 }];
+            return [...prev, {
+                id,
+                name,
+                basePrice,
+                qty: 1,
+                selectedFormat: selectedFormat ?? null,
+                selectedAddons: addons,
+                unitPrice,
+            }];
         });
     }, [mode, activityId]);
 
-    const updateSelectionQty = useCallback((id: string, qty: number) => {
-        setSelection(prev => prev.map(i => (i.id === id ? { ...i, qty } : i)));
+    const updateSelectionQty = useCallback((index: number, qty: number) => {
+        setSelection(prev => prev.map((i, idx) => idx === index ? { ...i, qty } : i));
     }, []);
 
-    const removeFromSelection = useCallback((id: string) => {
+    const removeFromSelection = useCallback((index: number) => {
         setSelection(prev => {
-            const item = prev.find(i => i.id === id);
+            const item = prev[index];
             if (mode === "public" && activityId && item) {
                 trackEvent(activityId, "selection_remove", {
-                    product_id: id,
+                    product_id: item.id,
                     product_name: item.name
                 });
             }
-            return prev.filter(i => i.id !== id);
+            return prev.filter((_, idx) => idx !== index);
         });
     }, [mode, activityId]);
 
     const clearSelection = useCallback(() => setSelection([]), []);
+
+    const findProductById = useCallback((productId: string): CollectionViewSectionItem | null => {
+        for (const group of sectionGroups) {
+            for (const section of [group.root, ...group.children]) {
+                const found = section.items.find(i => i.id === productId);
+                if (found) return found;
+                for (const item of section.items) {
+                    if (item.variants) {
+                        const variant = item.variants.find(v => v.id === productId);
+                        if (variant) {
+                            return {
+                                id: variant.id,
+                                name: variant.name,
+                                parentSelected: true,
+                                price: variant.price ?? null,
+                                original_price: variant.original_price ?? null,
+                                from_price: variant.from_price ?? null,
+                                image: variant.image ?? null,
+                                description: variant.description ?? null,
+                                ...(variant.optionGroups?.length ? { optionGroups: variant.optionGroups } : {}),
+                                ...(item.ingredients?.length ? { ingredients: item.ingredients } : {}),
+                            };
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }, [sectionGroups]);
+
+    const handleUpdateSelection = useCallback((
+        _productId: string,
+        _productName: string,
+        basePrice: number,
+        selectedFormat?: SelectedFormat | null,
+        selectedAddons?: SelectedAddon[]
+    ) => {
+        if (editingSelectionIndex === null) return;
+        const addons = selectedAddons ?? [];
+        const unitPrice = basePrice + addons.reduce((sum, a) => sum + a.priceDelta, 0);
+        setSelection(prev => prev.map((item, i) =>
+            i === editingSelectionIndex
+                ? { ...item, basePrice, selectedFormat: selectedFormat ?? null, selectedAddons: addons, unitPrice }
+                : item
+        ));
+        setEditingSelectionIndex(null);
+        setSelectedItem(null);
+    }, [editingSelectionIndex]);
+
+    const handleEditSelectionItem = useCallback((index: number, item: SelectionItem) => {
+        const product = findProductById(item.id);
+        if (!product) return;
+        setEditingSelectionIndex(index);
+        setSelectedItem(product);
+        setIsSelectionOpen(false);
+    }, [findProductById]);
+
+    // Prodotto con optionGroups → apre il dettaglio per configurare prima di aggiungere.
+    // Prodotto semplice → aggiunge direttamente.
+    const handleAddClick = useCallback((
+        id: string,
+        name: string,
+        basePrice: number,
+        optionGroups: CollectionViewSectionItem["optionGroups"] | undefined,
+        openDetail: () => void
+    ) => {
+        if ((optionGroups?.length ?? 0) > 0) {
+            openDetail();
+        } else {
+            addToSelection(id, name, basePrice);
+        }
+    }, [addToSelection]);
 
     // ── Compact header state ────────────────────────────────────────────────
     // isCompactHeaderVisible: true = compact bar è visibile (nav deve scendere)
@@ -963,12 +1095,13 @@ export default function CollectionView({
                                         allergens={item.allergens}
                                         onAddToSelection={
                                             activeTab === "menu"
-                                                ? () =>
-                                                      addToSelection(
-                                                          item.id,
-                                                          item.name,
-                                                          item.effective_price ?? item.price ?? 0
-                                                      )
+                                                ? () => handleAddClick(
+                                                      item.id,
+                                                      item.name,
+                                                      item.effective_price ?? item.price ?? 0,
+                                                      item.optionGroups,
+                                                      () => openItemDetail(item)
+                                                  )
                                                 : undefined
                                         }
                                         selectionQty={selectionMap[item.id]}
@@ -991,12 +1124,13 @@ export default function CollectionView({
                                         allergens={item.allergens}
                                         onAddToSelection={
                                             activeTab === "menu"
-                                                ? () =>
-                                                      addToSelection(
-                                                          item.id,
-                                                          item.name,
-                                                          item.effective_price ?? item.price ?? 0
-                                                      )
+                                                ? () => handleAddClick(
+                                                      item.id,
+                                                      item.name,
+                                                      item.effective_price ?? item.price ?? 0,
+                                                      item.optionGroups,
+                                                      () => openItemDetail(item)
+                                                  )
                                                 : undefined
                                         }
                                         selectionQty={selectionMap[item.id]}
@@ -1044,12 +1178,28 @@ export default function CollectionView({
                                                 }}
                                                 onAddToSelection={
                                                     activeTab === "menu"
-                                                        ? () =>
-                                                              addToSelection(
-                                                                  v.id,
-                                                                  v.name,
-                                                                  v.price ?? 0
-                                                              )
+                                                        ? () => handleAddClick(
+                                                              v.id,
+                                                              v.name,
+                                                              v.price ?? 0,
+                                                              v.optionGroups,
+                                                              () => openItemDetail({
+                                                                  id: v.id,
+                                                                  name: v.name,
+                                                                  parentSelected: true,
+                                                                  price: v.price ?? null,
+                                                                  original_price: v.original_price ?? null,
+                                                                  from_price: v.from_price ?? null,
+                                                                  image: v.image ?? null,
+                                                                  description: v.description ?? null,
+                                                                  ...(v.optionGroups && v.optionGroups.length > 0
+                                                                      ? { optionGroups: v.optionGroups }
+                                                                      : {}),
+                                                                  ...(item.ingredients && item.ingredients.length > 0
+                                                                      ? { ingredients: item.ingredients }
+                                                                      : {})
+                                                              })
+                                                          )
                                                         : undefined
                                                 }
                                                 selectionQty={selectionMap[v.id]}
@@ -1088,12 +1238,28 @@ export default function CollectionView({
                                                 }}
                                                 onAddToSelection={
                                                     activeTab === "menu"
-                                                        ? () =>
-                                                              addToSelection(
-                                                                  v.id,
-                                                                  v.name,
-                                                                  v.price ?? 0
-                                                              )
+                                                        ? () => handleAddClick(
+                                                              v.id,
+                                                              v.name,
+                                                              v.price ?? 0,
+                                                              v.optionGroups,
+                                                              () => openItemDetail({
+                                                                  id: v.id,
+                                                                  name: v.name,
+                                                                  parentSelected: true,
+                                                                  price: v.price ?? null,
+                                                                  original_price: v.original_price ?? null,
+                                                                  from_price: v.from_price ?? null,
+                                                                  image: v.image ?? null,
+                                                                  description: v.description ?? null,
+                                                                  ...(v.optionGroups && v.optionGroups.length > 0
+                                                                      ? { optionGroups: v.optionGroups }
+                                                                      : {}),
+                                                                  ...(item.ingredients && item.ingredients.length > 0
+                                                                      ? { ingredients: item.ingredients }
+                                                                      : {})
+                                                              })
+                                                          )
                                                         : undefined
                                                 }
                                                 selectionQty={selectionMap[v.id]}
@@ -1246,12 +1412,12 @@ export default function CollectionView({
                         {emptyState ? (
                             <div className={styles.emptyState}>
                                 {emptyState.title && (
-                                    <Text as="h2" variant="title-sm" weight={700}>
+                                    <Text as="h2" variant="title-sm" weight={700} color="var(--pub-bg-text)">
                                         {emptyState.title}
                                     </Text>
                                 )}
                                 {emptyState.description && (
-                                    <Text variant="body" colorVariant="muted">
+                                    <Text variant="body" color="var(--pub-bg-text-muted)">
                                         {emptyState.description}
                                     </Text>
                                 )}
@@ -1274,7 +1440,7 @@ export default function CollectionView({
                                             className={styles.sectionGroup}
                                             aria-label={group.root.name}
                                         >
-                                            <Text as="h2" variant="title-sm" weight={700}>
+                                            <Text as="h2" variant="title-sm" weight={700} color="var(--pub-bg-text)">
                                                 {group.root.name}
                                             </Text>
 
@@ -1339,8 +1505,29 @@ export default function CollectionView({
                                 <ItemDetail
                                     item={selectedItem}
                                     isOpen={!!selectedItem}
-                                    onClose={() => setSelectedItem(null)}
+                                    onClose={() => {
+                                        setSelectedItem(null);
+                                        setEditingSelectionIndex(null);
+                                    }}
                                     mode={mode}
+                                    onAddToSelection={mode === "public" && activeTab === "menu"
+                                        ? (editingSelectionIndex !== null
+                                            ? handleUpdateSelection
+                                            : (productId, productName, basePrice, format, addons) => {
+                                                addToSelection(productId, productName, basePrice, format, addons);
+                                                setSelectedItem(null);
+                                            })
+                                        : undefined
+                                    }
+                                    initialFormat={editingSelectionIndex !== null
+                                        ? selection[editingSelectionIndex]?.selectedFormat
+                                        : undefined
+                                    }
+                                    initialAddons={editingSelectionIndex !== null
+                                        ? selection[editingSelectionIndex]?.selectedAddons
+                                        : undefined
+                                    }
+                                    submitLabel={editingSelectionIndex !== null ? "Aggiorna selezione" : undefined}
                                 />
 
                                 <SelectionSheet
@@ -1350,6 +1537,10 @@ export default function CollectionView({
                                     onUpdateQty={updateSelectionQty}
                                     onRemove={removeFromSelection}
                                     onClear={clearSelection}
+                                    onEditItem={mode === "public" && activeTab === "menu"
+                                        ? handleEditSelectionItem
+                                        : undefined
+                                    }
                                 />
 
                                 {featuredAfterCatalogSlot}
@@ -1379,7 +1570,7 @@ export default function CollectionView({
                     onClick={() => {
                         setIsSelectionOpen(true);
                         if (activityId) {
-                            const totalPrice = selection.reduce((s, i) => s + i.price * i.qty, 0);
+                            const totalPrice = selection.reduce((s, i) => s + i.unitPrice * i.qty, 0);
                             trackEvent(activityId, "selection_sheet_open", {
                                 item_count: selectionCount,
                                 estimated_total: totalPrice

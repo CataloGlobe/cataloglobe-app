@@ -3,20 +3,38 @@ import Text from "@/components/ui/Text/Text";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import styles from "./SelectionSheet.module.scss";
 
-export type SelectionItem = {
+export type SelectedFormat = {
     id: string;
     name: string;
     price: number;
+};
+
+export type SelectedAddon = {
+    id: string;
+    groupId: string;
+    name: string;
+    priceDelta: number;
+};
+
+export type SelectionItem = {
+    id: string;
+    name: string;
+    basePrice: number;
     qty: number;
+    selectedFormat?: SelectedFormat | null;
+    selectedAddons?: SelectedAddon[];
+    /** basePrice + sum(addon.priceDelta) — effective unit price */
+    unitPrice: number;
 };
 
 type Props = {
     isOpen: boolean;
     onClose: () => void;
     items: SelectionItem[];
-    onUpdateQty: (id: string, qty: number) => void;
-    onRemove: (id: string) => void;
+    onUpdateQty: (index: number, qty: number) => void;
+    onRemove: (index: number) => void;
     onClear: () => void;
+    onEditItem?: (index: number, item: SelectionItem) => void;
 };
 
 function formatPrice(n: number): string {
@@ -33,10 +51,11 @@ export default function SelectionSheet({
     items,
     onUpdateQty,
     onRemove,
-    onClear
+    onClear,
+    onEditItem
 }: Props) {
     const totalCount = items.reduce((s, i) => s + i.qty, 0);
-    const totalPrice = items.reduce((s, i) => s + i.price * i.qty, 0);
+    const totalPrice = items.reduce((s, i) => s + i.unitPrice * i.qty, 0);
     const isEmpty = items.length === 0;
 
     return (
@@ -44,7 +63,7 @@ export default function SelectionSheet({
             {/* Header */}
             <div className={styles.header}>
                 <div className={styles.headerLeft}>
-                    <Text as="h2" variant="title-sm" weight={700} className={styles.headerTitle}>
+                    <Text as="h2" variant="title-sm" weight={700} className={styles.headerTitle} color="var(--pub-surface-text)">
                         La mia selezione
                     </Text>
                     {!isEmpty && (
@@ -76,20 +95,42 @@ export default function SelectionSheet({
                 {isEmpty ? (
                     <div className={styles.emptyState}>
                         <span className={styles.emptyIcon}>📋</span>
-                        <Text variant="body" weight={600}>Nessun elemento</Text>
-                        <Text variant="body-sm" colorVariant="muted">
+                        <Text variant="body" weight={600} color="var(--pub-surface-text)">Nessun elemento</Text>
+                        <Text variant="body-sm" color="var(--pub-surface-text-muted)">
                             Aggiungi prodotti dal menu
                         </Text>
                     </div>
                 ) : (
                     <ul className={styles.list}>
-                        {items.map(item => (
-                            <li key={item.id} className={styles.listItem}>
+                        {items.map((item, index) => {
+                            const hasConfig = !!(
+                                item.selectedFormat ||
+                                (item.selectedAddons && item.selectedAddons.length > 0)
+                            );
+                            return (
+                            <li key={index} className={styles.listItem}>
                                 <div className={styles.itemInfo}>
                                     <span className={styles.itemName}>{item.name}</span>
-                                    {item.price > 0 && (
+                                    {(item.selectedFormat || (item.selectedAddons && item.selectedAddons.length > 0)) && (
+                                        <span className={styles.itemMeta}>
+                                            {item.selectedFormat && <span>{item.selectedFormat.name}</span>}
+                                            {item.selectedAddons && item.selectedAddons.length > 0 && (
+                                                <span>{item.selectedAddons.map(a => `+ ${a.name}`).join(", ")}</span>
+                                            )}
+                                            {onEditItem && (
+                                                <button
+                                                    type="button"
+                                                    className={styles.editLink}
+                                                    onClick={() => onEditItem(index, item)}
+                                                >
+                                                    Modifica
+                                                </button>
+                                            )}
+                                        </span>
+                                    )}
+                                    {item.unitPrice > 0 && (
                                         <span className={styles.itemPrice}>
-                                            {formatPrice(item.price)} cad.
+                                            {formatPrice(item.unitPrice)} cad.
                                         </span>
                                     )}
                                 </div>
@@ -99,8 +140,8 @@ export default function SelectionSheet({
                                         className={styles.qtyBtn}
                                         onClick={() =>
                                             item.qty === 1
-                                                ? onRemove(item.id)
-                                                : onUpdateQty(item.id, item.qty - 1)
+                                                ? onRemove(index)
+                                                : onUpdateQty(index, item.qty - 1)
                                         }
                                         aria-label={item.qty === 1 ? "Rimuovi" : "Diminuisci quantità"}
                                     >
@@ -114,14 +155,15 @@ export default function SelectionSheet({
                                     <button
                                         type="button"
                                         className={styles.qtyBtn}
-                                        onClick={() => onUpdateQty(item.id, item.qty + 1)}
+                                        onClick={() => onUpdateQty(index, item.qty + 1)}
                                         aria-label="Aumenta quantità"
                                     >
                                         <Plus size={13} strokeWidth={2} />
                                     </button>
                                 </div>
                             </li>
-                        ))}
+                            );
+                        })}
                     </ul>
                 )}
             </div>
