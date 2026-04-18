@@ -517,6 +517,44 @@
   }
 }
 
+.assignActionsBtn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm, 8px);
+  background: transparent;
+  color: var(--color-gray-400, #94a3b8);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+
+  &:hover {
+    background: var(--color-gray-100, #f1f5f9);
+    color: var(--color-gray-700, #334155);
+  }
+}
+
+.assignBackBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-gray-500, #64748b);
+  transition: color 0.12s ease;
+
+  &:hover {
+    color: var(--color-gray-800, #1e293b);
+  }
+}
+
 .productExpandBtn {
   background: none;
   border: none;

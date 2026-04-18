@@ -27,7 +27,9 @@ import {
     useSortable
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { IconGripVertical, IconPhoto, IconChevronDown, IconChevronRight } from "@tabler/icons-react";
+import { IconGripVertical, IconPhoto, IconChevronDown, IconChevronRight, IconArrowLeft, IconDotsVertical } from "@tabler/icons-react";
+import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
+import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -322,6 +324,16 @@ export default function CatalogEngine() {
     const [newlyAddedProductId, setNewlyAddedProductId] = useState<string | null>(null);
     const productListRef = useRef<HTMLDivElement>(null);
 
+    // Inline edit state (drawer "Aggiungi prodotto" — tab Esistente)
+    const [editingProduct, setEditingProduct] = useState<V2Product | null>(null);
+    const [isEditingReadOnly, setIsEditingReadOnly] = useState(false);
+    const [isSavingEditProduct, setIsSavingEditProduct] = useState(false);
+
+    // Main-table edit/remove state
+    const [mainEditProduct, setMainEditProduct] = useState<V2Product | null>(null);
+    const [isSavingMainEdit, setIsSavingMainEdit] = useState(false);
+    const [productToRemoveFromCategory, setProductToRemoveFromCategory] = useState<ProductRow | null>(null);
+
     const [isSavingCategory, setIsSavingCategory] = useState(false);
     const [categoryToDelete, setCategoryToDelete] = useState<V2CatalogCategory | null>(null);
     const [isDeletingCategory, setIsDeletingCategory] = useState(false);
@@ -354,10 +366,10 @@ export default function CatalogEngine() {
 
     const breadcrumbItems = useMemo<BreadcrumbItem[]>(
         () => [
-            { label: "Cataloghi", to: `/business/${currentTenantId}/catalogs` },
-            { label: catalog?.name || catalogLabel }
+            { label: catalogLabel, to: `/business/${currentTenantId}/catalogs` },
+            { label: catalog?.name || "—" }
         ],
-        [catalog?.name, catalogLabel]
+        [catalog?.name, catalogLabel, currentTenantId]
     );
 
     const categoriesById = useMemo(
@@ -693,6 +705,8 @@ export default function CatalogEngine() {
     }, [categoriesById, selectedCategoryId, setSelectedCategoryInUrl, tree]);
 
     useEffect(() => {
+        setEditingProduct(null);
+        setIsEditingReadOnly(false);
         setAssignSelectedIds([]);
         setAssignInitialIds(new Set());
         setExpandedProductGroupIds(new Set());
@@ -1084,6 +1098,38 @@ export default function CatalogEngine() {
         currentTenantId, selectedCategoryId, showToast
     ]);
 
+    const handleInlineEditSuccess = useCallback((updatedProduct?: V2Product) => {
+        if (updatedProduct) {
+            setAllProducts(prev =>
+                prev.map(p => p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p)
+            );
+        }
+        setEditingProduct(null);
+        setIsEditingReadOnly(false);
+    }, []);
+
+    const handleMainEditSuccess = useCallback((updatedProduct?: V2Product) => {
+        if (updatedProduct) {
+            setAllProducts(prev =>
+                prev.map(p => p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p)
+            );
+        }
+        setMainEditProduct(null);
+    }, []);
+
+    const handleRemoveFromCategory = useCallback(() => {
+        if (!productToRemoveFromCategory) return;
+        setCategoryProducts(prev =>
+            prev.filter(cp => cp.id !== productToRemoveFromCategory.linkId)
+        );
+        setIsDirty(true);
+        showToast({
+            message: `"${productToRemoveFromCategory.name}" rimosso dalla categoria.`,
+            type: "success"
+        });
+        setProductToRemoveFromCategory(null);
+    }, [productToRemoveFromCategory, showToast]);
+
     const handleProductCreated = useCallback(
         (createdProduct?: V2Product) => {
             if (!currentTenantId || !catalogId || !selectedCategoryId || !createdProduct) {
@@ -1339,9 +1385,48 @@ export default function CatalogEngine() {
                 width: "0.9fr",
                 accessor: row => row.id,
                 cell: (_value, row) => <Text variant="body-sm">{getDisplayPrice({ base_price: row.price, from_price: row.from_price }).label}</Text>
+            },
+            {
+                id: "actions",
+                header: "",
+                width: "44px",
+                align: "right",
+                cell: (_value, row) => (
+                    <div data-row-click-ignore="true">
+                        <DropdownMenu
+                            trigger={
+                                <button type="button" className={styles.assignActionsBtn}>
+                                    <IconDotsVertical size={15} />
+                                </button>
+                            }
+                            placement="bottom-end"
+                        >
+                            <DropdownItem
+                                onClick={() => {
+                                    const product = allProducts.find(p => p.id === row.productId) ?? null;
+                                    setMainEditProduct(product);
+                                }}
+                            >
+                                Modifica
+                            </DropdownItem>
+                            <DropdownItem
+                                href={`/business/${currentTenantId}/products/${row.productId}`}
+                                target="_blank"
+                            >
+                                Apri in Piatti
+                            </DropdownItem>
+                            <DropdownItem
+                                danger
+                                onClick={() => setProductToRemoveFromCategory(row)}
+                            >
+                                Rimuovi dalla categoria
+                            </DropdownItem>
+                        </DropdownMenu>
+                    </div>
+                )
             }
         ],
-        [expandedProductGroupIds]
+        [allProducts, currentTenantId, expandedProductGroupIds]
     );
 
     const assignColumns = useMemo<ColumnDefinition<V2Product>[]>(() => {
@@ -1421,7 +1506,7 @@ export default function CatalogEngine() {
                 id: "price",
                 header: "Prezzo",
                 accessor: row => row.id,
-                width: "120px",
+                width: "100px",
                 align: "right",
                 cell: (_value, row) => (
                     <Text variant="body-sm" colorVariant="muted">
@@ -1437,12 +1522,60 @@ export default function CatalogEngine() {
                         }).label}
                     </Text>
                 )
+            },
+            {
+                id: "actions",
+                header: "",
+                width: "44px",
+                align: "right",
+                cell: (_value, row) => {
+                    const isInherited = inheritedProductIds.has(row.id);
+                    return (
+                        <div data-row-click-ignore="true">
+                            <DropdownMenu
+                                trigger={
+                                    <button type="button" className={styles.assignActionsBtn}>
+                                        <IconDotsVertical size={15} />
+                                    </button>
+                                }
+                                placement="bottom-end"
+                            >
+                                {isInherited ? (
+                                    <DropdownItem
+                                        onClick={() => {
+                                            setEditingProduct(row);
+                                            setIsEditingReadOnly(true);
+                                        }}
+                                    >
+                                        Visualizza dettaglio
+                                    </DropdownItem>
+                                ) : (
+                                    <DropdownItem
+                                        onClick={() => {
+                                            setEditingProduct(row);
+                                            setIsEditingReadOnly(false);
+                                        }}
+                                    >
+                                        Modifica
+                                    </DropdownItem>
+                                )}
+                                <DropdownItem
+                                    href={`/business/${currentTenantId}/products/${row.id}`}
+                                    target="_blank"
+                                >
+                                    Apri in Piatti
+                                </DropdownItem>
+                            </DropdownMenu>
+                        </div>
+                    );
+                }
             }
         ];
     }, [
         assignableProducts,
         inheritedProductIds,
         assignSelectedIds,
+        currentTenantId,
         formatPriceByProductId,
         formatsCountByProductId
     ]);
@@ -1521,6 +1654,7 @@ export default function CatalogEngine() {
                             <DataTable<ProductRow>
                                 data={visibleRows}
                                 columns={columns}
+                                rowsPerPage={20}
                                 selectable
                                 onBulkDelete={handleBulkRemoveSelected}
                                 emptyState={
@@ -1723,6 +1857,8 @@ export default function CatalogEngine() {
                 open={isUnifiedAddProductDrawerOpen}
                 onClose={() => {
                     setIsUnifiedAddProductDrawerOpen(false);
+                    setEditingProduct(null);
+                    setIsEditingReadOnly(false);
                     setAssignSelectedIds([]);
                     setAssignInitialIds(new Set());
                     setAssignGroupId(null);
@@ -1732,78 +1868,147 @@ export default function CatalogEngine() {
             >
                 <DrawerLayout
                     header={
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                            <div>
-                                <Text variant="title-sm" weight={700}>
+                        editingProduct ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                <button
+                                    type="button"
+                                    className={styles.assignBackBtn}
+                                    onClick={() => {
+                                        setEditingProduct(null);
+                                        setIsEditingReadOnly(false);
+                                    }}
+                                >
+                                    <IconArrowLeft size={13} />
                                     Aggiungi prodotto
+                                </button>
+                                <Text variant="title-sm" weight={700}>
+                                    {isEditingReadOnly ? "Dettaglio" : "Modifica"}: {editingProduct.name}
                                 </Text>
                                 <Text variant="caption" colorVariant="muted">
                                     Categoria: {selectedCategory?.name ?? "—"}
                                 </Text>
                             </div>
-                            <Tabs
-                                value={addProductMode}
-                                onChange={v => {
-                                    const tab = v as "existing" | "new";
-                                    setAddProductMode(tab);
-                                    localStorage.setItem(
-                                        `cg_product_drawer_last_tab_${currentTenantId}`,
-                                        tab
-                                    );
-                                }}
-                            >
-                                <Tabs.List>
-                                    <Tabs.Tab value="new">Nuovo</Tabs.Tab>
-                                    <Tabs.Tab value="existing">Esistente</Tabs.Tab>
-                                </Tabs.List>
-                            </Tabs>
-                        </div>
+                        ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                <div>
+                                    <Text variant="title-sm" weight={700}>
+                                        Aggiungi prodotto
+                                    </Text>
+                                    <Text variant="caption" colorVariant="muted">
+                                        Categoria: {selectedCategory?.name ?? "—"}
+                                    </Text>
+                                </div>
+                                <Tabs
+                                    value={addProductMode}
+                                    onChange={v => {
+                                        const tab = v as "existing" | "new";
+                                        setAddProductMode(tab);
+                                        localStorage.setItem(
+                                            `cg_product_drawer_last_tab_${currentTenantId}`,
+                                            tab
+                                        );
+                                    }}
+                                >
+                                    <Tabs.List>
+                                        <Tabs.Tab value="new">Nuovo</Tabs.Tab>
+                                        <Tabs.Tab value="existing">Esistente</Tabs.Tab>
+                                    </Tabs.List>
+                                </Tabs>
+                            </div>
+                        )
                     }
                     footer={
-                        <>
-                            <Button
-                                variant="secondary"
-                                onClick={() => setIsUnifiedAddProductDrawerOpen(false)}
-                            >
-                                Annulla
-                            </Button>
-                            {addProductMode === "existing" ? (
+                        editingProduct ? (
+                            <>
                                 <Button
-                                    variant="primary"
-                                    onClick={handleBulkAssignItems}
-                                    disabled={!assignHasChanges}
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                        window.open(
+                                            `/business/${currentTenantId}/products/${editingProduct.id}`,
+                                            "_blank"
+                                        )
+                                    }
                                 >
-                                    Associa selezionati ({assignSelectedIds.length})
+                                    Apri in Piatti →
                                 </Button>
-                            ) : (
-                                <SplitButton
-                                    primaryLabel="Crea e associa"
-                                    loading={isSavingProduct}
-                                    onPrimaryClick={() => {
-                                        setCreateIntent("associate");
-                                        const form = document.getElementById(
-                                            "product-form-unified"
-                                        ) as HTMLFormElement | null;
-                                        form?.requestSubmit();
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => {
+                                        setEditingProduct(null);
+                                        setIsEditingReadOnly(false);
                                     }}
-                                    options={[
-                                        {
-                                            label: "Crea e configura",
-                                            onClick: () => {
-                                                setCreateIntent("configure");
-                                                const form = document.getElementById(
-                                                    "product-form-unified"
-                                                ) as HTMLFormElement | null;
-                                                form?.requestSubmit();
+                                >
+                                    {isEditingReadOnly ? "Chiudi" : "Annulla"}
+                                </Button>
+                                {!isEditingReadOnly && (
+                                    <Button
+                                        variant="primary"
+                                        type="submit"
+                                        form="product-form-edit-inline"
+                                        loading={isSavingEditProduct}
+                                        disabled={isSavingEditProduct}
+                                    >
+                                        Salva modifiche
+                                    </Button>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setIsUnifiedAddProductDrawerOpen(false)}
+                                >
+                                    Annulla
+                                </Button>
+                                {addProductMode === "existing" ? (
+                                    <Button
+                                        variant="primary"
+                                        onClick={handleBulkAssignItems}
+                                        disabled={!assignHasChanges}
+                                    >
+                                        Associa selezionati ({assignSelectedIds.length})
+                                    </Button>
+                                ) : (
+                                    <SplitButton
+                                        primaryLabel="Crea e associa"
+                                        loading={isSavingProduct}
+                                        onPrimaryClick={() => {
+                                            setCreateIntent("associate");
+                                            const form = document.getElementById(
+                                                "product-form-unified"
+                                            ) as HTMLFormElement | null;
+                                            form?.requestSubmit();
+                                        }}
+                                        options={[
+                                            {
+                                                label: "Crea e configura",
+                                                onClick: () => {
+                                                    setCreateIntent("configure");
+                                                    const form = document.getElementById(
+                                                        "product-form-unified"
+                                                    ) as HTMLFormElement | null;
+                                                    form?.requestSubmit();
+                                                }
                                             }
-                                        }
-                                    ]}
-                                />
-                            )}
-                        </>
+                                        ]}
+                                    />
+                                )}
+                            </>
+                        )
                     }
                 >
-                    {addProductMode === "existing" ? (
+                    {editingProduct ? (
+                        <ProductForm
+                            formId="product-form-edit-inline"
+                            mode="edit"
+                            productData={editingProduct}
+                            parentProduct={null}
+                            tenantId={currentTenantId ?? null}
+                            onSuccess={handleInlineEditSuccess}
+                            onSavingChange={setIsSavingEditProduct}
+                        />
+                    ) : addProductMode === "existing" ? (
                         <div className={styles.form}>
                             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                                 <Select
@@ -1856,6 +2061,108 @@ export default function CatalogEngine() {
                             skipAutoNavigate
                         />
                     )}
+                </DrawerLayout>
+            </SystemDrawer>
+
+            {/* ── Modifica prodotto dalla tabella principale ─────────────── */}
+            <SystemDrawer
+                open={Boolean(mainEditProduct)}
+                onClose={() => setMainEditProduct(null)}
+                width={520}
+            >
+                <DrawerLayout
+                    header={
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                            <div>
+                                <Text variant="title-sm" weight={700}>
+                                    Modifica prodotto
+                                </Text>
+                                <Text variant="caption" colorVariant="muted">
+                                    {mainEditProduct?.name}
+                                </Text>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                    window.open(
+                                        `/business/${currentTenantId}/products/${mainEditProduct?.id}`,
+                                        "_blank"
+                                    )
+                                }
+                            >
+                                Apri in Piatti →
+                            </Button>
+                        </div>
+                    }
+                    footer={
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setMainEditProduct(null)}
+                                disabled={isSavingMainEdit}
+                            >
+                                Annulla
+                            </Button>
+                            <Button
+                                variant="primary"
+                                type="submit"
+                                form="product-form-main-edit"
+                                loading={isSavingMainEdit}
+                                disabled={isSavingMainEdit}
+                            >
+                                Salva modifiche
+                            </Button>
+                        </>
+                    }
+                >
+                    {mainEditProduct && (
+                        <ProductForm
+                            formId="product-form-main-edit"
+                            mode="edit"
+                            productData={mainEditProduct}
+                            parentProduct={null}
+                            tenantId={currentTenantId ?? null}
+                            onSuccess={handleMainEditSuccess}
+                            onSavingChange={setIsSavingMainEdit}
+                        />
+                    )}
+                </DrawerLayout>
+            </SystemDrawer>
+
+            {/* ── Conferma rimozione prodotto dalla categoria ────────────── */}
+            <SystemDrawer
+                open={Boolean(productToRemoveFromCategory)}
+                onClose={() => setProductToRemoveFromCategory(null)}
+                width={420}
+            >
+                <DrawerLayout
+                    header={
+                        <Text variant="title-sm" weight={700}>
+                            Rimuovi dalla categoria
+                        </Text>
+                    }
+                    footer={
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setProductToRemoveFromCategory(null)}
+                            >
+                                Annulla
+                            </Button>
+                            <Button variant="danger" onClick={handleRemoveFromCategory}>
+                                Rimuovi
+                            </Button>
+                        </>
+                    }
+                >
+                    <div className={styles.deleteWarning}>
+                        <Text variant="body-sm">
+                            Vuoi rimuovere "<strong>{productToRemoveFromCategory?.name}</strong>" dalla
+                            categoria "<strong>{selectedCategory?.name}</strong>"?{" "}
+                            Il prodotto non verrà eliminato dal sistema.
+                        </Text>
+                    </div>
                 </DrawerLayout>
             </SystemDrawer>
         </section>

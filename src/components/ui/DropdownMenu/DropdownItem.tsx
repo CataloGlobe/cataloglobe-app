@@ -49,7 +49,7 @@ export function DropdownItem({
             className={`${styles.item} ${danger ? styles.danger : ""}`}
             onClick={handleClick}
         >
-            {children}
+            <span className={styles.itemContent}>{children}</span>
         </Button>
     );
 }
