@@ -618,6 +618,9 @@ export default function Businesses() {
             name: "",
             city: "",
             address: "",
+            street_number: "",
+            postal_code: "",
+            province: "",
             slug: "",
             coverPreview: null
         });

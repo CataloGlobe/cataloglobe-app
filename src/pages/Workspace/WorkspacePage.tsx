@@ -25,6 +25,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./WorkspacePage.module.scss";
 
 import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
+import type { BusinessSubtype } from "@/constants/verticalTypes";
 
 function countByTenant(rows: { tenant_id: string }[] | null): Record<string, number> {
     const counts: Record<string, number> = {};
@@ -45,7 +46,7 @@ export default function WorkspacePage() {
     const [productCounts, setProductCounts] = useState<Record<string, number>>({});
     const [catalogCounts, setCatalogCounts] = useState<Record<string, number>>({});
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const [editTarget, setEditTarget] = useState<{ id: string; name: string; logo_url?: string | null; business_subtype?: string | null } | null>(null);
+    const [editTarget, setEditTarget] = useState<{ id: string; name: string; logo_url?: string | null; business_subtype?: BusinessSubtype | null } | null>(null);
     const [pendingInvites, setPendingInvites] = useState<PendingInviteData[]>([]);
     const [activeInvite, setActiveInvite] = useState<PendingInviteData | null>(null);
     const [leaveTarget, setLeaveTarget] = useState<{ id: string; name: string } | null>(null);
