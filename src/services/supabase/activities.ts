@@ -234,6 +234,7 @@ export async function createActivity(
         address: string | null;
         street_number?: string | null;
         postal_code?: string | null;
+        province?: string | null;
     }
 ): Promise<V2Activity> {
     const { data, error } = await supabase
