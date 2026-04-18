@@ -15,7 +15,11 @@ import {
     updateFeaturedContentProductsSortOrder,
     syncFeaturedContentProducts
 } from "@services/supabase/featuredContents";
-import { GripVertical, Trash2 } from "lucide-react";
+import { GripVertical, Trash2, Pencil } from "lucide-react";
+import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
+import { ProductForm } from "@/pages/Dashboard/Products/components/ProductForm";
+import { getProduct, type V2Product } from "@services/supabase/products";
 import {
     DndContext,
     closestCenter,
@@ -117,6 +121,8 @@ export default function ProductsManagerCard({
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [products, setProducts] = useState<FeaturedContentProductRow[]>([]);
+    const [editingProduct, setEditingProduct] = useState<V2Product | null>(null);
+    const [isSavingEditProduct, setIsSavingEditProduct] = useState(false);
 
     const loadProducts = useCallback(async () => {
         if (!tenantId) return;
@@ -148,6 +154,17 @@ export default function ProductsManagerCard({
             showToast({ type: "error", message: "Errore nella rimozione del prodotto." });
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleEditProduct = async (productId: string) => {
+        if (!tenantId) return;
+        try {
+            const product = await getProduct(productId, tenantId);
+            setEditingProduct(product);
+        } catch (err) {
+            console.error(err);
+            showToast({ type: "error", message: "Impossibile caricare il prodotto." });
         }
     };
 
@@ -350,9 +367,15 @@ export default function ProductsManagerCard({
                     <TableRowActions
                         actions={[
                             {
+                                label: "Modifica",
+                                icon: Pencil,
+                                onClick: () => void handleEditProduct(row.product_id)
+                            },
+                            {
                                 label: "Rimuovi prodotto",
                                 icon: Trash2,
                                 variant: "destructive",
+                                separator: true,
                                 onClick: () => handleDelete(row.id)
                             }
                         ]}
@@ -364,6 +387,7 @@ export default function ProductsManagerCard({
     );
 
     return (
+        <>
         <Card>
             <div style={{ display: "flex", flexDirection: "column" }}>
                 <div
@@ -433,5 +457,54 @@ export default function ProductsManagerCard({
                 )}
             </div>
         </Card>
+
+        <SystemDrawer open={Boolean(editingProduct)} onClose={() => setEditingProduct(null)} width={520}>
+            <DrawerLayout
+                header={
+                    <div>
+                        <Text variant="title-sm" weight={700}>Modifica prodotto</Text>
+                        {editingProduct?.name && (
+                            <Text variant="caption" colorVariant="muted">{editingProduct.name}</Text>
+                        )}
+                    </div>
+                }
+                footer={
+                    <>
+                        <Button
+                            variant="secondary"
+                            onClick={() => setEditingProduct(null)}
+                            disabled={isSavingEditProduct}
+                        >
+                            Annulla
+                        </Button>
+                        <Button
+                            variant="primary"
+                            type="submit"
+                            form="product-form-featured-edit"
+                            loading={isSavingEditProduct}
+                            disabled={isSavingEditProduct}
+                        >
+                            Salva modifiche
+                        </Button>
+                    </>
+                }
+            >
+                {editingProduct && (
+                    <ProductForm
+                        formId="product-form-featured-edit"
+                        mode="edit"
+                        productData={editingProduct}
+                        parentProduct={null}
+                        tenantId={tenantId ?? null}
+                        onSuccess={async () => {
+                            setEditingProduct(null);
+                            await loadProducts();
+                        }}
+                        onSavingChange={setIsSavingEditProduct}
+                    />
+                )}
+            </DrawerLayout>
+        </SystemDrawer>
+        </>
     );
 }

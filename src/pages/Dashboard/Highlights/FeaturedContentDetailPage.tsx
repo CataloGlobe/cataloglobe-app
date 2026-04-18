@@ -12,6 +12,8 @@ import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { Pencil, Image } from "lucide-react";
 import ProductPickerList from "./ProductPickerList";
 import ProductsManagerCard from "./ProductsManagerCard";
+import { ProductForm } from "@/pages/Dashboard/Products/components/ProductForm";
+import { type V2Product } from "@/services/supabase/products";
 import {
     type FeaturedContentWithProducts,
     type FeaturedContentPricingMode,
@@ -63,6 +65,8 @@ export default function FeaturedContentDetailPage() {
     const [linkedProductIds, setLinkedProductIds] = useState<string[]>([]);
     const [pendingSelectedProductIds, setPendingSelectedProductIds] = useState<string[]>([]);
     const onApplyProductsRef = useRef<((ids: string[]) => Promise<void>) | null>(null);
+    const [addProductMode, setAddProductMode] = useState<"new" | "existing">("existing");
+    const [isCreatingNewProduct, setIsCreatingNewProduct] = useState(false);
 
     const loadContent = useCallback(async () => {
         if (!featuredId || !tenantId) return;
@@ -87,6 +91,21 @@ export default function FeaturedContentDetailPage() {
     const closeProductPicker = () => {
         setIsProductPickerOpen(false);
         setPendingSelectedProductIds([]);
+        setAddProductMode("existing");
+    };
+
+    const handleNewProductCreated = async (createdProduct?: V2Product) => {
+        if (!createdProduct || !onApplyProductsRef.current) {
+            closeProductPicker();
+            return;
+        }
+        try {
+            await onApplyProductsRef.current([...linkedProductIds, createdProduct.id]);
+        } catch (err) {
+            console.error(err);
+            showToast({ type: "error", message: "Errore nell'associazione del prodotto." });
+        }
+        closeProductPicker();
     };
 
     const hasPendingProductChanges = useCallback(() => {
@@ -375,29 +394,70 @@ export default function FeaturedContentDetailPage() {
             <SystemDrawer open={isProductPickerOpen} onClose={closeProductPicker} width={640}>
                 <DrawerLayout
                     header={
-                        <Text variant="title-sm" weight={700}>
-                            Aggiungi prodotto
-                        </Text>
+                        <div className={styles.pickerDrawerHeader}>
+                            <Text variant="title-sm" weight={700}>
+                                Aggiungi prodotto
+                            </Text>
+                            <Tabs
+                                value={addProductMode}
+                                onChange={v => setAddProductMode(v as "new" | "existing")}
+                            >
+                                <Tabs.List>
+                                    <Tabs.Tab value="new">Nuovo</Tabs.Tab>
+                                    <Tabs.Tab value="existing">Esistente</Tabs.Tab>
+                                </Tabs.List>
+                            </Tabs>
+                        </div>
                     }
                     footer={
-                        <>
-                            <Button variant="secondary" onClick={closeProductPicker}>
-                                Annulla
-                            </Button>
-                            <Button
-                                variant="primary"
-                                onClick={applyProductSelection}
-                                disabled={!hasPendingProductChanges()}
-                            >
-                                Applica
-                            </Button>
-                        </>
+                        addProductMode === "new" ? (
+                            <>
+                                <Button variant="secondary" onClick={closeProductPicker}>
+                                    Annulla
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    type="submit"
+                                    form="product-form-featured"
+                                    loading={isCreatingNewProduct}
+                                    disabled={isCreatingNewProduct}
+                                >
+                                    Crea e associa
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Button variant="secondary" onClick={closeProductPicker}>
+                                    Annulla
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    onClick={applyProductSelection}
+                                    disabled={!hasPendingProductChanges()}
+                                >
+                                    Applica
+                                </Button>
+                            </>
+                        )
                     }
                 >
-                    <ProductPickerList
-                        selectedProductIds={pendingSelectedProductIds}
-                        onSelectionChange={setPendingSelectedProductIds}
-                    />
+                    {addProductMode === "new" ? (
+                        <ProductForm
+                            formId="product-form-featured"
+                            mode="create_base"
+                            productData={null}
+                            parentProduct={null}
+                            tenantId={tenantId ?? null}
+                            onSuccess={handleNewProductCreated}
+                            onSavingChange={setIsCreatingNewProduct}
+                            skipAutoNavigate
+                        />
+                    ) : (
+                        <ProductPickerList
+                            selectedProductIds={pendingSelectedProductIds}
+                            onSelectionChange={setPendingSelectedProductIds}
+                        />
+                    )}
                 </DrawerLayout>
             </SystemDrawer>
         </div>
