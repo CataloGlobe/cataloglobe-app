@@ -5,13 +5,12 @@ import { useToast } from "@/context/Toast/ToastContext";
 import Text from "@/components/ui/Text/Text";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { Select } from "@/components/ui/Select/Select";
 import { Button } from "@/components/ui/Button/Button";
 import { FileInput } from "@/components/ui/Input/FileInput";
 import { DeleteTenantDialog } from "@/components/Businesses/DeleteTenantDialog";
 import { deleteTenantSoft, getTenantLogoPublicUrl, updateTenantLogoUrl, uploadTenantLogo } from "@/services/supabase/tenants";
 import { TENANT_KEY } from "@/constants/storageKeys";
-import { SUBTYPE_OPTIONS, DEFAULT_SUBTYPE, type BusinessSubtype } from "@/constants/verticalTypes";
+import { SUBTYPE_LABELS, DEFAULT_SUBTYPE } from "@/constants/verticalTypes";
 import styles from "./BusinessSettingsPage.module.scss";
 
 export default function BusinessSettingsPage() {
@@ -19,7 +18,6 @@ export default function BusinessSettingsPage() {
     const { showToast } = useToast();
 
     const [name, setName] = useState("");
-    const [subtype, setSubtype] = useState<BusinessSubtype>(DEFAULT_SUBTYPE);
     const [saving, setSaving] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -30,7 +28,6 @@ export default function BusinessSettingsPage() {
     useEffect(() => {
         if (selectedTenant) {
             setName(selectedTenant.name);
-            setSubtype(selectedTenant.business_subtype ?? DEFAULT_SUBTYPE);
         }
     }, [selectedTenant?.id]);
 
@@ -43,7 +40,7 @@ export default function BusinessSettingsPage() {
         setSaving(true);
         const { error } = await supabase
             .from("tenants")
-            .update({ name: trimmed, vertical_type: "food_beverage", business_subtype: subtype })
+            .update({ name: trimmed })
             .eq("id", selectedTenant.id);
         setSaving(false);
 
@@ -139,12 +136,15 @@ export default function BusinessSettingsPage() {
                         required
                     />
 
-                    <Select
-                        label="Tipo di attività"
-                        value={subtype}
-                        onChange={e => setSubtype(e.target.value as BusinessSubtype)}
-                        options={SUBTYPE_OPTIONS}
-                    />
+                    <div className={styles.readOnlyField}>
+                        <Text variant="body-sm" weight={500}>Tipo di attività</Text>
+                        <span className={styles.typePill}>
+                            {SUBTYPE_LABELS[selectedTenant.business_subtype ?? DEFAULT_SUBTYPE]}
+                        </span>
+                        <span className={styles.readOnlyHint}>
+                            Il tipo di attività non può essere modificato dopo la creazione
+                        </span>
+                    </div>
                 </form>
 
                 <div className={styles.sectionFooter}>
