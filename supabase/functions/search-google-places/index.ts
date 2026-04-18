@@ -45,6 +45,51 @@ serve(async (req: Request) => {
 
         // ── Validation ─────────────────────────────────────────
         const body = (await req.json()) as Record<string, unknown>;
+
+        // ── Google API key (needed by both branches) ───────────
+        const apiKey = Deno.env.get("GOOGLE_PLACES_API_KEY");
+        if (!apiKey) {
+            return jsonResponse({ error: "Servizio di ricerca non configurato" }, 500);
+        }
+
+        // ── Branch: Place Details (place_id) ───────────────────
+        if (typeof body.place_id === "string" && body.place_id.trim()) {
+            const placeId = body.place_id.trim();
+
+            const detailsRes = await fetch(
+                `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
+                {
+                    method: "GET",
+                    headers: {
+                        "X-Goog-Api-Key": apiKey,
+                        "X-Goog-FieldMask": "addressComponents"
+                    }
+                }
+            );
+
+            if (!detailsRes.ok) {
+                console.error("[search-google-places] Place Details error:", detailsRes.status, await detailsRes.text());
+                return jsonResponse({ error: "Errore nel recupero dettagli indirizzo" }, 500);
+            }
+
+            const detailsData = (await detailsRes.json()) as {
+                addressComponents?: Array<{ longText: string; shortText: string; types: string[] }>;
+            };
+
+            const components = detailsData.addressComponents ?? [];
+            const find = (type: string, short = false) =>
+                (components.find(c => c.types.includes(type))?.[short ? "shortText" : "longText"]) ?? "";
+
+            return jsonResponse({
+                address: find("route"),
+                street_number: find("street_number"),
+                postal_code: find("postal_code"),
+                city: find("locality"),
+                province: find("administrative_area_level_2", true)
+            }, 200);
+        }
+
+        // ── Branch: Text Search (query) ────────────────────────
         const query = body.query;
 
         if (typeof query !== "string" || query.trim().length < 3) {
@@ -70,11 +115,6 @@ serve(async (req: Request) => {
         }
 
         // ── Google Places API ──────────────────────────────────
-        const apiKey = Deno.env.get("GOOGLE_PLACES_API_KEY");
-        if (!apiKey) {
-            return jsonResponse({ error: "Servizio di ricerca non configurato" }, 500);
-        }
-
         const googleRes = await fetch(
             "https://places.googleapis.com/v1/places:searchText",
             {
