@@ -921,3 +921,54 @@
 .tabDescription {
   padding: 0.5rem 1rem 0;
 }
+
+/* ─── Filter row (search + sede) ────────────────────────── */
+
+.filterRow {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.filterBarFlex {
+  flex: 1;
+  min-width: 0;
+}
+
+.activityFilterWrapper {
+  position: relative;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+.activityFilterSelect {
+  height: 100%;
+  padding: 0 2.2rem 0 0.85rem;
+  appearance: none;
+  background: var(--card-bg, #fff);
+  color: var(--text);
+  font-size: 0.875rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  min-width: 160px;
+  max-width: 260px;
+
+  &:focus-visible {
+    outline: none;
+    border-color: var(--brand-primary, #6366f1);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+  }
+}
+
+.activityFilterCaret {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.85rem;
+  line-height: 1;
+}
