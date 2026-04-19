@@ -91,6 +91,7 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                 <div className={styles.row3}>
                     <TextInput
                         label="Civico"
+                        required
                         placeholder="Es. 10"
                         value={values.street_number}
                         onChange={e => onFieldChange("street_number", e.target.value)}
@@ -98,6 +99,7 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                     />
                     <TextInput
                         label="CAP"
+                        required
                         placeholder="Es. 20100"
                         value={values.postal_code}
                         onChange={e => onFieldChange("postal_code", e.target.value)}
@@ -106,6 +108,7 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                     />
                     <TextInput
                         label="Provincia"
+                        required
                         placeholder="Es. MI"
                         value={values.province}
                         onChange={e => onFieldChange("province", e.target.value.toUpperCase())}
