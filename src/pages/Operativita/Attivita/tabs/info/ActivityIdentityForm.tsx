@@ -7,6 +7,13 @@ import type { V2Activity } from "@/types/activity";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./ActivityIdentityForm.module.scss";
 
+type FieldErrors = {
+    street_number?: string;
+    postal_code?: string;
+    province?: string;
+    city?: string;
+};
+
 type ActivityIdentityFormProps = {
     formId: string;
     entityData: V2Activity;
@@ -30,6 +37,7 @@ export function ActivityIdentityForm({
     const [city, setCity] = useState(entityData.city ?? "");
     const [province, setProvince] = useState(entityData.province ?? "");
     const [description, setDescription] = useState(entityData.description ?? "");
+    const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
     useEffect(() => {
         setName(entityData.name);
@@ -39,6 +47,7 @@ export function ActivityIdentityForm({
         setCity(entityData.city ?? "");
         setProvince(entityData.province ?? "");
         setDescription(entityData.description ?? "");
+        setFieldErrors({});
     }, [entityData]);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -50,15 +59,28 @@ export function ActivityIdentityForm({
             return;
         }
 
+        const errors: FieldErrors = {};
+        if (!streetNumber.trim()) errors.street_number = "Inserisci il numero civico";
+        if (postalCode.trim().length !== 5) errors.postal_code = "Inserisci un CAP valido (5 cifre)";
+        if (province.trim().length !== 2) errors.province = "Inserisci la sigla provincia (es. MI)";
+        if (!city.trim()) errors.city = "Inserisci la città";
+
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
+            showToast({ message: "Compila tutti i campi obbligatori.", type: "info", duration: 2500 });
+            return;
+        }
+
+        setFieldErrors({});
         onSavingChange(true);
         try {
             await updateActivity(entityData.id, tenantId, {
                 name: trimmedName,
                 address: address.trim() || null,
-                street_number: streetNumber.trim() || null,
-                postal_code: postalCode.trim() || null,
+                street_number: streetNumber.trim(),
+                postal_code: postalCode.trim(),
                 city: city.trim() || null,
-                province: province.trim() || null,
+                province: province.trim(),
                 description: description.trim() || null
             });
             showToast({ message: "Identità aggiornata con successo.", type: "success" });
@@ -89,13 +111,13 @@ export function ActivityIdentityForm({
                 />
 
                 <AddressAutocomplete
-                    placeholder="Cerca via, piazza, corso..."
                     onSelect={result => {
                         setAddress(result.address);
                         setStreetNumber(result.street_number);
                         setPostalCode(result.postal_code);
                         setCity(result.city);
                         setProvince(result.province);
+                        setFieldErrors({});
                     }}
                 />
 
@@ -109,31 +131,51 @@ export function ActivityIdentityForm({
                 <div className={styles.addressRow}>
                     <TextInput
                         label="Civico"
+                        required
                         value={streetNumber}
-                        onChange={e => setStreetNumber(e.target.value)}
+                        onChange={e => {
+                            setStreetNumber(e.target.value);
+                            if (fieldErrors.street_number) setFieldErrors(prev => ({ ...prev, street_number: undefined }));
+                        }}
                         placeholder="es. 12"
+                        error={fieldErrors.street_number}
                     />
                     <TextInput
                         label="CAP"
+                        required
                         value={postalCode}
-                        onChange={e => setPostalCode(e.target.value)}
+                        onChange={e => {
+                            setPostalCode(e.target.value);
+                            if (fieldErrors.postal_code) setFieldErrors(prev => ({ ...prev, postal_code: undefined }));
+                        }}
                         placeholder="es. 20100"
                         maxLength={5}
+                        error={fieldErrors.postal_code}
                     />
                     <TextInput
                         label="Provincia"
+                        required
                         value={province}
-                        onChange={e => setProvince(e.target.value.toUpperCase())}
+                        onChange={e => {
+                            setProvince(e.target.value.toUpperCase());
+                            if (fieldErrors.province) setFieldErrors(prev => ({ ...prev, province: undefined }));
+                        }}
                         placeholder="es. MI"
                         maxLength={2}
+                        error={fieldErrors.province}
                     />
                 </div>
 
                 <TextInput
                     label="Città"
+                    required
                     value={city}
-                    onChange={e => setCity(e.target.value)}
+                    onChange={e => {
+                        setCity(e.target.value);
+                        if (fieldErrors.city) setFieldErrors(prev => ({ ...prev, city: undefined }));
+                    }}
                     placeholder="Es. Milano"
+                    error={fieldErrors.city}
                 />
 
                 <Textarea
