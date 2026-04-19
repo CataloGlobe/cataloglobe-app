@@ -31,10 +31,12 @@ export function AddressAutocomplete({ onSelect, placeholder, disabled }: Address
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
     // Chiudi dropdown su click esterno
     useEffect(() => {
@@ -45,15 +47,6 @@ export function AddressAutocomplete({ onSelect, placeholder, disabled }: Address
         }
         document.addEventListener("mousedown", handleClick);
         return () => document.removeEventListener("mousedown", handleClick);
-    }, []);
-
-    // Chiudi dropdown su Escape
-    useEffect(() => {
-        function handleKey(e: KeyboardEvent) {
-            if (e.key === "Escape") setShowDropdown(false);
-        }
-        document.addEventListener("keydown", handleKey);
-        return () => document.removeEventListener("keydown", handleKey);
     }, []);
 
     const search = useCallback(async (q: string) => {
@@ -67,10 +60,12 @@ export function AddressAutocomplete({ onSelect, placeholder, disabled }: Address
             if (fnError) throw fnError;
             const items = (data as { results: SearchResult[] }).results ?? [];
             setResults(items);
+            setHighlightedIndex(-1);
             setShowDropdown(true);
         } catch {
             setError("Errore durante la ricerca.");
             setResults([]);
+            setHighlightedIndex(-1);
             setShowDropdown(true);
         } finally {
             setIsSearching(false);
@@ -84,13 +79,38 @@ export function AddressAutocomplete({ onSelect, placeholder, disabled }: Address
         if (val.trim().length < 3) {
             setResults([]);
             setShowDropdown(false);
+            setHighlightedIndex(-1);
             return;
         }
         debounceRef.current = setTimeout(() => search(val), 400);
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!showDropdown) return;
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            const next = Math.min(highlightedIndex + 1, results.length - 1);
+            setHighlightedIndex(next);
+            itemRefs.current[next]?.scrollIntoView({ block: "nearest" });
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            const prev = Math.max(highlightedIndex - 1, 0);
+            setHighlightedIndex(prev);
+            itemRefs.current[prev]?.scrollIntoView({ block: "nearest" });
+        } else if (e.key === "Enter") {
+            if (highlightedIndex >= 0 && results[highlightedIndex]) {
+                e.preventDefault();
+                handleSelect(results[highlightedIndex]);
+            }
+        } else if (e.key === "Escape") {
+            setShowDropdown(false);
+            setHighlightedIndex(-1);
+        }
+    };
+
     const handleSelect = async (place: SearchResult) => {
         setShowDropdown(false);
+        setHighlightedIndex(-1);
         setIsLoadingDetails(true);
         setError(null);
         try {
@@ -120,9 +140,11 @@ export function AddressAutocomplete({ onSelect, placeholder, disabled }: Address
         setTimeout(() => inputRef.current?.focus(), 0);
     };
 
+    const listboxId = "address-autocomplete-listbox";
+
     return (
         <div className={styles.wrapper}>
-            <span className={styles.label}>Cerca indirizzo</span>
+            <span className={styles.label}>Cerca la tua attività</span>
             {selectedAddress !== null ? (
                 <div className={styles.selectedPill} role="status" aria-label="Indirizzo selezionato">
                     <MapPin size={15} strokeWidth={2} className={styles.pillIcon} aria-hidden="true" />
@@ -150,14 +172,21 @@ export function AddressAutocomplete({ onSelect, placeholder, disabled }: Address
                         ref={inputRef}
                         type="text"
                         className={styles.input}
-                        placeholder={placeholder ?? "Cerca via, piazza, corso..."}
+                        placeholder={placeholder ?? "Es. McDonald's Via Roma, Milano"}
                         value={query}
                         onChange={handleQueryChange}
+                        onKeyDown={handleKeyDown}
                         disabled={disabled || isLoadingDetails}
-                        aria-label="Cerca indirizzo"
+                        aria-label="Cerca la tua attività"
                         aria-haspopup="listbox"
                         aria-expanded={showDropdown}
                         aria-autocomplete="list"
+                        aria-controls={showDropdown ? listboxId : undefined}
+                        aria-activedescendant={
+                            highlightedIndex >= 0
+                                ? `address-option-${highlightedIndex}`
+                                : undefined
+                        }
                         autoComplete="off"
                     />
                     {isLoading && <span className={styles.spinner} aria-hidden="true" />}
@@ -165,6 +194,7 @@ export function AddressAutocomplete({ onSelect, placeholder, disabled }: Address
 
                 {showDropdown && (
                     <div
+                        id={listboxId}
                         className={styles.dropdown}
                         role="listbox"
                         aria-label="Risultati ricerca indirizzo"
@@ -181,12 +211,14 @@ export function AddressAutocomplete({ onSelect, placeholder, disabled }: Address
                             <div className={styles.dropdownMessage}>Nessun risultato</div>
                         )}
 
-                        {!isSearching && !error && results.map(place => (
+                        {!isSearching && !error && results.map((place, index) => (
                             <div
                                 key={place.place_id}
-                                className={styles.dropdownItem}
+                                id={`address-option-${index}`}
+                                ref={el => { itemRefs.current[index] = el; }}
+                                className={`${styles.dropdownItem}${index === highlightedIndex ? ` ${styles.dropdownItemHighlighted}` : ""}`}
                                 role="option"
-                                aria-selected={false}
+                                aria-selected={index === highlightedIndex}
                                 onClick={() => handleSelect(place)}
                             >
                                 <span className={styles.dropdownItemName}>{place.name}</span>

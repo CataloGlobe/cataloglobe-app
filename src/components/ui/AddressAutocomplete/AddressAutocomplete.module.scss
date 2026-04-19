@@ -141,6 +141,14 @@
     }
 }
 
+.dropdownItemHighlighted {
+    background: var(--color-background-secondary, #f1f5f9);
+
+    [data-theme="dark"] & {
+        background: #334155;
+    }
+}
+
 .dropdownItemName {
     font-size: 0.875rem;
     font-weight: 600;
