@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BookOpen, CalendarDays, Clock, ImageIcon, MessageSquareHeart, Search } from "lucide-react";
+import { BookOpen, CalendarDays, ImageIcon, Info, MessageSquareHeart, Search } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
@@ -35,10 +35,10 @@ export type PublicCollectionHeaderProps = {
     activeTab: HubTab;
     /** Callback per cambio tab. */
     onTabChange: (tab: HubTab) => void;
-    /** True se ci sono orari di apertura da mostrare. */
-    hasHours?: boolean;
-    /** Chiamato al tap sull'icona orologio. */
-    onHoursPress?: () => void;
+    /** True se ci sono informazioni sede da mostrare (orari, pagamenti, servizi, contatti). */
+    hasInfo?: boolean;
+    /** Chiamato al tap sull'icona info. */
+    onInfoPress?: () => void;
 };
 
 export default function PublicCollectionHeader({
@@ -57,8 +57,8 @@ export default function PublicCollectionHeader({
     scrollContainerEl,
     activeTab,
     onTabChange,
-    hasHours,
-    onHoursPress
+    hasInfo,
+    onInfoPress
 }: PublicCollectionHeaderProps) {
     const heroAreaRef = useRef<HTMLDivElement | null>(null);
     const compactBarRef = useRef<HTMLDivElement | null>(null);
@@ -199,18 +199,18 @@ export default function PublicCollectionHeader({
                                 )}
                             </div>
 
-                            {hasHours && onHoursPress && (
+                            <LanguageSelector variant="hero" />
+
+                            {hasInfo && onInfoPress && (
                                 <button
                                     type="button"
-                                    className={styles.infoCardHoursBtn}
-                                    onClick={onHoursPress}
-                                    aria-label="Orari di apertura"
+                                    className={styles.infoCardInfoBtn}
+                                    onClick={onInfoPress}
+                                    aria-label="Informazioni sede"
                                 >
-                                    <Clock size={15} strokeWidth={2} />
+                                    <Info size={15} strokeWidth={2} />
                                 </button>
                             )}
-
-                            <LanguageSelector variant="hero" />
 
                             <button
                                 type="button"
@@ -276,6 +276,17 @@ export default function PublicCollectionHeader({
                                 <span className={styles.compactName}>{activityName}</span>
 
                                 <LanguageSelector variant="compact" />
+
+                                {hasInfo && onInfoPress && (
+                                    <button
+                                        type="button"
+                                        className={styles.compactInfoBtn}
+                                        onClick={onInfoPress}
+                                        aria-label="Informazioni sede"
+                                    >
+                                        <Info size={16} strokeWidth={2} />
+                                    </button>
+                                )}
 
                                 <button
                                     type="button"

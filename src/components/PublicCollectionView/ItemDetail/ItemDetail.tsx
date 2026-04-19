@@ -25,6 +25,8 @@ type Props = {
     initialAddons?: SelectedAddon[];
     /** Etichetta del pulsante CTA. Default: "Aggiungi alla selezione". */
     submitLabel?: string;
+    /** Se false, non mostra né immagine né placeholder. Default: true. */
+    showImage?: boolean;
 };
 
 export default function ItemDetail({
@@ -35,7 +37,8 @@ export default function ItemDetail({
     onAddToSelection,
     initialFormat,
     initialAddons,
-    submitLabel = "Aggiungi alla selezione"
+    submitLabel = "Aggiungi alla selezione",
+    showImage = true
 }: Props) {
     // displayItem persiste durante l'animazione di chiusura.
     const [displayItem, setDisplayItem] = useState(item);
@@ -137,7 +140,7 @@ export default function ItemDetail({
 
     if (!displayItem) return null;
 
-    const shouldShowImage = mode === "public" && !!displayItem.image;
+    const shouldShowImage = showImage && mode === "public" && !!displayItem.image;
     const displayPrice = displayItem.effective_price ?? displayItem.price;
 
     return (
@@ -156,22 +159,24 @@ export default function ItemDetail({
             {/* Scrollable body */}
             <div className={styles.body}>
                 <div className={styles.root}>
-                    {/* IMMAGINE */}
-                    {shouldShowImage ? (
-                        <img
-                            src={displayItem.image!}
-                            alt={displayItem.name}
-                            className={styles.image}
-                            loading="lazy"
-                        />
-                    ) : (
-                        <div className={styles.placeholderImage} aria-hidden="true">
-                            <Package
-                                size={40}
-                                strokeWidth={1.5}
-                                color="var(--pub-text-muted, var(--pub-text-secondary))"
+                    {/* IMMAGINE — mostrata solo se showImage=true; placeholder se immagine assente */}
+                    {showImage && (
+                        shouldShowImage ? (
+                            <img
+                                src={displayItem.image!}
+                                alt={displayItem.name}
+                                className={styles.image}
+                                loading="lazy"
                             />
-                        </div>
+                        ) : (
+                            <div className={styles.placeholderImage} aria-hidden="true">
+                                <Package
+                                    size={40}
+                                    strokeWidth={1.5}
+                                    color="var(--pub-text-muted, var(--pub-text-secondary))"
+                                />
+                            </div>
+                        )
                     )}
 
                     {/* CONTENUTO */}

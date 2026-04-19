@@ -39,7 +39,8 @@ serve(async (req: Request) => {
             "instagram, instagram_public, facebook, facebook_public, " +
             "whatsapp, whatsapp_public, website, website_public, " +
             "phone, phone_public, email_public, email_public_visible, " +
-            "google_review_url, hours_public";
+            "google_review_url, hours_public, " +
+            "payment_methods, payment_methods_public, services, services_public";
 
         // 1. Lookup primario: activities.slug
         const { data: activityDirect, error: activityError } = await supabase
@@ -110,7 +111,9 @@ serve(async (req: Request) => {
             email_public: activity.email_public ?? null,
             email_public_visible: activity.email_public_visible ?? false,
             google_review_url: activity.google_review_url ?? null,
-            hours_public: activity.hours_public ?? false
+            hours_public: activity.hours_public ?? false,
+            payment_methods: activity.payment_methods_public ? (activity.payment_methods ?? []) : [],
+            services: activity.services_public ? (activity.services ?? []) : []
         };
 
         // For inactive venues, return early with business info only
@@ -128,13 +131,23 @@ serve(async (req: Request) => {
             );
         }
 
-        // 2. Parse simulation time (if provided)
+        // 2. Parse simulation time (if provided, only for authenticated users)
         let simulatedAt = undefined;
         if (simulate) {
-            const parsed = new Date(simulate);
-            if (!Number.isNaN(parsed.getTime())) {
-                simulatedAt = toRomeDateTime(parsed);
+            const authHeader = req.headers.get("Authorization");
+            let isAuthenticated = false;
+            if (authHeader) {
+                const token = authHeader.replace("Bearer ", "");
+                const { data: { user }, error } = await supabase.auth.getUser(token);
+                isAuthenticated = !!user && !error;
             }
+            if (isAuthenticated) {
+                const parsed = new Date(simulate);
+                if (!Number.isNaN(parsed.getTime())) {
+                    simulatedAt = toRomeDateTime(parsed);
+                }
+            }
+            // Non autenticato: simulatedAt resta undefined → catalogo normale
         }
 
         // 3. Resolve catalogs + tenant info in parallel

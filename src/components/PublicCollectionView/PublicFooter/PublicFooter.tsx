@@ -105,6 +105,22 @@ export default function PublicFooter({ socialLinks, activityId, openingHours, up
     // Costruisce la lista di social visibili
     const visibleSocials: { href: string; label: string; icon: ReactNode; socialType: SocialType }[] = [];
 
+    if (socialLinks?.phone && socialLinks.phone_public) {
+        visibleSocials.push({
+            href: `tel:${socialLinks.phone}`,
+            label: "Telefono",
+            icon: <IconPhone />,
+            socialType: "phone"
+        });
+    }
+    if (socialLinks?.email_public && socialLinks.email_public_visible) {
+        visibleSocials.push({
+            href: `mailto:${socialLinks.email_public}`,
+            label: "Email",
+            icon: <IconMail />,
+            socialType: "email"
+        });
+    }
     if (socialLinks?.website && socialLinks.website_public) {
         visibleSocials.push({
             href: ensureHttps(socialLinks.website),
@@ -135,22 +151,6 @@ export default function PublicFooter({ socialLinks, activityId, openingHours, up
             label: "WhatsApp",
             icon: <IconWhatsApp />,
             socialType: "whatsapp"
-        });
-    }
-    if (socialLinks?.phone && socialLinks.phone_public) {
-        visibleSocials.push({
-            href: `tel:${socialLinks.phone}`,
-            label: "Telefono",
-            icon: <IconPhone />,
-            socialType: "phone"
-        });
-    }
-    if (socialLinks?.email_public && socialLinks.email_public_visible) {
-        visibleSocials.push({
-            href: `mailto:${socialLinks.email_public}`,
-            label: "Email",
-            icon: <IconMail />,
-            socialType: "email"
         });
     }
 

@@ -24,7 +24,7 @@
 .socialBtn {
   width: 42px;
   height: 42px;
-  border-radius: 10px;
+  border-radius: var(--pub-radius, 10px);
   border: 1px solid var(--pub-border);
   background: var(--pub-surface);
   color: var(--pub-surface-text-secondary);

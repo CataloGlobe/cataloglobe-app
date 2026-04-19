@@ -26,7 +26,7 @@
     align-items: center;
     gap: 5px;
     padding: 5px 10px;
-    border-radius: 6px;
+    border-radius: var(--pub-btn-radius, 6px);
     border: none;
     background: color-mix(in srgb, var(--pub-text, #000) 8%, transparent);
     color: var(--pub-text, #333);
@@ -76,7 +76,7 @@
 .placeholderImage {
     width: 100%;
     aspect-ratio: 16/9;
-    border-radius: 12px;
+    border-radius: var(--pub-radius, 12px);
     height: auto;
     display: block;
     object-fit: cover;
@@ -207,7 +207,7 @@
     text-transform: uppercase;
     color: var(--pub-primary, #7C5200);
     background: color-mix(in srgb, var(--pub-primary, #7C5200) 10%, transparent);
-    border-radius: 4px;
+    border-radius: var(--pub-btn-radius, 4px);
     padding: 2px 5px;
 }
 
@@ -235,7 +235,7 @@
     align-items: center;
     gap: 2px;
     padding: 8px 14px;
-    border-radius: 10px;
+    border-radius: var(--pub-radius, 10px);
     border: 1.5px solid var(--pub-surface-border);
     background: var(--pub-surface, #fff);
     color: var(--pub-surface-text);

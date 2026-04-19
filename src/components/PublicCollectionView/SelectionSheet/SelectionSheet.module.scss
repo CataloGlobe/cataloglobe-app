@@ -32,7 +32,7 @@
   color: var(--pub-text-muted, #94a3b8);
   background: color-mix(in srgb, var(--pub-text) 8%, transparent);
   padding: 2px 8px;
-  border-radius: 12px;
+  border-radius: var(--pub-radius, 12px);
   white-space: nowrap;
   font-family: var(--pub-font-family, sans-serif);
   line-height: 1.4;
@@ -47,7 +47,7 @@
 
 .clearBtn {
   padding: 5px 10px;
-  border-radius: 8px;
+  border-radius: var(--pub-btn-radius, 8px);
   border: 1px solid #EF4444;
   background: transparent;
   color: #EF4444;
@@ -68,7 +68,7 @@
   align-items: center;
   gap: 4px;
   padding: 5px 10px;
-  border-radius: 8px;
+  border-radius: var(--pub-btn-radius, 8px);
   border: none;
   background: color-mix(in srgb, var(--pub-text) 8%, transparent);
   color: var(--pub-text-secondary, #64748b);
@@ -200,7 +200,7 @@
 .qtyBtn {
   width: 30px;
   height: 30px;
-  border-radius: 8px;
+  border-radius: var(--pub-btn-radius, 8px);
   border: 1px solid var(--pub-surface-border);
   background: var(--pub-surface, #fff);
   color: var(--pub-text-secondary, #64748b);

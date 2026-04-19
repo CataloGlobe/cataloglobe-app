@@ -95,7 +95,7 @@
 .panel {
   width: 100%;
   background: var(--pub-bg);
-  border-radius: 14px;
+  border-radius: var(--pub-radius, 14px);
   border: 1px solid var(--pub-border);
   box-shadow: 0 8px 32px color-mix(in srgb, var(--pub-bg-text) 20%, transparent);
   display: flex;
@@ -113,7 +113,7 @@
 
 /* Preview: panel con border-radius pieno e max-height relativo al device */
 .previewPanelWrap .panel {
-  border-radius: 14px;
+  border-radius: var(--pub-radius, 14px);
   box-shadow: 0 6px 28px color-mix(in srgb, var(--pub-bg-text) 14%, transparent);
   max-height: 80dvh;
 }
@@ -138,7 +138,7 @@
   height: 42px;
   padding: 0 0.75rem;
   border: 1.5px solid var(--pub-surface-border);
-  border-radius: 10px;
+  border-radius: var(--pub-radius, 10px);
   background: var(--pub-surface);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 

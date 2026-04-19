@@ -333,7 +333,7 @@
   color: var(--color-error, #dc2626);
   background: color-mix(in srgb, var(--color-error, #dc2626) 10%, transparent);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: var(--pub-btn-radius, 4px);
   font-weight: 500;
   margin: 0.5rem 0.75rem 0;
 }
@@ -546,6 +546,22 @@
   margin-left: 4px;
 }
 
+/* Override colors/radius for tag pills (Configurazioni / Attributi) shown on product cards */
+.tagPill {
+  border-radius: var(--pub-btn-radius, 6px) !important;
+  background: var(--pub-primary-soft) !important;
+  border-color: color-mix(in srgb, var(--pub-primary) 25%, transparent) !important;
+  color: var(--pub-primary) !important;
+
+  * {
+    color: inherit !important;
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-primary) 18%, transparent) !important;
+  }
+}
+
 .allergenEmojis {
   display: flex;
   align-items: center;
@@ -664,7 +680,7 @@
   flex-shrink: 0;
   width: 60px;
   height: 28px;
-  border-radius: 5px;
+  border-radius: var(--pub-btn-radius, 5px);
   background: color-mix(in srgb, var(--pub-text) 10%, transparent);
 }
 
@@ -684,7 +700,7 @@
   flex-shrink: 0;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--pub-btn-radius, 8px);
   border: 1px solid var(--pub-surface-border);
   background: var(--pub-surface);
   color: var(--pub-text-secondary);
@@ -704,7 +720,7 @@
   flex-shrink: 0;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--pub-btn-radius, 8px);
   border: 1px solid var(--pub-surface-border);
   background: var(--pub-surface);
   color: var(--pub-text-secondary);
@@ -749,7 +765,7 @@
   height: 40px;
   min-width: 40px;
   padding: 0 10px;
-  border-radius: 12px;
+  border-radius: var(--pub-radius, 12px);
   border: none;
   background: var(--pub-accent, #F59E0B);
   color: var(--pub-cta-text);
@@ -811,7 +827,7 @@
   height: 32px;
   flex-shrink: 0;
   align-self: center;
-  border-radius: 8px;
+  border-radius: var(--pub-btn-radius, 8px);
   border: 1px solid var(--pub-surface-border);
   background: var(--pub-surface, #fff);
   color: var(--pub-text-secondary, #64748b);
@@ -845,7 +861,7 @@
   right: -5px;
   min-width: 16px;
   height: 16px;
-  border-radius: 8px;
+  border-radius: var(--pub-btn-radius, 8px);
   background: #EF4444;
   color: #fff;
   font-size: 0.6rem;
@@ -872,7 +888,7 @@
   gap: 8px;
   height: 40px;
   padding: 0 16px;
-  border-radius: 14px;
+  border-radius: var(--pub-radius, 14px);
   border: none;
   background: var(--pub-bg-text);
   color: var(--pub-bg);
@@ -897,7 +913,7 @@
 .selectionFabBadge {
   background: #EF4444;
   color: #fff;
-  border-radius: 12px;
+  border-radius: var(--pub-radius, 12px);
   min-width: 22px;
   height: 22px;
   display: flex;
@@ -925,17 +941,97 @@
 }
 
 /* ----------------------------------------------------
-   HOURS SHEET
+   INFO SHEET
 ---------------------------------------------------- */
 
-.hoursSheetContent {
+.infoSheetContent {
   padding: 1rem 1.5rem 2rem;
 }
 
-.hoursSheetTitle {
+.infoSheetTitle {
   font-size: 1rem;
   font-weight: 600;
   color: var(--pub-text);
   font-family: var(--pub-font-family, sans-serif);
-  margin: 0 0 1rem 0;
+  margin: 0 0 1.25rem 0;
+}
+
+.infoSection {
+  margin-bottom: 1.5rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.infoSectionHeader {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pub-text-secondary, #888);
+  font-family: var(--pub-font-family, sans-serif);
+  margin: 0 0 0.6rem 0;
+}
+
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--pub-radius, 20px);
+  font-size: 0.78rem;
+  font-weight: 500;
+  font-family: var(--pub-font-family, sans-serif);
+  color: var(--pub-text);
+  background: color-mix(in srgb, var(--pub-text) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pub-text) 12%, transparent);
+}
+
+.contactList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.contactRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 0.875rem;
+  font-family: var(--pub-font-family, sans-serif);
+  color: var(--pub-text);
+  text-decoration: none;
+  border-radius: var(--pub-btn-radius, 6px);
+
+  svg {
+    flex-shrink: 0;
+    color: var(--pub-text-secondary, #888);
+  }
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &[href]:hover {
+    color: var(--pub-accent);
+
+    svg {
+      color: var(--pub-accent);
+    }
+  }
+}
+
+.addressText {
+  color: var(--pub-text);
+  font-size: 0.875rem;
+  font-family: var(--pub-font-family, sans-serif);
 }

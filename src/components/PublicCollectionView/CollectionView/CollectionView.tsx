@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Clock, Info, MessageSquareHeart, Package, Plus, Search } from "lucide-react";
+import { Facebook, Globe, Info, Instagram, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus, Search } from "lucide-react";
 import type {
     ResolvedAllergen,
     ResolvedIngredient,
@@ -280,7 +280,7 @@ function ProductRow({
                             transformOrigin: "left"
                         }}
                     >
-                        {hasConfigurations && <Pill label="Configurazioni" />}
+                        {hasConfigurations && <Pill label="Configurazioni" className={styles.tagPill} />}
                     </div>
                 )}
                 {hasAttributes && (
@@ -292,7 +292,7 @@ function ProductRow({
                             transformOrigin: "left"
                         }}
                     >
-                        {hasAttributes && <Pill label="Attributi" />}
+                        {hasAttributes && <Pill label="Attributi" className={styles.tagPill} />}
                     </div>
                 )}
                 {hasAllergens && (
@@ -478,6 +478,10 @@ type Props = {
     reviewsProps?: ReviewsViewProps;
     /** ID della sede — usato come chiave sessionStorage per la selezione prodotti. */
     activityId?: string;
+    /** Metodi di pagamento accettati (visibili se non vuoti). */
+    paymentMethods?: string[];
+    /** Servizi offerti dalla sede (visibili se non vuoti). */
+    activityServices?: string[];
 };
 
 export default function CollectionView({
@@ -501,7 +505,9 @@ export default function CollectionView({
     onTabChange,
     featuredContents = [],
     reviewsProps,
-    activityId
+    activityId,
+    paymentMethods,
+    activityServices
 }: Props) {
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
         () => sectionGroups[0]?.root.id ?? null
@@ -518,9 +524,20 @@ export default function CollectionView({
     const handleOpenSearch = useCallback(() => setIsSearchOpen(true), []);
     const handleCloseSearch = useCallback(() => setIsSearchOpen(false), []);
 
-    // ── Hours sheet ─────────────────────────────────────────────────────────
-    const [isHoursSheetOpen, setIsHoursSheetOpen] = useState(false);
+    // ── Info sheet ──────────────────────────────────────────────────────────
+    const [isInfoSheetOpen, setIsInfoSheetOpen] = useState(false);
     const hasHours = (openingHours?.length ?? 0) > 0;
+    const hasPaymentMethods = (paymentMethods?.length ?? 0) > 0;
+    const hasActivityServices = (activityServices?.length ?? 0) > 0;
+    const hasContacts = !!(
+        (socialLinks?.phone_public && socialLinks?.phone) ||
+        (socialLinks?.email_public_visible && socialLinks?.email_public) ||
+        (socialLinks?.website_public && socialLinks?.website) ||
+        (socialLinks?.whatsapp_public && socialLinks?.whatsapp) ||
+        (socialLinks?.instagram_public && socialLinks?.instagram) ||
+        (socialLinks?.facebook_public && socialLinks?.facebook)
+    );
+    const hasAnyInfo = hasHours || hasPaymentMethods || hasActivityServices || hasContacts || !!activityAddress;
 
     // ── Selezione prodotti ──────────────────────────────────────────────────
     const selectionStorageKey = activityId ? `catalogobe-selection-${activityId}` : null;
@@ -1302,8 +1319,8 @@ export default function CollectionView({
                     scrollContainerEl={scrollContainerEl}
                     activeTab={activeTab}
                     onTabChange={onTabChange ?? (() => {})}
-                    hasHours={hasHours}
-                    onHoursPress={() => setIsHoursSheetOpen(true)}
+                    hasInfo={hasAnyInfo}
+                    onInfoPress={() => setIsInfoSheetOpen(true)}
                 />
             )}
 
@@ -1361,20 +1378,122 @@ export default function CollectionView({
                 activityId={activityId}
             />
 
-            {/* ── HOURS SHEET ── */}
-            {hasHours && (
+            {/* ── INFO SHEET ── */}
+            {hasAnyInfo && (
                 <PublicSheet
-                    isOpen={isHoursSheetOpen}
-                    onClose={() => setIsHoursSheetOpen(false)}
-                    ariaLabel="Orari di apertura"
+                    isOpen={isInfoSheetOpen}
+                    onClose={() => setIsInfoSheetOpen(false)}
+                    ariaLabel="Informazioni sede"
                 >
-                    <div className={styles.hoursSheetContent}>
-                        <h2 className={styles.hoursSheetTitle}>Orari di apertura</h2>
-                        <PublicOpeningHours
-                            openingHours={openingHours ?? []}
-                            upcomingClosures={upcomingClosures}
-                            showHeading={false}
-                        />
+                    <div className={styles.infoSheetContent}>
+                        <h2 className={styles.infoSheetTitle}>Informazioni</h2>
+
+                        {hasHours && (
+                            <div className={styles.infoSection}>
+                                <h3 className={styles.infoSectionHeader}>Orari di apertura</h3>
+                                <PublicOpeningHours
+                                    openingHours={openingHours ?? []}
+                                    upcomingClosures={upcomingClosures}
+                                    showHeading={false}
+                                />
+                            </div>
+                        )}
+
+                        {hasPaymentMethods && (
+                            <div className={styles.infoSection}>
+                                <h3 className={styles.infoSectionHeader}>Metodi di pagamento</h3>
+                                <div className={styles.tagList}>
+                                    {paymentMethods!.map(m => (
+                                        <span key={m} className={styles.tag}>{m}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {hasActivityServices && (
+                            <div className={styles.infoSection}>
+                                <h3 className={styles.infoSectionHeader}>Servizi</h3>
+                                <div className={styles.tagList}>
+                                    {activityServices!.map(s => (
+                                        <span key={s} className={styles.tag}>{s}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {hasContacts && (
+                            <div className={styles.infoSection}>
+                                <h3 className={styles.infoSectionHeader}>Contatti</h3>
+                                <div className={styles.contactList}>
+                                    {socialLinks?.phone_public && socialLinks?.phone && (
+                                        <a href={`tel:${socialLinks.phone}`} className={styles.contactRow}>
+                                            <Phone size={14} strokeWidth={2} />
+                                            <span>{socialLinks.phone}</span>
+                                        </a>
+                                    )}
+                                    {socialLinks?.email_public_visible && socialLinks?.email_public && (
+                                        <a href={`mailto:${socialLinks.email_public}`} className={styles.contactRow}>
+                                            <Mail size={14} strokeWidth={2} />
+                                            <span>{socialLinks.email_public}</span>
+                                        </a>
+                                    )}
+                                    {socialLinks?.website_public && socialLinks?.website && (
+                                        <a
+                                            href={socialLinks.website}
+                                            className={styles.contactRow}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <Globe size={14} strokeWidth={2} />
+                                            <span>{socialLinks.website.replace(/^https?:\/\//, "")}</span>
+                                        </a>
+                                    )}
+                                    {socialLinks?.instagram_public && socialLinks?.instagram && (
+                                        <a
+                                            href={`https://instagram.com/${socialLinks.instagram}`}
+                                            className={styles.contactRow}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <Instagram size={14} strokeWidth={2} />
+                                            <span>@{socialLinks.instagram}</span>
+                                        </a>
+                                    )}
+                                    {socialLinks?.facebook_public && socialLinks?.facebook && (
+                                        <a
+                                            href={socialLinks.facebook}
+                                            className={styles.contactRow}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <Facebook size={14} strokeWidth={2} />
+                                            <span>Facebook</span>
+                                        </a>
+                                    )}
+                                    {socialLinks?.whatsapp_public && socialLinks?.whatsapp && (
+                                        <a
+                                            href={`https://wa.me/${socialLinks.whatsapp.replace(/\D/g, "")}`}
+                                            className={styles.contactRow}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <MessageCircle size={14} strokeWidth={2} />
+                                            <span>WhatsApp</span>
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {activityAddress && (
+                            <div className={styles.infoSection}>
+                                <h3 className={styles.infoSectionHeader}>Indirizzo</h3>
+                                <div className={styles.contactRow}>
+                                    <MapPin size={14} strokeWidth={2} />
+                                    <span className={styles.addressText}>{activityAddress}</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </PublicSheet>
             )}
@@ -1510,6 +1629,7 @@ export default function CollectionView({
                                         setEditingSelectionIndex(null);
                                     }}
                                     mode={mode}
+                                    showImage={style.cardTemplate !== "no-image"}
                                     onAddToSelection={mode === "public" && activeTab === "menu"
                                         ? (editingSelectionIndex !== null
                                             ? handleUpdateSelection

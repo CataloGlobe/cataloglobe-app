@@ -19,35 +19,36 @@ function formatPrice(price: number): string {
     }).format(price);
 }
 
-function getTagLabel(pricingMode: string | null): string {
-    switch (pricingMode) {
-        case "bundle": return "BUNDLE";
-        case "per_item": return "PROMO";
-        default: return "EVENTO";
+function getTagLabel(contentType: string | null): string {
+    switch (contentType) {
+        case "bundle": return "Bundle";
+        case "promo": return "Promo";
+        case "event": return "Evento";
+        default: return "Annuncio";
     }
 }
 
-function getTagClass(pricingMode: string | null): string {
-    switch (pricingMode) {
+function getTagClass(contentType: string | null): string {
+    switch (contentType) {
         case "bundle": return styles.tagBundle;
-        case "per_item": return styles.tagPromo;
+        case "promo": return styles.tagPromo;
         default: return styles.tagEvento;
     }
 }
 
-function getPlaceholderLightClass(pricingMode: string | null): string {
-    switch (pricingMode) {
+function getPlaceholderLightClass(contentType: string | null): string {
+    switch (contentType) {
         case "bundle": return styles.thumbBgBundle;
-        case "per_item": return styles.thumbBgPromo;
+        case "promo": return styles.thumbBgPromo;
         default: return styles.thumbBgEvento;
     }
 }
 
-function getPlaceholderIcon(pricingMode: string | null): ReactNode {
+function getPlaceholderIcon(contentType: string | null): ReactNode {
     const props = { size: 48, strokeWidth: 1.75 };
-    switch (pricingMode) {
+    switch (contentType) {
         case "bundle": return <Gift {...props} />;
-        case "per_item": return <Tag {...props} />;
+        case "promo": return <Tag {...props} />;
         default: return <BadgeInfo {...props} />;
     }
 }
@@ -73,14 +74,14 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className }: 
                         loading="lazy"
                     />
                 ) : (
-                    <div className={`${styles.cardThumbPlaceholder} ${getPlaceholderLightClass(block.pricing_mode)}`}>
+                    <div className={`${styles.cardThumbPlaceholder} ${getPlaceholderLightClass(block.content_type)}`}>
                         <span className={styles.cardThumbIcon} aria-hidden="true">
-                            {getPlaceholderIcon(block.pricing_mode)}
+                            {getPlaceholderIcon(block.content_type)}
                         </span>
                     </div>
                 )}
-                <span className={`${styles.cardTag} ${getTagClass(block.pricing_mode)} ${hasImage ? styles.cardTagOnImage : ""}`}>
-                    {getTagLabel(block.pricing_mode)}
+                <span className={`${styles.cardTag} ${getTagClass(block.content_type)} ${hasImage ? styles.cardTagOnImage : ""}`}>
+                    {getTagLabel(block.content_type)}
                 </span>
             </div>
             <div className={styles.cardBody}>

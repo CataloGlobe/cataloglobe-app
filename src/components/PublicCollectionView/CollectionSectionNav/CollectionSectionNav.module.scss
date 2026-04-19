@@ -132,14 +132,14 @@
 --------------------------------------------- */
 .nav[data-nav-style="outline"] {
   .pill {
-    border-radius: 20px;
+    border-radius: var(--pub-radius, 20px);
     border: 1.5px solid transparent;
     background: transparent;
 
     &[data-active="true"] {
-      background: transparent;
+      background: var(--pub-primary-soft);
       color: var(--pub-primary);
-      border-color: var(--pub-primary);
+      border: 2px solid var(--pub-primary);
 
       * {
         color: inherit;
@@ -191,7 +191,7 @@
   }
 
   .pill {
-    border-radius: 4px;
+    border-radius: var(--pub-btn-radius, 4px);
     background: transparent;
     border: none;
     color: var(--pub-bg-text-secondary);
@@ -223,7 +223,7 @@
 
   .pill {
     position: relative;
-    border-radius: 4px;
+    border-radius: var(--pub-btn-radius, 4px);
     background: transparent;
     border: none;
     color: var(--pub-bg-text-secondary);
@@ -234,6 +234,7 @@
       background: transparent;
       color: var(--pub-primary);
       font-weight: 500;
+      padding-bottom: 1.1rem;
 
       * {
         color: inherit;
@@ -297,12 +298,12 @@
 }
 
 .nav[data-nav-style="outline"] .pillWithChildren {
-  border-radius: 20px;
+  border-radius: var(--pub-radius, 20px);
   border: 1.5px solid transparent;
 
   &[data-active="true"] {
-    background: transparent;
-    border-color: var(--pub-primary);
+    background: var(--pub-primary-soft);
+    border: 2px solid var(--pub-primary);
 
     .pillLabel,
     .pillChevron {
@@ -328,7 +329,7 @@
 }
 
 .nav[data-nav-style="minimal"] .pillWithChildren {
-  border-radius: 4px;
+  border-radius: var(--pub-btn-radius, 4px);
 
   &[data-active="true"] {
     background: transparent;
@@ -342,11 +343,25 @@
 
 .nav[data-nav-style="dot"] .pillWithChildren {
   position: relative;
-  border-radius: 4px;
-  padding-bottom: 1.1rem;
+  border-radius: var(--pub-btn-radius, 4px);
+  /* Nessun padding sul wrapper: lo spazio del dot viene dai figli */
+  padding-bottom: 0;
+
+  /* Il label porta il padding-bottom del dot, identico a .pill */
+  .pillLabel {
+    padding-bottom: 1.1rem;
+  }
+
+  /* Il chevron allineato al label: togliamo min-height che gonfiava l'altezza */
+  .pillChevron {
+    min-height: 0;
+    padding-top: 0.5rem;
+    padding-bottom: 1.1rem;
+  }
 
   &[data-active="true"] {
     background: transparent;
+    padding-bottom: 0;
 
     .pillLabel,
     .pillChevron {
@@ -386,7 +401,7 @@
   &:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--pub-primary) 35%, transparent);
     outline-offset: -2px;
-    border-radius: 4px;
+    border-radius: var(--pub-btn-radius, 4px);
   }
 }
 
@@ -417,7 +432,7 @@
   &:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--pub-primary) 35%, transparent);
     outline-offset: -2px;
-    border-radius: 4px;
+    border-radius: var(--pub-btn-radius, 4px);
   }
 }
 
@@ -446,7 +461,7 @@
   overflow-y: auto;
   background: var(--pub-surface, #fff);
   border: 1px solid var(--pub-surface-border);
-  border-radius: 10px;
+  border-radius: var(--pub-radius, 10px);
   padding: 0.375rem;
   box-shadow:
     0 4px 16px color-mix(in srgb, var(--pub-surface-text) 10%, transparent),
@@ -473,7 +488,7 @@
   line-height: 1.4;
   text-align: left;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--pub-btn-radius, 6px);
   white-space: nowrap;
   transition: background 0.12s ease;
 

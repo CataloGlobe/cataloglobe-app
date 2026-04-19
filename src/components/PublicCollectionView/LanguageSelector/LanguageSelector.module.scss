@@ -9,7 +9,7 @@
   align-items: center;
   gap: 4px;
   padding: 0 8px;
-  border-radius: 8px;
+  border-radius: var(--pub-btn-radius, 8px);
   cursor: pointer;
   flex-shrink: 0;
   font-family: var(--pub-font-family, sans-serif);
@@ -65,7 +65,7 @@
   min-width: 170px;
   padding: 6px;
   background: var(--pub-surface, #fff);
-  border-radius: 12px;
+  border-radius: var(--pub-radius, 12px);
   border: 1px solid var(--pub-surface-border);
   box-shadow:
     0 4px 16px color-mix(in srgb, var(--pub-surface-text) 12%, transparent),
@@ -94,7 +94,7 @@
   width: 100%;
   padding: 8px 10px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--pub-btn-radius, 8px);
   background: transparent;
   font-family: var(--pub-font-family, sans-serif);
   font-size: 13px;
