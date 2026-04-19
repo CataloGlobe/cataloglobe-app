@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useNavigate } from "react-router-dom";
 import { signUp } from "@/services/supabase/auth";
 import { Button } from "@/components/ui";
@@ -29,6 +30,7 @@ function getReadableSignUpError(message: string): string {
 }
 
 export default function SignUp() {
+    usePageTitle('Registrati');
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [email, setEmail] = useState("");

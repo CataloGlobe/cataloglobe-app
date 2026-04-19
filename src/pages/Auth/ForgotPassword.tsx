@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { resetPassword } from "@/services/supabase/auth";
 import { Button } from "@/components/ui";
 import Text from "@/components/ui/Text/Text";
@@ -7,6 +8,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import styles from "./Auth.module.scss";
 
 export default function ForgotPassword() {
+    usePageTitle('Recupera Password');
     const [email, setEmail] = useState("");
     const [loading, setLoading] = useState(false);
 

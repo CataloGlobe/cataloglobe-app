@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/services/supabase/client";
 import Text from "@/components/ui/Text/Text";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui";
 import styles from "./Auth.module.scss";
 
 export default function ResetPassword() {
+    usePageTitle('Reimposta Password');
     const navigate = useNavigate();
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");

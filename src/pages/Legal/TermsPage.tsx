@@ -1,4 +1,5 @@
 import LegalLayout from './LegalLayout';
+import { usePageTitle } from '@/hooks/usePageTitle';
 import styles from './TermsPage.module.scss';
 
 const LAST_UPDATED = '2026-04-12';
@@ -13,6 +14,7 @@ function formatDate(isoDate: string): string {
 }
 
 export default function TermsPage() {
+    usePageTitle('Termini');
     return (
         <LegalLayout otherLegalLink={{ href: '/legal/privacy', label: 'Privacy Policy' }}>
             <div className={styles.content}>

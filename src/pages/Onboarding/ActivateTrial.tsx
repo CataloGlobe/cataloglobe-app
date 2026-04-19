@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { Link, useSearchParams } from "react-router-dom";
 import { CreditCard, ShieldCheck } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
@@ -8,6 +9,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./ActivateTrial.module.scss";
 
 export default function ActivateTrial() {
+    usePageTitle('Attiva Prova');
     const [searchParams] = useSearchParams();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);

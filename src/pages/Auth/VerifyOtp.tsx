@@ -7,6 +7,7 @@ import {
     type FormEvent,
     useCallback
 } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
@@ -35,6 +36,7 @@ function mapOtpError(error: unknown): OtpErrorCode {
 }
 
 export default function VerifyOtp() {
+    usePageTitle('Verifica OTP');
     const { forceOtpCheck } = useAuth();
     const navigate = useNavigate();
 
