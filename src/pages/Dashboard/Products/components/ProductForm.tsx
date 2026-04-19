@@ -370,7 +370,7 @@ export function ProductForm({
         setNewFormatPrice("");
         setNewGroupName("");
         setNewGroupIsRequired(false);
-        setNewGroupMaxSelectable("");
+        setNewGroupMaxSelectable(null);
         setNewValueName({});
         setHasAddonOptions(false);
         setDraftFormats([]);
@@ -1732,7 +1732,7 @@ export function ProductForm({
                                                                 <TextInput
                                                                     type="number"
                                                                     min="1"
-                                                                    value={newGroupMaxSelectable.toString()}
+                                                                    value={(newGroupMaxSelectable ?? 1).toString()}
                                                                     onChange={e => {
                                                                         const val = parseInt(e.target.value, 10);
                                                                         if (!isNaN(val) && val > 0) setNewGroupMaxSelectable(val);
