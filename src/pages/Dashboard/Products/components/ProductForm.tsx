@@ -306,7 +306,7 @@ export function ProductForm({
     // For creating new ADDON group
     const [newGroupName, setNewGroupName] = useState("");
     const [newGroupIsRequired, setNewGroupIsRequired] = useState(false);
-    const [newGroupMaxSelectable, setNewGroupMaxSelectable] = useState<string>("");
+    const [newGroupMaxSelectable, setNewGroupMaxSelectable] = useState<number | null>(null);
     const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
     // For creating new value (keyed by group id to show inline form per group)
@@ -667,20 +667,19 @@ export function ProductForm({
         if (!newGroupName.trim() || !tenantId) return;
 
         if (!isEditing) {
-            const maxSel = newGroupMaxSelectable.trim() ? parseInt(newGroupMaxSelectable) : null;
             setDraftAddonGroups(prev => [
                 ...prev,
                 {
                     id: makeDraftId(),
                     name: newGroupName,
                     is_required: newGroupIsRequired,
-                    max_selectable: maxSel !== null && !isNaN(maxSel) ? maxSel : null,
+                    max_selectable: newGroupMaxSelectable,
                     values: []
                 }
             ]);
             setNewGroupName("");
             setNewGroupIsRequired(false);
-            setNewGroupMaxSelectable("");
+            setNewGroupMaxSelectable(null);
             return;
         }
 
@@ -688,20 +687,19 @@ export function ProductForm({
 
         setIsCreatingGroup(true);
         try {
-            const maxSel = newGroupMaxSelectable.trim() ? parseInt(newGroupMaxSelectable) : null;
             const newGroup = await createProductOptionGroup({
                 tenant_id: tenantId,
                 product_id: productData.id,
                 name: newGroupName,
                 is_required: newGroupIsRequired,
-                max_selectable: maxSel !== null && !isNaN(maxSel) ? maxSel : null,
+                max_selectable: newGroupMaxSelectable,
                 group_kind: "ADDON",
                 pricing_mode: "DELTA"
             });
             setAddonGroups(prev => [...prev, { ...newGroup, values: [] }]);
             setNewGroupName("");
             setNewGroupIsRequired(false);
-            setNewGroupMaxSelectable("");
+            setNewGroupMaxSelectable(null);
             showToast({ message: "Gruppo opzioni creato.", type: "success" });
         } catch (error: any) {
             showToast({ message: error.message || "Errore creazione gruppo.", type: "error" });
@@ -722,6 +720,12 @@ export function ProductForm({
         } catch (error: any) {
             showToast({ message: "Errore durante l'eliminazione del gruppo.", type: "error" });
         }
+    };
+
+    const handleUpdateGroupMaxSelectable = (groupId: string, value: number | null) => {
+        setDraftAddonGroups(prev =>
+            prev.map(g => g.id === groupId ? { ...g, max_selectable: value } : g)
+        );
     };
 
     const handleCreateOptionValue = async (groupId: string) => {
@@ -1523,15 +1527,26 @@ export function ProductForm({
                                                                 </Badge>
                                                             )}
                                                         </div>
-                                                        {group.max_selectable !== null && (
-                                                            <Text
-                                                                variant="body-sm"
-                                                                colorVariant="muted"
-                                                            >
-                                                                Max selezionabili:{" "}
-                                                                {group.max_selectable}
-                                                            </Text>
-                                                        )}
+                                                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                                                            <Switch
+                                                                label="Limita selezione"
+                                                                checked={(draftAddonGroups.find(g => g.id === group.id)?.max_selectable ?? null) !== null}
+                                                                onChange={checked => handleUpdateGroupMaxSelectable(group.id, checked ? 1 : null)}
+                                                            />
+                                                            {(draftAddonGroups.find(g => g.id === group.id)?.max_selectable ?? null) !== null && (
+                                                                <div style={{ width: 80 }}>
+                                                                    <TextInput
+                                                                        type="number"
+                                                                        min="1"
+                                                                        value={draftAddonGroups.find(g => g.id === group.id)?.max_selectable?.toString() ?? "1"}
+                                                                        onChange={e => {
+                                                                            const val = parseInt(e.target.value, 10);
+                                                                            if (!isNaN(val) && val > 0) handleUpdateGroupMaxSelectable(group.id, val);
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     <Button
                                                         variant="ghost"
@@ -1706,18 +1721,25 @@ export function ProductForm({
                                                             onChange={setNewGroupIsRequired}
                                                         />
                                                     </div>
-                                                    <div style={{ flex: 1 }}>
-                                                        <TextInput
-                                                            placeholder="Max sel. (opz)"
-                                                            type="number"
-                                                            min="1"
-                                                            value={newGroupMaxSelectable}
-                                                            onChange={e =>
-                                                                setNewGroupMaxSelectable(
-                                                                    e.target.value
-                                                                )
-                                                            }
+                                                    <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+                                                        <Switch
+                                                            label="Limita sel."
+                                                            checked={newGroupMaxSelectable !== null}
+                                                            onChange={checked => setNewGroupMaxSelectable(checked ? 1 : null)}
                                                         />
+                                                        {newGroupMaxSelectable !== null && (
+                                                            <div style={{ width: 80 }}>
+                                                                <TextInput
+                                                                    type="number"
+                                                                    min="1"
+                                                                    value={newGroupMaxSelectable.toString()}
+                                                                    onChange={e => {
+                                                                        const val = parseInt(e.target.value, 10);
+                                                                        if (!isNaN(val) && val > 0) setNewGroupMaxSelectable(val);
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <Button
