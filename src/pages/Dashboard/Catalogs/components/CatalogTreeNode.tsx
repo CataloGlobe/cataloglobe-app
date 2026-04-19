@@ -15,6 +15,9 @@ type CatalogTreeNodeProps = {
     onEditCategory: (categoryId: string) => void;
     onDeleteCategory: (categoryId: string) => void;
     disabled?: boolean;
+    isDescendantOfDragging?: boolean;
+    dropPosition?: "before" | "inside" | "after" | null;
+    isValidInsideTarget?: boolean;
 };
 
 export function CatalogTreeNode({
@@ -25,7 +28,10 @@ export function CatalogTreeNode({
     onCreateSubCategory,
     onEditCategory,
     onDeleteCategory,
-    disabled = false
+    disabled = false,
+    isDescendantOfDragging = false,
+    dropPosition = null,
+    isValidInsideTarget = false
 }: CatalogTreeNodeProps) {
     const { node, depth, hasChildren, isExpanded } = flatNode;
 
@@ -34,12 +40,24 @@ export function CatalogTreeNode({
         disabled
     });
 
+    const className = [
+        styles.treeNodeRow,
+        selected ? styles.treeNodeRowActive : "",
+        isDragging ? styles.treeNodeRowDragging : "",
+        depth === 0 ? styles.treeNodeDepth0 : "",
+        isDescendantOfDragging ? styles.treeNodeChildDragging : "",
+        dropPosition === "before" ? styles.dropBefore : "",
+        dropPosition === "after" ? styles.dropAfter : "",
+        dropPosition === "inside" && isValidInsideTarget ? styles.dropInside : "",
+        dropPosition === "inside" && !isValidInsideTarget ? styles.dropInsideInvalid : ""
+    ]
+        .filter(Boolean)
+        .join(" ");
+
     return (
         <div
             ref={setNodeRef}
-            className={`${styles.treeNodeRow} ${selected ? styles.treeNodeRowActive : ""} ${
-                isDragging ? styles.treeNodeRowDragging : ""
-            } ${depth === 0 ? styles.treeNodeDepth0 : ""}`}
+            className={className}
             style={{
                 transform: CSS.Transform.toString(transform),
                 transition

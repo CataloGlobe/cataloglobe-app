@@ -42,6 +42,8 @@ import {
     listCategoryProducts,
     removeProductFromCategory,
     updateCategory,
+    reparentCategory,
+    updateDescendantLevels,
     V2Catalog,
     V2CatalogCategory,
     V2CatalogCategoryProduct
@@ -244,6 +246,23 @@ function collectDescendantIds(rootId: string, childrenMap: Map<string, string[]>
     }
 
     return descendants;
+}
+
+function getMaxDepthBelow(categoryId: string, allCategories: V2CatalogCategory[]): number {
+    const children = allCategories.filter(c => c.parent_category_id === categoryId);
+    if (children.length === 0) return 0;
+    return 1 + Math.max(...children.map(c => getMaxDepthBelow(c.id, allCategories)));
+}
+
+function flattenTreeDFS(nodes: CatalogTreeNodeData[]): CatalogTreeNodeData[] {
+    const result: CatalogTreeNodeData[] = [];
+    for (const node of nodes) {
+        result.push(node);
+        if (node.children.length > 0) {
+            result.push(...flattenTreeDFS(node.children));
+        }
+    }
+    return result;
 }
 
 type SortableProductRowProps = {
@@ -726,19 +745,52 @@ export default function CatalogEngine() {
     }, [isUnifiedAddProductDrawerOpen]);
 
     const createParentOptions = useMemo(() => {
-        const options = [{ value: "", label: "Nessuna (categoria root)" }];
-        const eligibleParents = sortByOrderAndCreated(categories).filter(
-            category => category.level < 3
-        );
-        for (const parent of eligibleParents) {
-            const prefix = parent.level > 1 ? `${"-- ".repeat(parent.level - 1)}` : "";
-            options.push({
-                value: parent.id,
-                label: `${prefix}${parent.name}`
-            });
+        const options = [{ value: "", label: "Nessuna (categoria principale)" }];
+        for (const node of flattenTreeDFS(tree)) {
+            if (node.level >= 3) continue;
+            const prefix = "-- ".repeat(node.level - 1);
+            options.push({ value: node.id, label: `${prefix}${node.name}` });
         }
         return options;
-    }, [categories]);
+    }, [tree]);
+
+    const editParentOptions = useMemo(() => {
+        if (!editingCategory) return createParentOptions;
+
+        const childrenMap = buildChildrenMap(categories);
+        const descendantIds = new Set(collectDescendantIds(editingCategory.id, childrenMap));
+        const maxDepthBelow = getMaxDepthBelow(editingCategory.id, categories);
+
+        const options: { value: string; label: string }[] = [
+            { value: "", label: "Nessuna (categoria principale)" }
+        ];
+
+        for (const node of flattenTreeDFS(tree)) {
+            if (node.id === editingCategory.id) continue;
+            if (descendantIds.has(node.id)) continue;
+            if (node.level >= 3) continue;
+            if (node.level + 1 + maxDepthBelow > 3) continue;
+            const prefix = "-- ".repeat(node.level - 1);
+            options.push({ value: node.id, label: `${prefix}${node.name}` });
+        }
+
+        return options;
+    }, [editingCategory, categories, tree, createParentOptions]);
+
+    const editParentDepthFiltered = useMemo((): boolean => {
+        if (!editingCategory) return false;
+        const childrenMap = buildChildrenMap(categories);
+        const descendantIds = new Set(collectDescendantIds(editingCategory.id, childrenMap));
+        const maxDepthBelow = getMaxDepthBelow(editingCategory.id, categories);
+        if (maxDepthBelow === 0) return false;
+        return flattenTreeDFS(tree).some(
+            node =>
+                node.id !== editingCategory.id &&
+                !descendantIds.has(node.id) &&
+                node.level < 3 &&
+                node.level + 1 + maxDepthBelow > 3
+        );
+    }, [editingCategory, categories, tree]);
 
     const openCreateRootCategoryDrawer = useCallback(() => {
         if (isDirty) {
@@ -823,13 +875,76 @@ export default function CatalogEngine() {
             }
 
             if (editingCategory) {
-                setCategories(prev =>
-                    prev.map(cat =>
-                        cat.id === editingCategory.id ? { ...cat, name: categoryName.trim() } : cat
-                    )
-                );
-                setIsDirty(true);
-                setIsCategoryDrawerOpen(false);
+                const newParentId = categoryParentId || null;
+                const parentChanged = newParentId !== (editingCategory.parent_category_id ?? null);
+
+                if (!parentChanged) {
+                    // Only name changed — optimistic update
+                    setCategories(prev =>
+                        prev.map(cat =>
+                            cat.id === editingCategory.id ? { ...cat, name: categoryName.trim() } : cat
+                        )
+                    );
+                    setIsDirty(true);
+                    setIsCategoryDrawerOpen(false);
+                    return;
+                }
+
+                // Parent changed — save immediately
+                if (isDirty) {
+                    showToast({
+                        message: "Salva o annulla le modifiche prima di spostare la categoria.",
+                        type: "info"
+                    });
+                    return;
+                }
+
+                setIsSavingCategory(true);
+                try {
+                    const parentCategory = newParentId ? (categoriesById.get(newParentId) ?? null) : null;
+                    const newLevel = parentCategory ? ((parentCategory.level + 1) as 1 | 2 | 3) : 1;
+
+                    const newSiblings = categories.filter(
+                        c => c.parent_category_id === newParentId && c.id !== editingCategory.id
+                    );
+                    const newSortOrder =
+                        newSiblings.length > 0
+                            ? Math.max(...newSiblings.map(c => c.sort_order)) + 10
+                            : 0;
+
+                    await updateCategory(editingCategory.id, currentTenantId, {
+                        name: categoryName.trim(),
+                        parent_category_id: newParentId,
+                        level: newLevel,
+                        sort_order: newSortOrder
+                    });
+
+                    const levelDiff = newLevel - editingCategory.level;
+                    if (levelDiff !== 0) {
+                        const childrenMap = buildChildrenMap(categories);
+                        const descendantIds = collectDescendantIds(editingCategory.id, childrenMap);
+                        await Promise.all(
+                            descendantIds.map(descId => {
+                                const desc = categoriesById.get(descId);
+                                if (!desc) return Promise.resolve();
+                                const newDescLevel = (desc.level + levelDiff) as 1 | 2 | 3;
+                                return updateCategory(descId, currentTenantId, { level: newDescLevel });
+                            })
+                        );
+                    }
+
+                    showToast({ message: "Categoria spostata.", type: "success" });
+                    setIsCategoryDrawerOpen(false);
+                    await loadData();
+                } catch (error: unknown) {
+                    console.error(error);
+                    showToast({
+                        message: getErrorMessage(error, "Errore spostamento categoria."),
+                        type: "error"
+                    });
+                } finally {
+                    setIsSavingCategory(false);
+                }
                 return;
             }
 
@@ -873,12 +988,14 @@ export default function CatalogEngine() {
         },
         [
             catalogId,
+            categories,
             categoriesById,
             categoryName,
             categoryParentId,
             currentTenantId,
             editingCategory,
             getNextSortOrder,
+            isDirty,
             loadData,
             setSelectedCategoryInUrl,
             showToast
@@ -953,6 +1070,107 @@ export default function CatalogEngine() {
             setIsDirty(true);
         },
         []
+    );
+
+    const handleReparent = useCallback(
+        async (
+            categoryId: string,
+            targetId: string,
+            position: "before" | "after" | "inside"
+        ) => {
+            if (!currentTenantId) return;
+            const activeCategory = categoriesById.get(categoryId);
+            const targetCategory = categoriesById.get(targetId);
+            if (!activeCategory || !targetCategory) return;
+
+            const newParentId: string | null =
+                position === "inside" ? targetId : (targetCategory.parent_category_id ?? null);
+
+            const parentCat = newParentId ? (categoriesById.get(newParentId) ?? null) : null;
+            const newLevel = (parentCat ? parentCat.level + 1 : 1) as 1 | 2 | 3;
+
+            let newSortOrder: number;
+            let siblingIdsToNormalize: string[] = [];
+
+            if (position === "inside") {
+                const existingChildren = categories
+                    .filter(
+                        c => c.parent_category_id === newParentId && c.id !== categoryId
+                    )
+                    .sort((a, b) => a.sort_order - b.sort_order);
+                newSortOrder =
+                    existingChildren.length > 0
+                        ? existingChildren[existingChildren.length - 1].sort_order + 10
+                        : 0;
+            } else {
+                const newSiblings = categories
+                    .filter(
+                        c => c.parent_category_id === newParentId && c.id !== categoryId
+                    )
+                    .sort(
+                        (a, b) =>
+                            a.sort_order - b.sort_order ||
+                            a.created_at.localeCompare(b.created_at)
+                    );
+                const targetIndex = newSiblings.findIndex(c => c.id === targetId);
+                const insertAt =
+                    position === "before"
+                        ? Math.max(0, targetIndex)
+                        : targetIndex + 1;
+
+                const orderedIds = [
+                    ...newSiblings.slice(0, insertAt).map(c => c.id),
+                    categoryId,
+                    ...newSiblings.slice(insertAt).map(c => c.id)
+                ];
+                newSortOrder = insertAt * 10;
+                siblingIdsToNormalize = orderedIds;
+            }
+
+            try {
+                await reparentCategory(
+                    categoryId,
+                    currentTenantId,
+                    newParentId,
+                    newLevel,
+                    newSortOrder
+                );
+
+                const levelDiff = newLevel - activeCategory.level;
+                if (levelDiff !== 0) {
+                    await updateDescendantLevels(
+                        categoryId,
+                        currentTenantId,
+                        levelDiff,
+                        categories
+                    );
+                }
+
+                if (siblingIdsToNormalize.length > 0) {
+                    await Promise.all(
+                        siblingIdsToNormalize.map((id, idx) => {
+                            if (id === categoryId) return Promise.resolve();
+                            const existing = categoriesById.get(id);
+                            if (!existing || existing.sort_order === idx * 10)
+                                return Promise.resolve();
+                            return updateCategory(id, currentTenantId, {
+                                sort_order: idx * 10
+                            });
+                        })
+                    );
+                }
+
+                await loadData();
+                showToast({ message: "Categoria spostata.", type: "success" });
+            } catch (error: unknown) {
+                console.error(error);
+                showToast({
+                    message: getErrorMessage(error, "Errore spostamento categoria."),
+                    type: "error"
+                });
+            }
+        },
+        [categories, categoriesById, currentTenantId, loadData, showToast]
     );
 
     const toggleCategoryExpansion = useCallback((categoryId: string) => {
@@ -1741,6 +1959,7 @@ export default function CatalogEngine() {
                                 onEditCategory={openEditCategoryDrawer}
                                 onDeleteCategory={openDeleteCategoryDrawer}
                                 onReorderSiblings={handleReorderSiblings}
+                                onReparent={handleReparent}
                                 isReordering={false}
                             />
                         }
@@ -1800,15 +2019,21 @@ export default function CatalogEngine() {
                             required
                         />
 
-                        {!editingCategory && (
-                            <>
-                                <Select
-                                    label="Parent"
-                                    value={categoryParentId}
-                                    onChange={event => setCategoryParentId(event.target.value)}
-                                    options={createParentOptions}
-                                />
-                            </>
+                        <Select
+                            label={editingCategory ? "Sposta sotto" : "Inserisci sotto"}
+                            value={categoryParentId}
+                            onChange={event => setCategoryParentId(event.target.value)}
+                            options={editingCategory ? editParentOptions : createParentOptions}
+                        />
+                        <Text variant="caption" colorVariant="muted">
+                            {editingCategory
+                                ? "Sposta questa categoria all'interno di un'altra. Seleziona 'Nessuna' per renderla una categoria principale."
+                                : "Seleziona la categoria all'interno della quale inserire questa nuova categoria. Lascia vuoto per crearla come categoria principale."}
+                        </Text>
+                        {editingCategory && editParentDepthFiltered && (
+                            <Text variant="caption" colorVariant="muted">
+                                Alcune categorie non sono disponibili perché supererebbero il limite di 3 livelli di profondità.
+                            </Text>
                         )}
                     </form>
                 </DrawerLayout>

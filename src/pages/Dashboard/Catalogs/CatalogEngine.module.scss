@@ -137,6 +137,7 @@
 
 /* ── Tree node row ─────────────────────────────────────────────────────── */
 .treeNodeRow {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -170,9 +171,103 @@
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
 }
 
+/* ── Dragging original: empty slot ─────────────────────────────────────── */
 .treeNodeRowDragging {
-  opacity: 0.65;
-  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.2);
+  opacity: 0.3;
+  box-shadow: none;
+  background: transparent !important;
+  border: 1px dashed var(--color-gray-300, #cbd5e1) !important;
+}
+
+/* ── Descendant of the dragging node: brand tint ──────────────────────── */
+.treeNodeChildDragging {
+  background: rgba(99, 102, 241, 0.06);
+  border-left: 3px solid rgba(99, 102, 241, 0.3);
+  opacity: 0.7;
+}
+
+/* ── Drop indicators: before (line above) ──────────────────────────────── */
+.dropBefore {
+  &::before {
+    content: "";
+    position: absolute;
+    top: -2px;
+    left: 4px;
+    right: 4px;
+    height: 2px;
+    background: var(--brand-primary, #6366f1);
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 10;
+  }
+}
+
+/* ── Drop indicators: after (line below) ───────────────────────────────── */
+.dropAfter {
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: -2px;
+    left: 4px;
+    right: 4px;
+    height: 2px;
+    background: var(--brand-primary, #6366f1);
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 10;
+  }
+}
+
+/* ── Drop inside: valid parent target ──────────────────────────────────── */
+.dropInside {
+  background: rgba(99, 102, 241, 0.08) !important;
+  border: 1px dashed #6366f1 !important;
+  box-shadow: none !important;
+}
+
+/* ── Drop inside: invalid parent (depth overflow or descendant) ─────────── */
+.dropInsideInvalid {
+  background: rgba(239, 68, 68, 0.06) !important;
+  border: 1px dashed #ef4444 !important;
+  box-shadow: none !important;
+}
+
+/* ── DragOverlay ghost card ─────────────────────────────────────────────── */
+.dragOverlayGhost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border: 1px solid #c7d4ff;
+  border-radius: 10px;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(99, 102, 241, 0.15);
+  transform: scale(1.02);
+  cursor: grabbing;
+  max-width: 240px;
+}
+
+.dragOverlayIcon {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand-primary, #6366f1);
+  background: #e8eeff;
+  flex-shrink: 0;
+}
+
+.dragOverlayName {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-gray-800, #1e293b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Node main content area: contains drag handle, expand btn, select btn ── */
