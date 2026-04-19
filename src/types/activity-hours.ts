@@ -6,6 +6,7 @@ export interface V2ActivityHours {
     slot_index: number;
     opens_at: string | null; // "HH:MM"
     closes_at: string | null; // "HH:MM"
+    closes_next_day: boolean;
     is_closed: boolean;
     created_at: string;
     updated_at: string;

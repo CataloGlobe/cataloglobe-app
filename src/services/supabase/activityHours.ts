@@ -26,6 +26,7 @@ export async function upsertActivityHours(
         opens_at: string | null;
         closes_at: string | null;
         is_closed: boolean;
+        closes_next_day: boolean;
     }>
 ): Promise<V2ActivityHours[]> {
     // 1. Delete orphan rows not present in the incoming payload

@@ -1,6 +1,7 @@
 export interface ClosureSlot {
     opens_at: string; // "HH:MM"
     closes_at: string; // "HH:MM"
+    closes_next_day: boolean;
 }
 
 export interface V2ActivityClosure {
