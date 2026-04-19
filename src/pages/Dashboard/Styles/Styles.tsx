@@ -52,7 +52,7 @@ function StyleCardPreview({ style, compact = false }: { style: V2Style; compact?
         >
             <div
                 className={styles.cardPreviewHeader}
-                style={{ backgroundColor: palette.headerBackground }}
+                style={{ backgroundColor: palette.primary }}
             />
             <div
                 className={styles.cardPreviewBody}
@@ -137,7 +137,7 @@ export default function Styles() {
             })
             .sort((a, b) => {
                 if (a.is_system !== b.is_system) return a.is_system ? -1 : 1;
-                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
             });
     }, [allStyles, searchQuery]);
 

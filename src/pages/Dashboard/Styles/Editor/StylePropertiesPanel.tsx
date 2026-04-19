@@ -117,14 +117,20 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                 />
                 <StyleColorPicker
                     label="Colore primario"
-                    labelSuffix={<InfoTooltip content="Applicato a: pulsanti attivi, navigazione categorie, prezzi, accenti e indicatori." />}
+                    labelSuffix={<InfoTooltip content="Colore principale applicato a header, navigazione, pulsanti e accenti nella pagina pubblica." />}
                     value={model.colors.primary}
                     onChange={val => updateColor("primary", val)}
+                />
+                <StyleColorPicker
+                    label="Sfondo superfici"
+                    labelSuffix={<InfoTooltip content="Sfondo di card prodotti, modali, pulsanti dell'header e altri elementi in primo piano." />}
+                    value={model.colors.surface}
+                    onChange={val => updateColor("surface", val)}
                 />
 
                 <div className={styles.controlField}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Arrotondamento<InfoTooltip content="Controlla la curvatura degli angoli di card prodotti, pulsanti e immagini." />
+                        Arrotondamento<InfoTooltip content="Controlla la curvatura degli angoli di card, immagini, pulsanti e pannelli nella pagina pubblica." />
                     </Text>
                     <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
                         {borderRadiusOptions.map(option => {
@@ -245,7 +251,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
                 <div className={styles.controlField}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Stile prodotto
+                        Stile prodotto<InfoTooltip content="Card mostra immagine e dettagli in un riquadro. Compatto mostra solo nome, prezzo e descrizione." />
                     </Text>
                     <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
                         {productStyleOptions.map(option => {
@@ -272,7 +278,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
                 <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Layout lista prodotti
+                        Layout lista prodotti<InfoTooltip content="Grid mostra più prodotti affiancati su schermi ampi (desktop/tablet). Su mobile, entrambi i layout mostrano un prodotto per riga." />
                     </Text>
                     <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
                         {cardLayoutOptions.map(option => {
@@ -388,20 +394,6 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     )}
                 </div>
                 )}
-            </section>
-
-            {/* SUPERFICI */}
-            <section className={styles.panelSection}>
-                <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
-                    Superfici
-                </Text>
-
-                <StyleColorPicker
-                    label="Sfondo contenuti (card / liste)"
-                    labelSuffix={<InfoTooltip content="Sfondo delle card prodotti e delle aree contenuto. Il colore del testo si adatta automaticamente per garantire la leggibilità." />}
-                    value={model.colors.surface}
-                    onChange={val => updateColor("surface", val)}
-                />
             </section>
 
             {/* TIPOGRAFIA */}
