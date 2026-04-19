@@ -1,34 +1,53 @@
 // src/pages/Dashboard/Highlights/components/FeaturedPricingModeForm.tsx
 import React, { useState, useEffect } from "react";
+import { Megaphone, CalendarDays, Tag, Package } from "lucide-react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Switch } from "@/components/ui/Switch/Switch";
 import {
     updateFeaturedContent,
     type FeaturedContent,
-    type FeaturedContentPricingMode
+    type FeaturedContentPricingMode,
+    type FeaturedContentType
 } from "@/services/supabase/featuredContents";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./FeaturedPricingModeForm.module.scss";
 
-const PRICING_OPTIONS: {
-    value: FeaturedContentPricingMode;
+type ContentTypeOption = {
+    value: FeaturedContentType;
     label: string;
     description: string;
-}[] = [
+    icon: React.ReactNode;
+    pricingMode: FeaturedContentPricingMode;
+};
+
+const CONTENT_TYPE_OPTIONS: ContentTypeOption[] = [
     {
-        value: "none",
-        label: "Solo informativo",
-        description: "Banner editoriale senza listino prezzi. Titolo, testo e CTA."
+        value: "announcement",
+        label: "Annuncio",
+        description: "Comunica un'informazione, una novità o un avviso.",
+        icon: <Megaphone size={20} strokeWidth={1.75} />,
+        pricingMode: "none"
     },
     {
-        value: "per_item",
-        label: "Con prodotti",
-        description: "Mostra una lista di prodotti con il loro prezzo singolo."
+        value: "event",
+        label: "Evento",
+        description: "Promuovi una serata, un'inaugurazione o un'occasione speciale.",
+        icon: <CalendarDays size={20} strokeWidth={1.75} />,
+        pricingMode: "none"
+    },
+    {
+        value: "promo",
+        label: "Promo",
+        description: "Metti in evidenza una selezione di prodotti con i loro prezzi.",
+        icon: <Tag size={20} strokeWidth={1.75} />,
+        pricingMode: "per_item"
     },
     {
         value: "bundle",
-        label: "Prezzo fisso",
-        description: "Aggrega prodotti con un unico prezzo bundle definito da te."
+        label: "Bundle",
+        description: "Proponi un pacchetto di prodotti a prezzo fisso.",
+        icon: <Package size={20} strokeWidth={1.75} />,
+        pricingMode: "bundle"
     }
 ];
 
@@ -48,8 +67,8 @@ export function FeaturedPricingModeForm({
     onSavingChange
 }: Props) {
     const { showToast } = useToast();
-    const [pricingMode, setPricingMode] = useState<FeaturedContentPricingMode>(
-        entityData.pricing_mode
+    const [contentType, setContentType] = useState<FeaturedContentType>(
+        entityData.content_type ?? "announcement"
     );
     const [bundlePrice, setBundlePrice] = useState(
         entityData.bundle_price != null ? String(entityData.bundle_price) : ""
@@ -58,15 +77,17 @@ export function FeaturedPricingModeForm({
     const [showImages, setShowImages] = useState(entityData.layout_style === "with_images");
 
     useEffect(() => {
-        setPricingMode(entityData.pricing_mode);
+        setContentType(entityData.content_type ?? "announcement");
         setBundlePrice(entityData.bundle_price != null ? String(entityData.bundle_price) : "");
         setShowOriginalTotal(entityData.show_original_total);
         setShowImages(entityData.layout_style === "with_images");
     }, [entityData]);
 
+    const selectedOption = CONTENT_TYPE_OPTIONS.find(o => o.value === contentType)!;
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (pricingMode === "bundle") {
+        if (contentType === "bundle") {
             const price = parseFloat(bundlePrice);
             if (!Number.isFinite(price) || price <= 0) {
                 showToast({ message: "Inserisci il prezzo del bundle per salvare.", type: "error" });
@@ -75,17 +96,20 @@ export function FeaturedPricingModeForm({
         }
         onSavingChange(true);
         try {
-            const bundlePriceNum =
-                pricingMode === "bundle" ? parseFloat(bundlePrice) : null;
+            const pricingMode = selectedOption.pricingMode;
+            const bundlePriceNum = contentType === "bundle" ? parseFloat(bundlePrice) : null;
             const layoutStyle =
-                pricingMode !== "none" && showImages ? "with_images" : null;
+                (contentType === "promo" || contentType === "bundle") && showImages
+                    ? "with_images"
+                    : null;
             await updateFeaturedContent(entityData.id, tenantId, {
+                content_type: contentType,
                 pricing_mode: pricingMode,
                 bundle_price: bundlePriceNum,
-                show_original_total: pricingMode === "bundle" ? showOriginalTotal : false,
+                show_original_total: contentType === "bundle" ? showOriginalTotal : false,
                 layout_style: layoutStyle
             });
-            showToast({ message: "Modalità aggiornata.", type: "success" });
+            showToast({ message: "Tipo aggiornato.", type: "success" });
             onSuccess();
         } catch (err) {
             console.error(err);
@@ -99,21 +123,22 @@ export function FeaturedPricingModeForm({
         <form id={formId} onSubmit={handleSubmit}>
             <div className={styles.formFields}>
                 <div className={styles.pricingOptions}>
-                    {PRICING_OPTIONS.map(opt => (
+                    {CONTENT_TYPE_OPTIONS.map(opt => (
                         <div
                             key={opt.value}
                             className={`${styles.pricingCard} ${
-                                pricingMode === opt.value ? styles.pricingCardSelected : ""
+                                contentType === opt.value ? styles.pricingCardSelected : ""
                             }`}
-                            onClick={() => setPricingMode(opt.value)}
+                            onClick={() => setContentType(opt.value)}
                         >
+                            <span className={styles.pricingCardIcon}>{opt.icon}</span>
                             <span className={styles.pricingCardLabel}>{opt.label}</span>
                             <span className={styles.pricingCardDescription}>{opt.description}</span>
                         </div>
                     ))}
                 </div>
 
-                {pricingMode === "bundle" && (
+                {contentType === "bundle" && (
                     <div className={styles.pricingExtra}>
                         <TextInput
                             label="Prezzo fisso (€) *"
@@ -133,7 +158,7 @@ export function FeaturedPricingModeForm({
                     </div>
                 )}
 
-                {pricingMode !== "none" && (
+                {(contentType === "promo" || contentType === "bundle") && (
                     <Switch
                         label="Mostra immagini prodotti"
                         description="Mostra le immagini dei prodotti nel contenuto in evidenza"

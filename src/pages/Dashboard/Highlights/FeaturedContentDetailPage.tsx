@@ -9,14 +9,14 @@ import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
-import { Pencil, Image } from "lucide-react";
+import { Pencil, Image, Megaphone, CalendarDays, Tag, Package } from "lucide-react";
 import ProductPickerList from "./ProductPickerList";
 import ProductsManagerCard from "./ProductsManagerCard";
 import { ProductForm } from "@/pages/Dashboard/Products/components/ProductForm";
 import { type V2Product } from "@/services/supabase/products";
 import {
     type FeaturedContentWithProducts,
-    type FeaturedContentPricingMode,
+    type FeaturedContentType,
     getFeaturedContentById
 } from "@/services/supabase/featuredContents";
 import { useTenantId } from "@/context/useTenantId";
@@ -27,18 +27,26 @@ import { FeaturedPricingModeDrawer } from "./components/FeaturedPricingModeDrawe
 import { FeaturedCtaDrawer } from "./components/FeaturedCtaDrawer";
 import styles from "./FeaturedContentDetailPage.module.scss";
 
-const PRICING_MODE_INFO: Record<FeaturedContentPricingMode, { label: string; description: string }> = {
-    none: {
-        label: "Solo informativo",
-        description: "Banner editoriale senza listino prezzi. Titolo, testo e CTA."
+const CONTENT_TYPE_INFO: Record<FeaturedContentType, { label: string; description: string; icon: React.ReactNode }> = {
+    announcement: {
+        label: "Annuncio",
+        description: "Comunica un'informazione, una novità o un avviso.",
+        icon: <Megaphone size={16} strokeWidth={1.75} />
     },
-    per_item: {
-        label: "Con prodotti",
-        description: "Mostra una lista di prodotti con il loro prezzo singolo."
+    event: {
+        label: "Evento",
+        description: "Promuovi una serata, un'inaugurazione o un'occasione speciale.",
+        icon: <CalendarDays size={16} strokeWidth={1.75} />
+    },
+    promo: {
+        label: "Promo",
+        description: "Metti in evidenza una selezione di prodotti con i loro prezzi.",
+        icon: <Tag size={16} strokeWidth={1.75} />
     },
     bundle: {
-        label: "Prezzo fisso",
-        description: "Aggrega prodotti con un unico prezzo bundle definito da te."
+        label: "Bundle",
+        description: "Proponi un pacchetto di prodotti a prezzo fisso.",
+        icon: <Package size={16} strokeWidth={1.75} />
     }
 };
 
@@ -225,10 +233,10 @@ export default function FeaturedContentDetailPage() {
                 )}
             </div>
 
-            {/* ── Modalità contenuto ───────────────────────── */}
+            {/* ── Tipo di contenuto ────────────────────────── */}
             <div className={styles.block}>
                 <div className={styles.blockHeaderRow}>
-                    <p className={styles.blockHeaderTitle}>Modalità contenuto</p>
+                    <p className={styles.blockHeaderTitle}>Tipo di contenuto</p>
                     <Button
                         variant="ghost"
                         size="sm"
@@ -239,38 +247,43 @@ export default function FeaturedContentDetailPage() {
                         Modifica
                     </Button>
                 </div>
-                {content && (
-                    <div className={styles.pricingModeCard}>
-                        <span className={styles.pricingModeCardLabel}>
-                            {PRICING_MODE_INFO[content.pricing_mode].label}
-                        </span>
-                        <span className={styles.pricingModeCardDescription}>
-                            {PRICING_MODE_INFO[content.pricing_mode].description}
-                        </span>
-                        {content.pricing_mode === "bundle" && content.bundle_price != null && (
-                            <div className={styles.pricingModeBundleDetails}>
-                                <span className={styles.pricingModeBundleDetail}>
-                                    Prezzo bundle:{" "}
-                                    {new Intl.NumberFormat("it-IT", {
-                                        style: "currency",
-                                        currency: "EUR"
-                                    }).format(content.bundle_price)}
-                                </span>
-                                {content.show_original_total && (
+                {content && (() => {
+                    const ct = content.content_type ?? "announcement";
+                    const info = CONTENT_TYPE_INFO[ct];
+                    return (
+                        <div className={styles.pricingModeCard}>
+                            <span className={styles.pricingModeCardLabel} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                {info.icon}
+                                {info.label}
+                            </span>
+                            <span className={styles.pricingModeCardDescription}>
+                                {info.description}
+                            </span>
+                            {ct === "bundle" && content.bundle_price != null && (
+                                <div className={styles.pricingModeBundleDetails}>
                                     <span className={styles.pricingModeBundleDetail}>
-                                        Mostra totale originale: Sì
+                                        Prezzo bundle:{" "}
+                                        {new Intl.NumberFormat("it-IT", {
+                                            style: "currency",
+                                            currency: "EUR"
+                                        }).format(content.bundle_price)}
+                                    </span>
+                                    {content.show_original_total && (
+                                        <span className={styles.pricingModeBundleDetail}>
+                                            Mostra totale originale: Sì
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                            {(ct === "promo" || ct === "bundle") &&
+                                content.layout_style === "with_images" && (
+                                    <span className={styles.pricingModeBundleDetail}>
+                                        Immagini prodotti: Sì
                                     </span>
                                 )}
-                            </div>
-                        )}
-                        {content.pricing_mode !== "none" &&
-                            content.layout_style === "with_images" && (
-                                <span className={styles.pricingModeBundleDetail}>
-                                    Immagini prodotti: Sì
-                                </span>
-                            )}
-                    </div>
-                )}
+                        </div>
+                    );
+                })()}
             </div>
 
             {/* ── Call to Action ───────────────────────────── */}
@@ -314,8 +327,8 @@ export default function FeaturedContentDetailPage() {
             <Breadcrumb items={breadcrumbItems} />
 
             <PageHeader
-                title={loading ? "Caricamento..." : content?.title || "Senza titolo"}
-                subtitle={loading ? "" : content?.internal_name || ""}
+                title={loading ? "Caricamento..." : content?.internal_name || "Senza nome interno"}
+                subtitle={loading ? "" : (content?.title !== content?.internal_name ? content?.title || "" : "")}
             />
 
             <Tabs
@@ -334,9 +347,8 @@ export default function FeaturedContentDetailPage() {
                         <Card>
                             <div className={styles.productsEmptyState}>
                                 <Text colorVariant="muted">
-                                    Seleziona la modalità &quot;Con prodotti&quot; o
-                                    &quot;Prezzo fisso&quot; per associare prodotti a questo
-                                    contenuto.
+                                    Seleziona il tipo &quot;Promo&quot; o &quot;Bundle&quot; per
+                                    associare prodotti a questo contenuto.
                                 </Text>
                             </div>
                         </Card>

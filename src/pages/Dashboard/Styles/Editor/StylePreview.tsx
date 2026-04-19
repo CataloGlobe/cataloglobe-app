@@ -31,6 +31,7 @@ const MOCK_FEATURED: V2FeaturedContent[] = [
         status: "published",
         layout_style: null,
         pricing_mode: "none",
+        content_type: "event",
         bundle_price: null,
         show_original_total: false,
         products: [],
@@ -49,6 +50,7 @@ const MOCK_FEATURED: V2FeaturedContent[] = [
         status: "published",
         layout_style: null,
         pricing_mode: "bundle",
+        content_type: "bundle",
         bundle_price: 9.9,
         show_original_total: false,
         products: [
@@ -78,6 +80,7 @@ const MOCK_FEATURED: V2FeaturedContent[] = [
         status: "published",
         layout_style: null,
         pricing_mode: "per_item",
+        content_type: "promo",
         bundle_price: null,
         show_original_total: false,
         products: [

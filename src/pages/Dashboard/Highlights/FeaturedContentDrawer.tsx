@@ -5,7 +5,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { useNavigate } from "react-router-dom";
 import {
     createFeaturedContent,
-    FeaturedContentPricingMode
+    type FeaturedContentPricingMode
 } from "@/services/supabase/featuredContents";
 import { useTenantId } from "@/context/useTenantId";
 
@@ -43,6 +43,7 @@ export default function FeaturedContentDrawer({ onClose, onSuccess }: DrawerProp
                 internal_name: internalName.trim() || title.trim(),
                 title: title.trim(),
                 pricing_mode: "none" as FeaturedContentPricingMode,
+                content_type: "announcement",
                 bundle_price: null,
                 status: "published",
                 show_original_total: false
