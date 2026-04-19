@@ -426,15 +426,17 @@ export default function WorkspacePage() {
                                                     </span>
                                                 </div>
                                                 <div className={styles.deletedCardActions}>
-                                                    <button
-                                                        className={styles.restoreBtn}
-                                                        onClick={() => handleRestore(row.id)}
-                                                        disabled={isRestoring}
-                                                    >
-                                                        {isRestoring
-                                                            ? "Ripristino..."
-                                                            : "Ripristina"}
-                                                    </button>
+                                                    {daysLeft > 0 && (
+                                                        <button
+                                                            className={styles.restoreBtn}
+                                                            onClick={() => handleRestore(row.id)}
+                                                            disabled={isRestoring}
+                                                        >
+                                                            {isRestoring
+                                                                ? "Ripristino..."
+                                                                : "Ripristina"}
+                                                        </button>
+                                                    )}
                                                     <button
                                                         className={styles.purgeBtn}
                                                         onClick={() =>

@@ -249,6 +249,9 @@ export default function Businesses() {
         if (!values.city.trim()) errors.city = "La città è obbligatoria.";
         if (!values.address.trim()) errors.address = "L'indirizzo è obbligatorio.";
         if (!values.slug.trim()) errors.slug = "Lo slug è obbligatorio.";
+        if (!values.street_number.trim()) errors.street_number = "Inserisci il numero civico";
+        if (values.postal_code.trim().length !== 5) errors.postal_code = "Inserisci un CAP valido (5 cifre)";
+        if (values.province.trim().length !== 2) errors.province = "Inserisci la sigla provincia (es. MI)";
 
         return errors;
     }
@@ -489,6 +492,9 @@ export default function Businesses() {
         if (!values.city.trim()) errors.city = "La città è obbligatoria.";
         if (!values.address.trim()) errors.address = "L'indirizzo è obbligatorio.";
         if (!values.slug.trim()) errors.slug = "Lo slug è obbligatorio.";
+        if (!values.street_number.trim()) errors.street_number = "Inserisci il numero civico";
+        if (values.postal_code.trim().length !== 5) errors.postal_code = "Inserisci un CAP valido (5 cifre)";
+        if (values.province.trim().length !== 2) errors.province = "Inserisci la sigla provincia (es. MI)";
 
         return errors;
     }
