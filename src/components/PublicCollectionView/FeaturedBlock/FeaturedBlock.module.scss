@@ -18,6 +18,11 @@
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  /* Padding verticale per non tagliare il box-shadow delle card */
+  padding-top: 8px;
+  padding-bottom: 8px;
+  margin-top: -8px;
+  margin-bottom: -8px;
 
   &::-webkit-scrollbar {
     display: none;
@@ -31,6 +36,15 @@
     gap: 16px;
     overflow-x: visible;
     scroll-snap-type: none;
+  }
+
+  /* Nel preview mobile la viewport è desktop, quindi la media query sopra attiverebbe
+     sempre il layout a griglia. Forziamo il carousel come sul vero dispositivo mobile. */
+  :global(.preview-mobile) & {
+    display: flex;
+    grid-template-columns: unset;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
   }
 }
 
@@ -70,6 +84,20 @@
   @media (min-width: 768px) {
     width: auto;
     scroll-snap-align: unset;
+  }
+
+  /* Ripristina dimensioni carousel nel preview mobile */
+  :global(.preview-mobile) & {
+    width: 80%;
+    scroll-snap-align: center;
+
+    &:first-child {
+      scroll-snap-align: start;
+    }
+
+    &:last-child {
+      scroll-snap-align: end;
+    }
   }
 }
 

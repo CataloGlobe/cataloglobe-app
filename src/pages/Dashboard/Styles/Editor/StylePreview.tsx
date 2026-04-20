@@ -97,6 +97,25 @@ const MOCK_FEATURED: V2FeaturedContent[] = [
         ],
         created_at: "",
         updated_at: ""
+    },
+    {
+        id: "f4",
+        internal_name: "nuova-sede",
+        title: "Apriamo a Milano",
+        subtitle: "Dal 1° Giugno in Via Torino 12",
+        description: null,
+        media_id: null,
+        cta_text: null,
+        cta_url: null,
+        status: "published",
+        layout_style: null,
+        pricing_mode: "none",
+        content_type: "announcement",
+        bundle_price: null,
+        show_original_total: false,
+        products: [],
+        created_at: "",
+        updated_at: ""
     }
 ];
 
@@ -367,9 +386,6 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                             openingHours={MOCK_OPENING_HOURS}
                             upcomingClosures={MOCK_UPCOMING_CLOSURES}
                             featuredBeforeCatalogSlot={
-                                <FeaturedBlock blocks={MOCK_FEATURED} />
-                            }
-                            featuredAfterCatalogSlot={
                                 <FeaturedBlock blocks={MOCK_FEATURED} />
                             }
                         />

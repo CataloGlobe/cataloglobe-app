@@ -107,9 +107,12 @@ function Navbar() {
 
     return (
         <nav className={`${s.navbar} ${scrolled ? s.navbarScrolled : ''}`}>
-            <a href="/" className={s.navLogo}>
-                Catalo<span className={s.navGlobe}>Globe</span>
-            </a>
+            <div className={s.navBrand}>
+                <a href="/" className={s.navLogo}>
+                    Catalo<span className={s.navGlobe}>Globe</span>
+                </a>
+                <span className={s.betaBadge}>Beta</span>
+            </div>
             <div className={s.navLinks}>
                 {[
                     { label: 'Funzionalità', id: 'funzionalità' },
@@ -730,11 +733,11 @@ function FinalCTA() {
             <div className={s.finalWrap}>
                 <Animate>
                     <h2 className={s.finalH2}>
-                        Pronto a smettere di aggiornare menu a mano?
+                        Siamo in fase di lancio — entra tra i primi.
                     </h2>
                 </Animate>
                 <Animate delay={0.06}>
-                    <p className={s.finalSub}>Configura tutto gratis. Attiva quando sei pronto.</p>
+                    <p className={s.finalSub}>Accesso anticipato gratuito per i primi clienti. Configura tutto, attiva quando sei pronto.</p>
                 </Animate>
                 <Animate delay={0.12}>
                     <div className={s.finalCtas}>
