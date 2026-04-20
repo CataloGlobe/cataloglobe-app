@@ -13,7 +13,10 @@
   overflow-x: clip;
   display: flex;
   flex-direction: column;
-  background: var(--pub-bg);
+  background-color: var(--pub-bg);
+  background-image: var(--pub-bg-pattern, none);
+  background-size: var(--pub-bg-pattern-size, auto);
+  background-repeat: repeat;
   color: var(--pub-text);
   font-family: var(--pub-font-family, sans-serif);
 
@@ -180,9 +183,9 @@
 
   /* ===== PREVIEW ===== */
 
-  /* preview mobile → sempre 1 colonna */
+  /* preview mobile → 2 colonne (come viewport mobile reale) */
   :global(.preview-mobile) & {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
   /* preview tablet → 2 colonne */
@@ -208,9 +211,9 @@
   }
 }
 
-/* Grid: preview mobile → sempre 1 colonna */
+/* Grid: preview mobile → 2 colonne (come viewport mobile reale) */
 :global(.preview-mobile) .container[data-card-layout="grid"] .grid {
-  grid-template-columns: 1fr !important;
+  grid-template-columns: repeat(2, 1fr) !important;
 }
 
 /* Grid: preview tablet → 2 colonne */
@@ -242,10 +245,6 @@
     }
 
     .allergenEmojis {
-      display: none;
-    }
-
-    .infoIcon {
       display: none;
     }
 
@@ -437,6 +436,12 @@
 
 .productRowImageRight {
   flex-direction: row-reverse;
+
+  /* In row-reverse il DOM è [image, rowBody, addBtn]: order:-1 fa sì che
+     addBtn venga posizionato al main-start (destra) → sempre a destra. */
+  .addBtn {
+    order: -1;
+  }
 }
 
 .rowImage {
@@ -539,12 +544,6 @@
   min-width: 0;
 }
 
-.infoIcon {
-  flex-shrink: 0;
-  color: var(--pub-surface-text-secondary);
-  display: flex;
-  align-items: center;
-}
 
 .title {
   line-height: 1.25;

@@ -1,4 +1,3 @@
-import React from "react";
 import Text from "@/components/ui/Text/Text";
 import { InfoTooltip } from "@components/ui/Tooltip/InfoTooltip";
 import {
@@ -7,7 +6,9 @@ import {
     CardLayout,
     ProductStyle,
     FontFamily,
-    BorderRadius
+    BorderRadius,
+    BackgroundPattern,
+    FeaturedStyle
 } from "./StyleTokenModel";
 import { StyleColorPicker } from "./StyleColorPicker";
 import styles from "./StyleSettingsControls.module.scss";
@@ -49,6 +50,20 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         { value: "rounded", label: "Arrotondato" }
     ];
 
+    const backgroundPatternOptions: Array<{ value: BackgroundPattern; label: string }> = [
+        { value: "none", label: "Nessuno" },
+        { value: "dots", label: "Puntini" },
+        { value: "diagonal", label: "Diagonali" },
+        { value: "grid", label: "Griglia" },
+        { value: "waves", label: "Onde" },
+        { value: "diamonds", label: "Rombi" }
+    ];
+
+    const featuredStyleOptions: Array<{ value: FeaturedStyle; label: string }> = [
+        { value: "card", label: "Card" },
+        { value: "highlight", label: "Highlight" }
+    ];
+
     const updateColor = (key: keyof StyleTokenModel["colors"], value: string) => {
         onChange({
             ...model,
@@ -63,8 +78,16 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         });
     };
 
-    const updateAppearance = (borderRadius: BorderRadius) => {
+    const updateBorderRadius = (borderRadius: BorderRadius) => {
         onChange({ ...model, appearance: { ...model.appearance, borderRadius } });
+    };
+
+    const updateBackgroundPattern = (backgroundPattern: BackgroundPattern) => {
+        onChange({ ...model, appearance: { ...model.appearance, backgroundPattern } });
+    };
+
+    const updateFeaturedStyle = (featuredStyle: FeaturedStyle) => {
+        onChange({ ...model, appearance: { ...model.appearance, featuredStyle } });
     };
 
     const updateHeaderBool = (
@@ -112,6 +135,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
                 <StyleColorPicker
                     label="Sfondo pagina"
+                    labelSuffix={<InfoTooltip content="Colore di sfondo dell'intera pagina pubblica." />}
                     value={model.colors.pageBackground}
                     onChange={val => updateColor("pageBackground", val)}
                 />
@@ -144,7 +168,34 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                     className={`${styles.optionButton} ${
                                         isActive ? styles.optionButtonActive : ""
                                     }`}
-                                    onClick={() => updateAppearance(option.value)}
+                                    onClick={() => updateBorderRadius(option.value)}
+                                >
+                                    <Text as="span" variant="body" weight={600}>
+                                        {option.label}
+                                    </Text>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className={styles.controlField}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Pattern sfondo<InfoTooltip content="Aggiunge un motivo decorativo leggero allo sfondo, usando il colore primario." />
+                    </Text>
+                    <div className={`${styles.buttonGroup} ${styles.nav}`} role="radiogroup">
+                        {backgroundPatternOptions.map(option => {
+                            const isActive = model.appearance.backgroundPattern === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={isActive}
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateBackgroundPattern(option.value)}
                                 >
                                     <Text as="span" variant="body" weight={600}>
                                         {option.label}
@@ -164,13 +215,13 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
                 {(
                     [
-                        { key: "showLogo", label: "Logo" },
+                        { key: "showLogo", label: "Logo", tooltip: "Mostra o nascondi il logo dell'azienda nella pagina pubblica." },
                         {
                             key: "showCoverImage",
                             label: "Header espanso",
                             tooltip: "Mostra l'header grande con immagine di copertina, logo e informazioni. Se disattivato, viene mostrato solo l'header compatto."
                         },
-                        { key: "showCatalogName", label: "Nome catalogo" }
+                        { key: "showCatalogName", label: "Nome catalogo", tooltip: "Mostra o nascondi il nome del catalogo sotto il nome della sede." }
                     ] as Array<{
                         key: "showLogo" | "showCoverImage" | "showCatalogName";
                         label: string;
@@ -217,7 +268,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
                 <div className={styles.controlField}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Stile navigazione
+                        Stile navigazione<InfoTooltip content="Aspetto delle categorie nella barra di navigazione." />
                     </Text>
                     <div className={`${styles.buttonGroup} ${styles.nav}`} role="radiogroup">
                         {navigationOptions.map(option => {
@@ -317,7 +368,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                 {model.card.productStyle !== "compact" && (
                 <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Immagini prodotti
+                        Immagini prodotti<InfoTooltip content="Posizione dell'immagine nella card prodotto. Visibile solo nello stile Card." />
                     </Text>
 
                     {model.card.layout === "grid" ? (
@@ -394,6 +445,33 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     )}
                 </div>
                 )}
+
+                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Stile contenuti in evidenza<InfoTooltip content="Card mostra immagine e testo separati. Highlight sovrappone il testo all'immagine." />
+                    </Text>
+                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                        {featuredStyleOptions.map(option => {
+                            const isActive = model.appearance.featuredStyle === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={isActive}
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateFeaturedStyle(option.value)}
+                                >
+                                    <Text as="span" variant="body" weight={600}>
+                                        {option.label}
+                                    </Text>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
             </section>
 
             {/* TIPOGRAFIA */}
@@ -404,7 +482,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
                 <div className={styles.controlField}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Font family
+                        Font family<InfoTooltip content="Tipo di carattere usato in tutta la pagina pubblica." />
                     </Text>
                     <div
                         className={`${styles.buttonGroup} ${styles.threeColumns}`}

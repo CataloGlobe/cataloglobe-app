@@ -9,6 +9,7 @@ type Props = {
     blocks: V2FeaturedContent[];
     activityId?: string;
     slot?: string;
+    layout?: "card" | "highlight";
 };
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -83,7 +84,7 @@ function scrollToSnap(el: HTMLElement, idx: number, totalCount: number) {
    MAIN COMPONENT
    ══════════════════════════════════════════════════════════════════════════ */
 
-export default function FeaturedBlock({ blocks, activityId, slot }: Props) {
+export default function FeaturedBlock({ blocks, activityId, slot, layout = "card" }: Props) {
     const [previewBlock, setPreviewBlock] = useState<V2FeaturedContent | null>(null);
     const trackRef = useRef<HTMLDivElement>(null);
     const [activeIndex, setActiveIndex] = useState(0);
@@ -151,6 +152,7 @@ export default function FeaturedBlock({ blocks, activityId, slot }: Props) {
                     onClick={() => handleCardClick(blocks[0])}
                     onCtaClick={() => handleCtaClick(blocks[0])}
                     className={styles.cardSingle}
+                    variant={layout}
                 />
             </div>
             <FeaturedPreviewModal
@@ -189,6 +191,7 @@ export default function FeaturedBlock({ blocks, activityId, slot }: Props) {
                         onClick={() => handleCardClick(block)}
                         onCtaClick={() => handleCtaClick(block)}
                         className={styles.cardCarousel}
+                        variant={layout}
                     />
                 ))}
             </div>

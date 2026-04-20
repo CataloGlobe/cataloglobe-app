@@ -20,8 +20,8 @@ export type PublicCollectionHeaderProps = {
     showCoverImage: boolean;
     showLogo: boolean;
     mode: "public" | "preview";
-    /** Apre il SearchOverlay (la ricerca è gestita esternamente). */
-    onSearchOpen: () => void;
+    /** Apre il SearchOverlay (la ricerca è gestita esternamente). Undefined in preview — nasconde i pulsanti di ricerca. */
+    onSearchOpen?: () => void;
     /** Chiamato quando il compact bar diventa visibile/invisibile. */
     onCompactVisibilityChange?: (visible: boolean) => void;
     /**
@@ -199,9 +199,9 @@ export default function PublicCollectionHeader({
                                 )}
                             </div>
 
-                            <LanguageSelector variant="hero" />
+                            {mode !== "preview" && <LanguageSelector variant="hero" />}
 
-                            {hasInfo && onInfoPress && (
+                            {mode !== "preview" && hasInfo && onInfoPress && (
                                 <button
                                     type="button"
                                     className={styles.infoCardInfoBtn}
@@ -212,14 +212,16 @@ export default function PublicCollectionHeader({
                                 </button>
                             )}
 
-                            <button
-                                type="button"
-                                className={styles.infoCardSearchBtn}
-                                onClick={onSearchOpen}
-                                aria-label="Cerca nel catalogo"
-                            >
-                                <Search size={15} strokeWidth={2} />
-                            </button>
+                            {onSearchOpen && (
+                                <button
+                                    type="button"
+                                    className={styles.infoCardSearchBtn}
+                                    onClick={onSearchOpen}
+                                    aria-label="Cerca nel catalogo"
+                                >
+                                    <Search size={15} strokeWidth={2} />
+                                </button>
+                            )}
                         </div>
 
                         <div className={[
@@ -288,14 +290,16 @@ export default function PublicCollectionHeader({
                                     </button>
                                 )}
 
-                                <button
-                                    type="button"
-                                    className={styles.compactSearchBtn}
-                                    onClick={onSearchOpen}
-                                    aria-label="Cerca nel catalogo"
-                                >
-                                    <Search size={16} strokeWidth={2} />
-                                </button>
+                                {onSearchOpen && (
+                                    <button
+                                        type="button"
+                                        className={styles.compactSearchBtn}
+                                        onClick={onSearchOpen}
+                                        aria-label="Cerca nel catalogo"
+                                    >
+                                        <Search size={16} strokeWidth={2} />
+                                    </button>
+                                )}
                             </div>
 
                             <div className={styles.compactChips}>

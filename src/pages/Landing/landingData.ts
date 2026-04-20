@@ -1,3 +1,7 @@
+import ilMolo34Screenshot from '@/assets/demos/il-molo-34.png';
+import laPausaScreenshot from '@/assets/demos/la-pausa.png';
+import velvetGardenScreenshot from '@/assets/demos/velvet-garden.png';
+
 export interface ScheduleRule {
     name: string;
     type: string;
@@ -5,23 +9,11 @@ export interface ScheduleRule {
     statusColor: string;
 }
 
-export interface DemoItem {
-    name: string;
-    price: string;
-    desc: string;
-    bg: string;
-    emoji: string;
-}
-
 export interface Demo {
     name: string;
     address: string;
     slug: string;
-    heroGrad: string;
-    accent: string;
-    dark?: boolean;
-    categories: string[];
-    items: DemoItem[];
+    screenshot: string;
 }
 
 export interface PricingTier {
@@ -69,57 +61,22 @@ export const HOW_STEPS = [
 
 export const DEMOS: Demo[] = [
     {
-        name: 'Osteria del Ponte Vecchio',
-        address: 'Via delle Erbe 12, Milano',
-        slug: 'osteria-del-ponte-vecchio',
-        heroGrad: 'linear-gradient(135deg, #78350F 0%, #B45309 50%, #D97706 100%)',
-        accent: '#D97706',
-        categories: ['Antipasti', 'Primi', 'Secondi', 'Dolci'],
-        items: [
-            { name: 'Burrata pugliese', price: '€12.00', desc: 'Con pomodorini datterino e basilico fresco...', bg: '#fef3c7', emoji: '🧀' },
-            { name: 'Pappardelle al ragù', price: '€16.00', desc: 'Ragù di cinghiale cotto 6 ore con...', bg: '#fde68a', emoji: '🍝' },
-            { name: 'Tagliata di manzo', price: '€22.00', desc: 'Scottona irlandese con rucola e grana...', bg: '#fcd34d', emoji: '🥩' },
-        ],
+        name: 'Il Molo 34',
+        address: 'Via del Porto 34, 16034 Portofino (GE)',
+        slug: 'il-molo-34',
+        screenshot: ilMolo34Screenshot,
     },
     {
-        name: 'Caffè Aurora',
-        address: 'Corso delle Magnolie 7, Milano',
-        slug: 'caffe-aurora',
-        heroGrad: 'linear-gradient(135deg, #292524 0%, #57534E 50%, #78716C 100%)',
-        accent: '#78716C',
-        categories: ['Caffetteria', 'Colazione', 'Pranzo', 'Dolci'],
-        items: [
-            { name: 'Flat White', price: '€3.50', desc: 'Doppio espresso con latte vellutato...', bg: '#f5f5f4', emoji: '☕' },
-            { name: 'Avocado Toast', price: '€8.00', desc: 'Pane di segale, avocado, uovo pochè...', bg: '#e7e5e4', emoji: '🥑' },
-            { name: 'Croissant artigianale', price: '€2.80', desc: 'Sfogliatura francese con burro AOP...', bg: '#d6d3d1', emoji: '🥐' },
-        ],
+        name: 'La Pausa',
+        address: 'Corso Italia 12, 20122 Milano (MI)',
+        slug: 'la-pausa',
+        screenshot: laPausaScreenshot,
     },
     {
-        name: 'Nōku Cocktail Bar',
-        address: 'Viale dei Tigli 34, Milano',
-        slug: 'noku-cocktail-bar',
-        heroGrad: 'linear-gradient(135deg, #0f0a2e 0%, #1e1b4b 50%, #4c1d95 100%)',
-        accent: '#8B5CF6',
-        dark: true,
-        categories: ['Signature', 'Classici', 'Analcolici', 'Snack'],
-        items: [
-            { name: 'Tokyo Drift', price: '€13.00', desc: 'Sake, yuzu, zenzero, schiuma di shiso...', bg: '#3b1f7a', emoji: '🍸' },
-            { name: 'Negroni Sbagliato', price: '€10.00', desc: 'Campari, vermouth rosso, prosecco...', bg: '#4c1d95', emoji: '🥃' },
-            { name: 'Smoke & Mirrors', price: '€14.00', desc: 'Mezcal, lime affumicato, agave nera...', bg: '#5b21b6', emoji: '🌫' },
-        ],
-    },
-    {
-        name: 'Trattoria Sole e Luna',
-        address: 'Piazza dei Cipressi 5, Milano',
-        slug: 'trattoria-sole-e-luna',
-        heroGrad: 'linear-gradient(135deg, #450a0a 0%, #991B1B 50%, #DC2626 100%)',
-        accent: '#EF4444',
-        categories: ['Classiche', 'Speciali', 'Fritte', 'Bibite'],
-        items: [
-            { name: 'Margherita DOP', price: '€8.00', desc: 'San Marzano DOP, fior di latte, basilico...', bg: '#fee2e2', emoji: '🍕' },
-            { name: "Diavola con 'nduja", price: '€12.00', desc: "Salame piccante calabrese e 'nduja...", bg: '#fecaca', emoji: '🌶' },
-            { name: 'Bufala e pesto', price: '€11.00', desc: 'Mozzarella di bufala campana, pesto...', bg: '#fca5a5', emoji: '🌿' },
-        ],
+        name: 'Velvet Garden',
+        address: 'Via Savona 18, 20144 Milano (MI)',
+        slug: 'velvet-garden',
+        screenshot: velvetGardenScreenshot,
     },
 ];
 

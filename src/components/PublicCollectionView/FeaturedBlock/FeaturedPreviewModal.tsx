@@ -55,20 +55,24 @@ export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
     })();
 
     return (
-        <PublicSheet isOpen={isOpen} onClose={onClose} ariaLabel={displayBlock.title}>
-            {/* Header con pulsante chiudi */}
-            <div className={styles.sheetHeader}>
-                <button
-                    type="button"
-                    className={styles.closeBtn}
-                    onClick={onClose}
-                    aria-label="Chiudi"
-                >
-                    <X size={16} strokeWidth={2} />
-                    <span>Chiudi</span>
-                </button>
-            </div>
-
+        <PublicSheet
+            isOpen={isOpen}
+            onClose={onClose}
+            ariaLabel={displayBlock.title}
+            headerContent={
+                <div className={styles.sheetHeader}>
+                    <button
+                        type="button"
+                        className={styles.closeBtn}
+                        onClick={onClose}
+                        aria-label="Chiudi"
+                    >
+                        <X size={16} strokeWidth={2} />
+                        <span>Chiudi</span>
+                    </button>
+                </div>
+            }
+        >
             {/* Corpo scrollabile */}
             <div className={styles.body}>
                 {/* Immagine */}
@@ -96,7 +100,6 @@ export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
                     {displayBlock.subtitle && (
                         <Text
                             variant="body-sm"
-                            colorVariant="muted"
                             className={styles.subtitle}
                         >
                             {displayBlock.subtitle}

@@ -429,7 +429,8 @@ export default function PublicCollectionPage() {
         showLogo: tokens.header.showLogo,
         showCoverImage: tokens.header.showCoverImage,
         showActivityName: tokens.header.showActivityName,
-        showCatalogName: tokens.header.showCatalogName
+        showCatalogName: tokens.header.showCatalogName,
+        featuredStyle: tokens.appearance.featuredStyle
     } as const;
 
     const sectionGroups = mapCatalogToSectionGroups(resolved);
@@ -510,13 +511,13 @@ export default function PublicCollectionPage() {
                 featuredBeforeCatalogSlot={
                     resolved.featured?.before_catalog &&
                     resolved.featured.before_catalog.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.before_catalog} activityId={business.id} slot="before_catalog" />
+                        <FeaturedBlock blocks={resolved.featured.before_catalog} activityId={business.id} slot="before_catalog" layout={tokens.appearance.featuredStyle} />
                     ) : null
                 }
                 featuredAfterCatalogSlot={
                     resolved.featured?.after_catalog &&
                     resolved.featured.after_catalog.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.after_catalog} activityId={business.id} slot="after_catalog" />
+                        <FeaturedBlock blocks={resolved.featured.after_catalog} activityId={business.id} slot="after_catalog" layout={tokens.appearance.featuredStyle} />
                     ) : null
                 }
                 reviewsProps={{

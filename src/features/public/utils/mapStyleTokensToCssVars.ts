@@ -2,13 +2,17 @@ import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleToken
 
 function parseHex(hex: string): { r: number; g: number; b: number } {
     const clean = hex.replace("#", "");
-    const full = clean.length === 3
-        ? clean.split("").map(c => c + c).join("")
-        : clean;
+    const full =
+        clean.length === 3
+            ? clean
+                  .split("")
+                  .map(c => c + c)
+                  .join("")
+            : clean;
     return {
         r: parseInt(full.slice(0, 2), 16) || 0,
         g: parseInt(full.slice(2, 4), 16) || 0,
-        b: parseInt(full.slice(4, 6), 16) || 0,
+        b: parseInt(full.slice(4, 6), 16) || 0
     };
 }
 
@@ -31,9 +35,13 @@ function mixHex(bgHex: string, fgHex: string, alpha: number): string {
  */
 function hexLuminance(hex: string): number {
     const clean = hex.replace("#", "");
-    const full = clean.length === 3
-        ? clean.split("").map(c => c + c).join("")
-        : clean;
+    const full =
+        clean.length === 3
+            ? clean
+                  .split("")
+                  .map(c => c + c)
+                  .join("")
+            : clean;
     if (full.length !== 6) return 0.5;
 
     const r = parseInt(full.slice(0, 2), 16) / 255;
@@ -62,6 +70,42 @@ function contrastText(bgHex: string): string {
 }
 
 /**
+ * Generates the CSS background-image value for a given pattern + primary color.
+ * Returns [backgroundImage, backgroundSize] tuple.
+ */
+function getPatternCss(pattern: string, primaryHex: string): [string, string] {
+    const { r, g, b } = parseHex(primaryHex);
+    const rgba = (opacity: number) => `rgba(${r},${g},${b},${opacity})`;
+
+    switch (pattern) {
+        case "dots":
+            return [`radial-gradient(circle, ${rgba(0.4)} 1px, transparent 1px)`, "16px 16px"];
+        case "diagonal":
+            return [
+                `repeating-linear-gradient(45deg, transparent, transparent 10px, ${rgba(0.2)} 10px, ${rgba(0.2)} 11px)`,
+                "auto"
+            ];
+        case "grid":
+            return [
+                `linear-gradient(${rgba(0.2)} 1px, transparent 1px), linear-gradient(90deg, ${rgba(0.2)} 1px, transparent 1px)`,
+                "24px 24px"
+            ];
+        case "waves":
+            return [
+                `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='80' height='20'><path d='M0 10 Q20 0 40 10 T80 10' fill='none' stroke='${rgba(0.2)}' stroke-width='1.5'/></svg>`)}")`,
+                "80px 20px"
+            ];
+        case "diamonds":
+            return [
+                `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><path d='M12 2 L22 12 L12 22 L2 12 Z' fill='none' stroke='${rgba(0.25)}' stroke-width='1'/></svg>`)}")`,
+                "24px 24px"
+            ];
+        default:
+            return ["none", "auto"];
+    }
+}
+
+/**
  * Maps parsed style tokens to a flat record of --pub-* CSS custom properties.
  * Used by PublicThemeScope to apply scoped inline styles instead of :root injection.
  */
@@ -84,13 +128,18 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
     const bgText = contrastText(tokens.colors.pageBackground);
     const surfaceText = contrastText(tokens.colors.surface);
     const surfaceTextSecondary = surfaceLight ? "rgba(0, 0, 0, 0.55)" : "rgba(255, 255, 255, 0.65)";
-    const surfaceTextMuted     = surfaceLight ? "rgba(0, 0, 0, 0.38)" : "rgba(255, 255, 255, 0.45)";
-    const bgTextSecondary      = bgLight      ? "rgba(0, 0, 0, 0.55)" : "rgba(255, 255, 255, 0.65)";
-    const bgTextMuted          = bgLight      ? "rgba(0, 0, 0, 0.38)" : "rgba(255, 255, 255, 0.45)";
+    const surfaceTextMuted = surfaceLight ? "rgba(0, 0, 0, 0.38)" : "rgba(255, 255, 255, 0.45)";
+    const bgTextSecondary = bgLight ? "rgba(0, 0, 0, 0.55)" : "rgba(255, 255, 255, 0.65)";
+    const bgTextMuted = bgLight ? "rgba(0, 0, 0, 0.38)" : "rgba(255, 255, 255, 0.45)";
 
     // Border colors — 10% contrast text blended into background
-    const borderOnBg      = mixHex(tokens.colors.pageBackground, bgText, 0.10);
+    const borderOnBg = mixHex(tokens.colors.pageBackground, bgText, 0.1);
     const borderOnSurface = mixHex(tokens.colors.surface, surfaceText, 0.15);
+
+    const [patternImage, patternSize] = getPatternCss(
+        tokens.appearance.backgroundPattern,
+        tokens.colors.primary
+    );
 
     return {
         // ── Existing pub vars ────────────────────────────────────────────
@@ -103,6 +152,10 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
 
         // ── Shape ────────────────────────────────────────────────────────
         "--pub-radius": pubRadius,
+
+        // ── Background pattern ───────────────────────────────────────────
+        "--pub-bg-pattern": patternImage,
+        "--pub-bg-pattern-size": patternSize,
 
         // ── New semantic vars ────────────────────────────────────────────
         "--pub-surface": tokens.colors.surface,
@@ -135,6 +188,6 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         // Text directly on --pub-surface / --pub-card-bg (content areas, cards, nav bar)
         "--pub-surface-text": surfaceText,
         "--pub-surface-text-secondary": surfaceTextSecondary,
-        "--pub-surface-text-muted": surfaceTextMuted,
+        "--pub-surface-text-muted": surfaceTextMuted
     };
 }

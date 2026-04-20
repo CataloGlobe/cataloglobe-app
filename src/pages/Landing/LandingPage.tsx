@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { motion, useInView } from 'framer-motion';
 import s from './LandingPage.module.scss';
@@ -12,6 +13,7 @@ import {
     FAQ_ITEMS,
     type Demo,
 } from './landingData';
+import WaitlistForm from './sections/WaitlistForm';
 
 // ─── Feature icon constants (defined once, not re-created on render) ──────────
 const ICON_SCHEDULING = (
@@ -131,8 +133,18 @@ function Navbar() {
                         {label}
                     </a>
                 ))}
-                <a href="/login" className={s.navLinkAccedi}>Accedi</a>
-                <a href="/sign-up" className={s.navCta}>Prova gratis</a>
+                {/* TODO: riattivare al lancio */}
+                {/* <a href="/login" className={s.navLinkAccedi}>Accedi</a> */}
+                <a
+                    href="#waitlist"
+                    className={s.navCta}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                >
+                    Prova gratis
+                </a>
             </div>
         </nav>
     );
@@ -161,8 +173,20 @@ function Hero() {
                     </p>
 
                     <div className={s.heroCtas}>
-                        <a href="/sign-up" className={s.ctaPrimary}>Inizia gratis</a>
-                        <a href="#" className={s.ctaSecondary}>
+                        <a
+                            href="#waitlist"
+                            className={s.ctaPrimary}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                        >
+                            Inizia gratis
+                        </a>
+                        <a
+                            href="mailto:alessandro.delia@cataloglobe.com?subject=Richiesta%20demo%20CataloGlobe"
+                            className={s.ctaSecondary}
+                        >
                             Richiedi una demo <span>→</span>
                         </a>
                     </div>
@@ -313,44 +337,6 @@ function Features() {
 }
 
 // ─── Demo Carousel ────────────────────────────────────
-interface QRProps {
-    slug: string;
-}
-
-function QRPlaceholder({ slug }: QRProps) {
-    const seed = slug.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-    const g = 7;
-    const cells: React.ReactNode[] = [];
-
-    for (let r = 0; r < g; r++) {
-        for (let c = 0; c < g; c++) {
-            const h = ((seed * (r + 1) * 7 + (c + 1) * 13) % 100);
-            const finder = (r < 2 && c < 2) || (r < 2 && c >= g - 2) || (r >= g - 2 && c < 2);
-            const center = r === 3 && c === 3;
-            if (finder || center || h < 42) {
-                cells.push(
-                    <rect
-                        key={`${r}-${c}`}
-                        x={c * 7 + 4}
-                        y={r * 7 + 4}
-                        width="6"
-                        height="6"
-                        rx="0.5"
-                        fill="currentColor"
-                    />
-                );
-            }
-        }
-    }
-
-    return (
-        <svg width="55" height="55" viewBox="0 0 55 55" style={{ color: '#0c0a1d', flexShrink: 0 }}>
-            <rect width="55" height="55" rx="6" fill="#f6f5f9" stroke="#eae8f0" strokeWidth="0.5" />
-            {cells}
-        </svg>
-    );
-}
-
 interface CardProps {
     demo: Demo;
     offset: number;
@@ -364,13 +350,6 @@ function DemoCard({ demo, offset }: CardProps) {
     const z = -abs * 130;
     const op = abs > 1 ? 0 : 1 - abs * 0.4;
     const isCenter = offset === 0;
-    const isDark = Boolean(demo.dark);
-
-    const cardBg = isDark ? '#0f0d1a' : '#ffffff';
-    const cardBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
-    const shadow = isCenter
-        ? `0 28px 70px rgba(0,0,0,${isDark ? 0.5 : 0.14})`
-        : `0 8px 24px rgba(0,0,0,${isDark ? 0.3 : 0.06})`;
 
     return (
         <div
@@ -384,91 +363,12 @@ function DemoCard({ demo, offset }: CardProps) {
                 filter: isCenter ? 'none' : `blur(${abs * 0.8}px) brightness(0.75)`,
             }}
         >
-            <div
-                className={`${s.cardShell} ${isDark ? s.cardDark : s.cardLight}`}
-                style={{
-                    background: cardBg,
-                    border: `1px solid ${cardBorder}`,
-                    boxShadow: shadow,
-                    '--card-accent': demo.accent,
-                } as React.CSSProperties}
-            >
-                {/* Hero area */}
-                <div
-                    className={s.cardHero}
-                    style={{ background: demo.heroGrad }}
-                >
-                    <div className={s.cardHeroOrb1} />
-                    <div className={s.cardHeroOrb2} />
-                    <div className={s.cardHeroOrb3} />
-                    <div className={s.cardHeroOverlay}>
-                        <div className={s.cardHeroName}>{demo.name}</div>
-                        <div className={s.cardHeroAddress}>{demo.address}</div>
-                    </div>
-                </div>
-
-                {/* Hub buttons */}
-                <div className={s.cardHub}>
-                    {[
-                        { icon: '📋', label: 'Menu', main: true },
-                        { icon: '🎉', label: 'Eventi & Promo', main: false },
-                        { icon: '⭐', label: 'Dicci la tua', main: false },
-                    ].map((btn, j) => (
-                        <div
-                            key={j}
-                            className={`${s.cardHubBtn} ${btn.main ? s.cardHubBtnMain : ''}`}
-                            style={btn.main
-                                ? { background: demo.accent }
-                                : { background: isDark ? 'rgba(255,255,255,0.06)' : '#faf9fc', color: isDark ? 'rgba(255,255,255,0.45)' : '#8b8998' }
-                            }
-                        >
-                            <span>{btn.icon}</span>{btn.label}
-                        </div>
-                    ))}
-                </div>
-
-                {/* Category pills */}
-                <div className={s.cardPills}>
-                    {demo.categories.map((cat, j) => (
-                        <span
-                            key={j}
-                            className={`${s.cardPill} ${j === 0 ? s.cardPillActive : ''}`}
-                            style={j === 0 ? { background: demo.accent } : undefined}
-                        >
-                            {cat}
-                        </span>
-                    ))}
-                </div>
-
-                {/* Section title */}
-                <div className={s.cardSectionTitle}>{demo.categories[0]}</div>
-
-                {/* Products */}
-                <div className={s.cardProducts}>
-                    {demo.items.map((item, j) => (
-                        <div key={j} className={s.cardProduct}>
-                            <div
-                                className={s.cardProductThumb}
-                                style={{ background: item.bg }}
-                            >
-                                {item.emoji}
-                            </div>
-                            <div className={s.cardProductInfo}>
-                                <div className={s.cardProductHeader}>
-                                    <span className={s.cardProductName}>{item.name}</span>
-                                    <div className={s.cardProductAdd}>+</div>
-                                </div>
-                                <div
-                                    className={s.cardProductPrice}
-                                    style={{ color: demo.accent }}
-                                >
-                                    {item.price}
-                                </div>
-                                <div className={s.cardProductDesc}>{item.desc}</div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+            <div className={s.cardShell}>
+                <img
+                    src={demo.screenshot}
+                    alt={`Menu ${demo.name}`}
+                    className={s.demoCardImage}
+                />
             </div>
         </div>
     );
@@ -477,6 +377,7 @@ function DemoCard({ demo, offset }: CardProps) {
 function DemoCarousel() {
     const [active, setActive] = useState(0);
     const [paused, setPaused] = useState(false);
+    const [showQROverlay, setShowQROverlay] = useState(false);
 
     const go = useCallback((dir: number) => {
         setActive(p => (p + dir + DEMOS.length) % DEMOS.length);
@@ -487,6 +388,13 @@ function DemoCarousel() {
         const t = setInterval(() => setActive(p => (p + 1) % DEMOS.length), 4500);
         return () => clearInterval(t);
     }, [paused]);
+
+    useEffect(() => {
+        if (!showQROverlay) return;
+        const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowQROverlay(false); };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [showQROverlay]);
 
     return (
         <section
@@ -544,13 +452,22 @@ function DemoCarousel() {
 
             {/* QR + dots */}
             <div className={s.carouselFooter}>
-                <div className={s.qrCard}>
-                    <QRPlaceholder slug={DEMOS[active].slug} />
+                <button
+                    className={s.qrCard}
+                    onClick={() => setShowQROverlay(true)}
+                    aria-label={`Apri QR code per ${DEMOS[active].name}`}
+                >
+                    <QRCodeSVG
+                        value={`https://cataloglobe.com/${DEMOS[active].slug}`}
+                        size={90}
+                        bgColor="transparent"
+                        fgColor="#1a1a2e"
+                    />
                     <div>
                         <div className={s.qrName}>{DEMOS[active].name}</div>
                         <div className={s.qrSub}>Scansiona per provare il menu demo</div>
                     </div>
-                </div>
+                </button>
                 <div className={s.carouselNavRow}>
                     {/* Left arrow — mobile only */}
                     <button
@@ -586,6 +503,37 @@ function DemoCarousel() {
                     </button>
                 </div>
             </div>
+            {showQROverlay && (
+                <div
+                    className={s.qrOverlay}
+                    onClick={() => setShowQROverlay(false)}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="QR code"
+                >
+                    <div
+                        className={s.qrOverlayContent}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <QRCodeSVG
+                            value={`https://cataloglobe.com/${DEMOS[active].slug}`}
+                            size={250}
+                            bgColor="transparent"
+                            fgColor="#ffffff"
+                        />
+                        <p className={s.qrOverlayName}>{DEMOS[active].name}</p>
+                        <p className={s.qrOverlaySub}>Scansiona per aprire il menu</p>
+                        <a
+                            href={`https://cataloglobe.com/${DEMOS[active].slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={s.qrOverlayLink}
+                        >
+                            Oppure apri direttamente →
+                        </a>
+                    </div>
+                </div>
+            )}
         </section>
     );
 }
@@ -669,7 +617,16 @@ function Pricing() {
                                 </div>
                             ))}
                         </div>
-                        <a href="/sign-up" className={s.pricingCta}>Inizia gratis — 3 mesi inclusi</a>
+                        <a
+                            href="#waitlist"
+                            className={s.pricingCta}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                        >
+                            Inizia gratis — 3 mesi inclusi
+                        </a>
                         <p className={s.pricingCtaNote}>
                             I primi clienti beta non pagano per 3 mesi · Nessuna carta richiesta
                         </p>
@@ -728,7 +685,7 @@ function FAQ() {
 // ─── Final CTA ────────────────────────────────────────
 function FinalCTA() {
     return (
-        <section className={s.finalCta}>
+        <section id="waitlist" className={s.finalCta}>
             <div className={s.finalGlow} aria-hidden="true" />
             <div className={s.finalWrap}>
                 <Animate>
@@ -740,10 +697,7 @@ function FinalCTA() {
                     <p className={s.finalSub}>Accesso anticipato gratuito per i primi clienti. Configura tutto, attiva quando sei pronto.</p>
                 </Animate>
                 <Animate delay={0.12}>
-                    <div className={s.finalCtas}>
-                        <a href="/sign-up" className={s.ctaIndigo}>Inizia gratis</a>
-                        <a href="#" className={s.ctaOutline}>Richiedi una demo</a>
-                    </div>
+                    <WaitlistForm />
                 </Animate>
             </div>
         </section>

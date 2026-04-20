@@ -328,7 +328,8 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
         showLogo: model.header.showLogo,
         showCoverImage: model.header.showCoverImage,
         showActivityName: model.header.showActivityName,
-        showCatalogName: model.header.showCatalogName
+        showCatalogName: model.header.showCatalogName,
+        featuredStyle: model.appearance.featuredStyle
     };
 
     return (
@@ -386,7 +387,7 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
                             openingHours={MOCK_OPENING_HOURS}
                             upcomingClosures={MOCK_UPCOMING_CLOSURES}
                             featuredBeforeCatalogSlot={
-                                <FeaturedBlock blocks={MOCK_FEATURED} />
+                                <FeaturedBlock blocks={MOCK_FEATURED} layout={model.appearance.featuredStyle} />
                             }
                         />
                     </div>

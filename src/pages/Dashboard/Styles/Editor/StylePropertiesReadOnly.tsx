@@ -37,7 +37,7 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 <Text as="h4" variant="title-sm" weight={700} className={sharedStyles.sectionTitle}>
                     Aspetto Generale
                 </Text>
-                <ColorReadRow label="Sfondo pagina" value={model.colors.pageBackground} />
+                <ColorReadRow label="Sfondo pagina" value={model.colors.pageBackground} tooltip="Colore di sfondo dell'intera pagina pubblica." />
                 <ColorReadRow label="Colore primario" value={model.colors.primary} tooltip="Colore principale applicato a header, navigazione, pulsanti e accenti nella pagina pubblica." />
                 <ColorReadRow label="Sfondo superfici" value={model.colors.surface} tooltip="Sfondo di card prodotti, modali, pulsanti dell'header e altri elementi in primo piano." />
                 <ValueReadRow
@@ -51,6 +51,20 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                               : "Arrotondato"
                     }
                 />
+                <ValueReadRow
+                    label="Pattern sfondo"
+                    tooltip="Aggiunge un motivo decorativo leggero allo sfondo, usando il colore primario."
+                    value={
+                        ({
+                            none: "Nessuno",
+                            dots: "Puntini",
+                            diagonal: "Diagonali",
+                            grid: "Griglia",
+                            waves: "Onde",
+                            diamonds: "Rombi"
+                        } as Record<string, string>)[model.appearance.backgroundPattern] ?? "Nessuno"
+                    }
+                />
             </section>
 
             {/* HEADER */}
@@ -58,17 +72,20 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 <Text as="h4" variant="title-sm" weight={700} className={sharedStyles.sectionTitle}>
                     Header
                 </Text>
-                <ColorReadRow label="Colore header" value={model.colors.headerBackground} />
+                <ColorReadRow label="Colore header" value={model.colors.headerBackground} tooltip="Colore di sfondo dell'header nella pagina pubblica." />
                 <ValueReadRow
                     label="Logo"
+                    tooltip="Mostra o nascondi il logo dell'azienda nella pagina pubblica."
                     value={model.header.showLogo ? "Visibile" : "Nascosto"}
                 />
                 <ValueReadRow
                     label="Immagine copertina"
+                    tooltip="Mostra l'header grande con immagine di copertina, logo e informazioni. Se disattivato, viene mostrato solo l'header compatto."
                     value={model.header.showCoverImage ? "Visibile" : "Nascosta"}
                 />
                 <ValueReadRow
                     label="Nome catalogo"
+                    tooltip="Mostra o nascondi il nome del catalogo sotto il nome della sede."
                     value={model.header.showCatalogName ? "Visibile" : "Nascosto"}
                 />
             </section>
@@ -80,6 +97,7 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 </Text>
                 <ValueReadRow
                     label="Stile navigazione"
+                    tooltip="Aspetto delle categorie nella barra di navigazione."
                     value={navLabels[model.navigation.style] ?? model.navigation.style}
                 />
             </section>
@@ -100,8 +118,13 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                     value={model.card.layout === "grid" ? "Grid" : "List"}
                 />
                 {model.card.productStyle !== "compact" && (
-                    <ValueReadRow label="Immagini prodotti" value={imageLabel} />
+                    <ValueReadRow label="Immagini prodotti" tooltip="Posizione dell'immagine nella card prodotto. Visibile solo nello stile Card." value={imageLabel} />
                 )}
+                <ValueReadRow
+                    label="Stile contenuti in evidenza"
+                    tooltip="Card mostra immagine e testo separati. Highlight sovrappone il testo all'immagine."
+                    value={model.appearance.featuredStyle === "highlight" ? "Highlight" : "Card"}
+                />
             </section>
 
             {/* TESTI */}
@@ -121,6 +144,7 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 </Text>
                 <ValueReadRow
                     label="Font family"
+                    tooltip="Tipo di carattere usato in tutta la pagina pubblica."
                     value={fontLabels[model.typography.fontFamily] ?? model.typography.fontFamily}
                 />
             </section>

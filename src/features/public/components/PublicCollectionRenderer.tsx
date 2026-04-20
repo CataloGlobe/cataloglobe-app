@@ -37,7 +37,7 @@ export default function PublicCollectionRenderer({ business, resolved }: Props) 
                 <main id="main-content">
                     {featured?.before_catalog && featured.before_catalog.length > 0 && (
                         <section className={styles.section}>
-                            <FeaturedBlock blocks={featured.before_catalog} />
+                            <FeaturedBlock blocks={featured.before_catalog} layout={tokens.appearance.featuredStyle} />
                         </section>
                     )}
 
@@ -58,7 +58,7 @@ export default function PublicCollectionRenderer({ business, resolved }: Props) 
 
                     {featured?.after_catalog && featured.after_catalog.length > 0 && (
                         <section className={styles.section}>
-                            <FeaturedBlock blocks={featured.after_catalog} />
+                            <FeaturedBlock blocks={featured.after_catalog} layout={tokens.appearance.featuredStyle} />
                         </section>
                     )}
                 </main>

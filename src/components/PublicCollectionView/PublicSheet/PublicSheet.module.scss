@@ -1,4 +1,29 @@
-/* ── Overlay ─────────────────────────────────────────────────────────────── */
+/* ── Mobile root container ───────────────────────────────────────────────── */
+
+.mobileRoot {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    /* Il root non intercetta eventi — solo backdrop e panel lo fanno */
+    pointer-events: none;
+}
+
+/* ── Mobile backdrop ─────────────────────────────────────────────────────── */
+
+.backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.52);
+    /* impedisce che il touch sull'overlay scrolli la pagina sottostante */
+    touch-action: none;
+    pointer-events: auto;
+    cursor: default;
+}
+
+/* ── Desktop overlay (wraps panel, flex center) ──────────────────────────── */
 
 .overlay {
     position: fixed;
@@ -6,9 +31,9 @@
     background: rgba(0, 0, 0, 0.52);
     z-index: 900;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
-    /* impedisce che il touch sull'overlay scrolli la pagina sottostante */
+    padding: 24px;
     touch-action: none;
 }
 
@@ -16,6 +41,8 @@
 
 .panel {
     position: relative;
+    z-index: 1;
+    pointer-events: auto;
     background: var(--pub-surface, #fff);
     color: var(--pub-text, #0f172a);
     width: 100%;
@@ -56,18 +83,28 @@
     background: color-mix(in srgb, var(--pub-text, #000) 22%, transparent);
 }
 
-/* ── Desktop: centered modal ─────────────────────────────────────────────── */
+/* ── Drag zone (header dei consumer) ────────────────────────────────────── */
+
+.dragZone {
+    flex-shrink: 0;
+    /* Previene che il touch sulla zona header scrolli la pagina.
+       Necessario affinché dragControls.start() riceva l'evento correttamente. */
+    touch-action: none;
+    user-select: none;
+}
+
+/* ── Desktop: panel shape override ──────────────────────────────────────── */
 
 @media (min-width: 640px) {
-    .overlay {
-        align-items: center;
-        padding: 24px;
-    }
-
     .panel {
         width: 480px;
         max-width: calc(100vw - 48px);
         max-height: 85dvh;
         border-radius: var(--pub-radius, 16px);
+    }
+
+    .dragZone {
+        touch-action: auto;
+        user-select: auto;
     }
 }
