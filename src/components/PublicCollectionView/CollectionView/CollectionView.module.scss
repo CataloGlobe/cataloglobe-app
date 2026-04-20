@@ -546,20 +546,12 @@
   margin-left: 4px;
 }
 
-/* Override colors/radius for tag pills (Configurazioni / Attributi) shown on product cards */
-.tagPill {
-  border-radius: var(--pub-btn-radius, 6px) !important;
-  background: var(--pub-primary-soft) !important;
-  border-color: color-mix(in srgb, var(--pub-primary) 25%, transparent) !important;
-  color: var(--pub-primary) !important;
-
-  * {
-    color: inherit !important;
-  }
-
-  &:hover {
-    background: color-mix(in srgb, var(--pub-primary) 18%, transparent) !important;
-  }
+.customizableHint {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--pub-primary);
+  margin-top: 2px;
 }
 
 .allergenEmojis {

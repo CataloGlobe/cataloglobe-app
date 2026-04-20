@@ -8,7 +8,6 @@ import type {
 } from "@/types/resolvedCollections";
 import type { HubTab } from "@/types/collectionStyle";
 import Text from "@/components/ui/Text/Text";
-import { Pill } from "@/components/ui/Pill/Pill";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 // NOTE: CollectionHero e PublicBrandHeader sono sostituiti da PublicCollectionHeader.
 // I file originali restano nel progetto come fallback potenziale.
@@ -271,29 +270,8 @@ function ProductRow({
                         {description}
                     </Text>
                 )}
-                {hasConfigurations && (
-                    <div
-                        style={{
-                            marginTop: 4,
-                            width: "fit-content",
-                            transform: "scale(0.85)",
-                            transformOrigin: "left"
-                        }}
-                    >
-                        {hasConfigurations && <Pill label="Configurazioni" className={styles.tagPill} />}
-                    </div>
-                )}
-                {hasAttributes && (
-                    <div
-                        style={{
-                            marginTop: 4,
-                            width: "fit-content",
-                            transform: "scale(0.85)",
-                            transformOrigin: "left"
-                        }}
-                    >
-                        {hasAttributes && <Pill label="Attributi" className={styles.tagPill} />}
-                    </div>
+                {optionGroups && optionGroups.length > 0 && (
+                    <span className={styles.customizableHint}>Personalizzabile</span>
                 )}
                 {hasAllergens && (
                     <div className={styles.allergenEmojis}>
