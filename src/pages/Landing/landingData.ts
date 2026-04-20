@@ -69,9 +69,9 @@ export const HOW_STEPS = [
 
 export const DEMOS: Demo[] = [
     {
-        name: 'La Pergola',
-        address: 'Via dei Giardini 8, Milano',
-        slug: 'la-pergola',
+        name: 'Osteria del Ponte Vecchio',
+        address: 'Via delle Erbe 12, Milano',
+        slug: 'osteria-del-ponte-vecchio',
         heroGrad: 'linear-gradient(135deg, #78350F 0%, #B45309 50%, #D97706 100%)',
         accent: '#D97706',
         categories: ['Antipasti', 'Primi', 'Secondi', 'Dolci'],
@@ -82,9 +82,9 @@ export const DEMOS: Demo[] = [
         ],
     },
     {
-        name: 'Barista Lab',
-        address: 'Corso Buenos Aires 42, Milano',
-        slug: 'barista-lab',
+        name: 'Caffè Aurora',
+        address: 'Corso delle Magnolie 7, Milano',
+        slug: 'caffe-aurora',
         heroGrad: 'linear-gradient(135deg, #292524 0%, #57534E 50%, #78716C 100%)',
         accent: '#78716C',
         categories: ['Caffetteria', 'Colazione', 'Pranzo', 'Dolci'],
@@ -95,9 +95,9 @@ export const DEMOS: Demo[] = [
         ],
     },
     {
-        name: 'Neon Lounge',
-        address: 'Naviglio Grande 16, Milano',
-        slug: 'neon-lounge',
+        name: 'Nōku Cocktail Bar',
+        address: 'Viale dei Tigli 34, Milano',
+        slug: 'noku-cocktail-bar',
         heroGrad: 'linear-gradient(135deg, #0f0a2e 0%, #1e1b4b 50%, #4c1d95 100%)',
         accent: '#8B5CF6',
         dark: true,
@@ -109,9 +109,9 @@ export const DEMOS: Demo[] = [
         ],
     },
     {
-        name: 'Da Mario',
-        address: 'Piazza Duomo 3, Milano',
-        slug: 'da-mario',
+        name: 'Trattoria Sole e Luna',
+        address: 'Piazza dei Cipressi 5, Milano',
+        slug: 'trattoria-sole-e-luna',
         heroGrad: 'linear-gradient(135deg, #450a0a 0%, #991B1B 50%, #DC2626 100%)',
         accent: '#EF4444',
         categories: ['Classiche', 'Speciali', 'Fritte', 'Bibite'],

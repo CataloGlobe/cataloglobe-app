@@ -165,11 +165,12 @@
 
 .grid {
   display: grid;
-  gap: 1rem;
-  grid-template-columns: 1fr;
+  gap: 8px;
+  grid-template-columns: repeat(2, 1fr);
 
   /* ===== PUBLIC (viewport reale) ===== */
   @media (min-width: 640px) {
+    gap: 1rem;
     grid-template-columns: repeat(2, 1fr);
   }
 
@@ -220,6 +221,59 @@
 /* Grid: preview desktop → 2 colonne */
 :global(.preview-desktop) .container[data-card-layout="grid"] .grid {
   grid-template-columns: repeat(2, 1fr) !important;
+}
+
+/* Grid: mobile (< 640px) → card compatta */
+@media (max-width: 639px) {
+  .container[data-card-layout="grid"] {
+    .productRow {
+      padding: 8px;
+      gap: 8px;
+    }
+
+    .rowImage,
+    .rowPlaceholder {
+      width: 56px;
+      height: 56px;
+    }
+
+    .description {
+      display: none;
+    }
+
+    .allergenEmojis {
+      display: none;
+    }
+
+    .infoIcon {
+      display: none;
+    }
+
+    .title {
+      font-size: 12px;
+    }
+
+    .price {
+      font-size: 11px;
+    }
+
+    .customizableHint {
+      font-size: 9px;
+    }
+
+    .addBtn {
+      width: 24px;
+      height: 24px;
+    }
+
+    .addBtnBadge {
+      top: -4px;
+      right: -4px;
+      min-width: 14px;
+      height: 14px;
+      font-size: 0.55rem;
+    }
+  }
 }
 
 /* ----------------------------------------------------

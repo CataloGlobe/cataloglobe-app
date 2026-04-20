@@ -73,6 +73,24 @@ $text-muted: #9895a8;
     color: $indigo;
 }
 
+.navBrand {
+    display: flex;
+    align-items: center;
+}
+
+.betaBadge {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: $indigo;
+    color: #fff;
+    margin-left: 8px;
+    line-height: 1;
+}
+
 .navLinks {
     display: flex;
     align-items: center;
@@ -470,6 +488,8 @@ $text-muted: #9895a8;
     border: 1px solid $slate-border;
     position: relative;
     overflow: hidden;
+    height: 100%;
+    box-sizing: border-box;
     transition: border-color 0.3s;
 
     &:hover {
@@ -566,6 +586,8 @@ $text-muted: #9895a8;
     background: $dark-card;
     border: 1px solid rgba(255, 255, 255, 0.06);
     transition: border-color 0.3s, background 0.3s;
+    height: 100%;
+    box-sizing: border-box;
     cursor: default;
 
     &:hover {
