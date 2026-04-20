@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Facebook, Globe, Info, Instagram, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus, Search } from "lucide-react";
+import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus, Search } from "lucide-react";
 import type {
     ResolvedAllergen,
     ResolvedIngredient,
@@ -232,9 +232,7 @@ function ProductRow({
                             <span className={styles.promoBadge}>Promo</span>
                         )}
                     </div>
-                    <span className={styles.infoIcon} aria-hidden="true">
-                        <Info size={14} strokeWidth={2} />
-                    </span>
+
                 </div>
 
                 {dp.type === "from" ? (
@@ -729,6 +727,8 @@ export default function CollectionView({
     // Ref per il compact bar in preview (renderizzato in CollectionView, non in
     // PublicCollectionHeader, per avere <main> come parent sticky — full-height).
     const previewCompactBarRef = useRef<HTMLDivElement | null>(null);
+    const isProgrammaticScrollRef = useRef(false);
+    const programmaticScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const handleCompactVisibilityChange = useCallback((visible: boolean) => {
         setIsCompactHeaderVisible(visible);
@@ -827,6 +827,16 @@ export default function CollectionView({
         setSelectedItem(null);
     }, [activeTab]);
 
+    // ── Scroll a top al cambio di tab ────────────────────────────────────────
+    useEffect(() => {
+        if (mode === "preview") {
+            if (scrollContainerEl) scrollContainerEl.scrollTop = 0;
+        } else {
+            window.scrollTo(0, 0);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab]);
+
     // ── Valuta FAB: delay 3s, reset al cambio tab ────────────────────────────
     useEffect(() => {
         if (mode !== "public") return;
@@ -857,6 +867,7 @@ export default function CollectionView({
         containerRef.current = container;
 
         function computeActiveSection() {
+            if (isProgrammaticScrollRef.current) return;
             // Offset dinamico: altezza reale compact header + nav + gap
             const dynamicStickyOffset =
                 compactHeaderHeightRef.current + NAV_HEIGHT + VISUAL_GAP + 4;
@@ -899,10 +910,23 @@ export default function CollectionView({
             computeActiveSection();
         }
 
+        function handleScrollEnd() {
+            if (isProgrammaticScrollRef.current) {
+                isProgrammaticScrollRef.current = false;
+                if (programmaticScrollTimeoutRef.current !== null) {
+                    clearTimeout(programmaticScrollTimeoutRef.current);
+                    programmaticScrollTimeoutRef.current = null;
+                }
+                computeActiveSection();
+            }
+        }
+
         computeActiveSection();
         container.addEventListener("scroll", handleScroll, { passive: true });
+        container.addEventListener("scrollend", handleScrollEnd, { passive: true });
         return () => {
             container.removeEventListener("scroll", handleScroll);
+            container.removeEventListener("scrollend", handleScrollEnd);
             if (safetyTimeoutRef.current !== null) {
                 clearTimeout(safetyTimeoutRef.current);
                 safetyTimeoutRef.current = null;
@@ -941,12 +965,28 @@ export default function CollectionView({
             safetyTimeoutRef.current = null;
         }, 1000);
 
+        if (programmaticScrollTimeoutRef.current !== null) clearTimeout(programmaticScrollTimeoutRef.current);
+        isProgrammaticScrollRef.current = true;
+        if (!('onscrollend' in window)) {
+            programmaticScrollTimeoutRef.current = setTimeout(() => {
+                isProgrammaticScrollRef.current = false;
+                programmaticScrollTimeoutRef.current = null;
+            }, 3000);
+        }
+
         const el = sectionRefs.current[sectionId];
         if (!el) return;
 
-        // Offset dinamico: compact header + nav + gap
         const compactH = Math.max(compactHeaderHeightRef.current, FINAL_COMPACT_HEIGHT);
-        const dynamicScrollOffset = compactH + NAV_HEIGHT + VISUAL_GAP;
+        // Quando l'hero è visibile, compactSpacer è 0 ma crescerà di compactH quando
+        // l'hero collassa durante lo scroll. Questo sposta el.docTop di +compactH.
+        // Sottraendo compactH dall'offset si compensa esattamente questo shift:
+        //   scrollY_target = el.docTop_original - NAV - GAP
+        //   (el.docTop_new = el.docTop_original + compactH, offset = compactH + NAV + GAP
+        //    → scrollY_target identico, posizione finale corretta)
+        const dynamicScrollOffset = isCompactHeaderVisible
+            ? compactH + NAV_HEIGHT + VISUAL_GAP
+            : NAV_HEIGHT + VISUAL_GAP;
 
         const container = containerRef.current;
 
@@ -1029,8 +1069,19 @@ export default function CollectionView({
 
             if (!el) return;
 
+            if (programmaticScrollTimeoutRef.current !== null) clearTimeout(programmaticScrollTimeoutRef.current);
+            isProgrammaticScrollRef.current = true;
+            if (!('onscrollend' in window)) {
+                programmaticScrollTimeoutRef.current = setTimeout(() => {
+                    isProgrammaticScrollRef.current = false;
+                    programmaticScrollTimeoutRef.current = null;
+                }, 3000);
+            }
+
             const compactH = Math.max(compactHeaderHeightRef.current, FINAL_COMPACT_HEIGHT);
-            const dynamicScrollOffset = compactH + NAV_HEIGHT + VISUAL_GAP;
+            const dynamicScrollOffset = isCompactHeaderVisible
+                ? compactH + NAV_HEIGHT + VISUAL_GAP
+                : NAV_HEIGHT + VISUAL_GAP;
             const container = containerRef.current;
 
             if (container === window) {
@@ -1046,7 +1097,7 @@ export default function CollectionView({
                 containerEl.scrollTo({ top, behavior: "smooth" });
             }
         },
-        [sectionGroups]
+        [sectionGroups, isCompactHeaderVisible]
     );
 
     // ── Derived values for render ───────────────────────────────────────────
@@ -1291,7 +1342,7 @@ export default function CollectionView({
                     showCoverImage={style.showCoverImage}
                     showLogo={style.showLogo}
                     mode={mode}
-                    onSearchOpen={handleOpenSearch}
+                    onSearchOpen={mode !== "preview" ? handleOpenSearch : undefined}
                     onCompactVisibilityChange={handleCompactVisibilityChange}
                     onCompactHeightChange={handleCompactHeightChange}
                     scrollContainerEl={scrollContainerEl}
@@ -1332,29 +1383,22 @@ export default function CollectionView({
                                     <div className={styles.previewHdrLogoPlaceholder} />
                                 ))}
                             <span className={styles.previewHdrName}>{businessName}</span>
-                            <LanguageSelector variant="compact" />
-                            <button
-                                type="button"
-                                className={styles.previewHdrSearchBtn}
-                                onClick={handleOpenSearch}
-                                aria-label="Cerca nel catalogo"
-                            >
-                                <Search size={16} strokeWidth={2} />
-                            </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* ── SEARCH OVERLAY ── */}
-            <SearchOverlay
-                isOpen={isSearchOpen}
-                onClose={handleCloseSearch}
-                sections={sections}
-                scrollContainerEl={scrollContainerEl}
-                mode={mode}
-                activityId={activityId}
-            />
+            {/* ── SEARCH OVERLAY — nascosta in preview ── */}
+            {mode !== "preview" && (
+                <SearchOverlay
+                    isOpen={isSearchOpen}
+                    onClose={handleCloseSearch}
+                    sections={sections}
+                    scrollContainerEl={scrollContainerEl}
+                    mode={mode}
+                    activityId={activityId}
+                />
+            )}
 
             {/* ── INFO SHEET ── */}
             {hasAnyInfo && (
@@ -1646,14 +1690,21 @@ export default function CollectionView({
                         )}
                     </div>
 
-                    {/* ── FOOTER ── */}
-                    {!emptyState && <PublicFooter socialLinks={socialLinks} activityId={activityId} openingHours={openingHours} upcomingClosures={upcomingClosures} />}
+                    {/* ── FOOTER — in preview solo branding/legal, niente dati sede ── */}
+                    {!emptyState && (
+                        <PublicFooter
+                            socialLinks={mode !== "preview" ? socialLinks : undefined}
+                            activityId={mode !== "preview" ? activityId : undefined}
+                            openingHours={mode !== "preview" ? openingHours : undefined}
+                            upcomingClosures={mode !== "preview" ? upcomingClosures : undefined}
+                        />
+                    )}
                 </>
             )}
 
             {activeTab === "events" && (
                 <div className={styles.frame}>
-                    <EventsView featuredContents={featuredContents} />
+                    <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} />
                 </div>
             )}
 

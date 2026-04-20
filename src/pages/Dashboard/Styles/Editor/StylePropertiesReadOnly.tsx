@@ -51,6 +51,19 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                               : "Arrotondato"
                     }
                 />
+                <ValueReadRow
+                    label="Pattern sfondo"
+                    value={
+                        ({
+                            none: "Nessuno",
+                            dots: "Puntini",
+                            diagonal: "Diagonali",
+                            grid: "Griglia",
+                            waves: "Onde",
+                            diamonds: "Rombi"
+                        } as Record<string, string>)[model.appearance.backgroundPattern] ?? "Nessuno"
+                    }
+                />
             </section>
 
             {/* HEADER */}
@@ -102,6 +115,10 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 {model.card.productStyle !== "compact" && (
                     <ValueReadRow label="Immagini prodotti" value={imageLabel} />
                 )}
+                <ValueReadRow
+                    label="Stile contenuti in evidenza"
+                    value={model.appearance.featuredStyle === "highlight" ? "Highlight" : "Card"}
+                />
             </section>
 
             {/* TESTI */}

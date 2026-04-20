@@ -56,6 +56,23 @@
     background: color-mix(in srgb, var(--pub-text, #000) 22%, transparent);
 }
 
+/* ── Drag zone (header dei consumer) ────────────────────────────────────── */
+
+.dragZone {
+    flex-shrink: 0;
+    /* Previene che il touch sulla zona header scrolli la pagina.
+       Necessario affinché dragControls.start() riceva l'evento correttamente. */
+    touch-action: none;
+    user-select: none;
+}
+
+@media (min-width: 640px) {
+    .dragZone {
+        touch-action: auto;
+        user-select: auto;
+    }
+}
+
 /* ── Desktop: centered modal ─────────────────────────────────────────────── */
 
 @media (min-width: 640px) {

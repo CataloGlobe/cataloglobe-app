@@ -21,9 +21,15 @@ type Props = {
     onClose: () => void;
     children: React.ReactNode;
     ariaLabel?: string;
+    /**
+     * Opzionale: contenuto header della sheet (titolo + pulsante chiudi).
+     * Se fornito, viene renderizzato in una zona draggabile sopra i children,
+     * espandendo l'area di drag oltre la sola handle bar (solo su mobile).
+     */
+    headerContent?: React.ReactNode;
 };
 
-export default function PublicSheet({ isOpen, onClose, children, ariaLabel }: Props) {
+export default function PublicSheet({ isOpen, onClose, children, ariaLabel, headerContent }: Props) {
     const isMobile = useIsMobile();
     const dragControls = useDragControls();
 
@@ -116,6 +122,18 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel }: Pr
                                 onPointerDown={e => dragControls.start(e)}
                             >
                                 <span className={styles.handleBar} />
+                            </div>
+                        )}
+                        {headerContent && (
+                            <div
+                                className={styles.dragZone}
+                                onPointerDown={isMobile ? e => {
+                                    // Non avviare drag se il tap è su un button
+                                    if ((e.target as HTMLElement).closest("button")) return;
+                                    dragControls.start(e);
+                                } : undefined}
+                            >
+                                {headerContent}
                             </div>
                         )}
                         {children}

@@ -17,5 +17,6 @@ export const DEFAULT_PUBLIC_STYLE: Required<CollectionStyle> = {
     cardRadius: 16,
     cardBackgroundColor: "#ffffff",
     cardLayout: "list",
-    productStyle: "card"
+    productStyle: "card",
+    featuredStyle: "card"
 };

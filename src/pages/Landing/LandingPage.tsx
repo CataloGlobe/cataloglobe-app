@@ -12,6 +12,7 @@ import {
     FAQ_ITEMS,
     type Demo,
 } from './landingData';
+import WaitlistForm from './sections/WaitlistForm';
 
 // ─── Feature icon constants (defined once, not re-created on render) ──────────
 const ICON_SCHEDULING = (
@@ -132,7 +133,16 @@ function Navbar() {
                     </a>
                 ))}
                 <a href="/login" className={s.navLinkAccedi}>Accedi</a>
-                <a href="/sign-up" className={s.navCta}>Prova gratis</a>
+                <a
+                    href="#waitlist"
+                    className={s.navCta}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                >
+                    Prova gratis
+                </a>
             </div>
         </nav>
     );
@@ -161,7 +171,16 @@ function Hero() {
                     </p>
 
                     <div className={s.heroCtas}>
-                        <a href="/sign-up" className={s.ctaPrimary}>Inizia gratis</a>
+                        <a
+                            href="#waitlist"
+                            className={s.ctaPrimary}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                        >
+                            Inizia gratis
+                        </a>
                         <a href="#" className={s.ctaSecondary}>
                             Richiedi una demo <span>→</span>
                         </a>
@@ -669,7 +688,16 @@ function Pricing() {
                                 </div>
                             ))}
                         </div>
-                        <a href="/sign-up" className={s.pricingCta}>Inizia gratis — 3 mesi inclusi</a>
+                        <a
+                            href="#waitlist"
+                            className={s.pricingCta}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                        >
+                            Inizia gratis — 3 mesi inclusi
+                        </a>
                         <p className={s.pricingCtaNote}>
                             I primi clienti beta non pagano per 3 mesi · Nessuna carta richiesta
                         </p>
@@ -728,7 +756,7 @@ function FAQ() {
 // ─── Final CTA ────────────────────────────────────────
 function FinalCTA() {
     return (
-        <section className={s.finalCta}>
+        <section id="waitlist" className={s.finalCta}>
             <div className={s.finalGlow} aria-hidden="true" />
             <div className={s.finalWrap}>
                 <Animate>
@@ -740,10 +768,7 @@ function FinalCTA() {
                     <p className={s.finalSub}>Accesso anticipato gratuito per i primi clienti. Configura tutto, attiva quando sei pronto.</p>
                 </Animate>
                 <Animate delay={0.12}>
-                    <div className={s.finalCtas}>
-                        <a href="/sign-up" className={s.ctaIndigo}>Inizia gratis</a>
-                        <a href="#" className={s.ctaOutline}>Richiedi una demo</a>
-                    </div>
+                    <WaitlistForm />
                 </Animate>
             </div>
         </section>

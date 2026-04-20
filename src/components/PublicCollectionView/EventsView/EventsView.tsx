@@ -8,9 +8,10 @@ import styles from "./EventsView.module.scss";
 
 type EventsViewProps = {
     featuredContents: V2FeaturedContent[];
+    layout?: "card" | "highlight";
 };
 
-export default function EventsView({ featuredContents }: EventsViewProps) {
+export default function EventsView({ featuredContents, layout = "card" }: EventsViewProps) {
     const [previewBlock, setPreviewBlock] = useState<V2FeaturedContent | null>(null);
 
     if (featuredContents.length === 0) {
@@ -33,6 +34,7 @@ export default function EventsView({ featuredContents }: EventsViewProps) {
                     block={fc}
                     onClick={() => setPreviewBlock(fc)}
                     className={styles.cardFull}
+                    variant={layout}
                 />
             ))}
         </div>

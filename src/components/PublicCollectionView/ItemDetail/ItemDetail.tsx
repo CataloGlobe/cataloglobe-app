@@ -144,18 +144,22 @@ export default function ItemDetail({
     const displayPrice = displayItem.effective_price ?? displayItem.price;
 
     return (
-        <PublicSheet isOpen={isOpen} onClose={onClose} ariaLabel={displayItem.name}>
-            {/* Header */}
-            <div className={styles.header}>
-                <Text as="h2" variant="title-md" weight={700} className={styles.headerTitle} color="var(--pub-surface-text)">
-                    {displayItem.name}
-                </Text>
-                <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Chiudi">
-                    <X size={16} strokeWidth={2} />
-                    <span>Chiudi</span>
-                </button>
-            </div>
-
+        <PublicSheet
+            isOpen={isOpen}
+            onClose={onClose}
+            ariaLabel={displayItem.name}
+            headerContent={
+                <div className={styles.header}>
+                    <Text as="h2" variant="title-md" weight={700} className={styles.headerTitle} color="var(--pub-surface-text)">
+                        {displayItem.name}
+                    </Text>
+                    <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Chiudi">
+                        <X size={16} strokeWidth={2} />
+                        <span>Chiudi</span>
+                    </button>
+                </div>
+            }
+        >
             {/* Scrollable body */}
             <div className={styles.body}>
                 <div className={styles.root}>

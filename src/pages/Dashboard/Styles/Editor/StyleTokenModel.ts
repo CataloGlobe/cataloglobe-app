@@ -3,6 +3,8 @@ export type CardLayout = "grid" | "list";
 export type ProductStyle = "card" | "compact";
 export type BorderRadius = "none" | "soft" | "rounded";
 export type FontFamily = "inter" | "poppins" | "playfair";
+export type BackgroundPattern = "none" | "dots" | "diagonal" | "grid" | "waves" | "diamonds";
+export type FeaturedStyle = "card" | "highlight";
 
 export interface StyleTokenModel {
     colors: {
@@ -19,6 +21,8 @@ export interface StyleTokenModel {
     };
     appearance: {
         borderRadius: BorderRadius;
+        backgroundPattern: BackgroundPattern;
+        featuredStyle: FeaturedStyle;
     };
     header: {
         showLogo: boolean;
@@ -54,7 +58,9 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
         fontFamily: "inter"
     },
     appearance: {
-        borderRadius: "rounded"
+        borderRadius: "rounded",
+        backgroundPattern: "none",
+        featuredStyle: "card"
     },
     header: {
         showLogo: true,
@@ -74,6 +80,9 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
         }
     }
 };
+
+const VALID_PATTERNS: BackgroundPattern[] = ["none", "dots", "diagonal", "grid", "waves", "diamonds"];
+const VALID_FEATURED_STYLES: FeaturedStyle[] = ["card", "highlight"];
 
 /**
  * Parses raw JSON configuration (from DB) into a structured UI Token Model.
@@ -102,6 +111,15 @@ export function parseTokens(rawJson: any): StyleTokenModel {
         return DEFAULT_STYLE_TOKENS.appearance.borderRadius;
     })();
 
+    // backgroundImage (legacy) is ignored — always fall back to pattern
+    const backgroundPattern: BackgroundPattern = VALID_PATTERNS.includes(rawAppearance.backgroundPattern)
+        ? rawAppearance.backgroundPattern as BackgroundPattern
+        : "none";
+
+    const featuredStyle: FeaturedStyle = VALID_FEATURED_STYLES.includes(rawAppearance.featuredStyle)
+        ? rawAppearance.featuredStyle as FeaturedStyle
+        : "card";
+
     return {
         colors: {
             pageBackground:
@@ -127,7 +145,9 @@ export function parseTokens(rawJson: any): StyleTokenModel {
                 : DEFAULT_STYLE_TOKENS.typography.fontFamily
         },
         appearance: {
-            borderRadius
+            borderRadius,
+            backgroundPattern,
+            featuredStyle
         },
         header: {
             showLogo:
@@ -189,7 +209,9 @@ export function serializeTokens(model: StyleTokenModel): Record<string, unknown>
             fontFamily: model.typography.fontFamily
         },
         appearance: {
-            borderRadius: model.appearance.borderRadius
+            borderRadius: model.appearance.borderRadius,
+            backgroundPattern: model.appearance.backgroundPattern,
+            featuredStyle: model.appearance.featuredStyle
         },
         header: {
             showLogo: model.header.showLogo,

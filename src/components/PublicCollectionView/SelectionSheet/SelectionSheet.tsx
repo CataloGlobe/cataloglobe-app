@@ -59,37 +59,41 @@ export default function SelectionSheet({
     const isEmpty = items.length === 0;
 
     return (
-        <PublicSheet isOpen={isOpen} onClose={onClose} ariaLabel="La mia selezione">
-            {/* Header */}
-            <div className={styles.header}>
-                <div className={styles.headerLeft}>
-                    <Text as="h2" variant="title-sm" weight={700} className={styles.headerTitle} color="var(--pub-surface-text)">
-                        La mia selezione
-                    </Text>
-                    {!isEmpty && (
-                        <span className={styles.headerCount}>
-                            {totalCount} {totalCount === 1 ? "elemento" : "elementi"}
-                        </span>
-                    )}
-                </div>
-                <div className={styles.headerActions}>
-                    {!isEmpty && (
-                        <button type="button" className={styles.clearBtn} onClick={onClear}>
-                            Svuota
+        <PublicSheet
+            isOpen={isOpen}
+            onClose={onClose}
+            ariaLabel="La mia selezione"
+            headerContent={
+                <div className={styles.header}>
+                    <div className={styles.headerLeft}>
+                        <Text as="h2" variant="title-sm" weight={700} className={styles.headerTitle} color="var(--pub-surface-text)">
+                            La mia selezione
+                        </Text>
+                        {!isEmpty && (
+                            <span className={styles.headerCount}>
+                                {totalCount} {totalCount === 1 ? "elemento" : "elementi"}
+                            </span>
+                        )}
+                    </div>
+                    <div className={styles.headerActions}>
+                        {!isEmpty && (
+                            <button type="button" className={styles.clearBtn} onClick={onClear}>
+                                Svuota
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            className={styles.closeBtn}
+                            onClick={onClose}
+                            aria-label="Chiudi"
+                        >
+                            <X size={15} strokeWidth={2} />
+                            <span>Chiudi</span>
                         </button>
-                    )}
-                    <button
-                        type="button"
-                        className={styles.closeBtn}
-                        onClick={onClose}
-                        aria-label="Chiudi"
-                    >
-                        <X size={15} strokeWidth={2} />
-                        <span>Chiudi</span>
-                    </button>
+                    </div>
                 </div>
-            </div>
-
+            }
+        >
             {/* Body */}
             <div className={styles.body}>
                 {isEmpty ? (

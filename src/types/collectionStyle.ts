@@ -46,6 +46,8 @@ export type CollectionStyle = {
     cardLayout?: CardLayout;
     /** Visual style of product rows: card (with image/background) or menu (text-only) */
     productStyle?: ProductStyle;
+    /** Visual style of featured content cards: card (image top + text below) or highlight (image as background, text overlaid) */
+    featuredStyle?: "card" | "highlight";
 };
 
 /* =========================
@@ -72,5 +74,6 @@ export const DEFAULT_COLLECTION_STYLE: Required<CollectionStyle> = {
     cardBackgroundColor: "#ffffff",
     cardRadius: 12,
     cardLayout: "list",
-    productStyle: "card"
+    productStyle: "card",
+    featuredStyle: "card"
 };
