@@ -645,9 +645,10 @@ $text-muted: #9895a8;
 
 .carouselStage {
     position: relative;
-    height: 500px;
+    height: 420px;
     perspective: 1100px;
     perspective-origin: 50% 45%;
+    margin-bottom: 24px;
 }
 
 .carouselInner {
@@ -663,6 +664,7 @@ $text-muted: #9895a8;
     left: 50%;
     top: 0;
     width: 270px;
+    height: 420px;
     will-change: transform, opacity;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
@@ -673,8 +675,17 @@ $text-muted: #9895a8;
 .cardShell {
     border-radius: 20px;
     overflow: hidden;
+    height: 100%;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
+}
+
+.demoCardImage {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    display: block;
 }
 
 .cardHero {
@@ -956,6 +967,18 @@ $text-muted: #9895a8;
     align-items: center;
     gap: 20px;
     margin-top: 4px;
+    position: relative;
+    z-index: 2;
+}
+
+.qrWrapper {
+    width: 55px;
+    height: 55px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 0.5px solid $slate-border;
+    display: block;
 }
 
 .qrCard {
@@ -966,7 +989,18 @@ $text-muted: #9895a8;
     border-radius: 14px;
     background: $slate;
     border: 1px solid $slate-border;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.3s ease, border-color 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+    text-align: left;
+
+    // Reset button defaults
+    font-family: inherit;
+    font-size: inherit;
+
+    &:hover {
+        border-color: $indigo-border;
+        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.12);
+    }
 }
 
 .qrName {
@@ -1000,6 +1034,60 @@ $text-muted: #9895a8;
 .dotActive {
     background: $indigo;
     width: 24px;
+}
+
+// ─── QR Overlay ───────────────────────────────────────
+@keyframes qrFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.qrOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: qrFadeIn 200ms ease forwards;
+    cursor: default;
+}
+
+.qrOverlayContent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 40px;
+}
+
+.qrOverlayName {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+    margin-top: 4px;
+}
+
+.qrOverlaySub {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 0;
+}
+
+.qrOverlayLink {
+    font-size: 14px;
+    color: $indigo-light;
+    text-decoration: none;
+    margin-top: 4px;
+    transition: color 0.2s;
+
+    &:hover {
+        color: #fff;
+    }
 }
 
 // ─── Pricing ──────────────────────────────────────────

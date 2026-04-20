@@ -1,6 +1,9 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Resend } from "npm:resend@4";
+
+const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -83,6 +86,31 @@ serve(async (req: Request) => {
             }
             throw insertError;
         }
+
+        // ── Confirmation email (best-effort) ────────────────────────
+        resend.emails.send({
+            from: "CataloGlobe <noreply@cataloglobe.com>",
+            to: email,
+            subject: "Sei nella lista d'attesa di CataloGlobe!",
+            html: `
+     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px;">
+       <h2 style="font-size: 22px; font-weight: 700; color: #1a1a2e; margin: 0 0 16px;">
+         Grazie per il tuo interesse!
+       </h2>
+       <p style="font-size: 15px; line-height: 1.6; color: #55536a; margin: 0 0 12px;">
+         Sei nella lista d'attesa di CataloGlobe. Ti contatteremo appena la piattaforma sarà disponibile.
+       </p>
+       <p style="font-size: 15px; line-height: 1.6; color: #55536a; margin: 0 0 24px;">
+         Nel frattempo, se hai domande o vuoi saperne di più, rispondi a questa email.
+       </p>
+       <p style="font-size: 13px; color: #9895a8; margin: 0;">
+         — Il team CataloGlobe
+       </p>
+     </div>
+`
+        }).catch((err: unknown) => {
+            console.error("[join-waitlist] Resend error:", err);
+        });
 
         return jsonResponse({ success: true }, 200);
     } catch (err) {

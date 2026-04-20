@@ -100,7 +100,6 @@ export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
                     {displayBlock.subtitle && (
                         <Text
                             variant="body-sm"
-                            colorVariant="muted"
                             className={styles.subtitle}
                         >
                             {displayBlock.subtitle}
