@@ -2,6 +2,7 @@ import { supabase } from "@/services/supabase/client";
 
 export type FeaturedContentStatus = "draft" | "published";
 export type FeaturedContentPricingMode = "none" | "per_item" | "bundle";
+export type FeaturedContentType = "announcement" | "event" | "promo" | "bundle";
 
 export interface FeaturedContent {
     id: string;
@@ -16,6 +17,7 @@ export interface FeaturedContent {
     status: FeaturedContentStatus;
     layout_style: string | null;
     pricing_mode: FeaturedContentPricingMode;
+    content_type: FeaturedContentType;
     bundle_price: number | null;
     show_original_total: boolean;
     created_at: string;

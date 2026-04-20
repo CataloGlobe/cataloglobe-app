@@ -1,5 +1,6 @@
 import React from "react";
 import Text from "@/components/ui/Text/Text";
+import { InfoTooltip } from "@components/ui/Tooltip/InfoTooltip";
 import {
     StyleTokenModel,
     NavigationStyle,
@@ -116,13 +117,20 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                 />
                 <StyleColorPicker
                     label="Colore primario"
+                    labelSuffix={<InfoTooltip content="Colore principale applicato a header, navigazione, pulsanti e accenti nella pagina pubblica." />}
                     value={model.colors.primary}
                     onChange={val => updateColor("primary", val)}
+                />
+                <StyleColorPicker
+                    label="Sfondo superfici"
+                    labelSuffix={<InfoTooltip content="Sfondo di card prodotti, modali, pulsanti dell'header e altri elementi in primo piano." />}
+                    value={model.colors.surface}
+                    onChange={val => updateColor("surface", val)}
                 />
 
                 <div className={styles.controlField}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Arrotondamento
+                        Arrotondamento<InfoTooltip content="Controlla la curvatura degli angoli di card, immagini, pulsanti e pannelli nella pagina pubblica." />
                     </Text>
                     <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
                         {borderRadiusOptions.map(option => {
@@ -154,25 +162,24 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     Header
                 </Text>
 
-                <StyleColorPicker
-                    label="Colore header"
-                    value={model.colors.headerBackground}
-                    onChange={val => updateColor("headerBackground", val)}
-                />
-
                 {(
                     [
                         { key: "showLogo", label: "Logo" },
-                        { key: "showCoverImage", label: "Immagine copertina" },
+                        {
+                            key: "showCoverImage",
+                            label: "Header espanso",
+                            tooltip: "Mostra l'header grande con immagine di copertina, logo e informazioni. Se disattivato, viene mostrato solo l'header compatto."
+                        },
                         { key: "showCatalogName", label: "Nome catalogo" }
                     ] as Array<{
                         key: "showLogo" | "showCoverImage" | "showCatalogName";
                         label: string;
+                        tooltip?: string;
                     }>
-                ).map(({ key, label }) => (
+                ).map(({ key, label, tooltip }) => (
                     <div key={key} className={`${styles.controlField} ${styles.controlFieldMt8}`}>
                         <Text variant="body" weight={500} className={styles.fieldLabel}>
-                            {label}
+                            {label}{tooltip && <InfoTooltip content={tooltip} />}
                         </Text>
                         <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
                             {(
@@ -244,7 +251,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
                 <div className={styles.controlField}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Stile prodotto
+                        Stile prodotto<InfoTooltip content="Card mostra immagine e dettagli in un riquadro. Compatto mostra solo nome, prezzo e descrizione." />
                     </Text>
                     <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
                         {productStyleOptions.map(option => {
@@ -271,7 +278,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
                 <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Layout lista prodotti
+                        Layout lista prodotti<InfoTooltip content="Grid mostra più prodotti affiancati su schermi ampi (desktop/tablet). Su mobile, entrambi i layout mostrano un prodotto per riga." />
                     </Text>
                     <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
                         {cardLayoutOptions.map(option => {
@@ -387,34 +394,6 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     )}
                 </div>
                 )}
-            </section>
-
-            {/* TESTI E SUPERFICI */}
-            <section className={styles.panelSection}>
-                <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
-                    Testi e superfici
-                </Text>
-
-                <StyleColorPicker
-                    label="Colore testo principale"
-                    value={model.colors.textPrimary}
-                    onChange={val => updateColor("textPrimary", val)}
-                />
-                <StyleColorPicker
-                    label="Colore testo secondario"
-                    value={model.colors.textSecondary}
-                    onChange={val => updateColor("textSecondary", val)}
-                />
-                <StyleColorPicker
-                    label="Sfondo contenuti (card / liste)"
-                    value={model.colors.surface}
-                    onChange={val => updateColor("surface", val)}
-                />
-                <StyleColorPicker
-                    label="Colore bordi"
-                    value={model.colors.border}
-                    onChange={val => updateColor("border", val)}
-                />
             </section>
 
             {/* TIPOGRAFIA */}

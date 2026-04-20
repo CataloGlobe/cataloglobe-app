@@ -5,18 +5,19 @@ import styles from "./StyleSettingsControls.module.scss";
 
 type StyleColorPickerProps = {
     label: string;
+    labelSuffix?: React.ReactNode;
     value: string;
     onChange: (val: string) => void;
 };
 
-export const StyleColorPicker = ({ label, value, onChange }: StyleColorPickerProps) => {
+export const StyleColorPicker = ({ label, labelSuffix, value, onChange }: StyleColorPickerProps) => {
     const colorInputRef = useRef<HTMLInputElement>(null);
     const normalizedColor = /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#ffffff";
 
     return (
         <div className={styles.controlField}>
             <Text variant="body" weight={500} className={styles.fieldLabel}>
-                {label}
+                {label}{labelSuffix}
             </Text>
             <div className={styles.colorInputShell}>
                 <div className={styles.colorSwatch} style={{ backgroundColor: normalizedColor }}>

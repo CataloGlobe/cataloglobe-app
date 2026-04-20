@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { signIn } from "@services/supabase/auth";
 import {
     recoverAccount,
@@ -13,6 +14,7 @@ import styles from "./Auth.module.scss";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 
 export default function Login() {
+    usePageTitle('Accedi');
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [rememberMe, setRememberMe] = useState(true);

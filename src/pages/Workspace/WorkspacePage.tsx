@@ -25,6 +25,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./WorkspacePage.module.scss";
 
 import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
+import type { BusinessSubtype } from "@/constants/verticalTypes";
 
 function countByTenant(rows: { tenant_id: string }[] | null): Record<string, number> {
     const counts: Record<string, number> = {};
@@ -45,6 +46,7 @@ export default function WorkspacePage() {
     const [productCounts, setProductCounts] = useState<Record<string, number>>({});
     const [catalogCounts, setCatalogCounts] = useState<Record<string, number>>({});
     const [drawerOpen, setDrawerOpen] = useState(false);
+    const [editTarget, setEditTarget] = useState<{ id: string; name: string; logo_url?: string | null; business_subtype?: BusinessSubtype | null } | null>(null);
     const [pendingInvites, setPendingInvites] = useState<PendingInviteData[]>([]);
     const [activeInvite, setActiveInvite] = useState<PendingInviteData | null>(null);
     const [leaveTarget, setLeaveTarget] = useState<{ id: string; name: string } | null>(null);
@@ -189,6 +191,17 @@ export default function WorkspacePage() {
         const tenant = tenants.find(t => t.id === id);
         if (!tenant) return;
         setLeaveTarget({ id, name: tenant.name });
+    };
+
+    const handleEditRequest = (id: string) => {
+        const tenant = tenants.find(t => t.id === id);
+        if (!tenant) return;
+        setEditTarget({ id, name: tenant.name, logo_url: tenant.logo_url, business_subtype: tenant.business_subtype });
+    };
+
+    const handleEditSuccess = async () => {
+        await loadTenants();
+        showToast({ type: "success", message: "Attività aggiornata" });
     };
 
     const handleDeleteRequest = (id: string) => {
@@ -338,6 +351,7 @@ export default function WorkspacePage() {
                             productCount={productCounts[tenant.id] ?? 0}
                             catalogCount={catalogCounts[tenant.id] ?? 0}
                             onSelect={handleSelect}
+                            onEdit={handleEditRequest}
                             onOpenSettings={id => navigate(`/business/${id}/settings`)}
                             onLeave={handleLeaveRequest}
                             onActivate={handleActivate}
@@ -412,15 +426,17 @@ export default function WorkspacePage() {
                                                     </span>
                                                 </div>
                                                 <div className={styles.deletedCardActions}>
-                                                    <button
-                                                        className={styles.restoreBtn}
-                                                        onClick={() => handleRestore(row.id)}
-                                                        disabled={isRestoring}
-                                                    >
-                                                        {isRestoring
-                                                            ? "Ripristino..."
-                                                            : "Ripristina"}
-                                                    </button>
+                                                    {daysLeft > 0 && (
+                                                        <button
+                                                            className={styles.restoreBtn}
+                                                            onClick={() => handleRestore(row.id)}
+                                                            disabled={isRestoring}
+                                                        >
+                                                            {isRestoring
+                                                                ? "Ripristino..."
+                                                                : "Ripristina"}
+                                                        </button>
+                                                    )}
                                                     <button
                                                         className={styles.purgeBtn}
                                                         onClick={() =>
@@ -443,7 +459,13 @@ export default function WorkspacePage() {
                 )}
             </div>
 
-            <CreateBusinessDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+            <CreateBusinessDrawer
+                open={drawerOpen || editTarget !== null}
+                onClose={() => { setDrawerOpen(false); setEditTarget(null); }}
+                mode={editTarget ? "edit" : "create"}
+                tenantData={editTarget ?? undefined}
+                onSuccess={editTarget ? handleEditSuccess : undefined}
+            />
 
             <ConfirmDialog
                 isOpen={leaveTarget !== null}

@@ -179,7 +179,7 @@ export default function CollectionSectionNav({
                                         buttonRefs.current[section.id] = el;
                                     }}
                                 >
-                                    <Text variant="body" weight={500}>
+                                    <Text variant="body" weight={500} color="inherit">
                                         {section.name}
                                     </Text>
                                 </button>
@@ -209,7 +209,7 @@ export default function CollectionSectionNav({
                                         buttonRefs.current[section.id] = el;
                                     }}
                                 >
-                                    <Text variant="body" weight={500}>
+                                    <Text variant="body" weight={500} color="inherit">
                                         {section.name}
                                     </Text>
                                 </button>

@@ -1,4 +1,4 @@
-import { MapPin, Archive, BookOpen, LayoutDashboard, Settings, LogOut, CreditCard, Trash2 } from "lucide-react";
+import { LayoutDashboard, Settings, LogOut, CreditCard, Trash2, Pencil } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import type { TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
 import type { V2Tenant } from "@/types/tenant";
@@ -33,6 +33,7 @@ interface BusinessCardProps {
     productCount: number;
     catalogCount: number;
     onSelect: (id: string) => void;
+    onEdit: (id: string) => void;
     onOpenSettings: (id: string) => void;
     onLeave: (id: string) => void;
     onActivate: (id: string) => void;
@@ -40,7 +41,7 @@ interface BusinessCardProps {
     onDelete: (id: string) => void;
 }
 
-export default function BusinessCard({ tenant, locationCount, productCount, catalogCount, onSelect, onOpenSettings, onLeave, onActivate, onCheckout, onDelete }: BusinessCardProps) {
+export default function BusinessCard({ tenant, locationCount, productCount, catalogCount, onSelect, onEdit, onOpenSettings, onLeave, onActivate, onCheckout, onDelete }: BusinessCardProps) {
     const initial = tenant.name.charAt(0).toUpperCase();
     const verticalLabel = (tenant.business_subtype && SUBTYPE_LABELS[tenant.business_subtype])
         ?? VERTICAL_LABELS[tenant.vertical_type]
@@ -63,6 +64,11 @@ export default function BusinessCard({ tenant, locationCount, productCount, cata
                 label: "Apri dashboard",
                 icon: LayoutDashboard,
                 onClick: () => onSelect(tenant.id),
+            },
+            {
+                label: "Modifica attività",
+                icon: Pencil,
+                onClick: () => onEdit(tenant.id),
             },
             {
                 label: "Impostazioni attività",

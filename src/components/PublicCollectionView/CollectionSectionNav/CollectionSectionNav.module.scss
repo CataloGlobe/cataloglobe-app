@@ -83,7 +83,7 @@
   border: none;
   outline: none;
   background: transparent;
-  color: var(--pub-text-secondary);
+  color: var(--pub-bg-text-secondary);
   cursor: pointer;
 
   border-radius: 999px;
@@ -97,7 +97,7 @@
   &[data-active="true"] {
     font-weight: 600;
     background: var(--pub-primary);
-    color: #fff;
+    color: var(--pub-cta-text);
   }
 }
 
@@ -117,7 +117,7 @@
 
     &[data-active="true"] {
       background: var(--pub-primary);
-      color: #fff;
+      color: var(--pub-cta-text);
       border-radius: 4px;
 
       * {
@@ -132,14 +132,14 @@
 --------------------------------------------- */
 .nav[data-nav-style="outline"] {
   .pill {
-    border-radius: 20px;
+    border-radius: var(--pub-radius, 20px);
     border: 1.5px solid transparent;
     background: transparent;
 
     &[data-active="true"] {
-      background: transparent;
+      background: var(--pub-primary-soft);
       color: var(--pub-primary);
-      border-color: var(--pub-primary);
+      border: 2px solid var(--pub-primary);
 
       * {
         color: inherit;
@@ -167,7 +167,7 @@
     background: transparent;
     border: none;
     border-bottom: 2px solid transparent;
-    color: var(--pub-text-secondary);
+    color: var(--pub-bg-text-secondary);
 
     &[data-active="true"] {
       background: transparent;
@@ -191,10 +191,10 @@
   }
 
   .pill {
-    border-radius: 4px;
+    border-radius: var(--pub-btn-radius, 4px);
     background: transparent;
     border: none;
-    color: var(--pub-text-secondary);
+    color: var(--pub-bg-text-secondary);
     font-weight: 400;
 
     &[data-active="true"] {
@@ -223,10 +223,10 @@
 
   .pill {
     position: relative;
-    border-radius: 4px;
+    border-radius: var(--pub-btn-radius, 4px);
     background: transparent;
     border: none;
-    color: var(--pub-text-secondary);
+    color: var(--pub-bg-text-secondary);
     font-weight: 400;
     padding-bottom: 1.1rem;
 
@@ -234,6 +234,7 @@
       background: transparent;
       color: var(--pub-primary);
       font-weight: 500;
+      padding-bottom: 1.1rem;
 
       * {
         color: inherit;
@@ -263,7 +264,7 @@
   align-items: center;
   /* Nessun overflow:hidden — il dropdown deve uscire dal container */
   border-radius: 999px; /* default pill; override via inline style o varianti */
-  color: var(--pub-text-secondary);
+  color: var(--pub-bg-text-secondary);
   transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 
   &:focus-within {
@@ -274,7 +275,7 @@
   &[data-active="true"] {
     font-weight: 600;
     background: var(--pub-primary);
-    color: #fff;
+    color: var(--pub-cta-text);
 
     .pillLabel {
       font-weight: 600;
@@ -291,18 +292,18 @@
 
     .pillLabel,
     .pillChevron {
-      color: #fff;
+      color: var(--pub-cta-text);
     }
   }
 }
 
 .nav[data-nav-style="outline"] .pillWithChildren {
-  border-radius: 20px;
+  border-radius: var(--pub-radius, 20px);
   border: 1.5px solid transparent;
 
   &[data-active="true"] {
-    background: transparent;
-    border-color: var(--pub-primary);
+    background: var(--pub-primary-soft);
+    border: 2px solid var(--pub-primary);
 
     .pillLabel,
     .pillChevron {
@@ -328,7 +329,7 @@
 }
 
 .nav[data-nav-style="minimal"] .pillWithChildren {
-  border-radius: 4px;
+  border-radius: var(--pub-btn-radius, 4px);
 
   &[data-active="true"] {
     background: transparent;
@@ -342,11 +343,25 @@
 
 .nav[data-nav-style="dot"] .pillWithChildren {
   position: relative;
-  border-radius: 4px;
-  padding-bottom: 1.1rem;
+  border-radius: var(--pub-btn-radius, 4px);
+  /* Nessun padding sul wrapper: lo spazio del dot viene dai figli */
+  padding-bottom: 0;
+
+  /* Il label porta il padding-bottom del dot, identico a .pill */
+  .pillLabel {
+    padding-bottom: 1.1rem;
+  }
+
+  /* Il chevron allineato al label: togliamo min-height che gonfiava l'altezza */
+  .pillChevron {
+    min-height: 0;
+    padding-top: 0.5rem;
+    padding-bottom: 1.1rem;
+  }
 
   &[data-active="true"] {
     background: transparent;
+    padding-bottom: 0;
 
     .pillLabel,
     .pillChevron {
@@ -386,7 +401,7 @@
   &:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--pub-primary) 35%, transparent);
     outline-offset: -2px;
-    border-radius: 4px;
+    border-radius: var(--pub-btn-radius, 4px);
   }
 }
 
@@ -417,7 +432,7 @@
   &:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--pub-primary) 35%, transparent);
     outline-offset: -2px;
-    border-radius: 4px;
+    border-radius: var(--pub-btn-radius, 4px);
   }
 }
 
@@ -445,19 +460,19 @@
   max-height: 300px;
   overflow-y: auto;
   background: var(--pub-surface, #fff);
-  border: 1px solid var(--pub-border, #e2e8f0);
-  border-radius: 10px;
+  border: 1px solid var(--pub-surface-border);
+  border-radius: var(--pub-radius, 10px);
   padding: 0.375rem;
   box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.1),
-    0 1px 4px rgba(0, 0, 0, 0.06);
+    0 4px 16px color-mix(in srgb, var(--pub-surface-text) 10%, transparent),
+    0 1px 4px color-mix(in srgb, var(--pub-surface-text) 6%, transparent);
   display: flex;
   flex-direction: column;
   gap: 1px;
 
   /* Nasconde scrollbar su WebKit mantenendo la funzionalità */
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--pub-text) 15%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--pub-surface-text) 15%, transparent) transparent;
 }
 
 .dropdownItem {
@@ -467,13 +482,13 @@
   padding: 0.5rem 0.75rem;
   border: none;
   background: transparent;
-  color: var(--pub-text, #0f172a);
+  color: var(--pub-surface-text, #0f172a);
   font-family: var(--pub-font-family, inherit);
   font-size: 0.875rem;
   line-height: 1.4;
   text-align: left;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--pub-btn-radius, 6px);
   white-space: nowrap;
   transition: background 0.12s ease;
 
@@ -491,7 +506,7 @@
 .dropdownItemL3 {
   padding-left: calc(0.75rem + 16px);
   font-size: 0.825rem;
-  color: var(--pub-text-secondary, #666);
+  color: var(--pub-surface-text-secondary, #666);
 }
 
 /* Voce attiva nel dropdown (sotto-sezione in viewport) */

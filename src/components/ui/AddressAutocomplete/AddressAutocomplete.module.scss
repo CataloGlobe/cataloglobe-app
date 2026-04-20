@@ -1,0 +1,219 @@
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text, #0f172a);
+}
+
+/* ── Input shell ─────────────────────────────────────────────────────────── */
+
+.dropdownAnchor {
+    position: relative;
+}
+
+.inputShell {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.icon {
+    position: absolute;
+    left: 10px;
+    color: var(--text-muted, #94a3b8);
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+.input {
+    width: 100%;
+    padding: 0.62rem 2.25rem 0.62rem 2rem;
+    background: var(--card-bg, #fff);
+    color: var(--text, #0f172a);
+    font-size: 0.95rem;
+    border-radius: 8px;
+    border: 1.5px solid var(--border, #e2e8f0);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    font-family: inherit;
+
+    &::placeholder {
+        color: var(--text-muted, #94a3b8);
+    }
+
+    &:focus-visible {
+        outline: none;
+        border-color: var(--brand-primary, #6366f1);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+
+    &:disabled {
+        opacity: 0.6;
+        background: var(--hover-bg, #f1f5f9);
+        cursor: not-allowed;
+    }
+
+    [data-theme="dark"] & {
+        background: #1e293b;
+        border-color: #334155;
+        color: #f1f5f9;
+
+        &::placeholder {
+            color: #64748b;
+        }
+
+        &:focus-visible {
+            border-color: var(--brand-primary, #6366f1);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.35);
+        }
+    }
+}
+
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+
+.spinner {
+    position: absolute;
+    right: 10px;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border, #e2e8f0);
+    border-top-color: var(--brand-primary, #6366f1);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Dropdown ────────────────────────────────────────────────────────────── */
+
+.dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 200;
+    background: var(--card-bg, #fff);
+    border: 1.5px solid var(--border, #e2e8f0);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+
+    [data-theme="dark"] & {
+        background: #1e293b;
+        border-color: #334155;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    }
+}
+
+.dropdownMessage {
+    padding: 12px 14px;
+    font-size: 0.85rem;
+    color: var(--text-muted, #94a3b8);
+    text-align: center;
+}
+
+.dropdownItem {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background 0.12s ease;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+
+    &:last-child {
+        border-bottom: none;
+    }
+
+    &:hover {
+        background: var(--hover-bg, #f1f5f9);
+    }
+
+    [data-theme="dark"] &:hover {
+        background: #334155;
+    }
+}
+
+.dropdownItemHighlighted {
+    background: var(--color-background-secondary, #f1f5f9);
+
+    [data-theme="dark"] & {
+        background: #334155;
+    }
+}
+
+.dropdownItemName {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text, #0f172a);
+
+    [data-theme="dark"] & {
+        color: #f1f5f9;
+    }
+}
+
+.dropdownItemAddress {
+    font-size: 0.78rem;
+    color: var(--text-muted, #64748b);
+}
+
+/* ── Selected pill ───────────────────────────────────────────────────────── */
+
+.selectedPill {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.62rem 0.75rem;
+    background: var(--color-background-secondary, #f8fafc);
+    border: 0.5px solid var(--color-border-secondary, #cbd5e1);
+    border-radius: 8px;
+    color: var(--color-text-primary, #0f172a);
+    min-width: 0;
+}
+
+.pillIcon {
+    flex-shrink: 0;
+    color: var(--color-text-secondary, #64748b);
+}
+
+.pillText {
+    flex: 1;
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-primary, #0f172a);
+}
+
+.pillClearBtn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--color-text-secondary, #64748b);
+    transition: color 0.15s, background 0.15s;
+
+    &:hover {
+        color: var(--color-text-primary, #0f172a);
+        background: var(--color-border-secondary, #e2e8f0);
+    }
+}
+
+/* ── Error message ───────────────────────────────────────────────────────── */
+
+.errorMessage {
+    font-size: 0.78rem;
+    color: #dc2626;
+}

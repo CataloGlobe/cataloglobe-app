@@ -1,4 +1,5 @@
 import Text from "@/components/ui/Text/Text";
+import { InfoTooltip } from "@components/ui/Tooltip/InfoTooltip";
 import type { StyleTokenModel } from "./StyleTokenModel";
 import sharedStyles from "./StyleSettingsControls.module.scss";
 import roStyles from "./StylePropertiesReadOnly.module.scss";
@@ -37,9 +38,11 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                     Aspetto Generale
                 </Text>
                 <ColorReadRow label="Sfondo pagina" value={model.colors.pageBackground} />
-                <ColorReadRow label="Colore primario" value={model.colors.primary} />
+                <ColorReadRow label="Colore primario" value={model.colors.primary} tooltip="Colore principale applicato a header, navigazione, pulsanti e accenti nella pagina pubblica." />
+                <ColorReadRow label="Sfondo superfici" value={model.colors.surface} tooltip="Sfondo di card prodotti, modali, pulsanti dell'header e altri elementi in primo piano." />
                 <ValueReadRow
                     label="Arrotondamento"
+                    tooltip="Controlla la curvatura degli angoli di card, immagini, pulsanti e pannelli nella pagina pubblica."
                     value={
                         model.appearance.borderRadius === "none"
                             ? "Nessuno"
@@ -88,10 +91,12 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 </Text>
                 <ValueReadRow
                     label="Stile prodotto"
+                    tooltip="Card mostra immagine e dettagli in un riquadro. Compatto mostra solo nome, prezzo e descrizione."
                     value={model.card.productStyle === "compact" ? "Compatto" : "Card"}
                 />
                 <ValueReadRow
                     label="Layout lista prodotti"
+                    tooltip="Grid mostra più prodotti affiancati su schermi ampi (desktop/tablet). Su mobile, entrambi i layout mostrano un prodotto per riga."
                     value={model.card.layout === "grid" ? "Grid" : "List"}
                 />
                 {model.card.productStyle !== "compact" && (
@@ -99,17 +104,13 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 )}
             </section>
 
-            {/* TESTI E SUPERFICI */}
+            {/* TESTI */}
             <section className={sharedStyles.panelSection}>
                 <Text as="h4" variant="title-sm" weight={700} className={sharedStyles.sectionTitle}>
-                    Testi e superfici
+                    Testi
                 </Text>
                 <ColorReadRow label="Colore testo principale" value={model.colors.textPrimary} />
                 <ColorReadRow label="Colore testo secondario" value={model.colors.textSecondary} />
-                <ColorReadRow
-                    label="Sfondo contenuti (card / liste)"
-                    value={model.colors.surface}
-                />
                 <ColorReadRow label="Colore bordi" value={model.colors.border} />
             </section>
 
@@ -129,11 +130,11 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
 
 /* ── Sub-components ─────────────────────────────────────────────────────── */
 
-function ColorReadRow({ label, value }: { label: string; value: string }) {
+function ColorReadRow({ label, value, tooltip }: { label: string; value: string; tooltip?: string }) {
     return (
         <div className={roStyles.readField}>
             <Text variant="body" weight={500} className={roStyles.readLabel}>
-                {label}
+                {label}{tooltip && <InfoTooltip content={tooltip} />}
             </Text>
             <div className={roStyles.colorReadValue}>
                 <span className={roStyles.colorDot} style={{ background: value }} />
@@ -143,11 +144,11 @@ function ColorReadRow({ label, value }: { label: string; value: string }) {
     );
 }
 
-function ValueReadRow({ label, value }: { label: string; value: string }) {
+function ValueReadRow({ label, value, tooltip }: { label: string; value: string; tooltip?: string }) {
     return (
         <div className={roStyles.readField}>
             <Text variant="body" weight={500} className={roStyles.readLabel}>
-                {label}
+                {label}{tooltip && <InfoTooltip content={tooltip} />}
             </Text>
             <span className={roStyles.readValue}>{value}</span>
         </div>

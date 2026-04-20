@@ -68,6 +68,6 @@
         width: 480px;
         max-width: calc(100vw - 48px);
         max-height: 85dvh;
-        border-radius: 16px;
+        border-radius: var(--pub-radius, 16px);
     }
 }

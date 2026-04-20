@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import styles from "./FeaturedBlock.module.scss";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
+import FeaturedCard from "@/components/PublicCollectionView/FeaturedCard/FeaturedCard";
 import { FeaturedPreviewModal } from "./FeaturedPreviewModal";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 
@@ -10,56 +11,76 @@ type Props = {
     slot?: string;
 };
 
-function formatPrice(price: number): string {
-    return new Intl.NumberFormat("it-IT", {
-        style: "currency",
-        currency: "EUR",
-        minimumFractionDigits: 2
-    }).format(price);
-}
+/* ══════════════════════════════════════════════════════════════════════════
+   DOTS INDICATOR
+   ══════════════════════════════════════════════════════════════════════════ */
 
-function getTagLabel(pricingMode: string | null): string {
-    switch (pricingMode) {
-        case "bundle": return "BUNDLE";
-        case "per_item": return "PROMO";
-        default: return "EVENTO";
-    }
-}
-
-function getTagClass(pricingMode: string | null): string {
-    switch (pricingMode) {
-        case "bundle": return styles.tagBundle;
-        case "per_item": return styles.tagPromo;
-        default: return styles.tagEvento;
-    }
-}
-
-function getPlaceholderDarkClass(pricingMode: string | null): string {
-    switch (pricingMode) {
-        case "bundle": return styles.heroBgBundle;
-        case "per_item": return styles.heroBgPromo;
-        default: return styles.heroBgEvento;
-    }
-}
-
-function getPlaceholderLightClass(pricingMode: string | null): string {
-    switch (pricingMode) {
-        case "bundle": return styles.thumbBgBundle;
-        case "per_item": return styles.thumbBgPromo;
-        default: return styles.thumbBgEvento;
-    }
-}
-
-function getEmoji(pricingMode: string | null): string {
-    switch (pricingMode) {
-        case "bundle": return "\uD83C\uDF81"; // 🎁
-        case "per_item": return "\uD83D\uDD25"; // 🔥
-        default: return "\uD83C\uDFA4"; // 🎤
-    }
+function FeaturedDots({
+    count,
+    activeIndex,
+    onDotClick
+}: {
+    count: number;
+    activeIndex: number;
+    onDotClick: (idx: number) => void;
+}) {
+    return (
+        <div className={styles.dots} role="tablist" aria-label="Indicatore contenuti in evidenza">
+            {Array.from({ length: count }, (_, idx) => (
+                <button
+                    key={idx}
+                    type="button"
+                    role="tab"
+                    aria-selected={idx === activeIndex}
+                    className={`${styles.dot} ${idx === activeIndex ? styles.dotActive : ""}`}
+                    onClick={() => onDotClick(idx)}
+                    aria-label={`Contenuto ${idx + 1} di ${count}`}
+                />
+            ))}
+        </div>
+    );
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   COMPONENT
+   CENTER-SNAP HELPERS
+   ══════════════════════════════════════════════════════════════════════════ */
+
+function findCenteredIndex(el: HTMLElement): number {
+    const viewCenter = el.scrollLeft + el.clientWidth / 2;
+    const cards = Array.from(el.children) as HTMLElement[];
+    let closestIdx = 0;
+    let closestDist = Infinity;
+    for (let i = 0; i < cards.length; i++) {
+        const card = cards[i];
+        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+        const dist = Math.abs(cardCenter - viewCenter);
+        if (dist < closestDist) {
+            closestDist = dist;
+            closestIdx = i;
+        }
+    }
+    return closestIdx;
+}
+
+function scrollToSnap(el: HTMLElement, idx: number, totalCount: number) {
+    const card = el.children[idx] as HTMLElement | undefined;
+    if (!card) return;
+
+    let targetScrollLeft: number;
+    if (idx === 0) {
+        targetScrollLeft = 0;
+    } else if (idx === totalCount - 1) {
+        targetScrollLeft = el.scrollWidth - el.clientWidth;
+    } else {
+        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+        targetScrollLeft = cardCenter - el.clientWidth / 2;
+    }
+
+    el.scrollTo({ left: Math.max(0, targetScrollLeft), behavior: "smooth" });
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MAIN COMPONENT
    ══════════════════════════════════════════════════════════════════════════ */
 
 export default function FeaturedBlock({ blocks, activityId, slot }: Props) {
@@ -68,7 +89,6 @@ export default function FeaturedBlock({ blocks, activityId, slot }: Props) {
     const [activeIndex, setActiveIndex] = useState(0);
     const [needsScroll, setNeedsScroll] = useState(false);
 
-    // ResizeObserver to detect if carousel is actually scrollable
     useEffect(() => {
         const el = trackRef.current;
         if (!el) return;
@@ -81,12 +101,8 @@ export default function FeaturedBlock({ blocks, activityId, slot }: Props) {
 
     const handleScroll = useCallback(() => {
         const el = trackRef.current;
-        if (!el || !el.firstElementChild) return;
-        const firstCard = el.firstElementChild as HTMLElement;
-        const cardWidth = firstCard.offsetWidth;
-        const gap = 10;
-        const idx = Math.round(el.scrollLeft / (cardWidth + gap));
-        setActiveIndex(idx);
+        if (!el || el.children.length === 0) return;
+        setActiveIndex(findCenteredIndex(el));
     }, []);
 
     useEffect(() => {
@@ -109,52 +125,33 @@ export default function FeaturedBlock({ blocks, activityId, slot }: Props) {
         }
     };
 
-    const handleDotClick = (idx: number) => {
-        const el = trackRef.current;
-        if (!el || !el.firstElementChild) return;
-        const firstCard = el.firstElementChild as HTMLElement;
-        const cardWidth = firstCard.offsetWidth;
-        const gap = 10;
-        el.scrollTo({ left: idx * (cardWidth + gap), behavior: "smooth" });
+    const handleCtaClick = (block: V2FeaturedContent) => {
+        if (activityId) {
+            trackEvent(activityId, "featured_cta_click", {
+                featured_id: block.id,
+                cta_url: block.cta_url,
+                source: "overview"
+            });
+        }
     };
 
-    const isSingle = blocks.length === 1;
+    const handleDotClick = (idx: number) => {
+        const el = trackRef.current;
+        if (!el) return;
+        scrollToSnap(el, idx, blocks.length);
+    };
 
-    /* ── CASO 1: Un solo contenuto → Hero banner ──────────────────────── */
-    if (isSingle) {
-        const block = blocks[0];
-        const hasImage = !!block.media_id;
-
+    /* ── 1 contenuto → Card singola full-width ────────────────────────── */
+    if (blocks.length === 1) {
         return (
             <>
             <div className={styles.wrapper}>
-                <button
-                    type="button"
-                    className={`${styles.hero} ${hasImage ? "" : getPlaceholderDarkClass(block.pricing_mode)}`}
-                    onClick={() => handleCardClick(block)}
-                >
-                    {hasImage ? (
-                        <img
-                            src={block.media_id!}
-                            alt={block.title}
-                            className={styles.heroBgImg}
-                            loading="lazy"
-                        />
-                    ) : (
-                        <span className={styles.heroEmoji}>{getEmoji(block.pricing_mode)}</span>
-                    )}
-                    <div className={styles.heroGradient} />
-                    <div className={styles.heroContent}>
-                        <span className={styles.heroTag}>{getTagLabel(block.pricing_mode)}</span>
-                        <span className={styles.heroTitle}>{block.title}</span>
-                        {block.subtitle && (
-                            <span className={styles.heroSubtitle}>{block.subtitle}</span>
-                        )}
-                        {block.pricing_mode === "bundle" && block.bundle_price != null && (
-                            <span className={styles.heroPrice}>{formatPrice(block.bundle_price)}</span>
-                        )}
-                    </div>
-                </button>
+                <FeaturedCard
+                    block={blocks[0]}
+                    onClick={() => handleCardClick(blocks[0])}
+                    onCtaClick={() => handleCtaClick(blocks[0])}
+                    className={styles.cardSingle}
+                />
             </div>
             <FeaturedPreviewModal
                 block={previewBlock}
@@ -165,75 +162,43 @@ export default function FeaturedBlock({ blocks, activityId, slot }: Props) {
         );
     }
 
-    /* ── CASO 2+3: Più contenuti → Carousel mobile / Grid desktop ───── */
-    const cardWidthClass = blocks.length === 2 ? styles.cardWide : styles.cardNarrow;
-    const gridCols = Math.min(blocks.length, 3);
+    /* ── 2-4: Grid desktop / Carousel mobile ──────────────────────────── */
+    /* ── 5+: Carousel everywhere ──────────────────────────────────────── */
+    const isMany = blocks.length >= 5;
+    const gridCols = Math.min(blocks.length, 4);
+
+    const trackClass = [
+        styles.track,
+        isMany ? styles.trackCarouselAlways : styles.trackGridDesktop
+    ].join(" ");
 
     return (
         <>
         <div className={styles.wrapper}>
-            {/* Mobile: carousel | Desktop: grid */}
             <div
-                className={styles.track}
+                className={trackClass}
                 ref={trackRef}
-                style={{ "--grid-cols": gridCols } as React.CSSProperties}
+                role="list"
+                aria-label="Contenuti in evidenza"
+                style={!isMany ? { "--grid-cols": gridCols } as React.CSSProperties : undefined}
             >
-                {blocks.map((block) => {
-                    const hasImage = !!block.media_id;
-                    return (
-                        <button
-                            key={block.id}
-                            type="button"
-                            className={`${styles.card} ${cardWidthClass}`}
-                            onClick={() => handleCardClick(block)}
-                        >
-                            {/* Thumbnail */}
-                            <div className={styles.cardThumb}>
-                                {hasImage ? (
-                                    <img
-                                        src={block.media_id!}
-                                        alt={block.title}
-                                        className={styles.cardThumbImg}
-                                        loading="lazy"
-                                    />
-                                ) : (
-                                    <div className={`${styles.cardThumbPlaceholder} ${getPlaceholderLightClass(block.pricing_mode)}`}>
-                                        <span className={styles.cardThumbEmoji}>{getEmoji(block.pricing_mode)}</span>
-                                    </div>
-                                )}
-                                <span className={`${styles.cardTag} ${getTagClass(block.pricing_mode)} ${hasImage ? styles.cardTagOnImage : ""}`}>
-                                    {getTagLabel(block.pricing_mode)}
-                                </span>
-                            </div>
-
-                            {/* Body */}
-                            <div className={styles.cardBody}>
-                                <span className={styles.cardTitle}>{block.title}</span>
-                                {block.subtitle && (
-                                    <span className={styles.cardSubtitle}>{block.subtitle}</span>
-                                )}
-                                {block.pricing_mode === "bundle" && block.bundle_price != null && (
-                                    <span className={styles.cardPrice}>{formatPrice(block.bundle_price)}</span>
-                                )}
-                            </div>
-                        </button>
-                    );
-                })}
+                {blocks.map((block) => (
+                    <FeaturedCard
+                        key={block.id}
+                        block={block}
+                        onClick={() => handleCardClick(block)}
+                        onCtaClick={() => handleCtaClick(block)}
+                        className={styles.cardCarousel}
+                    />
+                ))}
             </div>
 
-            {/* Dots — only on mobile when scrollable */}
             {needsScroll && blocks.length > 1 && (
-                <div className={styles.dots}>
-                    {blocks.map((_, idx) => (
-                        <button
-                            key={idx}
-                            type="button"
-                            className={`${styles.dot} ${idx === activeIndex ? styles.dotActive : ""}`}
-                            onClick={() => handleDotClick(idx)}
-                            aria-label={`Vai al contenuto ${idx + 1}`}
-                        />
-                    ))}
-                </div>
+                <FeaturedDots
+                    count={blocks.length}
+                    activeIndex={activeIndex}
+                    onDotClick={handleDotClick}
+                />
             )}
         </div>
 

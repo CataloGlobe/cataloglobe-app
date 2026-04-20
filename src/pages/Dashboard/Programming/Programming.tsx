@@ -261,6 +261,7 @@ export default function Programming() {
 
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
     const [searchTerm, setSearchTerm] = useState("");
+    const [filterActivityId, setFilterActivityId] = useState<string | null>(null);
     const typeFromUrl = searchParams.get("type") as RuleType | null;
     const [ruleTypeFilter, setRuleTypeFilter] = useState<RuleTypeFilter>(
         typeFromUrl && ["layout", "featured", "price", "visibility", "all"].includes(typeFromUrl)
@@ -349,13 +350,27 @@ export default function Programming() {
 
     const filteredRules = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
-        const typeFilteredRules = ruleTypeFilter === "all"
+
+        // 1. Filter by rule type (tab)
+        let result = ruleTypeFilter === "all"
             ? rules
             : rules.filter(rule => rule.rule_type === ruleTypeFilter);
 
-        if (!query) return typeFilteredRules;
+        // 2. Filter by selected activity
+        if (filterActivityId) {
+            result = result.filter(rule => {
+                if (rule.applyToAll) return true;
+                if (rule.activityIds.includes(filterActivityId)) return true;
+                return rule.groupIds.some(gId =>
+                    (activityIdsByGroupId[gId] ?? []).includes(filterActivityId)
+                );
+            });
+        }
 
-        return typeFilteredRules.filter(rule => {
+        // 3. Filter by search term
+        if (!query) return result;
+
+        return result.filter(rule => {
             const targetLabel = getRuleTargetLabel(rule, activityById);
             const catalogLabel = rule.layout?.catalog_id
                 ? (catalogById.get(rule.layout.catalog_id)?.name ?? rule.layout.catalog_id)
@@ -381,7 +396,7 @@ export default function Programming() {
                 .toLowerCase()
                 .includes(query);
         });
-    }, [activityById, catalogById, ruleTypeFilter, rules, searchTerm, styleById]);
+    }, [activityById, activityIdsByGroupId, catalogById, filterActivityId, ruleTypeFilter, rules, searchTerm, styleById]);
 
     const handleSelectionChange = useCallback((id: string, checked: boolean) => {
         setSelectedRuleIds(prev => {
@@ -1088,13 +1103,32 @@ export default function Programming() {
                         </Tabs.List>
                     </Tabs>
 
-                    <FilterBar
-                        search={{
-                            value: searchTerm,
-                            onChange: setSearchTerm,
-                            placeholder: "Cerca per nome, tipo, target o id..."
-                        }}
-                    />
+                    <div className={styles.filterRow}>
+                        <FilterBar
+                            className={styles.filterBarFlex}
+                            search={{
+                                value: searchTerm,
+                                onChange: setSearchTerm,
+                                placeholder: "Cerca per nome, tipo, target o id..."
+                            }}
+                        />
+                        {activities.length > 0 && (
+                            <div className={styles.activityFilterWrapper}>
+                                <select
+                                    className={styles.activityFilterSelect}
+                                    value={filterActivityId ?? ""}
+                                    onChange={e => setFilterActivityId(e.target.value || null)}
+                                    aria-label="Filtra per sede"
+                                >
+                                    <option value="">Tutte le sedi</option>
+                                    {activities.map(a => (
+                                        <option key={a.id} value={a.id}>{a.name}</option>
+                                    ))}
+                                </select>
+                                <span className={styles.activityFilterCaret} aria-hidden="true">▾</span>
+                            </div>
+                        )}
+                    </div>
 
                     <div className={styles.tableCard}>
                         <div className={styles.tabDescription}>
@@ -1108,9 +1142,15 @@ export default function Programming() {
                                 <Text colorVariant="muted">Caricamento regole...</Text>
                             </div>
                         ) : filteredRules.length === 0 ? (
-                            searchTerm ? (
+                            (searchTerm || filterActivityId) ? (
                                 <div className={styles.emptyState}>
-                                    <Text colorVariant="muted">Nessuna regola corrisponde alla ricerca.</Text>
+                                    <Text colorVariant="muted">
+                                        {filterActivityId && searchTerm
+                                            ? "Nessuna regola corrisponde alla ricerca per questa sede."
+                                            : filterActivityId
+                                            ? "Nessuna regola per questa sede."
+                                            : "Nessuna regola corrisponde alla ricerca."}
+                                    </Text>
                                 </div>
                             ) : (
                                 <div className={styles.tabEmptyState}>

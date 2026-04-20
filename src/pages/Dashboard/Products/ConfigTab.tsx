@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
+import { Switch } from "@/components/ui/Switch/Switch";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
@@ -50,6 +51,7 @@ export function ConfigTab({
     // --- Edit group ---
     const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
     const [editGroupName, setEditGroupName] = useState("");
+    const [editGroupMaxSelectable, setEditGroupMaxSelectable] = useState<number | null>(null);
     const [savingGroupId, setSavingGroupId] = useState<string | null>(null);
     const [groupEditError, setGroupEditError] = useState<string | null>(null);
 
@@ -106,6 +108,7 @@ export function ConfigTab({
     const handleStartEditGroup = (group: GroupWithValues) => {
         setEditingGroupId(group.id);
         setEditGroupName(group.name);
+        setEditGroupMaxSelectable(group.max_selectable ?? null);
         setGroupEditError(null);
     };
 
@@ -122,7 +125,7 @@ export function ConfigTab({
         }
         try {
             setSavingGroupId(groupId);
-            await updateProductOptionGroup(groupId, { name });
+            await updateProductOptionGroup(groupId, { name, max_selectable: editGroupMaxSelectable });
             await onRefreshOptions();
             setEditingGroupId(null);
         } catch {
@@ -389,6 +392,24 @@ export function ConfigTab({
                                         onChange={e => setEditGroupName(e.target.value)}
                                         disabled={savingGroupId === group.id}
                                     />
+                                    <Switch
+                                        label="Limita selezione"
+                                        checked={editGroupMaxSelectable !== null}
+                                        onChange={checked => setEditGroupMaxSelectable(checked ? 1 : null)}
+                                        disabled={savingGroupId === group.id}
+                                    />
+                                    {editGroupMaxSelectable !== null && (
+                                        <NumberInput
+                                            label="Massimo selezionabile"
+                                            min="1"
+                                            value={editGroupMaxSelectable.toString()}
+                                            onChange={e => {
+                                                const val = parseInt(e.target.value, 10);
+                                                if (!isNaN(val) && val > 0) setEditGroupMaxSelectable(val);
+                                            }}
+                                            disabled={savingGroupId === group.id}
+                                        />
+                                    )}
                                     {groupEditError && (
                                         <Text variant="body-sm" colorVariant="error">
                                             {groupEditError}
@@ -424,12 +445,17 @@ export function ConfigTab({
                                             {group.values.length}{" "}
                                             {group.values.length === 1 ? "opzione" : "opzioni"}
                                         </Badge>
+                                        {group.max_selectable != null && (
+                                            <Badge variant="secondary">
+                                                max {group.max_selectable}
+                                            </Badge>
+                                        )}
                                     </div>
                                     <div className={styles.groupActions}>
                                         <TableRowActions
                                             actions={[
                                                 {
-                                                    label: "Rinomina",
+                                                    label: "Modifica",
                                                     onClick: () => handleStartEditGroup(group),
                                                 },
                                                 {

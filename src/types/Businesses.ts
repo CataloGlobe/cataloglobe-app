@@ -9,6 +9,9 @@ export interface BusinessFormValues {
     name: string;
     city: string;
     address: string;
+    street_number: string;
+    postal_code: string;
+    province: string;
     slug: string;
     coverPreview: string | null;
 }

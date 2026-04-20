@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
@@ -16,6 +17,7 @@ type InviteInfo = {
 };
 
 export default function InvitePage() {
+    usePageTitle('Invito');
     const { token } = useParams<{ token: string }>();
     const { user, loading: authLoading } = useAuth();
     const navigate = useNavigate();

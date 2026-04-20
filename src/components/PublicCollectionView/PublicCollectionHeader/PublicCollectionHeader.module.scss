@@ -76,7 +76,7 @@
   background: rgba(0, 0, 0, 0.52);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-radius: 14px;
+  border-radius: var(--pub-radius, 14px);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -112,8 +112,11 @@
 
 .infoCardChip {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 4px 12px;
-  border-radius: 20px;
+  border-radius: var(--pub-radius, 20px);
   font-size: 0.72rem;
   font-weight: 500;
   font-family: var(--pub-font-family, sans-serif);
@@ -133,14 +136,14 @@
 }
 
 .infoCardChipActive {
-  background: #F59E0B;
-  color: #1C1917;
+  background: var(--pub-accent);
+  color: var(--pub-cta-text);
   border-color: transparent;
   font-weight: 700;
 
   &:hover {
-    background: #FBBF24;
-    color: #1C1917;
+    background: color-mix(in srgb, var(--pub-accent) 85%, white);
+    color: var(--pub-cta-text);
   }
 }
 
@@ -148,7 +151,7 @@
   flex-shrink: 0;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--pub-btn-radius, 8px);
   overflow: hidden;
   background: rgba(255, 255, 255, 0.15);
   display: flex;
@@ -165,7 +168,7 @@
 .infoCardLogoPlaceholder {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--pub-btn-radius, 8px);
   background: rgba(255, 255, 255, 0.15);
   flex-shrink: 0;
 }
@@ -211,11 +214,11 @@
 }
 
 .infoCardSearchBtn,
-.infoCardHoursBtn {
+.infoCardInfoBtn {
   flex-shrink: 0;
   width: 34px;
   height: 34px;
-  border-radius: 8px;
+  border-radius: var(--pub-btn-radius, 8px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
@@ -346,13 +349,16 @@
 
 .compactChip {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 4px 12px;
-  border-radius: 20px;
+  border-radius: var(--pub-radius, 20px);
   font-size: 0.72rem;
   font-weight: 500;
   font-family: var(--pub-font-family, sans-serif);
   background: transparent;
-  color: var(--pub-text-muted, #888);
+  color: var(--pub-bg-text-muted, #888);
   border: 1px solid var(--pub-border, #e2e8f0);
   cursor: pointer;
   transition:
@@ -362,9 +368,9 @@
   white-space: nowrap;
 
   &:hover {
-    background: color-mix(in srgb, var(--pub-text) 5%, transparent);
-    color: var(--pub-text-secondary, #475569);
-    border-color: color-mix(in srgb, var(--pub-text) 25%, transparent);
+    background: color-mix(in srgb, var(--pub-bg-text) 5%, transparent);
+    color: var(--pub-bg-text-secondary, #475569);
+    border-color: color-mix(in srgb, var(--pub-bg-text) 25%, transparent);
   }
 }
 
@@ -398,7 +404,7 @@
 .compactLogoPlaceholder {
   width: 60px;
   height: 28px;
-  border-radius: 5px;
+  border-radius: var(--pub-btn-radius, 5px);
   background: color-mix(in srgb, var(--pub-text) 10%, transparent);
 }
 
@@ -407,7 +413,7 @@
   min-width: 0;
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--pub-text);
+  color: var(--pub-bg-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -418,7 +424,7 @@
   flex-shrink: 0;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--pub-btn-radius, 8px);
   border: 1px solid var(--pub-border);
   background: var(--pub-surface);
   color: var(--pub-text-secondary);
@@ -434,11 +440,11 @@
   }
 }
 
-.compactHoursBtn {
+.compactInfoBtn {
   flex-shrink: 0;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--pub-btn-radius, 8px);
   border: 1px solid var(--pub-border);
   background: var(--pub-surface);
   color: var(--pub-text-secondary);

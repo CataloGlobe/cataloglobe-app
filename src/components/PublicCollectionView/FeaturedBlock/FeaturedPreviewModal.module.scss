@@ -4,7 +4,7 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    padding: 8px 12px 4px;
+    padding: 10px 12px;
     flex-shrink: 0;
 }
 
@@ -15,7 +15,7 @@
     align-items: center;
     gap: 5px;
     padding: 5px 10px;
-    border-radius: 6px;
+    border-radius: var(--pub-radius, 6px);
     border: none;
     background: color-mix(in srgb, var(--pub-text, #000) 8%, transparent);
     color: var(--pub-text, #333);
@@ -137,7 +137,7 @@
 .productThumb {
     width: 40px;
     height: 40px;
-    border-radius: 6px;
+    border-radius: var(--pub-btn-radius, 6px);
     object-fit: cover;
     display: block;
     flex-shrink: 0;
@@ -146,7 +146,7 @@
 .productThumbPlaceholder {
     width: 40px;
     height: 40px;
-    border-radius: 6px;
+    border-radius: var(--pub-btn-radius, 6px);
     background: color-mix(in srgb, var(--pub-text, #000) 6%, transparent);
     display: flex;
     align-items: center;

@@ -24,7 +24,8 @@
   // Surfaces
   --pub-surface: #ffffff;
   --pub-card-bg: #ffffff; // backward compat alias for --pub-surface
-  --pub-border: #f1f5f9;
+  --pub-border: #e8e8e8;
+  --pub-surface-border: #e8e8e8;
 
   // Derived accent
   --pub-primary-soft: color-mix(in srgb, #6366f1 10%, transparent);

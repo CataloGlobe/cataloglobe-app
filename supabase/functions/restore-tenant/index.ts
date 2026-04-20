@@ -21,6 +21,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //   2. Tenant row exists at all (not yet purged)
 //   3. Caller is the tenant owner (owner_user_id === auth.uid())
 //   4. Tenant is currently soft-deleted (deleted_at IS NOT NULL)
+//   5. Restore window has not elapsed (deleted_at within 30 days)
 // ---------------------------------------------------------------------------
 
 const corsHeaders = {
@@ -117,6 +118,17 @@ serve(async req => {
         if (tenantRow.deleted_at === null) {
             console.warn(`restore-tenant: Tenant ${tenantId} is not deleted — nothing to restore`);
             return json(409, { error: "tenant_not_deleted" });
+        }
+
+        // Guard: 30-day restore window must not have elapsed
+        const RESTORE_WINDOW_DAYS = 30;
+        const deletedAtMs = new Date(tenantRow.deleted_at).getTime();
+        const daysSinceDeleted = (Date.now() - deletedAtMs) / (1000 * 60 * 60 * 24);
+        if (daysSinceDeleted > RESTORE_WINDOW_DAYS) {
+            console.warn(
+                `restore-tenant: Tenant ${tenantId} restore window expired (${daysSinceDeleted.toFixed(1)} days since deletion)`
+            );
+            return json(410, { error: "restore_window_expired" });
         }
 
         // Step 5: restore — set deleted_at = NULL via service_role.

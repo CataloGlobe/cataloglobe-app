@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { Menu } from "lucide-react";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import WorkspaceSidebar from "./WorkspaceSidebar";
@@ -23,6 +24,7 @@ function useMediaQuery(query: string) {
 }
 
 export default function WorkspaceLayout() {
+    usePageTitle('Workspace');
     const mainRef = useRef<HTMLElement>(null);
     const { pathname } = useLocation();
 

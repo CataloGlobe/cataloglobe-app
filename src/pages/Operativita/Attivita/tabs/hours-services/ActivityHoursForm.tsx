@@ -18,6 +18,7 @@ const MAX_SLOTS_PER_DAY = 5;
 interface TimeSlot {
     opens_at: string | null;
     closes_at: string | null;
+    closes_next_day: boolean;
 }
 
 interface DaySlots {
@@ -43,9 +44,13 @@ function timesToMinutes(time: string): number {
 function slotsOverlap(a: TimeSlot, b: TimeSlot): boolean {
     if (!a.opens_at || !a.closes_at || !b.opens_at || !b.closes_at) return false;
     const aStart = timesToMinutes(a.opens_at);
-    const aEnd = timesToMinutes(a.closes_at);
+    const aEnd = a.closes_next_day
+        ? timesToMinutes(a.closes_at) + 1440
+        : timesToMinutes(a.closes_at);
     const bStart = timesToMinutes(b.opens_at);
-    const bEnd = timesToMinutes(b.closes_at);
+    const bEnd = b.closes_next_day
+        ? timesToMinutes(b.closes_at) + 1440
+        : timesToMinutes(b.closes_at);
     return aStart < bEnd && bStart < aEnd;
 }
 
@@ -71,11 +76,11 @@ function validateDays(days: DaysByIndex): SlotError[] {
                 continue;
             }
 
-            if (timesToMinutes(slot.closes_at!) <= timesToMinutes(slot.opens_at!)) {
+            if (slot.closes_at === slot.opens_at) {
                 errors.push({
                     day,
                     slotIndex: si,
-                    message: "L'orario di chiusura deve essere successivo all'apertura."
+                    message: "L'orario di apertura e chiusura non possono essere identici."
                 });
                 continue;
             }
@@ -101,7 +106,7 @@ function validateDays(days: DaysByIndex): SlotError[] {
 function buildDefaultDays(): DaysByIndex {
     const days: DaysByIndex = {};
     for (let i = 0; i < 7; i++) {
-        days[i] = { is_closed: false, slots: [{ opens_at: null, closes_at: null }] };
+        days[i] = { is_closed: false, slots: [{ opens_at: null, closes_at: null, closes_next_day: false }] };
     }
     return days;
 }
@@ -128,7 +133,7 @@ function hoursToDays(hours: V2ActivityHours[]): DaysByIndex {
                 is_closed: false,
                 slots: rows
                     .filter(r => !r.is_closed)
-                    .map(r => ({ opens_at: r.opens_at, closes_at: r.closes_at }))
+                    .map(r => ({ opens_at: r.opens_at, closes_at: r.closes_at, closes_next_day: r.closes_next_day }))
             };
             // Fallback: if all rows were closed but >1, treat as closed
             if (days[dayIndex].slots.length === 0) {
@@ -148,6 +153,7 @@ function daysToPayload(
     opens_at: string | null;
     closes_at: string | null;
     is_closed: boolean;
+    closes_next_day: boolean;
 }> {
     const result: Array<{
         day_of_week: number;
@@ -155,6 +161,7 @@ function daysToPayload(
         opens_at: string | null;
         closes_at: string | null;
         is_closed: boolean;
+        closes_next_day: boolean;
     }> = [];
 
     for (let day = 0; day < 7; day++) {
@@ -165,7 +172,8 @@ function daysToPayload(
                 slot_index: 0,
                 opens_at: null,
                 closes_at: null,
-                is_closed: true
+                is_closed: true,
+                closes_next_day: false
             });
         } else {
             dayData.slots.forEach((slot, si) => {
@@ -174,7 +182,8 @@ function daysToPayload(
                     slot_index: si,
                     opens_at: slot.opens_at,
                     closes_at: slot.closes_at,
-                    is_closed: false
+                    is_closed: false,
+                    closes_next_day: slot.closes_next_day
                 });
             });
         }
@@ -235,7 +244,7 @@ export function ActivityHoursForm({
         } else {
             updateDay(dayIndex, {
                 is_closed: false,
-                slots: [{ opens_at: null, closes_at: null }]
+                slots: [{ opens_at: null, closes_at: null, closes_next_day: false }]
             });
         }
     }, [updateDay]);
@@ -261,7 +270,7 @@ export function ActivityHoursForm({
                 ...prev,
                 [dayIndex]: {
                     ...day,
-                    slots: [...day.slots, { opens_at: null, closes_at: null }]
+                    slots: [...day.slots, { opens_at: null, closes_at: null, closes_next_day: false }]
                 }
             };
         });
@@ -368,13 +377,28 @@ export function ActivityHoursForm({
                                                         <span className={formStyles.slotSeparator}>–</span>
                                                         <TimeInput
                                                             value={slot.closes_at ?? ""}
-                                                            onChange={e =>
+                                                            onChange={e => {
+                                                                const newClosesAt = e.target.value || null;
+                                                                const cnd =
+                                                                    newClosesAt !== null && slot.opens_at !== null
+                                                                        ? timesToMinutes(newClosesAt) < timesToMinutes(slot.opens_at)
+                                                                        : false;
                                                                 updateSlot(dayIndex, si, {
-                                                                    closes_at: e.target.value || null
-                                                                })
-                                                            }
+                                                                    closes_at: newClosesAt,
+                                                                    closes_next_day: cnd
+                                                                });
+                                                            }}
                                                             aria-label={`${DAY_NAMES[dayIndex]} fascia ${si + 1} chiusura`}
                                                         />
+                                                        {slot.closes_next_day && (
+                                                            <span
+                                                                className={formStyles.overnightBadge}
+                                                                title="Chiude il giorno successivo"
+                                                                aria-label="Chiude il giorno successivo"
+                                                            >
+                                                                +1
+                                                            </span>
+                                                        )}
                                                         <button
                                                             type="button"
                                                             className={formStyles.removeSlotBtn}

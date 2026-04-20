@@ -36,7 +36,7 @@ export function FeaturedPricingModeDrawer({
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>
-                        Modifica modalità contenuto
+                        Tipo di contenuto
                     </Text>
                 }
                 footer={

@@ -170,3 +170,11 @@
   font-size: 0.875rem;
   color: var(--text-muted);
 }
+
+/* ── Product picker drawer ──────────────────────────── */
+
+.pickerDrawerHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}

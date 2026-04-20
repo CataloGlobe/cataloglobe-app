@@ -16,12 +16,14 @@ function timesToMinutes(t: string): number {
 }
 
 function slotsOverlap(a: ClosureSlot, b: ClosureSlot): boolean {
-    const aS = timesToMinutes(a.opens_at), aE = timesToMinutes(a.closes_at);
-    const bS = timesToMinutes(b.opens_at), bE = timesToMinutes(b.closes_at);
+    const aS = timesToMinutes(a.opens_at);
+    const aE = a.closes_next_day ? timesToMinutes(a.closes_at) + 1440 : timesToMinutes(a.closes_at);
+    const bS = timesToMinutes(b.opens_at);
+    const bE = b.closes_next_day ? timesToMinutes(b.closes_at) + 1440 : timesToMinutes(b.closes_at);
     return aS < bE && bS < aE;
 }
 
-type SlotDraft = { opens_at: string | null; closes_at: string | null };
+type SlotDraft = { opens_at: string | null; closes_at: string | null; closes_next_day: boolean };
 type SlotError = { index: number; message: string };
 
 function validateSlots(slots: SlotDraft[]): SlotError[] {
@@ -36,16 +38,16 @@ function validateSlots(slots: SlotDraft[]): SlotError[] {
             }
             continue;
         }
-        if (timesToMinutes(s.closes_at!) <= timesToMinutes(s.opens_at!)) {
-            errors.push({ index: i, message: "L'orario di chiusura deve essere successivo all'apertura." });
+        if (s.closes_at === s.opens_at) {
+            errors.push({ index: i, message: "L'orario di apertura e chiusura non possono essere identici." });
             continue;
         }
         for (let j = i + 1; j < slots.length; j++) {
             const b = slots[j];
             if (b.opens_at && b.closes_at &&
                 slotsOverlap(
-                    { opens_at: s.opens_at!, closes_at: s.closes_at! },
-                    { opens_at: b.opens_at, closes_at: b.closes_at }
+                    { opens_at: s.opens_at!, closes_at: s.closes_at!, closes_next_day: s.closes_next_day },
+                    { opens_at: b.opens_at, closes_at: b.closes_at, closes_next_day: b.closes_next_day }
                 )
             ) {
                 errors.push({ index: i, message: "Le fasce orarie si sovrappongono." });
@@ -83,8 +85,8 @@ export const ActivityClosureForm: React.FC<ActivityClosureFormProps> = ({
     const [isClosed, setIsClosed] = useState(entityData?.is_closed ?? true);
     const [slots, setSlots] = useState<SlotDraft[]>(
         entityData?.slots
-            ? entityData.slots.map(s => ({ opens_at: s.opens_at, closes_at: s.closes_at }))
-            : [{ opens_at: null, closes_at: null }]
+            ? entityData.slots.map(s => ({ opens_at: s.opens_at, closes_at: s.closes_at, closes_next_day: s.closes_next_day ?? false }))
+            : [{ opens_at: null, closes_at: null, closes_next_day: false }]
     );
 
     const [dateError, setDateError] = useState<string>();
@@ -104,7 +106,7 @@ export const ActivityClosureForm: React.FC<ActivityClosureFormProps> = ({
     const handleIsClosedChange = useCallback((checked: boolean) => {
         setIsClosed(checked);
         if (!checked && slots.length === 0) {
-            setSlots([{ opens_at: null, closes_at: null }]);
+            setSlots([{ opens_at: null, closes_at: null, closes_next_day: false }]);
         }
     }, [slots.length]);
 
@@ -113,14 +115,14 @@ export const ActivityClosureForm: React.FC<ActivityClosureFormProps> = ({
     }, []);
 
     const addSlot = useCallback(() => {
-        setSlots(prev => prev.length < MAX_SLOTS ? [...prev, { opens_at: null, closes_at: null }] : prev);
+        setSlots(prev => prev.length < MAX_SLOTS ? [...prev, { opens_at: null, closes_at: null, closes_next_day: false }] : prev);
     }, []);
 
     const removeSlot = useCallback((i: number) => {
         setSlots(prev => {
             if (prev.length <= 1) {
                 setIsClosed(true);
-                return [{ opens_at: null, closes_at: null }];
+                return [{ opens_at: null, closes_at: null, closes_next_day: false }];
             }
             return prev.filter((_, idx) => idx !== i);
         });
@@ -156,7 +158,7 @@ export const ActivityClosureForm: React.FC<ActivityClosureFormProps> = ({
                     ? null
                     : slots
                           .filter(s => s.opens_at && s.closes_at)
-                          .map(s => ({ opens_at: s.opens_at!, closes_at: s.closes_at! })),
+                          .map(s => ({ opens_at: s.opens_at!, closes_at: s.closes_at!, closes_next_day: s.closes_next_day })),
             };
             if (mode === "create") {
                 await createActivityClosure(tenantId, { ...payload, activity_id: activityId });
@@ -280,9 +282,25 @@ export const ActivityClosureForm: React.FC<ActivityClosureFormProps> = ({
                                             <span className={styles.slotSeparator}>–</span>
                                             <TimeInput
                                                 value={slot.closes_at ?? ""}
-                                                onChange={e => updateSlot(i, { closes_at: e.target.value || null })}
+                                                onChange={e => {
+                                                    const newClosesAt = e.target.value || null;
+                                                    const cnd =
+                                                        newClosesAt !== null && slot.opens_at !== null
+                                                            ? timesToMinutes(newClosesAt) < timesToMinutes(slot.opens_at)
+                                                            : false;
+                                                    updateSlot(i, { closes_at: newClosesAt, closes_next_day: cnd });
+                                                }}
                                                 aria-label={`Fascia ${i + 1} chiusura`}
                                             />
+                                            {slot.closes_next_day && (
+                                                <span
+                                                    className={styles.overnightBadge}
+                                                    title="Chiude il giorno successivo"
+                                                    aria-label="Chiude il giorno successivo"
+                                                >
+                                                    +1
+                                                </span>
+                                            )}
                                             <button
                                                 type="button"
                                                 className={styles.removeSlotBtn}

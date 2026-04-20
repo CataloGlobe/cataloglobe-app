@@ -268,11 +268,11 @@ export function RuleRow({
                         }
                         placement="bottom-end"
                     >
-                        <DropdownItem onClick={() => onDuplicate(rule.id)}>
+                        <DropdownItem onClick={e => { e.stopPropagation(); onDuplicate(rule.id); }}>
                             <Copy size={14} />
                             <span>Duplica</span>
                         </DropdownItem>
-                        <DropdownItem onClick={() => onDelete(rule.id)} danger>
+                        <DropdownItem onClick={e => { e.stopPropagation(); onDelete(rule.id); }} danger>
                             <Trash2 size={14} />
                             <span>Elimina</span>
                         </DropdownItem>

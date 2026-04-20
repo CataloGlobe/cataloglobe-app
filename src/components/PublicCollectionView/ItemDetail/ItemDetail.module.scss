@@ -26,7 +26,7 @@
     align-items: center;
     gap: 5px;
     padding: 5px 10px;
-    border-radius: 6px;
+    border-radius: var(--pub-btn-radius, 6px);
     border: none;
     background: color-mix(in srgb, var(--pub-text, #000) 8%, transparent);
     color: var(--pub-text, #333);
@@ -76,7 +76,7 @@
 .placeholderImage {
     width: 100%;
     aspect-ratio: 16/9;
-    border-radius: 12px;
+    border-radius: var(--pub-radius, 12px);
     height: auto;
     display: block;
     object-fit: cover;
@@ -189,4 +189,242 @@
 
 .ingredientList {
     line-height: 1.5;
+}
+
+/* ── Section label row (formato / add-on) ────────────────────────────────── */
+
+.sectionLabelRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.requiredBadge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--pub-primary, #7C5200);
+    background: color-mix(in srgb, var(--pub-primary, #7C5200) 10%, transparent);
+    border-radius: var(--pub-btn-radius, 4px);
+    padding: 2px 5px;
+}
+
+.sectionLabelHint {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--pub-surface-text-muted);
+}
+
+/* ── Formato pill selector ───────────────────────────────────────────────── */
+
+.formatSection {
+    padding-top: 4px;
+}
+
+.formatPills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.formatPill {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 14px;
+    border-radius: var(--pub-radius, 10px);
+    border: 1.5px solid var(--pub-surface-border);
+    background: var(--pub-surface, #fff);
+    color: var(--pub-surface-text);
+    cursor: pointer;
+    font-family: var(--pub-font-family, sans-serif);
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+    min-width: 72px;
+
+    &:hover:not(.formatPillActive) {
+        border-color: color-mix(in srgb, var(--pub-primary, #333) 40%, transparent);
+        background: color-mix(in srgb, var(--pub-primary, #333) 5%, transparent);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pub-primary, #333);
+        outline-offset: 2px;
+    }
+}
+
+.formatPillActive {
+    border-color: var(--pub-primary, #333);
+    background: var(--pub-primary, #333);
+    color: var(--pub-cta-text, #fff);
+}
+
+.formatPillName {
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.formatPillPrice {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    font-size: 0.78rem;
+    font-weight: 400;
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.formatPillPriceOriginal {
+    text-decoration: line-through;
+    opacity: 0.6;
+    font-size: 0.72rem;
+}
+
+/* ── Add-on checkbox list ────────────────────────────────────────────────── */
+
+.addonsSection {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-top: 4px;
+}
+
+.addonGroup {
+    display: flex;
+    flex-direction: column;
+}
+
+.addonList {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.addonRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--pub-surface-border) 60%, transparent);
+    cursor: pointer;
+    user-select: none;
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.addonRowDisabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.addonCheckbox {
+    flex-shrink: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 1.5px solid var(--pub-surface-border);
+    background: var(--pub-surface, #fff);
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.12s ease, background 0.12s ease;
+
+    &:checked {
+        border-color: var(--pub-primary, #333);
+        background: var(--pub-primary, #333);
+
+        &::after {
+            content: "";
+            position: absolute;
+            top: 2px;
+            left: 5px;
+            width: 5px;
+            height: 9px;
+            border: 2px solid var(--pub-cta-text, #fff);
+            border-top: none;
+            border-left: none;
+            transform: rotate(45deg);
+        }
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+    }
+}
+
+.addonName {
+    flex: 1;
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--pub-surface-text);
+    font-family: var(--pub-font-family, sans-serif);
+    line-height: 1.3;
+}
+
+.addonPrice {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--pub-surface-text-muted);
+    font-family: var(--pub-font-family, sans-serif);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.addonPricePositive {
+    color: var(--pub-primary, #7C5200);
+    font-weight: 600;
+}
+
+.addonPriceNegative {
+    color: #16a34a;
+    font-weight: 600;
+}
+
+/* ── Sticky CTA bar ──────────────────────────────────────────────────────── */
+
+.addToSelectionBar {
+    flex-shrink: 0;
+    padding: 12px 16px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
+    border-top: 1px solid var(--pub-surface-border);
+    background: var(--pub-surface, #fff);
+}
+
+.addToSelectionBtn {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 14px 20px;
+    border-radius: var(--pub-btn-radius, 8px);
+    border: none;
+    background: var(--pub-primary, #333);
+    color: var(--pub-cta-text, #fff);
+    font-size: 15px;
+    font-weight: 600;
+    font-family: var(--pub-font-family, sans-serif);
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+    line-height: 1.3;
+
+    &:hover:not(:disabled) {
+        opacity: 0.88;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pub-primary, #333);
+        outline-offset: 3px;
+    }
+
+    &:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
 }

@@ -343,6 +343,59 @@ export async function removeProductFromCategory(tenantId: string, linkId: string
     if (error) throw error;
 }
 
+// ==========================================
+// REPARENTING
+// ==========================================
+export async function reparentCategory(
+    categoryId: string,
+    tenantId: string,
+    newParentId: string | null,
+    newLevel: 1 | 2 | 3,
+    newSortOrder: number
+): Promise<void> {
+    await updateCategory(categoryId, tenantId, {
+        parent_category_id: newParentId,
+        level: newLevel,
+        sort_order: newSortOrder
+    });
+}
+
+export async function updateDescendantLevels(
+    categoryId: string,
+    tenantId: string,
+    levelDiff: number,
+    allCategories: V2CatalogCategory[]
+): Promise<void> {
+    const childrenMap = new Map<string, string[]>();
+    for (const cat of allCategories) {
+        if (!cat.parent_category_id) continue;
+        const arr = childrenMap.get(cat.parent_category_id) ?? [];
+        arr.push(cat.id);
+        childrenMap.set(cat.parent_category_id, arr);
+    }
+
+    const descendantIds: string[] = [];
+    const stack = [...(childrenMap.get(categoryId) ?? [])];
+    while (stack.length > 0) {
+        const id = stack.pop()!;
+        descendantIds.push(id);
+        stack.push(...(childrenMap.get(id) ?? []));
+    }
+
+    if (descendantIds.length === 0) return;
+
+    const catMap = new Map(allCategories.map(c => [c.id, c]));
+    await Promise.all(
+        descendantIds.map(descId => {
+            const desc = catMap.get(descId);
+            if (!desc) return Promise.resolve();
+            return updateCategory(descId, tenantId, {
+                level: (desc.level + levelDiff) as 1 | 2 | 3
+            });
+        })
+    );
+}
+
 export async function updateProductSortOrder(
     linkId: string,
     tenantId: string,

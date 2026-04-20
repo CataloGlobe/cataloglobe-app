@@ -112,6 +112,7 @@ export function parseTokens(rawJson: any): StyleTokenModel {
             headerBackground:
                 rawColors.headerBackground ||
                 rawHeader.background ||
+                rawColors.primary ||
                 DEFAULT_STYLE_TOKENS.colors.headerBackground,
             textPrimary: rawColors.textPrimary || DEFAULT_STYLE_TOKENS.colors.textPrimary,
             textSecondary: rawColors.textSecondary || DEFAULT_STYLE_TOKENS.colors.textSecondary,

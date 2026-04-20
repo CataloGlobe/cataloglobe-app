@@ -54,7 +54,6 @@ export interface DeletedTenant {
     id: string;
     name: string;
     vertical_type: string;
-    business_subtype: string | null;
     created_at: string;
     deleted_at: string;
 }
@@ -129,6 +128,9 @@ export async function restoreTenant(tenantId: string): Promise<void> {
             if (status === 409) {
                 throw new Error("Questa attività non risulta eliminata.");
             }
+            if (status === 410) {
+                throw new Error("Il periodo di ripristino di 30 giorni è scaduto. L'attività non può più essere ripristinata.");
+            }
         }
         throw error;
     }
@@ -166,6 +168,17 @@ export async function purgeTenantNow(tenantId: string): Promise<void> {
         }
         throw error;
     }
+}
+
+/**
+ * Updates the name of a tenant. Only fields explicitly passed are updated.
+ */
+export async function updateTenantName(tenantId: string, name: string): Promise<void> {
+    const { error } = await supabase
+        .from("tenants")
+        .update({ name })
+        .eq("id", tenantId);
+    if (error) throw error;
 }
 
 /**

@@ -135,6 +135,7 @@ export type V2FeaturedContent = {
     status: "draft" | "published";
     layout_style: string | null;
     pricing_mode: "none" | "per_item" | "bundle";
+    content_type: "announcement" | "event" | "promo" | "bundle";
     bundle_price: number | null;
     show_original_total: boolean;
     products?: Array<{

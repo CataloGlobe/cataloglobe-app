@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { usePageTitle } from '@/hooks/usePageTitle';
 import { motion, useInView } from 'framer-motion';
 import s from './LandingPage.module.scss';
 import {
@@ -817,6 +818,7 @@ function Footer() {
 
 // ─── Landing Page ─────────────────────────────────────
 export default function LandingPage() {
+    usePageTitle();
     return (
         <div className={s.landing}>
             <Navbar />

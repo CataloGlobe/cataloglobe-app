@@ -80,7 +80,7 @@
     border: none;
     cursor: pointer;
     padding: 4px;
-    border-radius: 6px;
+    border-radius: var(--pub-btn-radius, 6px);
     transition: transform 0.15s ease;
 
     &:hover {
@@ -187,7 +187,7 @@
     align-items: center;
     gap: 12px;
     padding: 14px 18px;
-    border-radius: 12px;
+    border-radius: var(--pub-radius, 12px);
 }
 
 .ratingSummaryEmoji {
@@ -281,8 +281,8 @@
     width: 100%;
     box-sizing: border-box;
     padding: 12px 14px;
-    border-radius: 10px;
-    border: 1.5px solid var(--pub-border, #e2e8f0);
+    border-radius: var(--pub-btn-radius, 10px);
+    border: 1.5px solid var(--pub-surface-border);
     background: var(--pub-surface, #fff);
     color: var(--pub-text);
     font-size: 0.9rem;
@@ -293,8 +293,8 @@
     min-height: 100px;
 
     &:focus {
-        border-color: #6366f1;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        border-color: var(--pub-primary);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--pub-primary) 10%, transparent);
     }
 
     &::placeholder {
@@ -327,10 +327,10 @@
 .submitBtn {
     width: 100%;
     padding: 12px 18px;
-    border-radius: 10px;
+    border-radius: var(--pub-btn-radius, 10px);
     border: none;
-    background: linear-gradient(135deg, #6366f1, #818cf8);
-    color: #fff;
+    background: var(--pub-primary);
+    color: var(--pub-cta-text);
     font-size: 0.95rem;
     font-weight: 600;
     font-family: inherit;
@@ -368,8 +368,8 @@
 .spinner {
     width: 40px;
     height: 40px;
-    border: 3px solid #e5e7eb;
-    border-top-color: #6366f1;
+    border: 3px solid var(--pub-surface-border);
+    border-top-color: var(--pub-primary);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
 }
@@ -437,8 +437,8 @@
     margin-top: 20px;
     padding: 20px;
     background: var(--pub-surface, #fff);
-    border: 1px solid var(--pub-border, #e2e8f0);
-    border-radius: 14px;
+    border: 1px solid var(--pub-surface-border);
+    border-radius: var(--pub-radius, 14px);
     max-width: 360px;
     width: 100%;
     animation: fadeUp 0.4s ease both;
@@ -480,8 +480,8 @@
     align-items: center;
     gap: 8px;
     padding: 10px 20px;
-    border-radius: 10px;
-    border: 1px solid #d1d5db;
+    border-radius: var(--pub-radius, 10px);
+    border: 1px solid var(--pub-surface-border);
     background: #fff;
     color: var(--pub-text);
     font-size: 0.85rem;

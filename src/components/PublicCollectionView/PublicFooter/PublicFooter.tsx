@@ -90,23 +90,6 @@ function whatsappHref(value: string): string {
     return `https://wa.me/${digits}`;
 }
 
-/* ── Logo CataloGlobe SVG ─────────────────────────────────── */
-function CataloGlobeLogo() {
-    return (
-        <svg
-            width="22"
-            height="22"
-            viewBox="0 0 22 22"
-            fill="none"
-            aria-hidden
-        >
-            <circle cx="11" cy="11" r="9.5" stroke="#6366f1" strokeWidth="1.5" />
-            <ellipse cx="11" cy="11" rx="4.5" ry="9.5" stroke="#6366f1" strokeWidth="1.5" />
-            <line x1="1.5" y1="11" x2="20.5" y2="11" stroke="#6366f1" strokeWidth="1.5" />
-        </svg>
-    );
-}
-
 /* ── Componente ───────────────────────────────────────────── */
 
 type SocialType = "website" | "instagram" | "facebook" | "whatsapp" | "phone" | "email";
@@ -122,6 +105,22 @@ export default function PublicFooter({ socialLinks, activityId, openingHours, up
     // Costruisce la lista di social visibili
     const visibleSocials: { href: string; label: string; icon: ReactNode; socialType: SocialType }[] = [];
 
+    if (socialLinks?.phone && socialLinks.phone_public) {
+        visibleSocials.push({
+            href: `tel:${socialLinks.phone}`,
+            label: "Telefono",
+            icon: <IconPhone />,
+            socialType: "phone"
+        });
+    }
+    if (socialLinks?.email_public && socialLinks.email_public_visible) {
+        visibleSocials.push({
+            href: `mailto:${socialLinks.email_public}`,
+            label: "Email",
+            icon: <IconMail />,
+            socialType: "email"
+        });
+    }
     if (socialLinks?.website && socialLinks.website_public) {
         visibleSocials.push({
             href: ensureHttps(socialLinks.website),
@@ -152,22 +151,6 @@ export default function PublicFooter({ socialLinks, activityId, openingHours, up
             label: "WhatsApp",
             icon: <IconWhatsApp />,
             socialType: "whatsapp"
-        });
-    }
-    if (socialLinks?.phone && socialLinks.phone_public) {
-        visibleSocials.push({
-            href: `tel:${socialLinks.phone}`,
-            label: "Telefono",
-            icon: <IconPhone />,
-            socialType: "phone"
-        });
-    }
-    if (socialLinks?.email_public && socialLinks.email_public_visible) {
-        visibleSocials.push({
-            href: `mailto:${socialLinks.email_public}`,
-            label: "Email",
-            icon: <IconMail />,
-            socialType: "email"
         });
     }
 
@@ -212,10 +195,7 @@ export default function PublicFooter({ socialLinks, activityId, openingHours, up
                 aria-label="Powered by CataloGlobe"
             >
                 <span className={styles.poweredByLabel}>Powered by</span>
-                <div className={styles.brandRow}>
-                    <CataloGlobeLogo />
-                    <span className={styles.brandName}>CataloGlobe</span>
-                </div>
+                <span className={styles.brandName}>CataloGlobe</span>
             </a>
 
             {/* Legal links */}

@@ -152,8 +152,10 @@ export default function Highlights() {
     };
 
     const filteredContents = useMemo(() => {
+        const q = searchQuery.toLowerCase();
         return contents.filter(item =>
-            item.title.toLowerCase().includes(searchQuery.toLowerCase())
+            item.title.toLowerCase().includes(q) ||
+            item.internal_name.toLowerCase().includes(q)
         );
     }, [contents, searchQuery]);
 
@@ -165,17 +167,16 @@ export default function Highlights() {
             cell: (_value, item) => (
                 <div className={styles.titleCell}>
                     <Text variant="body-sm" weight={600}>
-                        {item.title}
+                        {item.internal_name}
                     </Text>
-                    {item.subtitle ? (
+                    {item.title !== item.internal_name && (
                         <Text variant="caption" colorVariant="muted" className={styles.subtitle}>
-                            {item.subtitle}
-                        </Text>
-                    ) : (
-                        <Text variant="caption" colorVariant="muted" className={styles.subtitle}>
-                            Nessun sottotitolo
+                            {item.title}
                         </Text>
                     )}
+                    <Text variant="caption" colorVariant="muted" className={styles.subtitle}>
+                        {item.subtitle || "Nessun sottotitolo"}
+                    </Text>
                 </div>
             )
         },

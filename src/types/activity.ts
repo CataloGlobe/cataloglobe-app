@@ -7,6 +7,7 @@ export interface V2Activity {
     address: string | null;
     street_number: string | null;
     postal_code: string | null;
+    province: string | null;
     city: string | null;
     cover_image: string | null;
     description: string | null;

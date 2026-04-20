@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from "react";
-import { Clock, ImageIcon, Search } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { BookOpen, CalendarDays, ImageIcon, Info, MessageSquareHeart, Search } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
 
-const HUB_TABS: { id: HubTab; label: string }[] = [
-    { id: "menu", label: "📋 Menu" },
-    { id: "events", label: "🎉 Eventi & Promo" },
-    { id: "reviews", label: "⭐ Dicci la tua" },
+const HUB_TABS: { id: HubTab; icon: ReactNode; label: string }[] = [
+    { id: "menu", icon: <BookOpen size={14} />, label: "Menu" },
+    { id: "events", icon: <CalendarDays size={14} />, label: "Eventi & Promo" },
+    { id: "reviews", icon: <MessageSquareHeart size={14} />, label: "Dicci la tua" },
 ];
 
 export type PublicCollectionHeaderProps = {
@@ -35,10 +35,10 @@ export type PublicCollectionHeaderProps = {
     activeTab: HubTab;
     /** Callback per cambio tab. */
     onTabChange: (tab: HubTab) => void;
-    /** True se ci sono orari di apertura da mostrare. */
-    hasHours?: boolean;
-    /** Chiamato al tap sull'icona orologio. */
-    onHoursPress?: () => void;
+    /** True se ci sono informazioni sede da mostrare (orari, pagamenti, servizi, contatti). */
+    hasInfo?: boolean;
+    /** Chiamato al tap sull'icona info. */
+    onInfoPress?: () => void;
 };
 
 export default function PublicCollectionHeader({
@@ -57,8 +57,8 @@ export default function PublicCollectionHeader({
     scrollContainerEl,
     activeTab,
     onTabChange,
-    hasHours,
-    onHoursPress
+    hasInfo,
+    onInfoPress
 }: PublicCollectionHeaderProps) {
     const heroAreaRef = useRef<HTMLDivElement | null>(null);
     const compactBarRef = useRef<HTMLDivElement | null>(null);
@@ -199,18 +199,18 @@ export default function PublicCollectionHeader({
                                 )}
                             </div>
 
-                            {hasHours && onHoursPress && (
+                            <LanguageSelector variant="hero" />
+
+                            {hasInfo && onInfoPress && (
                                 <button
                                     type="button"
-                                    className={styles.infoCardHoursBtn}
-                                    onClick={onHoursPress}
-                                    aria-label="Orari di apertura"
+                                    className={styles.infoCardInfoBtn}
+                                    onClick={onInfoPress}
+                                    aria-label="Informazioni sede"
                                 >
-                                    <Clock size={15} strokeWidth={2} />
+                                    <Info size={15} strokeWidth={2} />
                                 </button>
                             )}
-
-                            <LanguageSelector variant="hero" />
 
                             <button
                                 type="button"
@@ -236,7 +236,7 @@ export default function PublicCollectionHeader({
                                     ].filter(Boolean).join(" ")}
                                     onClick={() => onTabChange(t.id)}
                                 >
-                                    {t.label}
+                                    {t.icon} {t.label}
                                 </button>
                             ))}
                         </div>
@@ -277,6 +277,17 @@ export default function PublicCollectionHeader({
 
                                 <LanguageSelector variant="compact" />
 
+                                {hasInfo && onInfoPress && (
+                                    <button
+                                        type="button"
+                                        className={styles.compactInfoBtn}
+                                        onClick={onInfoPress}
+                                        aria-label="Informazioni sede"
+                                    >
+                                        <Info size={16} strokeWidth={2} />
+                                    </button>
+                                )}
+
                                 <button
                                     type="button"
                                     className={styles.compactSearchBtn}
@@ -298,7 +309,7 @@ export default function PublicCollectionHeader({
                                         ].filter(Boolean).join(" ")}
                                         onClick={() => onTabChange(t.id)}
                                     >
-                                        {t.label}
+                                        {t.icon} {t.label}
                                     </button>
                                 ))}
                             </div>

@@ -1,4 +1,5 @@
 import { useLocation } from "react-router-dom";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui";
 import styles from "./Auth.module.scss";
@@ -8,6 +9,7 @@ type LocationState = {
 };
 
 export default function CheckEmail() {
+    usePageTitle('Controlla Email');
     const location = useLocation();
     const state = location.state as LocationState | null;
     const email = state?.email;

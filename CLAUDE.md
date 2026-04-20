@@ -233,7 +233,7 @@ Due tipi di regola sullo stesso modello `schedules`:
 
 **Tabelle principali** (selezionate):
 - `tenants` — aziende/brand
-- `activities` — sedi (slug, status, inactive_reason, cover_image, contatti, social)
+- `activities` — sedi (slug, status, inactive_reason, cover_image, contatti, social, street_number, postal_code, province — indirizzo strutturato)
 - `activity_slug_aliases` — alias slug storici per redirect (slug UNIQUE globale, ON DELETE CASCADE da activities)
 - `schedules` — regole scheduling (rule_type: "catalog" | "featured")
 - `schedule_targets` — target N:N (no RLS — security gap noto)
@@ -255,6 +255,7 @@ Due tipi di regola sullo stesso modello `schedules`:
 - `schedule_featured_contents.slot` — constraint CHECK a 2 valori: `before_catalog`, `after_catalog` (migration `20260414190000`, hero rimosso)
 - `schedules.start_at` — salvato come inizio giornata locale (`T00:00:00` locale → UTC via `toISOString()`)
 - `schedules.end_at` — salvato come fine giornata locale (`T23:59:59` locale → UTC via `toISOString()`)
+- `activity_hours.closes_next_day` — BOOLEAN DEFAULT false. Se `closes_at < opens_at`, il form imposta il flag automaticamente. Overlap detection usa `closes_at_minutes + 1440` per slot notturni. Stesso pattern per `activity_closures` (JSONB slots, `closes_next_day` è campo del JSON — nessun campo DB aggiuntivo).
 
 ---
 
@@ -273,7 +274,7 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 | `generate-menu-pdf` | ✅ | PDF menu (usa Puppeteer) |
 | `stripe-checkout` / `stripe-webhook` / `stripe-portal` / `stripe-update-seats` | ✅ | Sottoscrizione Stripe |
 | `submit-review` | ✅ | Invio recensione dalla pagina pubblica |
-| `search-google-places` | ✅ | Ricerca luoghi Google Places (form contatti sede) |
+| `search-google-places` | ✅ | Ricerca luoghi Google Places. Branch `query`: searchText per review URL (tab contatti). Branch `place_id`: Place Details con `addressComponents` per autocompletamento indirizzo strutturato (`address`, `street_number`, `postal_code`, `city`, `province`). |
 | `cleanup-draft-schedules` | ✅ | Elimina bozze schedules incomplete > 7 giorni (chiamata via pg_cron con PURGE_SECRET) |
 | `menu-ai-import` | ❌ DISABLED | Import AI da menu (non deployare senza abilitare) |
 
@@ -299,6 +300,7 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 - Import alias: `@components/`, `@services/`, `@context/`, `@types/`, `@utils/`, `@pages/`, `@layouts/`, `@styles/`. Mai `../../`.
 - Toast: `useToast().showToast({ message, type })`.
 - **Tooltip vs InfoTooltip**: regole d'uso in `memory/feedback_tooltip_guidelines.md`.
+- **`AddressAutocomplete`** (`src/components/ui/AddressAutocomplete/`) — autocompletamento indirizzo tramite Google Places (due step: searchText → place_id → addressComponents). Props: `onSelect(result: AddressResult)`. Usato in `BusinessCreateCard` e `ActivityIdentityForm`. Dopo selezione mostra pill di conferma con X per reset.
 
 ---
 

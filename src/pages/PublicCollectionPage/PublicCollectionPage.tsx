@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
@@ -177,6 +178,7 @@ type PublicBusiness = {
     street_number: string | null;
     postal_code: string | null;
     city: string | null;
+    province: string | null;
     instagram: string | null;
     instagram_public: boolean;
     facebook: string | null;
@@ -190,6 +192,8 @@ type PublicBusiness = {
     email_public: string | null;
     email_public_visible: boolean;
     google_review_url: string | null;
+    payment_methods: string[];
+    services: string[];
 };
 
 type PageState =
@@ -219,6 +223,7 @@ export default function PublicCollectionPage() {
     const [effectiveSimulate, setEffectiveSimulate] = useState<string | null>(null);
     const isSimulation = !!effectiveSimulate;
     const [state, setState] = useState<PageState>({ status: "loading" });
+    usePageTitle(state.status === "ready" ? state.business.name : undefined);
 
     useEffect(() => {
         if (!slug) {
@@ -321,12 +326,6 @@ export default function PublicCollectionPage() {
             cancelled = true;
         };
     }, [slug, simulateParam]);
-
-    useEffect(() => {
-        if (state.status === "ready") {
-            document.title = `${state.business.name} | CataloGlobe`;
-        }
-    }, [state]);
 
     const [activeTab, setActiveTab] = useState<HubTab>("menu");
     const handleTabChange = useCallback(
@@ -449,9 +448,7 @@ export default function PublicCollectionPage() {
             {isSimulation && (
                 <div
                     style={{
-                        position: "sticky",
-                        top: 0,
-                        zIndex: 9999,
+                        position: "relative",
                         display: "flex",
                         justifyContent: "center",
                         alignItems: "center",
@@ -528,6 +525,8 @@ export default function PublicCollectionPage() {
                     sessionId,
                     supabaseUrl
                 }}
+                paymentMethods={business.payment_methods}
+                activityServices={business.services}
             />
         </PublicThemeScope>
     );
