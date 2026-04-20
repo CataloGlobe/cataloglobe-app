@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, animate, motion, useMotionValue, useTransform, useDragControls } from "framer-motion";
 import styles from "./PublicSheet.module.scss";
 
@@ -45,28 +45,52 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
     const [shouldRender, setShouldRender] = useState(false);
     const isClosingRef = useRef(false);
 
-    // ── iOS Safari scroll lock ───────────────────────────────────────────────
-    useEffect(() => {
+    // ── Body lock state in refs — accessibili sia da useLayoutEffect che da triggerClose ──
+    // Salviamo i valori originali qui invece che nella closure del useLayoutEffect,
+    // così triggerClose può rilasciare il lock direttamente senza aspettare React.
+    const savedScrollYRef = useRef(0);
+    const prevBodyStyleRef = useRef({ overflow: "", position: "", top: "", width: "" });
+    // true = lock non attivo (iniziale o già rilasciato); false = lock attivo
+    const bodyLockReleasedRef = useRef(true);
+
+    // ── Rilascio body lock — sicuro da chiamare più volte (idempotente) ──────
+    const releaseBodyLock = useCallback(() => {
+        if (bodyLockReleasedRef.current) return;
+        bodyLockReleasedRef.current = true;
+        const prev = prevBodyStyleRef.current;
+        document.body.style.overflow = prev.overflow;
+        document.body.style.position = prev.position;
+        document.body.style.top = prev.top;
+        document.body.style.width = prev.width;
+        window.scrollTo(0, savedScrollYRef.current);
+    }, []);
+
+    // ── iOS Safari scroll lock — useLayoutEffect per rilascio sincrono pre-paint ─
+    // useLayoutEffect cleanup esegue PRIMA del paint, eliminando il frame dove il body
+    // è ancora bloccato ma il sheet è già stato rimosso dal DOM.
+    useLayoutEffect(() => {
         if (!isOpen) return;
-        const scrollY = window.scrollY;
-        const prevOverflow = document.body.style.overflow;
-        const prevPosition = document.body.style.position;
-        const prevTop = document.body.style.top;
-        const prevWidth = document.body.style.width;
+
+        savedScrollYRef.current = window.scrollY;
+        prevBodyStyleRef.current = {
+            overflow: document.body.style.overflow,
+            position: document.body.style.position,
+            top: document.body.style.top,
+            width: document.body.style.width,
+        };
+        bodyLockReleasedRef.current = false;
 
         document.body.style.overflow = "hidden";
         document.body.style.position = "fixed";
-        document.body.style.top = `-${scrollY}px`;
+        document.body.style.top = `-${savedScrollYRef.current}px`;
         document.body.style.width = "100%";
 
         return () => {
-            document.body.style.overflow = prevOverflow;
-            document.body.style.position = prevPosition;
-            document.body.style.top = prevTop;
-            document.body.style.width = prevWidth;
-            window.scrollTo(0, scrollY);
+            // Fallback: se triggerClose non ha già rilasciato il lock (es. isOpen settato
+            // a false dall'esterno senza passare per triggerClose), lo rilascia qui.
+            releaseBodyLock();
         };
-    }, [isOpen]);
+    }, [isOpen, releaseBodyLock]);
 
     // ── Open trigger ─────────────────────────────────────────────────────────
     useEffect(() => {
@@ -101,12 +125,15 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                     velocity: velocityY,
                     restDelta: 1,
                 });
+                // Rilascio body lock PRIMA dello smontaggio React — l'utente può
+                // scrollare/interagire immediatamente senza aspettare il commit React.
+                releaseBodyLock();
                 setShouldRender(false);
             }
 
             onClose();
         },
-        [isMobile, onClose, y]
+        [isMobile, onClose, releaseBodyLock, y]
     );
 
     // ── Escape key ───────────────────────────────────────────────────────────
