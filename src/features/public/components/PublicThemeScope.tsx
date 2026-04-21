@@ -11,6 +11,7 @@ type Props = {
     tokens?: StyleTokenModel;
     /** Raw ResolvedStyle from the DB. Parsed internally when `tokens` is not provided. */
     style?: ResolvedStyle | null;
+    className?: string;
     children: React.ReactNode;
 };
 
@@ -21,12 +22,12 @@ type Props = {
  * Variables are inherited by all descendant components so var(--pub-*)
  * references continue to resolve correctly without touching :root.
  */
-export default function PublicThemeScope({ tokens: tokensProp, style, children }: Props) {
+export default function PublicThemeScope({ tokens: tokensProp, style, className, children }: Props) {
     const tokens = tokensProp ?? parseTokens(style?.config ?? null);
     const cssVars = mapStyleTokensToCssVars(tokens);
 
     return (
-        <div style={cssVars as React.CSSProperties}>
+        <div className={className} style={cssVars as React.CSSProperties}>
             {children}
         </div>
     );

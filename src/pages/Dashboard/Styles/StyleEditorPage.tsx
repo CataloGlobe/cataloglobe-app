@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
-import { IconLayoutSidebarRightCollapse, IconX, IconChevronDown } from "@tabler/icons-react";
+import { IconLayoutSidebarRightCollapse, IconX, IconChevronDown, IconDeviceMobile, IconDeviceDesktop } from "@tabler/icons-react";
 import {
     getStyle,
     updateStyle,
@@ -15,7 +15,8 @@ import {
     V2Style
 } from "@/services/supabase/styles";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { StylePreview } from "./Editor/StylePreview";
+import { StylePreview, type ViewMode } from "./Editor/StylePreview";
+import previewStyles from "./Editor/StylePreview.module.scss";
 import { StylePropertiesPanel } from "./Editor/StylePropertiesPanel";
 import { StylePropertiesReadOnly } from "./Editor/StylePropertiesReadOnly";
 import { StyleVersionsPopover } from "./Editor/StyleVersionsPopover";
@@ -38,6 +39,19 @@ export default function StyleEditorPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isDuplicating, setIsDuplicating] = useState(false);
     const [isPanelOpen, setIsPanelOpen] = useState(true);
+    const [viewMode, setViewMode] = useState<ViewMode>("mobile");
+    const [isViewTransitioning, setIsViewTransitioning] = useState(false);
+    const transitionTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+    const handleViewModeChange = useCallback((mode: ViewMode) => {
+        if (mode === viewMode) return;
+        clearTimeout(transitionTimer.current);
+        setIsViewTransitioning(true);
+        transitionTimer.current = setTimeout(() => {
+            setViewMode(mode);
+            requestAnimationFrame(() => setIsViewTransitioning(false));
+        }, 250);
+    }, [viewMode]);
 
     const [styleData, setStyleData] = useState<V2Style | null>(null);
     const [name, setName] = useState("");
@@ -217,9 +231,7 @@ export default function StyleEditorPage() {
             <section className={styles.container}>
                 <div className={styles.editorLayout}>
                     <div className={styles.canvasCol}>
-                        <div className={styles.canvasBreadcrumb}>
-                            <Breadcrumb items={[{ label: "Stili" }, { label: "…" }]} />
-                        </div>
+                        <div className={styles.canvasArea} />
                     </div>
                 </div>
             </section>
@@ -230,11 +242,8 @@ export default function StyleEditorPage() {
         <section className={styles.container}>
             <div className={styles.editorLayout}>
 
-                {/* ── Colonna sinistra: canvas ── */}
+                {/* ── Colonna sinistra: canvas (solo preview) ── */}
                 <div className={styles.canvasCol}>
-                    <div className={styles.canvasBreadcrumb}>
-                        <Breadcrumb items={breadcrumbItems} />
-                    </div>
                     <div className={styles.canvasArea}>
                         {!isPanelOpen && (
                             <button
@@ -246,7 +255,11 @@ export default function StyleEditorPage() {
                                 Proprietà
                             </button>
                         )}
-                        <StylePreview model={versioning.previewOverrideTokens ?? tokenModel} />
+                        <StylePreview
+                            model={versioning.previewOverrideTokens ?? tokenModel}
+                            viewMode={viewMode}
+                            isTransitioning={isViewTransitioning}
+                        />
                     </div>
                 </div>
 
@@ -254,16 +267,45 @@ export default function StyleEditorPage() {
                 {isPanelOpen && (
                     <div className={styles.propertiesPanel}>
 
-                        {/* Header sticky */}
+                        {/* Breadcrumb row */}
+                        <div className={styles.panelBreadcrumb}>
+                            <Breadcrumb items={breadcrumbItems} />
+                            <button
+                                type="button"
+                                className={styles.panelCloseBtn}
+                                onClick={() => setIsPanelOpen(false)}
+                            >
+                                <IconX size={15} />
+                            </button>
+                        </div>
+
+                        {/* Toggle + actions row */}
                         <div className={styles.panelHeader}>
-                            <div className={styles.panelTitleRow}>
-                                <span className={styles.panelTitle}>Proprietà stile</span>
+                            <div className={previewStyles.toggleBar}>
+                                <div
+                                    className={`${previewStyles.toggleIndicator} ${
+                                        viewMode === "desktop" ? previewStyles.toggleIndicatorDesktop : ""
+                                    }`}
+                                />
                                 <button
                                     type="button"
-                                    className={styles.panelCloseBtn}
-                                    onClick={() => setIsPanelOpen(false)}
+                                    className={`${previewStyles.toggleBtn} ${
+                                        viewMode === "mobile" ? previewStyles.toggleBtnActive : ""
+                                    }`}
+                                    onClick={() => handleViewModeChange("mobile")}
                                 >
-                                    <IconX size={15} />
+                                    <IconDeviceMobile size={14} stroke={2} />
+                                    Mobile
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`${previewStyles.toggleBtn} ${
+                                        viewMode === "desktop" ? previewStyles.toggleBtnActive : ""
+                                    }`}
+                                    onClick={() => handleViewModeChange("desktop")}
+                                >
+                                    <IconDeviceDesktop size={14} stroke={2} />
+                                    Desktop
                                 </button>
                             </div>
 
