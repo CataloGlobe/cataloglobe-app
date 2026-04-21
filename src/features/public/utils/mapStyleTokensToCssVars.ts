@@ -73,7 +73,7 @@ function contrastText(bgHex: string): string {
  * Generates the CSS background-image value for a given pattern + primary color.
  * Returns [backgroundImage, backgroundSize] tuple.
  */
-function getPatternCss(pattern: string, primaryHex: string): [string, string] {
+export function getPatternCss(pattern: string, primaryHex: string): [string, string] {
     const { r, g, b } = parseHex(primaryHex);
     const rgba = (opacity: number) => `rgba(${r},${g},${b},${opacity})`;
 
