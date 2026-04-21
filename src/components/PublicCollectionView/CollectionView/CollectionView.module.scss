@@ -261,8 +261,8 @@
     }
 
     .addBtn {
-      width: 24px;
-      height: 24px;
+      min-width: 44px;
+      min-height: 44px;
     }
 
     .addBtnBadge {
@@ -868,8 +868,10 @@
 ---------------------------------------------------- */
 
 .addBtn {
-  width: 32px;
-  height: 32px;
+  /* Area tappabile minima 44×44px (Apple HIG). L'icona resta centrata
+     dentro un'area più grande — nessun cambio visivo, solo più facile da toccare. */
+  min-width: 44px;
+  min-height: 44px;
   flex-shrink: 0;
   align-self: center;
   border-radius: var(--pub-btn-radius, 8px);
@@ -882,11 +884,20 @@
   cursor: pointer;
   position: relative;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  /* Tap su mobile: il browser default :focus persiste fino al prossimo tocco.
+     :focus-visible limita l'evidenziazione alla navigazione da tastiera. */
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
     background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
     color: var(--pub-text);
     border-color: color-mix(in srgb, var(--pub-text) 20%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-primary, #333);
+    outline-offset: 2px;
   }
 }
 

@@ -61,7 +61,8 @@
 /* ── DROPDOWN (portale su document.body) ────────────────── */
 .dropdown {
   position: fixed;
-  z-index: 10000;
+  /* Sopra il contenuto (nav, header) ma sotto PublicSheet (900) e SearchOverlay */
+  z-index: 950;
   min-width: 170px;
   padding: 6px;
   background: var(--pub-surface, #fff);

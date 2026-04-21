@@ -22,7 +22,8 @@
 /* ── Close button (stesso stile di FeaturedPreviewModal) ─────────────────── */
 
 .closeBtn {
-    display: inline-flex;
+    /* Mobile: nascosto — l'utente chiude con drag, tap overlay o swipe */
+    display: none;
     align-items: center;
     gap: 5px;
     padding: 5px 10px;
@@ -34,10 +35,21 @@
     font-weight: 500;
     cursor: pointer;
     flex-shrink: 0;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
     transition: background 0.15s ease;
 
     &:hover {
         background: color-mix(in srgb, var(--pub-text, #000) 14%, transparent);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pub-primary, #333);
+        outline-offset: 2px;
+    }
+
+    @media (min-width: 640px) {
+        display: inline-flex;
     }
 }
 
