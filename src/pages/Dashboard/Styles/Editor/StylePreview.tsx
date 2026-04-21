@@ -1,5 +1,4 @@
-import { useState, useCallback } from "react";
-import { IconDeviceMobile, IconDeviceDesktop } from "@tabler/icons-react";
+import { useState } from "react";
 import { StyleTokenModel } from "./StyleTokenModel";
 import CollectionView, {
     type CollectionViewSectionGroup
@@ -14,8 +13,12 @@ import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import type { OpeningHoursEntry, UpcomingClosure } from "@/components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 import previewStyles from "./StylePreview.module.scss";
 
+export type ViewMode = "mobile" | "desktop";
+
 type StylePreviewProps = {
     model: StyleTokenModel;
+    viewMode: ViewMode;
+    isTransitioning?: boolean;
 };
 
 const MOCK_FEATURED: V2FeaturedContent[] = [
@@ -25,7 +28,7 @@ const MOCK_FEATURED: V2FeaturedContent[] = [
         title: "Happy Hour Estivo",
         subtitle: "Ogni giorno dalle 17 alle 19",
         description: null,
-        media_id: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=400&h=200&fit=crop",
+        media_id: null,
         cta_text: null,
         cta_url: null,
         status: "published",
@@ -290,21 +293,8 @@ const NAV_SHAPE_MAP: Record<string, SectionNavShape> = {
     dot: "pill"
 };
 
-export const StylePreview = ({ model }: StylePreviewProps) => {
-    const [viewMode, setViewMode] = useState<"mobile" | "desktop">("mobile");
-    const [isTransitioning, setIsTransitioning] = useState(false);
+export const StylePreview = ({ model, viewMode, isTransitioning = false }: StylePreviewProps) => {
     const [screenEl, setScreenEl] = useState<HTMLDivElement | null>(null);
-
-    const handleViewModeChange = useCallback((mode: "mobile" | "desktop") => {
-        if (mode === viewMode) return;
-        setIsTransitioning(true);
-        setTimeout(() => {
-            setViewMode(mode);
-            requestAnimationFrame(() => {
-                setIsTransitioning(false);
-            });
-        }, 250);
-    }, [viewMode]);
 
     const businessName = "Nome Sede";
 
@@ -334,37 +324,8 @@ export const StylePreview = ({ model }: StylePreviewProps) => {
 
     return (
         <div className={previewStyles.previewRoot}>
-            {/* Toggle */}
-            <div className={previewStyles.toggleBar}>
-                <div
-                    className={`${previewStyles.toggleIndicator} ${
-                        viewMode === "desktop" ? previewStyles.toggleIndicatorDesktop : ""
-                    }`}
-                />
-                <button
-                    type="button"
-                    className={`${previewStyles.toggleBtn} ${
-                        viewMode === "mobile" ? previewStyles.toggleBtnActive : ""
-                    }`}
-                    onClick={() => handleViewModeChange("mobile")}
-                >
-                    <IconDeviceMobile size={14} stroke={2} />
-                    Mobile
-                </button>
-                <button
-                    type="button"
-                    className={`${previewStyles.toggleBtn} ${
-                        viewMode === "desktop" ? previewStyles.toggleBtnActive : ""
-                    }`}
-                    onClick={() => handleViewModeChange("desktop")}
-                >
-                    <IconDeviceDesktop size={14} stroke={2} />
-                    Desktop
-                </button>
-            </div>
-
             {/* Device Frame */}
-            <PublicThemeScope tokens={model}>
+            <PublicThemeScope tokens={model} className={previewStyles.themeScopeWrapper}>
                 <div
                     className={`${previewStyles.deviceFrame} ${
                         viewMode === "mobile"

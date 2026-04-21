@@ -85,6 +85,8 @@ function scrollToSnap(el: HTMLElement, idx: number, totalCount: number) {
    ══════════════════════════════════════════════════════════════════════════ */
 
 export default function FeaturedBlock({ blocks, activityId, slot, layout = "card" }: Props) {
+    // Slot above-the-fold: immagini caricate eager con priorità alta
+    const isAboveFold = slot === "before_catalog";
     const [previewBlock, setPreviewBlock] = useState<V2FeaturedContent | null>(null);
     const trackRef = useRef<HTMLDivElement>(null);
     const [activeIndex, setActiveIndex] = useState(0);
@@ -153,6 +155,7 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
                     onCtaClick={() => handleCtaClick(blocks[0])}
                     className={styles.cardSingle}
                     variant={layout}
+                    eager={isAboveFold}
                 />
             </div>
             <FeaturedPreviewModal
@@ -192,6 +195,7 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
                         onCtaClick={() => handleCtaClick(block)}
                         className={styles.cardCarousel}
                         variant={layout}
+                        eager={isAboveFold}
                     />
                 ))}
             </div>

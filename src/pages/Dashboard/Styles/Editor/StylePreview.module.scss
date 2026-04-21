@@ -77,11 +77,21 @@
   font-weight: 600;
 }
 
+/* ── Theme scope wrapper — pass flex chain through ─────────────────────── */
+
+.themeScopeWrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ── Device Frame — shared base ─────────────────────────────────────────── */
 
 .deviceFrame {
   flex: 1;
   min-height: 0;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -109,7 +119,6 @@
 
 .deviceMobile {
   width: 375px;
-  max-height: 782px;
   border-radius: 24px;
   background: #fff;
   border: 1px solid var(--color-border);
@@ -120,7 +129,6 @@
 
 .deviceDesktop {
   width: min(1024px, 100%);
-  max-height: 700px;
   border-radius: 12px;
   background: #fff;
   border: 1px solid var(--color-border);

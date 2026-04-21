@@ -205,6 +205,12 @@ function ProductRow({
     const visibleAllergens = hasAllergens ? allergens!.slice(0, MAX_ALLERGEN_EMOJIS) : [];
     const hiddenCount = hasAllergens ? Math.max(0, allergens!.length - MAX_ALLERGEN_EMOJIS) : 0;
     const dp = getDisplayPrice({ fromPrice, price, effectivePrice, originalPrice });
+
+    // ── Fade-in immagine prodotto ─────────────────────────────────────────
+    const [imgLoaded, setImgLoaded] = useState(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => { setImgLoaded(false); }, [image]);
+
     return (
         <div
             className={`${styles.productRow} ${imageRight ? styles.productRowImageRight : ""}`}
@@ -220,7 +226,13 @@ function ProductRow({
                         />
                     </div>
                 ) : (
-                    <img src={image} alt={name} className={styles.rowImage} loading="lazy" />
+                    <img
+                        src={image}
+                        alt={name}
+                        className={`${styles.rowImage} ${imgLoaded ? styles.rowImageLoaded : ""}`}
+                        loading="lazy"
+                        onLoad={() => setImgLoaded(true)}
+                    />
                 ))}
             <div className={styles.rowBody}>
                 <div className={styles.titleRow}>
@@ -814,6 +826,8 @@ export default function CollectionView({
     // ── Valuta FAB ──────────────────────────────────────────────────────────
     const [valutaVisible, setValutaVisible] = useState(false);
     const [valutaExpanded, setValutaExpanded] = useState(false);
+    // true = visitatore di ritorno entro 4h, senza review recente → FAB idoneo
+    const valutaEligibleRef = useRef(false);
 
     // ── Keep first section active when sections load asynchronously ─────────
     useEffect(() => {
@@ -837,15 +851,79 @@ export default function CollectionView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab]);
 
-    // ── Valuta FAB: delay 3s, reset al cambio tab ────────────────────────────
+    // ── Valuta FAB: localStorage visit check + scroll 50% trigger ─────────
+    // 1. Primo accesso → salva timestamp, FAB nascosto
+    // 2. Ritorno entro 4h → FAB idoneo (appare dopo scroll ≥ 50%)
+    // 3. Ritorno dopo 4h+ → reset timestamp, FAB nascosto
+    // 4. Recensione inviata nelle ultime 24h → FAB nascosto
     useEffect(() => {
-        if (mode !== "public") return;
         setValutaVisible(false);
         setValutaExpanded(false);
-        if (activeTab !== "menu") return;
-        const timer = setTimeout(() => setValutaVisible(true), 3000);
-        return () => clearTimeout(timer);
-    }, [activeTab, mode]);
+        valutaEligibleRef.current = false;
+
+        if (mode !== "public" || activeTab !== "menu" || !activityId) return;
+
+        const FOUR_HOURS = 4 * 60 * 60 * 1000;
+        const TWENTYFOUR_HOURS = 24 * 60 * 60 * 1000;
+        const visitKey = `fab_visit_${activityId}`;
+        const reviewedKey = `fab_reviewed_${activityId}`;
+
+        try {
+            const now = Date.now();
+            const previousVisit = localStorage.getItem(visitKey);
+            const lastReview = localStorage.getItem(reviewedKey);
+
+            // Recensione inviata nelle ultime 24h → no FAB
+            if (lastReview && (now - parseInt(lastReview, 10)) < TWENTYFOUR_HOURS) return;
+
+            const prevTs = previousVisit ? parseInt(previousVisit, 10) : 0;
+            const isReturnVisit = previousVisit && (now - prevTs) < FOUR_HOURS;
+
+            if (!isReturnVisit) {
+                // Primo accesso o sessione scaduta → salva timestamp
+                localStorage.setItem(visitKey, now.toString());
+                return;
+            }
+
+            // Visitatore di ritorno entro 4h, no review recente → idoneo
+            valutaEligibleRef.current = true;
+        } catch {
+            // Safari private mode / quota exceeded — silenzioso
+        }
+    }, [activeTab, mode, activityId]);
+
+    // Scroll listener: mostra FAB quando scroll ≥ 50% (solo se eligible)
+    useEffect(() => {
+        if (!valutaEligibleRef.current || mode !== "public" || activeTab !== "menu") return;
+
+        const container = scrollContainerEl ?? window;
+        let ticking = false;
+
+        function onScroll() {
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(() => {
+                ticking = false;
+                let scrollPercent: number;
+                if (container === window) {
+                    const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+                    scrollPercent = scrollable > 0 ? window.scrollY / scrollable : 0;
+                } else {
+                    const el = container as HTMLElement;
+                    const scrollable = el.scrollHeight - el.clientHeight;
+                    scrollPercent = scrollable > 0 ? el.scrollTop / scrollable : 0;
+                }
+                if (scrollPercent >= 0.5) {
+                    setValutaVisible(true);
+                    // Una volta visibile, rimuovi il listener
+                    container.removeEventListener("scroll", onScroll);
+                }
+            });
+        }
+
+        container.addEventListener("scroll", onScroll, { passive: true });
+        return () => container.removeEventListener("scroll", onScroll);
+    }, [activeTab, mode, scrollContainerEl]);
 
     // ── Main scroll effect: section tracking + scroll-to-top visibility ─────
     useEffect(() => {
@@ -1708,7 +1786,21 @@ export default function CollectionView({
                 </div>
             )}
 
-            {activeTab === "reviews" && reviewsProps && <ReviewsView {...reviewsProps} />}
+            {activeTab === "reviews" && reviewsProps && (
+                <ReviewsView
+                    {...reviewsProps}
+                    onReviewSubmitted={() => {
+                        // Nascondi FAB e salva timestamp per sopprimerlo per 24h
+                        setValutaVisible(false);
+                        valutaEligibleRef.current = false;
+                        if (activityId) {
+                            try {
+                                localStorage.setItem(`fab_reviewed_${activityId}`, Date.now().toString());
+                            } catch { /* Safari private mode */ }
+                        }
+                    }}
+                />
+            )}
 
             {/* ── FAB SELEZIONE — solo public, solo tab menu, quando c'è almeno 1 elemento ── */}
             {mode === "public" && activeTab === "menu" && selectionCount > 0 && (

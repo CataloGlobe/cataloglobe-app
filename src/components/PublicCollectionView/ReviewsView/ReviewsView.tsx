@@ -9,6 +9,8 @@ export type ReviewsViewProps = {
     activityId: string;
     sessionId: string;
     supabaseUrl: string;
+    /** Notifica il parent dopo un submit riuscito (per nascondere il FAB). */
+    onReviewSubmitted?: () => void;
 };
 
 /* ── Rating config ──────────────────────────────────── */
@@ -68,6 +70,7 @@ export default function ReviewsView({
     activityId,
     sessionId,
     supabaseUrl,
+    onReviewSubmitted,
 }: ReviewsViewProps) {
     const [phase, setPhase] = useState<Phase>("stars");
     const [selectedStars, setSelectedStars] = useState(0);
@@ -124,6 +127,7 @@ export default function ReviewsView({
                         has_feedback_text: feedback.trim().length > 0
                     });
                     setPhase("thanks");
+                    onReviewSubmitted?.();
                     return;
                 }
             }

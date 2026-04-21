@@ -261,8 +261,13 @@
     }
 
     .addBtn {
-      min-width: 44px;
-      min-height: 44px;
+      width: 24px;
+      height: 24px;
+
+      /* Area tappabile 44×44px: (44-24)/2 = 10px per lato */
+      &::before {
+        inset: -10px;
+      }
     }
 
     .addBtnBadge {
@@ -450,6 +455,12 @@
   flex-shrink: 0;
   object-fit: cover;
   border-radius: var(--pub-radius);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.rowImageLoaded {
+  opacity: 1;
 }
 
 .rowPlaceholder {
@@ -868,10 +879,10 @@
 ---------------------------------------------------- */
 
 .addBtn {
-  /* Area tappabile minima 44×44px (Apple HIG). L'icona resta centrata
-     dentro un'area più grande — nessun cambio visivo, solo più facile da toccare. */
-  min-width: 44px;
-  min-height: 44px;
+  /* Dimensione visiva originale (32×32). L'area tappabile è espansa a 44×44
+     tramite ::before invisibile — nessun cambio visivo rispetto al design. */
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
   align-self: center;
   border-radius: var(--pub-btn-radius, 8px);
@@ -884,15 +895,25 @@
   cursor: pointer;
   position: relative;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-  /* Tap su mobile: il browser default :focus persiste fino al prossimo tocco.
-     :focus-visible limita l'evidenziazione alla navigazione da tastiera. */
   outline: none;
   -webkit-tap-highlight-color: transparent;
 
-  &:hover {
-    background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
-    color: var(--pub-text);
-    border-color: color-mix(in srgb, var(--pub-text) 20%, transparent);
+  /* Area tappabile invisibile 44×44px (Apple HIG) — pseudo-element espande
+     l'hit area senza alterare il layout o la dimensione visiva del pulsante. */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
+  }
+
+  /* Hover solo su dispositivi con puntatore reale (mouse/trackpad).
+     Evita hover "appiccicoso" su touch device dopo il tap. */
+  @media (hover: hover) {
+    &:hover {
+      background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
+      color: var(--pub-text);
+      border-color: color-mix(in srgb, var(--pub-text) 20%, transparent);
+    }
   }
 
   &:focus-visible {
@@ -906,8 +927,10 @@
   color: var(--pub-surface);
   border-color: transparent;
 
-  &:hover {
-    background: color-mix(in srgb, var(--pub-surface-text) 85%, transparent);
+  @media (hover: hover) {
+    &:hover {
+      background: color-mix(in srgb, var(--pub-surface-text) 85%, transparent);
+    }
   }
 }
 

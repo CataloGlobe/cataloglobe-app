@@ -1,5 +1,4 @@
-import { type ReactNode, type KeyboardEvent } from "react";
-import { BadgeInfo, Gift, Tag } from "lucide-react";
+import { type KeyboardEvent, useState, useEffect } from "react";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import styles from "./FeaturedCard.module.scss";
 
@@ -10,6 +9,8 @@ export type FeaturedCardProps = {
     onCtaClick?: () => void;
     className?: string;
     variant?: "card" | "highlight";
+    /** Above-the-fold: loading="eager" + fetchpriority="high". Default: lazy. */
+    eager?: boolean;
 };
 
 function formatPrice(price: number): string {
@@ -29,36 +30,21 @@ function getTagLabel(contentType: string | null): string {
     }
 }
 
-function getTagClass(contentType: string | null): string {
-    switch (contentType) {
-        case "bundle": return styles.tagBundle;
-        case "promo": return styles.tagPromo;
-        default: return styles.tagEvento;
-    }
-}
-
-function getPlaceholderLightClass(contentType: string | null): string {
-    switch (contentType) {
-        case "bundle": return styles.thumbBgBundle;
-        case "promo": return styles.thumbBgPromo;
-        default: return styles.thumbBgEvento;
-    }
-}
-
-function getPlaceholderIcon(contentType: string | null): ReactNode {
-    const props = { size: 48, strokeWidth: 1.75 };
-    switch (contentType) {
-        case "bundle": return <Gift {...props} />;
-        case "promo": return <Tag {...props} />;
-        default: return <BadgeInfo {...props} />;
-    }
-}
-
-export default function FeaturedCard({ block, onClick, onCtaClick, className, variant = "card" }: FeaturedCardProps) {
+export default function FeaturedCard({ block, onClick, onCtaClick, className, variant = "card", eager = false }: FeaturedCardProps) {
     const hasImage = !!block.media_id;
     const hasCta = !!block.cta_text && !!block.cta_url;
     const keyHandler = (e: KeyboardEvent) => {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
+    };
+
+    // ── Fade-in: reset quando cambia immagine ─────────────────────────────
+    const [imgLoaded, setImgLoaded] = useState(false);
+    useEffect(() => { setImgLoaded(false); }, [block.media_id]);
+
+    const imgProps = {
+        loading: (eager ? "eager" : "lazy") as "eager" | "lazy",
+        ...(eager && { fetchPriority: "high" as const }),
+        onLoad: () => setImgLoaded(true),
     };
 
     if (variant === "highlight") {
@@ -75,13 +61,13 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                         src={block.media_id!}
                         alt=""
                         aria-hidden="true"
-                        className={styles.highlightBg}
-                        loading="lazy"
+                        className={`${styles.highlightBg} ${imgLoaded ? styles.imgLoaded : ""}`}
+                        {...imgProps}
                     />
                 )}
                 <div className={styles.highlightGradient} aria-hidden="true" />
                 <span
-                    className={`${styles.cardTag} ${getTagClass(block.content_type)} ${styles.highlightBadge} ${styles.cardTagOnImage}`}
+                    className={`${styles.cardTag} ${styles.tagPrimary} ${styles.highlightBadge} ${styles.cardTagOnImage}`}
                 >
                     {getTagLabel(block.content_type)}
                 </span>
@@ -124,17 +110,13 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                     <img
                         src={block.media_id!}
                         alt={block.title}
-                        className={styles.cardThumbImg}
-                        loading="lazy"
+                        className={`${styles.cardThumbImg} ${imgLoaded ? styles.imgLoaded : ""}`}
+                        {...imgProps}
                     />
                 ) : (
-                    <div className={`${styles.cardThumbPlaceholder} ${getPlaceholderLightClass(block.content_type)}`}>
-                        <span className={styles.cardThumbIcon} aria-hidden="true">
-                            {getPlaceholderIcon(block.content_type)}
-                        </span>
-                    </div>
+                    <div className={styles.cardThumbPlaceholder} />
                 )}
-                <span className={`${styles.cardTag} ${getTagClass(block.content_type)} ${hasImage ? styles.cardTagOnImage : ""}`}>
+                <span className={`${styles.cardTag} ${styles.tagPrimary} ${hasImage ? styles.cardTagOnImage : ""}`}>
                     {getTagLabel(block.content_type)}
                 </span>
             </div>

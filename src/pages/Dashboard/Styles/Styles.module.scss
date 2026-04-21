@@ -17,7 +17,8 @@
 }
 
 .container {
-  height: 100dvh;
+  flex: 1;
+  min-height: 0;
   max-height: 100%;
   display: flex;
   flex-direction: column;
@@ -492,11 +493,6 @@
   overflow: hidden;
 }
 
-.canvasBreadcrumb {
-  padding: 10px 20px 8px 20px;
-  flex-shrink: 0;
-}
-
 .canvasArea {
   flex: 1;
   min-height: 0;
@@ -505,7 +501,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 16px 24px 20px 24px;
+  padding: 16px 24px;
   position: relative;
   background-color: var(--color-surface-hover);
   background-image: none;
@@ -551,29 +547,26 @@
   overflow: hidden;
 }
 
-/* Sticky panel header */
+/* Panel breadcrumb row */
+.panelBreadcrumb {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+/* Toggle + actions row */
 .panelHeader {
   flex-shrink: 0;
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
-  padding: 14px 20px;
+  padding: 12px 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.panelTitleRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.panelTitle {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--color-text-muted);
 }
 
 .panelCloseBtn {
