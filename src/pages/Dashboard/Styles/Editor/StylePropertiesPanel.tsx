@@ -10,6 +10,8 @@ import {
     BackgroundPattern,
     FeaturedStyle
 } from "./StyleTokenModel";
+import { getPatternCss } from "@/features/public/utils/mapStyleTokensToCssVars";
+import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
 import { StyleColorPicker } from "./StyleColorPicker";
 import styles from "./StyleSettingsControls.module.scss";
 
@@ -156,7 +158,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
                         Arrotondamento<InfoTooltip content="Controlla la curvatura degli angoli di card, immagini, pulsanti e pannelli nella pagina pubblica." />
                     </Text>
-                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                    <div className={styles.miniPreviewGrid} role="radiogroup">
                         {borderRadiusOptions.map(option => {
                             const isActive = model.appearance.borderRadius === option.value;
                             return (
@@ -165,14 +167,18 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                     type="button"
                                     role="radio"
                                     aria-checked={isActive}
-                                    className={`${styles.optionButton} ${
-                                        isActive ? styles.optionButtonActive : ""
+                                    className={`${styles.miniPreviewCard} ${
+                                        isActive ? styles.miniPreviewCardActive : ""
                                     }`}
                                     onClick={() => updateBorderRadius(option.value)}
                                 >
-                                    <Text as="span" variant="body" weight={600}>
-                                        {option.label}
-                                    </Text>
+                                    <div className={styles.radiusSwatch} aria-hidden="true">
+                                        <div
+                                            className={styles.radiusRect}
+                                            style={{ borderRadius: RADIUS_CSS[option.value] }}
+                                        />
+                                    </div>
+                                    <span className={styles.miniPreviewLabel}>{option.label}</span>
                                 </button>
                             );
                         })}
@@ -183,23 +189,31 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
                         Pattern sfondo<InfoTooltip content="Aggiunge un motivo decorativo leggero allo sfondo, usando il colore primario." />
                     </Text>
-                    <div className={`${styles.buttonGroup} ${styles.nav}`} role="radiogroup">
+                    <div className={styles.miniPreviewGrid} role="radiogroup">
                         {backgroundPatternOptions.map(option => {
                             const isActive = model.appearance.backgroundPattern === option.value;
+                            const [bgImage, bgSize] = getPatternCss(option.value, model.colors.primary);
                             return (
                                 <button
                                     key={option.value}
                                     type="button"
                                     role="radio"
                                     aria-checked={isActive}
-                                    className={`${styles.optionButton} ${
-                                        isActive ? styles.optionButtonActive : ""
+                                    className={`${styles.miniPreviewCard} ${
+                                        isActive ? styles.miniPreviewCardActive : ""
                                     }`}
                                     onClick={() => updateBackgroundPattern(option.value)}
                                 >
-                                    <Text as="span" variant="body" weight={600}>
-                                        {option.label}
-                                    </Text>
+                                    <div
+                                        className={styles.patternSwatch}
+                                        aria-hidden="true"
+                                        style={{
+                                            backgroundColor: model.colors.pageBackground,
+                                            backgroundImage: bgImage,
+                                            backgroundSize: bgSize
+                                        }}
+                                    />
+                                    <span className={styles.miniPreviewLabel}>{option.label}</span>
                                 </button>
                             );
                         })}
@@ -270,7 +284,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
                         Stile navigazione<InfoTooltip content="Aspetto delle categorie nella barra di navigazione." />
                     </Text>
-                    <div className={`${styles.buttonGroup} ${styles.nav}`} role="radiogroup">
+                    <div className={styles.miniPreviewGrid} role="radiogroup">
                         {navigationOptions.map(option => {
                             const isActive = model.navigation.style === option.value;
                             return (
@@ -279,14 +293,15 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                     type="button"
                                     role="radio"
                                     aria-checked={isActive}
-                                    className={`${styles.optionButton} ${
-                                        isActive ? styles.optionButtonActive : ""
+                                    className={`${styles.miniPreviewCard} ${
+                                        isActive ? styles.miniPreviewCardActive : ""
                                     }`}
                                     onClick={() => updateNav(option.value)}
                                 >
-                                    <Text as="span" variant="body" weight={600}>
-                                        {option.label}
-                                    </Text>
+                                    <div className={styles.navSwatch} aria-hidden="true">
+                                        <NavMiniPreview navStyle={option.value} primaryColor={model.colors.primary} />
+                                    </div>
+                                    <span className={styles.miniPreviewLabel}>{option.label}</span>
                                 </button>
                             );
                         })}
@@ -304,7 +319,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
                         Stile prodotto<InfoTooltip content="Card mostra immagine e dettagli in un riquadro. Compatto mostra solo nome, prezzo e descrizione." />
                     </Text>
-                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                    <div className={`${styles.miniPreviewGrid} ${styles.miniPreviewGridTwoCols}`} role="radiogroup">
                         {productStyleOptions.map(option => {
                             const isActive = model.card.productStyle === option.value;
                             return (
@@ -313,14 +328,13 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                     type="button"
                                     role="radio"
                                     aria-checked={isActive}
-                                    className={`${styles.optionButton} ${
-                                        isActive ? styles.optionButtonActive : ""
+                                    className={`${styles.miniPreviewCard} ${
+                                        isActive ? styles.miniPreviewCardActive : ""
                                     }`}
                                     onClick={() => updateProductStyle(option.value)}
                                 >
-                                    <Text as="span" variant="body" weight={600}>
-                                        {option.label}
-                                    </Text>
+                                    <ProductStylePreview variant={option.value} />
+                                    <span className={styles.miniPreviewLabel}>{option.label}</span>
                                 </button>
                             );
                         })}
@@ -331,33 +345,22 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
                         Layout lista prodotti<InfoTooltip content="Grid mostra più prodotti affiancati su schermi ampi (desktop/tablet). Su mobile, entrambi i layout mostrano un prodotto per riga." />
                     </Text>
-                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                    <div className={`${styles.miniPreviewGrid} ${styles.miniPreviewGridTwoCols}`} role="radiogroup">
                         {cardLayoutOptions.map(option => {
                             const isActive = model.card.layout === option.value;
-                            const previewClass =
-                                option.value === "grid" ? styles.gridPreview : styles.listPreview;
-
                             return (
                                 <button
                                     key={option.value}
                                     type="button"
                                     role="radio"
                                     aria-checked={isActive}
-                                    className={`${styles.optionButton} ${styles.cardOptionButton} ${
-                                        isActive ? styles.optionButtonActive : ""
+                                    className={`${styles.miniPreviewCard} ${
+                                        isActive ? styles.miniPreviewCardActive : ""
                                     }`}
                                     onClick={() => updateCard(option.value)}
                                 >
-                                    <div className={styles.layoutPreview} aria-hidden="true">
-                                        <div className={previewClass}>
-                                            <span />
-                                            <span />
-                                            {option.value === "list" && <span />}
-                                        </div>
-                                    </div>
-                                    <Text as="span" variant="body" weight={600}>
-                                        {option.label}
-                                    </Text>
+                                    <CardLayoutPreview variant={option.value} />
+                                    <span className={styles.miniPreviewLabel}>{option.label}</span>
                                 </button>
                             );
                         })}
@@ -399,10 +402,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                             })}
                         </div>
                     ) : (
-                        <div
-                            className={`${styles.buttonGroup} ${styles.threeColumns}`}
-                            role="radiogroup"
-                        >
+                        <div className={styles.miniPreviewGrid} role="radiogroup">
                             {(
                                 [
                                     { value: "left", label: "Sinistra", mode: "show" },
@@ -424,8 +424,10 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                     <button
                                         key={opt.value}
                                         type="button"
-                                        className={`${styles.optionButton} ${
-                                            isActive ? styles.optionButtonActive : ""
+                                        role="radio"
+                                        aria-checked={isActive}
+                                        className={`${styles.miniPreviewCard} ${
+                                            isActive ? styles.miniPreviewCardActive : ""
                                         }`}
                                         onClick={() => {
                                             const pos =
@@ -435,9 +437,8 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                             updateCardImage(opt.mode, pos);
                                         }}
                                     >
-                                        <Text variant="body" weight={600}>
-                                            {opt.label}
-                                        </Text>
+                                        <ImagePositionPreview variant={opt.value} />
+                                        <span className={styles.miniPreviewLabel}>{opt.label}</span>
                                     </button>
                                 );
                             })}
@@ -450,7 +451,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
                         Stile contenuti in evidenza<InfoTooltip content="Card mostra immagine e testo separati. Highlight sovrappone il testo all'immagine." />
                     </Text>
-                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                    <div className={`${styles.miniPreviewGrid} ${styles.miniPreviewGridTwoCols}`} role="radiogroup">
                         {featuredStyleOptions.map(option => {
                             const isActive = model.appearance.featuredStyle === option.value;
                             return (
@@ -459,14 +460,13 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                     type="button"
                                     role="radio"
                                     aria-checked={isActive}
-                                    className={`${styles.optionButton} ${
-                                        isActive ? styles.optionButtonActive : ""
+                                    className={`${styles.miniPreviewCard} ${
+                                        isActive ? styles.miniPreviewCardActive : ""
                                     }`}
                                     onClick={() => updateFeaturedStyle(option.value)}
                                 >
-                                    <Text as="span" variant="body" weight={600}>
-                                        {option.label}
-                                    </Text>
+                                    <FeaturedStylePreview variant={option.value} />
+                                    <span className={styles.miniPreviewLabel}>{option.label}</span>
                                 </button>
                             );
                         })}

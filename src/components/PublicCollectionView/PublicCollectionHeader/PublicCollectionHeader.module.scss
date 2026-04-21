@@ -216,8 +216,9 @@
 .infoCardSearchBtn,
 .infoCardInfoBtn {
   flex-shrink: 0;
-  width: 34px;
-  height: 34px;
+  /* Area tappabile minima 44×44px (Apple HIG). Icona centrata via flexbox. */
+  min-width: 44px;
+  min-height: 44px;
   border-radius: var(--pub-btn-radius, 8px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.12);
@@ -422,8 +423,9 @@
 
 .compactSearchBtn {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  /* Area tappabile minima 44×44px (Apple HIG) */
+  min-width: 44px;
+  min-height: 44px;
   border-radius: var(--pub-btn-radius, 8px);
   border: 1px solid var(--pub-border);
   background: var(--pub-surface);
@@ -442,8 +444,9 @@
 
 .compactInfoBtn {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  /* Area tappabile minima 44×44px (Apple HIG) */
+  min-width: 44px;
+  min-height: 44px;
   border-radius: var(--pub-btn-radius, 8px);
   border: 1px solid var(--pub-border);
   background: var(--pub-surface);

@@ -220,47 +220,325 @@
   box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.12);
 }
 
-.cardOptionButton {
+/* ── Mini-preview cards ────────────────────────────────────── */
+
+.miniPreviewGrid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.miniPreviewCard {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 104px;
+  gap: 4px;
+  padding: 5px;
+  border: 1.5px solid var(--color-border, #dce3ef);
+  border-radius: 8px;
+  background: var(--color-surface, #ffffff);
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
-.layoutPreview {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.miniPreviewCard:hover {
+  border-color: var(--color-border-subtle, #b9c5dd);
+}
+
+.miniPreviewCardActive {
+  border-color: var(--color-primary, #6366f1);
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.15);
+}
+
+.miniPreviewCardReadonly {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.miniPreviewCardReadonly:hover {
+  border-color: var(--color-border, #dce3ef);
+}
+
+.miniPreviewCardReadonly.miniPreviewCardActive {
+  opacity: 1;
+}
+
+.miniPreviewLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted, #5f6f88);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.miniPreviewCardActive .miniPreviewLabel {
+  color: var(--color-primary, #4b53d0);
+  font-weight: 600;
+}
+
+.patternSwatch {
   width: 100%;
-  min-height: 42px;
+  aspect-ratio: 3 / 2;
+  border-radius: 4px;
 }
 
-.gridPreview {
+.navSwatch {
+  width: 100%;
+  height: 32px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 4px;
+  background: var(--color-background-secondary, #f7f8fb);
 }
 
-.gridPreview span {
-  width: 21px;
-  height: 38px;
-  border-radius: 3px;
-  background: #7e82f2;
-}
-
-.listPreview {
+.radiusSwatch {
+  width: 100%;
+  aspect-ratio: 5 / 3;
   display: flex;
-  flex-direction: column;
-  gap: 5px;
-  width: 80%;
+  align-items: center;
+  justify-content: center;
 }
 
-.listPreview span {
-  height: 8px;
+.radiusRect {
+  width: 56px;
+  height: 34px;
+  background: var(--color-background-secondary, #f1f3f9);
+  border: 1.5px solid var(--color-border, #c8d0de);
+}
+
+.miniPreviewGridTwoCols {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* ── Shared placeholder bars ─────────────────────────────── */
+
+.previewBarBold {
+  display: block;
+  height: 4px;
+  border-radius: 1px;
+  background: #8b95a8;
+}
+
+.previewBarThin {
+  display: block;
+  height: 3px;
+  border-radius: 1px;
+  background: #c4cad4;
+}
+
+.previewBarWhite {
+  display: block;
+  height: 3px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* ── Product style swatch ────────────────────────────────── */
+
+.productSwatch {
+  width: 100%;
+  height: 48px;
+  display: flex;
+  padding: 6px;
+  border-radius: 4px;
+  background: var(--color-background-secondary, #f7f8fb);
+}
+
+.productSwatchCard {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.productSwatchImg {
+  width: 24px;
+  height: 30px;
   border-radius: 3px;
   background: #b5bcc9;
+  flex-shrink: 0;
+}
+
+.productSwatchLines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.productSwatchCompact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  justify-content: center;
+}
+
+.productSwatchSeparator {
+  height: 1px;
+  width: 100%;
+  background: #dce3ef;
+  margin-top: 2px;
+}
+
+/* ── Featured style swatch ───────────────────────────────── */
+
+.featuredSwatch {
+  width: 100%;
+  height: 56px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.featuredSwatchCard {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.featuredSwatchImg {
+  width: 100%;
+  flex: 1;
+  background: #b5bcc9;
+}
+
+.featuredSwatchText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 6px;
+}
+
+.featuredSwatchHighlight {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #8b95a8;
+}
+
+.featuredSwatchOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(transparent 40%, rgba(0, 0, 0, 0.55) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 4px 6px;
+}
+
+/* ── Card layout swatch ──────────────────────────────────── */
+
+.layoutSwatch {
+  width: 100%;
+  height: 52px;
+  padding: 4px;
+  border-radius: 4px;
+  background: var(--color-background-secondary, #f7f8fb);
+}
+
+.layoutGrid {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+}
+
+.layoutGridItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 3px;
+  background: var(--color-surface, #ffffff);
+}
+
+.layoutGridItemImg {
+  width: 100%;
+  height: 16px;
+  border-radius: 2px;
+  background: #b5bcc9;
+}
+
+.layoutGridItemLines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.layoutList {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  height: 100%;
+}
+
+.layoutListItem {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 3px;
+  border-radius: 3px;
+  background: var(--color-surface, #ffffff);
+}
+
+.layoutListItemImg {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  background: #b5bcc9;
+  flex-shrink: 0;
+}
+
+.layoutListItemLines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+/* ── Image position swatch ───────────────────────────────── */
+
+.imgPosSwatch {
+  width: 100%;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: var(--color-background-secondary, #f7f8fb);
+}
+
+.imgPosRect {
+  width: 20px;
+  height: 24px;
+  border-radius: 3px;
+  background: #b5bcc9;
+  flex-shrink: 0;
+}
+
+.imgPosLines {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.imgPosLinesCentered {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+  width: 100%;
 }
 
 @media (max-width: 480px) {

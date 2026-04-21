@@ -159,7 +159,8 @@
   border: none;
   background: transparent;
   color: var(--pub-text);
-  font-size: 0.9rem;
+  /* 16px fisso: iOS Safari zooma automaticamente input con font-size < 16px */
+  font-size: 16px;
   font-family: var(--pub-font-family, sans-serif);
   outline: none;
   -webkit-appearance: none;

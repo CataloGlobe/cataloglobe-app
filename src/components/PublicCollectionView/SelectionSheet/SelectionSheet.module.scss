@@ -46,6 +46,8 @@
 }
 
 .clearBtn {
+  /* Area tappabile minima 44px di altezza (Apple HIG) */
+  min-height: 44px;
   padding: 5px 10px;
   border-radius: var(--pub-btn-radius, 8px);
   border: 1px solid #EF4444;
@@ -55,16 +57,26 @@
   font-weight: 600;
   font-family: var(--pub-font-family, sans-serif);
   cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  display: inline-flex;
+  align-items: center;
   transition: background 0.15s ease, color 0.15s ease;
 
   &:hover {
     background: #EF4444;
     color: #fff;
   }
+
+  &:focus-visible {
+    outline: 2px solid #EF4444;
+    outline-offset: 2px;
+  }
 }
 
 .closeBtn {
-  display: inline-flex;
+  /* Mobile: nascosto — l'utente chiude con drag, tap overlay o swipe */
+  display: none;
   align-items: center;
   gap: 4px;
   padding: 5px 10px;
@@ -81,6 +93,10 @@
   &:hover {
     background: color-mix(in srgb, var(--pub-text) 14%, transparent);
     color: var(--pub-text);
+  }
+
+  @media (min-width: 640px) {
+    display: inline-flex;
   }
 }
 

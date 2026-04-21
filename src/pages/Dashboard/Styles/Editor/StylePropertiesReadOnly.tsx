@@ -1,34 +1,19 @@
 import Text from "@/components/ui/Text/Text";
 import { InfoTooltip } from "@components/ui/Tooltip/InfoTooltip";
-import type { StyleTokenModel } from "./StyleTokenModel";
+import type { StyleTokenModel, BackgroundPattern, BorderRadius, NavigationStyle, ProductStyle, FeaturedStyle } from "./StyleTokenModel";
+import { getPatternCss } from "@/features/public/utils/mapStyleTokensToCssVars";
+import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
 import sharedStyles from "./StyleSettingsControls.module.scss";
 import roStyles from "./StylePropertiesReadOnly.module.scss";
 
 type Props = { model: StyleTokenModel };
 
 export const StylePropertiesReadOnly = ({ model }: Props) => {
-    const navLabels: Record<string, string> = {
-        pill: "Pill",
-        chip: "Chip",
-        outline: "Outline",
-        tabs: "Tabs",
-        dot: "Dot",
-        minimal: "Minimal"
-    };
-
     const fontLabels: Record<string, string> = {
         inter: "Inter",
         poppins: "Poppins",
         playfair: "Playfair"
     };
-
-    const imageLabel = (() => {
-        if (model.card.layout === "grid") {
-            return model.card.image.mode === "show" ? "Mostra" : "Nascondi";
-        }
-        if (model.card.image.mode === "hide") return "Nessuna";
-        return model.card.image.position === "right" ? "Destra" : "Sinistra";
-    })();
 
     return (
         <div className={sharedStyles.panelRoot}>
@@ -40,31 +25,77 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 <ColorReadRow label="Sfondo pagina" value={model.colors.pageBackground} tooltip="Colore di sfondo dell'intera pagina pubblica." />
                 <ColorReadRow label="Colore primario" value={model.colors.primary} tooltip="Colore principale applicato a header, navigazione, pulsanti e accenti nella pagina pubblica." />
                 <ColorReadRow label="Sfondo superfici" value={model.colors.surface} tooltip="Sfondo di card prodotti, modali, pulsanti dell'header e altri elementi in primo piano." />
-                <ValueReadRow
-                    label="Arrotondamento"
-                    tooltip="Controlla la curvatura degli angoli di card, immagini, pulsanti e pannelli nella pagina pubblica."
-                    value={
-                        model.appearance.borderRadius === "none"
-                            ? "Nessuno"
-                            : model.appearance.borderRadius === "soft"
-                              ? "Morbido"
-                              : "Arrotondato"
-                    }
-                />
-                <ValueReadRow
-                    label="Pattern sfondo"
-                    tooltip="Aggiunge un motivo decorativo leggero allo sfondo, usando il colore primario."
-                    value={
-                        ({
-                            none: "Nessuno",
-                            dots: "Puntini",
-                            diagonal: "Diagonali",
-                            grid: "Griglia",
-                            waves: "Onde",
-                            diamonds: "Rombi"
-                        } as Record<string, string>)[model.appearance.backgroundPattern] ?? "Nessuno"
-                    }
-                />
+                <div className={sharedStyles.controlField}>
+                    <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
+                        Arrotondamento<InfoTooltip content="Controlla la curvatura degli angoli di card, immagini, pulsanti e pannelli nella pagina pubblica." />
+                    </Text>
+                    <div className={sharedStyles.miniPreviewGrid}>
+                        {(
+                            [
+                                { value: "none" as BorderRadius, label: "Nessuno" },
+                                { value: "soft" as BorderRadius, label: "Morbido" },
+                                { value: "rounded" as BorderRadius, label: "Arrotondato" }
+                            ]
+                        ).map(opt => {
+                            const isActive = model.appearance.borderRadius === opt.value;
+                            return (
+                                <div
+                                    key={opt.value}
+                                    className={`${sharedStyles.miniPreviewCard} ${sharedStyles.miniPreviewCardReadonly} ${
+                                        isActive ? sharedStyles.miniPreviewCardActive : ""
+                                    }`}
+                                >
+                                    <div className={sharedStyles.radiusSwatch} aria-hidden="true">
+                                        <div
+                                            className={sharedStyles.radiusRect}
+                                            style={{ borderRadius: RADIUS_CSS[opt.value] }}
+                                        />
+                                    </div>
+                                    <span className={sharedStyles.miniPreviewLabel}>{opt.label}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+                <div className={sharedStyles.controlField}>
+                    <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
+                        Pattern sfondo<InfoTooltip content="Aggiunge un motivo decorativo leggero allo sfondo, usando il colore primario." />
+                    </Text>
+                    <div className={sharedStyles.miniPreviewGrid}>
+                        {(
+                            [
+                                { value: "none" as BackgroundPattern, label: "Nessuno" },
+                                { value: "dots" as BackgroundPattern, label: "Puntini" },
+                                { value: "diagonal" as BackgroundPattern, label: "Diagonali" },
+                                { value: "grid" as BackgroundPattern, label: "Griglia" },
+                                { value: "waves" as BackgroundPattern, label: "Onde" },
+                                { value: "diamonds" as BackgroundPattern, label: "Rombi" }
+                            ]
+                        ).map(opt => {
+                            const isActive = model.appearance.backgroundPattern === opt.value;
+                            const [bgImage, bgSize] = getPatternCss(opt.value, model.colors.primary);
+                            return (
+                                <div
+                                    key={opt.value}
+                                    className={`${sharedStyles.miniPreviewCard} ${sharedStyles.miniPreviewCardReadonly} ${
+                                        isActive ? sharedStyles.miniPreviewCardActive : ""
+                                    }`}
+                                >
+                                    <div
+                                        className={sharedStyles.patternSwatch}
+                                        aria-hidden="true"
+                                        style={{
+                                            backgroundColor: model.colors.pageBackground,
+                                            backgroundImage: bgImage,
+                                            backgroundSize: bgSize
+                                        }}
+                                    />
+                                    <span className={sharedStyles.miniPreviewLabel}>{opt.label}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
             </section>
 
             {/* HEADER */}
@@ -95,11 +126,38 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 <Text as="h4" variant="title-sm" weight={700} className={sharedStyles.sectionTitle}>
                     Navigazione Sezioni
                 </Text>
-                <ValueReadRow
-                    label="Stile navigazione"
-                    tooltip="Aspetto delle categorie nella barra di navigazione."
-                    value={navLabels[model.navigation.style] ?? model.navigation.style}
-                />
+                <div className={sharedStyles.controlField}>
+                    <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
+                        Stile navigazione<InfoTooltip content="Aspetto delle categorie nella barra di navigazione." />
+                    </Text>
+                    <div className={sharedStyles.miniPreviewGrid}>
+                        {(
+                            [
+                                { value: "pill" as NavigationStyle, label: "Pill" },
+                                { value: "chip" as NavigationStyle, label: "Chip" },
+                                { value: "outline" as NavigationStyle, label: "Outline" },
+                                { value: "tabs" as NavigationStyle, label: "Tabs" },
+                                { value: "dot" as NavigationStyle, label: "Dot" },
+                                { value: "minimal" as NavigationStyle, label: "Minimal" }
+                            ]
+                        ).map(opt => {
+                            const isActive = model.navigation.style === opt.value;
+                            return (
+                                <div
+                                    key={opt.value}
+                                    className={`${sharedStyles.miniPreviewCard} ${sharedStyles.miniPreviewCardReadonly} ${
+                                        isActive ? sharedStyles.miniPreviewCardActive : ""
+                                    }`}
+                                >
+                                    <div className={sharedStyles.navSwatch} aria-hidden="true">
+                                        <NavMiniPreview navStyle={opt.value} primaryColor={model.colors.primary} />
+                                    </div>
+                                    <span className={sharedStyles.miniPreviewLabel}>{opt.label}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
             </section>
 
             {/* CARD LAYOUT */}
@@ -107,24 +165,123 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 <Text as="h4" variant="title-sm" weight={700} className={sharedStyles.sectionTitle}>
                     Card Layout
                 </Text>
-                <ValueReadRow
-                    label="Stile prodotto"
-                    tooltip="Card mostra immagine e dettagli in un riquadro. Compatto mostra solo nome, prezzo e descrizione."
-                    value={model.card.productStyle === "compact" ? "Compatto" : "Card"}
-                />
-                <ValueReadRow
-                    label="Layout lista prodotti"
-                    tooltip="Grid mostra più prodotti affiancati su schermi ampi (desktop/tablet). Su mobile, entrambi i layout mostrano un prodotto per riga."
-                    value={model.card.layout === "grid" ? "Grid" : "List"}
-                />
+                <div className={sharedStyles.controlField}>
+                    <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
+                        Stile prodotto<InfoTooltip content="Card mostra immagine e dettagli in un riquadro. Compatto mostra solo nome, prezzo e descrizione." />
+                    </Text>
+                    <div className={`${sharedStyles.miniPreviewGrid} ${sharedStyles.miniPreviewGridTwoCols}`}>
+                        {(
+                            [
+                                { value: "card" as ProductStyle, label: "Card" },
+                                { value: "compact" as ProductStyle, label: "Compatto" }
+                            ]
+                        ).map(opt => {
+                            const isActive = model.card.productStyle === opt.value;
+                            return (
+                                <div
+                                    key={opt.value}
+                                    className={`${sharedStyles.miniPreviewCard} ${sharedStyles.miniPreviewCardReadonly} ${
+                                        isActive ? sharedStyles.miniPreviewCardActive : ""
+                                    }`}
+                                >
+                                    <ProductStylePreview variant={opt.value} />
+                                    <span className={sharedStyles.miniPreviewLabel}>{opt.label}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+                <div className={sharedStyles.controlField}>
+                    <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
+                        Layout lista prodotti<InfoTooltip content="Grid mostra più prodotti affiancati su schermi ampi (desktop/tablet). Su mobile, entrambi i layout mostrano un prodotto per riga." />
+                    </Text>
+                    <div className={`${sharedStyles.miniPreviewGrid} ${sharedStyles.miniPreviewGridTwoCols}`}>
+                        {(
+                            [
+                                { value: "grid" as const, label: "Grid" },
+                                { value: "list" as const, label: "List" }
+                            ]
+                        ).map(opt => {
+                            const isActive = model.card.layout === opt.value;
+                            return (
+                                <div
+                                    key={opt.value}
+                                    className={`${sharedStyles.miniPreviewCard} ${sharedStyles.miniPreviewCardReadonly} ${
+                                        isActive ? sharedStyles.miniPreviewCardActive : ""
+                                    }`}
+                                >
+                                    <CardLayoutPreview variant={opt.value} />
+                                    <span className={sharedStyles.miniPreviewLabel}>{opt.label}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
                 {model.card.productStyle !== "compact" && (
-                    <ValueReadRow label="Immagini prodotti" tooltip="Posizione dell'immagine nella card prodotto. Visibile solo nello stile Card." value={imageLabel} />
+                    <div className={sharedStyles.controlField}>
+                        <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
+                            Immagini prodotti<InfoTooltip content="Posizione dell'immagine nella card prodotto. Visibile solo nello stile Card." />
+                        </Text>
+                        {model.card.layout === "grid" ? (
+                            <span className={roStyles.readValue}>
+                                {model.card.image.mode === "show" ? "Mostra" : "Nascondi"}
+                            </span>
+                        ) : (
+                            <div className={sharedStyles.miniPreviewGrid}>
+                                {(
+                                    [
+                                        { value: "left" as const, label: "Sinistra" },
+                                        { value: "right" as const, label: "Destra" },
+                                        { value: "none" as const, label: "Nessuna" }
+                                    ]
+                                ).map(opt => {
+                                    const isActive =
+                                        opt.value === "none"
+                                            ? model.card.image.mode === "hide"
+                                            : model.card.image.mode === "show" &&
+                                              model.card.image.position === opt.value;
+                                    return (
+                                        <div
+                                            key={opt.value}
+                                            className={`${sharedStyles.miniPreviewCard} ${sharedStyles.miniPreviewCardReadonly} ${
+                                                isActive ? sharedStyles.miniPreviewCardActive : ""
+                                            }`}
+                                        >
+                                            <ImagePositionPreview variant={opt.value} />
+                                            <span className={sharedStyles.miniPreviewLabel}>{opt.label}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
                 )}
-                <ValueReadRow
-                    label="Stile contenuti in evidenza"
-                    tooltip="Card mostra immagine e testo separati. Highlight sovrappone il testo all'immagine."
-                    value={model.appearance.featuredStyle === "highlight" ? "Highlight" : "Card"}
-                />
+                <div className={sharedStyles.controlField}>
+                    <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
+                        Stile contenuti in evidenza<InfoTooltip content="Card mostra immagine e testo separati. Highlight sovrappone il testo all'immagine." />
+                    </Text>
+                    <div className={`${sharedStyles.miniPreviewGrid} ${sharedStyles.miniPreviewGridTwoCols}`}>
+                        {(
+                            [
+                                { value: "card" as FeaturedStyle, label: "Card" },
+                                { value: "highlight" as FeaturedStyle, label: "Highlight" }
+                            ]
+                        ).map(opt => {
+                            const isActive = model.appearance.featuredStyle === opt.value;
+                            return (
+                                <div
+                                    key={opt.value}
+                                    className={`${sharedStyles.miniPreviewCard} ${sharedStyles.miniPreviewCardReadonly} ${
+                                        isActive ? sharedStyles.miniPreviewCardActive : ""
+                                    }`}
+                                >
+                                    <FeaturedStylePreview variant={opt.value} />
+                                    <span className={sharedStyles.miniPreviewLabel}>{opt.label}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
             </section>
 
             {/* TESTI */}

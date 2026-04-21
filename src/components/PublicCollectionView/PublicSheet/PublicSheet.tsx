@@ -45,6 +45,14 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
     const [shouldRender, setShouldRender] = useState(false);
     const isClosingRef = useRef(false);
 
+    // ── Refs per disabilitare pointer-events immediatamente alla chiusura ───
+    // Mutazione DOM diretta: sincrona, zero-latency, nessun re-render React.
+    // Senza questo, overlay+panel (opacity ~0) bloccano click/scroll per 50-320ms
+    // durante l'animazione di uscita.
+    const backdropRef = useRef<HTMLDivElement>(null);
+    const overlayRef = useRef<HTMLDivElement>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
+
     // ── Body lock state in refs — accessibili sia da useLayoutEffect che da triggerClose ──
     // Salviamo i valori originali qui invece che nella closure del useLayoutEffect,
     // così triggerClose può rilasciare il lock direttamente senza aspettare React.
@@ -92,10 +100,25 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
         };
     }, [isOpen, releaseBodyLock]);
 
+    // ── Reset chiusura stale — ogni commit dove isOpen=true ──────────────────
+    // useLayoutEffect senza dipendenze: garantisce che isClosingRef e pointer-events
+    // inline vengano resettati PRIMA che l'utente possa interagire.
+    // Copre l'edge case dove React batchizza close+reopen nella stessa renderizzata
+    // (isOpen resta true → l'open effect con dep [isOpen] non ri-esegue →
+    // isClosingRef resterebbe true e tutti i close sarebbero bloccati).
+    useLayoutEffect(() => {
+        if (!isOpen) return;
+        isClosingRef.current = false;
+        // Stale pointer-events: triggerClose muta il DOM direttamente per zero-latency,
+        // ma se il componente non si smonta tra chiusura e riapertura le mutazioni persistono.
+        if (backdropRef.current) backdropRef.current.style.pointerEvents = "";
+        if (overlayRef.current) overlayRef.current.style.pointerEvents = "";
+        if (panelRef.current) panelRef.current.style.pointerEvents = "";
+    });
+
     // ── Open trigger ─────────────────────────────────────────────────────────
     useEffect(() => {
         if (!isOpen) return;
-        isClosingRef.current = false;
 
         if (isMobile) {
             // Posiziona il panel sotto lo schermo, poi anima verso l'alto
@@ -115,6 +138,27 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
             if (isClosingRef.current) return;
             isClosingRef.current = true;
 
+            // ⚡ IMMEDIATO — blocco #1: pointer-events off su TUTTI gli elementi.
+            // L'overlay/backdrop da solo non basta: .panel ha pointer-events:auto
+            // nel CSS e, come figlio, sovrascrive il none del genitore.
+            if (isMobile) {
+                if (backdropRef.current) backdropRef.current.style.pointerEvents = "none";
+            } else {
+                if (overlayRef.current) overlayRef.current.style.pointerEvents = "none";
+            }
+            if (panelRef.current) panelRef.current.style.pointerEvents = "none";
+
+            // ⚡ IMMEDIATO — blocco #2: body lock (position:fixed + overflow:hidden).
+            // Rilasciato PRIMA dell'animazione: l'utente può scrollare subito.
+            // L'animazione di uscita continua visivamente sopra il contenuto sbloccato.
+            releaseBodyLock();
+
+            // ⚡ IMMEDIATO — blocco #3: stato parent aggiornato PRIMA dell'animazione.
+            // Senza questo, se l'utente clicca un'altra card durante l'animazione di uscita
+            // (~300ms), il setSelectedItem(newItem) del click viene sovrascritto dal
+            // setSelectedItem(null) di onClose() che arriva dopo l'await → serve doppio click.
+            onClose();
+
             if (isMobile) {
                 // Anima dalla posizione ATTUALE verso il basso, usando la velocità del flick.
                 // Un flick veloce → chiusura rapida e naturale come iOS nativo.
@@ -125,13 +169,12 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                     velocity: velocityY,
                     restDelta: 1,
                 });
-                // Rilascio body lock PRIMA dello smontaggio React — l'utente può
-                // scrollare/interagire immediatamente senza aspettare il commit React.
-                releaseBodyLock();
-                setShouldRender(false);
+                // Guard: se durante l'animazione l'utente ha aperto un nuovo item,
+                // l'open effect ha resettato isClosingRef a false → non smontare.
+                if (isClosingRef.current) {
+                    setShouldRender(false);
+                }
             }
-
-            onClose();
         },
         [isMobile, onClose, releaseBodyLock, y]
     );
@@ -154,6 +197,7 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
+                        ref={overlayRef}
                         className={styles.overlay}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -163,6 +207,7 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                         role="presentation"
                     >
                         <motion.div
+                            ref={panelRef}
                             className={styles.panel}
                             role="dialog"
                             aria-modal="true"
@@ -193,6 +238,7 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
         <div className={styles.mobileRoot}>
             {/* Backdrop: opacity derivata da y in tempo reale — fade sincronizzato col drag */}
             <motion.div
+                ref={backdropRef}
                 className={styles.backdrop}
                 style={{ opacity: backdropOpacity }}
                 onClick={() => triggerClose()}
@@ -200,6 +246,7 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
             />
             {/* Panel: style={{ y }} — drag e animate() scrivono sullo stesso motion value */}
             <motion.div
+                ref={panelRef}
                 className={styles.panel}
                 role="dialog"
                 aria-modal="true"

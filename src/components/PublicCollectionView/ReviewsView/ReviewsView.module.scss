@@ -81,10 +81,23 @@
     cursor: pointer;
     padding: 4px;
     border-radius: var(--pub-btn-radius, 6px);
+    /* Area tappabile minima 44×44px (Apple HIG) — SVG 40px + padding 4px×2 = 48px, OK */
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
     transition: transform 0.15s ease;
 
     &:hover {
         transform: scale(1.15);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pub-primary, #333);
+        outline-offset: 2px;
     }
 }
 
@@ -285,14 +298,16 @@
     border: 1.5px solid var(--pub-surface-border);
     background: var(--pub-surface, #fff);
     color: var(--pub-text);
-    font-size: 0.9rem;
+    /* 16px fisso: iOS Safari zooma automaticamente input con font-size < 16px */
+    font-size: 16px;
     font-family: inherit;
     resize: vertical;
     outline: none;
+    -webkit-tap-highlight-color: transparent;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
     min-height: 100px;
 
-    &:focus {
+    &:focus-visible {
         border-color: var(--pub-primary);
         box-shadow: 0 0 0 3px color-mix(in srgb, var(--pub-primary) 10%, transparent);
     }
