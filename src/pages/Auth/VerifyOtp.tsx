@@ -8,7 +8,7 @@ import {
     useCallback
 } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -35,10 +35,24 @@ function mapOtpError(error: unknown): OtpErrorCode {
     return "unknown";
 }
 
+/**
+ * Valida che il path sia interno all'app (previene open redirect).
+ * Deve iniziare con / ma non con //, e non contenere protocolli.
+ */
+function isInternalPath(path: unknown): path is string {
+    if (typeof path !== 'string' || path.length === 0) return false;
+    if (!path.startsWith('/') || path.startsWith('//')) return false;
+    if (/^[a-zA-Z][a-zA-Z0-9+\-.]*:/.test(path)) return false;
+    return true;
+}
+
 export default function VerifyOtp() {
     usePageTitle('Verifica OTP');
     const { forceOtpCheck } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const fromState = (location.state as { from?: string } | null)?.from;
+    const redirectAfterOtp = isInternalPath(fromState) ? fromState : '/dashboard';
 
     const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
     const [loading, setLoading] = useState(false);
@@ -339,7 +353,7 @@ export default function VerifyOtp() {
             }
 
             await forceOtpCheck();
-            navigate("/dashboard", { replace: true });
+            navigate(redirectAfterOtp, { replace: true });
         } finally {
             setLoading(false);
             setStatus("idle");
