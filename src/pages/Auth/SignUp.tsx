@@ -2,6 +2,7 @@ import { useState } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useNavigate } from "react-router-dom";
 import { signUp } from "@/services/supabase/auth";
+import { isDisposableEmail } from "@utils/validateEmail";
 import { Button } from "@/components/ui";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
@@ -38,6 +39,7 @@ export default function SignUp() {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [termsAccepted, setTermsAccepted] = useState(false);
 
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -56,6 +58,7 @@ export default function SignUp() {
         if (!firstName.trim()) nextErrors.firstName = "Il nome è obbligatorio.";
         if (!lastName.trim()) nextErrors.lastName = "Il cognome è obbligatorio.";
         if (!email.trim()) nextErrors.email = "L'email è obbligatoria.";
+        else if (isDisposableEmail(email.trim())) nextErrors.email = "Non è possibile registrarsi con un indirizzo email temporaneo. Utilizza un indirizzo email permanente.";
         if (password.length < 8)
             nextErrors.password = "La password deve contenere almeno 8 caratteri.";
         if (password !== confirmPassword)
@@ -80,7 +83,7 @@ export default function SignUp() {
                 return;
             }
 
-            const { user, session } = data ?? {};
+            const { user } = data ?? {};
 
             if (!user?.id) {
                 setError("Errore durante la registrazione. Riprova.");
@@ -94,12 +97,9 @@ export default function SignUp() {
                 return;
             }
 
-            if (user?.id) {
-                // Profilo creato dal trigger handle_new_user (auth.users)
-                // Nessuna scrittura diretta qui per evitare errori RLS.
-            }
-
             // Registrazione riuscita → email di conferma
+            // Il consenso GDPR viene registrato automaticamente dal trigger handle_new_user
+            // usando consent_privacy_version e consent_terms_version passati in raw_user_meta_data.
             navigate("/check-email", {
                 state: { email: email.trim() }
             });
@@ -214,6 +214,25 @@ export default function SignUp() {
                     error={fieldErrors.confirmPassword}
                 />
 
+                <label className={styles.consentLabel}>
+                    <input
+                        type="checkbox"
+                        checked={termsAccepted}
+                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                        className={styles.consentCheckbox}
+                    />
+                    <span className={styles.consentText}>
+                        Ho letto e accetto la{' '}
+                        <a href="/legal/privacy" target="_blank" rel="noopener noreferrer">
+                            Privacy Policy
+                        </a>{' '}
+                        e i{' '}
+                        <a href="/legal/termini" target="_blank" rel="noopener noreferrer">
+                            Termini di Servizio
+                        </a>
+                    </span>
+                </label>
+
                 {error && (
                     <Text as="p" colorVariant="error" variant="caption" className={styles.feedback}>
                         {error}
@@ -225,7 +244,7 @@ export default function SignUp() {
                     variant="primary"
                     fullWidth
                     loading={loading}
-                    disabled={loading}
+                    disabled={loading || !termsAccepted}
                 >
                     Registrati
                 </Button>
