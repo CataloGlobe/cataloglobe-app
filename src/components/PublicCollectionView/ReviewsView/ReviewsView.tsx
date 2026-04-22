@@ -72,6 +72,14 @@ export default function ReviewsView({
     supabaseUrl,
     onReviewSubmitted,
 }: ReviewsViewProps) {
+    // ── Check se ha già recensito nelle ultime 24h ──────────────────────────
+    const [alreadyReviewed] = useState(() => {
+        try {
+            const ts = localStorage.getItem(`fab_reviewed_${activityId}`);
+            return !!ts && (Date.now() - parseInt(ts, 10)) < 24 * 60 * 60 * 1000;
+        } catch { return false; }
+    });
+
     const [phase, setPhase] = useState<Phase>("stars");
     const [selectedStars, setSelectedStars] = useState(0);
     const [hoverStars, setHoverStars] = useState(0);
@@ -89,7 +97,14 @@ export default function ReviewsView({
     /* ── Handle star click ──────────────────────────── */
     function handleStarClick(n: number) {
         setSelectedStars(n);
-        setTimeout(() => setPhase("feedback"), 300);
+        // Touch device: transizione immediata (badge nascosto via CSS).
+        // Desktop: 300ms delay per mostrare il badge di reazione prima del form.
+        const isTouch = window.matchMedia("(hover: none)").matches;
+        if (isTouch) {
+            setPhase("feedback");
+        } else {
+            setTimeout(() => setPhase("feedback"), 300);
+        }
     }
 
     /* ── Handle back ────────────────────────────────── */
@@ -150,6 +165,32 @@ export default function ReviewsView({
         const timer = setTimeout(() => setShowGoogleCard(true), 600);
         return () => clearTimeout(timer);
     }, [phase, isHighRating, googleReviewUrl]);
+
+    /* ── Already reviewed in last 24h ─────────────────── */
+    if (alreadyReviewed) {
+        return (
+            <div className={styles.root}>
+                <div className={styles.thanksPhase}>
+                    <div className={styles.checkCircle}>
+                        <svg viewBox="0 0 24 24" className={styles.checkIcon}>
+                            <path
+                                d="M20 6L9 17l-5-5"
+                                fill="none"
+                                stroke="#fff"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </svg>
+                    </div>
+                    <h2 className={styles.thanksTitle}>Grazie per il tuo feedback!</h2>
+                    <p className={styles.thanksSubtitle}>
+                        Hai già lasciato una recensione per questa sede. Torna a trovarci!
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     /* ── PHASE: stars ───────────────────────────────── */
     if (phase === "stars") {

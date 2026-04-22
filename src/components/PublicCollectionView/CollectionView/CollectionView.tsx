@@ -913,7 +913,7 @@ export default function CollectionView({
                     const scrollable = el.scrollHeight - el.clientHeight;
                     scrollPercent = scrollable > 0 ? el.scrollTop / scrollable : 0;
                 }
-                if (scrollPercent >= 0.5) {
+                if (scrollPercent >= 0.7) {
                     setValutaVisible(true);
                     // Una volta visibile, rimuovi il listener
                     container.removeEventListener("scroll", onScroll);

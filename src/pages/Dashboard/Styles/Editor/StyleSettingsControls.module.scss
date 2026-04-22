@@ -310,6 +310,19 @@
   border: 1.5px solid var(--color-border, #c8d0de);
 }
 
+.fontPreviewLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-muted, #5f6f88);
+  text-align: center;
+  line-height: 1.3;
+  padding: 2px 0;
+}
+
+.miniPreviewCardActive .fontPreviewLabel {
+  color: var(--color-primary, #4b53d0);
+}
+
 .miniPreviewGridTwoCols {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }

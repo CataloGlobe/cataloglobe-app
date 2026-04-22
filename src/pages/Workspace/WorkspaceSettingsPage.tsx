@@ -11,7 +11,14 @@ import { FileInput } from "@/components/ui/Input/FileInput";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTheme } from "@/context/Theme/useTheme";
-import { getProfile, updateProfile, updateProfileAvatar, uploadAvatar, deleteAvatar, clearProfileAvatar } from "@/services/supabase/profile";
+import {
+    getProfile,
+    updateProfile,
+    updateProfileAvatar,
+    uploadAvatar,
+    deleteAvatar,
+    clearProfileAvatar
+} from "@/services/supabase/profile";
 import { signOut } from "@/services/supabase/auth";
 import type { Profile } from "@/types/database";
 import ModalLayout, {
@@ -70,22 +77,15 @@ export default function WorkspaceSettingsPage() {
         setDraftPhone(profile?.phone ?? "");
         setDraftAvatarPreview(null);
         setAvatarFile(null);
-    }, [
-        drawerOpen,
-        profile?.first_name,
-        profile?.last_name,
-        profile?.phone,
-        profile?.avatar_url
-    ]);
+    }, [drawerOpen, profile?.first_name, profile?.last_name, profile?.phone, profile?.avatar_url]);
 
     const displayName = useMemo(() => {
         const parts = [profile?.first_name, profile?.last_name].filter(Boolean);
         if (parts.length > 0) return parts.join(" ");
 
-        const metaParts = [
-            user?.user_metadata?.first_name,
-            user?.user_metadata?.last_name
-        ].filter(Boolean);
+        const metaParts = [user?.user_metadata?.first_name, user?.user_metadata?.last_name].filter(
+            Boolean
+        );
         if (metaParts.length > 0) return metaParts.join(" ");
 
         return "—";
@@ -103,9 +103,8 @@ export default function WorkspaceSettingsPage() {
             return draftAvatarPreview;
         }
         if (profile?.avatar_url) {
-            const baseUrl = supabase.storage
-                .from("avatars")
-                .getPublicUrl(profile.avatar_url).data.publicUrl;
+            const baseUrl = supabase.storage.from("avatars").getPublicUrl(profile.avatar_url)
+                .data.publicUrl;
             const cacheBuster = profile.updated_at
                 ? `?t=${encodeURIComponent(profile.updated_at)}`
                 : "";
@@ -284,9 +283,7 @@ export default function WorkspaceSettingsPage() {
                                         className={styles.avatar}
                                     />
                                 ) : (
-                                    <span className={styles.avatarPlaceholder}>
-                                        {initials}
-                                    </span>
+                                    <span className={styles.avatarPlaceholder}>{initials}</span>
                                 )}
                                 <div className={styles.profileMeta}>
                                     <Text variant="body" weight={600}>
@@ -308,7 +305,8 @@ export default function WorkspaceSettingsPage() {
                         </div>
                     </Card>
 
-                    <Card title="Preferenze" className={styles.card}>
+                    {/* TODO: Implementare Tema e Lingua */}
+                    {/* <Card title="Preferenze" className={styles.card}>
                         <div className={styles.preferencesGrid}>
                             <Select
                                 label="Tema"
@@ -330,7 +328,7 @@ export default function WorkspaceSettingsPage() {
                                 ]}
                             />
                         </div>
-                    </Card>
+                    </Card> */}
 
                     <Card title="Account e sicurezza" className={styles.card}>
                         <div className={styles.accountGrid}>
@@ -438,9 +436,7 @@ export default function WorkspaceSettingsPage() {
                                     className={styles.drawerAvatar}
                                 />
                             ) : (
-                                <span className={styles.drawerAvatarPlaceholder}>
-                                    {initials}
-                                </span>
+                                <span className={styles.drawerAvatarPlaceholder}>{initials}</span>
                             )}
                             <div className={styles.drawerAvatarInfo}>
                                 <Text variant="body-sm" colorVariant="muted">

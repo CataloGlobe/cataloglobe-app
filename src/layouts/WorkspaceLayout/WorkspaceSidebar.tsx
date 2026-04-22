@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Building2, CreditCard, Settings, ChevronLeft, X, UserCircle } from "lucide-react";
-import Text from "@/components/ui/Text/Text";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { useAuth } from "@/context/useAuth";
@@ -216,15 +215,9 @@ export default function WorkspaceSidebar({
                                 style={{ width: "32px", height: "32px", objectFit: "contain" }}
                             />
                         ) : (
-                            <Text
-                                variant="title-md"
-                                as="a"
-                                href="/"
-                                colorVariant="primary"
-                                style={{ textDecoration: "none", whiteSpace: "nowrap" }}
-                            >
-                                CataloGlobe
-                            </Text>
+                            <a href="/" className={styles.sidebarLogo}>
+                                Catalo<span className={styles.sidebarLogoGlobe}>Globe</span>
+                            </a>
                         )}
                     </div>
                 )}

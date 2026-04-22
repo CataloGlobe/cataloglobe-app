@@ -110,12 +110,18 @@ export function getPatternCss(pattern: string, primaryHex: string): [string, str
  * Used by PublicThemeScope to apply scoped inline styles instead of :root injection.
  */
 export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string, string> {
-    const fontFamily =
-        tokens.typography.fontFamily === "poppins"
-            ? "'Poppins', sans-serif"
-            : tokens.typography.fontFamily === "playfair"
-              ? "'Playfair Display', serif"
-              : "'Inter', sans-serif";
+    const FONT_MAP: Record<string, string> = {
+        inter: "'Inter', sans-serif",
+        poppins: "'Poppins', sans-serif",
+        montserrat: "'Montserrat', sans-serif",
+        "josefin-sans": "'Josefin Sans', sans-serif",
+        raleway: "'Raleway', sans-serif",
+        playfair: "'Playfair Display', serif",
+        lora: "'Lora', serif",
+        "cormorant-garamond": "'Cormorant Garamond', serif",
+        caveat: "'Caveat', cursive"
+    };
+    const fontFamily = FONT_MAP[tokens.typography.fontFamily] ?? "'Inter', sans-serif";
 
     const br = tokens.appearance.borderRadius;
     const pubRadius = br === "none" ? "0px" : br === "soft" ? "10px" : "20px";
