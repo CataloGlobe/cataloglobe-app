@@ -16,9 +16,9 @@
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-/* Hero variant — glass, altezza allineata a infoCardSearchBtn (34px) */
+/* Hero variant — glass, altezza allineata a infoCardSearchBtn (44px) */
 .triggerHero {
-  height: 34px;
+  min-height: 44px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(8px);
