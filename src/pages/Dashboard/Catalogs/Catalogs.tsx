@@ -12,6 +12,8 @@ import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/Data
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconBook2 } from "@tabler/icons-react";
+import { Sparkles } from "lucide-react";
+import { AiMenuImportDrawer } from "./AiMenuImport/AiMenuImportDrawer";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import {
     listCatalogs,
@@ -53,6 +55,9 @@ export default function Catalogs() {
     const [editingCatalog, setEditingCatalog] = useState<V2Catalog | null>(null);
     const [name, setName] = useState("");
     const [isSaving, setIsSaving] = useState(false);
+
+    // AI Import state
+    const [isAiImportOpen, setIsAiImportOpen] = useState(false);
 
     // Delete confirmation state
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -270,9 +275,22 @@ export default function Catalogs() {
                 businessName={selectedTenant?.name}
                 subtitle={`Gestisci l'albero delle categorie e i gruppi del tuo ${catalogLower}.`}
                 actions={
-                    <Button variant="primary" onClick={handleOpenCreate} disabled={!canEdit}>
-                        {`Crea ${catalogLower}`}
-                    </Button>
+                    <div style={{ display: "flex", gap: 8 }}>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+                                setIsAiImportOpen(true);
+                            }}
+                            disabled={!canEdit}
+                            leftIcon={<Sparkles size={16} />}
+                        >
+                            Importa con AI
+                        </Button>
+                        <Button variant="primary" onClick={handleOpenCreate} disabled={!canEdit}>
+                            {`Crea ${catalogLower}`}
+                        </Button>
+                    </div>
                 }
             />
 
@@ -369,6 +387,13 @@ export default function Catalogs() {
                     </form>
                 </DrawerLayout>
             </SystemDrawer>
+
+            {/* AI Import Drawer */}
+            <AiMenuImportDrawer
+                open={isAiImportOpen}
+                onClose={() => setIsAiImportOpen(false)}
+                onSuccess={loadData}
+            />
 
             {/* Delete Drawer */}
             <SystemDrawer open={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} width={400}>

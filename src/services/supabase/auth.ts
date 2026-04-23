@@ -1,4 +1,5 @@
 import { supabase, setRememberMe } from "@/services/supabase/client";
+import { CURRENT_CONSENT_VERSIONS } from "@/config/consentVersions";
 
 type SignInOptions = {
     rememberMe?: boolean;
@@ -21,7 +22,9 @@ export async function signUp(email: string, password: string, profile?: SignUpPr
             data: {
                 ...(profile?.first_name ? { first_name: profile.first_name } : {}),
                 ...(profile?.last_name ? { last_name: profile.last_name } : {}),
-                ...(profile?.phone ? { phone: profile.phone } : {})
+                ...(profile?.phone ? { phone: profile.phone } : {}),
+                consent_privacy_version: CURRENT_CONSENT_VERSIONS.privacy,
+                consent_terms_version: CURRENT_CONSENT_VERSIONS.terms,
             },
             emailRedirectTo: redirectUrl
         }
@@ -73,4 +76,16 @@ export async function resetPassword(email: string) {
     });
     if (error) throw error;
     return data;
+}
+
+// Reinvia email di conferma signup
+export async function resendConfirmationEmail(email: string) {
+    const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: {
+            emailRedirectTo: `${window.location.origin}/email-confirmed`
+        }
+    });
+    if (error) throw error;
 }

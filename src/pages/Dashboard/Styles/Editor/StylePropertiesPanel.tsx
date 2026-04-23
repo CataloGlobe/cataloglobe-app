@@ -21,10 +21,16 @@ type StylePropertiesPanelProps = {
 };
 
 export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelProps) => {
-    const fontOptions: Array<{ value: FontFamily; label: string }> = [
-        { value: "inter", label: "Inter" },
-        { value: "poppins", label: "Poppins" },
-        { value: "playfair", label: "Playfair" }
+    const fontOptions: Array<{ value: FontFamily; label: string; css: string }> = [
+        { value: "inter", label: "Inter", css: "'Inter', sans-serif" },
+        { value: "poppins", label: "Poppins", css: "'Poppins', sans-serif" },
+        { value: "montserrat", label: "Montserrat", css: "'Montserrat', sans-serif" },
+        { value: "josefin-sans", label: "Josefin Sans", css: "'Josefin Sans', sans-serif" },
+        { value: "raleway", label: "Raleway", css: "'Raleway', sans-serif" },
+        { value: "playfair", label: "Playfair", css: "'Playfair Display', serif" },
+        { value: "lora", label: "Lora", css: "'Lora', serif" },
+        { value: "cormorant-garamond", label: "Cormorant", css: "'Cormorant Garamond', serif" },
+        { value: "caveat", label: "Caveat", css: "'Caveat', cursive" }
     ];
 
     const navigationOptions: Array<{ value: NavigationStyle; label: string }> = [
@@ -484,35 +490,26 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
                         Font family<InfoTooltip content="Tipo di carattere usato in tutta la pagina pubblica." />
                     </Text>
-                    <div
-                        className={`${styles.buttonGroup} ${styles.threeColumns}`}
-                        role="radiogroup"
-                    >
+                    <div className={styles.miniPreviewGrid} role="radiogroup">
                         {fontOptions.map(option => {
                             const isActive = model.typography.fontFamily === option.value;
-                            let ff = "'Inter', sans-serif";
-                            if (option.value === "poppins") ff = "'Poppins', sans-serif";
-                            if (option.value === "playfair") ff = "'Playfair Display', serif";
-
                             return (
                                 <button
                                     key={option.value}
                                     type="button"
                                     role="radio"
                                     aria-checked={isActive}
-                                    className={`${styles.optionButton} ${
-                                        isActive ? styles.optionButtonActive : ""
+                                    className={`${styles.miniPreviewCard} ${
+                                        isActive ? styles.miniPreviewCardActive : ""
                                     }`}
                                     onClick={() => updateTypography(option.value)}
                                 >
-                                    <Text
-                                        as="span"
-                                        variant="body"
-                                        weight={600}
-                                        style={{ fontFamily: ff }}
+                                    <span
+                                        className={styles.fontPreviewLabel}
+                                        style={{ fontFamily: option.css }}
                                     >
                                         {option.label}
-                                    </Text>
+                                    </span>
                                 </button>
                             );
                         })}

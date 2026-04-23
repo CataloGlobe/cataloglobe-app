@@ -2,7 +2,7 @@ export type NavigationStyle = "pill" | "chip" | "outline" | "tabs" | "dot" | "mi
 export type CardLayout = "grid" | "list";
 export type ProductStyle = "card" | "compact";
 export type BorderRadius = "none" | "soft" | "rounded";
-export type FontFamily = "inter" | "poppins" | "playfair";
+export type FontFamily = "inter" | "poppins" | "montserrat" | "josefin-sans" | "raleway" | "playfair" | "lora" | "cormorant-garamond" | "caveat";
 export type BackgroundPattern = "none" | "dots" | "diagonal" | "grid" | "waves" | "diamonds";
 export type FeaturedStyle = "card" | "highlight";
 
@@ -138,7 +138,7 @@ export function parseTokens(rawJson: any): StyleTokenModel {
             border: rawColors.border || DEFAULT_STYLE_TOKENS.colors.border
         },
         typography: {
-            fontFamily: ["inter", "poppins", "playfair"].includes(
+            fontFamily: ["inter", "poppins", "montserrat", "josefin-sans", "raleway", "playfair", "lora", "cormorant-garamond", "caveat"].includes(
                 rawTypo.fontFamily || rawJson.fontFamily
             )
                 ? rawTypo.fontFamily || rawJson.fontFamily

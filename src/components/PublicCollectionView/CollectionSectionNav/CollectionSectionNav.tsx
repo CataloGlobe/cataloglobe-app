@@ -24,8 +24,6 @@ export type CollectionSectionNavProps = {
         shape?: "rounded" | "pill" | "square";
         navStyle?: "pill" | "chip" | "outline" | "tabs" | "dot" | "minimal";
     };
-    /** Offset top dinamico (px) per stare sotto il compact header. */
-    topOffset?: number;
 };
 
 const DROPDOWN_WIDTH_ESTIMATE = 220;
@@ -38,7 +36,6 @@ export default function CollectionSectionNav({
     activeChildId,
     variant = "public",
     style,
-    topOffset
 }: CollectionSectionNavProps) {
     const listRef = useRef<HTMLUListElement | null>(null);
     const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -48,6 +45,26 @@ export default function CollectionSectionNav({
 
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
     const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
+
+    // ── Overflow fade state ───────────────────────────────────────────────────
+    useEffect(() => {
+        const el = listRef.current;
+        if (!el) return;
+        const update = () => {
+            setCanScrollLeft(el.scrollLeft > 4);
+            setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+        };
+        update();
+        el.addEventListener("scroll", update, { passive: true });
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        return () => {
+            el.removeEventListener("scroll", update);
+            ro.disconnect();
+        };
+    }, [sections]);
 
     // ── Auto-scroll active pill into view ────────────────────────────────────
     useEffect(() => {
@@ -156,9 +173,11 @@ export default function CollectionSectionNav({
             className={styles.nav}
             data-variant={variant}
             data-nav-style={navStyle}
+            data-overflow-left={canScrollLeft || undefined}
+            data-overflow-right={canScrollRight || undefined}
             aria-label="Navigazione sezioni del catalogo"
-            style={topOffset !== undefined ? { top: topOffset } : undefined}
         >
+            <div className={styles.listWrapper}>
             <ul className={styles.list} role="tablist" ref={listRef}>
                 {sections.map(section => {
                     const isActive = section.id === activeSectionId;
@@ -234,6 +253,7 @@ export default function CollectionSectionNav({
                     );
                 })}
             </ul>
+            </div>
 
             {/* Dropdown — portal su document.body per uscire da overflow:hidden del .list */}
             {createPortal(

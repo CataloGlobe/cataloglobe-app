@@ -1,5 +1,4 @@
 import { NavLink, useParams } from "react-router-dom";
-import Text from "@/components/ui/Text/Text";
 import { motion } from "framer-motion";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import {
@@ -180,18 +179,9 @@ export default function Sidebar({
                                 }}
                             />
                         ) : (
-                            <Text
-                                variant="title-md"
-                                as="a"
-                                href={"/"}
-                                colorVariant="primary"
-                                style={{
-                                    textDecoration: "none",
-                                    whiteSpace: "nowrap"
-                                }}
-                            >
-                                CataloGlobe
-                            </Text>
+                            <a href="/" className={styles.sidebarLogo}>
+                                Catalo<span className={styles.sidebarLogoGlobe}>Globe</span>
+                            </a>
                         )}
                     </div>
                 )}

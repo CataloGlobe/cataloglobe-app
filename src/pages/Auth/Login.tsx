@@ -6,19 +6,26 @@ import {
     DELETED_ACCOUNT_HANDOFF_KEY,
     type DeletedAccountHandoff
 } from "@/services/supabase/account";
-import { Button } from "@components/ui";
+import { Button, InlineBanner } from "@components/ui";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
-import styles from "./Auth.module.scss";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
+import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
+import styles from "./Auth.module.scss";
+
+function isRateLimitError(message: string): boolean {
+    const m = message.toLowerCase();
+    return m.includes("too many") || m.includes("rate limit") || m.includes("too_many_requests");
+}
 
 export default function Login() {
-    usePageTitle('Accedi');
+    usePageTitle("Accedi");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [rememberMe, setRememberMe] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [rateLimited, setRateLimited] = useState(false);
     const [loading, setLoading] = useState(false);
     const [isBanned, setIsBanned] = useState(false);
     const [isRecovering, setIsRecovering] = useState(false);
@@ -51,13 +58,17 @@ export default function Login() {
     const navigate = useNavigate();
     const location = useLocation();
     const fromLocation = location.state?.from;
-    const from =
-        (fromLocation?.pathname ?? "/workspace") +
-        (fromLocation?.search ?? "");
+    // Passa from solo se c'è un redirect reale da una route protetta.
+    // Se l'utente arriva a /login direttamente (nessuno stato), from = undefined
+    // e VerifyOtp userà il fallback /dashboard (che gestisce returning users via TENANT_KEY).
+    const from = fromLocation
+        ? `${fromLocation.pathname}${fromLocation.search ?? ''}`
+        : undefined;
 
     async function handleLogin(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setError(null);
+        setRateLimited(false);
         setIsBanned(false);
         setRecoveryError(null);
         setRecoverySuccess(false);
@@ -71,13 +82,14 @@ export default function Login() {
                 return;
             }
 
-            navigate("/verify-otp", {
-                state: { from }
-            });
+            navigate("/verify-otp", { state: { from } });
         } catch (err) {
-            const message = err instanceof Error ? err.message : "Errore sconosciuto durante il login.";
+            const message =
+                err instanceof Error ? err.message : "Errore sconosciuto durante il login.";
             if (message.toLowerCase().includes("banned")) {
                 setIsBanned(true);
+            } else if (isRateLimitError(message)) {
+                setRateLimited(true);
             } else {
                 setError(message);
             }
@@ -109,12 +121,17 @@ export default function Login() {
     }
 
     return (
-        <div className={styles.auth}>
-            <Text as="h1" variant="title-md">
-                Accedi
-            </Text>
+        <AuthLayout>
+            <div className={styles.auth}>
+                <Text as="h1" variant="title-md">
+                    Ciao, bentornato
+                </Text>
 
-            <form onSubmit={handleLogin} aria-busy={loading}>
+                <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
+                    Accedi per gestire i tuoi cataloghi.
+                </Text>
+
+                <form onSubmit={handleLogin} aria-busy={loading}>
                 <TextInput
                     label="Email"
                     type="email"
@@ -136,7 +153,7 @@ export default function Login() {
                 <div className={styles.formRow}>
                     <CheckboxInput
                         label="Ricordami"
-                        description="Accedi in automatico"
+                        description="Ricordami su questo dispositivo"
                         checked={rememberMe}
                         onChange={e => setRememberMe(e.target.checked)}
                     />
@@ -149,20 +166,13 @@ export default function Login() {
                 </div>
 
                 {isBanned && !recoverySuccess && (
-                    <div style={{
-                        padding: "0.875rem 1rem",
-                        border: "1px solid var(--color-warning-300, #fcd34d)",
-                        borderRadius: "8px",
-                        background: "var(--color-warning-50, #fffbeb)",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "0.625rem"
-                    }}>
+                    <div className={styles.bannedBox}>
                         <Text variant="body-sm" weight={600}>
                             Account in fase di eliminazione
                         </Text>
                         <Text variant="body-sm" colorVariant="muted">
-                            Hai richiesto l&apos;eliminazione del tuo account. Hai 30 giorni per annullare questa operazione.
+                            Hai richiesto l&apos;eliminazione del tuo account. Hai 30 giorni per
+                            annullare questa operazione.
                         </Text>
                         {recoveryError && (
                             <Text variant="caption" colorVariant="error" as="p">
@@ -181,16 +191,25 @@ export default function Login() {
                 )}
 
                 {recoverySuccess && (
-                    <Text as="p" colorVariant="success" variant="caption" className={styles.feedback}>
-                        Account ripristinato con successo. Puoi effettuare di nuovo l&apos;accesso.
+                    <Text
+                        as="p"
+                        colorVariant="success"
+                        variant="caption"
+                        className={styles.feedback}
+                    >
+                        Account ripristinato con successo. Puoi effettuare di nuovo
+                        l&apos;accesso.
                     </Text>
                 )}
 
-                {error && (
-                    <Text as="p" colorVariant="error" variant="caption" className={styles.feedback}>
-                        {error}
-                    </Text>
+                {rateLimited && (
+                    <InlineBanner variant="warning">
+                        Hai effettuato troppi tentativi. Attendi qualche minuto prima di
+                        riprovare.
+                    </InlineBanner>
                 )}
+
+                {error && <InlineBanner variant="error">{error}</InlineBanner>}
 
                 <Button
                     type="submit"
@@ -201,11 +220,12 @@ export default function Login() {
                 >
                     Accedi
                 </Button>
-            </form>
+                </form>
 
-            <Text as="p" variant="body-sm" className={styles.hint}>
-                Non hai un account? <Link to="/sign-up">Registrati</Link>
-            </Text>
-        </div>
+                <Text as="p" variant="body-sm" className={styles.hint}>
+                    Non hai un account? <Link to="/sign-up">Registrati</Link>
+                </Text>
+            </div>
+        </AuthLayout>
     );
 }

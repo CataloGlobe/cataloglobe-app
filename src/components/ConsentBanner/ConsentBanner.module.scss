@@ -1,0 +1,65 @@
+.banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: var(--color-surface, #fff);
+  border-top: 1px solid var(--color-border, #e5e5e5);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+  padding: 20px 24px;
+}
+
+.content {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+.text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary, #333);
+  margin: 0;
+  flex: 1;
+
+  a {
+    color: var(--color-primary, #1a73e8);
+    text-decoration: underline;
+    font-weight: 500;
+
+    &:hover {
+      text-decoration: none;
+    }
+  }
+}
+
+.acceptButton {
+  flex-shrink: 0;
+  padding: 10px 24px;
+  background: var(--color-primary, #1a73e8);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+
+  &:hover {
+    opacity: 0.9;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}

@@ -97,9 +97,8 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  /* offset: compact header (~60px) + nav (~56px) + gap (16px) ≈ 132px ≈ 8.25rem
-     Valore aumentato rispetto al precedente 4.5rem per accomodare il compact header fisso. */
-  scroll-margin-top: 8.5rem;
+  /* offset: sticky header (~116px) + nav (~67px) + breathing room */
+  scroll-margin-top: 12rem;
 }
 
 /* sectionGroup: wrapper root per ogni gruppo gerarchico L1.
@@ -108,7 +107,7 @@
 .sectionGroup {
   display: flex;
   flex-direction: column;
-  scroll-margin-top: 8.5rem;
+  scroll-margin-top: 12rem;
 
   /* 14px tra titolo L1 e la sua griglia prodotti */
   > .grid {
@@ -285,7 +284,7 @@
 ---------------------------------------------------- */
 
 .compactItem {
-  scroll-margin-top: 8.5rem;
+  scroll-margin-top: 12rem;
   border-bottom: 1px solid color-mix(in srgb, var(--pub-surface-border) 60%, transparent);
 
   &:last-child {
@@ -402,7 +401,7 @@
   overflow: hidden; /* clips ProductRow hover bg to card radius */
   /* Offset per scrollIntoView dal SearchOverlay:
      compact header (~60px) + nav (~56px) + gap ≈ 130px ≈ 8.5rem */
-  scroll-margin-top: 8.5rem;
+  scroll-margin-top: 12rem;
 
   background: var(--pub-surface);
   border: 1px solid var(--pub-surface-border);
@@ -663,145 +662,6 @@
 .emptyState {
   padding: 32px 16px;
   text-align: center;
-}
-
-/* ----------------------------------------------------
-   PREVIEW COMPACT HEADER
-   Anchor sticky come figlio diretto di <main> (full-height).
-   Il compact bar è position:absolute → zero impatto sul layout.
-   La sticky constraint è <main> (min-height:100dvh) → resta attivo per tutto lo scroll.
----------------------------------------------------- */
-
-.previewHdrAnchor {
-  position: sticky;
-  top: 0;
-  height: 0;
-  overflow: visible;
-  z-index: 20;
-}
-
-.previewHdrBar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  background: var(--pub-bg);
-  border-bottom: 1px solid var(--pub-border);
-  will-change: transform, opacity;
-  transform: translateY(-100%);
-  opacity: 0;
-  /* Nascosto fuori schermo: i pulsanti non devono intercettare click/touch. */
-  pointer-events: none;
-  transition:
-    transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.18s ease;
-
-  &.previewHdrBarVisible {
-    transform: translateY(0);
-    opacity: 1;
-    pointer-events: auto;
-  }
-}
-
-.previewHdrInner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 1rem;
-  height: 60px;
-  max-width: 100%;
-
-  :global(.preview-desktop) & {
-    max-width: 1024px;
-    margin: 0 auto;
-  }
-}
-
-.previewHdrLogoWrapper {
-  flex-shrink: 0;
-  height: 28px;
-  max-width: 80px;
-  display: flex;
-  align-items: center;
-}
-
-.previewHdrLogo {
-  height: 28px;
-  max-width: 80px;
-  object-fit: contain;
-  display: block;
-}
-
-.previewHdrLogoPlaceholder {
-  flex-shrink: 0;
-  width: 60px;
-  height: 28px;
-  border-radius: var(--pub-btn-radius, 5px);
-  background: color-mix(in srgb, var(--pub-text) 10%, transparent);
-}
-
-.previewHdrName {
-  flex: 1;
-  min-width: 0;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--pub-bg-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-family: var(--pub-font-family, sans-serif);
-}
-
-.previewHdrSearchBtn {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--pub-btn-radius, 8px);
-  border: 1px solid var(--pub-surface-border);
-  background: var(--pub-surface);
-  color: var(--pub-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-
-  &:hover {
-    background: color-mix(in srgb, var(--pub-text) 5%, var(--pub-surface));
-    color: var(--pub-text);
-  }
-}
-
-.previewHdrHoursBtn {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--pub-btn-radius, 8px);
-  border: 1px solid var(--pub-surface-border);
-  background: var(--pub-surface);
-  color: var(--pub-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-
-  &:hover {
-    background: color-mix(in srgb, var(--pub-text) 5%, var(--pub-surface));
-    color: var(--pub-text);
-  }
-}
-
-/* ----------------------------------------------------
-   COMPACT HEADER SPACER
-   Compensa il compact header position:fixed in public mode.
-   Transizione sincronizzata con l'animazione slide-in del compact bar.
----------------------------------------------------- */
-
-.compactSpacer {
-  flex-shrink: 0;
-  overflow: hidden;
-  transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ----------------------------------------------------

@@ -3,12 +3,64 @@
 --------------------------------------------- */
 .nav {
   position: sticky;
-  top: 0;
+  top: calc(var(--pub-header-height, 100px) - 1px);
   z-index: 10;
   width: 100%;
-  background: color-mix(in srgb, var(--pub-bg) 95%, transparent);
-  backdrop-filter: blur(4px);
+  background: var(--pub-bg);
   border-bottom: 1px solid var(--pub-border);
+}
+
+/* ---------------------------------------------
+   LIST WRAPPER — centra la lista e ancora i fade
+--------------------------------------------- */
+.listWrapper {
+  position: relative;
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+
+  @media (min-width: 1024px) {
+    max-width: 1024px;
+  }
+
+  :global(.preview-mobile) & {
+    max-width: 100%;
+  }
+
+  :global(.preview-desktop) & {
+    max-width: 1024px;
+  }
+}
+
+.listWrapper::before,
+.listWrapper::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 32px;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.listWrapper::before {
+  left: 0;
+  background: linear-gradient(to right, var(--pub-bg), transparent);
+}
+
+.listWrapper::after {
+  right: 0;
+  background: linear-gradient(to left, var(--pub-bg), transparent);
+}
+
+.nav[data-overflow-left] .listWrapper::before {
+  opacity: 1;
+}
+
+.nav[data-overflow-right] .listWrapper::after {
+  opacity: 1;
 }
 
 /* ---------------------------------------------
@@ -21,8 +73,6 @@
   gap: 0.75rem;
 
   width: 100%;
-  max-width: 820px;
-  margin: 0 auto;
 
   padding: 0.75rem 1rem;
 
@@ -39,17 +89,8 @@
   scrollbar-width: none; /* Firefox */
 
   @media (min-width: 1024px) {
-    max-width: 1024px;
     padding-left: 1rem;
     padding-right: 1rem;
-  }
-
-  :global(.preview-mobile) & {
-    max-width: 100%;
-  }
-
-  :global(.preview-desktop) & {
-    max-width: 1024px;
   }
 }
 
@@ -88,7 +129,10 @@
 
   border-radius: 999px;
 
-  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
 
   &:focus-visible {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--pub-primary) 35%, transparent);
@@ -241,7 +285,7 @@
       }
 
       &::after {
-        content: '';
+        content: "";
         position: absolute;
         bottom: 0.35rem;
         left: 50%;
@@ -265,7 +309,10 @@
   /* Nessun overflow:hidden — il dropdown deve uscire dal container */
   border-radius: 999px; /* default pill; override via inline style o varianti */
   color: var(--pub-bg-text-secondary);
-  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
 
   &:focus-within {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--pub-primary) 35%, transparent);
@@ -517,7 +564,6 @@
     background: color-mix(in srgb, var(--pub-primary, #e8a300) 20%, var(--pub-surface, #fff));
   }
 }
-
 
 /* ---------------------------------------------
    RESPONSIVE TWEAKS

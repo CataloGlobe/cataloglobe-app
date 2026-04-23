@@ -43,3 +43,9 @@ tsconfig.tsbuildinfo
 .agent/
 .agents/
 skills-lock.json
+
+# Tool artifacts
+.playwright-mcp/
+
+# Internal planning docs
+docs/superpowers/

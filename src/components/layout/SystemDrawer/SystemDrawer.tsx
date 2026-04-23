@@ -12,6 +12,9 @@ export interface SystemDrawerProps {
     "aria-describedby"?: string;
 }
 
+const FIRST_INPUT_SELECTOR =
+    'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])';
+
 export const SystemDrawer = ({
     open,
     onClose,
@@ -22,6 +25,8 @@ export const SystemDrawer = ({
 }: SystemDrawerProps) => {
     const previousActiveElement = useRef<HTMLElement | null>(null);
     const drawerRef = useRef<HTMLDivElement>(null);
+    const openRef = useRef(open);
+    useEffect(() => { openRef.current = open; }, [open]);
 
     // Focus management
     useEffect(() => {
@@ -132,6 +137,11 @@ export const SystemDrawer = ({
                         animate={{ x: 0 }}
                         exit={{ x: "100%" }}
                         transition={{ duration: 0.25, type: "tween", ease: "easeOut" }}
+                        onAnimationComplete={() => {
+                            if (!openRef.current) return;
+                            const firstInput = drawerRef.current?.querySelector<HTMLElement>(FIRST_INPUT_SELECTOR);
+                            firstInput?.focus();
+                        }}
                         role="dialog"
                         aria-modal={open ? "true" : undefined}
                         aria-labelledby={ariaLabelledBy}

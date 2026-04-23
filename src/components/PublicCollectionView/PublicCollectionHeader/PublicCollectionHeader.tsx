@@ -10,6 +10,20 @@ const HUB_TABS: { id: HubTab; icon: ReactNode; label: string }[] = [
     { id: "reviews", icon: <MessageSquareHeart size={14} />, label: "Dicci la tua" },
 ];
 
+// ── Prototype constants (authoritative — do not change) ─────────────────────
+const TRANSITION_END = 140;
+const BASE_MARGIN_MOBILE = 10;
+const BASE_MARGIN_DESKTOP = 16;
+const CONTENT_MAX_WIDTH = 1024; // allineato a .frame / .inner
+const INITIAL_RADIUS_MOBILE = 16;
+const INITIAL_RADIUS_DESKTOP = 20;
+const TOP_OFFSET = 8;
+
+export const HEADER_HEIGHT_MOBILE = 108;
+export const HEADER_HEIGHT_DESKTOP = 116;
+
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
 export type PublicCollectionHeaderProps = {
     logoUrl?: string | null;
     activityName: string;
@@ -20,22 +34,15 @@ export type PublicCollectionHeaderProps = {
     showCoverImage: boolean;
     showLogo: boolean;
     mode: "public" | "preview";
-    /** Apre il SearchOverlay (la ricerca è gestita esternamente). Undefined in preview — nasconde i pulsanti di ricerca. */
+    /** Apre il SearchOverlay. Undefined in preview — nasconde i pulsanti di ricerca. */
     onSearchOpen?: () => void;
-    /** Chiamato quando il compact bar diventa visibile/invisibile. */
-    onCompactVisibilityChange?: (visible: boolean) => void;
-    /**
-     * Chiamato ogni volta che l'altezza reale del compact bar cambia
-     * (CollectionView aggiorna dinamicamente topOffset di CollectionSectionNav).
-     */
-    onCompactHeightChange?: (height: number) => void;
     /** Scroll container della preview (deviceScreen). Non usato in public. */
     scrollContainerEl?: HTMLElement | null;
     /** Hub navigation tab attiva. */
     activeTab: HubTab;
     /** Callback per cambio tab. */
     onTabChange: (tab: HubTab) => void;
-    /** True se ci sono informazioni sede da mostrare (orari, pagamenti, servizi, contatti). */
+    /** True se ci sono informazioni sede da mostrare. */
     hasInfo?: boolean;
     /** Chiamato al tap sull'icona info. */
     onInfoPress?: () => void;
@@ -52,275 +59,204 @@ export default function PublicCollectionHeader({
     showLogo,
     mode,
     onSearchOpen,
-    onCompactVisibilityChange,
-    onCompactHeightChange,
     scrollContainerEl,
     activeTab,
     onTabChange,
     hasInfo,
-    onInfoPress
+    onInfoPress,
 }: PublicCollectionHeaderProps) {
-    const heroAreaRef = useRef<HTMLDivElement | null>(null);
-    const compactBarRef = useRef<HTMLDivElement | null>(null);
+    // ── ResizeObserver: write --pub-header-height on <main> ancestor ────────────
+    const headerRef = useRef<HTMLElement | null>(null);
 
-    // Senza cover image: compact visibile dall'inizio.
-    // Con cover image: si attiva dopo lo scroll (sia public che preview).
-    const [isCompact, setIsCompact] = useState(!showCoverImage);
-
-    // ─── Rilevamento scroll per PREVIEW ───────────────────────────────────────
-    // In preview usiamo un semplice scroll listener sul scrollContainerEl.
-    // L'IntersectionObserver non si comporta in modo affidabile quando il root
-    // è un container interno (deviceScreen) a causa del layout non stabile
-    // al momento del mount.
     useEffect(() => {
-        if (mode !== "preview") return;
-        if (!showCoverImage) {
-            setIsCompact(true);
-            onCompactVisibilityChange?.(true);
-            return;
-        }
-        if (!scrollContainerEl) return;
+        const el = headerRef.current;
+        if (!el) return;
 
-        const container = scrollContainerEl;
+        const pageEl = el.closest("main") as HTMLElement | null;
+        if (!pageEl) return;
 
-        const handleScroll = () => {
-            // Stessa logica del rootMargin: attiva 60px prima che l'hero
-            // sia completamente uscito, così la slide-in parte in anticipo.
-            const heroHeight = heroAreaRef.current?.offsetHeight ?? 220;
-            const compact = container.scrollTop >= heroHeight - 60;
-            setIsCompact(compact);
-            onCompactVisibilityChange?.(compact);
+        const setHeight = (h: number) => {
+            pageEl.style.setProperty("--pub-header-height", `${h}px`);
         };
 
-        // Controllo iniziale: se l'overlay è già scrollato (es. hot-reload)
-        handleScroll();
+        setHeight(el.offsetHeight);
 
-        container.addEventListener("scroll", handleScroll, { passive: true });
-        return () => container.removeEventListener("scroll", handleScroll);
-    }, [mode, showCoverImage, scrollContainerEl, onCompactVisibilityChange]);
-
-    // ─── IntersectionObserver per PUBLIC ──────────────────────────────────────
-    // rootMargin: "-60px 0px 0px 0px" restringe il root di 60px dall'alto.
-    // Il compact bar si attiva quando restano ~60px di hero visibile, così
-    // la slide-in (0.3s) è già in corso quando l'hero scompare → zero gap.
-    useEffect(() => {
-        if (mode !== "public") return;
-        if (!showCoverImage) {
-            setIsCompact(true);
-            onCompactVisibilityChange?.(true);
-            return;
-        }
-
-        const heroEl = heroAreaRef.current;
-        if (!heroEl) return;
-
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                const compact = !entry.isIntersecting;
-                setIsCompact(compact);
-                onCompactVisibilityChange?.(compact);
-            },
-            { root: null, threshold: 0, rootMargin: "-60px 0px 0px 0px" }
-        );
-
-        observer.observe(heroEl);
-        return () => observer.disconnect();
-    }, [mode, showCoverImage, onCompactVisibilityChange]);
-
-    // ─── ResizeObserver ───────────────────────────────────────────────────────
-    // Misura l'altezza reale del compact bar per il compactSpacer in public mode.
-    useEffect(() => {
-        const el = compactBarRef.current;
-        if (!el || !onCompactHeightChange) return;
-
-        const ro = new ResizeObserver(() => {
-            onCompactHeightChange(el.getBoundingClientRect().height);
+        const ro = new ResizeObserver(entries => {
+            for (const entry of entries) {
+                setHeight((entry.target as HTMLElement).offsetHeight);
+            }
         });
         ro.observe(el);
         return () => ro.disconnect();
-    }, [onCompactHeightChange]);
+    }, []);
 
-    const isPublic = mode === "public";
+    // ── Scroll tracking (from prototype) ───────────────────────────────────────
+    const [scrollY, setScrollY] = useState(0);
+    const [viewportWidth, setViewportWidth] = useState(
+        typeof window !== "undefined" ? window.innerWidth : 1024
+    );
+    const [isMobile, setIsMobile] = useState(
+        typeof window !== "undefined" ? window.innerWidth < 768 : false
+    );
 
-    const compactBarClass = [
-        styles.compactBar,
-        isPublic ? styles.compactFixed : styles.compactSticky,
-        isCompact ? styles.compactVisible : ""
-    ]
-        .filter(Boolean)
-        .join(" ");
+    useEffect(() => {
+        const handleResize = () => {
+            const w = window.innerWidth;
+            setViewportWidth(w);
+            setIsMobile(w < 768);
+        };
+        window.addEventListener("resize", handleResize, { passive: true });
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    useEffect(() => {
+        const target = scrollContainerEl ?? window;
+        const readScroll = () => {
+            const y = scrollContainerEl
+                ? scrollContainerEl.scrollTop
+                : window.scrollY;
+            setScrollY(y);
+        };
+        readScroll();
+        target.addEventListener("scroll", readScroll, { passive: true });
+        return () => target.removeEventListener("scroll", readScroll);
+    }, [scrollContainerEl]);
+
+    // ── Animation values (from prototype) ─────────────────────────────────────
+    const progress = Math.max(0, Math.min(1, scrollY / TRANSITION_END));
+
+    const initialMargin = isMobile
+        ? BASE_MARGIN_MOBILE
+        : Math.max((viewportWidth - CONTENT_MAX_WIDTH) / 2 + BASE_MARGIN_DESKTOP, BASE_MARGIN_DESKTOP);
+    const initialRadius = isMobile ? INITIAL_RADIUS_MOBILE : INITIAL_RADIUS_DESKTOP;
+    const headerHeight = isMobile ? HEADER_HEIGHT_MOBILE : HEADER_HEIGHT_DESKTOP;
+
+    const currentMargin = lerp(initialMargin, 0, progress);
+    const currentRadius = lerp(initialRadius, 0, progress);
+    const currentTopOffset = lerp(TOP_OFFSET, 0, progress);
+    const currentGap = lerp(8, 0, progress);
+
+    // Negative margin-top overlaps the header onto the cover image
+    const coverOverlap = showCoverImage
+        ? -(headerHeight + TOP_OFFSET + 4)
+        : 0;
 
     return (
-        <div className={styles.root}>
-            {/* ───────────── HERO AREA ───────────── */}
+        <>
+            {/* COVER IMAGE — scrolls away normally */}
             {showCoverImage && (
-                <div className={styles.heroArea} ref={heroAreaRef}>
+                <div className={styles.coverImage}>
                     {coverImageUrl ? (
                         <img
                             src={coverImageUrl}
                             alt=""
                             role="presentation"
-                            className={styles.heroCoverImg}
+                            className={styles.coverImg}
                         />
                     ) : mode === "preview" ? (
-                        <div className={styles.heroImgPlaceholder} aria-hidden>
+                        <div className={styles.coverPlaceholder} aria-hidden>
                             <ImageIcon size={32} strokeWidth={1.5} />
                         </div>
                     ) : (
-                        <div className={styles.heroImgPlaceholder} aria-hidden />
+                        <div className={styles.coverPlaceholder} aria-hidden />
                     )}
-
-                    {/* Card sovrapposta al hero */}
-                    <div className={styles.infoCard}>
-                        <div className={styles.infoCardTopRow}>
-                            {showLogo && (
-                                <>
-                                    {logoUrl ? (
-                                        <div className={styles.infoCardLogoWrapper}>
-                                            <img
-                                                src={logoUrl}
-                                                alt={`Logo ${activityName}`}
-                                                className={styles.infoCardLogo}
-                                            />
-                                        </div>
-                                    ) : mode === "preview" ? (
-                                        <div className={styles.infoCardLogoPlaceholder} />
-                                    ) : null}
-                                </>
-                            )}
-
-                            <div className={styles.infoCardText}>
-                                <span className={styles.infoCardName}>{activityName}</span>
-                                {activityAddress && (
-                                    <span className={styles.infoCardAddress}>{activityAddress}</span>
-                                )}
-                                {showCatalogName && catalogName && (
-                                    <span className={styles.infoCardCatalogName}>{catalogName}</span>
-                                )}
-                            </div>
-
-                            {mode !== "preview" && <LanguageSelector variant="hero" />}
-
-                            {mode !== "preview" && hasInfo && onInfoPress && (
-                                <button
-                                    type="button"
-                                    className={styles.infoCardInfoBtn}
-                                    onClick={onInfoPress}
-                                    aria-label="Informazioni sede"
-                                >
-                                    <Info size={15} strokeWidth={2} />
-                                </button>
-                            )}
-
-                            {onSearchOpen && (
-                                <button
-                                    type="button"
-                                    className={styles.infoCardSearchBtn}
-                                    onClick={onSearchOpen}
-                                    aria-label="Cerca nel catalogo"
-                                >
-                                    <Search size={15} strokeWidth={2} />
-                                </button>
-                            )}
-                        </div>
-
-                        <div className={[
-                            styles.infoCardChips,
-                            mode === "preview" ? styles.infoCardChipsPreview : ""
-                        ].filter(Boolean).join(" ")}>
-                            {HUB_TABS.map(t => (
-                                <button
-                                    key={t.id}
-                                    type="button"
-                                    className={[
-                                        styles.infoCardChip,
-                                        activeTab === t.id ? styles.infoCardChipActive : ""
-                                    ].filter(Boolean).join(" ")}
-                                    onClick={() => onTabChange(t.id)}
-                                >
-                                    {t.icon} {t.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
                 </div>
             )}
 
-            {/* ───────────── COMPACT BAR (solo public) ───────────── */}
-            {/*
-             * PUBLIC  → compactBar usa position:fixed (sfugge al containing block sticky).
-             *           La pagina usa il <compactSpacer> per compensare l'altezza.
-             *
-             * PREVIEW → il compact bar è renderizzato da CollectionView come figlio
-             *           diretto di <main> (full-height). Qui non viene renderizzato
-             *           perché il parent .root copre solo l'hero (~220px): il sticky
-             *           smette di funzionare quando l'utente scrolla oltre quel limite.
-             */}
-            {mode === "public" && (
-                <div className={styles.compactAnchor}>
-                    <div className={compactBarClass} ref={compactBarRef}>
-                        <div className={styles.compactInner}>
-                            <div className={styles.compactTopRow}>
-                                {showLogo && (
-                                    <>
-                                        {logoUrl ? (
-                                            <div className={styles.compactLogoWrapper}>
-                                                <img
-                                                    src={logoUrl}
-                                                    alt={`Logo ${activityName}`}
-                                                    className={styles.compactLogo}
-                                                />
-                                            </div>
-                                        ) : null}
-                                    </>
-                                )}
-
-                                <span className={styles.compactName}>{activityName}</span>
-
-                                <LanguageSelector variant="compact" />
-
-                                {hasInfo && onInfoPress && (
-                                    <button
-                                        type="button"
-                                        className={styles.compactInfoBtn}
-                                        onClick={onInfoPress}
-                                        aria-label="Informazioni sede"
-                                    >
-                                        <Info size={16} strokeWidth={2} />
-                                    </button>
-                                )}
-
-                                {onSearchOpen && (
-                                    <button
-                                        type="button"
-                                        className={styles.compactSearchBtn}
-                                        onClick={onSearchOpen}
-                                        aria-label="Cerca nel catalogo"
-                                    >
-                                        <Search size={16} strokeWidth={2} />
-                                    </button>
-                                )}
+            {/* HEADER STICKY — single element, scroll-driven animation via inline style */}
+            <header
+                ref={headerRef}
+                className={styles.root}
+                style={{
+                    position: "sticky",
+                    top: currentTopOffset,
+                    zIndex: 30,
+                    marginLeft: currentMargin,
+                    marginRight: currentMargin,
+                    marginTop: coverOverlap,
+                    borderRadius: currentRadius,
+                    overflow: "hidden",
+                }}
+            >
+                <div className={styles.inner}>
+                    <div className={styles.topRow}>
+                        {showLogo && logoUrl && (
+                            <div className={styles.logoWrapper}>
+                                <img
+                                    src={logoUrl}
+                                    alt={`Logo ${activityName}`}
+                                    className={styles.logo}
+                                />
                             </div>
+                        )}
+                        {showLogo && !logoUrl && mode === "preview" && (
+                            <div className={styles.logoPlaceholder} />
+                        )}
 
-                            <div className={styles.compactChips}>
-                                {HUB_TABS.map(t => (
-                                    <button
-                                        key={t.id}
-                                        type="button"
-                                        className={[
-                                            styles.compactChip,
-                                            activeTab === t.id ? styles.compactChipActive : ""
-                                        ].filter(Boolean).join(" ")}
-                                        onClick={() => onTabChange(t.id)}
-                                    >
-                                        {t.icon} {t.label}
-                                    </button>
-                                ))}
-                            </div>
+                        <div className={styles.textBlock}>
+                            <span className={styles.name}>{activityName}</span>
+                            {activityAddress && (
+                                <span className={styles.address}>{activityAddress}</span>
+                            )}
+                            {showCatalogName && catalogName && (
+                                <span className={styles.catalogName}>{catalogName}</span>
+                            )}
                         </div>
+
+                        {mode !== "preview" && <LanguageSelector variant="hero" />}
+
+                        {mode !== "preview" && hasInfo && onInfoPress && (
+                            <button
+                                type="button"
+                                className={styles.iconBtn}
+                                onClick={onInfoPress}
+                                aria-label="Informazioni sede"
+                            >
+                                <Info size={15} strokeWidth={2} />
+                            </button>
+                        )}
+
+                        {onSearchOpen && (
+                            <button
+                                type="button"
+                                className={styles.iconBtn}
+                                onClick={onSearchOpen}
+                                aria-label="Cerca nel catalogo"
+                            >
+                                <Search size={15} strokeWidth={2} />
+                            </button>
+                        )}
+                    </div>
+
+                    <div
+                        className={[
+                            styles.chips,
+                            mode === "preview" ? styles.chipsPreview : "",
+                        ]
+                            .filter(Boolean)
+                            .join(" ")}
+                    >
+                        {HUB_TABS.map(t => (
+                            <button
+                                key={t.id}
+                                type="button"
+                                className={[
+                                    styles.chip,
+                                    activeTab === t.id ? styles.chipActive : "",
+                                ]
+                                    .filter(Boolean)
+                                    .join(" ")}
+                                onClick={() => onTabChange(t.id)}
+                            >
+                                {t.icon} {t.label}
+                            </button>
+                        ))}
                     </div>
                 </div>
-            )}
-        </div>
+            </header>
+
+            {/* Animated gap between header and pill bar */}
+            <div aria-hidden style={{ height: currentGap }} />
+        </>
     );
 }

@@ -9,11 +9,17 @@ import roStyles from "./StylePropertiesReadOnly.module.scss";
 type Props = { model: StyleTokenModel };
 
 export const StylePropertiesReadOnly = ({ model }: Props) => {
-    const fontLabels: Record<string, string> = {
-        inter: "Inter",
-        poppins: "Poppins",
-        playfair: "Playfair"
-    };
+    const fontOptions: Array<{ value: string; label: string; css: string }> = [
+        { value: "inter", label: "Inter", css: "'Inter', sans-serif" },
+        { value: "poppins", label: "Poppins", css: "'Poppins', sans-serif" },
+        { value: "montserrat", label: "Montserrat", css: "'Montserrat', sans-serif" },
+        { value: "josefin-sans", label: "Josefin Sans", css: "'Josefin Sans', sans-serif" },
+        { value: "raleway", label: "Raleway", css: "'Raleway', sans-serif" },
+        { value: "playfair", label: "Playfair", css: "'Playfair Display', serif" },
+        { value: "lora", label: "Lora", css: "'Lora', serif" },
+        { value: "cormorant-garamond", label: "Cormorant", css: "'Cormorant Garamond', serif" },
+        { value: "caveat", label: "Caveat", css: "'Caveat', cursive" }
+    ];
 
     return (
         <div className={sharedStyles.panelRoot}>
@@ -299,11 +305,31 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 <Text as="h4" variant="title-sm" weight={700} className={sharedStyles.sectionTitle}>
                     Tipografia
                 </Text>
-                <ValueReadRow
-                    label="Font family"
-                    tooltip="Tipo di carattere usato in tutta la pagina pubblica."
-                    value={fontLabels[model.typography.fontFamily] ?? model.typography.fontFamily}
-                />
+                <div className={sharedStyles.controlField}>
+                    <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
+                        Font family<InfoTooltip content="Tipo di carattere usato in tutta la pagina pubblica." />
+                    </Text>
+                    <div className={sharedStyles.miniPreviewGrid}>
+                        {fontOptions.map(opt => {
+                            const isActive = model.typography.fontFamily === opt.value;
+                            return (
+                                <div
+                                    key={opt.value}
+                                    className={`${sharedStyles.miniPreviewCard} ${sharedStyles.miniPreviewCardReadonly} ${
+                                        isActive ? sharedStyles.miniPreviewCardActive : ""
+                                    }`}
+                                >
+                                    <span
+                                        className={sharedStyles.fontPreviewLabel}
+                                        style={{ fontFamily: opt.css }}
+                                    >
+                                        {opt.label}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
             </section>
         </div>
     );

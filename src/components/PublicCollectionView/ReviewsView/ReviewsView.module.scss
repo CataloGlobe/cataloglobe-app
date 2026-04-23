@@ -130,6 +130,12 @@
     border-radius: 999px;
     font-family: inherit;
     animation: fadeUp 0.25s ease both;
+
+    /* Touch device: nascosto — il tap sulla stella porta direttamente al form,
+       dove il badge è già presente. Evita il flash di 300ms su mobile. */
+    @media (hover: none) {
+        display: none;
+    }
 }
 
 .ratingEmoji {

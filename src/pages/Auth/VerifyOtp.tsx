@@ -8,7 +8,7 @@ import {
     useCallback
 } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -16,10 +16,11 @@ import { Button } from "@/components/ui";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import type { OtpErrorCode, OtpStatus, VerifyOtpResponse } from "@/types/otp";
+import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
 import styles from "./Auth.module.scss";
 
 const OTP_LENGTH = 6;
-const RESEND_COOLDOWN = 60;
+const RESEND_COOLDOWN = 30;
 
 function mapOtpError(error: unknown): OtpErrorCode {
     if (!error || typeof error !== "object") return "unknown";
@@ -35,10 +36,24 @@ function mapOtpError(error: unknown): OtpErrorCode {
     return "unknown";
 }
 
+/**
+ * Valida che il path sia interno all'app (previene open redirect).
+ * Deve iniziare con / ma non con //, e non contenere protocolli.
+ */
+function isInternalPath(path: unknown): path is string {
+    if (typeof path !== 'string' || path.length === 0) return false;
+    if (!path.startsWith('/') || path.startsWith('//')) return false;
+    if (/^[a-zA-Z][a-zA-Z0-9+\-.]*:/.test(path)) return false;
+    return true;
+}
+
 export default function VerifyOtp() {
     usePageTitle('Verifica OTP');
     const { forceOtpCheck } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const fromState = (location.state as { from?: string } | null)?.from;
+    const redirectAfterOtp = isInternalPath(fromState) ? fromState : '/dashboard';
 
     const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
     const [loading, setLoading] = useState(false);
@@ -49,6 +64,7 @@ export default function VerifyOtp() {
     const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
     const [maxAttempts, setMaxAttempts] = useState<number | null>(null);
     const [locked, setLocked] = useState(false);
+    const [userEmail, setUserEmail] = useState<string | null>(null);
 
     const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
     const hasRequestedOtpRef = useRef(false);
@@ -145,6 +161,15 @@ export default function VerifyOtp() {
     useEffect(() => {
         void loadOtpStatus();
     }, [loadOtpStatus]);
+
+    /* ------------------------------------------------------------------
+     * FETCH EMAIL UTENTE PER IL BODY
+     * ------------------------------------------------------------------ */
+    useEffect(() => {
+        supabase.auth.getUser().then(({ data }) => {
+            setUserEmail(data.user?.email ?? null);
+        });
+    }, []);
 
     /* ------------------------------------------------------------------
      * INVIO OTP AUTOMATICO (UNA SOLA VOLTA)
@@ -339,7 +364,7 @@ export default function VerifyOtp() {
             }
 
             await forceOtpCheck();
-            navigate("/dashboard", { replace: true });
+            navigate(redirectAfterOtp, { replace: true });
         } finally {
             setLoading(false);
             setStatus("idle");
@@ -375,77 +400,89 @@ export default function VerifyOtp() {
     /* ------------------------------------------------------------------ */
 
     return (
-        <div className={styles.auth}>
-            <Text as="h1" variant="title-md">
-                Verifica il codice
-            </Text>
-            <Text as="p" variant="body-sm" className={styles.subtitle}>
-                Inserisci il codice a 6 cifre che ti abbiamo inviato via email.
-            </Text>
-            <form
-                onSubmit={(e: FormEvent) => {
-                    e.preventDefault();
-                    void handleVerify();
-                }}
-            >
-                <div className={styles.otpInputs}>
-                    {digits.map((digit, index) => (
-                        <TextInput
-                            key={index}
-                            ref={el => {
-                                inputsRef.current[index] = el;
-                            }}
-                            className={styles.otpInput}
-                            inputMode="numeric"
-                            maxLength={1}
-                            value={digit}
-                            disabled={loading}
-                            onChange={e => handleChangeDigit(index, e.target.value)}
-                            onKeyDown={e => handleKeyDown(index, e)}
-                            onPaste={index === 0 ? handlePaste : undefined}
-                        />
-                    ))}
-                </div>
-                {error && (
-                    <Text variant="caption" colorVariant="error" className={styles.feedback}>
-                        {error}
-                    </Text>
-                )}
-
-                {info && !error && (
-                    <Text variant="caption" colorVariant="info" className={styles.feedback}>
-                        {info}
-                    </Text>
-                )}
-                <Button
-                    type="submit"
-                    fullWidth
-                    loading={loading}
-                    disabled={locked || status === "sending" || status === "verifying"}
-                >
-                    {status === "sending" ? "Invio in corso…" : "Verifica"}
-                </Button>
-            </form>
-            <div className={styles.otpFooter}>
-                <Button
-                    variant="ghost"
-                    fullWidth
-                    onClick={handleResend}
-                    disabled={loading || locked || resendSeconds === null || resendSeconds > 0}
-                >
-                    {resendSeconds === null
-                        ? "Reinvia codice"
-                        : resendSeconds > 0
-                        ? `Reinvia codice (${resendSeconds}s)`
-                        : "Reinvia codice"}
-                </Button>
-            </div>
-
-            {attemptsLeft !== null && maxAttempts !== null && attemptsLeft < maxAttempts && (
-                <Text variant="caption" colorVariant="error">
-                    Tentativi disponibili: {attemptsLeft}
+        <AuthLayout>
+            <div className={styles.auth}>
+                <Text as="h1" variant="title-md">
+                    Inserisci il codice
                 </Text>
-            )}
-        </div>
+                <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
+                    {userEmail ? (
+                        <>
+                            Ti abbiamo inviato un codice di verifica a <strong>{userEmail}</strong>.
+                        </>
+                    ) : (
+                        "Ti abbiamo inviato un codice di verifica via email."
+                    )}
+                </Text>
+                <form
+                    onSubmit={(e: FormEvent) => {
+                        e.preventDefault();
+                        void handleVerify();
+                    }}
+                >
+                    <span className={styles.otpLabel}>Codice a 6 cifre</span>
+                    <div className={styles.otpInputs}>
+                        {digits.map((digit, index) => (
+                            <TextInput
+                                key={index}
+                                ref={el => {
+                                    inputsRef.current[index] = el;
+                                }}
+                                className={styles.otpInput}
+                                inputMode="numeric"
+                                maxLength={1}
+                                value={digit}
+                                disabled={loading}
+                                onChange={e => handleChangeDigit(index, e.target.value)}
+                                onKeyDown={e => handleKeyDown(index, e)}
+                                onPaste={index === 0 ? handlePaste : undefined}
+                            />
+                        ))}
+                    </div>
+                    {error && (
+                        <Text variant="caption" colorVariant="error" className={styles.feedback}>
+                            {error}
+                        </Text>
+                    )}
+                    {info && !error && (
+                        <Text variant="caption" colorVariant="info" className={styles.feedback}>
+                            {info}
+                        </Text>
+                    )}
+                    <Button
+                        type="submit"
+                        fullWidth
+                        loading={loading}
+                        disabled={locked || status === "sending" || status === "verifying"}
+                    >
+                        {status === "sending" ? "Invio in corso…" : "Verifica"}
+                    </Button>
+                </form>
+
+                <div className={styles.otpFooter}>
+                    <div className={styles.resendRow}>
+                        <Text as="span" variant="caption" colorVariant="muted">
+                            Non hai ricevuto il codice?
+                        </Text>
+                        <button
+                            type="button"
+                            className={styles.resendLink}
+                            disabled={loading || locked || resendSeconds === null || resendSeconds > 0}
+                            onClick={handleResend}
+                        >
+                            {resendSeconds !== null && resendSeconds > 0
+                                ? `Invialo di nuovo (${resendSeconds}s)`
+                                : "Invialo di nuovo"}
+                        </button>
+                    </div>
+                </div>
+
+                {attemptsLeft !== null && maxAttempts !== null && attemptsLeft < maxAttempts && (
+                    <Text variant="caption" colorVariant="error">
+                        Tentativi disponibili: {attemptsLeft}
+                    </Text>
+                )}
+            </div>
+        </AuthLayout>
     );
 }
