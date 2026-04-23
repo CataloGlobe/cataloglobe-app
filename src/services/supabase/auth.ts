@@ -77,3 +77,15 @@ export async function resetPassword(email: string) {
     if (error) throw error;
     return data;
 }
+
+// Reinvia email di conferma signup
+export async function resendConfirmationEmail(email: string) {
+    const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: {
+            emailRedirectTo: `${window.location.origin}/email-confirmed`
+        }
+    });
+    if (error) throw error;
+}

@@ -233,7 +233,7 @@ serve(async (req: Request) => {
             { text: `Extract all products from this menu. The menu language is likely "${lang}".` }
         ];
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${geminiKey}`;
 
         const startMs = Date.now();
 
@@ -300,7 +300,7 @@ serve(async (req: Request) => {
             ...(parsed.error ? { error: parsed.error } : {}),
             metadata: {
                 images_analyzed: images.length,
-                model_used: "gemini-2.5-flash",
+                model_used: "gemini-3-flash-preview",
                 processing_time_ms: processingTimeMs
             }
         });

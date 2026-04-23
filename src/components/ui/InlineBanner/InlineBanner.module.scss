@@ -1,0 +1,26 @@
+@use "@styles/variables" as *;
+
+.banner {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.error {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+}
+
+.warning {
+  background: var(--color-warning-50, #fffbeb);
+  border: 1px solid var(--color-warning-300, #fcd34d);
+  color: var(--color-warning-700, #b45309);
+}
+
+.info {
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  color: #1e40af;
+}

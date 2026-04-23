@@ -28,7 +28,6 @@ import SelectionSheet, {
 import EventsView from "../EventsView/EventsView";
 import ReviewsView, { type ReviewsViewProps } from "../ReviewsView/ReviewsView";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
-import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
@@ -404,13 +403,11 @@ function ProductCompactRow({
 // ─── Hub tab views ────────────────────────────────────────────────────────────
 
 // ─── Scroll-offset constants ─────────────────────────────────────────────────
-// NAV_HEIGHT: altezza sticky della CollectionSectionNav
-// VISUAL_GAP: breathing room sotto la barra sticky
-// SCROLL_OFFSET e STICKY_OFFSET sono ora calcolati dinamicamente in base
-// all'altezza reale del compact header (via compactHeaderHeightRef).
-const NAV_HEIGHT = 67; // CollectionSectionNav (misurato ~66.6px)
-const VISUAL_GAP = 16; // breathing room below sticky bar
-const FINAL_COMPACT_HEIGHT = 60; // altezza compact header a regime (floor per scroll offset)
+// Header is always sticky; use desktop height (116px) as conservative estimate.
+// Mobile header is 108px — the 8px difference is negligible for scroll offsets.
+const HEADER_HEIGHT = 116;
+const NAV_HEIGHT = 67;
+const VISUAL_GAP = 8;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type SocialLinks = {
@@ -728,67 +725,8 @@ export default function CollectionView({
         }
     }, [addToSelection]);
 
-    // ── Compact header state ────────────────────────────────────────────────
-    // isCompactHeaderVisible: true = compact bar è visibile (nav deve scendere)
-    // compactHeaderHeight: altezza reale del compact bar (aggiornata da ResizeObserver)
-    const [isCompactHeaderVisible, setIsCompactHeaderVisible] = useState(!style.showCoverImage);
-    const [compactHeaderHeight, setCompactHeaderHeight] = useState(0);
-    // Ref per leggere l'altezza aggiornata nelle closure del scroll listener
-    // senza dover ricreare l'effect ad ogni cambio di altezza.
-    const compactHeaderHeightRef = useRef(0);
-    // Ref per il compact bar in preview (renderizzato in CollectionView, non in
-    // PublicCollectionHeader, per avere <main> come parent sticky — full-height).
-    const previewCompactBarRef = useRef<HTMLDivElement | null>(null);
     const isProgrammaticScrollRef = useRef(false);
     const programmaticScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    const handleCompactVisibilityChange = useCallback((visible: boolean) => {
-        setIsCompactHeaderVisible(visible);
-    }, []);
-
-    const handleCompactHeightChange = useCallback((h: number) => {
-        compactHeaderHeightRef.current = h;
-        setCompactHeaderHeight(h);
-    }, []);
-
-    // In preview il compact bar è renderizzato qui (non in PublicCollectionHeader).
-    // L'altezza è sempre 60px (fissata nel CSS). Notifichiamo una volta al mount.
-    useEffect(() => {
-        if (mode !== "preview" || !hasHeader) return;
-        const h = 60;
-        compactHeaderHeightRef.current = h;
-        setCompactHeaderHeight(h);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [mode]);
-
-    // ── Ricalcolo scroll se compactHeaderHeight cambia durante uno scroll programmato ─
-    // Quando ResizeObserver della PublicCollectionHeader triggerato e aggiorna l'altezza
-    // reale del compact bar, se c'è uno scroll programmato in corso, ricalcola la
-    // posizione target con i valori CORRETTI e ri-lancia lo scroll.
-    useEffect(() => {
-        if (!pendingScrollTargetIdRef.current || compactHeaderHeight === 0) return;
-
-        const sectionId = pendingScrollTargetIdRef.current;
-        const el = sectionRefs.current[sectionId];
-        if (!el) return;
-
-        const compactH = Math.max(compactHeaderHeightRef.current, FINAL_COMPACT_HEIGHT);
-        const dynamicScrollOffset = compactH + NAV_HEIGHT + VISUAL_GAP;
-        const container = containerRef.current;
-
-        if (container === window) {
-            const top = el.getBoundingClientRect().top + window.scrollY - dynamicScrollOffset;
-            window.scrollTo({ top, behavior: "smooth" });
-        } else {
-            const containerEl = container as HTMLElement;
-            const top =
-                el.getBoundingClientRect().top -
-                containerEl.getBoundingClientRect().top +
-                containerEl.scrollTop -
-                dynamicScrollOffset;
-            containerEl.scrollTo({ top, behavior: "smooth" });
-        }
-    }, [compactHeaderHeight]);
 
     // ── Analytics: section_view (IntersectionObserver, una volta per sezione) ─
     const viewedSectionsRef = useRef(new Set<string>());
@@ -946,9 +884,7 @@ export default function CollectionView({
 
         function computeActiveSection() {
             if (isProgrammaticScrollRef.current) return;
-            // Offset dinamico: altezza reale compact header + nav + gap
-            const dynamicStickyOffset =
-                compactHeaderHeightRef.current + NAV_HEIGHT + VISUAL_GAP + 4;
+            const dynamicStickyOffset = HEADER_HEIGHT + NAV_HEIGHT + VISUAL_GAP + 4;
 
             const containerTop =
                 container === window ? 0 : (container as HTMLElement).getBoundingClientRect().top;
@@ -1055,21 +991,11 @@ export default function CollectionView({
         const el = sectionRefs.current[sectionId];
         if (!el) return;
 
-        const compactH = Math.max(compactHeaderHeightRef.current, FINAL_COMPACT_HEIGHT);
-        // Quando l'hero è visibile, compactSpacer è 0 ma crescerà di compactH quando
-        // l'hero collassa durante lo scroll. Questo sposta el.docTop di +compactH.
-        // Sottraendo compactH dall'offset si compensa esattamente questo shift:
-        //   scrollY_target = el.docTop_original - NAV - GAP
-        //   (el.docTop_new = el.docTop_original + compactH, offset = compactH + NAV + GAP
-        //    → scrollY_target identico, posizione finale corretta)
-        const dynamicScrollOffset = isCompactHeaderVisible
-            ? compactH + NAV_HEIGHT + VISUAL_GAP
-            : NAV_HEIGHT + VISUAL_GAP;
-
+        const scrollOffset = HEADER_HEIGHT + NAV_HEIGHT + VISUAL_GAP;
         const container = containerRef.current;
 
         if (container === window) {
-            const top = el.getBoundingClientRect().top + window.scrollY - dynamicScrollOffset;
+            const top = el.getBoundingClientRect().top + window.scrollY - scrollOffset;
             window.scrollTo({ top, behavior: "smooth" });
         } else {
             const containerEl = container as HTMLElement;
@@ -1077,7 +1003,7 @@ export default function CollectionView({
                 el.getBoundingClientRect().top -
                 containerEl.getBoundingClientRect().top +
                 containerEl.scrollTop -
-                dynamicScrollOffset;
+                scrollOffset;
             containerEl.scrollTo({ top, behavior: "smooth" });
         }
     };
@@ -1156,14 +1082,11 @@ export default function CollectionView({
                 }, 3000);
             }
 
-            const compactH = Math.max(compactHeaderHeightRef.current, FINAL_COMPACT_HEIGHT);
-            const dynamicScrollOffset = isCompactHeaderVisible
-                ? compactH + NAV_HEIGHT + VISUAL_GAP
-                : NAV_HEIGHT + VISUAL_GAP;
+            const scrollOffset = HEADER_HEIGHT + NAV_HEIGHT + VISUAL_GAP;
             const container = containerRef.current;
 
             if (container === window) {
-                const top = el.getBoundingClientRect().top + window.scrollY - dynamicScrollOffset;
+                const top = el.getBoundingClientRect().top + window.scrollY - scrollOffset;
                 window.scrollTo({ top, behavior: "smooth" });
             } else {
                 const containerEl = container as HTMLElement;
@@ -1171,11 +1094,11 @@ export default function CollectionView({
                     el.getBoundingClientRect().top -
                     containerEl.getBoundingClientRect().top +
                     containerEl.scrollTop -
-                    dynamicScrollOffset;
+                    scrollOffset;
                 containerEl.scrollTo({ top, behavior: "smooth" });
             }
         },
-        [sectionGroups, isCompactHeaderVisible]
+        [sectionGroups]
     );
 
     // ── Derived values for render ───────────────────────────────────────────
@@ -1421,49 +1344,12 @@ export default function CollectionView({
                     showLogo={style.showLogo}
                     mode={mode}
                     onSearchOpen={mode !== "preview" ? handleOpenSearch : undefined}
-                    onCompactVisibilityChange={handleCompactVisibilityChange}
-                    onCompactHeightChange={handleCompactHeightChange}
                     scrollContainerEl={scrollContainerEl}
                     activeTab={activeTab}
                     onTabChange={onTabChange ?? (() => {})}
                     hasInfo={hasAnyInfo}
                     onInfoPress={() => setIsInfoSheetOpen(true)}
                 />
-            )}
-
-            {/* ── PREVIEW COMPACT HEADER ──────────────────────────────────────────
-                Renderizzato come figlio diretto di <main> (full-height) anziché
-                dentro PublicCollectionHeader (.root = solo hero height ~220px).
-                Con parent <main>, il sticky anchor non viene mai "rilasciato"
-                e il compact bar resta fisso per tutta la durata dello scroll. */}
-            {mode === "preview" && hasHeader && (
-                <div className={styles.previewHdrAnchor}>
-                    <div
-                        className={[
-                            styles.previewHdrBar,
-                            isCompactHeaderVisible ? styles.previewHdrBarVisible : ""
-                        ]
-                            .filter(Boolean)
-                            .join(" ")}
-                        ref={previewCompactBarRef}
-                    >
-                        <div className={styles.previewHdrInner}>
-                            {style.showLogo &&
-                                (tenantLogoUrl ? (
-                                    <div className={styles.previewHdrLogoWrapper}>
-                                        <img
-                                            src={tenantLogoUrl}
-                                            alt={`Logo ${businessName}`}
-                                            className={styles.previewHdrLogo}
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className={styles.previewHdrLogoPlaceholder} />
-                                ))}
-                            <span className={styles.previewHdrName}>{businessName}</span>
-                        </div>
-                    </div>
-                </div>
             )}
 
             {/* ── SEARCH OVERLAY — nascosta in preview ── */}
@@ -1598,16 +1484,6 @@ export default function CollectionView({
                 </PublicSheet>
             )}
 
-            {/* Spacer in-flow che compensa il compact header fixed (solo public).
-                Usa CSS transition per evitare layout jump durante l'animazione slide-in. */}
-            {mode === "public" && (
-                <div
-                    aria-hidden
-                    className={styles.compactSpacer}
-                    style={{ height: isCompactHeaderVisible ? compactHeaderHeight : 0 }}
-                />
-            )}
-
             {activeTab === "menu" && (
                 <>
                     {/* ── NAV – sticky, topOffset dinamico ── */}
@@ -1622,7 +1498,6 @@ export default function CollectionView({
                                 shape: style.sectionNavShape,
                                 navStyle: style.sectionNavStyle
                             }}
-                            topOffset={isCompactHeaderVisible ? compactHeaderHeight : 0}
                         />
                     )}
 
