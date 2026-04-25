@@ -123,11 +123,12 @@ Dominio/
 **Simulazione**: `?simulate=<ISO_DATE>` — solo per utenti autenticati. Mostra banner giallo in cima.
 
 **Componenti in `src/components/PublicCollectionView/`**:
-- `CollectionView` — contenitore principale (gestisce scroll, nav, hub tabs, search)
-- `PublicCollectionHeader` — header hero-to-compact con IntersectionObserver:
+- `CollectionView` — contenitore principale (gestisce scroll, nav, hub tabs, search). Il grid delle card usa `@container collection (...)`, MAI `@media` su viewport: il wrapper `.container` ha `container-type: inline-size; container-name: collection` — misura il device frame in preview, il body in runtime. Qualsiasi modifica al responsive delle card deve usare `@container collection`.
+- `PublicCollectionHeader` — header hero-to-compact guidato da scroll listener (NON IntersectionObserver):
   - hero: full cover image + activity name + hub tabs + language selector + search
-  - compact: sticky bar che appare dopo lo scroll, aggiorna `topOffset` di `CollectionSectionNav`
-  - Props chiave: `onCompactVisibilityChange`, `onCompactHeightChange`, `scrollContainerEl` (per preview)
+  - compact: sticky bar animata via lerp, `progress = scrollY / 140`
+  - Props chiave: `scrollContainerEl` (per preview), `viewportWidthEl` (elemento da cui misurare la viewport; fallback a `window` se non passato), `headerRadius` (valore numerico in px per animazione lerp del border-radius; deriva da token `appearance.borderRadius`)
+  - `readScroll` legge `body.style.top` come fonte autoritativa del scrollY quando `body.style.position === "fixed"` (modale aperta con scroll lock). Senza questo, `window.scrollY` vale 0 su iOS Safari durante il lock → header tornerebbe a hero con modale aperta.
 - `PublicFooter` — footer con social links
 - `SearchOverlay` — overlay full-screen per ricerca prodotti
 - `SelectionSheet` — sheet opzioni/varianti prodotto
@@ -139,6 +140,20 @@ Dominio/
 - `CollectionSectionNav` — nav sezioni orizzontale (pills/tabs/minimal)
 - `LanguageSelector` — selettore lingua (solo IT attivo; EN/FR/DE "presto")
 - `PublicSheet` — sheet/dialog generico per la pagina pubblica (vedi sotto)
+
+**Card prodotto** — 4 combinazioni con identità visiva preservata:
+
+| Combinazione | Wrapper | Immagine | Bottone |
+|---|---|---|---|
+| Card · List | bianco + ombra + radius | sinistra | filled |
+| Card · Grid | bianco + ombra + radius | sopra (4:3) | filled |
+| Compatto · List | nessuno (trasparente) | nessuna | outline |
+| Compatto · Grid | nessuno (trasparente) | nessuna | outline |
+
+- **Card** usa `--pub-surface-text` (testo su surface). **Compatto** usa `--pub-bg-text` (testo su page bg).
+- `ProductRow` e `ProductCompactRow` ricevono prop `cardLayout: "list" | "grid"`.
+- Il container padre ha `data-card-layout` + `data-product-style`; i selettori CSS condizionali usano questi attributi.
+- In Compatto·Grid il `border-bottom` sugli item agisce come separatore: `row-gap: 0` + `:nth-last-child(-n+N)` rimuove il border dall'ultima riga visiva (N = numero colonne corrente). NON usare `:last-child` per separatori in CSS Grid multi-colonna: seleziona l'ultimo item DOM, non l'ultima riga visiva.
 
 **Hub tabs** (`HubTab = "menu" | "events" | "reviews"`):
 - `menu` — catalogo prodotti + featured blocks
@@ -161,7 +176,7 @@ Pattern per modali/sheet nella pagina pubblica. **Non usare** SystemDrawer/Drawe
 PublicSheet → bottom sheet su mobile (swipe-to-close) | dialog centrato su desktop
 ```
 
-- Usa `position:fixed` sul body per lock scroll iOS Safari (ripristina esatta posizione al chiudi).
+- Usa `position:fixed` sul body per lock scroll iOS Safari (ripristina esatta posizione al chiudi): salva `window.scrollY` e scrive `body.style.top = -${scrollY}px`. **Effetto collaterale**: su iOS Safari `window.scrollY` torna a 0 durante il lock. Qualsiasi scroll listener su `window` deve leggere il vero scrollY da `-parseInt(body.style.top)` quando `body.style.position === "fixed"`.
 - Drag handle su mobile, Escape per chiudere.
 - Import: `@components/PublicCollectionView/PublicSheet/PublicSheet`
 
@@ -184,7 +199,10 @@ StyleEditorPage
 
 - `StylePreview` usa mock data statici (`MOCK_FEATURED`, `MOCK_SECTION_GROUPS`) definiti inline nel file.
 - Toggle mobile/desktop preview via `IconDeviceMobile` / `IconDeviceDesktop`.
-- `StylePreview` passa `scrollContainerEl` al `CollectionView` per il comportamento hero-to-compact nella preview.
+- `StylePreview` passa al `CollectionView` sia `scrollContainerEl` sia `viewportWidthEl` (entrambi puntati a `screenEl` del device frame). Il primo governa scroll/IntersectionObserver; il secondo permette a `PublicCollectionHeader` di misurare la viewport dal device frame invece che da `window` (altrimenti `window.innerWidth` del browser dell'editor farebbe collassare l'header in preview mobile).
+- Il border-radius dell'header viene passato come valore numerico (`headerRadius` prop) dal campo `appearanceRadius` del `CollectionStyle` — NON letto via `getComputedStyle`. Il valore deriva dal token `appearance.borderRadius` tramite helper `borderRadiusToPx("none"|"soft"|"rounded") -> 0|10|20` in `mapStyleTokensToCssVars.ts`.
+- `navigationStyle` valori correnti: `"filled" | "outline" | "tabs" | "dot" | "minimal"`. I valori deprecati `"pill"` e `"chip"` sono rimappati a `"filled"` in `parseTokens` — la label UI nel PropertiesPanel resta "Pill" per familiarità.
+- Il responsive del grid card è basato su container queries: misura la larghezza di `.container` (dentro il device frame in preview, dentro il body in runtime). Coerente preview/runtime by design.
 - Il comportamento runtime e preview devono restare sincronizzati: `parseTokens()` converte i token nel `collectionStyle` usato da CollectionView.
 
 ---
@@ -316,6 +334,7 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 - **`schedule_targets` RLS** — gap noto, nessuna RLS sulla tabella
 - **Real-time sync regole** — la lista regole non ha Supabase Realtime. Modifiche di altri utenti del team non visibili senza refresh pagina. Da implementare se il caso d'uso multi-utente lo richiede.
 - **Filtri avanzati Programmazione** — la search attuale è solo testuale. Filtri per sede, periodo, stato (attiva/bozza/scaduta) da valutare in futuro se la lista diventa troppo lunga.
+- **`PublicProductCard.tsx`** — dead code identificato (`src/components/PublicCollectionView/PublicProductCard/`). Prende `tokens: StyleTokenModel` invece di `CollectionStyle`, zero usage da `CollectionView`. Candidato a cleanup.
 
 ---
 

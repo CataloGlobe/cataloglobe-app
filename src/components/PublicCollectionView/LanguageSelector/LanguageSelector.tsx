@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, Globe } from "lucide-react";
 import styles from "./LanguageSelector.module.scss";
@@ -69,6 +69,23 @@ export default function LanguageSelector({
         setOpen(false);
     };
 
+    // Read theme CSS vars from in-tree trigger element so the portal inherits them.
+    const portalStyle: Record<string, string> = triggerRef.current
+        ? (() => {
+            const cs = getComputedStyle(triggerRef.current!);
+            const get = (v: string) => cs.getPropertyValue(v).trim();
+            return {
+                "--pub-radius": get("--pub-radius"),
+                "--pub-btn-radius": get("--pub-btn-radius"),
+                "--pub-surface": get("--pub-surface"),
+                "--pub-surface-border": get("--pub-surface-border"),
+                "--pub-surface-text": get("--pub-surface-text"),
+                "--pub-accent": get("--pub-accent"),
+                "--pub-font-family": get("--pub-font-family"),
+            };
+        })()
+        : {};
+
     const triggerClass = [
         styles.trigger,
         variant === "hero" ? styles.triggerHero : styles.triggerCompact,
@@ -100,7 +117,7 @@ export default function LanguageSelector({
                 <div
                     ref={dropdownRef}
                     className={styles.dropdown}
-                    style={{ top: dropdownPos.top, right: dropdownPos.right }}
+                    style={{ top: dropdownPos.top, right: dropdownPos.right, ...portalStyle } as React.CSSProperties}
                     role="listbox"
                     aria-label="Lingue disponibili"
                 >

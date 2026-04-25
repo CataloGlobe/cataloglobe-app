@@ -34,8 +34,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
     ];
 
     const navigationOptions: Array<{ value: NavigationStyle; label: string }> = [
-        { value: "pill", label: "Pill" },
-        { value: "chip", label: "Chip" },
+        { value: "filled", label: "Pill" },
         { value: "outline", label: "Outline" },
         { value: "tabs", label: "Tabs" },
         { value: "dot", label: "Dot" },
@@ -305,7 +304,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                     onClick={() => updateNav(option.value)}
                                 >
                                     <div className={styles.navSwatch} aria-hidden="true">
-                                        <NavMiniPreview navStyle={option.value} primaryColor={model.colors.primary} />
+                                        <NavMiniPreview navStyle={option.value} primaryColor={model.colors.primary} borderRadius={model.appearance.borderRadius} />
                                     </div>
                                     <span className={styles.miniPreviewLabel}>{option.label}</span>
                                 </button>

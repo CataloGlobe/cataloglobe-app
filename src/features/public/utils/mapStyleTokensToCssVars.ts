@@ -1,4 +1,4 @@
-import type { StyleTokenModel } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
+import type { StyleTokenModel, BorderRadius } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 
 function parseHex(hex: string): { r: number; g: number; b: number } {
     const clean = hex.replace("#", "");
@@ -103,6 +103,14 @@ export function getPatternCss(pattern: string, primaryHex: string): [string, str
         default:
             return ["none", "auto"];
     }
+}
+
+/**
+ * Converte il token BorderRadius nel valore numerico in px usato dall'animazione lerp dell'header.
+ * Stessa tabella di conversione usata per --pub-radius nella CSS var.
+ */
+export function borderRadiusToPx(br: BorderRadius): number {
+    return br === "none" ? 0 : br === "soft" ? 10 : 20;
 }
 
 /**

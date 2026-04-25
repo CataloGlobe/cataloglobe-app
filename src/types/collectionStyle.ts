@@ -1,8 +1,7 @@
 export type HubTab = "menu" | "events" | "reviews";
 
 export type CardTemplate = "left" | "right" | "no-image";
-export type SectionNavShape = "pill" | "rounded" | "square";
-export type SectionNavStyle = "pill" | "chip" | "outline" | "tabs" | "dot" | "minimal";
+export type SectionNavStyle = "filled" | "outline" | "tabs" | "dot" | "minimal";
 export type CardLayout = "grid" | "list";
 export type ProductStyle = "card" | "compact";
 
@@ -26,12 +25,14 @@ export type CollectionStyle = {
     showActivityName?: boolean;
     showCatalogName?: boolean;
 
+    /** Border radius globale in px (da tokens.appearance.borderRadius). Passato all'header per animazione lerp. */
+    appearanceRadius?: number;
+
     /* =========================
      NAVIGATION (PILLS)
   ========================= */
 
     sectionNavColor?: string;
-    sectionNavShape?: SectionNavShape;
     /** Visual style of the section navigation: pill / tabs / minimal */
     sectionNavStyle?: SectionNavStyle;
 
@@ -65,10 +66,10 @@ export const DEFAULT_COLLECTION_STYLE: Required<CollectionStyle> = {
     showCoverImage: true,
     showActivityName: true,
     showCatalogName: true,
+    appearanceRadius: 20,
 
     sectionNavColor: "#6366f1",
-    sectionNavShape: "pill",
-    sectionNavStyle: "pill",
+    sectionNavStyle: "filled",
 
     cardTemplate: "left",
     cardBackgroundColor: "#ffffff",

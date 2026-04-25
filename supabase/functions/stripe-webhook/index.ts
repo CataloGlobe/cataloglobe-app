@@ -120,13 +120,17 @@ serve(async req => {
                     break;
                 }
 
-                // Fetch subscription to get quantity (paid_seats)
+                // Fetch subscription to get quantity (paid_seats) and trial_end
                 let paidSeats = 1;
+                let trialUntil: string | null = null;
                 try {
                     const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
                     paidSeats = getSubscriptionQuantity(sub);
+                    if (sub.trial_end) {
+                        trialUntil = new Date(sub.trial_end * 1000).toISOString();
+                    }
                 } catch (err) {
-                    console.warn("stripe-webhook: Could not retrieve subscription for quantity:", err.message);
+                    console.warn("stripe-webhook: Could not retrieve subscription for quantity/trial_end:", err.message);
                 }
 
                 const { error } = await admin
@@ -135,7 +139,8 @@ serve(async req => {
                         stripe_customer_id: stripeCustomerId,
                         stripe_subscription_id: stripeSubscriptionId,
                         subscription_status: "trialing",
-                        paid_seats: paidSeats
+                        paid_seats: paidSeats,
+                        trial_until: trialUntil
                     })
                     .eq("id", tenantId);
 
@@ -152,10 +157,14 @@ serve(async req => {
                 const stripeCustomerId = subscription.customer as string;
                 const newStatus = mapStripeStatus(subscription.status);
                 const paidSeats = getSubscriptionQuantity(subscription);
+                const trialUntil = subscription.trial_end
+                    ? new Date(subscription.trial_end * 1000).toISOString()
+                    : null;
 
                 const ok = await updateTenantStatus(admin, stripeCustomerId, {
                     subscription_status: newStatus,
-                    paid_seats: paidSeats
+                    paid_seats: paidSeats,
+                    trial_until: trialUntil
                 });
 
                 if (ok) {

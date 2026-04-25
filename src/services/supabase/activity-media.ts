@@ -5,7 +5,7 @@ import type { V2Activity } from "@/types/activity";
 
 const BUCKET = "business-covers";
 
-function buildGalleryPath(activity: Pick<V2Activity, "id" | "slug">, file: File): string {
+function buildGalleryPath(activity: Pick<V2Activity, "id" | "slug" | "tenant_id">, file: File): string {
     const safeSlug = activity.slug
         .trim()
         .toLowerCase()
@@ -16,7 +16,7 @@ function buildGalleryPath(activity: Pick<V2Activity, "id" | "slug">, file: File)
         file.type?.split("/")[1]?.toLowerCase() ||
         file.name.split(".").pop()?.toLowerCase() ||
         "jpg";
-    return `${safeSlug}__${activity.id}/gallery/${crypto.randomUUID()}.${ext}`;
+    return `${activity.tenant_id}/${safeSlug}__${activity.id}/gallery/${crypto.randomUUID()}.${ext}`;
 }
 
 export async function getActivityMedia(activityId: string): Promise<ActivityMedia[]> {

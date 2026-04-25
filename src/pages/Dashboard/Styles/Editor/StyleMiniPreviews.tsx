@@ -15,34 +15,31 @@ const G = "#c4cad4";
 
 export function NavMiniPreview({
     navStyle,
-    primaryColor
+    primaryColor,
+    borderRadius
 }: {
     navStyle: NavigationStyle;
     primaryColor: string;
+    borderRadius?: BorderRadius;
 }) {
+    // Converte il token borderRadius in un valore numerico per le preview inline
+    const radiusPx = borderRadius ? parseFloat(RADIUS_CSS[borderRadius]) : 99;
+
     switch (navStyle) {
-        case "pill":
+        case "filled":
             return (
                 <>
-                    <span style={{ ...B, background: primaryColor, borderRadius: 99, width: 24, height: 11 }} />
-                    <span style={{ ...B, background: G, borderRadius: 99, width: 18, height: 11, opacity: 0.45 }} />
-                    <span style={{ ...B, background: G, borderRadius: 99, width: 18, height: 11, opacity: 0.45 }} />
-                </>
-            );
-        case "chip":
-            return (
-                <>
-                    <span style={{ ...B, background: primaryColor, borderRadius: 3, width: 24, height: 11 }} />
-                    <span style={{ ...B, background: G, borderRadius: 3, width: 18, height: 11, opacity: 0.45 }} />
-                    <span style={{ ...B, background: G, borderRadius: 3, width: 18, height: 11, opacity: 0.45 }} />
+                    <span style={{ ...B, background: primaryColor, borderRadius: radiusPx, width: 24, height: 11 }} />
+                    <span style={{ ...B, background: G, borderRadius: radiusPx, width: 18, height: 11, opacity: 0.45 }} />
+                    <span style={{ ...B, background: G, borderRadius: radiusPx, width: 18, height: 11, opacity: 0.45 }} />
                 </>
             );
         case "outline":
             return (
                 <>
-                    <span style={{ ...B, border: `1.5px solid ${primaryColor}`, borderRadius: 99, width: 24, height: 11, boxSizing: "border-box" }} />
-                    <span style={{ ...B, border: `1px solid ${G}`, borderRadius: 99, width: 18, height: 11, opacity: 0.45, boxSizing: "border-box" }} />
-                    <span style={{ ...B, border: `1px solid ${G}`, borderRadius: 99, width: 18, height: 11, opacity: 0.45, boxSizing: "border-box" }} />
+                    <span style={{ ...B, border: `1.5px solid ${primaryColor}`, borderRadius: radiusPx, width: 24, height: 11, boxSizing: "border-box" }} />
+                    <span style={{ ...B, border: `1px solid ${G}`, borderRadius: radiusPx, width: 18, height: 11, opacity: 0.45, boxSizing: "border-box" }} />
+                    <span style={{ ...B, border: `1px solid ${G}`, borderRadius: radiusPx, width: 18, height: 11, opacity: 0.45, boxSizing: "border-box" }} />
                 </>
             );
         case "tabs":

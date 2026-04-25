@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { CreditCard, ShieldCheck } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import { NumberInput } from "@/components/ui/Input/NumberInput";
+import { SeatsInput } from "@/components/ui/SeatsInput/SeatsInput";
 import { useTenant } from "@/context/useTenant";
 import { createCheckoutSession } from "@/services/supabase/billing";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -23,14 +23,6 @@ export function ActivationRequired() {
     const [seats, setSeats] = useState(1);
 
     if (!selectedTenant) return null;
-
-    const overLimit = seats > MAX_SEATS;
-
-    const handleSeatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseInt(e.target.value, 10);
-        if (isNaN(val) || val < 1) { setSeats(1); return; }
-        setSeats(val);
-    };
 
     const handleCheckout = async () => {
         setLoading(true);
@@ -73,33 +65,24 @@ export function ActivationRequired() {
                 </Text>
 
                 <div className={styles.planBox}>
-                    <NumberInput
+                    <SeatsInput
                         label="Quante sedi ha la tua attività?"
                         value={seats}
-                        onChange={handleSeatsChange}
+                        onChange={setSeats}
                         min={1}
-                        step={1}
+                        max={MAX_SEATS}
                         disabled={loading}
                     />
-                    {overLimit ? (
-                        <Text variant="body-sm" colorVariant="muted">
-                            Per più di 25 sedi, contattaci:{" "}
-                            <a href="mailto:admin@cataloglobe.com" style={{ color: "var(--brand-primary)" }}>
-                                admin@cataloglobe.com
-                            </a>
-                        </Text>
-                    ) : (
-                        <Text variant="body-sm" weight={600}>
-                            {formatPrice(seats)} · Primi 30 giorni gratuiti
-                        </Text>
-                    )}
+                    <Text variant="body-sm" weight={600}>
+                        {formatPrice(seats)} · Primi 30 giorni gratuiti
+                    </Text>
                 </div>
 
                 <Button
                     variant="primary"
                     fullWidth
                     onClick={handleCheckout}
-                    disabled={loading || overLimit}
+                    disabled={loading}
                     leftIcon={<CreditCard size={18} />}
                 >
                     {loading ? "Reindirizzamento a Stripe..." : "Inizia la prova gratuita"}

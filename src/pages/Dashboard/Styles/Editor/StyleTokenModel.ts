@@ -1,4 +1,4 @@
-export type NavigationStyle = "pill" | "chip" | "outline" | "tabs" | "dot" | "minimal";
+export type NavigationStyle = "filled" | "outline" | "tabs" | "dot" | "minimal";
 export type CardLayout = "grid" | "list";
 export type ProductStyle = "card" | "compact";
 export type BorderRadius = "none" | "soft" | "rounded";
@@ -69,7 +69,7 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
         showCatalogName: true
     },
     navigation: {
-        style: "pill"
+        style: "filled"
     },
     card: {
         layout: "list",
@@ -166,9 +166,16 @@ export function parseTokens(rawJson: any): StyleTokenModel {
                     : DEFAULT_STYLE_TOKENS.header.showCatalogName
         },
         navigation: {
-            style: ["pill", "chip", "outline", "tabs", "dot", "minimal"].includes(rawNav.style)
-                ? (rawNav.style as NavigationStyle)
-                : DEFAULT_STYLE_TOKENS.navigation.style
+            style: (() => {
+                // Mapping deprecato: "pill" e "chip" consolidati in "filled"
+                const migrated =
+                    rawNav.style === "pill" || rawNav.style === "chip"
+                        ? "filled"
+                        : rawNav.style;
+                return ["filled", "outline", "tabs", "dot", "minimal"].includes(migrated)
+                    ? (migrated as NavigationStyle)
+                    : DEFAULT_STYLE_TOKENS.navigation.style;
+            })()
         },
         card: {
             layout: ["grid", "list"].includes(rawCard.layout || rawLayout.card)

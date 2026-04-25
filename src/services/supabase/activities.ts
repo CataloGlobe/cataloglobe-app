@@ -128,9 +128,9 @@ function toSafeSlug(input: string) {
         .slice(0, 60);
 }
 
-function buildActivityFolder(slug: string, activityId: string) {
+function buildActivityFolder(tenantId: string, slug: string, activityId: string) {
     const safeSlug = toSafeSlug(slug) || "activity";
-    return `${safeSlug}__${activityId}`;
+    return `${tenantId}/${safeSlug}__${activityId}`;
 }
 
 function getFileExtension(file: File) {
@@ -140,8 +140,8 @@ function getFileExtension(file: File) {
     return nameExt || "jpg";
 }
 
-function buildCoverPath(slug: string, activityId: string, extension: string) {
-    return `${buildActivityFolder(slug, activityId)}/cover.${extension}`;
+function buildCoverPath(tenantId: string, slug: string, activityId: string, extension: string) {
+    return `${buildActivityFolder(tenantId, slug, activityId)}/cover.${extension}`;
 }
 
 /* =====================================================
@@ -365,7 +365,7 @@ export async function uploadActivityCover(
     file: File
 ): Promise<string> {
     const extension = getFileExtension(file);
-    const path = buildCoverPath(activity.slug, activity.id, extension);
+    const path = buildCoverPath(activity.tenant_id, activity.slug, activity.id, extension);
 
     // 1. Upload
     const { error: uploadError } = await supabase.storage
