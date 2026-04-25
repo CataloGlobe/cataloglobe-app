@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useLayoutEffect } from "react";
 import { StyleTokenModel } from "./StyleTokenModel";
 import CollectionView, {
     type CollectionViewSectionGroup
@@ -6,12 +6,12 @@ import CollectionView, {
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import {
-    DEFAULT_COLLECTION_STYLE,
-    type SectionNavShape
+    DEFAULT_COLLECTION_STYLE
 } from "@/types/collectionStyle";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import type { OpeningHoursEntry, UpcomingClosure } from "@/components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 import previewStyles from "./StylePreview.module.scss";
+import { borderRadiusToPx } from "@/features/public/utils/mapStyleTokensToCssVars";
 
 export type ViewMode = "mobile" | "desktop";
 
@@ -284,22 +284,28 @@ const MOCK_UPCOMING_CLOSURES: UpcomingClosure[] = [
     },
 ];
 
-const NAV_SHAPE_MAP: Record<string, SectionNavShape> = {
-    pill: "pill",
-    chip: "pill",
-    outline: "pill",
-    tabs: "square",
-    minimal: "rounded",
-    dot: "pill"
-};
-
 export const StylePreview = ({ model, viewMode, isTransitioning = false }: StylePreviewProps) => {
     const [screenEl, setScreenEl] = useState<HTMLDivElement | null>(null);
+    const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
+    const [previewScale, setPreviewScale] = useState(1);
+
+    useLayoutEffect(() => {
+        if (!rootEl) return;
+        const LOGICAL_DESKTOP_WIDTH = 1280;
+        const compute = (w: number) =>
+            viewMode === "desktop" ? Math.min(1, w / LOGICAL_DESKTOP_WIDTH) : 1;
+
+        // Compute synchronously on first observation to avoid a flash at scale 1
+        setPreviewScale(compute(rootEl.getBoundingClientRect().width));
+
+        const ro = new ResizeObserver(entries => {
+            setPreviewScale(compute(entries[0]?.contentRect.width ?? 0));
+        });
+        ro.observe(rootEl);
+        return () => ro.disconnect();
+    }, [rootEl, viewMode]);
 
     const businessName = "Nome Sede";
-
-    const sectionNavShape: SectionNavShape =
-        NAV_SHAPE_MAP[model.navigation.style] ?? "pill";
 
     const cardTemplate: "no-image" | "left" | "right" =
         model.card.image.mode === "hide"
@@ -310,7 +316,6 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
 
     const collectionStyle = {
         ...DEFAULT_COLLECTION_STYLE,
-        sectionNavShape,
         sectionNavStyle: model.navigation.style,
         cardTemplate,
         cardLayout: model.card.layout,
@@ -319,40 +324,74 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
         showCoverImage: model.header.showCoverImage,
         showActivityName: model.header.showActivityName,
         showCatalogName: model.header.showCatalogName,
-        featuredStyle: model.appearance.featuredStyle
+        featuredStyle: model.appearance.featuredStyle,
+        appearanceRadius: borderRadiusToPx(model.appearance.borderRadius)
     };
 
     return (
-        <div className={previewStyles.previewRoot}>
+        <div className={previewStyles.previewRoot} ref={setRootEl}>
             {/* Device Frame */}
             <PublicThemeScope tokens={model} className={previewStyles.themeScopeWrapper}>
-                <div
-                    className={`${previewStyles.deviceFrame} ${
-                        viewMode === "mobile"
-                            ? previewStyles.deviceMobile
-                            : previewStyles.deviceDesktop
-                    } ${viewMode === "mobile" ? "preview-mobile" : "preview-desktop"} ${
-                        isTransitioning ? previewStyles.deviceFrameTransitioning : ""
-                    }`}
-                >
-                    <div className={previewStyles.deviceScreen} ref={setScreenEl}>
-                        <CollectionView
-                            businessName={businessName}
-                            businessImage={null}
-                            collectionTitle="Nome Catalogo"
-                            sectionGroups={MOCK_SECTION_GROUPS}
-                            style={collectionStyle}
-                            mode="preview"
-                            scrollContainerEl={screenEl}
-                            activityAddress="Via Example, 1 - Città"
-                            openingHours={MOCK_OPENING_HOURS}
-                            upcomingClosures={MOCK_UPCOMING_CLOSURES}
-                            featuredBeforeCatalogSlot={
-                                <FeaturedBlock blocks={MOCK_FEATURED} layout={model.appearance.featuredStyle} />
-                            }
-                        />
+                {viewMode === "mobile" ? (
+                    <div
+                        className={`${previewStyles.deviceFrame} ${previewStyles.deviceMobile} preview-mobile ${
+                            isTransitioning ? previewStyles.deviceFrameTransitioning : ""
+                        }`}
+                    >
+                        <div className={previewStyles.deviceScreen} ref={setScreenEl}>
+                            <CollectionView
+                                businessName={businessName}
+                                businessImage={null}
+                                collectionTitle="Nome Catalogo"
+                                sectionGroups={MOCK_SECTION_GROUPS}
+                                style={collectionStyle}
+                                mode="preview"
+                                scrollContainerEl={screenEl}
+                                viewportWidthEl={screenEl}
+                                activityAddress="Via Example, 1 - Città"
+                                openingHours={MOCK_OPENING_HOURS}
+                                upcomingClosures={MOCK_UPCOMING_CLOSURES}
+                                featuredBeforeCatalogSlot={
+                                    <FeaturedBlock blocks={MOCK_FEATURED} layout={model.appearance.featuredStyle} />
+                                }
+                            />
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    /* Desktop: wrapper riserva lo spazio visivo scalato, device interno
+                       a 1280px logici con transform: scale(previewScale) da top-left.
+                       transform: scale (non zoom) preserva le misure per container queries. */
+                    <div
+                        className={previewStyles.deviceVisualWrapper}
+                        style={{ width: `${1280 * previewScale}px`, height: `${720 * previewScale}px` }}
+                    >
+                        <div
+                            className={`${previewStyles.deviceFrame} ${previewStyles.deviceDesktop} preview-desktop ${
+                                isTransitioning ? previewStyles.deviceFrameTransitioning : ""
+                            }`}
+                            style={{ transform: `scale(${previewScale})`, transformOrigin: "top left" }}
+                        >
+                            <div className={previewStyles.deviceScreen} ref={setScreenEl}>
+                                <CollectionView
+                                    businessName={businessName}
+                                    businessImage={null}
+                                    collectionTitle="Nome Catalogo"
+                                    sectionGroups={MOCK_SECTION_GROUPS}
+                                    style={collectionStyle}
+                                    mode="preview"
+                                    scrollContainerEl={screenEl}
+                                    viewportWidthEl={screenEl}
+                                    activityAddress="Via Example, 1 - Città"
+                                    openingHours={MOCK_OPENING_HOURS}
+                                    upcomingClosures={MOCK_UPCOMING_CLOSURES}
+                                    featuredBeforeCatalogSlot={
+                                        <FeaturedBlock blocks={MOCK_FEATURED} layout={model.appearance.featuredStyle} />
+                                    }
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
             </PublicThemeScope>
         </div>
     );

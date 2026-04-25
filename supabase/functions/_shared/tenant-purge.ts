@@ -39,12 +39,13 @@ export async function deleteFromTable(
 
 /**
  * Remove all storage files for a single activity folder.
- * Path convention: `{safeSlug}__{activityId}/`
+ * Path convention: `{tenantId}/{safeSlug}__{activityId}/`
  */
 export async function purgeActivityFolder(
     admin: ReturnType<typeof createClient>,
     bucket: string,
-    activity: Activity
+    activity: Activity,
+    tenantId: string
 ): Promise<number> {
     const storage = admin.storage.from(bucket);
 
@@ -54,7 +55,7 @@ export async function purgeActivityFolder(
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "")
         .slice(0, 60) || "activity";
-    const folder = `${safeSlug}__${activity.id}`;
+    const folder = `${tenantId}/${safeSlug}__${activity.id}`;
 
     const { data: files, error: listErr } = await storage.list(folder, { limit: 1000 });
     if (listErr) {
@@ -134,7 +135,7 @@ export async function purgeTenantData(
 
     // 2. Storage cleanup — one folder per activity in business-covers
     for (const activity of activities ?? []) {
-        storageFilesRemoved += await purgeActivityFolder(admin, "business-covers", activity as Activity);
+        storageFilesRemoved += await purgeActivityFolder(admin, "business-covers", activity as Activity, tenantId);
     }
 
     // 3. Junction / product-child tables (deepest dependents first)

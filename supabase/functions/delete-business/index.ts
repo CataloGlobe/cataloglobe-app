@@ -132,7 +132,7 @@ serve(async req => {
             .replace(/[^a-z0-9]+/g, "-")
             .replace(/^-+|-+$/g, "")
             .slice(0, 60) || "activity";
-        const folder = `${safeSlug}__${activity.id}`;
+        const folder = `${activity.tenant_id}/${safeSlug}__${activity.id}`;
         const storage = supabaseAdmin.storage.from("business-covers");
 
         const { data: files } = await storage.list(folder, { limit: 1000 });

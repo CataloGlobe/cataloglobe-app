@@ -53,9 +53,11 @@ export function SubscriptionBanner() {
                         }
                     </Text>
                 </div>
-                <button className={styles.link} onClick={goToSubscription}>
-                    Gestisci abbonamento
-                </button>
+                {userRole === "owner" && (
+                    <button className={styles.link} onClick={goToSubscription}>
+                        Gestisci abbonamento
+                    </button>
+                )}
             </div>
         );
     }

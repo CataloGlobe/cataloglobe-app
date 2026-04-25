@@ -63,7 +63,7 @@ function isReservedSlug(slug: string) {
 // ==========================================
 export default function Businesses() {
     const tenantId = useTenantId();
-    const { selectedTenant } = useTenant();
+    const { selectedTenant, userRole } = useTenant();
     const { businessId } = useParams<{ businessId: string }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
@@ -329,12 +329,20 @@ export default function Businesses() {
 
             // --- Seat limit enforcement ---
             if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
-                showToast({
-                    message: `Hai raggiunto il limite di ${selectedTenant.paid_seats} sed${selectedTenant.paid_seats === 1 ? "e" : "i"} incluse nel tuo abbonamento.`,
-                    type: "error",
-                    duration: 4000
-                });
-                navigate(`/business/${businessId}/subscription`);
+                if (userRole === "owner") {
+                    showToast({
+                        message: `Hai raggiunto il limite di ${selectedTenant.paid_seats} sed${selectedTenant.paid_seats === 1 ? "e" : "i"} del tuo piano.`,
+                        type: "error",
+                        duration: 4000
+                    });
+                    navigate(`/business/${businessId}/subscription`);
+                } else {
+                    showToast({
+                        message: "Hai raggiunto il limite di sedi. Contatta il proprietario dell'attività per aggiungere sedi.",
+                        type: "error",
+                        duration: 4000
+                    });
+                }
                 return;
             }
 
@@ -711,7 +719,7 @@ export default function Businesses() {
                     activeTab === "activities" ? (
                         <Button
                             variant="primary"
-                            disabled={!canEdit}
+                            disabled={!canEdit || (!!selectedTenant && businesses.length >= selectedTenant.paid_seats)}
                             onClick={() => {
                                 if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
                                 setIsCreateOpen(true);

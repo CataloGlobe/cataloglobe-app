@@ -3,9 +3,12 @@
 .previewRoot {
   flex: 1;
   min-height: 0;
+  min-width: 0;      /* spezza la circolarità flex: consente di scendere sotto min-content dei figli */
+  overflow: hidden;  /* clippa l'overflow visivo residuo durante aggiornamento inline del wrapper */
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 20px;
   width: 100%;
   animation: stageFadeIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -77,11 +80,26 @@
   font-weight: 600;
 }
 
-/* ── Theme scope wrapper — pass flex chain through ─────────────────────── */
+/* ── Theme scope wrapper — centering container ──────────────────────────── */
 
 .themeScopeWrapper {
   flex: 1;
   min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Desktop visual wrapper ──────────────────────────────────────────────── */
+
+.deviceVisualWrapper {
+  /* Width e height applicate inline da JS: width = 1280 * previewScale, height = 720 * previewScale.
+     flex:none — il wrapper non cresce/shrink: dimensioni determinate dagli inline style.
+     Il deviceFrame (1280×720px logici) trabocca logicamente dal wrapper ma viene
+     clippato visivamente da previewRoot { overflow:hidden }. */
+  flex: none;
   display: flex;
   flex-direction: column;
 }
@@ -105,20 +123,17 @@
 }
 
 @keyframes frameAppear {
-  from {
-    opacity: 0;
-    transform: scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* ── Mobile frame ───────────────────────────────────────────────────────── */
 
 .deviceMobile {
   width: 375px;
+  height: 667px;   /* viewport fisso: centra nel canvas, scroll interno */
+  flex: none;      /* override .deviceFrame { flex: 1 } */
+  max-height: none; /* override .deviceFrame { max-height: 100% } */
   border-radius: 24px;
   background: #fff;
   border: 1px solid var(--color-border);
@@ -128,7 +143,14 @@
 /* ── Desktop frame ──────────────────────────────────────────────────────── */
 
 .deviceDesktop {
-  width: min(1024px, 100%);
+  /* Logical width 1280px → @container collection (min-width:1024px) sempre attivo.
+     Visual size ridotta via transform:scale(previewScale) inline da StylePreview.tsx.
+     transform:scale (non zoom) preserva le misure per container queries.
+     height 720px fisso → viewport 16:9, scroll interno su deviceScreen. */
+  width: 1280px;
+  height: 720px;   /* viewport fisso: centra nel canvas, scroll interno */
+  flex: none;      /* override .deviceFrame { flex: 1 } */
+  max-height: none; /* override .deviceFrame { max-height: 100% } */
   border-radius: 12px;
   background: #fff;
   border: 1px solid var(--color-border);
@@ -149,10 +171,4 @@
     display: none;
   }
 
-  &::after {
-    content: '';
-    display: block;
-    height: 80px;
-    flex-shrink: 0;
-  }
 }

@@ -170,6 +170,7 @@ type ProductRowProps = {
     image?: string | null;
     showImage: boolean;
     imageRight?: boolean;
+    cardLayout?: "list" | "grid";
     mode: "public" | "preview";
     onClick: (e: React.MouseEvent) => void;
     optionGroups?: CollectionViewSectionItem["optionGroups"];
@@ -189,6 +190,7 @@ function ProductRow({
     image,
     showImage,
     imageRight = false,
+    cardLayout = "list",
     mode,
     onClick,
     optionGroups,
@@ -215,24 +217,44 @@ function ProductRow({
             className={`${styles.productRow} ${imageRight ? styles.productRowImageRight : ""}`}
             onClick={onClick}
         >
-            {showImage &&
-                (mode === "preview" || !image ? (
-                    <div className={styles.rowPlaceholder} aria-hidden="true">
-                        <Package
-                            size={24}
-                            strokeWidth={1.5}
-                            color="var(--pub-text-muted, var(--pub-text-secondary))"
+            {showImage && (
+                <div className={styles.rowImageWrapper}>
+                    {mode === "preview" || !image ? (
+                        <div className={styles.rowPlaceholder} aria-hidden="true">
+                            <Package
+                                size={24}
+                                strokeWidth={1.5}
+                                color="var(--pub-text-muted, var(--pub-text-secondary))"
+                            />
+                        </div>
+                    ) : (
+                        <img
+                            src={image}
+                            alt={name}
+                            className={`${styles.rowImage} ${imgLoaded ? styles.rowImageLoaded : ""}`}
+                            loading="lazy"
+                            onLoad={() => setImgLoaded(true)}
                         />
-                    </div>
-                ) : (
-                    <img
-                        src={image}
-                        alt={name}
-                        className={`${styles.rowImage} ${imgLoaded ? styles.rowImageLoaded : ""}`}
-                        loading="lazy"
-                        onLoad={() => setImgLoaded(true)}
-                    />
-                ))}
+                    )}
+                    {/* Bottone overlay: solo in Card·Grid, sovrapposto all'immagine */}
+                    {cardLayout === "grid" && onAddToSelection && (
+                        <button
+                            type="button"
+                            className={[styles.addBtnOverlay, selectionQty > 0 ? styles.addBtnOverlayActive : ""]
+                                .filter(Boolean)
+                                .join(" ")}
+                            onClick={e => {
+                                e.stopPropagation();
+                                onAddToSelection();
+                            }}
+                            aria-label="Aggiungi alla selezione"
+                        >
+                            <Plus size={16} strokeWidth={2.5} />
+                            {selectionQty > 0 && <span className={styles.addBtnBadge}>{selectionQty}</span>}
+                        </button>
+                    )}
+                </div>
+            )}
             <div className={styles.rowBody}>
                 <div className={styles.titleRow}>
                     <div className={styles.titleRowLeft}>
@@ -295,7 +317,8 @@ function ProductRow({
                     </div>
                 )}
             </div>
-            {onAddToSelection && (
+            {/* Bottone standard: Card·List, o Card·Grid senza immagine */}
+            {(cardLayout !== "grid" || !showImage) && onAddToSelection && (
                 <button
                     type="button"
                     className={[styles.addBtn, selectionQty > 0 ? styles.addBtnActive : ""]
@@ -365,6 +388,22 @@ function ProductCompactRow({
                             </span>
                         </span>
                     )}
+                    {onAddToSelection && (
+                        <button
+                            type="button"
+                            className={[styles.addBtnOutline, selectionQty > 0 ? styles.addBtnOutlineActive : ""]
+                                .filter(Boolean)
+                                .join(" ")}
+                            onClick={e => {
+                                e.stopPropagation();
+                                onAddToSelection();
+                            }}
+                            aria-label="Aggiungi alla selezione"
+                        >
+                            <Plus size={14} strokeWidth={2.5} />
+                            {selectionQty > 0 && <span className={styles.addBtnBadge}>{selectionQty}</span>}
+                        </button>
+                    )}
                 </div>
                 {description && <span className={styles.compactDescription}>{description}</span>}
                 {hasAllergens && (
@@ -380,22 +419,6 @@ function ProductCompactRow({
                     </div>
                 )}
             </div>
-            {onAddToSelection && (
-                <button
-                    type="button"
-                    className={[styles.addBtn, selectionQty > 0 ? styles.addBtnActive : ""]
-                        .filter(Boolean)
-                        .join(" ")}
-                    onClick={e => {
-                        e.stopPropagation();
-                        onAddToSelection();
-                    }}
-                    aria-label="Aggiungi alla selezione"
-                >
-                    <Plus size={15} strokeWidth={2.5} />
-                    {selectionQty > 0 && <span className={styles.addBtnBadge}>{selectionQty}</span>}
-                </button>
-            )}
         </div>
     );
 }
@@ -445,6 +468,9 @@ type Props = {
      *  scrollable element (e.g. the style-editor canvas). If omitted, the nearest
      *  scrollable ancestor is detected automatically; falls back to window. */
     scrollContainerEl?: HTMLElement | null;
+    /** Elemento di riferimento per misurare la larghezza viewport nella preview.
+     *  Forwarded a PublicCollectionHeader. Non passato in public → fallback a window. */
+    viewportWidthEl?: HTMLElement | null;
     /** Indirizzo dell'attività (opzionale, mostrato nell'info card hero). */
     activityAddress?: string | null;
     /** Link social dell'attività (opzionale, mostrati nel footer). */
@@ -482,6 +508,7 @@ export default function CollectionView({
     featuredAfterCatalogSlot,
     tenantLogoUrl,
     scrollContainerEl,
+    viewportWidthEl,
     activityAddress,
     socialLinks,
     openingHours,
@@ -1164,6 +1191,7 @@ export default function CollectionView({
                                         image={item.image}
                                         showImage={style.cardTemplate !== "no-image"}
                                         imageRight={style.cardTemplate === "right"}
+                                        cardLayout={style.cardLayout ?? "list"}
                                         mode={mode}
                                         onClick={() => openItemDetail(item)}
                                         optionGroups={item.optionGroups}
@@ -1262,6 +1290,7 @@ export default function CollectionView({
                                                 image={v.image}
                                                 showImage={style.cardTemplate !== "no-image"}
                                                 imageRight={style.cardTemplate === "right"}
+                                                cardLayout={style.cardLayout ?? "list"}
                                                 mode={mode}
                                                 optionGroups={v.optionGroups}
                                                 onClick={e => {
@@ -1345,6 +1374,8 @@ export default function CollectionView({
                     mode={mode}
                     onSearchOpen={mode !== "preview" ? handleOpenSearch : undefined}
                     scrollContainerEl={scrollContainerEl}
+                    viewportWidthEl={viewportWidthEl}
+                    headerRadius={style.appearanceRadius}
                     activeTab={activeTab}
                     onTabChange={onTabChange ?? (() => {})}
                     hasInfo={hasAnyInfo}
@@ -1495,7 +1526,6 @@ export default function CollectionView({
                             onChildSelect={scrollToSubSection}
                             variant={mode === "public" ? "public" : "preview"}
                             style={{
-                                shape: style.sectionNavShape,
                                 navStyle: style.sectionNavStyle
                             }}
                         />
@@ -1522,6 +1552,7 @@ export default function CollectionView({
                                     id={contentId}
                                     className={styles.container}
                                     data-card-layout={style.cardLayout ?? "list"}
+                                    data-product-style={style.productStyle ?? "card"}
                                 >
                                     {featuredBeforeCatalogSlot}
                                     {sectionGroups.map(group => (

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
@@ -10,10 +11,11 @@ import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
-import { NumberInput } from "@/components/ui/Input/NumberInput";
+import { SeatsInput } from "@/components/ui/SeatsInput/SeatsInput";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
-import { ExternalLink, CreditCard, Shield, MapPin, Settings2 } from "lucide-react";
+
+import { ExternalLink, CreditCard, Shield, MapPin, Settings2, Lock } from "lucide-react";
 import styles from "./SubscriptionPage.module.scss";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "primary" | "warning" | "danger" }> = {
@@ -26,6 +28,7 @@ const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "prima
 
 export default function SubscriptionPage() {
     const tenantId = useTenantId();
+    const navigate = useNavigate();
     const { selectedTenant, loading, userRole, refreshTenants } = useTenant();
     const { status, trialDaysLeft, hasPaymentMethod } = useSubscriptionGuard();
     const { showToast } = useToast();
@@ -34,6 +37,7 @@ export default function SubscriptionPage() {
     const [portalLoading, setPortalLoading] = useState(false);
     const [activityCount, setActivityCount] = useState(0);
     const [seatsDrawerOpen, setSeatsDrawerOpen] = useState(false);
+    const [seatsDrawerStep, setSeatsDrawerStep] = useState<"edit" | "confirm">("edit");
     const [newSeats, setNewSeats] = useState(1);
     const [updatingSeats, setUpdatingSeats] = useState(false);
 
@@ -51,10 +55,22 @@ export default function SubscriptionPage() {
     if (userRole !== "owner") {
         return (
             <div className={styles.page}>
-                <PageHeader
-                    title="Abbonamento"
-                    subtitle="Solo il proprietario può gestire l'abbonamento."
-                />
+                <PageHeader title="Abbonamento" />
+                <div className={styles.restrictedCard}>
+                    <Lock size={32} className={styles.restrictedIcon} />
+                    <Text variant="title-sm" weight={700}>
+                        Gestione riservata al proprietario
+                    </Text>
+                    <Text variant="body-sm" colorVariant="muted" style={{ textAlign: "center", maxWidth: 360 }}>
+                        Solo il proprietario dell&apos;attività può gestire l&apos;abbonamento e il metodo di pagamento.
+                    </Text>
+                    <button
+                        className={styles.restrictedLink}
+                        onClick={() => navigate(`/business/${tenantId}/overview`)}
+                    >
+                        Torna alla dashboard
+                    </button>
+                </div>
             </div>
         );
     }
@@ -98,10 +114,11 @@ export default function SubscriptionPage() {
 
     const handleOpenSeatsDrawer = () => {
         setNewSeats(paidSeats);
+        setSeatsDrawerStep("edit");
         setSeatsDrawerOpen(true);
     };
 
-    const handleUpdateSeats = async (e: React.FormEvent) => {
+    const handleRequestUpdateSeats = (e: React.FormEvent) => {
         e.preventDefault();
         if (newSeats === paidSeats || newSeats < 1 || overLimit) return;
         if (newSeats < activityCount) {
@@ -112,12 +129,16 @@ export default function SubscriptionPage() {
             });
             return;
         }
+        setSeatsDrawerStep("confirm");
+    };
+
+    const handleConfirmUpdateSeats = async () => {
         setUpdatingSeats(true);
         try {
             await updateSeats(selectedTenant.id, newSeats);
             showToast({ message: "Numero sedi aggiornato. La modifica sarà visibile a breve.", type: "success" });
             setSeatsDrawerOpen(false);
-            // Refresh tenant data after a short delay to let webhook propagate
+            setSeatsDrawerStep("edit");
             setTimeout(() => refreshTenants(), 2000);
         } catch {
             showToast({ message: "Errore nell'aggiornamento. Riprova.", type: "error" });
@@ -309,89 +330,109 @@ export default function SubscriptionPage() {
                 )}
             </div>
 
-            {/* --- Modify seats drawer --- */}
-            <SystemDrawer open={seatsDrawerOpen} onClose={() => setSeatsDrawerOpen(false)} width={420}>
-                <DrawerLayout
-                    header={
-                        <Text variant="title-sm" weight={700}>
-                            Modifica numero sedi
-                        </Text>
-                    }
-                    footer={
-                        <>
-                            <Button variant="secondary" onClick={() => setSeatsDrawerOpen(false)} disabled={updatingSeats}>
-                                Annulla
-                            </Button>
-                            <Button
-                                variant="primary"
-                                type="submit"
-                                form="update-seats-form"
-                                loading={updatingSeats}
-                                disabled={newSeats === paidSeats || overLimit || newSeats < 1}
-                            >
-                                Aggiorna sedi
-                            </Button>
-                        </>
-                    }
-                >
-                    <form
-                        id="update-seats-form"
-                        onSubmit={handleUpdateSeats}
-                        style={{ display: "flex", flexDirection: "column", gap: "20px" }}
+            {/* --- Modify seats drawer (2-step) --- */}
+            <SystemDrawer
+                open={seatsDrawerOpen}
+                onClose={() => { setSeatsDrawerOpen(false); setSeatsDrawerStep("edit"); }}
+                width={420}
+            >
+                {seatsDrawerStep === "edit" ? (
+                    <DrawerLayout
+                        header={
+                            <Text variant="title-sm" weight={700}>
+                                Modifica numero sedi
+                            </Text>
+                        }
+                        footer={
+                            <>
+                                <Button variant="secondary" onClick={() => setSeatsDrawerOpen(false)} disabled={updatingSeats}>
+                                    Annulla
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    type="submit"
+                                    form="update-seats-form"
+                                    disabled={newSeats === paidSeats || newSeats < 1 || newSeats < activityCount}
+                                >
+                                    Aggiorna sedi
+                                </Button>
+                            </>
+                        }
                     >
-                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                        <form
+                            id="update-seats-form"
+                            onSubmit={handleRequestUpdateSeats}
+                            style={{ display: "flex", flexDirection: "column", gap: "20px" }}
+                        >
                             <Text variant="body-sm" colorVariant="muted">
                                 Attualmente hai <strong>{activityCount}</strong> sed{activityCount === 1 ? "e" : "i"} attiv{activityCount === 1 ? "a" : "e"} e <strong>{paidSeats}</strong> inclus{paidSeats === 1 ? "a" : "e"} nel piano.
                             </Text>
-                        </div>
 
-                        <NumberInput
-                            label="Nuovo numero di sedi"
-                            value={newSeats}
-                            onChange={e => {
-                                const val = parseInt(e.target.value, 10);
-                                if (isNaN(val) || val < 1) { setNewSeats(1); return; }
-                                setNewSeats(val);
-                            }}
-                            min={1}
-                            step={1}
-                            disabled={updatingSeats}
-                        />
+                            <SeatsInput
+                                label="Nuovo numero di sedi"
+                                value={newSeats}
+                                onChange={setNewSeats}
+                                min={Math.max(1, activityCount)}
+                                max={MAX_SEATS}
+                            />
 
-                        {overLimit ? (
-                            <div style={{ background: "var(--hover-bg, #f1f5f9)", borderRadius: "8px", padding: "10px 12px" }}>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Per più di 25 sedi, contattaci:{" "}
-                                    <a href="mailto:admin@cataloglobe.com" style={{ color: "var(--brand-primary)" }}>
-                                        admin@cataloglobe.com
-                                    </a>
-                                </Text>
-                            </div>
-                        ) : newSeats < activityCount ? (
-                            <div style={{ background: "#fef2f2", borderRadius: "8px", padding: "10px 12px" }}>
-                                <Text variant="body-sm" style={{ color: "#dc2626" }}>
-                                    Non puoi ridurre a {newSeats} — hai {activityCount} sedi attive.
-                                </Text>
-                            </div>
-                        ) : (
-                            <div style={{ background: "var(--hover-bg, #f1f5f9)", borderRadius: "8px", padding: "10px 12px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                                <Text variant="body-sm" weight={600}>
-                                    {formatPrice(newSeats)}
-                                </Text>
-                                {newSeats !== paidSeats && (
-                                    <Text variant="caption" colorVariant="muted">
-                                        {newPricing.total > currentPricing.total
-                                            ? `+€${newPricing.total - currentPricing.total}/mese`
-                                            : newPricing.total < currentPricing.total
-                                                ? `−€${currentPricing.total - newPricing.total}/mese`
-                                                : "Nessuna variazione di prezzo"
-                                        }
+                            {newSeats < activityCount ? (
+                                <div style={{ background: "#fef2f2", borderRadius: "8px", padding: "10px 12px" }}>
+                                    <Text variant="body-sm" style={{ color: "#dc2626" }}>
+                                        Non puoi ridurre a {newSeats} — hai {activityCount} sedi attive.
                                     </Text>
-                                )}
-                            </div>
-                        )}
-                    </form>
-                </DrawerLayout>
+                                </div>
+                            ) : (
+                                <div style={{ background: "var(--hover-bg, #f1f5f9)", borderRadius: "8px", padding: "10px 12px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                                    <Text variant="body-sm" weight={600}>
+                                        {formatPrice(newSeats)}
+                                    </Text>
+                                    {newSeats !== paidSeats && (
+                                        <Text variant="caption" colorVariant="muted">
+                                            {newPricing.total > currentPricing.total
+                                                ? `+€${newPricing.total - currentPricing.total}/mese`
+                                                : newPricing.total < currentPricing.total
+                                                    ? `−€${currentPricing.total - newPricing.total}/mese`
+                                                    : "Nessuna variazione di prezzo"
+                                            }
+                                        </Text>
+                                    )}
+                                </div>
+                            )}
+                        </form>
+                    </DrawerLayout>
+                ) : (
+                    <DrawerLayout
+                        header={
+                            <Text variant="title-sm" weight={700}>
+                                Conferma modifica piano
+                            </Text>
+                        }
+                        footer={
+                            <>
+                                <Button variant="secondary" onClick={() => setSeatsDrawerStep("edit")} disabled={updatingSeats}>
+                                    Annulla
+                                </Button>
+                                <Button variant="primary" onClick={handleConfirmUpdateSeats} loading={updatingSeats}>
+                                    Conferma modifica
+                                </Button>
+                            </>
+                        }
+                    >
+                        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                            <Text variant="body">
+                                Stai aggiornando il tuo piano da <strong>{paidSeats}</strong> a <strong>{newSeats}</strong> sed{newSeats === 1 ? "e" : "i"}.
+                                Il nuovo costo sarà <strong>€{newPricing.total}/mese</strong>.
+                            </Text>
+                            <Text variant="body-sm" colorVariant="muted">
+                                {newSeats > paidSeats
+                                    ? "La differenza verrà addebitata proporzionalmente al periodo rimanente."
+                                    : "Il credito verrà applicato al prossimo ciclo di fatturazione."
+                                }
+                            </Text>
+                        </div>
+                    </DrawerLayout>
+                )}
             </SystemDrawer>
         </div>
     );

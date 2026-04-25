@@ -28,6 +28,7 @@ import styles from "./Sidebar.module.scss";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import BusinessSwitcher from "@/components/Businesses/BusinessSwitcher/BusinessSwitcher";
+import { useTenant } from "@/context/useTenant";
 
 const SIDEBAR_EXPANDED = 260;
 const SIDEBAR_COLLAPSED = 90;
@@ -119,7 +120,15 @@ export default function Sidebar({
 }: SidebarProps) {
     const { businessId = "" } = useParams<{ businessId: string }>();
     const { catalogLabel } = useVerticalConfig();
-    const groups = buildGroups(businessId, catalogLabel);
+    const { userRole } = useTenant();
+    const allGroups = buildGroups(businessId, catalogLabel);
+    const groups = allGroups.map(group => ({
+        ...group,
+        items: group.items.filter(item => {
+            if (item.to.endsWith("/subscription") && userRole !== "owner") return false;
+            return true;
+        })
+    }));
     return (
         <>
             {isMobile && mobileOpen && (

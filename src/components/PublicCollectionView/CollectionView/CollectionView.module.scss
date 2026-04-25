@@ -20,13 +20,6 @@
   color: var(--pub-text);
   font-family: var(--pub-font-family, sans-serif);
 
-  /* In preview il device frame ha border-radius e overflow:hidden che può
-     tagliare visivamente il footer. Il padding-bottom garantisce che il footer
-     sia completamente visibile quando si scrolla fino in fondo. */
-  :global(.preview-mobile) &,
-  :global(.preview-desktop) & {
-    padding-bottom: 80px;
-  }
 }
 
 /* Skip link (solo public) */
@@ -56,7 +49,7 @@
   margin: 0 auto;
 
   @media (min-width: 1024px) {
-    max-width: 1024px;
+    max-width: 1280px;
   }
 
   /* Preview overrides */
@@ -65,7 +58,7 @@
   }
 
   :global(.preview-desktop) & {
-    max-width: 1024px;
+    max-width: 1280px;
   }
 }
 
@@ -74,6 +67,9 @@
 ---------------------------------------------------- */
 
 .container {
+  /* Contesto container per le query responsive del grid interno */
+  container-type: inline-size;
+  container-name: collection;
   display: flex;
   flex-direction: column;
   gap: 3rem; /* 48px — distanza tra categorie L1 */
@@ -162,121 +158,36 @@
 }
 
 /* ----------------------------------------------------
-   GRID (responsive guidato dal contesto e dal layout)
+   GRID (responsive guidato dal container, non dalla viewport)
+   Usa @container invece di @media: funziona correttamente
+   sia nella pagina pubblica reale sia nella preview
+   dell'editor (che altrimenti vedrebbe la viewport del browser
+   anziché quella del device frame simulato).
 ---------------------------------------------------- */
 
 .grid {
   display: grid;
   gap: 8px;
   grid-template-columns: repeat(2, 1fr);
+}
 
-  /* ===== PUBLIC (viewport reale) ===== */
-  @media (min-width: 640px) {
+/* Tablet: gap più ampio */
+@container collection (min-width: 640px) {
+  .grid {
     gap: 1rem;
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  @media (min-width: 1024px) {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  /* ===== PREVIEW ===== */
-
-  /* preview mobile → 2 colonne (come viewport mobile reale) */
-  :global(.preview-mobile) & {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  /* preview tablet → 2 colonne */
-  :global(.preview-tablet) & {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  /* preview desktop → 2 colonne (canvas non è abbastanza largo per 3) */
-  :global(.preview-desktop) & {
-    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-/* Lista: forza sempre 1 colonna */
+/* Desktop: 3 colonne */
+@container collection (min-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Lista: forza sempre 1 colonna indipendentemente dal container size */
 .container[data-card-layout="list"] .grid {
   grid-template-columns: 1fr !important;
-}
-
-/* Grid: desktop reale → 3 colonne */
-@media (min-width: 1024px) {
-  .container[data-card-layout="grid"] .grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-/* Grid: preview mobile → 2 colonne (come viewport mobile reale) */
-:global(.preview-mobile) .container[data-card-layout="grid"] .grid {
-  grid-template-columns: repeat(2, 1fr) !important;
-}
-
-/* Grid: preview tablet → 2 colonne */
-:global(.preview-tablet) .container[data-card-layout="grid"] .grid {
-  grid-template-columns: repeat(2, 1fr) !important;
-}
-
-/* Grid: preview desktop → 2 colonne */
-:global(.preview-desktop) .container[data-card-layout="grid"] .grid {
-  grid-template-columns: repeat(2, 1fr) !important;
-}
-
-/* Grid: mobile (< 640px) → card compatta */
-@media (max-width: 639px) {
-  .container[data-card-layout="grid"] {
-    .productRow {
-      padding: 8px;
-      gap: 8px;
-    }
-
-    .rowImage,
-    .rowPlaceholder {
-      width: 56px;
-      height: 56px;
-    }
-
-    .description {
-      display: none;
-    }
-
-    .allergenEmojis {
-      display: none;
-    }
-
-    .title {
-      font-size: 12px;
-    }
-
-    .price {
-      font-size: 11px;
-    }
-
-    .customizableHint {
-      font-size: 9px;
-    }
-
-    .addBtn {
-      width: 24px;
-      height: 24px;
-
-      /* Area tappabile 44×44px: (44-24)/2 = 10px per lato */
-      &::before {
-        inset: -10px;
-      }
-    }
-
-    .addBtnBadge {
-      top: -4px;
-      right: -4px;
-      min-width: 14px;
-      height: 14px;
-      font-size: 0.55rem;
-    }
-  }
 }
 
 /* ----------------------------------------------------
@@ -320,12 +231,14 @@
 
 .compactNameRow {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .compactName {
+  flex: 1;
+  min-width: 0;
   font-weight: 600;
   color: var(--pub-bg-text);
   line-height: 1.3;
@@ -446,6 +359,64 @@
   .addBtn {
     order: -1;
   }
+}
+
+/* ----------------------------------------------------
+   GRID layout — Card verticale (immagine 4:3 + testo sotto)
+   Usa CSS Grid invece di flex-column: permette di affiancare
+   il bottone "+" al corpo testo quando non c'è immagine
+   (Card·Grid senza immagine → bottone nella stessa riga del prezzo).
+
+   Colonne: [1fr corpo testo] [auto bottone]
+   - Con immagine:    rowImageWrapper span 1/-1 (intera riga),
+                      rowBody in col 1, addBtn NON renderizzato → col 2 vuota.
+   - Senza immagine:  rowBody in col 1, addBtn in col 2, stessa riga. ✓
+---------------------------------------------------- */
+
+.container[data-card-layout="grid"] {
+  .productRow {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    padding: 0;
+    gap: 0;
+  }
+
+  /* ignora imageRight in griglia: l'immagine è sempre sopra */
+  .productRowImageRight {
+    flex-direction: column;
+  }
+
+  .rowImageWrapper {
+    grid-column: 1 / -1; /* l'immagine occupa entrambe le colonne */
+  }
+
+  .rowImage,
+  .rowPlaceholder {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    border-radius: 0;
+    flex-shrink: unset;
+  }
+
+  .rowBody {
+    padding: 0.75rem 1rem 0.5rem;
+    min-width: 0; /* evita overflow testo in grid */
+  }
+
+  /* Bottone in col 2: visibile solo senza immagine (overlay usato con immagine).
+     margin-right allinea il bordo destro al padding interno della card. */
+  .addBtn {
+    align-self: center;
+    margin-right: 1rem;
+  }
+}
+
+/* Wrapper attorno a .rowImage / .rowPlaceholder — consente position:absolute
+   al bottone overlay in Card·Grid senza alterare il layout in Card·List */
+.rowImageWrapper {
+  position: relative;
+  flex-shrink: 0; /* non si restringe come flex item in list mode */
 }
 
 .rowImage {
@@ -791,6 +762,122 @@
     &:hover {
       background: color-mix(in srgb, var(--pub-surface-text) 85%, transparent);
     }
+  }
+}
+
+/* Overlay variant — bottone glassmorphism in Card·Grid, sovrapposto all'immagine */
+.addBtnOverlay {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--pub-btn-radius);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1a1a;
+  padding: 0;
+  z-index: 2;
+  transition: background 0.15s ease;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+
+  @media (hover: hover) {
+    &:hover {
+      background: rgba(255, 255, 255, 0.96);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-primary, #333);
+    outline-offset: 2px;
+  }
+}
+
+.addBtnOverlayActive {
+  background: var(--pub-accent);
+  color: var(--pub-cta-text);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+
+  @media (hover: hover) {
+    &:hover {
+      background: color-mix(in srgb, var(--pub-accent) 85%, transparent);
+    }
+  }
+}
+
+/* Outline variant — usato da ProductCompactRow (sfondo pagina, no card surface) */
+.addBtnOutline {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  align-self: center;
+  border-radius: var(--pub-btn-radius, 8px);
+  border: 1px solid color-mix(in srgb, var(--pub-bg-text) 25%, transparent);
+  background: transparent;
+  color: var(--pub-bg-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -9px; /* (44 - 26) / 2 = 9px */
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      background: color-mix(in srgb, var(--pub-bg-text) 8%, transparent);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-primary, #333);
+    outline-offset: 2px;
+  }
+}
+
+.addBtnOutlineActive {
+  background: color-mix(in srgb, var(--pub-bg-text) 15%, transparent);
+  border-color: color-mix(in srgb, var(--pub-bg-text) 40%, transparent);
+}
+
+/* Compact · Grid: padding ridotto */
+.container[data-card-layout="grid"] .compactRow {
+  padding: 0.625rem 0;
+}
+
+/* Compact · Grid: row-gap:0 così border-bottom agisce come separatore
+   naturale (identico look a Compact · List — nessuna doppia separazione).
+   column-gap esplicito perché gli item text-only senza wrapper necessitano
+   più respiro orizzontale rispetto ai 8px/1rem del grid base. */
+.container[data-card-layout="grid"][data-product-style="compact"] .grid {
+  row-gap: 0;
+  column-gap: 1.5rem;
+}
+
+/* Ultima riga visiva — mobile/default (2 colonne): ultimi 2 item DOM */
+.container[data-card-layout="grid"][data-product-style="compact"] .compactItem:nth-last-child(-n+2) {
+  border-bottom: none;
+}
+
+/* Ultima riga visiva — desktop (3 colonne): ultimi 3 item DOM */
+@container collection (min-width: 1024px) {
+  .container[data-card-layout="grid"][data-product-style="compact"] .compactItem:nth-last-child(-n+3) {
+    border-bottom: none;
   }
 }
 

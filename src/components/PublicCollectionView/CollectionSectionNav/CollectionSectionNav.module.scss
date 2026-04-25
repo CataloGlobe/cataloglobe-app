@@ -127,7 +127,7 @@
   color: var(--pub-bg-text-secondary);
   cursor: pointer;
 
-  border-radius: 999px;
+  border-radius: var(--pub-radius, 999px);
 
   transition:
     background-color 0.2s ease,
@@ -150,25 +150,6 @@
 --------------------------------------------- */
 .pill :global(*) {
   white-space: nowrap;
-}
-
-/* ---------------------------------------------
-   STILE CHIP (squadrato pieno)
---------------------------------------------- */
-.nav[data-nav-style="chip"] {
-  .pill {
-    border-radius: 4px;
-
-    &[data-active="true"] {
-      background: var(--pub-primary);
-      color: var(--pub-cta-text);
-      border-radius: 4px;
-
-      * {
-        color: inherit;
-      }
-    }
-  }
 }
 
 /* ---------------------------------------------
@@ -307,7 +288,7 @@
   display: inline-flex;
   align-items: center;
   /* Nessun overflow:hidden — il dropdown deve uscire dal container */
-  border-radius: 999px; /* default pill; override via inline style o varianti */
+  border-radius: var(--pub-radius, 999px); /* segue il token globale, come .pill */
   color: var(--pub-bg-text-secondary);
   transition:
     background-color 0.2s ease,
@@ -331,19 +312,6 @@
 }
 
 /* Varianti: aggiusta border-radius e active state */
-.nav[data-nav-style="chip"] .pillWithChildren {
-  border-radius: 4px;
-
-  &[data-active="true"] {
-    background: var(--pub-primary);
-
-    .pillLabel,
-    .pillChevron {
-      color: var(--pub-cta-text);
-    }
-  }
-}
-
 .nav[data-nav-style="outline"] .pillWithChildren {
   border-radius: var(--pub-radius, 20px);
   border: 1.5px solid transparent;

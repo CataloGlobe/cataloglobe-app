@@ -139,8 +139,7 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                     <div className={sharedStyles.miniPreviewGrid}>
                         {(
                             [
-                                { value: "pill" as NavigationStyle, label: "Pill" },
-                                { value: "chip" as NavigationStyle, label: "Chip" },
+                                { value: "filled" as NavigationStyle, label: "Pill" },
                                 { value: "outline" as NavigationStyle, label: "Outline" },
                                 { value: "tabs" as NavigationStyle, label: "Tabs" },
                                 { value: "dot" as NavigationStyle, label: "Dot" },
@@ -156,7 +155,7 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                                     }`}
                                 >
                                     <div className={sharedStyles.navSwatch} aria-hidden="true">
-                                        <NavMiniPreview navStyle={opt.value} primaryColor={model.colors.primary} />
+                                        <NavMiniPreview navStyle={opt.value} primaryColor={model.colors.primary} borderRadius={model.appearance.borderRadius} />
                                     </div>
                                     <span className={sharedStyles.miniPreviewLabel}>{opt.label}</span>
                                 </div>

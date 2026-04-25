@@ -4,7 +4,7 @@ import { useAuth } from "@/context/useAuth";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { NumberInput } from "@/components/ui/Input/NumberInput";
+import { SeatsInput } from "@/components/ui/SeatsInput/SeatsInput";
 import { Select } from "@/components/ui/Select/Select";
 import { Button } from "@/components/ui/Button/Button";
 import { FileInput } from "@/components/ui/Input/FileInput";
@@ -35,8 +35,6 @@ export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantDat
     const [seats, setSeats] = useState(1);
     const [submitting, setSubmitting] = useState(false);
 
-    const overLimit = seats > MAX_SEATS;
-
     // Sync state when drawer opens
     useEffect(() => {
         if (!open) return;
@@ -50,12 +48,6 @@ export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantDat
             setSeats(1);
         }
     }, [open, mode, tenantData?.id]);
-
-    const handleSeatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseInt(e.target.value, 10);
-        if (isNaN(val) || val < 1) { setSeats(1); return; }
-        setSeats(val);
-    };
 
     const handleClose = () => {
         if (submitting) return;
@@ -170,7 +162,7 @@ export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantDat
                             type="submit"
                             form={formId}
                             loading={submitting}
-                            disabled={!isEdit && overLimit}
+                            disabled={!isEdit && seats > MAX_SEATS}
                         >
                             {isEdit ? "Salva modifiche" : "Crea attività"}
                         </Button>
@@ -245,31 +237,20 @@ export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantDat
 
                     {!isEdit && (
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                            <NumberInput
+                            <SeatsInput
                                 label="Quante sedi ha la tua attività?"
                                 value={seats}
-                                onChange={handleSeatsChange}
+                                onChange={setSeats}
                                 min={1}
-                                step={1}
+                                max={MAX_SEATS}
                                 disabled={submitting}
                             />
 
-                            {overLimit ? (
-                                <div style={{ background: "var(--hover-bg, #f1f5f9)", borderRadius: "8px", padding: "10px 12px" }}>
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        Per più di 25 sedi, contattaci per un preventivo personalizzato:{" "}
-                                        <a href="mailto:admin@cataloglobe.com" style={{ color: "var(--brand-primary)" }}>
-                                            admin@cataloglobe.com
-                                        </a>
-                                    </Text>
-                                </div>
-                            ) : (
-                                <div style={{ background: "var(--hover-bg, #f1f5f9)", borderRadius: "8px", padding: "10px 12px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                                    <Text variant="body-sm" weight={600}>
-                                        {formatPrice(seats)} · Primi 30 giorni gratuiti
-                                    </Text>
-                                </div>
-                            )}
+                            <div style={{ background: "var(--hover-bg, #f1f5f9)", borderRadius: "8px", padding: "10px 12px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                                <Text variant="body-sm" weight={600}>
+                                    {formatPrice(seats)} · Primi 30 giorni gratuiti
+                                </Text>
+                            </div>
                         </div>
                     )}
                 </form>

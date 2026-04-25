@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -21,8 +21,7 @@ export type CollectionSectionNavProps = {
     activeChildId?: string | null;
     variant?: "preview" | "public";
     style?: {
-        shape?: "rounded" | "pill" | "square";
-        navStyle?: "pill" | "chip" | "outline" | "tabs" | "dot" | "minimal";
+        navStyle?: "filled" | "outline" | "tabs" | "dot" | "minimal";
     };
 };
 
@@ -155,16 +154,28 @@ export default function CollectionSectionNav({
 
     if (sections.length === 0) return null;
 
-    const navStyle = style?.navStyle ?? "pill";
-    // radius solo per lo stile pill; le altre varianti lo gestiscono via CSS
-    const pillRadius =
-        navStyle !== "pill"
-            ? undefined
-            : style?.shape === "square"
-              ? 6
-              : style?.shape === "rounded"
-                ? 12
-                : 999;
+    // Read theme CSS vars from in-tree element so the portal inherits them.
+    // The portal (document.body) is outside PublicThemeScope's subtree and cannot
+    // inherit CSS custom properties via cascade — we must forward them explicitly.
+    const portalStyle: Record<string, string> = listRef.current
+        ? (() => {
+            const cs = getComputedStyle(listRef.current!);
+            const get = (v: string) => cs.getPropertyValue(v).trim();
+            return {
+                "--pub-radius": get("--pub-radius"),
+                "--pub-btn-radius": get("--pub-btn-radius"),
+                "--pub-surface": get("--pub-surface"),
+                "--pub-surface-border": get("--pub-surface-border"),
+                "--pub-surface-text": get("--pub-surface-text"),
+                "--pub-text": get("--pub-text"),
+                "--pub-primary": get("--pub-primary"),
+                "--pub-font-family": get("--pub-font-family"),
+            };
+        })()
+        : {};
+
+    const navStyle = style?.navStyle ?? "filled";
+    // Il radius è interamente governato da CSS via var(--pub-radius) per tutte le varianti.
 
     const openSection = openDropdownId ? sections.find(s => s.id === openDropdownId) : null;
 
@@ -193,7 +204,6 @@ export default function CollectionSectionNav({
                                     className={styles.pill}
                                     data-active={isActive}
                                     onClick={() => onSelect?.(section.id)}
-                                    style={{ borderRadius: pillRadius }}
                                     ref={el => {
                                         buttonRefs.current[section.id] = el;
                                     }}
@@ -211,7 +221,6 @@ export default function CollectionSectionNav({
                             <div
                                 className={styles.pillWithChildren}
                                 data-active={isActive}
-                                style={{ borderRadius: pillRadius }}
                                 ref={el => {
                                     pillContainerRefs.current[section.id] = el;
                                 }}
@@ -262,7 +271,7 @@ export default function CollectionSectionNav({
                         <motion.div
                             ref={dropdownRef}
                             className={styles.dropdown}
-                            style={{ top: dropdownPos.top, left: dropdownPos.left }}
+                            style={{ top: dropdownPos.top, left: dropdownPos.left, ...portalStyle } as React.CSSProperties}
                             initial={{ opacity: 0, scale: 0.96, y: -4 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.96, y: -4 }}

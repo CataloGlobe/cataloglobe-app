@@ -20,6 +20,7 @@ import type {
 } from "@/types/resolvedCollections";
 import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import { DEFAULT_COLLECTION_STYLE } from "@/types/collectionStyle";
+import { borderRadiusToPx } from "@/features/public/utils/mapStyleTokensToCssVars";
 
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import NotFound from "../NotFound/NotFound";
@@ -409,9 +410,7 @@ export default function PublicCollectionPage() {
 
     // Derive CollectionStyle from stored tokens so runtime matches preview
     const tokens = parseTokens(resolved.style?.config ?? null);
-    const navStyle = tokens.navigation.style; // "pill" | "tabs" | "minimal"
-    const sectionNavShape =
-        navStyle === "tabs" ? "square" : navStyle === "minimal" ? "rounded" : "pill";
+    const navStyle = tokens.navigation.style; // "filled" | "outline" | "tabs" | "dot" | "minimal"
     const cardTemplate: "no-image" | "left" | "right" =
         tokens.card.image.mode === "hide"
             ? "no-image"
@@ -421,7 +420,6 @@ export default function PublicCollectionPage() {
 
     const collectionStyle = {
         ...DEFAULT_COLLECTION_STYLE,
-        sectionNavShape,
         sectionNavStyle: navStyle,
         cardTemplate,
         cardLayout: tokens.card.layout,
@@ -430,7 +428,8 @@ export default function PublicCollectionPage() {
         showCoverImage: tokens.header.showCoverImage,
         showActivityName: tokens.header.showActivityName,
         showCatalogName: tokens.header.showCatalogName,
-        featuredStyle: tokens.appearance.featuredStyle
+        featuredStyle: tokens.appearance.featuredStyle,
+        appearanceRadius: borderRadiusToPx(tokens.appearance.borderRadius)
     } as const;
 
     const sectionGroups = mapCatalogToSectionGroups(resolved);

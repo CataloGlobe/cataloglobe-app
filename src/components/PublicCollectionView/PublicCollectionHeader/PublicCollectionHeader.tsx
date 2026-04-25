@@ -15,8 +15,6 @@ const TRANSITION_END = 140;
 const BASE_MARGIN_MOBILE = 10;
 const BASE_MARGIN_DESKTOP = 16;
 const CONTENT_MAX_WIDTH = 1024; // allineato a .frame / .inner
-const INITIAL_RADIUS_MOBILE = 16;
-const INITIAL_RADIUS_DESKTOP = 20;
 const TOP_OFFSET = 8;
 
 export const HEADER_HEIGHT_MOBILE = 108;
@@ -38,6 +36,13 @@ export type PublicCollectionHeaderProps = {
     onSearchOpen?: () => void;
     /** Scroll container della preview (deviceScreen). Non usato in public. */
     scrollContainerEl?: HTMLElement | null;
+    /** Elemento di riferimento per misurare la larghezza viewport nella preview.
+     *  Se presente, ResizeObserver sostituisce window.innerWidth per il calcolo
+     *  di initialMargin e isMobile. Non passato in public → fallback a window. */
+    viewportWidthEl?: HTMLElement | null;
+    /** Border radius iniziale dell'header in px (da tokens.appearance.borderRadius via collectionStyle).
+     *  Interpolato da lerp() verso 0 durante lo scroll. Fallback a 16/20 se assente. */
+    headerRadius?: number;
     /** Hub navigation tab attiva. */
     activeTab: HubTab;
     /** Callback per cambio tab. */
@@ -60,6 +65,8 @@ export default function PublicCollectionHeader({
     mode,
     onSearchOpen,
     scrollContainerEl,
+    viewportWidthEl,
+    headerRadius,
     activeTab,
     onTabChange,
     hasInfo,
@@ -92,14 +99,29 @@ export default function PublicCollectionHeader({
 
     // ── Scroll tracking (from prototype) ───────────────────────────────────────
     const [scrollY, setScrollY] = useState(0);
-    const [viewportWidth, setViewportWidth] = useState(
+    const [viewportWidth, setViewportWidth] = useState<number>(
         typeof window !== "undefined" ? window.innerWidth : 1024
     );
-    const [isMobile, setIsMobile] = useState(
+    const [isMobile, setIsMobile] = useState<boolean>(
         typeof window !== "undefined" ? window.innerWidth < 768 : false
     );
 
     useEffect(() => {
+        if (viewportWidthEl) {
+            // Modalità preview: misura la larghezza del device frame
+            const update = (w: number) => {
+                setViewportWidth(w);
+                setIsMobile(w < 768);
+            };
+            update(viewportWidthEl.getBoundingClientRect().width);
+            const ro = new ResizeObserver(entries => {
+                const entry = entries[0];
+                if (entry) update(entry.contentRect.width);
+            });
+            ro.observe(viewportWidthEl);
+            return () => ro.disconnect();
+        }
+        // Modalità pubblica: comportamento invariato
         const handleResize = () => {
             const w = window.innerWidth;
             setViewportWidth(w);
@@ -107,14 +129,27 @@ export default function PublicCollectionHeader({
         };
         window.addEventListener("resize", handleResize, { passive: true });
         return () => window.removeEventListener("resize", handleResize);
-    }, []);
+    }, [viewportWidthEl]);
 
     useEffect(() => {
         const target = scrollContainerEl ?? window;
         const readScroll = () => {
-            const y = scrollContainerEl
-                ? scrollContainerEl.scrollTop
-                : window.scrollY;
+            let y: number;
+            if (scrollContainerEl) {
+                // Preview: container interno, non affetto dal body lock
+                y = scrollContainerEl.scrollTop;
+            } else {
+                // Pubblico: se il body è locked da PublicSheet (position:fixed),
+                // window.scrollY è 0 su iOS Safari anche se la pagina era scrollata.
+                // Il valore reale è salvato in body.style.top come "-Npx".
+                const bodyTop = document.body.style.top;
+                if (document.body.style.position === "fixed" && bodyTop) {
+                    const parsed = parseInt(bodyTop, 10);
+                    y = Number.isNaN(parsed) ? window.scrollY : -parsed;
+                } else {
+                    y = window.scrollY;
+                }
+            }
             setScrollY(y);
         };
         readScroll();
@@ -128,7 +163,7 @@ export default function PublicCollectionHeader({
     const initialMargin = isMobile
         ? BASE_MARGIN_MOBILE
         : Math.max((viewportWidth - CONTENT_MAX_WIDTH) / 2 + BASE_MARGIN_DESKTOP, BASE_MARGIN_DESKTOP);
-    const initialRadius = isMobile ? INITIAL_RADIUS_MOBILE : INITIAL_RADIUS_DESKTOP;
+    const initialRadius = headerRadius ?? (isMobile ? 16 : 20);
     const headerHeight = isMobile ? HEADER_HEIGHT_MOBILE : HEADER_HEIGHT_DESKTOP;
 
     const currentMargin = lerp(initialMargin, 0, progress);
