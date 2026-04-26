@@ -1,8 +1,25 @@
 const COMPRESS_TIMEOUT_MS = 15_000;
 
-export async function compressImage(file: File, maxWidth = 900, quality = 0.8): Promise<File> {
+export type CompressOptions = { maxWidth: number; quality: number };
+
+export const COMPRESS_PROFILES = {
+    cover:    { maxWidth: 1920, quality: 0.82 },
+    product:  { maxWidth: 800,  quality: 0.82 },
+    logo:     { maxWidth: 400,  quality: 0.90 },
+    featured: { maxWidth: 1200, quality: 0.85 },
+} satisfies Record<string, CompressOptions>;
+
+export async function compressImage(
+    file: File,
+    maxWidthOrOptions: number | CompressOptions = 900,
+    quality = 0.8
+): Promise<File> {
+    const opts: CompressOptions =
+        typeof maxWidthOrOptions === "number"
+            ? { maxWidth: maxWidthOrOptions, quality }
+            : maxWidthOrOptions;
     return Promise.race([
-        doCompress(file, maxWidth, quality),
+        doCompress(file, opts.maxWidth, opts.quality),
         new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error("Timeout compressione immagine")), COMPRESS_TIMEOUT_MS)
         )

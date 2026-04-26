@@ -335,6 +335,7 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 - **Real-time sync regole** — la lista regole non ha Supabase Realtime. Modifiche di altri utenti del team non visibili senza refresh pagina. Da implementare se il caso d'uso multi-utente lo richiede.
 - **Filtri avanzati Programmazione** — la search attuale è solo testuale. Filtri per sede, periodo, stato (attiva/bozza/scaduta) da valutare in futuro se la lista diventa troppo lunga.
 - **`PublicProductCard.tsx`** — dead code identificato (`src/components/PublicCollectionView/PublicProductCard/`). Prende `tokens: StyleTokenModel` invece di `CollectionStyle`, zero usage da `CollectionView`. Candidato a cleanup.
+- **Fasce orarie multiple per regola** — analisi di impatto completata (aprile 2026). Opzione scelta: colonna JSONB `time_ranges` su `schedules`. 16 file da modificare, complessità media. Non implementata per rapporto costo-beneficio: il workaround (duplicare la regola con orari diversi) è sufficiente. Da implementare quando il feedback clienti lo richiede. Rischi principali: sincronizzazione atomica (migration + 2 copie resolver + deploy edge function), retrocompatibilità regole esistenti (migration SQL converte `time_from`/`time_to` → `time_ranges`).
 
 ---
 

@@ -8,6 +8,7 @@ import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { V2Product, updateProduct } from "@/services/supabase/products";
 import { uploadProductImage } from "@/services/supabase/upload";
+import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import styles from "./ProductInfoEditDrawer.module.scss";
 
 interface ProductInfoEditDrawerProps {
@@ -65,7 +66,7 @@ export function ProductInfoEditDrawer({
             if (removeImage) {
                 imageUrl = null;
             } else if (pendingImageFile) {
-                imageUrl = await uploadProductImage(tenantId, productId, pendingImageFile);
+                imageUrl = await uploadProductImage(tenantId, productId, await compressImage(pendingImageFile, COMPRESS_PROFILES.product));
             }
 
             const updated = await updateProduct(productId, tenantId, {

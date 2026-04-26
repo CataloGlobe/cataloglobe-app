@@ -1466,26 +1466,34 @@ function hasRenderableItems(
 
 export async function resolveActivityCatalogs(
     activityId: string,
-    now?: RomeDateTime
+    now?: RomeDateTime,
+    knownTenantId?: string
 ): Promise<ResolvedCollections> {
     const effectiveNow = now ?? getNowInRome();
-    // ── Pre-flight check: Verify activity exists ──────────────────────────
-    const { data: activityExists, error: activityCheckError } = await supabase
-        .from("activities")
-        .select("id, tenant_id")
-        .eq("id", activityId)
-        .maybeSingle();
 
-    if (activityCheckError) throw activityCheckError;
-    if (!activityExists) {
-        console.warn(`[resolveActivityCatalogs] Activity not found: ${activityId}`);
-        return {
-            featured: { before_catalog: [], after_catalog: [] }
-        };
+    let tenantId: string;
+    if (knownTenantId) {
+        tenantId = knownTenantId;
+    } else {
+        // ── Pre-flight check: Verify activity exists ──────────────────────────
+        const { data: activityExists, error: activityCheckError } = await supabase
+            .from("activities")
+            .select("id, tenant_id")
+            .eq("id", activityId)
+            .maybeSingle();
+
+        if (activityCheckError) throw activityCheckError;
+        if (!activityExists) {
+            console.warn(`[resolveActivityCatalogs] Activity not found: ${activityId}`);
+            return {
+                featured: { before_catalog: [], after_catalog: [] }
+            };
+        }
+
+        const fetchedTenantId = activityExists.tenant_id as string;
+        if (!fetchedTenantId) throw new Error("Activity missing tenant_id");
+        tenantId = fetchedTenantId;
     }
-
-    const tenantId = activityExists.tenant_id as string;
-    if (!tenantId) throw new Error("Activity missing tenant_id");
 
     const ruleResolution = await resolveRulesForActivity({
         supabase,
@@ -1627,11 +1635,10 @@ export async function resolveActivityCatalogs(
 
     const layoutCatalog = await loadCatalogById(layoutCatalogId, tenantId);
 
-    // Preserve the base catalog (pre-schedule-filter) so the activity visibility
-    // override layer can restore products that were hidden by a schedule rule.
-    const baseCatalog: ResolvedCatalog | undefined = layoutCatalog
-        ? JSON.parse(JSON.stringify(layoutCatalog))
-        : undefined;
+    // Preserve a reference to the base catalog (pre-override state) so the activity
+    // visibility override layer can restore products hidden by a schedule rule.
+    // All apply* functions return new objects — no mutation, no deep clone needed.
+    const baseCatalog: ResolvedCatalog | undefined = layoutCatalog ?? undefined;
 
     schedules = [
         {
@@ -1663,22 +1670,48 @@ export async function resolveActivityCatalogs(
         )
     );
 
-    const visibilityOverridesByProductId: Record<string, VisibilityOverrideRow> = {};
     const priceOverridesByProductId: Record<string, PriceOverrideRow> = {};
     const priceOverridesByValueId: Record<string, PriceOverrideRow> = {};
 
     const activeVisibilityRuleScheduleId = ruleResolution.visibilityRule?.scheduleId ?? null;
     const fallbackVisibilityMode = ruleResolution.visibilityRule?.mode ?? "hide";
-    if (activeVisibilityRuleScheduleId && productIds.length > 0) {
-        const visibilityOverrideRows = await selectVisibilityOverridesWithModeFallback(
-            activeVisibilityRuleScheduleId,
-            productIds,
-            tenantId
-        );
 
-        for (const row of visibilityOverrideRows) {
-            visibilityOverridesByProductId[row.product_id] = row;
-        }
+    // allBaseProductIds derives from baseCatalog (pre-override snapshot) — available now
+    const allBaseProductIds = Array.from(
+        new Set(
+            (baseCatalog?.categories ?? []).flatMap(category => category.products.map(p => p.id))
+        )
+    );
+
+    // Parallel: visibility overrides + activity product overrides are independent queries
+    const [visibilityOverrideRows, activityOverrideRows] = await Promise.all([
+        activeVisibilityRuleScheduleId && productIds.length > 0
+            ? selectVisibilityOverridesWithModeFallback(
+                  activeVisibilityRuleScheduleId,
+                  productIds,
+                  tenantId
+              )
+            : Promise.resolve([] as VisibilityOverrideRow[]),
+        (async () => {
+            if (allBaseProductIds.length === 0) return [] as ActivityProductOverrideRow[];
+            const { data, error } = await supabase
+                .from("activity_product_overrides")
+                .select("product_id, visible_override")
+                .eq("activity_id", activityId)
+                .in("product_id", allBaseProductIds);
+            if (error) throw error;
+            return (data ?? []) as ActivityProductOverrideRow[];
+        })()
+    ]);
+
+    const visibilityOverridesByProductId: Record<string, VisibilityOverrideRow> = {};
+    for (const row of visibilityOverrideRows) {
+        visibilityOverridesByProductId[row.product_id] = row;
+    }
+
+    const activityProductOverridesByProductId: Record<string, ActivityProductOverrideRow> = {};
+    for (const row of activityOverrideRows) {
+        activityProductOverridesByProductId[row.product_id] = row;
     }
 
     schedules = schedules.map(schedule => ({
@@ -1690,8 +1723,6 @@ export async function resolveActivityCatalogs(
         )
     }));
 
-
-
     const visibleProductIds = Array.from(
         new Set(
             schedules.flatMap(schedule =>
@@ -1701,31 +1732,6 @@ export async function resolveActivityCatalogs(
             )
         )
     );
-
-    // Build set of ALL product IDs in the base catalog (pre-schedule-filter)
-    // needed so the activity visible_override=true case can query products
-    // that may have been removed by the schedule visibility layer.
-    const allBaseProductIds = Array.from(
-        new Set(
-            (baseCatalog?.categories ?? []).flatMap(category => category.products.map(p => p.id))
-        )
-    );
-
-    const activityProductOverridesByProductId: Record<string, ActivityProductOverrideRow> = {};
-
-    if (allBaseProductIds.length > 0) {
-        const { data: activityOverrideData, error: activityOverrideError } = await supabase
-            .from("activity_product_overrides")
-            .select("product_id, visible_override")
-            .eq("activity_id", activityId)
-            .in("product_id", allBaseProductIds);
-
-        if (activityOverrideError) throw activityOverrideError;
-
-        for (const row of (activityOverrideData ?? []) as ActivityProductOverrideRow[]) {
-            activityProductOverridesByProductId[row.product_id] = row;
-        }
-    }
 
     const activePriceRuleScheduleId = ruleResolution.priceRuleId;
 

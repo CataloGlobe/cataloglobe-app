@@ -345,6 +345,26 @@ export default function PublicCollectionPage() {
     const sessionId = useMemo(() => crypto.randomUUID(), []);
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 
+    // ── Preload cover image (LCP) as soon as Edge Function resolves ──────
+    useEffect(() => {
+        if (state.status !== "ready") return;
+        const { business, resolved } = state;
+        if (!business.cover_image) return;
+        const tokens = parseTokens(resolved.style?.config ?? null);
+        if (!tokens.header.showCoverImage) return;
+
+        const link = document.createElement("link");
+        link.rel = "preload";
+        link.as = "image";
+        link.href = business.cover_image;
+        link.setAttribute("fetchpriority", "high");
+        document.head.appendChild(link);
+
+        return () => {
+            if (document.head.contains(link)) document.head.removeChild(link);
+        };
+    }, [state]);
+
     // ── Analytics: page_view (una sola volta quando la pagina è pronta) ──
     const pageViewTracked = useRef(false);
     useEffect(() => {

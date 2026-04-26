@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/Switch/Switch";
 import { useToast } from "@/context/Toast/ToastContext";
 import { createProduct, updateProduct, getProduct, V2Product, ProductType } from "@/services/supabase/products";
 import { uploadProductImage } from "@/services/supabase/upload";
+import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { FileInput } from "@/components/ui/Input/FileInput";
 import {
     listAttributeDefinitions,
@@ -851,7 +852,7 @@ export function ProductForm({
                     imageUrl = await uploadProductImage(
                         productData.tenant_id,
                         productData.id,
-                        pendingImageFile
+                        await compressImage(pendingImageFile, COMPRESS_PROFILES.product)
                     );
                 }
                 const updatedProduct = await updateProduct(
@@ -887,7 +888,7 @@ export function ProductForm({
                 savedProduct = newProduct;
 
                 if (pendingImageFile) {
-                    const imageUrl = await uploadProductImage(tenantId, newProduct.id, pendingImageFile);
+                    const imageUrl = await uploadProductImage(tenantId, newProduct.id, await compressImage(pendingImageFile, COMPRESS_PROFILES.product));
                     savedProduct = await updateProduct(newProduct.id, tenantId, { image_url: imageUrl });
                 }
             }

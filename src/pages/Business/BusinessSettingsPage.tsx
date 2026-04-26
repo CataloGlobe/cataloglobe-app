@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { FileInput } from "@/components/ui/Input/FileInput";
 import { DeleteTenantDialog } from "@/components/Businesses/DeleteTenantDialog";
 import { deleteTenantSoft, getTenantLogoPublicUrl, updateTenantLogoUrl, uploadTenantLogo } from "@/services/supabase/tenants";
+import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { TENANT_KEY } from "@/constants/storageKeys";
 import { SUBTYPE_LABELS, DEFAULT_SUBTYPE } from "@/constants/verticalTypes";
 import styles from "./BusinessSettingsPage.module.scss";
@@ -64,7 +65,7 @@ export default function BusinessSettingsPage() {
         if (!selectedTenant || !logoFile) return;
         setIsSavingLogo(true);
         try {
-            const path = await uploadTenantLogo(selectedTenant.id, logoFile);
+            const path = await uploadTenantLogo(selectedTenant.id, await compressImage(logoFile, COMPRESS_PROFILES.logo));
             await updateTenantLogoUrl(selectedTenant.id, path);
             await refreshTenants();
             setLogoFile(null);
