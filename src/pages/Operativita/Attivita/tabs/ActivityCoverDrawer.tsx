@@ -5,6 +5,7 @@ import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui";
 import Text from "@/components/ui/Text/Text";
 import { uploadActivityCover } from "@/services/supabase/activities";
+import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { useToast } from "@/context/Toast/ToastContext";
 import { V2Activity } from "@/types/activity";
 import styles from "./ActivityCoverDrawer.module.scss";
@@ -84,7 +85,8 @@ export const ActivityCoverDrawer: React.FC<ActivityCoverDrawerProps> = ({
         if (!selectedFile) return;
         setIsSaving(true);
         try {
-            const url = await uploadActivityCover(activity, selectedFile);
+            const compressed = await compressImage(selectedFile, COMPRESS_PROFILES.cover);
+            const url = await uploadActivityCover(activity, compressed);
             showToast({ message: "Immagine di copertina aggiornata.", type: "success" });
             onSuccess(url);
             handleClose();

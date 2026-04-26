@@ -28,6 +28,11 @@ serve(async (req: Request) => {
             );
         }
 
+        // simulate requests must never be cached (they return time-specific data)
+        const cacheControl = simulate
+            ? "no-store"
+            : "public, max-age=0, s-maxage=30, stale-while-revalidate=300";
+
         const supabase = createClient(
             Deno.env.get("SUPABASE_URL")!,
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -127,7 +132,7 @@ serve(async (req: Request) => {
                     },
                     canonical_slug: isAliasMatch ? activity.slug : null
                 }),
-                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": cacheControl } }
             );
         }
 
@@ -152,7 +157,7 @@ serve(async (req: Request) => {
 
         // 3. Resolve catalogs + tenant info in parallel
         const [resolved, tenantInfo, hoursResult, closuresResult] = await Promise.all([
-            resolveActivityCatalogs(supabase, activity.id, simulatedAt),
+            resolveActivityCatalogs(supabase, activity.id, simulatedAt, activity.tenant_id),
             supabase.rpc("get_tenant_public_info", { p_tenant_id: activity.tenant_id }),
             activity.hours_public
                 ? supabase
@@ -193,7 +198,7 @@ serve(async (req: Request) => {
                     },
                     canonical_slug: isAliasMatch ? activity.slug : null
                 }),
-                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": cacheControl } }
             );
         }
 
@@ -215,7 +220,7 @@ serve(async (req: Request) => {
                 ...(opening_hours ? { opening_hours } : {}),
                 ...(upcoming_closures ? { upcoming_closures } : {})
             }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": cacheControl } }
         );
     } catch (err) {
         console.error("[resolve-public-catalog] error:", err);
