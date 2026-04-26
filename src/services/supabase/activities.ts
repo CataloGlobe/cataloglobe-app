@@ -136,9 +136,10 @@ function buildActivityFolder(tenantId: string, slug: string, activityId: string)
 
 function getFileExtension(file: File) {
     const mimeExt = file.type?.split("/")[1]?.toLowerCase();
-    if (mimeExt) return mimeExt;
+    if (mimeExt) return mimeExt === "jpeg" ? "jpg" : mimeExt;
     const nameExt = file.name.split(".").pop()?.toLowerCase();
-    return nameExt || "jpg";
+    if (!nameExt) return "jpg";
+    return nameExt === "jpeg" ? "jpg" : nameExt;
 }
 
 function buildCoverPath(tenantId: string, slug: string, activityId: string, extension: string) {
@@ -367,6 +368,25 @@ export async function uploadActivityCover(
 ): Promise<string> {
     const extension = getFileExtension(file);
     const path = buildCoverPath(activity.tenant_id, activity.slug, activity.id, extension);
+
+    // 0. Cleanup file orfani: il path della cover include l'estensione (cover.<ext>),
+    // quindi un upload successivo con estensione diversa (tipico dopo il fix che
+    // forza JPEG su input PNG) non sovrascriverebbe il vecchio file via upsert.
+    // Rimuovi tutte le estensioni note prima di caricare. Errori ignorati: il file
+    // potrebbe semplicemente non esistere.
+    const folder = buildActivityFolder(activity.tenant_id, activity.slug, activity.id);
+    const possibleOldExts = ["png", "jpg", "jpeg", "webp"];
+    await Promise.all(
+        possibleOldExts.map(async ext => {
+            try {
+                await supabase.storage
+                    .from(BUSINESS_COVERS_BUCKET)
+                    .remove([`${folder}/cover.${ext}`]);
+            } catch {
+                // best-effort
+            }
+        })
+    );
 
     // 1. Upload
     const { error: uploadError } = await supabase.storage
