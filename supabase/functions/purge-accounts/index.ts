@@ -463,6 +463,67 @@ async function processUser(
     }
 
     // -----------------------------------------------------------------------
+    // Step C3: Clean up avatars storage
+    // Path convention: avatars/{userId}/avatar.jpg (or other ext)
+    // Non-blocking: failure is logged but does not abort the purge flow.
+    // Must run BEFORE auth.admin.deleteUser so the user folder is still
+    // identifiable (though userId is known regardless).
+    // -----------------------------------------------------------------------
+    if (!dryRun && !authAlreadyDeleted) {
+        try {
+            const { data: avatarFiles, error: avatarListErr } = await supabase.storage
+                .from("avatars")
+                .list(userId, { limit: 100 });
+
+            if (avatarListErr) {
+                console.warn(
+                    JSON.stringify({
+                        event: "purge_avatar_list_failed",
+                        user_id: userId,
+                        detail: avatarListErr.message
+                    })
+                );
+            } else if (avatarFiles && avatarFiles.length > 0) {
+                const paths = avatarFiles
+                    .filter((f: { id: string | null }) => f.id !== null)
+                    .map((f: { name: string }) => `${userId}/${f.name}`);
+
+                if (paths.length > 0) {
+                    const { error: avatarRemoveErr } = await supabase.storage
+                        .from("avatars")
+                        .remove(paths);
+
+                    if (avatarRemoveErr) {
+                        console.warn(
+                            JSON.stringify({
+                                event: "purge_avatar_remove_failed",
+                                user_id: userId,
+                                detail: avatarRemoveErr.message
+                            })
+                        );
+                    } else {
+                        console.log(
+                            JSON.stringify({
+                                event: "purge_avatar_removed",
+                                user_id: userId,
+                                files_removed: paths.length
+                            })
+                        );
+                    }
+                }
+            }
+        } catch (avatarErr) {
+            console.warn(
+                JSON.stringify({
+                    event: "purge_avatar_error",
+                    user_id: userId,
+                    detail: avatarErr instanceof Error ? avatarErr.message : String(avatarErr)
+                })
+            );
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // Step D: Delete auth user
     // -----------------------------------------------------------------------
     if (dryRun) {

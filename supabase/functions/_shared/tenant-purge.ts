@@ -38,6 +38,54 @@ export async function deleteFromTable(
 }
 
 /**
+ * Recursively remove all storage files under `{tenantId}/` in a bucket.
+ * Used for flat/nested tenant-scoped buckets:
+ *   - product-images   → {tenantId}/products/{productId}.{ext}
+ *   - featured-contents → {tenantId}/{contentId}.{ext}
+ *   - tenant-assets    → {tenantId}/...
+ *   - style-backgrounds → {tenantId}/...
+ *
+ * Non-throwing: on error logs a warning and continues.
+ * Returns total file count removed.
+ */
+async function purgeTenantFolder(
+    admin: ReturnType<typeof createClient>,
+    bucket: string,
+    tenantId: string
+): Promise<number> {
+    const storage = admin.storage.from(bucket);
+    let totalRemoved = 0;
+
+    async function purgePrefix(prefix: string): Promise<void> {
+        const { data: items, error: listErr } = await storage.list(prefix, { limit: 1000 });
+        if (listErr) {
+            console.warn(`tenant-purge: list warn ${bucket}/${prefix}: ${listErr.message}`);
+            return;
+        }
+        if (!items || items.length === 0) return;
+
+        const filePaths = items.filter(f => f.id !== null).map(f => `${prefix}/${f.name}`);
+        const subfolders = items.filter(f => f.id === null).map(f => `${prefix}/${f.name}`);
+
+        if (filePaths.length > 0) {
+            const { error: removeErr } = await storage.remove(filePaths);
+            if (removeErr) {
+                console.warn(`tenant-purge: remove warn ${bucket}/${prefix}: ${removeErr.message}`);
+            } else {
+                totalRemoved += filePaths.length;
+            }
+        }
+
+        for (const sub of subfolders) {
+            await purgePrefix(sub);
+        }
+    }
+
+    await purgePrefix(tenantId);
+    return totalRemoved;
+}
+
+/**
  * Remove all storage files for a single activity folder.
  * Path convention: `{tenantId}/{safeSlug}__{activityId}/`
  */
@@ -81,7 +129,8 @@ export async function purgeActivityFolder(
  * batch processing).
  *
  * Deletion order (RESTRICT FK parents must be cleared after their children):
- *    1.  Storage assets per activity  ({slug}__{activityId}/ in business-covers)
+ *    1.  Storage assets per activity  ({tenantId}/{slug}__{activityId}/ in business-covers)
+ *        + tenant-scoped buckets: product-images, featured-contents, tenant-assets, style-backgrounds
  *    --- junction / product-child tables ---
  *    2.  featured_content_products
  *    3.  schedule_featured_contents
@@ -133,9 +182,25 @@ export async function purgeTenantData(
 
     if (actErr) throw new Error(`Failed to fetch activities: ${actErr.message}`);
 
-    // 2. Storage cleanup — one folder per activity in business-covers
+    // 2. Storage cleanup
+    //    2a. business-covers: one folder per activity ({tenantId}/{slug}__{id}/)
     for (const activity of activities ?? []) {
         storageFilesRemoved += await purgeActivityFolder(admin, "business-covers", activity as Activity, tenantId);
+    }
+
+    //    2b. Tenant-scoped buckets: entire {tenantId}/ folder
+    //        Errors are non-blocking — logged and counted, purge continues.
+    const tenantBuckets = ["product-images", "featured-contents", "tenant-assets", "style-backgrounds"];
+    for (const bucket of tenantBuckets) {
+        try {
+            const removed = await purgeTenantFolder(admin, bucket, tenantId);
+            storageFilesRemoved += removed;
+            if (removed > 0) {
+                console.log(`tenant-purge: removed ${removed} files from ${bucket}/${tenantId}`);
+            }
+        } catch (err) {
+            console.warn(`tenant-purge: bucket ${bucket} cleanup failed: ${err instanceof Error ? err.message : String(err)}`);
+        }
     }
 
     // 3. Junction / product-child tables (deepest dependents first)

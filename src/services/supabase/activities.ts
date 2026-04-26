@@ -1,4 +1,5 @@
 import { supabase } from "@/services/supabase/client";
+import { appendCacheBuster } from "@/services/supabase/upload";
 import type { V2Activity } from "@/types/activity";
 
 const BUSINESS_COVERS_BUCKET = "business-covers";
@@ -384,8 +385,13 @@ export async function uploadActivityCover(
     const publicUrl = data.publicUrl;
     if (!publicUrl) throw new Error("Impossibile ottenere public URL");
 
-    // 3. Update DB
-    await updateActivity(activity.id, activity.tenant_id, { cover_image: publicUrl });
+    // Cache-bust: il path e' deterministico (cover.<ext>) e cacheControl=3600,
+    // senza query param il CDN servirebbe la versione vecchia e l'URL salvato in
+    // DB sarebbe identico al precedente — React non re-renderizzerebbe.
+    const bustedUrl = appendCacheBuster(publicUrl);
 
-    return publicUrl;
+    // 3. Update DB
+    await updateActivity(activity.id, activity.tenant_id, { cover_image: bustedUrl });
+
+    return bustedUrl;
 }

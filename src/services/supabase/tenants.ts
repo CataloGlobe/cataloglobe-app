@@ -3,7 +3,15 @@ import { supabase } from "@/services/supabase/client";
 
 /**
  * Uploads a logo file to the tenant-assets bucket.
- * Returns the storage path (not the full public URL).
+ * Returns the storage path with an appended `?v=<timestamp>` cache-buster query.
+ *
+ * Il path e' deterministico (`<tenantId>/logo.<ext>`) per evitare file orfani in
+ * storage; il query param spezza la cache CDN e forza React a re-renderizzare
+ * il <img> (l'URL salvato in DB cambia ad ogni upload).
+ *
+ * `getTenantLogoPublicUrl` strippa il query prima di invocare `getPublicUrl`
+ * e lo riappende all'URL finale, quindi il valore restituito qui puo' essere
+ * passato direttamente a quell'helper.
  */
 export async function uploadTenantLogo(tenantId: string, file: File): Promise<string> {
     const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
@@ -18,7 +26,7 @@ export async function uploadTenantLogo(tenantId: string, file: File): Promise<st
         .upload(filePath, file, { upsert: true, contentType: file.type });
     if (error) throw error;
 
-    return filePath;
+    return `${filePath}?v=${Date.now()}`;
 }
 
 /**
@@ -35,9 +43,22 @@ export async function updateTenantLogoUrl(tenantId: string, logoPath: string | n
 
 /**
  * Returns the public URL for a tenant logo path.
+ *
+ * Il path memorizzato in DB puo' contenere un suffisso `?v=<ts>` per il
+ * cache-busting (vedi `uploadTenantLogo`). Lo strippiamo prima di chiamare
+ * `getPublicUrl` (altrimenti il `?` verrebbe URL-encoded e l'URL risulterebbe
+ * rotto) e lo riappendiamo all'URL finale.
  */
 export function getTenantLogoPublicUrl(path: string): string {
-    return supabase.storage.from("tenant-assets").getPublicUrl(path).data.publicUrl;
+    const queryIdx = path.indexOf("?");
+    const purePath = queryIdx === -1 ? path : path.slice(0, queryIdx);
+    const query = queryIdx === -1 ? "" : path.slice(queryIdx + 1);
+
+    const baseUrl = supabase.storage.from("tenant-assets").getPublicUrl(purePath).data.publicUrl;
+    if (!query) return baseUrl;
+
+    const sep = baseUrl.includes("?") ? "&" : "?";
+    return `${baseUrl}${sep}${query}`;
 }
 
 /**
