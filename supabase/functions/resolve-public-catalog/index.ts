@@ -202,13 +202,27 @@ serve(async (req: Request) => {
             );
         }
 
-        // 4. Resolve tenant logo URL
+        // 4. Resolve tenant logo URL.
+        // Il valore in DB puo' contenere un suffisso `?v=<ts>` per cache-busting
+        // (vedi `uploadTenantLogo`). Strippiamo il query prima di chiamare
+        // getPublicUrl (altrimenti `?` viene URL-encoded) e lo riappendiamo.
         let tenantLogoUrl: string | null = null;
         if (tenantInfo.data?.logo_url) {
+            const rawPath = tenantInfo.data.logo_url;
+            const queryIdx = rawPath.indexOf("?");
+            const purePath = queryIdx === -1 ? rawPath : rawPath.slice(0, queryIdx);
+            const query = queryIdx === -1 ? "" : rawPath.slice(queryIdx + 1);
+
             const { data: urlData } = supabase.storage
                 .from("tenant-assets")
-                .getPublicUrl(tenantInfo.data.logo_url);
-            tenantLogoUrl = urlData?.publicUrl ?? null;
+                .getPublicUrl(purePath);
+            const baseUrl = urlData?.publicUrl ?? null;
+            if (baseUrl && query) {
+                const sep = baseUrl.includes("?") ? "&" : "?";
+                tenantLogoUrl = `${baseUrl}${sep}${query}`;
+            } else {
+                tenantLogoUrl = baseUrl;
+            }
         }
 
         return new Response(

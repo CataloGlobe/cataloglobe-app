@@ -1,5 +1,16 @@
 import { supabase } from "@/services/supabase/client";
 
+/**
+ * Appende un query param di cache-busting a un URL pubblico Supabase Storage.
+ * Necessario quando il path di upload e' deterministico (upsert sullo stesso file):
+ * il CDN servirebbe la versione cached e l'URL salvato in DB sarebbe identico
+ * a prima, quindi React non re-renderizzerebbe nemmeno l'<img>.
+ */
+export function appendCacheBuster(url: string): string {
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}v=${Date.now()}`;
+}
+
 export async function uploadBusinessItemImage(businessId: string, file: File): Promise<string> {
     const ext = file.name.split(".").pop() || "jpg";
     const fileName = `${crypto.randomUUID()}.${ext}`;
@@ -20,24 +31,6 @@ export async function uploadBusinessItemImage(businessId: string, file: File): P
     return data.publicUrl;
 }
 
-export async function uploadCatalogItemImage(itemId: string, file: File): Promise<string> {
-    const ext = file.name.split(".").pop() || "jpg";
-    const fileName = `${itemId}.${ext}`;
-
-    const { error } = await supabase.storage.from("catalog-items").upload(fileName, file, {
-        upsert: true,
-        contentType: file.type
-    });
-
-    if (error) throw error;
-
-    const {
-        data: { publicUrl }
-    } = supabase.storage.from("catalog-items").getPublicUrl(fileName);
-
-    return publicUrl;
-}
-
 export async function uploadProductImage(
     tenantId: string,
     productId: string,
@@ -54,7 +47,7 @@ export async function uploadProductImage(
 
     const { data } = supabase.storage.from("product-images").getPublicUrl(filePath);
 
-    return data.publicUrl;
+    return appendCacheBuster(data.publicUrl);
 }
 
 export async function deleteProductImage(

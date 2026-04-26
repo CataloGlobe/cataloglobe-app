@@ -317,7 +317,7 @@ export default function PublicCollectionPage() {
                 console.error("[PublicCollectionPage] loading error:", err);
                 setState({
                     status: "error",
-                    message: err instanceof Error ? err.message : "Errore di caricamento."
+                    message: "Errore di caricamento."
                 });
             }
         }
@@ -404,26 +404,7 @@ export default function PublicCollectionPage() {
     }
 
     if (state.status === "empty") {
-        return (
-            <div
-                style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    height: "100vh",
-                    padding: "24px",
-                    textAlign: "center"
-                }}
-            >
-                <h2>{state.business.name}</h2>
-                <p>
-                    {isSimulation
-                        ? "Nessun contenuto attivo per la data e l'ora simulata."
-                        : "Nessun contenuto disponibile al momento."}
-                </p>
-            </div>
-        );
+        return <NotFound variant="business-empty" />;
     }
 
     const { business, resolved, tenantLogoUrl, openingHours, upcomingClosures } = state;

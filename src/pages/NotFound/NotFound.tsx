@@ -5,7 +5,7 @@ import { Button } from "@/components/ui";
 import styles from "./NotFound.module.scss";
 import { useEffect } from "react";
 
-type NotFoundVariant = "page" | "business" | "business-inactive" | "subscription-inactive";
+type NotFoundVariant = "page" | "business" | "business-empty" | "business-inactive" | "subscription-inactive";
 
 type InactiveReason = "maintenance" | "closed" | "unavailable";
 
@@ -24,6 +24,11 @@ const COPY: Record<NotFoundVariant, { title: string; description: string }> = {
         title: "Attività non disponibile",
         description:
             "Questa attività non esiste oppure non è più disponibile. Il link potrebbe essere scaduto o errato."
+    },
+    "business-empty": {
+        title: "Nessun contenuto disponibile",
+        description:
+            "Questo catalogo non ha contenuti disponibili al momento. Riprova più tardi."
     },
     "business-inactive": {
         title: "Non disponibile al momento",
