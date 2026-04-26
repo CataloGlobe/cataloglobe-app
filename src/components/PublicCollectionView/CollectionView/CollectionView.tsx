@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus, Search } from "lucide-react";
 import type {
@@ -15,18 +15,18 @@ import { trackEvent } from "@/services/analytics/publicAnalytics";
 // import PublicBrandHeader from "../PublicBrandHeader/PublicBrandHeader";
 import PublicCollectionHeader from "../PublicCollectionHeader/PublicCollectionHeader";
 import PublicFooter from "../PublicFooter/PublicFooter";
-import SearchOverlay from "../SearchOverlay/SearchOverlay";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
 import type { CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
-import ItemDetail from "../ItemDetail/ItemDetail";
-import SelectionSheet, {
-    type SelectionItem,
-    type SelectedFormat,
-    type SelectedAddon
-} from "../SelectionSheet/SelectionSheet";
 import EventsView from "../EventsView/EventsView";
-import ReviewsView, { type ReviewsViewProps } from "../ReviewsView/ReviewsView";
+import type { SelectionItem, SelectedFormat, SelectedAddon } from "../SelectionSheet/SelectionSheet";
+import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
+
+// Lazy-loaded: si aprono solo su interazione utente
+const SearchOverlay = lazy(() => import("../SearchOverlay/SearchOverlay"));
+const ItemDetail = lazy(() => import("../ItemDetail/ItemDetail"));
+const SelectionSheet = lazy(() => import("../SelectionSheet/SelectionSheet"));
+const ReviewsView = lazy(() => import("../ReviewsView/ReviewsView"));
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
 import PublicSheet from "../PublicSheet/PublicSheet";
@@ -233,6 +233,9 @@ function ProductRow({
                             alt={name}
                             className={`${styles.rowImage} ${imgLoaded ? styles.rowImageLoaded : ""}`}
                             loading="lazy"
+                            decoding="async"
+                            width={400}
+                            height={300}
                             onLoad={() => setImgLoaded(true)}
                         />
                     )}
@@ -1383,16 +1386,18 @@ export default function CollectionView({
                 />
             )}
 
-            {/* ── SEARCH OVERLAY — nascosta in preview ── */}
-            {mode !== "preview" && (
-                <SearchOverlay
-                    isOpen={isSearchOpen}
-                    onClose={handleCloseSearch}
-                    sections={sections}
-                    scrollContainerEl={scrollContainerEl}
-                    mode={mode}
-                    activityId={activityId}
-                />
+            {/* ── SEARCH OVERLAY — nascosta in preview, lazy al primo click ── */}
+            {mode !== "preview" && isSearchOpen && (
+                <Suspense fallback={null}>
+                    <SearchOverlay
+                        isOpen={isSearchOpen}
+                        onClose={handleCloseSearch}
+                        sections={sections}
+                        scrollContainerEl={scrollContainerEl}
+                        mode={mode}
+                        activityId={activityId}
+                    />
+                </Suspense>
             )}
 
             {/* ── INFO SHEET ── */}
@@ -1625,51 +1630,59 @@ export default function CollectionView({
                                             })()}
                                         </section>
                                     ))}
+                                    {featuredAfterCatalogSlot}
                                 </div>
 
-                                <ItemDetail
-                                    item={selectedItem}
-                                    isOpen={!!selectedItem}
-                                    onClose={() => {
-                                        setSelectedItem(null);
-                                        setEditingSelectionIndex(null);
-                                    }}
-                                    mode={mode}
-                                    showImage={style.cardTemplate !== "no-image"}
-                                    onAddToSelection={mode === "public" && activeTab === "menu"
-                                        ? (editingSelectionIndex !== null
-                                            ? handleUpdateSelection
-                                            : (productId, productName, basePrice, format, addons) => {
-                                                addToSelection(productId, productName, basePrice, format, addons);
+                                {!!selectedItem && (
+                                    <Suspense fallback={null}>
+                                        <ItemDetail
+                                            item={selectedItem}
+                                            isOpen={!!selectedItem}
+                                            onClose={() => {
                                                 setSelectedItem(null);
-                                            })
-                                        : undefined
-                                    }
-                                    initialFormat={editingSelectionIndex !== null
-                                        ? selection[editingSelectionIndex]?.selectedFormat
-                                        : undefined
-                                    }
-                                    initialAddons={editingSelectionIndex !== null
-                                        ? selection[editingSelectionIndex]?.selectedAddons
-                                        : undefined
-                                    }
-                                    submitLabel={editingSelectionIndex !== null ? "Aggiorna selezione" : undefined}
-                                />
+                                                setEditingSelectionIndex(null);
+                                            }}
+                                            mode={mode}
+                                            showImage={style.cardTemplate !== "no-image"}
+                                            onAddToSelection={mode === "public" && activeTab === "menu"
+                                                ? (editingSelectionIndex !== null
+                                                    ? handleUpdateSelection
+                                                    : (productId, productName, basePrice, format, addons) => {
+                                                        addToSelection(productId, productName, basePrice, format, addons);
+                                                        setSelectedItem(null);
+                                                    })
+                                                : undefined
+                                            }
+                                            initialFormat={editingSelectionIndex !== null
+                                                ? selection[editingSelectionIndex]?.selectedFormat
+                                                : undefined
+                                            }
+                                            initialAddons={editingSelectionIndex !== null
+                                                ? selection[editingSelectionIndex]?.selectedAddons
+                                                : undefined
+                                            }
+                                            submitLabel={editingSelectionIndex !== null ? "Aggiorna selezione" : undefined}
+                                        />
+                                    </Suspense>
+                                )}
 
-                                <SelectionSheet
-                                    isOpen={isSelectionOpen}
-                                    onClose={() => setIsSelectionOpen(false)}
-                                    items={selection}
-                                    onUpdateQty={updateSelectionQty}
-                                    onRemove={removeFromSelection}
-                                    onClear={clearSelection}
-                                    onEditItem={mode === "public" && activeTab === "menu"
-                                        ? handleEditSelectionItem
-                                        : undefined
-                                    }
-                                />
+                                {isSelectionOpen && (
+                                    <Suspense fallback={null}>
+                                        <SelectionSheet
+                                            isOpen={isSelectionOpen}
+                                            onClose={() => setIsSelectionOpen(false)}
+                                            items={selection}
+                                            onUpdateQty={updateSelectionQty}
+                                            onRemove={removeFromSelection}
+                                            onClear={clearSelection}
+                                            onEditItem={mode === "public" && activeTab === "menu"
+                                                ? handleEditSelectionItem
+                                                : undefined
+                                            }
+                                        />
+                                    </Suspense>
+                                )}
 
-                                {featuredAfterCatalogSlot}
                             </>
                         )}
                     </div>
@@ -1693,19 +1706,21 @@ export default function CollectionView({
             )}
 
             {activeTab === "reviews" && reviewsProps && (
-                <ReviewsView
-                    {...reviewsProps}
-                    onReviewSubmitted={() => {
-                        // Nascondi FAB e salva timestamp per sopprimerlo per 24h
-                        setValutaVisible(false);
-                        valutaEligibleRef.current = false;
-                        if (activityId) {
-                            try {
-                                localStorage.setItem(`fab_reviewed_${activityId}`, Date.now().toString());
-                            } catch { /* Safari private mode */ }
-                        }
-                    }}
-                />
+                <Suspense fallback={null}>
+                    <ReviewsView
+                        {...reviewsProps}
+                        onReviewSubmitted={() => {
+                            // Nascondi FAB e salva timestamp per sopprimerlo per 24h
+                            setValutaVisible(false);
+                            valutaEligibleRef.current = false;
+                            if (activityId) {
+                                try {
+                                    localStorage.setItem(`fab_reviewed_${activityId}`, Date.now().toString());
+                                } catch { /* Safari private mode */ }
+                            }
+                        }}
+                    />
+                </Suspense>
             )}
 
             {/* ── FAB SELEZIONE — solo public, solo tab menu, quando c'è almeno 1 elemento ── */}

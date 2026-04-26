@@ -30,6 +30,16 @@ serve(async (req: Request) => {
         return jsonResponse({ error: "Metodo non consentito" }, 405);
     }
 
+    // ── Extract IP (preparatorio per rate limit per IP) ─────────────
+    // NOTA: il rate limit basato su request_ip richiede la colonna
+    // `request_ip TEXT` sulla tabella reviews — migration pendente.
+    // Il codice è predisposto ma il check DB è disabilitato finché
+    // la migration non viene applicata.
+    const requestIp: string =
+        (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() ||
+        req.headers.get("x-real-ip") ||
+        "unknown";
+
     try {
         const body = (await req.json()) as Record<string, unknown>;
 
@@ -37,6 +47,10 @@ serve(async (req: Request) => {
         const activityId = body.activity_id;
         if (typeof activityId !== "string" || activityId.trim() === "") {
             return jsonResponse({ error: "activity_id è obbligatorio" }, 400);
+        }
+        // UUID = 36 chars max
+        if (activityId.trim().length > 36) {
+            return jsonResponse({ error: "activity_id non valido" }, 400);
         }
 
         const rating = body.rating;
@@ -58,6 +72,9 @@ serve(async (req: Request) => {
             if (typeof body.session_id !== "string" || body.session_id.trim() === "") {
                 return jsonResponse({ error: "session_id non valido" }, 400);
             }
+            if (body.session_id.trim().length > 100) {
+                return jsonResponse({ error: "session_id non valido" }, 400);
+            }
             sessionId = body.session_id.trim();
         }
 
@@ -68,9 +85,25 @@ serve(async (req: Request) => {
         );
 
         // ── Rate limiting ───────────────────────────────────────────
-        if (sessionId) {
-            const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
+        // Check globale per IP: max 10 review per IP nelle ultime 24h
+        if (requestIp !== "unknown") {
+            const { data: ipReviews, error: ipRlError } = await supabase
+                .from("reviews")
+                .select("id")
+                .eq("request_ip", requestIp)
+                .gte("created_at", twentyFourHoursAgo);
+
+            if (ipRlError) throw ipRlError;
+
+            if (ipReviews && ipReviews.length >= 10) {
+                return jsonResponse({ error: "Troppe richieste. Riprova più tardi." }, 429);
+            }
+        }
+
+        if (sessionId) {
+            // Check: stessa session_id + stessa activity nelle ultime 24h
             const { data: existing, error: rlError } = await supabase
                 .from("reviews")
                 .select("id")
@@ -103,6 +136,8 @@ serve(async (req: Request) => {
         }
 
         // ── Insert review ───────────────────────────────────────────
+        // status: "pending" — le review vengono approvate manualmente.
+        // La RLS anon filtra già status = 'approved' per la pagina pubblica.
         const { error: insertError } = await supabase.from("reviews").insert({
             tenant_id: activity.tenant_id,
             activity_id: activityId,
@@ -110,8 +145,9 @@ serve(async (req: Request) => {
             rating_category: ratingCategory(rating),
             comment,
             source: "public_form",
-            status: "approved",
-            session_id: sessionId
+            status: "pending",
+            session_id: sessionId,
+            request_ip: requestIp !== "unknown" ? requestIp : null
         });
 
         if (insertError) throw insertError;

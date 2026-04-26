@@ -187,6 +187,10 @@ export default function PublicCollectionHeader({
                             alt=""
                             role="presentation"
                             className={styles.coverImg}
+                            fetchPriority="high"
+                            decoding="async"
+                            width={1920}
+                            height={1080}
                         />
                     ) : mode === "preview" ? (
                         <div className={styles.coverPlaceholder} aria-hidden>
@@ -221,6 +225,9 @@ export default function PublicCollectionHeader({
                                     src={logoUrl}
                                     alt={`Logo ${activityName}`}
                                     className={styles.logo}
+                                    decoding="async"
+                                    width={80}
+                                    height={80}
                                 />
                             </div>
                         )}

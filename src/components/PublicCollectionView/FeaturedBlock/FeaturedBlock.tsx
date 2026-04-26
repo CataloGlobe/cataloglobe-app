@@ -1,9 +1,13 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { lazy, Suspense, useState, useRef, useEffect, useCallback } from "react";
 import styles from "./FeaturedBlock.module.scss";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import FeaturedCard from "@/components/PublicCollectionView/FeaturedCard/FeaturedCard";
-import { FeaturedPreviewModal } from "./FeaturedPreviewModal";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
+
+// Lazy-loaded: si apre solo al click su un contenuto in evidenza
+const FeaturedPreviewModal = lazy(() =>
+    import("./FeaturedPreviewModal").then(m => ({ default: m.FeaturedPreviewModal }))
+);
 
 type Props = {
     blocks: V2FeaturedContent[];
@@ -158,11 +162,15 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
                     eager={isAboveFold}
                 />
             </div>
-            <FeaturedPreviewModal
-                block={previewBlock}
-                isOpen={!!previewBlock}
-                onClose={() => setPreviewBlock(null)}
-            />
+            {!!previewBlock && (
+                <Suspense fallback={null}>
+                    <FeaturedPreviewModal
+                        block={previewBlock}
+                        isOpen={!!previewBlock}
+                        onClose={() => setPreviewBlock(null)}
+                    />
+                </Suspense>
+            )}
             </>
         );
     }
@@ -209,11 +217,15 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
             )}
         </div>
 
-        <FeaturedPreviewModal
-            block={previewBlock}
-            isOpen={!!previewBlock}
-            onClose={() => setPreviewBlock(null)}
-        />
+        {!!previewBlock && (
+            <Suspense fallback={null}>
+                <FeaturedPreviewModal
+                    block={previewBlock}
+                    isOpen={!!previewBlock}
+                    onClose={() => setPreviewBlock(null)}
+                />
+            </Suspense>
+        )}
         </>
     );
 }
