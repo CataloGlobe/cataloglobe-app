@@ -1,6 +1,6 @@
 import { Navigate, Routes, Route, useNavigate } from "react-router-dom";
 import ScrollToTop from "@/components/ScrollToTop/ScrollToTop";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { supabase } from "@/services/supabase/client";
 import MainLayout from "@layouts/MainLayout/MainLayout";
 import WorkspaceLayout from "@layouts/WorkspaceLayout/WorkspaceLayout";
@@ -10,8 +10,9 @@ import { OtpRoute } from "./components/Routes/OtpRoute";
 import { RecoveryRoute } from "./components/Routes/RecoveryRoute";
 import { TenantProvider } from "@context/TenantProvider";
 import { DashboardRedirect } from "./components/Routes/DashboardRedirect";
+import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 
-// Auth pages
+// Auth pages — eager (percorso critico per utenti non autenticati)
 import Login from "./pages/Auth/Login";
 import VerifyOtp from "./pages/Auth/VerifyOtp";
 import SignUp from "./pages/Auth/SignUp";
@@ -20,46 +21,44 @@ import EmailConfirmed from "./pages/Auth/EmailConfirmed";
 import ForgotPassword from "./pages/Auth/ForgotPassword";
 import ResetPassword from "./pages/Auth/ResetPassword";
 
-// Workspace
-import WorkspacePage from "./pages/Workspace/WorkspacePage";
-import BillingPage from "./pages/Workspace/BillingPage";
-import WorkspaceSettingsPage from "./pages/Workspace/WorkspaceSettingsPage";
-
-// Business pages (reused from former dashboard)
-import Overview from "@/pages/Business/OverviewPage";
-import Businesses from "./pages/Dashboard/Businesses/Businesses";
-import Catalogs from "./pages/Dashboard/Catalogs/Catalogs";
-import CatalogEngine from "./pages/Dashboard/Catalogs/CatalogEngine";
-import Reviews from "@pages/Dashboard/Reviews/Reviews";
-import AnalyticsPage from "@pages/Dashboard/Analytics/AnalyticsPage";
-import BusinessSettingsPage from "./pages/Business/BusinessSettingsPage";
-import BusinessTeamPage from "./pages/Business/TeamPage";
-import Programming from "./pages/Dashboard/Programming/Programming";
-import ProgrammingRuleDetail from "./pages/Dashboard/Programming/ProgrammingRuleDetail";
-import FeaturedRuleDetail from "./pages/Dashboard/Programming/FeaturedRuleDetail";
-import Products from "./pages/Dashboard/Products/Products";
-import ProductPage from "./pages/Dashboard/Products/ProductPage";
-import Highlights from "./pages/Dashboard/Highlights/Highlights";
-import FeaturedContentDetailPage from "./pages/Dashboard/Highlights/FeaturedContentDetailPage";
-import Styles from "./pages/Dashboard/Styles/Styles";
-import StyleEditorPage from "./pages/Dashboard/Styles/StyleEditorPage";
-import Attributes from "./pages/Dashboard/Attributes/Attributes";
-import ActivityDetailPage from "./pages/Operativita/Attivita/ActivityDetailPage";
-
-// Onboarding pages
-import CreateBusiness from "./pages/Onboarding/CreateBusiness";
-import ActivateTrial from "./pages/Onboarding/ActivateTrial";
-
-// Subscription
-import SubscriptionPage from "./pages/Business/SubscriptionPage";
-
-// Public pages
+// Public pages — eager (entry point visitatori anonimi)
 import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
 import Home from "./pages/Home/Home";
 import NotFound from "./pages/NotFound/NotFound";
 import InvitePage from "./pages/Invite/InvitePage";
 import PrivacyPolicyPage from "./pages/Legal/PrivacyPolicyPage";
 import TermsPage from "./pages/Legal/TermsPage";
+
+// Workspace — lazy (solo utenti autenticati)
+const WorkspacePage = lazy(() => import("./pages/Workspace/WorkspacePage"));
+const BillingPage = lazy(() => import("./pages/Workspace/BillingPage"));
+const WorkspaceSettingsPage = lazy(() => import("./pages/Workspace/WorkspaceSettingsPage"));
+
+// Onboarding — lazy
+const CreateBusiness = lazy(() => import("./pages/Onboarding/CreateBusiness"));
+const ActivateTrial = lazy(() => import("./pages/Onboarding/ActivateTrial"));
+
+// Business pages — lazy (solo utenti autenticati con tenant selezionato)
+const Overview = lazy(() => import("@/pages/Business/OverviewPage"));
+const Businesses = lazy(() => import("./pages/Dashboard/Businesses/Businesses"));
+const Catalogs = lazy(() => import("./pages/Dashboard/Catalogs/Catalogs"));
+const CatalogEngine = lazy(() => import("./pages/Dashboard/Catalogs/CatalogEngine"));
+const Reviews = lazy(() => import("@pages/Dashboard/Reviews/Reviews"));
+const AnalyticsPage = lazy(() => import("@pages/Dashboard/Analytics/AnalyticsPage"));
+const BusinessSettingsPage = lazy(() => import("./pages/Business/BusinessSettingsPage"));
+const BusinessTeamPage = lazy(() => import("./pages/Business/TeamPage"));
+const Programming = lazy(() => import("./pages/Dashboard/Programming/Programming"));
+const ProgrammingRuleDetail = lazy(() => import("./pages/Dashboard/Programming/ProgrammingRuleDetail"));
+const FeaturedRuleDetail = lazy(() => import("./pages/Dashboard/Programming/FeaturedRuleDetail"));
+const Products = lazy(() => import("./pages/Dashboard/Products/Products"));
+const ProductPage = lazy(() => import("./pages/Dashboard/Products/ProductPage"));
+const Highlights = lazy(() => import("./pages/Dashboard/Highlights/Highlights"));
+const FeaturedContentDetailPage = lazy(() => import("./pages/Dashboard/Highlights/FeaturedContentDetailPage"));
+const Styles = lazy(() => import("./pages/Dashboard/Styles/Styles"));
+const StyleEditorPage = lazy(() => import("./pages/Dashboard/Styles/StyleEditorPage"));
+const Attributes = lazy(() => import("./pages/Dashboard/Attributes/Attributes"));
+const ActivityDetailPage = lazy(() => import("./pages/Operativita/Attivita/ActivityDetailPage"));
+const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
 
 export default function App() {
     const navigate = useNavigate();
@@ -83,6 +82,7 @@ export default function App() {
     return (
         <>
         <ScrollToTop />
+        <Suspense fallback={<AppLoader intent="dashboard" />}>
         <Routes>
             {/* Public routes */}
             <Route path="/" element={<Home />} />
@@ -239,6 +239,7 @@ export default function App() {
             {/* Global 404 */}
             <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
         </>
     );
 }
