@@ -21,6 +21,11 @@ import styles from "./aiMenuImport.module.scss";
 
 /* ────────────────────────────── Types ───────────────────── */
 
+type ImagePayload = {
+    data: string;
+    mime_type: string;
+};
+
 export type AiProduct = {
     name: string;
     description: string | null;
@@ -105,37 +110,68 @@ export function AiMenuImportWizard({ onClose, onSuccess }: AiMenuImportWizardPro
 
         try {
             // Compress images (fallback to original on failure), pass PDFs through
-            const base64Images = await Promise.all(
+            const imagePayloads: ImagePayload[] = await Promise.all(
                 files.map(async file => {
                     if (file.type.startsWith("image/")) {
                         try {
                             const compressed = await compressImage(file, 1200, 0.8);
-                            return fileToBase64(compressed);
+                            return { data: await fileToBase64(compressed), mime_type: "image/jpeg" };
                         } catch {
                             // Fallback: send original uncompressed
-                            return fileToBase64(file);
+                            return { data: await fileToBase64(file), mime_type: file.type || "image/jpeg" };
                         }
                     }
-                    return fileToBase64(file);
+                    return { data: await fileToBase64(file), mime_type: file.type || "application/pdf" };
                 })
             );
 
             const { data: response, error } = await supabase.functions.invoke("menu-ai-import", {
                 body: {
-                    images: base64Images,
+                    images: imagePayloads,
                     tenant_id: tenantId,
                     language_hint: "it"
                 }
             });
 
-            if (error) throw new Error(error.message || "Errore nella chiamata");
-            if (!response?.success) throw new Error(response?.error || "Errore nell'analisi del menu");
+            // Non-2xx → supabase-js wraps response in FunctionsHttpError. The
+            // original Response sits on error.context; read its JSON body so we
+            // can surface the specific Italian message returned by the function
+            // instead of the generic "Edge Function returned a non-2xx".
+            if (error) {
+                let apiMessage: string | null = null;
+                try {
+                    const ctx = (error as { context?: Response }).context;
+                    if (ctx && typeof ctx.json === "function") {
+                        const errBody = await ctx.json();
+                        if (errBody && typeof errBody.error === "string" && errBody.error.length > 0) {
+                            apiMessage = errBody.error;
+                        }
+                    }
+                } catch {
+                    // body unreadable, fall back below
+                }
+                console.error("[AiMenuImport] analyze edge error:", error);
+                setAnalyzeError(apiMessage ?? getAiErrorMessage(error));
+                return;
+            }
+
+            // 2xx with success: false → message already in Italian, use as-is
+            if (!response?.success) {
+                console.error("[AiMenuImport] analyze response not successful:", response);
+                setAnalyzeError(
+                    typeof response?.error === "string" && response.error.length > 0
+                        ? response.error
+                        : "Errore nell'analisi del menu"
+                );
+                return;
+            }
 
             const result = response.data;
 
             // Validate response structure
             if (!result || !Array.isArray(result.categories) || result.categories.length === 0) {
-                throw new Error("L'AI non ha trovato prodotti nel menù. Prova con un'immagine più nitida.");
+                setAnalyzeError("L'AI non ha trovato prodotti nel menù. Prova con un'immagine più nitida.");
+                return;
             }
 
             // Transform AI result into editable products
