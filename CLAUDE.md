@@ -294,7 +294,7 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 | `submit-review` | ✅ | Invio recensione dalla pagina pubblica |
 | `search-google-places` | ✅ | Ricerca luoghi Google Places. Branch `query`: searchText per review URL (tab contatti). Branch `place_id`: Place Details con `addressComponents` per autocompletamento indirizzo strutturato (`address`, `street_number`, `postal_code`, `city`, `province`). |
 | `cleanup-draft-schedules` | ✅ | Elimina bozze schedules incomplete > 7 giorni (chiamata via pg_cron con PURGE_SECRET) |
-| `menu-ai-import` | ❌ DISABLED | Import AI da menu (non deployare senza abilitare) |
+| `menu-ai-import` | ✅ | Import AI da menu via Gemini (immagini JPEG/PNG + PDF, max 5 file/richiesta) |
 
 **scheduleResolver.ts** esiste in DUE posti: `src/services/supabase/` e `supabase/functions/_shared/`. Sincronizzarli ENTRAMBI ad ogni modifica.
 
@@ -329,7 +329,6 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 - **Analytics** — pagina stub (`Analytics.tsx`)
 - **Reviews** — rebuilt (aprile 2026), integrazione con Google Review URL presente
 - **Sottocategorie** — catalogo supporta L1/L2/L3, gestione UI da verificare
-- **`menu-ai-import`** — disabilitata, richiede abilitazione esplicita
 - **Seat enforcement** — logica Stripe seats introdotta (`20260413100000`, `20260413110000`)
 - **`schedule_targets` RLS** — gap noto, nessuna RLS sulla tabella
 - **Real-time sync regole** — la lista regole non ha Supabase Realtime. Modifiche di altri utenti del team non visibili senza refresh pagina. Da implementare se il caso d'uso multi-utente lo richiede.
