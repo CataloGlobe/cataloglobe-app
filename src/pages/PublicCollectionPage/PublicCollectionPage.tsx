@@ -25,6 +25,7 @@ import { borderRadiusToPx } from "@/features/public/utils/mapStyleTokensToCssVar
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import NotFound from "../NotFound/NotFound";
 import { getDisplayValue } from "@/utils/attributes";
+import { loadPublicFonts } from "@utils/loadPublicFonts";
 // reviews_summary and recent_reviews still returned by edge function — unused in frontend for now
 
 /* ===============================================
@@ -225,6 +226,10 @@ export default function PublicCollectionPage() {
     const isSimulation = !!effectiveSimulate;
     const [state, setState] = useState<PageState>({ status: "loading" });
     usePageTitle(state.status === "ready" ? state.business.name : undefined);
+
+    useEffect(() => {
+        return loadPublicFonts();
+    }, []);
 
     useEffect(() => {
         if (!slug) {
