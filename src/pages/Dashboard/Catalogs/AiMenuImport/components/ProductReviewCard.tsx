@@ -10,6 +10,11 @@ interface ProductReviewCardProps {
 }
 
 export function ProductReviewCard({ product, onUpdate, onRemove }: ProductReviewCardProps) {
+    // Defensive guard: skip rendering if AI returned malformed product data
+    if (!product || typeof product.name !== "string") {
+        return null;
+    }
+
     const isLow = product.confidence === "low";
 
     const rowClass = [
@@ -60,13 +65,17 @@ export function ProductReviewCard({ product, onUpdate, onRemove }: ProductReview
                     </div>
                 )}
 
-                {product.product_type === "formats" && product.formats && (
+                {product.product_type === "formats" && Array.isArray(product.formats) && product.formats.length > 0 && (
                     <div className={styles.productFormats}>
-                        {product.formats.map((f, i) => (
-                            <span key={i} className={styles.formatTag}>
-                                {f.name} €{f.price.toFixed(2)}
-                            </span>
-                        ))}
+                        {product.formats.map((f, i) => {
+                            if (!f || typeof f.name !== "string") return null;
+                            const priceStr = f.price != null ? f.price.toFixed(2) : null;
+                            return (
+                                <span key={i} className={styles.formatTag}>
+                                    {f.name}{priceStr ? ` €${priceStr}` : ""}
+                                </span>
+                            );
+                        })}
                     </div>
                 )}
             </div>

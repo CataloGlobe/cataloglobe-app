@@ -1,5 +1,6 @@
 /**
- * Shared type for tenant membership rows returned by `tenant_members_view`.
+ * Shared type for tenant membership rows returned by
+ * `get_tenant_members(uuid)` RPC.
  * Used by Business/TeamPage and MemberDrawer.
  */
 export type TenantMemberRow = {

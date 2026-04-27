@@ -28,6 +28,7 @@ import {
     DEFAULT_STYLE_TOKENS
 } from "./Editor/StyleTokenModel";
 import styles from "./Styles.module.scss";
+import { loadPublicFonts } from "@utils/loadPublicFonts";
 
 export default function StyleEditorPage() {
     const { styleId } = useParams<{ styleId: string }>();
@@ -64,6 +65,10 @@ export default function StyleEditorPage() {
     const isDirty =
         name !== styleData?.name || JSON.stringify(tokenModel) !== JSON.stringify(originalTokens);
     const isSystem = Boolean(styleData?.is_system);
+
+    useEffect(() => {
+        return loadPublicFonts();
+    }, []);
 
     // Blocco scroll globale
     useEffect(() => {

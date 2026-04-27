@@ -210,10 +210,27 @@ serve(async (req: Request) => {
             return jsonError("Massimo 5 immagini per richiesta", 400);
         }
 
+        const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+
+        const normalizedImages: { data: string; mime_type: string }[] = [];
         for (let i = 0; i < images.length; i++) {
-            if (typeof images[i] !== "string" || images[i].length === 0) {
+            const raw = images[i];
+            let entry: { data: string; mime_type: string };
+            if (typeof raw === "string") {
+                // Retrocompatibilità: vecchio formato, assume JPEG
+                entry = { data: raw, mime_type: "image/jpeg" };
+            } else if (raw && typeof raw === "object" && typeof raw.data === "string" && typeof raw.mime_type === "string") {
+                entry = { data: raw.data, mime_type: raw.mime_type };
+            } else {
                 return jsonError(`Immagine ${i + 1} non valida`, 400);
             }
+            if (entry.data.length === 0) {
+                return jsonError(`Immagine ${i + 1} non valida`, 400);
+            }
+            if (!ALLOWED_MIME_TYPES.includes(entry.mime_type)) {
+                return jsonError(`Formato non supportato: ${entry.mime_type}`, 400);
+            }
+            normalizedImages.push(entry);
         }
 
         // ── Gemini API call ───────────────────────────────────────
@@ -227,8 +244,8 @@ serve(async (req: Request) => {
 
         const parts = [
             { text: SYSTEM_PROMPT },
-            ...images.map((b64: string) => ({
-                inline_data: { mime_type: "image/jpeg", data: b64 }
+            ...normalizedImages.map((img) => ({
+                inline_data: { mime_type: img.mime_type, data: img.data }
             })),
             { text: `Extract all products from this menu. The menu language is likely "${lang}".` }
         ];
