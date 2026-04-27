@@ -21,6 +21,7 @@ import type { DeletedTenant } from "@/services/supabase/tenants";
 import type { V2Tenant } from "@/types/tenant";
 import { Button } from "@/components/ui/Button/Button";
 import { createCheckoutSession } from "@/services/supabase/billing";
+import { listMyPendingInvites } from "@/services/supabase/team";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./WorkspacePage.module.scss";
 
@@ -70,12 +71,16 @@ export default function WorkspacePage() {
         if (!user) return;
 
         const fetchInvites = async () => {
-            // Step 1: fetch pending membership rows with inviter info from the view
-            const { data: rows } = await supabase
-                .from("my_pending_invites_view")
-                .select("membership_id, invite_token, role, tenant_id, inviter_email");
+            // Step 1: fetch pending membership rows with inviter info via RPC
+            let rows;
+            try {
+                rows = await listMyPendingInvites();
+            } catch {
+                setPendingInvites([]);
+                return;
+            }
 
-            if (!rows || rows.length === 0) {
+            if (rows.length === 0) {
                 setPendingInvites([]);
                 return;
             }

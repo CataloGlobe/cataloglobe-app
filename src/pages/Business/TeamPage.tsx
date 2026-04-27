@@ -18,6 +18,7 @@ import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import styles from "./TeamPage.module.scss";
 
 import type { TenantMemberRow } from "@/types/team";
+import { listTenantMembers } from "@/services/supabase/team";
 
 function formatExpiry(expiresAt: string): string {
     const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000);
@@ -70,23 +71,17 @@ export default function TeamPage() {
 
         const fetchMembers = async () => {
             setLoading(true);
-            const { data, error } = await supabase
-                .from("tenant_members_view")
-                .select("membership_id, tenant_id, user_id, email, role, status, invited_by, inviter_email, invite_token, invite_expires_at, created_at")
-                .eq("tenant_id", selectedTenantId)
-                .order("created_at", { ascending: true });
-
-            if (cancelled) return;
-
-            if (error) {
+            try {
+                const data = await listTenantMembers(selectedTenantId);
+                if (cancelled) return;
+                setMembers(data);
+            } catch (error) {
+                if (cancelled) return;
                 console.error("[BusinessTeamPage] failed to fetch members:", error);
                 setMembers([]);
-                setLoading(false);
-                return;
+            } finally {
+                if (!cancelled) setLoading(false);
             }
-
-            setMembers((data as TenantMemberRow[]) ?? []);
-            setLoading(false);
         };
 
         fetchMembers();
