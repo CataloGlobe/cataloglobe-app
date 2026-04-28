@@ -18,25 +18,38 @@ function json(status: number, body: Record<string, unknown>) {
  * Update the tenant's subscription_status in the database.
  * Finds the tenant by stripe_customer_id.
  */
+type UpdateResult = { ok: boolean; rowsAffected: number };
+
 async function updateTenantStatus(
     admin: ReturnType<typeof createClient>,
     stripeCustomerId: string,
     updates: Record<string, unknown>
-): Promise<boolean> {
-    const { error } = await admin
+): Promise<UpdateResult> {
+    const { error, count } = await admin
         .from("tenants")
-        .update(updates)
+        .update(updates, { count: "exact" })
         .eq("stripe_customer_id", stripeCustomerId);
 
     if (error) {
         console.error(`stripe-webhook: DB update failed for customer ${stripeCustomerId}:`, error.message);
-        return false;
+        return { ok: false, rowsAffected: 0 };
     }
-    return true;
+    return { ok: true, rowsAffected: count ?? 0 };
 }
 
 /**
  * Extract the total quantity from the first line item (seat-based pricing).
+ *
+ * Estrae la quantity (numero di seats) da una subscription Stripe.
+ *
+ * NOTA: questa funzione legge solo `items.data[0].quantity`.
+ * CataloGlobe oggi vende un singolo prodotto (CataloGlobe Pro), quindi
+ * ogni subscription ha esattamente 1 line item e questa logica è corretta.
+ *
+ * Se in futuro introduci addon o multi-product subscription (es. "Pro +
+ * AI Import addon" come secondo line item), questa funzione va rivista per:
+ *   - Identificare l'item del piano principale tramite price ID, OPPURE
+ *   - Sommare le quantity di tutti gli item se la semantica è "seats totali".
  */
 function getSubscriptionQuantity(subscription: Stripe.Subscription): number {
     const items = subscription.items?.data;
@@ -74,6 +87,8 @@ serve(async req => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
+    let event: Stripe.Event | undefined;
+
     try {
         const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
         const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -96,7 +111,6 @@ serve(async req => {
         }
 
         const rawBody = await req.text();
-        let event: Stripe.Event;
 
         try {
             event = await stripe.webhooks.constructEventAsync(rawBody, signature, STRIPE_WEBHOOK_SECRET);
@@ -106,6 +120,24 @@ serve(async req => {
         }
 
         console.log(`stripe-webhook: Received event ${event.type} (${event.id})`);
+
+        // Idempotency check: Stripe consegna eventi at-least-once.
+        // Se già processato in passato, ritorna early con 200.
+        const { error: insertError } = await admin
+            .from("stripe_processed_events")
+            .insert({ event_id: event.id, event_type: event.type });
+
+        if (insertError) {
+            if (insertError.code === "23505") {
+                // Unique constraint violation = evento già processato.
+                console.log(`stripe-webhook: Event ${event.id} already processed, skipping.`);
+                return json(200, { received: true, idempotent: true });
+            }
+            // Errore vero (DB down, ecc.). Log ma non blocchiamo: meglio processare
+            // 2 volte che perdere un evento. Gli handler sono UPDATE puri quindi
+            // processarlo 2 volte è innocuo.
+            console.error(`stripe-webhook: Idempotency check failed for event ${event.id}:`, insertError.message);
+        }
 
         // --- Handle events ---
         switch (event.type) {
@@ -161,14 +193,16 @@ serve(async req => {
                     ? new Date(subscription.trial_end * 1000).toISOString()
                     : null;
 
-                const ok = await updateTenantStatus(admin, stripeCustomerId, {
+                const result = await updateTenantStatus(admin, stripeCustomerId, {
                     subscription_status: newStatus,
                     paid_seats: paidSeats,
                     trial_until: trialUntil
                 });
 
-                if (ok) {
-                    console.log(`stripe-webhook: Subscription updated → status=${newStatus}, seats=${paidSeats} for customer ${stripeCustomerId}`);
+                if (result.ok && result.rowsAffected > 0) {
+                    console.log(`stripe-webhook: Subscription updated → status=${newStatus}, seats=${paidSeats} for customer ${stripeCustomerId} (event ${event.id})`);
+                } else if (result.ok && result.rowsAffected === 0) {
+                    console.warn(`stripe-webhook: NO TENANT MATCHED customer ${stripeCustomerId} for event ${event.id} (${event.type}). Possibile causa: evento da ambiente diverso o tenant eliminato.`);
                 }
                 break;
             }
@@ -177,12 +211,14 @@ serve(async req => {
                 const subscription = event.data.object as Stripe.Subscription;
                 const stripeCustomerId = subscription.customer as string;
 
-                const ok = await updateTenantStatus(admin, stripeCustomerId, {
+                const result = await updateTenantStatus(admin, stripeCustomerId, {
                     subscription_status: "canceled"
                 });
 
-                if (ok) {
-                    console.log(`stripe-webhook: Subscription deleted for customer ${stripeCustomerId}`);
+                if (result.ok && result.rowsAffected > 0) {
+                    console.log(`stripe-webhook: Subscription deleted for customer ${stripeCustomerId} (event ${event.id})`);
+                } else if (result.ok && result.rowsAffected === 0) {
+                    console.warn(`stripe-webhook: NO TENANT MATCHED customer ${stripeCustomerId} for event ${event.id} (${event.type}). Possibile causa: evento da ambiente diverso o tenant eliminato.`);
                 }
                 break;
             }
@@ -191,12 +227,14 @@ serve(async req => {
                 const invoice = event.data.object as Stripe.Invoice;
                 const stripeCustomerId = invoice.customer as string;
 
-                const ok = await updateTenantStatus(admin, stripeCustomerId, {
+                const result = await updateTenantStatus(admin, stripeCustomerId, {
                     subscription_status: "past_due"
                 });
 
-                if (ok) {
-                    console.log(`stripe-webhook: Payment failed → past_due for customer ${stripeCustomerId}`);
+                if (result.ok && result.rowsAffected > 0) {
+                    console.log(`stripe-webhook: Payment failed → past_due for customer ${stripeCustomerId} (event ${event.id})`);
+                } else if (result.ok && result.rowsAffected === 0) {
+                    console.warn(`stripe-webhook: NO TENANT MATCHED customer ${stripeCustomerId} for event ${event.id} (${event.type}). Possibile causa: evento da ambiente diverso o tenant eliminato.`);
                 }
                 break;
             }
@@ -214,10 +252,14 @@ serve(async req => {
                     .maybeSingle();
 
                 if (tenant && (tenant.subscription_status === "trialing" || tenant.subscription_status === "past_due")) {
-                    await updateTenantStatus(admin, stripeCustomerId, {
+                    const result = await updateTenantStatus(admin, stripeCustomerId, {
                         subscription_status: "active"
                     });
-                    console.log(`stripe-webhook: Payment succeeded → active for customer ${stripeCustomerId}`);
+                    if (result.ok && result.rowsAffected > 0) {
+                        console.log(`stripe-webhook: Payment succeeded → active for customer ${stripeCustomerId} (event ${event.id})`);
+                    } else if (result.ok && result.rowsAffected === 0) {
+                        console.warn(`stripe-webhook: NO TENANT MATCHED customer ${stripeCustomerId} for event ${event.id} (${event.type}). Possibile causa: evento da ambiente diverso o tenant eliminato.`);
+                    }
                 }
                 break;
             }
@@ -230,7 +272,29 @@ serve(async req => {
         return json(200, { received: true });
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        const stack = err instanceof Error ? err.stack : null;
         console.error("stripe-webhook: Unhandled error:", message);
+
+        // Audit trail: scrive in webhook_errors per debug post-mortem.
+        // Race-safe: se questo INSERT fallisce, ignoriamo (siamo già in error path).
+        try {
+            const SUPABASE_URL_ERR = Deno.env.get("SUPABASE_URL");
+            const SUPABASE_KEY_ERR = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+            if (SUPABASE_URL_ERR && SUPABASE_KEY_ERR) {
+                const auditAdmin = createClient(SUPABASE_URL_ERR, SUPABASE_KEY_ERR);
+                await auditAdmin.from("webhook_errors").insert({
+                    source: "stripe-webhook",
+                    event_id: event?.id ?? null,
+                    event_type: event?.type ?? null,
+                    error_message: message,
+                    error_stack: stack,
+                    payload: event ?? null
+                });
+            }
+        } catch (auditErr) {
+            console.error("stripe-webhook: Failed to write audit trail:", auditErr);
+        }
+
         // Return 200 to prevent Stripe from retrying on app errors
         return json(200, { received: true, error: message });
     }
