@@ -415,3 +415,27 @@ export async function uploadActivityCover(
 
     return bustedUrl;
 }
+
+export async function removeActivityCover(
+    activityId: string,
+    tenantId: string,
+    coverImageUrl: string
+): Promise<void> {
+    const marker = `/${BUSINESS_COVERS_BUCKET}/`;
+    const markerIdx = coverImageUrl.indexOf(marker);
+    if (markerIdx !== -1) {
+        const afterMarker = coverImageUrl.slice(markerIdx + marker.length);
+        const queryIdx = afterMarker.indexOf("?");
+        const path = queryIdx === -1 ? afterMarker : afterMarker.slice(0, queryIdx);
+        if (path) {
+            const { error: removeError } = await supabase.storage
+                .from(BUSINESS_COVERS_BUCKET)
+                .remove([path]);
+            if (removeError) {
+                console.error("[removeActivityCover] storage remove failed:", removeError);
+            }
+        }
+    }
+
+    await updateActivity(activityId, tenantId, { cover_image: null });
+}

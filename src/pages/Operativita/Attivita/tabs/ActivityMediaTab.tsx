@@ -116,7 +116,7 @@ const SortableMediaTile: React.FC<SortableMediaTileProps> = ({
 
 interface ActivityMediaTabProps {
     activity: V2Activity;
-    onCoverUpdate: (url: string) => void;
+    onCoverUpdate: (url: string | null) => void;
 }
 
 export const ActivityMediaTab: React.FC<ActivityMediaTabProps> = ({ activity, onCoverUpdate }) => {
