@@ -1,10 +1,11 @@
 import React, { useState, useRef, useCallback } from "react";
 import { IconPhoto, IconUpload, IconX } from "@tabler/icons-react";
+import { Trash2 } from "lucide-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui";
 import Text from "@/components/ui/Text/Text";
-import { uploadActivityCover } from "@/services/supabase/activities";
+import { uploadActivityCover, removeActivityCover } from "@/services/supabase/activities";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { useToast } from "@/context/Toast/ToastContext";
 import { V2Activity } from "@/types/activity";
@@ -14,7 +15,7 @@ interface ActivityCoverDrawerProps {
     open: boolean;
     onClose: () => void;
     activity: V2Activity;
-    onSuccess: (newUrl: string) => void;
+    onSuccess: (newUrl: string | null) => void;
 }
 
 export const ActivityCoverDrawer: React.FC<ActivityCoverDrawerProps> = ({
@@ -28,13 +29,16 @@ export const ActivityCoverDrawer: React.FC<ActivityCoverDrawerProps> = ({
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isRemoving, setIsRemoving] = useState(false);
+    const [confirmingRemove, setConfirmingRemove] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const handleClose = () => {
-        if (isSaving) return;
+        if (isSaving || isRemoving) return;
         setSelectedFile(null);
         setPreviewUrl(null);
         setIsDragging(false);
+        setConfirmingRemove(false);
         onClose();
     };
 
@@ -97,7 +101,27 @@ export const ActivityCoverDrawer: React.FC<ActivityCoverDrawerProps> = ({
         }
     };
 
+    const handleRemoveCover = async () => {
+        if (!activity.cover_image) return;
+        setIsRemoving(true);
+        try {
+            await removeActivityCover(activity.id, activity.tenant_id, activity.cover_image);
+            showToast({ message: "Immagine di copertina rimossa", type: "success" });
+            onSuccess(null);
+            setSelectedFile(null);
+            setPreviewUrl(null);
+            setIsDragging(false);
+            setConfirmingRemove(false);
+            onClose();
+        } catch {
+            showToast({ message: "Errore durante la rimozione dell'immagine.", type: "error" });
+        } finally {
+            setIsRemoving(false);
+        }
+    };
+
     const displayUrl = previewUrl ?? activity.cover_image ?? null;
+    const showRemoveButton = !previewUrl && !!activity.cover_image;
 
     return (
         <SystemDrawer open={open} onClose={handleClose} width={520}>
@@ -107,14 +131,14 @@ export const ActivityCoverDrawer: React.FC<ActivityCoverDrawerProps> = ({
                 }
                 footer={
                     <>
-                        <Button variant="secondary" onClick={handleClose} disabled={isSaving}>
+                        <Button variant="secondary" onClick={handleClose} disabled={isSaving || isRemoving}>
                             Annulla
                         </Button>
                         <Button
                             variant="primary"
                             onClick={handleSave}
                             loading={isSaving}
-                            disabled={!selectedFile}
+                            disabled={!selectedFile || isRemoving}
                         >
                             Salva
                         </Button>
@@ -141,6 +165,44 @@ export const ActivityCoverDrawer: React.FC<ActivityCoverDrawerProps> = ({
                         <div className={styles.previewEmpty}>
                             <IconPhoto size={40} stroke={1.5} />
                             <Text as="span" variant="body-sm" colorVariant="muted">Nessuna immagine</Text>
+                        </div>
+                    )}
+
+                    {showRemoveButton && !confirmingRemove && (
+                        <button
+                            type="button"
+                            className={styles.removeCoverLink}
+                            onClick={() => setConfirmingRemove(true)}
+                            disabled={isSaving}
+                        >
+                            <Trash2 size={15} strokeWidth={2} />
+                            <span>Rimuovi immagine di copertina</span>
+                        </button>
+                    )}
+
+                    {showRemoveButton && confirmingRemove && (
+                        <div className={styles.removeConfirmRow}>
+                            <span className={styles.removeConfirmText}>
+                                Rimuovere l'immagine di copertina?
+                            </span>
+                            <div className={styles.removeConfirmActions}>
+                                <button
+                                    type="button"
+                                    className={styles.removeConfirmCancel}
+                                    onClick={() => setConfirmingRemove(false)}
+                                    disabled={isRemoving}
+                                >
+                                    Annulla
+                                </button>
+                                <button
+                                    type="button"
+                                    className={styles.removeConfirmDanger}
+                                    onClick={handleRemoveCover}
+                                    disabled={isRemoving}
+                                >
+                                    {isRemoving ? "Rimozione…" : "Rimuovi"}
+                                </button>
+                            </div>
                         </div>
                     )}
 
