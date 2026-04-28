@@ -9,7 +9,7 @@ const MESSAGE_MAP: Record<AppLoaderIntent, string> = {
     auth: "Accesso in corso…",
     otp: "Verifica codice di sicurezza…",
     sync: "Sincronizzazione dei dati…",
-    public: "Stiamo caricando il catalogo",
+    public: "Caricamento del menu…",
     generic: "Caricamento in corso…"
 };
 

@@ -14,7 +14,7 @@ const HUB_TABS: { id: HubTab; icon: ReactNode; label: string }[] = [
 const TRANSITION_END = 140;
 const BASE_MARGIN_MOBILE = 10;
 const BASE_MARGIN_DESKTOP = 16;
-const CONTENT_MAX_WIDTH = 1024; // allineato a .frame / .inner
+const CONTENT_MAX_WIDTH = 1280; // allineato a .frame / .inner
 const TOP_OFFSET = 8;
 
 export const HEADER_HEIGHT_MOBILE = 108;
@@ -100,7 +100,7 @@ export default function PublicCollectionHeader({
     // ── Scroll tracking (from prototype) ───────────────────────────────────────
     const [scrollY, setScrollY] = useState(0);
     const [viewportWidth, setViewportWidth] = useState<number>(
-        typeof window !== "undefined" ? window.innerWidth : 1024
+        typeof window !== "undefined" ? document.documentElement.clientWidth : 1024
     );
     const [isMobile, setIsMobile] = useState<boolean>(
         typeof window !== "undefined" ? window.innerWidth < 768 : false
@@ -123,10 +123,11 @@ export default function PublicCollectionHeader({
         }
         // Modalità pubblica: comportamento invariato
         const handleResize = () => {
-            const w = window.innerWidth;
+            const w = document.documentElement.clientWidth;
             setViewportWidth(w);
             setIsMobile(w < 768);
         };
+        handleResize();
         window.addEventListener("resize", handleResize, { passive: true });
         return () => window.removeEventListener("resize", handleResize);
     }, [viewportWidthEl]);

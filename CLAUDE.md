@@ -262,18 +262,19 @@ Due tipi di regola sullo stesso modello `schedules`:
 - `styles`, `style_versions` — stili con versioni immutabili
 - `reviews` — recensioni (rebuild `20260413085957`)
 - `notifications` — notifiche estese (`20260410140000`)
-- `stripe_subscriptions`, `stripe_customers` — sottoscrizione Stripe (`20260411100000`)
+- Stripe billing su `tenants`: colonne `stripe_customer_id`, `stripe_subscription_id`, `subscription_status`, `paid_seats`, `trial_until` (`20260411100000`, `20260413100000`). Le tabelle `stripe_subscriptions` e `stripe_customers` NON esistono — i dati Stripe vivono come colonne su `tenants`.
 
 **Schema facts critici**:
 - `v2_activity_schedules` — ELIMINATA (migration `20260302130000`). Non referenziare mai.
 - `activities.slug` — UNIQUE globale (non per tenant), constraint `activities_slug_unique`. CHECK formato: `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$` + no `--`. Reserved slugs enforced a DB level via `is_reserved_slug()` (migration `20260416140000`).
 - `activity_slug_aliases` — NO policy UPDATE (alias si eliminano, non si modificano). Lookup pubblico via `service_role` nella Edge Function `resolve-public-catalog`.
-- `schedule_targets` — NO `tenant_id`, NO RLS (gap noto, non correggere senza richiesta)
+- `schedule_targets` — NO `tenant_id` ma RLS attivo: 4 policy con sub-select su schedules.tenant_id (audit aprile 2026)
 - `product_attribute_definitions.tenant_id` — NULLABLE (attributi piattaforma usano NULL)
 - `schedule_featured_contents.slot` — constraint CHECK a 2 valori: `before_catalog`, `after_catalog` (migration `20260414190000`, hero rimosso)
 - `schedules.start_at` — salvato come inizio giornata locale (`T00:00:00` locale → UTC via `toISOString()`)
 - `schedules.end_at` — salvato come fine giornata locale (`T23:59:59` locale → UTC via `toISOString()`)
 - `activity_hours.closes_next_day` — BOOLEAN DEFAULT false. Se `closes_at < opens_at`, il form imposta il flag automaticamente. Overlap detection usa `closes_at_minutes + 1440` per slot notturni. Stesso pattern per `activity_closures` (JSONB slots, `closes_next_day` è campo del JSON — nessun campo DB aggiuntivo).
+- View utenti vs RPC: `user_tenants_view` è SECURITY INVOKER e delega a `get_user_tenants()`. Per dati membri/inviti usare le RPC `get_tenant_members(uuid)` e `get_my_pending_invites()` (entrambe SECURITY DEFINER, accesso filtrato internamente). Le view legacy `tenant_members_view` e `my_pending_invites_view` sono state droppate nelle migration `20260427100000_security_advisor_fixes.sql` + `20260427110000_drop_orphan_member_views.sql`.
 
 ---
 
@@ -324,17 +325,17 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 
 ## Aree in sviluppo / da completare
 
-- **Hub tab "eventi"** — placeholder visibile, contenuto non implementato
+- **Hub tab "eventi"** — implementato. TODO: estendere per mostrare anche eventi futuri (oggi solo correnti via scheduling resolver)
 - **Traduzioni** — `LanguageSelector` UI presente, logica traduzioni non implementata (solo IT attivo)
 - **Analytics** — pagina stub (`Analytics.tsx`)
 - **Reviews** — rebuilt (aprile 2026), integrazione con Google Review URL presente
 - **Sottocategorie** — catalogo supporta L1/L2/L3, gestione UI da verificare
 - **Seat enforcement** — logica Stripe seats introdotta (`20260413100000`, `20260413110000`)
-- **`schedule_targets` RLS** — gap noto, nessuna RLS sulla tabella
 - **Real-time sync regole** — la lista regole non ha Supabase Realtime. Modifiche di altri utenti del team non visibili senza refresh pagina. Da implementare se il caso d'uso multi-utente lo richiede.
 - **Filtri avanzati Programmazione** — la search attuale è solo testuale. Filtri per sede, periodo, stato (attiva/bozza/scaduta) da valutare in futuro se la lista diventa troppo lunga.
 - **`PublicProductCard.tsx`** — dead code identificato (`src/components/PublicCollectionView/PublicProductCard/`). Prende `tokens: StyleTokenModel` invece di `CollectionStyle`, zero usage da `CollectionView`. Candidato a cleanup.
 - **Fasce orarie multiple per regola** — analisi di impatto completata (aprile 2026). Opzione scelta: colonna JSONB `time_ranges` su `schedules`. 16 file da modificare, complessità media. Non implementata per rapporto costo-beneficio: il workaround (duplicare la regola con orari diversi) è sufficiente. Da implementare quando il feedback clienti lo richiede. Rischi principali: sincronizzazione atomica (migration + 2 copie resolver + deploy edge function), retrocompatibilità regole esistenti (migration SQL converte `time_from`/`time_to` → `time_ranges`).
+- **Refactor `CONTENT_MAX_WIDTH` in token condiviso** — il valore max content width desktop (1280px) vive in 2 file SCSS + 1 costante TS in PublicCollectionHeader.tsx senza single source of truth. Causa documentata di edit incompleti. Da estrarre in `--pub-frame-max-desktop` letto sia da SCSS che via getComputedStyle() da TS.
 
 ---
 

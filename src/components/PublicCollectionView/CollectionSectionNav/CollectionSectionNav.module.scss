@@ -20,7 +20,7 @@
   margin: 0 auto;
 
   @media (min-width: 1024px) {
-    max-width: 1024px;
+    max-width: 1280px;
   }
 
   :global(.preview-mobile) & {
@@ -28,7 +28,7 @@
   }
 
   :global(.preview-desktop) & {
-    max-width: 1024px;
+    max-width: 1280px;
   }
 }
 
