@@ -443,7 +443,7 @@ async function processUser(
     // -----------------------------------------------------------------------
     if (!dryRun && !authAlreadyDeleted) {
         const { error: auditError } = await supabase
-            .from("v2_audit_events")
+            .from("audit_events")
             .insert({
                 event_type: "account_purged",
                 target_user_id: userId,

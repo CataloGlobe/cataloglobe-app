@@ -111,7 +111,7 @@ export default function WorkspacePage() {
 
         const fetchNotifications = async () => {
             const { data: notifications } = await supabase
-                .from("v2_notifications")
+                .from("notifications")
                 .select("*")
                 .is("read_at", null)
                 .order("created_at", { ascending: false });
@@ -131,7 +131,7 @@ export default function WorkspacePage() {
 
             const ids = notifications.map(n => n.id);
             await supabase
-                .from("v2_notifications")
+                .from("notifications")
                 .update({ read_at: new Date().toISOString() })
                 .in("id", ids);
         };

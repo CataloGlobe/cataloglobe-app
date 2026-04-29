@@ -16,7 +16,7 @@ export interface Notification {
 
 export async function getNotifications(userId: string): Promise<Notification[]> {
     const { data, error } = await supabase
-        .from("v2_notifications")
+        .from("notifications")
         .select("*")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
@@ -32,7 +32,7 @@ export async function getNotifications(userId: string): Promise<Notification[]> 
 
 export async function getUnreadCount(userId: string): Promise<number> {
     const { count, error } = await supabase
-        .from("v2_notifications")
+        .from("notifications")
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId)
         .is("read_at", null);
@@ -47,7 +47,7 @@ export async function getUnreadCount(userId: string): Promise<number> {
 
 export async function markAsRead(notificationId: string): Promise<void> {
     const { error } = await supabase
-        .from("v2_notifications")
+        .from("notifications")
         .update({ read_at: new Date().toISOString() })
         .eq("id", notificationId);
 
@@ -56,7 +56,7 @@ export async function markAsRead(notificationId: string): Promise<void> {
 
 export async function markAllAsRead(userId: string): Promise<void> {
     const { error } = await supabase
-        .from("v2_notifications")
+        .from("notifications")
         .update({ read_at: new Date().toISOString() })
         .eq("user_id", userId)
         .is("read_at", null);
@@ -66,7 +66,7 @@ export async function markAllAsRead(userId: string): Promise<void> {
 
 export async function deleteNotification(notificationId: string): Promise<void> {
     const { error } = await supabase
-        .from("v2_notifications")
+        .from("notifications")
         .delete()
         .eq("id", notificationId);
 
@@ -84,7 +84,7 @@ export function subscribeToNotifications(
             {
                 event: "INSERT",
                 schema: "public",
-                table: "v2_notifications",
+                table: "notifications",
                 filter: `user_id=eq.${userId}`,
             },
             (payload) => onNew(payload.new as Notification)
