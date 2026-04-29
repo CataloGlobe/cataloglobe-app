@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import Stripe from "https://esm.sh/stripe@17?target=deno";
+import { createStripeClient, scheduleStripeCancel } from "../_shared/stripe-helpers.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -99,11 +99,20 @@ serve(async (req: Request) => {
     //
     // Must happen BEFORE the RPC: transfer_ownership() resets Stripe fields
     // on transferred tenants, so the subscription_id would be lost after.
+    // The action ("lock" vs "transfer") is captured here so Step 2a can
+    // discriminate behaviour: lock → schedule cancel at period end,
+    // transfer → leave the subscription alone (it follows the tenant).
     // -------------------------------------------------------------------------
-    const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
-    let stripeSubsToCancel: { tenant_id: string; stripe_subscription_id: string }[] = [];
+    const actionMap = new Map<string, TenantAction["action"]>(
+        payload.actions.map((a: TenantAction) => [a.tenant_id, a.action])
+    );
+    let stripeSubsToProcess: {
+        tenant_id: string;
+        stripe_subscription_id: string;
+        action: "lock" | "transfer";
+    }[] = [];
 
-    if (STRIPE_SECRET_KEY && payload.actions.length > 0) {
+    if (payload.actions.length > 0) {
         const tenantIds = payload.actions.map((a: TenantAction) => a.tenant_id);
         try {
             const { data: tenantsStripe } = await supabaseAdmin
@@ -112,10 +121,16 @@ serve(async (req: Request) => {
                 .in("id", tenantIds)
                 .not("stripe_subscription_id", "is", null);
 
-            stripeSubsToCancel = (tenantsStripe ?? []).map((t: { id: string; stripe_subscription_id: string }) => ({
-                tenant_id: t.id,
-                stripe_subscription_id: t.stripe_subscription_id
-            }));
+            stripeSubsToProcess = (tenantsStripe ?? [])
+                .map((t: { id: string; stripe_subscription_id: string }) => ({
+                    tenant_id: t.id,
+                    stripe_subscription_id: t.stripe_subscription_id,
+                    action: actionMap.get(t.id)
+                }))
+                .filter(
+                    (s): s is { tenant_id: string; stripe_subscription_id: string; action: "lock" | "transfer" } =>
+                        s.action === "lock" || s.action === "transfer"
+                );
         } catch (prefetchErr) {
             console.error(
                 JSON.stringify({
@@ -163,37 +178,42 @@ serve(async (req: Request) => {
     console.log(JSON.stringify({ event: "delete_account_sql_success", user_id: userId }));
 
     // -------------------------------------------------------------------------
-    // Step 2a — Cancel Stripe subscriptions (non-blocking)
+    // Step 2a — Schedule Stripe cancellation (non-blocking, idempotent)
     //
-    // Cancels subscriptions for both locked and transferred tenants.
-    // For transferred tenants, the RPC already reset the DB Stripe fields;
-    // this call ensures the subscription is also cancelled in Stripe itself.
-    // Failures are logged but do NOT block account deletion.
+    // For "lock" tenants: schedule cancel_at_period_end so the user can
+    // recover the account within 30 days and pick the subscription back up.
+    // For "transfer" tenants: leave the subscription untouched — it now
+    // belongs to the new owner.
     // -------------------------------------------------------------------------
-    if (stripeSubsToCancel.length > 0 && STRIPE_SECRET_KEY) {
-        const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-04-30.basil" });
-        for (const sub of stripeSubsToCancel) {
-            try {
-                await stripe.subscriptions.cancel(sub.stripe_subscription_id);
-                console.log(
-                    JSON.stringify({
-                        event: "delete_account_stripe_canceled",
-                        user_id: userId,
-                        tenant_id: sub.tenant_id,
-                        subscription_id: sub.stripe_subscription_id
-                    })
-                );
-            } catch (stripeErr) {
-                console.error(
-                    JSON.stringify({
-                        event: "delete_account_stripe_cancel_failed",
-                        user_id: userId,
-                        tenant_id: sub.tenant_id,
-                        subscription_id: sub.stripe_subscription_id,
-                        error: stripeErr instanceof Error ? stripeErr.message : String(stripeErr)
-                    })
-                );
-                // Non-blocking: continue with account deletion
+    if (stripeSubsToProcess.length > 0) {
+        const stripe = createStripeClient();
+        if (!stripe) {
+            console.warn(
+                JSON.stringify({
+                    event: "delete_account_stripe_skipped_no_key",
+                    user_id: userId,
+                    pending: stripeSubsToProcess.length
+                })
+            );
+        } else {
+            for (const sub of stripeSubsToProcess) {
+                if (sub.action === "transfer") {
+                    console.log(
+                        JSON.stringify({
+                            event: "delete_account_stripe_transfer_skipped",
+                            user_id: userId,
+                            tenant_id: sub.tenant_id,
+                            subscription_id: sub.stripe_subscription_id
+                        })
+                    );
+                    continue;
+                }
+                // action === "lock"
+                await scheduleStripeCancel(stripe, sub.stripe_subscription_id, {
+                    user_id: userId,
+                    tenant_id: sub.tenant_id,
+                    flow: "delete-account"
+                });
             }
         }
     }

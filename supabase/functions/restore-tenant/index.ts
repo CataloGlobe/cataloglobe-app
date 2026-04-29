@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createStripeClient, reactivateStripeSubIfScheduled } from "../_shared/stripe-helpers.ts";
 
 // ---------------------------------------------------------------------------
 // restore-tenant
@@ -91,7 +92,7 @@ serve(async req => {
 
         const { data: tenantRow, error: fetchError } = await supabaseAdmin
             .from("tenants")
-            .select("id, owner_user_id, deleted_at")
+            .select("id, owner_user_id, deleted_at, stripe_subscription_id")
             .eq("id", tenantId)
             .maybeSingle();
 
@@ -129,6 +130,25 @@ serve(async req => {
                 `restore-tenant: Tenant ${tenantId} restore window expired (${daysSinceDeleted.toFixed(1)} days since deletion)`
             );
             return json(410, { error: "restore_window_expired" });
+        }
+
+        // Step 4b: reactivate Stripe subscription if it was scheduled to cancel
+        // at period end. Idempotent and non-blocking — a Stripe failure does
+        // not abort the DB restore. If the subscription is already terminally
+        // canceled, the user must restart checkout.
+        if (tenantRow.stripe_subscription_id) {
+            const stripe = createStripeClient();
+            if (stripe) {
+                await reactivateStripeSubIfScheduled(stripe, tenantRow.stripe_subscription_id, {
+                    tenant_id: tenantId,
+                    user_id: userId,
+                    flow: "restore-tenant"
+                });
+            } else {
+                console.warn(
+                    `restore-tenant: STRIPE_SECRET_KEY not configured — Stripe reactivation skipped for tenant ${tenantId}`
+                );
+            }
         }
 
         // Step 5: restore — set deleted_at = NULL via service_role.

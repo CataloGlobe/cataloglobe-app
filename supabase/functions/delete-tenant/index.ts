@@ -1,6 +1,9 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createStripeClient, scheduleStripeCancel } from "../_shared/stripe-helpers.ts";
+
+const TERMINAL_DB_STATUSES = new Set(["canceled", "incomplete_expired"]);
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -68,7 +71,7 @@ serve(async req => {
         // or doesn't belong to this user.
         const { data: tenantData, error: ownershipError } = await supabaseUser
             .from("tenants")
-            .select("id, owner_user_id")
+            .select("id, owner_user_id, stripe_subscription_id, subscription_status")
             .eq("id", tenantId)
             .maybeSingle();
 
@@ -99,6 +102,28 @@ serve(async req => {
         // get_my_tenant_ids() or the user_tenants_view will immediately
         // stop returning this tenant to any client.
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+        // Step 5b: schedule Stripe cancellation at period end (non-blocking).
+        // Honors the current invoice and prevents future renewals during the
+        // 30-day soft-delete grace window. Reactivated by restore-tenant if
+        // the user changes their mind in time.
+        if (
+            tenantData.stripe_subscription_id &&
+            !TERMINAL_DB_STATUSES.has(tenantData.subscription_status ?? "")
+        ) {
+            const stripe = createStripeClient();
+            if (stripe) {
+                await scheduleStripeCancel(stripe, tenantData.stripe_subscription_id, {
+                    tenant_id: tenantId,
+                    user_id: userId,
+                    flow: "delete-tenant"
+                });
+            } else {
+                console.warn(
+                    `delete-tenant: STRIPE_SECRET_KEY not configured — Stripe cancellation skipped for tenant ${tenantId}`
+                );
+            }
+        }
 
         const { error: deleteError } = await supabaseAdmin
             .from("tenants")

@@ -4,6 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveActivityCatalogs } from "../_shared/resolveActivityCatalogs.ts";
 import { toRomeDateTime, getNowInRome } from "../_shared/schedulingNow.ts";
 
+interface ActivityFee { key: string; value: string; }
+
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -45,7 +47,8 @@ serve(async (req: Request) => {
             "whatsapp, whatsapp_public, website, website_public, " +
             "phone, phone_public, email_public, email_public_visible, " +
             "google_review_url, hours_public, " +
-            "payment_methods, payment_methods_public, services, services_public";
+            "payment_methods, payment_methods_public, services, services_public, " +
+            "fees, fees_public";
 
         // 1. Lookup primario: activities.slug
         const { data: activityDirect, error: activityError } = await supabase
@@ -118,7 +121,10 @@ serve(async (req: Request) => {
             google_review_url: activity.google_review_url ?? null,
             hours_public: activity.hours_public ?? false,
             payment_methods: activity.payment_methods_public ? (activity.payment_methods ?? []) : [],
-            services: activity.services_public ? (activity.services ?? []) : []
+            services: activity.services_public ? (activity.services ?? []) : [],
+            fees: activity.fees_public
+                ? ((activity.fees ?? []) as ActivityFee[])
+                : ([] as ActivityFee[])
         };
 
         // For inactive venues, return early with business info only

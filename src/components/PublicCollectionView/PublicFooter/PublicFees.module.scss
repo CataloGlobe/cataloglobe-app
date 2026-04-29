@@ -1,0 +1,77 @@
+/* ─────────────────────────────────────────────────────────
+   PublicFees
+   Sezione tariffe nel footer pubblico.
+   Layout righe label/valore allineato a PublicOpeningHours.
+───────────────────────────────────────────────────────── */
+
+.feesBlock {
+  width: 100%;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-bottom: 0.25rem;
+
+  @media (min-width: 640px) {
+    max-width: 340px;
+  }
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--pub-text-muted);
+  font-family: var(--pub-font-family, sans-serif);
+  margin: 0;
+}
+
+/* ── Fee rows: stesso pattern di PublicOpeningHours ──────── */
+
+.feeList {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.feeRow {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 2px 16px;
+  align-items: start;
+  padding: 0.2rem 0;
+
+  @media (min-width: 640px) {
+    grid-template-columns: 100px 1fr;
+    gap: 2px 24px;
+  }
+}
+
+.feeLabel {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--pub-text);
+  font-family: var(--pub-font-family, sans-serif);
+  align-self: start;
+  padding-top: 0.05rem;
+  margin: 0;
+}
+
+.feeValue {
+  font-size: 0.8125rem;
+  color: var(--pub-text-secondary);
+  font-family: var(--pub-font-family, sans-serif);
+  text-align: right;
+  align-self: start;
+  margin: 0;
+  white-space: nowrap;
+}

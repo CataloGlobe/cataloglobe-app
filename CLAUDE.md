@@ -129,7 +129,9 @@ Dominio/
   - compact: sticky bar animata via lerp, `progress = scrollY / 140`
   - Props chiave: `scrollContainerEl` (per preview), `viewportWidthEl` (elemento da cui misurare la viewport; fallback a `window` se non passato), `headerRadius` (valore numerico in px per animazione lerp del border-radius; deriva da token `appearance.borderRadius`)
   - `readScroll` legge `body.style.top` come fonte autoritativa del scrollY quando `body.style.position === "fixed"` (modale aperta con scroll lock). Senza questo, `window.scrollY` vale 0 su iOS Safari durante il lock → header tornerebbe a hero con modale aperta.
-- `PublicFooter` — footer con social links
+- `PublicFooter` — footer con orari, tariffe (via `PublicFees`) e social links
+- `PublicFees` — sezione tariffe nel footer. Mostra SOLO le `fees` (non `payment_methods` / `services`). Esporta anche `PublicFeeRows` per riuso nella modale Informazioni. Layout righe label/valore allineato a `PublicOpeningHours`.
+- **InfoSheet** (modale "Informazioni" inline in `CollectionView`) — aperto da bottone "info" nell'header, contiene: orari, tariffe, metodi di pagamento, servizi, contatti, indirizzo. `payment_methods` e `services` sono renderizzati QUI (chip via `.tagList`/`.tag`), NON nel footer. `fees` riusa `PublicFeeRows` con stile `infoSection`/`infoSectionHeader`.
 - `SearchOverlay` — overlay full-screen per ricerca prodotti
 - `SelectionSheet` — sheet opzioni/varianti prodotto
 - `ItemDetail` — dettaglio prodotto
@@ -251,7 +253,7 @@ Due tipi di regola sullo stesso modello `schedules`:
 
 **Tabelle principali** (selezionate):
 - `tenants` — aziende/brand
-- `activities` — sedi (slug, status, inactive_reason, cover_image, contatti, social, street_number, postal_code, province — indirizzo strutturato)
+- `activities` — sedi (slug, status, inactive_reason, cover_image rimovibile, contatti, social, street_number, postal_code, province — indirizzo strutturato; `fees` JSONB tariffe predefinite con flag `fees_public`)
 - `activity_slug_aliases` — alias slug storici per redirect (slug UNIQUE globale, ON DELETE CASCADE da activities)
 - `schedules` — regole scheduling (rule_type: "catalog" | "featured")
 - `schedule_targets` — target N:N (no RLS — security gap noto)
@@ -268,6 +270,7 @@ Due tipi di regola sullo stesso modello `schedules`:
 - `v2_activity_schedules` — ELIMINATA (migration `20260302130000`). Non referenziare mai.
 - `activities.slug` — UNIQUE globale (non per tenant), constraint `activities_slug_unique`. CHECK formato: `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$` + no `--`. Reserved slugs enforced a DB level via `is_reserved_slug()` (migration `20260416140000`).
 - `activity_slug_aliases` — NO policy UPDATE (alias si eliminano, non si modificano). Lookup pubblico via `service_role` nella Edge Function `resolve-public-catalog`.
+- `activities.fees` — JSONB array di `{key, value}`. Chiavi ammesse: `coperto`, `servizio`, `prenotazione_minima`, `spesa_minima`, `eta_minima`. Definizioni centralizzate in `src/constants/activityFees.ts`. Non usare JSONB libero — le chiavi sono un enum fisso non modificabile dall'utente. Migration `20260428110000_activities_fees.sql`.
 - `schedule_targets` — NO `tenant_id` ma RLS attivo: 4 policy con sub-select su schedules.tenant_id (audit aprile 2026)
 - `product_attribute_definitions.tenant_id` — NULLABLE (attributi piattaforma usano NULL)
 - `schedule_featured_contents.slot` — constraint CHECK a 2 valori: `before_catalog`, `after_catalog` (migration `20260414190000`, hero rimosso)
@@ -320,6 +323,7 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 - Toast: `useToast().showToast({ message, type })`.
 - **Tooltip vs InfoTooltip**: regole d'uso in `memory/feedback_tooltip_guidelines.md`.
 - **`AddressAutocomplete`** (`src/components/ui/AddressAutocomplete/`) — autocompletamento indirizzo tramite Google Places (due step: searchText → place_id → addressComponents). Props: `onSelect(result: AddressResult)`. Usato in `BusinessCreateCard` e `ActivityIdentityForm`. Dopo selezione mostra pill di conferma con X per reset.
+- **`FeesSection`** (`src/pages/Operativita/Attivita/tabs/hours-services/FeesSection.tsx`) — sezione tariffe nella tab "Orari e Servizi" della pagina dettaglio sede. Usa `FEE_DEFINITIONS` da `src/constants/activityFees.ts` (enum fisso di 5 voci). Pattern: lista voci predefinite con input numerico (`type="text"` + `inputMode="decimal"` + validazione regex `^[0-9]*[.,]?[0-9]*$`) + badge unità non editabile + switch "pubblico" che salva `fees_public` immediato + debounce 800ms su update fee values via `updateActivity`. `buildFeesPayload` filtra le voci con value vuoto o `"0"`.
 
 ---
 
@@ -339,6 +343,100 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 
 ---
 
+## Plugin & MCP — regole d'uso
+
+Questa sezione vincola l'uso dei plugin Claude Code e degli MCP server installati.
+Le regole prevalgono sui descriptor dei plugin in caso di conflitto.
+
+### Plugin disabilitati (non invocare)
+
+- `vercel` — stack è Vite, non Next.js. Hosting non confermato Vercel.
+- `playground` — nessun caso d'uso ricorrente nel progetto.
+- `ralph-loop` — nessun task ricorrente che richieda loop autonomi.
+- `feature-dev` (agent suite + slash) — sostituito da `superpowers` per task complessi e da `TodoWrite` per task semplici.
+- `feature-dev:code-reviewer` — sostituito dal flusso review descritto sotto.
+- `caveman-commit` — sostituito da `commit-commands`. Skill ancora invocabile (parte del plugin caveman attivo) ma esclusa da policy.
+- `typescript-lsp` — sostituito da `mcp__ide__getDiagnostics`.
+- `github` plugin — già disabilitato. Per operazioni GitHub usare `gh` CLI via Bash.
+
+### Code review — mappa per scenario
+
+NON esiste un singolo standard. Scegliere in base al task:
+
+- **Feature multi-file, refactor architetturale, area security-sensitive (RLS, edge functions, billing)** → entrare in workflow `superpowers` completo. La review è integrata nel flusso (`superpowers:requesting-code-review` tra task). Non invocare `code-review` slash separatamente.
+- **Task tattico singolo** (fix UI, piccolo bug, restyling component) → niente `superpowers`. Se review necessaria a fine task, `code-review` slash standalone.
+- **Quick scan PR pre-merge** → `caveman-review` per output one-liner per linea.
+
+### Planning
+
+- Default: `TodoWrite` inline. Sufficiente per la maggior parte dei task.
+- `superpowers:writing-plans` SOLO dentro un workflow `superpowers` già attivo (feature complessa, refactor, area security-sensitive).
+- MAI invocare `feature-dev` agent: disabilitato.
+
+### Workflow superpowers — quando attivarlo
+
+`superpowers` impone brainstorm → plan → TDD → review integrata. È utile per task multi-step complessi, dannoso per task tattici (overhead di planning).
+
+**Skip brainstorm/write-plan se il prompt utente è già strutturato.** Un prompt è "già strutturato" se contiene almeno DUE di questi marker:
+- File espliciti da leggere indicati con path completi
+- Vincolo "NON leggere altro" o equivalente scope restriction
+- Obiettivo single-concern dichiarato esplicitamente
+- Vincoli "non toccare X" già espressi
+
+In quel caso, procedere direttamente all'esecuzione. Le skill TDD e review-tra-task di `superpowers` rimangono attive.
+
+### Commit
+
+- Standard: `commit-commands` (`/commit`, `/commit-push-pr`).
+- Format: Conventional Commits.
+- `/clean_gone` — VIETATO senza conferma esplicita umana per ogni branch eliminato.
+
+### Compressione output (caveman)
+
+`caveman` full mode è attivo per default ad ogni session start (via SessionStart hook del plugin, non overridabile senza ispezione del plugin internals). Tradeoff accettato: output Claude Code in fragment-style in cambio di token saving.
+
+- Per disattivare temporaneamente in una sessione: "stop caveman" o `/caveman lite`.
+- Per riattivare: `/caveman full`.
+- Per output user-facing destinati a documentazione (commit message lunghi, descrizioni PR, summary di sessione), Claude Code DEVE scendere a prosa normale come previsto dalle regole caveman built-in.
+
+### MCP — Supabase
+
+L'MCP `supabase-staging` espone `apply_migration` e `execute_sql`. Queste operazioni bypassano il filesystem migrations.
+
+**Regola**: ogni schema change DDL (CREATE/ALTER/DROP su tabelle, colonne, policy, function) DEVE seguire questo ordine:
+1. Creare il file `supabase/migrations/YYYYMMDDHHMMSS_descrittivo.sql`
+2. Chiedere conferma esplicita all'utente prima di applicarlo via MCP
+3. Solo dopo conferma, invocare `apply_migration` con il contenuto del file appena creato
+
+Operazioni MCP in **lettura** (`list_tables`, `list_migrations`, `get_advisors`, `get_logs`, `generate_typescript_types`) non richiedono conferma e sono incoraggiate per audit RLS, debug edge function e type generation.
+
+### MCP — context7 (documentazione librerie)
+
+Per query su librerie/SDK del progetto (React 19, Vite 7, Framer Motion v12, Supabase JS v2, Stripe SDK, pdf-lib, recharts, @dnd-kit), preferire `context7` alla knowledge memorizzata. Le versioni delle librerie cambiano e i breaking change non sono nella knowledge base.
+
+### MCP — playwright
+
+Match diretto con la regola "test UI in browser prima di dichiarare done". Obbligatorio per modifiche a:
+- `src/components/PublicCollectionView/` (pagina pubblica)
+- `src/pages/Stili/StyleEditor/` (preview stili — comportamento runtime/preview deve restare sincronizzato)
+- Qualsiasi modifica ai resolver `scheduleResolver.ts` / `schedulingNow.ts`
+
+### Slash commands matched-with-rules
+
+- `/security-review` (`security-guidance`) — invocare prima del merge per modifiche RLS, edge functions, auth, billing. Match con il gap noto `schedule_targets`.
+- `/revise-claude-md` (`claude-md-management`) — invocare a fine sessione SOLO se l'utente lo richiede esplicitamente. Mai automatico.
+
+### File curati manualmente — protezione
+
+Questi file NON devono essere modificati automaticamente da nessun plugin:
+- `CLAUDE.md` (root + `docs/`)
+- `MEMORY.md` se presente
+- File in `memory/`
+
+`caveman:compress` su questi file è VIETATO senza conferma esplicita umana che includa: (a) l'utente ha letto cosa fa il compress, (b) l'utente conferma il backup `.original.md`, (c) l'utente conferma la sovrascrittura.
+
+---
+
 ## PROIBITO
 
 **Sicurezza**: modificare migration esistenti | rimuovere RLS | `service_role` nel frontend | bypassare tenant validation | referenziare `v2_activity_schedules` (ELIMINATA)
@@ -352,3 +450,5 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 **Scheduling**: salvare `end_at` come mezzanotte UTC (usare `T23:59:59` locale) | disabilitare i giorni della settimana quando un periodo è attivo (sono combinabili) | slot `hero` nei featured (rimosso, solo `before_catalog`/`after_catalog`)
 
 **Pattern**: `null` da `list*` | `useEffect` senza `useCallback` | omettere toast nei catch | no reload dopo CRUD success | form con logica drawer | modificare scheduleResolver in un solo posto
+
+**Plugin & MCP**: invocare plugin disabilitati (vercel, playground, ralph-loop, feature-dev, caveman-commit, typescript-lsp) | applicare DDL via Supabase MCP senza file migration creato prima | `/clean_gone` senza conferma esplicita per ogni branch | `caveman:compress` su CLAUDE.md/MEMORY.md senza conferma esplicita | invocare `superpowers` brainstorm/write-plan quando il prompt utente è già strutturato | usare knowledge memorizzata su versioni libreria invece di `context7` per librerie nello stack

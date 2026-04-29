@@ -1,0 +1,54 @@
+@use "@/styles/variables" as v;
+
+.feeList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feeRow {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  align-items: center;
+  gap: 16px;
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+
+.feeLabel {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: v.$text-color;
+}
+
+.feeInputWrap {
+  display: flex;
+  min-width: 0;
+}
+
+.feeInputContainer {
+  width: 100%;
+  margin: 0;
+}
+
+.unitBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: v.$gray-100;
+  color: v.$gray-500;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: v.$gray-400;
+}

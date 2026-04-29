@@ -11,6 +11,7 @@ import CollectionView, {
 import type { HubTab } from "@/types/collectionStyle";
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 import type { OpeningHoursEntry, UpcomingClosure } from "@/components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
+import type { ActivityFee } from "@/types/activity";
 
 import { supabase } from "@/services/supabase/client";
 import type {
@@ -196,6 +197,7 @@ type PublicBusiness = {
     google_review_url: string | null;
     payment_methods: string[];
     services: string[];
+    fees: ActivityFee[];
 };
 
 type PageState =
@@ -533,6 +535,7 @@ export default function PublicCollectionPage() {
                 }}
                 paymentMethods={business.payment_methods}
                 activityServices={business.services}
+                fees={business.fees}
             />
         </PublicThemeScope>
     );
