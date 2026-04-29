@@ -218,7 +218,7 @@ serve(async (req: Request) => {
     // Non-blocking: a failure here does not abort the recovery flow.
     // -------------------------------------------------------------------------
     const { error: auditError } = await supabaseAdmin
-        .from("v2_audit_events")
+        .from("audit_events")
         .insert({
             event_type: "account_recovered",
             actor_user_id: userId,

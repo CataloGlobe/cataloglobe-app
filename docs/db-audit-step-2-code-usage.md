@@ -246,7 +246,7 @@ Eliminare `categories.ts`. La dipendenza indiretta cadra quando BusinessOverride
 
 | File | Stato | Motivo |
 |------|-------|--------|
-| `src/services/supabase/upload.ts` | **CODICE MORTO** | Non importato da nessun file. Contiene `uploadBusinessItemImage` (bucket `business-items`) e `uploadCatalogItemImage` (bucket `catalog-items`). Quest'ultima potrebbe essere utile ma non e importata |
+| `src/services/supabase/upload.ts` | **PARZIALMENTE ATTIVO** | Audit 2026-04-29: file contiene funzioni vive (`uploadProductImage` su bucket `product-images`, `uploadFeaturedContentImage` su bucket `featured-contents`). Funzione morta `uploadBusinessItemImage` e bucket `business-items` rimossi (migration 20260429120000). Flag "CODICE MORTO" precedente era impreciso: il file non era mai stato dead, conteneva solo una funzione dead. |
 | `src/services/supabase/categories.ts` | **QUASI MORTO** | Importata solo da CreateItemDrawer → CollectionBuilder → Collections.tsx che NON e montata. Dipendenza indiretta via collections.ts e l'unica strada attiva |
 | `src/services/supabase/overrides.ts` | **ATTIVO** | Usato da BusinessOverrides (montato) |
 | `src/services/supabase/schedules.ts` | **ATTIVO** | Usato da BusinessOverrides + BusinessCollectionSchedule (montati) |

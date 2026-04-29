@@ -278,6 +278,7 @@ Due tipi di regola sullo stesso modello `schedules`:
 - `schedules.end_at` — salvato come fine giornata locale (`T23:59:59` locale → UTC via `toISOString()`)
 - `activity_hours.closes_next_day` — BOOLEAN DEFAULT false. Se `closes_at < opens_at`, il form imposta il flag automaticamente. Overlap detection usa `closes_at_minutes + 1440` per slot notturni. Stesso pattern per `activity_closures` (JSONB slots, `closes_next_day` è campo del JSON — nessun campo DB aggiuntivo).
 - View utenti vs RPC: `user_tenants_view` è SECURITY INVOKER e delega a `get_user_tenants()`. Per dati membri/inviti usare le RPC `get_tenant_members(uuid)` e `get_my_pending_invites()` (entrambe SECURITY DEFINER, accesso filtrato internamente). Le view legacy `tenant_members_view` e `my_pending_invites_view` sono state droppate nelle migration `20260427100000_security_advisor_fixes.sql` + `20260427110000_drop_orphan_member_views.sql`.
+- Stripe lifecycle: usare sempre `_shared/stripe-helpers.ts` per chiamate Stripe nelle Edge Functions. Pattern: `scheduleStripeCancel()` al soft-delete (account/tenant) → `reactivateStripeSubIfScheduled()` al recovery → `cancelStripeSubImmediate()` + `deleteStripeCustomer()` al hard-delete (cron purge). Tutti idempotenti e non-throwing. NON chiamare `stripe.subscriptions.cancel()` direttamente in soft-delete (perde l'utente i giorni pagati e disincentiva il recovery). Usato da: delete-tenant, delete-account, restore-tenant, recover-account, _shared/tenant-purge.ts.
 
 ---
 
