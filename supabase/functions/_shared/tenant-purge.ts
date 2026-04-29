@@ -1,5 +1,10 @@
 // @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+    createStripeClient,
+    cancelStripeSubImmediate,
+    deleteStripeCustomer
+} from "./stripe-helpers.ts";
 
 // ---------------------------------------------------------------------------
 // Shared tenant purge logic.
@@ -173,6 +178,39 @@ export async function purgeTenantData(
 ): Promise<PurgeSummary> {
     const deleted: Record<string, number> = {};
     let storageFilesRemoved = 0;
+
+    // 0. Stripe cleanup (idempotent, non-blocking).
+    //    Cancels the subscription immediately and deletes the customer for GDPR
+    //    cleanup. Errors are logged inside the helpers and never thrown.
+    const stripe = createStripeClient();
+    if (stripe) {
+        const { data: stripeRow, error: stripeFetchErr } = await admin
+            .from("tenants")
+            .select("stripe_subscription_id, stripe_customer_id")
+            .eq("id", tenantId)
+            .maybeSingle();
+
+        if (stripeFetchErr) {
+            console.warn(
+                `tenant-purge: stripe row fetch failed for ${tenantId}: ${stripeFetchErr.message}`
+            );
+        } else {
+            if (stripeRow?.stripe_subscription_id) {
+                await cancelStripeSubImmediate(stripe, stripeRow.stripe_subscription_id, {
+                    tenant_id: tenantId,
+                    flow: "tenant-purge"
+                });
+            }
+            if (stripeRow?.stripe_customer_id) {
+                await deleteStripeCustomer(stripe, stripeRow.stripe_customer_id, {
+                    tenant_id: tenantId,
+                    flow: "tenant-purge"
+                });
+            }
+        }
+    } else {
+        console.warn(`tenant-purge: STRIPE_SECRET_KEY not configured — Stripe cleanup skipped for ${tenantId}`);
+    }
 
     // 1. Fetch activities for storage cleanup (must happen before DB delete)
     const { data: activities, error: actErr } = await admin

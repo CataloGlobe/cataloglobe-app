@@ -29,12 +29,26 @@ export interface V2Activity {
     payment_methods_public: boolean;
     services: string[];
     services_public: boolean;
+    fees: ActivityFee[] | null;
+    fees_public: boolean;
     hours_public: boolean;
     qr_fg_color: string | null;
     qr_bg_color: string | null;
     google_review_url: string | null;
     created_at: string;
     updated_at: string;
+}
+
+export type ActivityFeeKey =
+    | "coperto"
+    | "servizio"
+    | "prenotazione_minima"
+    | "spesa_minima"
+    | "eta_minima";
+
+export interface ActivityFee {
+    key: ActivityFeeKey;
+    value: string;
 }
 
 export type V2ActivityType = string; // can be refined later if there are fixed types

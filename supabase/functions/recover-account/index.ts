@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createStripeClient, reactivateStripeSubIfScheduled } from "../_shared/stripe-helpers.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -264,18 +265,71 @@ serve(async (req: Request) => {
     }
 
     // -------------------------------------------------------------------------
+    // Step 6b — Reactivate Stripe subscriptions for unlocked tenants
+    //
+    // delete-account scheduled cancel_at_period_end on each "lock" tenant's
+    // subscription. We now flip it back. Idempotent and non-blocking — a
+    // failure on one subscription does not abort the others or the recovery.
+    // Subscriptions that have already moved to "canceled" cannot be revived
+    // here; the owner will need to restart checkout from the Workspace.
+    // -------------------------------------------------------------------------
+    let subscriptionsReactivated = 0;
+    const stripe = createStripeClient();
+
+    if (stripe) {
+        const { data: ownedTenants, error: ownedFetchErr } = await supabaseAdmin
+            .from("tenants")
+            .select("id, stripe_subscription_id")
+            .eq("owner_user_id", userId)
+            .is("deleted_at", null)
+            .not("stripe_subscription_id", "is", null);
+
+        if (ownedFetchErr) {
+            console.error(
+                JSON.stringify({
+                    event: "recover_account_stripe_fetch_failed",
+                    user_id: userId,
+                    error: ownedFetchErr.message
+                })
+            );
+        } else {
+            for (const t of ownedTenants ?? []) {
+                const result = await reactivateStripeSubIfScheduled(
+                    stripe,
+                    t.stripe_subscription_id,
+                    {
+                        user_id: userId,
+                        tenant_id: t.id,
+                        flow: "recover-account"
+                    }
+                );
+                if (result === "reactivated") subscriptionsReactivated++;
+            }
+        }
+    } else {
+        console.warn(
+            JSON.stringify({
+                event: "recover_account_stripe_skipped_no_key",
+                user_id: userId
+            })
+        );
+    }
+
+    // -------------------------------------------------------------------------
     // Step 7 — Success
     // -------------------------------------------------------------------------
     console.log(
         JSON.stringify({
             event: "recover_account_success",
             user_id: userId,
-            tenants_unlocked: unlockCount
+            tenants_unlocked: unlockCount,
+            subscriptions_reactivated: subscriptionsReactivated
         })
     );
 
     return json(200, {
         success: true,
-        tenants_unlocked: unlockCount ?? 0
+        tenants_unlocked: unlockCount ?? 0,
+        subscriptions_reactivated: subscriptionsReactivated
     });
 });

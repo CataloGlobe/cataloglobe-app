@@ -13,6 +13,7 @@ import { ActivityClosureCreateEditDrawer } from "./hours-services/ActivityClosur
 import { ActivityClosureDeleteDrawer } from "./hours-services/ActivityClosureDeleteDrawer";
 import { PaymentMethodsSection } from "./hours-services/PaymentMethodsSection";
 import { ServicesSection } from "./hours-services/ServicesSection";
+import { FeesSection } from "./hours-services/FeesSection";
 import pageStyles from "../ActivityDetailPage.module.scss";
 import styles from "./hours-services/HoursServices.module.scss";
 
@@ -128,6 +129,11 @@ export const ActivityHoursServicesTab: React.FC<ActivityHoursServicesTabProps> =
                 onSaved={handleActivitySaved}
             />
             <ServicesSection
+                activity={activity}
+                tenantId={tenantId}
+                onSaved={handleActivitySaved}
+            />
+            <FeesSection
                 activity={activity}
                 tenantId={tenantId}
                 onSaved={handleActivitySaved}

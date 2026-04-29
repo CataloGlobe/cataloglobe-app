@@ -15,6 +15,7 @@ import { trackEvent } from "@/services/analytics/publicAnalytics";
 // import PublicBrandHeader from "../PublicBrandHeader/PublicBrandHeader";
 import PublicCollectionHeader from "../PublicCollectionHeader/PublicCollectionHeader";
 import PublicFooter from "../PublicFooter/PublicFooter";
+import { PublicFeeRows } from "../PublicFooter/PublicFees";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
 import type { CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
@@ -29,6 +30,7 @@ const SelectionSheet = lazy(() => import("../SelectionSheet/SelectionSheet"));
 const ReviewsView = lazy(() => import("../ReviewsView/ReviewsView"));
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
+import type { ActivityFee } from "@/types/activity";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
 
@@ -496,6 +498,8 @@ type Props = {
     paymentMethods?: string[];
     /** Servizi offerti dalla sede (visibili se non vuoti). */
     activityServices?: string[];
+    /** Tariffe della sede (visibili se non vuote). */
+    fees?: ActivityFee[];
 };
 
 export default function CollectionView({
@@ -522,7 +526,8 @@ export default function CollectionView({
     reviewsProps,
     activityId,
     paymentMethods,
-    activityServices
+    activityServices,
+    fees
 }: Props) {
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
         () => sectionGroups[0]?.root.id ?? null
@@ -542,6 +547,7 @@ export default function CollectionView({
     // ── Info sheet ──────────────────────────────────────────────────────────
     const [isInfoSheetOpen, setIsInfoSheetOpen] = useState(false);
     const hasHours = (openingHours?.length ?? 0) > 0;
+    const hasFees = (fees?.length ?? 0) > 0;
     const hasPaymentMethods = (paymentMethods?.length ?? 0) > 0;
     const hasActivityServices = (activityServices?.length ?? 0) > 0;
     const hasContacts = !!(
@@ -552,7 +558,7 @@ export default function CollectionView({
         (socialLinks?.instagram_public && socialLinks?.instagram) ||
         (socialLinks?.facebook_public && socialLinks?.facebook)
     );
-    const hasAnyInfo = hasHours || hasPaymentMethods || hasActivityServices || hasContacts || !!activityAddress;
+    const hasAnyInfo = hasHours || hasFees || hasPaymentMethods || hasActivityServices || hasContacts || !!activityAddress;
 
     // ── Selezione prodotti ──────────────────────────────────────────────────
     const selectionStorageKey = activityId ? `catalogobe-selection-${activityId}` : null;
@@ -1421,6 +1427,13 @@ export default function CollectionView({
                             </div>
                         )}
 
+                        {hasFees && (
+                            <div className={styles.infoSection}>
+                                <h3 className={styles.infoSectionHeader}>Tariffe</h3>
+                                <PublicFeeRows fees={fees!} />
+                            </div>
+                        )}
+
                         {hasPaymentMethods && (
                             <div className={styles.infoSection}>
                                 <h3 className={styles.infoSectionHeader}>Metodi di pagamento</h3>
@@ -1694,6 +1707,9 @@ export default function CollectionView({
                             activityId={mode !== "preview" ? activityId : undefined}
                             openingHours={mode !== "preview" ? openingHours : undefined}
                             upcomingClosures={mode !== "preview" ? upcomingClosures : undefined}
+                            fees={mode !== "preview" ? fees : undefined}
+                            paymentMethods={mode !== "preview" ? paymentMethods : undefined}
+                            services={mode !== "preview" ? activityServices : undefined}
                         />
                     )}
                 </>

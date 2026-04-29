@@ -3,6 +3,8 @@ import type { SocialLinks } from "../CollectionView/CollectionView";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
 import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
+import PublicFees from "./PublicFees";
+import type { ActivityFee } from "@/types/activity";
 import styles from "./PublicFooter.module.scss";
 
 /* ── Icone SVG inline ─────────────────────────────────────────
@@ -99,9 +101,19 @@ type Props = {
     activityId?: string;
     openingHours?: OpeningHoursEntry[];
     upcomingClosures?: UpcomingClosure[];
+    fees?: ActivityFee[];
+    paymentMethods?: string[];
+    services?: string[];
 };
 
-export default function PublicFooter({ socialLinks, activityId, openingHours, upcomingClosures }: Props) {
+export default function PublicFooter({
+    socialLinks,
+    activityId,
+    openingHours,
+    upcomingClosures,
+    fees
+}: Props) {
+    const hasFees = (fees?.length ?? 0) > 0;
     // Costruisce la lista di social visibili
     const visibleSocials: { href: string; label: string; icon: ReactNode; socialType: SocialType }[] = [];
 
@@ -160,6 +172,9 @@ export default function PublicFooter({ socialLinks, activityId, openingHours, up
             {openingHours && openingHours.length > 0 && (
                 <PublicOpeningHours openingHours={openingHours} upcomingClosures={upcomingClosures} />
             )}
+
+            {/* Tariffe */}
+            {hasFees && <PublicFees fees={fees} />}
 
             {/* Social icons — visibili solo se configurati e pubblici */}
             {visibleSocials.length > 0 && (
