@@ -83,8 +83,8 @@
 | Bucket | Stato | Note |
 |--------|-------|------|
 | `business-covers` | ATTIVO | Usato da activities, delete-business, tenant-purge |
-| `business-items` | LEGACY? | Nome legacy. Usato in upload.ts legacy |
-| `catalog-items` | ATTIVO | Immagini catalogo. Usato in upload.ts |
+| `business-items` | RIMOSSO 2026-04-29 | Bucket droppato da dashboard, policy droppate in migration 20260429120000 |
+| `catalog-items` | RIMOSSO 2026-04-26 | Bucket droppato da dashboard, policy droppate in migration `20260426130000_drop_catalog_items_bucket.sql`. Zero riferimenti in codice. |
 | `avatars` | ATTIVO | Avatar utente. Usato in profile.ts |
 
 ---
@@ -223,7 +223,7 @@ I seguenti file di servizio referenziano **direttamente** tabelle legacy e dovre
 
 ### Storage buckets
 
-- Il bucket `business-items` ha nome legacy. Se rinominato, tutti i riferimenti URL salvati nel DB diventano invalidi. **Non rinominare senza migration dei dati.**
+- Il bucket `business-items` e' stato rimosso il 2026-04-29 (era flaggato come legacy, verificato vuoto su staging E prod, droppato da dashboard + migration `20260429120000_drop_business_items_bucket.sql`).
 - Il bucket `business-covers` e usato attivamente per le attivita v2 nonostante il nome legacy. Stesso rischio.
 
 ---
@@ -257,7 +257,7 @@ Queste tabelle hanno un equivalente v2 confermato con backfill completato. L'eli
 | `v2_catalog_items` | Come sopra. Referenziata in catalogs.ts e CatalogEngine.tsx |
 | `duplicate_collection()` (funzione) | Opera su tabelle legacy. Verificare se e usata da UI attiva |
 | `accept_tenant_invite_rpc()` (funzione) | Marcata come deprecated. Verificare se e ancora nel DB |
-| `business-items` (storage bucket) | Nome legacy ma potrebbe contenere dati attivi referenziati da URL nel DB |
+| `business-items` (storage bucket) | RIMOSSO 2026-04-29 (bucket droppato da dashboard, policy droppate in migration 20260429120000) |
 
 ### Candidate che NON vanno toccate
 
