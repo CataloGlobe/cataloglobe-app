@@ -14,6 +14,31 @@ export type ResolvedAllergen = {
     label_en: string;
 };
 
+/**
+ * Shape of a single product characteristic as emitted by
+ * `resolve-public-catalog`. Mirror of the lookup row in
+ * `product_characteristics` (minus `vertical`, redundant in public payload
+ * since each product implicitly belongs to a tenant of a single vertical).
+ *
+ * Source of truth: `mapCharacteristics` in
+ * `supabase/functions/_shared/resolveActivityCatalogs.ts`.
+ *
+ * Distinct from `ResolvedProductCharacteristic` (in `productCharacteristic.ts`)
+ * which is the FE service-side flat shape returned by `getProductsCharacteristics`.
+ */
+export type ResolvedCharacteristic = {
+    id: string;
+    code: string;
+    category: "diet" | "spicy" | "origin" | "preparation" | "warning" | "status";
+    label_it: string;
+    label_en: string;
+    icon: string;
+    sort_order: number;
+    show_in_card: boolean;
+    mutex_group: string | null;
+    dietary_claim: boolean;
+};
+
 export type ResolvedIngredient = {
     id: string;
     name: string;
@@ -77,6 +102,7 @@ export type ResolvedVariant = {
     description?: string;
     attributes?: ResolvedProductAttribute[];
     allergens?: ResolvedAllergen[];
+    characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
     dimension_values?: ResolvedVariantDimValue[];
 };
@@ -94,6 +120,7 @@ export type ResolvedProduct = {
     is_disabled?: boolean;
     attributes?: ResolvedProductAttribute[];
     allergens?: ResolvedAllergen[];
+    characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
     image_url?: string;
     variants?: ResolvedVariant[];

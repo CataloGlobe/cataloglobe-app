@@ -24,6 +24,19 @@ export type ResolvedAllergen = {
     label_en: string;
 };
 
+export type ResolvedCharacteristic = {
+    id: string;
+    code: string;
+    category: "diet" | "spicy" | "origin" | "preparation" | "warning" | "status";
+    label_it: string;
+    label_en: string;
+    icon: string;
+    sort_order: number;
+    show_in_card: boolean;
+    mutex_group: string | null;
+    dietary_claim: boolean;
+};
+
 export type ResolvedIngredient = {
     id: string;
     name: string;
@@ -42,6 +55,7 @@ export type ResolvedVariant = {
     description?: string;
     attributes?: any[];
     allergens?: ResolvedAllergen[];
+    characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
     dimension_values?: ResolvedVariantDimValue[];
 };
@@ -78,6 +92,7 @@ export type ResolvedProduct = {
     is_disabled?: boolean;
     attributes?: any[];
     allergens?: ResolvedAllergen[];
+    characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
     image_url?: string;
     variants?: ResolvedVariant[];
@@ -180,6 +195,21 @@ type RawAllergenRow = {
     } | null;
 };
 
+type RawCharacteristicRow = {
+    characteristic: {
+        id: string;
+        code: string;
+        category: "diet" | "spicy" | "origin" | "preparation" | "warning" | "status";
+        label_it: string;
+        label_en: string;
+        icon: string;
+        sort_order: number;
+        show_in_card: boolean;
+        mutex_group: string | null;
+        dietary_claim: boolean;
+    } | null;
+};
+
 type RawIngredientRow = {
     ingredient: {
         id: string;
@@ -232,6 +262,7 @@ type RawVariantRow = {
     image_url: string | null;
     attributes: RawAttributeValueRow[] | RawAttributeValueRow | null;
     allergens: RawAllergenRow[] | RawAllergenRow | null;
+    characteristics: RawCharacteristicRow[] | RawCharacteristicRow | null;
     ingredients: RawIngredientRow[] | RawIngredientRow | null;
     assignment: RawAssignmentRow[] | RawAssignmentRow | null;
     option_groups: RawOptionGroupRow[] | RawOptionGroupRow | null;
@@ -247,6 +278,7 @@ type RawProductRow = {
     variants: RawVariantRow[] | RawVariantRow | null;
     attributes: RawAttributeValueRow[] | RawAttributeValueRow | null;
     allergens: RawAllergenRow[] | RawAllergenRow | null;
+    characteristics: RawCharacteristicRow[] | RawCharacteristicRow | null;
     ingredients: RawIngredientRow[] | RawIngredientRow | null;
     image_url: string | null;
 };
@@ -419,6 +451,30 @@ function normalizeCatalog(
                     })
                     .filter((al): al is ResolvedAllergen => al !== null);
 
+            const mapCharacteristics = (
+                rows: RawCharacteristicRow[] | RawCharacteristicRow | null
+            ): ResolvedCharacteristic[] =>
+                normalizeMany(rows)
+                    .map((row: RawCharacteristicRow) => {
+                        const c = normalizeOne(row.characteristic);
+                        return c
+                            ? {
+                                  id: c.id,
+                                  code: c.code,
+                                  category: c.category,
+                                  label_it: c.label_it,
+                                  label_en: c.label_en,
+                                  icon: c.icon,
+                                  sort_order: c.sort_order,
+                                  show_in_card: c.show_in_card,
+                                  mutex_group: c.mutex_group,
+                                  dietary_claim: c.dietary_claim
+                              }
+                            : null;
+                    })
+                    .filter((c): c is ResolvedCharacteristic => c !== null)
+                    .sort((a, b) => a.sort_order - b.sort_order);
+
             const mapIngredients = (rows: RawIngredientRow[] | RawIngredientRow | null): ResolvedIngredient[] =>
                 normalizeMany(rows)
                     .map((row: RawIngredientRow) => {
@@ -441,11 +497,13 @@ function normalizeCatalog(
 
                     const pAttrs = mapAttributes(p.attributes);
                     const pAllergens = mapAllergens(p.allergens);
+                    const pCharacteristics = mapCharacteristics(p.characteristics);
                     const pIngredients = mapIngredients(p.ingredients);
 
                     const allVariants = normalizeMany(p.variants).map(v => {
                         const vAttrs = mapAttributes(v.attributes);
                         const vAllergens = mapAllergens(v.allergens);
+                        const vCharacteristics = mapCharacteristics(v.characteristics);
                         const vIngredients = mapIngredients(v.ingredients);
 
                         // Extract dimension values from the assignment (matrix variants only)
@@ -515,6 +573,7 @@ function normalizeCatalog(
                             ...(v.description ? { description: v.description } : {}),
                             ...(vAttrs.length > 0 ? { attributes: vAttrs } : {}),
                             ...(vAllergens.length > 0 ? { allergens: vAllergens } : {}),
+                            ...(vCharacteristics.length > 0 ? { characteristics: vCharacteristics } : {}),
                             ...(vIngredients.length > 0 ? { ingredients: vIngredients } : {}),
                             ...(dimValues.length > 0 ? { dimension_values: dimValues } : {})
                         };
@@ -645,6 +704,7 @@ function normalizeCatalog(
                         ...(from_price !== undefined ? { from_price } : {}),
                         ...(pAttrs.length > 0 ? { attributes: pAttrs } : {}),
                         ...(pAllergens.length > 0 ? { allergens: pAllergens } : {}),
+                        ...(pCharacteristics.length > 0 ? { characteristics: pCharacteristics } : {}),
                         ...(pIngredients.length > 0 ? { ingredients: pIngredients } : {}),
                         ...(p.image_url ? { image_url: p.image_url } : {}),
                         ...(pVariantsResolved.length > 0 ? { variants: pVariantsResolved } : {}),
@@ -775,6 +835,20 @@ export async function loadCatalogById(catalogId: string, tenantId: string): Prom
                             label_en
                         )
                     ),
+                    characteristics:product_characteristic_assignments(
+                        characteristic:product_characteristics(
+                            id,
+                            code,
+                            category,
+                            label_it,
+                            label_en,
+                            icon,
+                            sort_order,
+                            show_in_card,
+                            mutex_group,
+                            dietary_claim
+                        )
+                    ),
                     ingredients:product_ingredients(
                         ingredient:ingredients(
                             id,
@@ -801,6 +875,20 @@ export async function loadCatalogById(catalogId: string, tenantId: string): Prom
                           code,
                           label_it,
                           label_en
+                      )
+                  ),
+                  characteristics:product_characteristic_assignments(
+                      characteristic:product_characteristics(
+                          id,
+                          code,
+                          category,
+                          label_it,
+                          label_en,
+                          icon,
+                          sort_order,
+                          show_in_card,
+                          mutex_group,
+                          dietary_claim
                       )
                   ),
                   ingredients:product_ingredients(
