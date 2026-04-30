@@ -42,6 +42,11 @@ export type ResolvedIngredient = {
     name: string;
 };
 
+export type ResolvedProductNote = {
+    label: string;
+    value: string;
+};
+
 export type ResolvedVariant = {
     id: string;
     name: string;
@@ -57,6 +62,7 @@ export type ResolvedVariant = {
     allergens?: ResolvedAllergen[];
     characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
+    notes?: ResolvedProductNote[];
     dimension_values?: ResolvedVariantDimValue[];
 };
 
@@ -94,6 +100,7 @@ export type ResolvedProduct = {
     allergens?: ResolvedAllergen[];
     characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
+    notes?: ResolvedProductNote[];
     image_url?: string;
     variants?: ResolvedVariant[];
     optionGroups?: ResolvedOptionGroup[];
@@ -264,6 +271,7 @@ type RawVariantRow = {
     allergens: RawAllergenRow[] | RawAllergenRow | null;
     characteristics: RawCharacteristicRow[] | RawCharacteristicRow | null;
     ingredients: RawIngredientRow[] | RawIngredientRow | null;
+    notes: ResolvedProductNote[] | null;
     assignment: RawAssignmentRow[] | RawAssignmentRow | null;
     option_groups: RawOptionGroupRow[] | RawOptionGroupRow | null;
 };
@@ -280,6 +288,7 @@ type RawProductRow = {
     allergens: RawAllergenRow[] | RawAllergenRow | null;
     characteristics: RawCharacteristicRow[] | RawCharacteristicRow | null;
     ingredients: RawIngredientRow[] | RawIngredientRow | null;
+    notes: ResolvedProductNote[] | null;
     image_url: string | null;
 };
 
@@ -575,6 +584,7 @@ function normalizeCatalog(
                             ...(vAllergens.length > 0 ? { allergens: vAllergens } : {}),
                             ...(vCharacteristics.length > 0 ? { characteristics: vCharacteristics } : {}),
                             ...(vIngredients.length > 0 ? { ingredients: vIngredients } : {}),
+                            ...(Array.isArray(v.notes) && v.notes.length > 0 ? { notes: v.notes } : {}),
                             ...(dimValues.length > 0 ? { dimension_values: dimValues } : {})
                         };
                     });
@@ -706,6 +716,7 @@ function normalizeCatalog(
                         ...(pAllergens.length > 0 ? { allergens: pAllergens } : {}),
                         ...(pCharacteristics.length > 0 ? { characteristics: pCharacteristics } : {}),
                         ...(pIngredients.length > 0 ? { ingredients: pIngredients } : {}),
+                        ...(Array.isArray(p.notes) && p.notes.length > 0 ? { notes: p.notes } : {}),
                         ...(p.image_url ? { image_url: p.image_url } : {}),
                         ...(pVariantsResolved.length > 0 ? { variants: pVariantsResolved } : {}),
                         ...(resolvedOptionGroups.length > 0
@@ -766,6 +777,7 @@ export async function loadCatalogById(catalogId: string, tenantId: string): Prom
                   parent_product_id,
                   product_type,
                   image_url,
+                  notes,
                   option_groups:product_option_groups(
                     id,
                     name,
@@ -786,6 +798,7 @@ export async function loadCatalogById(catalogId: string, tenantId: string): Prom
                     description,
                     base_price,
                     image_url,
+                    notes,
                     option_groups:product_option_groups(
                       id,
                       name,

@@ -45,6 +45,17 @@ export type ResolvedIngredient = {
 };
 
 /**
+ * Structured product note as emitted by `resolve-public-catalog`. Mirror of
+ * `ProductNote` from `@/services/supabase/products`. The shape is duplicated
+ * here to keep the public type tree free of service imports; the canonical
+ * shape contract lives in products.ts.
+ */
+export type ResolvedProductNote = {
+    label: string;
+    value: string;
+};
+
+/**
  * Shape of a single attribute as emitted by `resolve-public-catalog`.
  *
  * Source of truth: `mapAttributes` in `supabase/functions/_shared/resolveActivityCatalogs.ts`.
@@ -104,6 +115,7 @@ export type ResolvedVariant = {
     allergens?: ResolvedAllergen[];
     characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
+    notes?: ResolvedProductNote[];
     dimension_values?: ResolvedVariantDimValue[];
 };
 
@@ -122,6 +134,7 @@ export type ResolvedProduct = {
     allergens?: ResolvedAllergen[];
     characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
+    notes?: ResolvedProductNote[];
     image_url?: string;
     variants?: ResolvedVariant[];
     optionGroups?: ResolvedOptionGroup[];
