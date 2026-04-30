@@ -24,6 +24,7 @@ import { ConfigTab } from "./ConfigTab";
 import { UsageTab } from "./UsageTab";
 import { VariantsTab } from "./VariantsTab";
 import { AttributesTab } from "./AttributesTab";
+import CharacteristicsAndNotesTab from "./CharacteristicsAndNotesTab";
 import { ProductCreateEditDrawer } from "./ProductCreateEditDrawer";
 import { MatrixConfigDrawer } from "./MatrixConfigDrawer";
 import styles from "./ProductPage.module.scss";
@@ -39,10 +40,32 @@ export default function ProductPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    type ProductPageTab = "general" | "pricing" | "config" | "attributes" | "usage";
+    type ProductPageTab =
+        | "general"
+        | "characteristics"
+        | "pricing"
+        | "config"
+        | "attributes"
+        | "usage";
+    // While the product hasn't loaded yet (initial mount), keep the
+    // characteristics tab permissively visible so deep links like
+    // `?tab=characteristics` are not stripped by useFilteredProductTabs
+    // before we know whether the product is a parent. Once loaded, the
+    // gating tightens: variants drop the tab (parent-only persistence in
+    // Phase 4b; variants inherit visually in Phase 5).
+    const characteristicsAllowedForProduct =
+        product === null || product.parent_product_id === null;
     const allTabs = useMemo<ProductTabDef<ProductPageTab>[]>(
         () => [
             { value: "general", label: "Generale" },
+            {
+                // TODO Phase 4b.2: rename to "Caratteristiche e Note" once
+                // ProductNotesSection is wired into CharacteristicsAndNotesTab.
+                value: "characteristics",
+                label: verticalConfig.copy.productSections.characteristics,
+                gated: c =>
+                    c.productSections.characteristics && characteristicsAllowedForProduct
+            },
             {
                 value: "pricing",
                 label: product?.parent_product_id ? "Prezzi" : "Prezzi & Varianti"
@@ -53,10 +76,9 @@ export default function ProductPage() {
                 label: verticalConfig.copy.productSections.customAttributes,
                 gated: c => c.productSections.customAttributes
             },
-            // TODO Fase 4: render CharacteristicsTab when productSections.characteristics
             { value: "usage", label: "Utilizzo" }
         ],
-        [product?.parent_product_id, verticalConfig]
+        [product?.parent_product_id, verticalConfig, characteristicsAllowedForProduct]
     );
     const { visibleTabs, initialTab } = useFilteredProductTabs<ProductPageTab>(
         allTabs,
@@ -204,6 +226,17 @@ export default function ProductPage() {
                             />
                         </Card>
                     </Tabs.Panel>
+
+                    {verticalConfig.productSections.characteristics &&
+                        product.parent_product_id === null && (
+                            <Tabs.Panel value="characteristics">
+                                <CharacteristicsAndNotesTab
+                                    productId={productId!}
+                                    tenantId={tenantId!}
+                                    vertical={selectedTenant?.vertical_type}
+                                />
+                            </Tabs.Panel>
+                        )}
 
                     <Tabs.Panel value="pricing">
                         <Card>

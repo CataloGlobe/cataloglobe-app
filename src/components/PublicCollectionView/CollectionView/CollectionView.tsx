@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus, Search } from "lucide-react";
 import type {
     ResolvedAllergen,
+    ResolvedCharacteristic,
     ResolvedIngredient,
     V2FeaturedContent
 } from "@/types/resolvedCollections";
@@ -29,6 +30,7 @@ const ItemDetail = lazy(() => import("../ItemDetail/ItemDetail"));
 const SelectionSheet = lazy(() => import("../SelectionSheet/SelectionSheet"));
 const ReviewsView = lazy(() => import("../ReviewsView/ReviewsView"));
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
+import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
 import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
 import type { ActivityFee } from "@/types/activity";
 import type { Allergen } from "@/services/supabase/allergens";
@@ -98,6 +100,7 @@ export type CollectionViewSectionItem = {
     /** Pre-computed attribute label/value pairs — only those with a value. */
     attributes?: { label: string; value: string }[];
     allergens?: ResolvedAllergen[];
+    characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
     /** Child variants (products with parent_product_id = this.id). */
     variants?: {
@@ -179,6 +182,7 @@ type ProductRowProps = {
     optionGroups?: CollectionViewSectionItem["optionGroups"];
     attributes?: CollectionViewSectionItem["attributes"];
     allergens?: ResolvedAllergen[];
+    characteristics?: ResolvedCharacteristic[];
     onAddToSelection?: () => void;
     selectionQty?: number;
 };
@@ -199,6 +203,7 @@ function ProductRow({
     optionGroups,
     attributes,
     allergens,
+    characteristics,
     onAddToSelection,
     selectionQty = 0
 }: ProductRowProps) {
@@ -208,6 +213,14 @@ function ProductRow({
     const MAX_ALLERGEN_EMOJIS = 6;
     const visibleAllergens = hasAllergens ? allergens!.slice(0, MAX_ALLERGEN_EMOJIS) : [];
     const hiddenCount = hasAllergens ? Math.max(0, allergens!.length - MAX_ALLERGEN_EMOJIS) : 0;
+    const MAX_CHARACTERISTIC_EMOJIS = 6;
+    const cardCharacteristics = characteristics ?? [];
+    const hasCardCharacteristics = cardCharacteristics.length > 0;
+    const visibleCharacteristics = cardCharacteristics.slice(0, MAX_CHARACTERISTIC_EMOJIS);
+    const hiddenCharacteristicCount = Math.max(
+        0,
+        cardCharacteristics.length - MAX_CHARACTERISTIC_EMOJIS
+    );
     const dp = getDisplayPrice({ fromPrice, price, effectivePrice, originalPrice });
 
     // ── Fade-in immagine prodotto ─────────────────────────────────────────
@@ -310,6 +323,24 @@ function ProductRow({
                 {optionGroups && optionGroups.length > 0 && (
                     <span className={styles.customizableHint}>Personalizzabile</span>
                 )}
+                {hasCardCharacteristics && (
+                    <div className={styles.characteristicEmojis}>
+                        {visibleCharacteristics.map(c => (
+                            <span key={c.id} className={styles.characteristicEmoji}>
+                                <CharacteristicIcon
+                                    icon={c.icon}
+                                    size={20}
+                                    label={c.label_it}
+                                />
+                            </span>
+                        ))}
+                        {hiddenCharacteristicCount > 0 && (
+                            <span className={styles.characteristicMore}>
+                                +{hiddenCharacteristicCount}
+                            </span>
+                        )}
+                    </div>
+                )}
                 {hasAllergens && (
                     <div className={styles.allergenEmojis}>
                         {visibleAllergens.map(a => (
@@ -355,6 +386,7 @@ type ProductCompactRowProps = {
     description?: string | null;
     onClick: (e: React.MouseEvent) => void;
     allergens?: ResolvedAllergen[];
+    characteristics?: ResolvedCharacteristic[];
     onAddToSelection?: () => void;
     selectionQty?: number;
 };
@@ -368,6 +400,7 @@ function ProductCompactRow({
     description,
     onClick,
     allergens,
+    characteristics,
     onAddToSelection,
     selectionQty = 0
 }: ProductCompactRowProps) {
@@ -375,6 +408,14 @@ function ProductCompactRow({
     const MAX_ALLERGEN_ICONS = 6;
     const visibleAllergens = hasAllergens ? allergens!.slice(0, MAX_ALLERGEN_ICONS) : [];
     const hiddenCount = hasAllergens ? Math.max(0, allergens!.length - MAX_ALLERGEN_ICONS) : 0;
+    const MAX_CHARACTERISTIC_EMOJIS = 6;
+    const cardCharacteristics = characteristics ?? [];
+    const hasCardCharacteristics = cardCharacteristics.length > 0;
+    const visibleCharacteristics = cardCharacteristics.slice(0, MAX_CHARACTERISTIC_EMOJIS);
+    const hiddenCharacteristicCount = Math.max(
+        0,
+        cardCharacteristics.length - MAX_CHARACTERISTIC_EMOJIS
+    );
     const dp = getDisplayPrice({ fromPrice, price, effectivePrice, originalPrice });
 
     return (
@@ -412,6 +453,24 @@ function ProductCompactRow({
                     )}
                 </div>
                 {description && <span className={styles.compactDescription}>{description}</span>}
+                {hasCardCharacteristics && (
+                    <div className={styles.compactCharacteristics}>
+                        {visibleCharacteristics.map(c => (
+                            <span key={c.id} className={styles.characteristicEmoji}>
+                                <CharacteristicIcon
+                                    icon={c.icon}
+                                    size={16}
+                                    label={c.label_it}
+                                />
+                            </span>
+                        ))}
+                        {hiddenCharacteristicCount > 0 && (
+                            <span className={styles.characteristicMore}>
+                                +{hiddenCharacteristicCount}
+                            </span>
+                        )}
+                    </div>
+                )}
                 {hasAllergens && (
                     <div className={styles.compactAllergens}>
                         {visibleAllergens.map(a => (
@@ -503,6 +562,12 @@ type Props = {
     fees?: ActivityFee[];
     /** Lista allergeni UE (visibile nel footer solo per tenant food-related). */
     allergens?: Allergen[] | null;
+    /**
+     * Caratteristiche effettivamente presenti nel catalogo (union dei prodotti
+     * visibili). Pre-ordinate per `sort_order`. Renderizzate nel footer come
+     * legenda "Caratteristiche". Lista vuota → bottone footer nascosto.
+     */
+    catalogCharacteristics?: ResolvedCharacteristic[];
 };
 
 export default function CollectionView({
@@ -531,7 +596,8 @@ export default function CollectionView({
     paymentMethods,
     activityServices,
     fees,
-    allergens
+    allergens,
+    catalogCharacteristics
 }: Props) {
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
         () => sectionGroups[0]?.root.id ?? null
@@ -712,6 +778,10 @@ export default function CollectionView({
                                 image: variant.image ?? null,
                                 description: variant.description ?? null,
                                 ...(variant.optionGroups?.length ? { optionGroups: variant.optionGroups } : {}),
+                                ...(item.characteristics?.length
+                                    ? { characteristics: item.characteristics }
+                                    : {}),
+                                ...(item.allergens?.length ? { allergens: item.allergens } : {}),
                                 ...(item.ingredients?.length ? { ingredients: item.ingredients } : {}),
                             };
                         }
@@ -1180,6 +1250,7 @@ export default function CollectionView({
                                         description={item.description}
                                         onClick={() => openItemDetail(item)}
                                         allergens={item.allergens}
+                                        characteristics={item.characteristics}
                                         onAddToSelection={
                                             activeTab === "menu"
                                                 ? () => handleAddClick(
@@ -1210,6 +1281,7 @@ export default function CollectionView({
                                         optionGroups={item.optionGroups}
                                         attributes={item.attributes}
                                         allergens={item.allergens}
+                                        characteristics={item.characteristics}
                                         onAddToSelection={
                                             activeTab === "menu"
                                                 ? () => handleAddClick(
@@ -1259,6 +1331,12 @@ export default function CollectionView({
                                                         ...(v.optionGroups && v.optionGroups.length > 0
                                                             ? { optionGroups: v.optionGroups }
                                                             : {}),
+                                                        ...(item.characteristics && item.characteristics.length > 0
+                                                            ? { characteristics: item.characteristics }
+                                                            : {}),
+                                                        ...(item.allergens && item.allergens.length > 0
+                                                            ? { allergens: item.allergens }
+                                                            : {}),
                                                         ...(item.ingredients && item.ingredients.length > 0
                                                             ? { ingredients: item.ingredients }
                                                             : {})
@@ -1282,6 +1360,12 @@ export default function CollectionView({
                                                                   description: v.description ?? null,
                                                                   ...(v.optionGroups && v.optionGroups.length > 0
                                                                       ? { optionGroups: v.optionGroups }
+                                                                      : {}),
+                                                                  ...(item.characteristics && item.characteristics.length > 0
+                                                                      ? { characteristics: item.characteristics }
+                                                                      : {}),
+                                                                  ...(item.allergens && item.allergens.length > 0
+                                                                      ? { allergens: item.allergens }
                                                                       : {}),
                                                                   ...(item.ingredients && item.ingredients.length > 0
                                                                       ? { ingredients: item.ingredients }
@@ -1320,6 +1404,12 @@ export default function CollectionView({
                                                         ...(v.optionGroups && v.optionGroups.length > 0
                                                             ? { optionGroups: v.optionGroups }
                                                             : {}),
+                                                        ...(item.characteristics && item.characteristics.length > 0
+                                                            ? { characteristics: item.characteristics }
+                                                            : {}),
+                                                        ...(item.allergens && item.allergens.length > 0
+                                                            ? { allergens: item.allergens }
+                                                            : {}),
                                                         ...(item.ingredients && item.ingredients.length > 0
                                                             ? { ingredients: item.ingredients }
                                                             : {})
@@ -1343,6 +1433,12 @@ export default function CollectionView({
                                                                   description: v.description ?? null,
                                                                   ...(v.optionGroups && v.optionGroups.length > 0
                                                                       ? { optionGroups: v.optionGroups }
+                                                                      : {}),
+                                                                  ...(item.characteristics && item.characteristics.length > 0
+                                                                      ? { characteristics: item.characteristics }
+                                                                      : {}),
+                                                                  ...(item.allergens && item.allergens.length > 0
+                                                                      ? { allergens: item.allergens }
                                                                       : {}),
                                                                   ...(item.ingredients && item.ingredients.length > 0
                                                                       ? { ingredients: item.ingredients }
@@ -1715,6 +1811,7 @@ export default function CollectionView({
                             paymentMethods={mode !== "preview" ? paymentMethods : undefined}
                             services={mode !== "preview" ? activityServices : undefined}
                             allergens={mode !== "preview" ? allergens : null}
+                            characteristics={mode !== "preview" ? catalogCharacteristics : undefined}
                         />
                     )}
                 </>
