@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { Button } from "@/components/ui/Button/Button";
@@ -9,6 +9,11 @@ import Text from "@/components/ui/Text/Text";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import {
+    useFilteredProductTabs,
+    type ProductTabDef
+} from "@/hooks/useFilteredProductTabs";
 import { getProduct, V2Product } from "@/services/supabase/products";
 import { getProductOptions, GroupWithValues } from "@/services/supabase/productOptions";
 import { getVariantMatrixConfig, VariantMatrixConfig } from "@/services/supabase/productVariants";
@@ -26,17 +31,40 @@ import styles from "./ProductPage.module.scss";
 export default function ProductPage() {
     const { productId } = useParams<{ productId: string }>();
     const navigate = useNavigate();
-    const location = useLocation();
     const tenantId = useTenantId();
     const { selectedTenant } = useTenant();
-    const queryTab = new URLSearchParams(location.search).get("tab");
+    const verticalConfig = useVerticalConfig();
 
     const [product, setProduct] = useState<V2Product | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    // Map legacy "variants" deep-links to "pricing" (tab no longer exists separately).
-    const initialTab = queryTab === "variants" ? "pricing" : (queryTab || "general");
-    const [activeTab, setActiveTab] = useState(initialTab);
+
+    type ProductPageTab = "general" | "pricing" | "config" | "attributes" | "usage";
+    const allTabs = useMemo<ProductTabDef<ProductPageTab>[]>(
+        () => [
+            { value: "general", label: "Generale" },
+            {
+                value: "pricing",
+                label: product?.parent_product_id ? "Prezzi" : "Prezzi & Varianti"
+            },
+            { value: "config", label: "Opzioni" },
+            {
+                value: "attributes",
+                label: verticalConfig.copy.productSections.customAttributes,
+                gated: c => c.productSections.customAttributes
+            },
+            // TODO Fase 4: render CharacteristicsTab when productSections.characteristics
+            { value: "usage", label: "Utilizzo" }
+        ],
+        [product?.parent_product_id, verticalConfig]
+    );
+    const { visibleTabs, initialTab } = useFilteredProductTabs<ProductPageTab>(
+        allTabs,
+        "general",
+        // Legacy: ?tab=variants used to be a separate tab; merged into pricing
+        { variants: "pricing" }
+    );
+    const [activeTab, setActiveTab] = useState<ProductPageTab>(initialTab);
 
     const [optionsLoading, setOptionsLoading] = useState(true);
     const [primaryPriceGroup, setPrimaryPriceGroup] = useState<GroupWithValues | null>(null);
@@ -157,15 +185,13 @@ export default function ProductPage() {
 
             <PageHeader title={product.name} />
 
-            <Tabs value={activeTab} onChange={setActiveTab}>
+            <Tabs value={activeTab} onChange={val => setActiveTab(val as ProductPageTab)}>
                 <Tabs.List>
-                    <Tabs.Tab value="general">Generale</Tabs.Tab>
-                    <Tabs.Tab value="pricing">
-                        {product.parent_product_id !== null ? "Prezzi" : "Prezzi & Varianti"}
-                    </Tabs.Tab>
-                    <Tabs.Tab value="config">Opzioni</Tabs.Tab>
-                    <Tabs.Tab value="attributes">Attributi</Tabs.Tab>
-                    <Tabs.Tab value="usage">Utilizzo</Tabs.Tab>
+                    {visibleTabs.map(tab => (
+                        <Tabs.Tab key={tab.value} value={tab.value}>
+                            {tab.label}
+                        </Tabs.Tab>
+                    ))}
                 </Tabs.List>
 
                 <div className={styles.tabContent}>
@@ -214,15 +240,17 @@ export default function ProductPage() {
                         </Card>
                     </Tabs.Panel>
 
-                    <Tabs.Panel value="attributes">
-                        <Card>
-                            <AttributesTab
-                                productId={productId!}
-                                tenantId={tenantId!}
-                                vertical={selectedTenant?.vertical_type}
-                            />
-                        </Card>
-                    </Tabs.Panel>
+                    {verticalConfig.productSections.customAttributes && (
+                        <Tabs.Panel value="attributes">
+                            <Card>
+                                <AttributesTab
+                                    productId={productId!}
+                                    tenantId={tenantId!}
+                                    vertical={selectedTenant?.vertical_type}
+                                />
+                            </Card>
+                        </Tabs.Panel>
+                    )}
 
                     <Tabs.Panel value="usage">
                         <Card>

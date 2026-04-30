@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/Select/Select";
 import { Switch } from "@/components/ui/Switch/Switch";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import {
     V2ProductAttributeDefinition,
@@ -61,6 +62,7 @@ export function ProductAttributesDrawer({
     onSuccess
 }: ProductAttributesDrawerProps) {
     const { showToast } = useToast();
+    const verticalConfig = useVerticalConfig();
 
     const linkedIds = new Set(currentValues.map(v => v.attribute_definition_id));
 
@@ -279,7 +281,7 @@ export function ProductAttributesDrawer({
                                     required
                                     value={label}
                                     onChange={e => setLabel(e.target.value)}
-                                    placeholder="Es: Colore, Taglia, Livello piccantezza..."
+                                    placeholder={verticalConfig.copy.productAttributes.placeholderExamples}
                                     disabled={creating}
                                 />
 

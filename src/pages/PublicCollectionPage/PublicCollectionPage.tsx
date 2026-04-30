@@ -321,7 +321,7 @@ export default function PublicCollectionPage() {
                 }
 
                 const showAllergens = vertical_type
-                    ? VERTICAL_CONFIG[vertical_type]?.hasAllergens === true
+                    ? VERTICAL_CONFIG[vertical_type]?.productSections.allergens === true
                     : false;
                 let allergens: Allergen[] | null = null;
                 if (showAllergens) {

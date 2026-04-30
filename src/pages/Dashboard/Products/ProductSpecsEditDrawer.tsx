@@ -141,10 +141,10 @@ export function ProductSpecsEditDrawer({
                     </Text>
                 ) : (
                     <div className={styles.content}>
-                        {verticalConfig.hasAllergens && (
+                        {verticalConfig.productSections.allergens && (
                             <div className={styles.specsField}>
                                 <Text variant="body-sm" weight={600}>
-                                    Allergeni
+                                    {verticalConfig.copy.productSections.allergens}
                                 </Text>
                                 <div className={styles.allergenGrid}>
                                     {systemAllergens.map(allergen => (
@@ -160,10 +160,10 @@ export function ProductSpecsEditDrawer({
                             </div>
                         )}
 
-                        {verticalConfig.hasIngredients && (
+                        {verticalConfig.productSections.ingredients && (
                             <div className={styles.specsField}>
                                 <Text variant="body-sm" weight={600}>
-                                    Ingredienti
+                                    {verticalConfig.copy.productSections.ingredients}
                                 </Text>
                                 <IngredientCombobox
                                     ingredients={systemIngredients}

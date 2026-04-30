@@ -17,6 +17,14 @@ export type VerticalType = (typeof VERTICAL_TYPES)[number];
 /** Macro verticals actively offered to new/existing tenants. */
 export const ACTIVE_MACROS: VerticalType[] = ["food_beverage"];
 
+// TODO: legacy verticals (restaurant, bar) inherit food_beverage
+// config but DB CHECK on tenants.vertical_type still accepts them.
+// product_characteristics.vertical CHECK only accepts 4 canonical
+// values (food_beverage, retail, hotel, generic). If a tenant is
+// ever created with vertical_type='restaurant' via direct DB write,
+// listCharacteristics() will return empty. Mitigation: add
+// canonicalVerticalType() mapper or tighten DB CHECKs in a dedicated
+// cleanup phase.
 /** Verticals kept for DB compatibility but hidden from selection UI. */
 export const LEGACY_VERTICALS: VerticalType[] = ["restaurant", "bar", "retail", "hotel", "generic"];
 
@@ -78,55 +86,187 @@ export interface VerticalConfig {
     categoryLabel: string;
     productLabel: string;
     productLabelPlural: string;
-    hasAllergens: boolean;
-    hasIngredients: boolean;
+    /**
+     * Toggles which sections of the product detail/list UI are visible for
+     * this vertical. Phase 4 will wire `characteristics` to the new
+     * CharacteristicsTab; for now `characteristics: true` is infrastructure
+     * only and renders nothing.
+     */
+    productSections: {
+        allergens: boolean;
+        ingredients: boolean;
+        characteristics: boolean;
+        customAttributes: boolean;
+        notes: boolean;
+    };
+    /**
+     * Vertical-dependent copy. Only the sections owned by Phase 3 scope are
+     * here (allergens / ingredients / characteristics / customAttributes
+     * labels + free-attribute placeholder/intro/empty descriptions).
+     * Universal labels like "Generale", "Opzioni", "Utilizzo" remain
+     * hardcoded in the consuming files.
+     */
+    copy: {
+        productSections: {
+            allergens: string;
+            ingredients: string;
+            characteristics: string;
+            customAttributes: string;
+        };
+        productAttributes: {
+            placeholderExamples: string;
+            introDescription: string;
+            perProductDescription: string;
+            emptyDescription: string;
+        };
+    };
     scheduleHints: string[];
 }
 
-const RETAIL_CONFIG: VerticalConfig = {
-    label: "Negozio",
-    catalogLabel: "Catalogo",
-    categoryLabel: "Categoria",
+const FOOD_BEVERAGE_CONFIG: VerticalConfig = {
+    label: "Food & Beverage",
+    catalogLabel: "Menù",
+    categoryLabel: "Portata",
     productLabel: "Prodotto",
     productLabelPlural: "Prodotti",
-    hasAllergens: false,
-    hasIngredients: false,
-    scheduleHints: ["Stagionale", "Saldi", "Promozione"]
+    productSections: {
+        allergens: true,
+        ingredients: true,
+        characteristics: true,
+        customAttributes: false,
+        notes: true
+    },
+    copy: {
+        productSections: {
+            allergens: "Allergeni",
+            ingredients: "Ingredienti",
+            characteristics: "Caratteristiche",
+            customAttributes: "Attributi"
+        },
+        productAttributes: {
+            // Placeholder is never rendered for food_beverage
+            // (customAttributes flag is false). Empty string is intentional.
+            placeholderExamples: "",
+            introDescription:
+                "Gli attributi descrivono caratteristiche dei prodotti. Non influenzano il prezzo.",
+            perProductDescription:
+                "Gli attributi descrivono il prodotto, ma non ne modificano il prezzo.",
+            emptyDescription:
+                "Crea attributi personalizzati per arricchire le informazioni dei prodotti."
+        }
+    },
+    scheduleHints: ["Pranzo", "Cena", "Brunch", "Aperitivo"]
 };
 
 export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
-    food_beverage: {
-        label: "Food & Beverage",
-        catalogLabel: "Menù",
-        categoryLabel: "Portata",
-        productLabel: "Prodotto",
-        productLabelPlural: "Prodotti",
-        hasAllergens: true,
-        hasIngredients: true,
-        scheduleHints: ["Pranzo", "Cena", "Brunch", "Aperitivo"]
-    },
-    // Legacy verticals — kept for compatibility with existing tenants
+    food_beverage: FOOD_BEVERAGE_CONFIG,
+    // Legacy verticals — kept for compatibility with existing tenants who
+    // never migrated to the canonical `food_beverage` value. Inherit fully
+    // from the canonical config; only the visible label diverges.
     restaurant: {
-        label: "Ristorante",
-        catalogLabel: "Menù",
-        categoryLabel: "Portata",
-        productLabel: "Prodotto",
-        productLabelPlural: "Prodotti",
-        hasAllergens: true,
-        hasIngredients: true,
-        scheduleHints: ["Pranzo", "Cena", "Brunch", "Aperitivo"]
+        ...FOOD_BEVERAGE_CONFIG,
+        label: "Ristorante"
     },
     bar: {
+        ...FOOD_BEVERAGE_CONFIG,
         label: "Bar",
-        catalogLabel: "Menù",
         categoryLabel: "Sezione",
-        productLabel: "Prodotto",
-        productLabelPlural: "Prodotti",
-        hasAllergens: true,
-        hasIngredients: true,
         scheduleHints: ["Aperitivo", "Happy hour", "Dopocena"]
     },
-    retail: RETAIL_CONFIG,
-    hotel: { ...RETAIL_CONFIG, label: "Hotel" },
-    generic: { ...RETAIL_CONFIG, label: "Generico" }
+    retail: {
+        label: "Negozio",
+        catalogLabel: "Catalogo",
+        categoryLabel: "Categoria",
+        productLabel: "Prodotto",
+        productLabelPlural: "Prodotti",
+        productSections: {
+            allergens: false,
+            ingredients: false,
+            characteristics: true,
+            customAttributes: true,
+            notes: true
+        },
+        copy: {
+            productSections: {
+                allergens: "Allergeni",
+                ingredients: "Ingredienti",
+                characteristics: "Caratteristiche",
+                customAttributes: "Attributi"
+            },
+            productAttributes: {
+                placeholderExamples: "es. Colore, Taglia, Materiale",
+                introDescription:
+                    "Gli attributi descrivono caratteristiche dei prodotti (es. colore, taglia). Non influenzano il prezzo.",
+                perProductDescription:
+                    "Gli attributi descrivono il prodotto, ma non ne modificano il prezzo.",
+                emptyDescription:
+                    "Crea attributi personalizzati per arricchire le informazioni dei prodotti."
+            }
+        },
+        scheduleHints: ["Stagionale", "Saldi", "Promozione"]
+    },
+    hotel: {
+        label: "Hotel",
+        catalogLabel: "Catalogo",
+        categoryLabel: "Categoria",
+        productLabel: "Prodotto",
+        productLabelPlural: "Prodotti",
+        productSections: {
+            allergens: false,
+            ingredients: false,
+            characteristics: true,
+            customAttributes: true,
+            notes: true
+        },
+        copy: {
+            productSections: {
+                allergens: "Allergeni",
+                ingredients: "Ingredienti",
+                characteristics: "Caratteristiche",
+                customAttributes: "Attributi"
+            },
+            productAttributes: {
+                placeholderExamples: "es. Vista, Letto, Servizi",
+                introDescription:
+                    "Gli attributi descrivono caratteristiche dei servizi (es. vista, letto). Non influenzano il prezzo.",
+                perProductDescription:
+                    "Gli attributi descrivono il servizio, ma non ne modificano il prezzo.",
+                emptyDescription:
+                    "Crea attributi personalizzati per arricchire le informazioni dei servizi."
+            }
+        },
+        scheduleHints: ["Stagionale", "Saldi", "Promozione"]
+    },
+    generic: {
+        label: "Generico",
+        catalogLabel: "Catalogo",
+        categoryLabel: "Categoria",
+        productLabel: "Prodotto",
+        productLabelPlural: "Prodotti",
+        productSections: {
+            allergens: false,
+            ingredients: false,
+            characteristics: false,
+            customAttributes: true,
+            notes: true
+        },
+        copy: {
+            productSections: {
+                allergens: "Allergeni",
+                ingredients: "Ingredienti",
+                characteristics: "Caratteristiche",
+                customAttributes: "Attributi"
+            },
+            productAttributes: {
+                placeholderExamples: "es. Codice, Variante, Categoria",
+                introDescription:
+                    "Gli attributi descrivono caratteristiche dei prodotti. Non influenzano il prezzo.",
+                perProductDescription:
+                    "Gli attributi descrivono il prodotto, ma non ne modificano il prezzo.",
+                emptyDescription:
+                    "Crea attributi personalizzati per arricchire le informazioni dei prodotti."
+            }
+        },
+        scheduleHints: ["Stagionale", "Saldi", "Promozione"]
+    }
 };

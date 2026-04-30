@@ -20,6 +20,7 @@ import {
     setProductAttributeValue,
     removeProductAttributeValue
 } from "@/services/supabase/attributes";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import styles from "./AttributesTab.module.scss";
 
 interface AttributesTabProps {
@@ -106,6 +107,7 @@ function initDraftValue(
 
 export function AttributesTab({ productId, tenantId, vertical }: AttributesTabProps) {
     const { showToast } = useToast();
+    const verticalConfig = useVerticalConfig();
 
     const [definitions, setDefinitions] = useState<V2ProductAttributeDefinition[]>([]);
     const [values, setValues] = useState<V2ProductAttributeValue[]>([]);
@@ -398,7 +400,7 @@ export function AttributesTab({ productId, tenantId, vertical }: AttributesTabPr
             {/* Tab header */}
             <div className={styles.tabHeader}>
                 <Text variant="body-sm" colorVariant="muted">
-                    Gli attributi descrivono il prodotto, ma non ne modificano il prezzo.
+                    {verticalConfig.copy.productAttributes.perProductDescription}
                 </Text>
                 {definitions.length > 0 && (
                     <Button variant="secondary" size="sm" onClick={() => setIsDrawerOpen(true)}>
@@ -412,7 +414,7 @@ export function AttributesTab({ productId, tenantId, vertical }: AttributesTabPr
                     <div className={styles.emptyState}>
                         <Text variant="body-sm" weight={600}>Nessun attributo associato</Text>
                         <Text variant="body-sm" colorVariant="muted">
-                            Gli attributi descrivono caratteristiche del prodotto (es. colore, materiale).
+                            {verticalConfig.copy.productAttributes.emptyDescription}
                         </Text>
                         <Button
                             variant="primary"

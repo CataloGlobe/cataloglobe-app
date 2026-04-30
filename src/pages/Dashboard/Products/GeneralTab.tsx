@@ -211,7 +211,7 @@ export function GeneralTab({ product, tenantId, onProductUpdated }: GeneralTabPr
                 )}
             </section>
 
-            {(verticalConfig.hasAllergens || verticalConfig.hasIngredients) && (
+            {(verticalConfig.productSections.allergens || verticalConfig.productSections.ingredients) && (
                 <>
                     <div className={styles.divider} />
 
@@ -234,10 +234,10 @@ export function GeneralTab({ product, tenantId, onProductUpdated }: GeneralTabPr
                             </Text>
                         ) : (
                             <div className={styles.specsDisplay}>
-                                {verticalConfig.hasAllergens && (
+                                {verticalConfig.productSections.allergens && (
                                     <div className={styles.specsRow}>
                                         <Text variant="body-sm" colorVariant="muted">
-                                            Allergeni
+                                            {verticalConfig.copy.productSections.allergens}
                                         </Text>
                                         {assignedAllergenIds.length === 0 ? (
                                             <Text variant="body" colorVariant="muted">
@@ -257,10 +257,10 @@ export function GeneralTab({ product, tenantId, onProductUpdated }: GeneralTabPr
                                     </div>
                                 )}
 
-                                {verticalConfig.hasIngredients && (
+                                {verticalConfig.productSections.ingredients && (
                                     <div className={styles.specsRow}>
                                         <Text variant="body-sm" colorVariant="muted">
-                                            Ingredienti
+                                            {verticalConfig.copy.productSections.ingredients}
                                         </Text>
                                         {assignedIngredientIds.length === 0 ? (
                                             <Text variant="body" colorVariant="muted">

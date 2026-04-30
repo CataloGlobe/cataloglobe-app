@@ -1820,7 +1820,7 @@ export function ProductForm({
                         <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
                             Specifiche prodotto
                         </Text>
-                        {verticalConfig.hasAllergens && systemAllergens.length > 0 && (
+                        {verticalConfig.productSections.allergens && systemAllergens.length > 0 && (
                             <div style={{ marginBottom: 16 }}>
                                 <Text variant="body-sm" weight={600} style={{ marginBottom: 4 }}>
                                     Allergeni
@@ -1869,7 +1869,7 @@ export function ProductForm({
                                 )}
                             </div>
                         )}
-                        {verticalConfig.hasIngredients && (
+                        {verticalConfig.productSections.ingredients && (
                         <div>
                             <Text variant="body-sm" weight={600} style={{ marginBottom: 4 }}>
                                 Ingredienti
@@ -2008,7 +2008,7 @@ export function ProductForm({
                 </Text>
 
                 {/* Allergeni */}
-                {verticalConfig.hasAllergens && (isLoadingAllergens || systemAllergens.length > 0) && (
+                {verticalConfig.productSections.allergens && (isLoadingAllergens || systemAllergens.length > 0) && (
                     <div style={{ marginBottom: 20 }}>
                         <Text variant="body-sm" weight={600} style={{ marginBottom: 8 }}>
                             Allergeni
@@ -2043,7 +2043,7 @@ export function ProductForm({
                 )}
 
                 {/* Ingredienti */}
-                {verticalConfig.hasIngredients && (
+                {verticalConfig.productSections.ingredients && (
                 <div>
                     <Text variant="body-sm" weight={600} style={{ marginBottom: 8 }}>
                         Ingredienti

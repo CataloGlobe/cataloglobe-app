@@ -14,6 +14,7 @@ import {
 import { AttributeCreateEditDrawer } from "@/pages/Dashboard/Attributes/AttributeCreateEditDrawer";
 import { AttributeDeleteDrawer } from "@/pages/Dashboard/Attributes/AttributeDeleteDrawer";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import styles from "./ProductsAttributesTab.module.scss";
 
@@ -36,6 +37,7 @@ function getTypeLabel(type: string): string {
 
 export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: ProductsAttributesTabProps) {
     const { showToast } = useToast();
+    const verticalConfig = useVerticalConfig();
     const { canEdit } = useSubscriptionGuard();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -216,7 +218,7 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
     return (
         <>
             <Text variant="body-sm" colorVariant="muted" className={styles.description}>
-                Gli attributi descrivono caratteristiche dei prodotti (es. colore, taglia). Non influenzano il prezzo.
+                {verticalConfig.copy.productAttributes.introDescription}
             </Text>
 
             <div className={styles.filterBar}>
@@ -270,7 +272,7 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
                             <Text variant="body-sm" colorVariant="muted">
                                 {searchQuery
                                     ? "Nessun attributo corrisponde alla tua ricerca."
-                                    : "Crea attributi personalizzati per aggiungere caratteristiche ai prodotti."}
+                                    : verticalConfig.copy.productAttributes.emptyDescription}
                             </Text>
                             {!searchQuery && (
                                 <Button variant="primary" size="sm" onClick={handleCreate} disabled={!canEdit} className={styles.emptyStateButton}>
