@@ -1,5 +1,6 @@
 import { supabase } from "@/services/supabase/client";
 import { updateActivity } from "@/services/supabase/activities";
+import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import type { ActivityMedia } from "@/types/activity-media";
 import type { V2Activity } from "@/types/activity";
 
@@ -35,14 +36,18 @@ export async function uploadAndInsertActivityMedia(
     activity: Pick<V2Activity, "id" | "slug" | "tenant_id">,
     file: File
 ): Promise<ActivityMedia> {
-    const path = buildGalleryPath(activity, file);
+    // Compressione centralizzata nel service: ogni caller (oggi
+    // ActivityGalleryUploadDrawer, in futuro eventuali batch import)
+    // beneficia della stessa pipeline senza dover ricordare di comprimere.
+    const compressed = await compressImage(file, COMPRESS_PROFILES.cover);
+    const path = buildGalleryPath(activity, compressed);
 
     const { error: uploadError } = await supabase.storage
         .from(BUCKET)
-        .upload(path, file, {
+        .upload(path, compressed, {
             upsert: false,
             cacheControl: "3600",
-            contentType: file.type || undefined
+            contentType: compressed.type || undefined
         });
 
     if (uploadError) throw uploadError;

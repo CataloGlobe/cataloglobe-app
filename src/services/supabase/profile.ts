@@ -1,4 +1,5 @@
 import { supabase } from "@/services/supabase/client";
+import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import type { Profile } from "@/types/database";
 
 export async function getProfile(userId: string): Promise<Profile | null> {
@@ -56,11 +57,13 @@ export async function uploadAvatar(
         throw new Error("File troppo grande. Max 5MB.");
     }
 
+    const compressed = await compressImage(file, COMPRESS_PROFILES.logo);
+
     const filePath = `${userId}/avatar.jpg`;
 
     const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(filePath, file, { upsert: true, contentType: file.type });
+        .upload(filePath, compressed, { upsert: true, contentType: compressed.type });
 
     if (uploadError) throw uploadError;
 
