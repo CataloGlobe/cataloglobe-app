@@ -162,14 +162,9 @@ serve(async (req: Request) => {
         }
 
         // 3. Resolve catalogs + tenant info in parallel
-        const [resolved, tenantInfo, tenantVerticalResult, hoursResult, closuresResult] = await Promise.all([
+        const [resolved, tenantInfo, hoursResult, closuresResult] = await Promise.all([
             resolveActivityCatalogs(supabase, activity.id, simulatedAt, activity.tenant_id),
             supabase.rpc("get_tenant_public_info", { p_tenant_id: activity.tenant_id }),
-            supabase
-                .from("tenants")
-                .select("vertical_type")
-                .eq("id", activity.tenant_id)
-                .maybeSingle(),
             activity.hours_public
                 ? supabase
                       .from("activity_hours")
@@ -195,7 +190,10 @@ serve(async (req: Request) => {
 
         const opening_hours = hoursResult.data ?? undefined;
         const upcoming_closures = closuresResult.data ?? undefined;
-        const vertical_type = tenantVerticalResult.data?.vertical_type ?? null;
+        // vertical_type added to RPC by migration 20260430130000.
+        // `?? null` keeps the response shape stable if the edge function is
+        // deployed before the migration is applied (defensive fallback).
+        const vertical_type = tenantInfo.data?.vertical_type ?? null;
 
         // 3b. Check subscription status — block if canceled or suspended
         const subscriptionStatus = tenantInfo.data?.subscription_status;
