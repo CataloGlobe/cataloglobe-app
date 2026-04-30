@@ -15,7 +15,6 @@ import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
  *   /dashboard/prodotti/*         → /business/:id/products/*
  *   /dashboard/contenuti-in-evidenza/* → /business/:id/featured/*
  *   /dashboard/stili/*            → /business/:id/styles/*
- *   /dashboard/attributi          → /business/:id/attributes
  *   /dashboard/recensioni         → /business/:id/reviews
  *   /dashboard/analitiche         → /business/:id/analytics
  *   /dashboard/impostazioni/*     → /business/:id/settings/*
@@ -28,7 +27,6 @@ const PATH_MAP: Record<string, string> = {
     prodotti: "products",
     "contenuti-in-evidenza": "featured",
     stili: "styles",
-    attributi: "attributes",
     recensioni: "reviews",
     analitiche: "analytics",
     impostazioni: "settings"

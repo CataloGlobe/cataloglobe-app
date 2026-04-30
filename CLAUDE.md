@@ -279,6 +279,19 @@ Due tipi di regola sullo stesso modello `schedules`:
 - `activity_hours.closes_next_day` — BOOLEAN DEFAULT false. Se `closes_at < opens_at`, il form imposta il flag automaticamente. Overlap detection usa `closes_at_minutes + 1440` per slot notturni. Stesso pattern per `activity_closures` (JSONB slots, `closes_next_day` è campo del JSON — nessun campo DB aggiuntivo).
 - View utenti vs RPC: `user_tenants_view` è SECURITY INVOKER e delega a `get_user_tenants()`. Per dati membri/inviti usare le RPC `get_tenant_members(uuid)` e `get_my_pending_invites()` (entrambe SECURITY DEFINER, accesso filtrato internamente). Le view legacy `tenant_members_view` e `my_pending_invites_view` sono state droppate nelle migration `20260427100000_security_advisor_fixes.sql` + `20260427110000_drop_orphan_member_views.sql`.
 - Stripe lifecycle: usare sempre `_shared/stripe-helpers.ts` per chiamate Stripe nelle Edge Functions. Pattern: `scheduleStripeCancel()` al soft-delete (account/tenant) → `reactivateStripeSubIfScheduled()` al recovery → `cancelStripeSubImmediate()` + `deleteStripeCustomer()` al hard-delete (cron purge). Tutti idempotenti e non-throwing. NON chiamare `stripe.subscriptions.cancel()` direttamente in soft-delete (perde l'utente i giorni pagati e disincentiva il recovery). Usato da: delete-tenant, delete-account, restore-tenant, recover-account, _shared/tenant-purge.ts.
+- **Security Advisor — stato target post-hardening (aprile 2026)**: chiusi 81 advisor su 112 (errori → 0, warning → 27, info → 4). I 27 warning residui sono **tutti intenzionali**, NON da fixare:
+  - 18 `authenticated_security_definer_function_executable` — 15 RPC frontend (`accept_invite_by_token`, `decline_invite_by_token`, `change_member_role`, `get_invite_info_by_token`, `get_my_deleted_tenants`, `get_my_pending_invites`, `get_schedule_featured_contents`, `get_tenant_members`, `get_tenant_public_info`, `invite_tenant_member`, `leave_tenant`, `remove_tenant_member`, `resend_invite`, `revoke_invite`, `update_tenant_logo`) + 3 eccezioni RLS-critiche (`get_my_tenant_ids`, `get_public_tenant_ids`, `get_user_tenants` — usate da ~150 policy RLS, non revocabili).
+  - 7 `anon_security_definer_function_executable` — 5 anon-legittime (flow invito via link email + pagina pubblica: `accept_invite_by_token`, `decline_invite_by_token`, `get_invite_info_by_token`, `get_schedule_featured_contents`, `get_tenant_public_info`) + 2 eccezioni RLS pubbliche (`get_public_tenant_ids`, `get_user_tenants`).
+  - 1 `extension_in_public` (`pg_net`) — deferito (alto rischio break Edge Functions / cron, basso beneficio).
+  - 1 `auth_leaked_password_protection` — bloccato su piano Free, attivare quando passi a Pro.
+  
+  I 4 INFO `rls_enabled_no_policy` (`audit_events`, `otp_challenges`, `stripe_processed_events`, `webhook_errors`) sono by-design: tabelle accessibili solo via service_role da Edge Functions, deny-all implicito per anon/authenticated.
+  
+  **Pattern stabilito per nuove funzioni SQL**:
+  - `SECURITY DEFINER` solo se necessario (lookup `auth.users`, `vault`, RLS bypass legittimo). Default: `SECURITY INVOKER`.
+  - `SET search_path TO ''` obbligatorio + qualifiche `public.<table>` esplicite nel body.
+  - `REVOKE EXECUTE ... FROM PUBLIC` dopo `CREATE FUNCTION` (Postgres concede grant PUBLIC di default).
+  - `GRANT EXECUTE` solo a ruoli specifici (`anon`/`authenticated`/`service_role`) in base al caso d'uso.
 
 ---
 
@@ -341,6 +354,7 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 - **`PublicProductCard.tsx`** — dead code identificato (`src/components/PublicCollectionView/PublicProductCard/`). Prende `tokens: StyleTokenModel` invece di `CollectionStyle`, zero usage da `CollectionView`. Candidato a cleanup.
 - **Fasce orarie multiple per regola** — analisi di impatto completata (aprile 2026). Opzione scelta: colonna JSONB `time_ranges` su `schedules`. 16 file da modificare, complessità media. Non implementata per rapporto costo-beneficio: il workaround (duplicare la regola con orari diversi) è sufficiente. Da implementare quando il feedback clienti lo richiede. Rischi principali: sincronizzazione atomica (migration + 2 copie resolver + deploy edge function), retrocompatibilità regole esistenti (migration SQL converte `time_from`/`time_to` → `time_ranges`).
 - **Refactor `CONTENT_MAX_WIDTH` in token condiviso** — il valore max content width desktop (1280px) vive in 2 file SCSS + 1 costante TS in PublicCollectionHeader.tsx senza single source of truth. Causa documentata di edit incompleti. Da estrarre in `--pub-frame-max-desktop` letto sia da SCSS che via getComputedStyle() da TS.
+- **Toggle "Prevent use of leaked passwords"** — Supabase Dashboard → Authentication → Attack Protection. Bloccato su piano Free: feature disponibile solo da Pro plan in su. Quando passerai a Pro, attivalo su staging E prod (toggle + Save changes, niente migration). Risolve 1 warning Security Advisor "auth_leaked_password_protection". Razionale: Supabase verifica le password contro DB HaveIBeenPwned al signup/password change, rifiuta password compromesse note. Zero rischio abilitare, zero impatto runtime.
 
 ---
 

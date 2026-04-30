@@ -1,9 +1,11 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { SocialLinks } from "../CollectionView/CollectionView";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
 import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
 import PublicFees from "./PublicFees";
+import AllergensSheet from "../AllergensSheet/AllergensSheet";
+import type { Allergen } from "@/services/supabase/allergens";
 import type { ActivityFee } from "@/types/activity";
 import styles from "./PublicFooter.module.scss";
 
@@ -104,6 +106,8 @@ type Props = {
     fees?: ActivityFee[];
     paymentMethods?: string[];
     services?: string[];
+    /** Lista allergeni UE (passata solo per tenant food-related). null = nascondi pulsante. */
+    allergens?: Allergen[] | null;
 };
 
 export default function PublicFooter({
@@ -111,9 +115,12 @@ export default function PublicFooter({
     activityId,
     openingHours,
     upcomingClosures,
-    fees
+    fees,
+    allergens
 }: Props) {
     const hasFees = (fees?.length ?? 0) > 0;
+    const hasAllergens = !!allergens && allergens.length > 0;
+    const [isAllergensSheetOpen, setIsAllergensSheetOpen] = useState(false);
     // Costruisce la lista di social visibili
     const visibleSocials: { href: string; label: string; icon: ReactNode; socialType: SocialType }[] = [];
 
@@ -176,6 +183,23 @@ export default function PublicFooter({
             {/* Tariffe */}
             {hasFees && <PublicFees fees={fees} />}
 
+            {/* Allergeni — solo per tenant food-related */}
+            {hasAllergens && (
+                <button
+                    type="button"
+                    className={styles.allergensBtn}
+                    onClick={() => setIsAllergensSheetOpen(true)}
+                    aria-label="Apri lista allergeni"
+                >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    <span>Allergeni</span>
+                </button>
+            )}
+
             {/* Social icons — visibili solo se configurati e pubblici */}
             {visibleSocials.length > 0 && (
                 <div className={styles.socialRow}>
@@ -212,6 +236,14 @@ export default function PublicFooter({
                 <span className={styles.poweredByLabel}>Powered by</span>
                 <span className={styles.brandName}>CataloGlobe</span>
             </a>
+
+            {hasAllergens && (
+                <AllergensSheet
+                    isOpen={isAllergensSheetOpen}
+                    onClose={() => setIsAllergensSheetOpen(false)}
+                    allergens={allergens!}
+                />
+            )}
 
             {/* Legal links */}
             <div className={styles.legalRow}>

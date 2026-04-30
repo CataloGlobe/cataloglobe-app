@@ -8,6 +8,8 @@ export type V2SystemAllergen = {
     sort_order: number;
 };
 
+export type Allergen = V2SystemAllergen;
+
 export type V2ProductAllergen = {
     tenant_id: string;
     product_id: string;
@@ -30,6 +32,8 @@ export async function listAllergens(): Promise<V2SystemAllergen[]> {
     if (error) throw error;
     return data || [];
 }
+
+export const listAllAllergens = listAllergens;
 
 export type ResolvedProductAllergen = {
     allergen_id: number;

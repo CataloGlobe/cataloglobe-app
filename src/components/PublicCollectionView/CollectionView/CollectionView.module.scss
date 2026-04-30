@@ -404,11 +404,33 @@
     min-width: 0; /* evita overflow testo in grid */
   }
 
-  /* Bottone in col 2: visibile solo senza immagine (overlay usato con immagine).
-     margin-right allinea il bordo destro al padding interno della card. */
-  .addBtn {
-    align-self: center;
-    margin-right: 1rem;
+  /* Card·Grid SENZA immagine: distribuisci body + "+" come flex column.
+     `.card` outer è flex column dentro CSS Grid (.grid) con default
+     align-items:stretch → tutte le card di una stessa riga grid hanno
+     stessa altezza. Con `height:100%` qui, `.productRow` riempie la card,
+     `.rowBody { flex:1 }` espande il testo, `.addBtn` resta pinned
+     bottom-right → click sul vuoto in fondo apre ItemDetail.
+
+     Scope ristretto a no-image perché:
+     - Card·Grid CON immagine ha già `addBtnOverlay` glassmorphism
+       sull'immagine (non vogliamo toccarlo).
+     - Default `.productRow` (Card·List) può contenere parent + N varianti
+       come siblings dentro `.card` → `height:100%` sul default romperebbe
+       il layout multi-row. Per quello scope qui, non sul selector default. */
+  .productRow:not(:has(.rowImageWrapper)) {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    .rowBody {
+      flex: 1;
+      padding: 0.75rem 1rem 0;
+    }
+
+    .addBtn {
+      align-self: flex-end;
+      margin: 0 1rem 1rem 0;
+    }
   }
 }
 

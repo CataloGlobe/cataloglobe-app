@@ -32,6 +32,7 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 import { ensureUniqueBusinessSlug } from "@/utils/businessSlug";
 import { sanitizeSlugForSave } from "@/utils/slugify";
+import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 
 // Tipi importati da "@/types/Businesses"
 
@@ -360,9 +361,10 @@ export default function Businesses() {
                 });
 
                 if (createCoverFile) {
+                    const compressedCover = await compressImage(createCoverFile, COMPRESS_PROFILES.cover);
                     await uploadActivityCover(
                         { id: newActivity.id, slug: newActivity.slug, tenant_id: newActivity.tenant_id },
-                        createCoverFile
+                        compressedCover
                     );
                 }
 
@@ -588,9 +590,10 @@ export default function Businesses() {
                 });
 
                 if (editCoverFile) {
+                    const compressedCover = await compressImage(editCoverFile, COMPRESS_PROFILES.cover);
                     await uploadActivityCover(
                         { id: editingId, slug: editForm.slug, tenant_id: tenantId! },
-                        editCoverFile
+                        compressedCover
                     );
                 }
 

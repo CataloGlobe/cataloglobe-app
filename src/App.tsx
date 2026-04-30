@@ -56,7 +56,6 @@ const Highlights = lazy(() => import("./pages/Dashboard/Highlights/Highlights"))
 const FeaturedContentDetailPage = lazy(() => import("./pages/Dashboard/Highlights/FeaturedContentDetailPage"));
 const Styles = lazy(() => import("./pages/Dashboard/Styles/Styles"));
 const StyleEditorPage = lazy(() => import("./pages/Dashboard/Styles/StyleEditorPage"));
-const Attributes = lazy(() => import("./pages/Dashboard/Attributes/Attributes"));
 const ActivityDetailPage = lazy(() => import("./pages/Operativita/Attivita/ActivityDetailPage"));
 const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
 
@@ -210,7 +209,7 @@ export default function App() {
                     <Route path=":styleId" element={<StyleEditorPage />} />
                 </Route>
 
-                <Route path="attributes" element={<Attributes />} />
+                <Route path="attributes" element={<Navigate to="../products?tab=attributes" replace />} />
 
                 <Route path="reviews" element={<Reviews />} />
                 <Route path="analytics" element={<AnalyticsPage />} />

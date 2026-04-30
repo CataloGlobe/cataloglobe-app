@@ -14,9 +14,71 @@ export type ResolvedAllergen = {
     label_en: string;
 };
 
+/**
+ * Shape of a single product characteristic as emitted by
+ * `resolve-public-catalog`. Mirror of the lookup row in
+ * `product_characteristics` (minus `vertical`, redundant in public payload
+ * since each product implicitly belongs to a tenant of a single vertical).
+ *
+ * Source of truth: `mapCharacteristics` in
+ * `supabase/functions/_shared/resolveActivityCatalogs.ts`.
+ *
+ * Distinct from `ResolvedProductCharacteristic` (in `productCharacteristic.ts`)
+ * which is the FE service-side flat shape returned by `getProductsCharacteristics`.
+ */
+export type ResolvedCharacteristic = {
+    id: string;
+    code: string;
+    category: "diet" | "spicy" | "origin" | "preparation" | "warning" | "status";
+    label_it: string;
+    label_en: string;
+    icon: string;
+    sort_order: number;
+    show_in_card: boolean;
+    mutex_group: string | null;
+    dietary_claim: boolean;
+};
+
 export type ResolvedIngredient = {
     id: string;
     name: string;
+};
+
+/**
+ * Structured product note as emitted by `resolve-public-catalog`. Mirror of
+ * `ProductNote` from `@/services/supabase/products`. The shape is duplicated
+ * here to keep the public type tree free of service imports; the canonical
+ * shape contract lives in products.ts.
+ */
+export type ResolvedProductNote = {
+    label: string;
+    value: string;
+};
+
+/**
+ * Shape of a single attribute as emitted by `resolve-public-catalog`.
+ *
+ * Source of truth: `mapAttributes` in `supabase/functions/_shared/resolveActivityCatalogs.ts`.
+ * The same shape is attached to both products and variants. Definition is null
+ * when the join produced no row; value_* are mutually exclusive based on type.
+ *
+ * The public renderer flattens this to `{ label, value }` in
+ * `mapProductToItem` (see `src/pages/PublicCollectionPage/PublicCollectionPage.tsx`)
+ * before it reaches `CollectionView` / `ItemDetail`. Components downstream of
+ * the mapper consume the flat shape, not this one.
+ */
+export type ResolvedProductAttribute = {
+    attribute_definition_id?: string;
+    value_text?: string | null;
+    value_number?: number | null;
+    value_boolean?: boolean | null;
+    value_json?: unknown;
+    definition?: {
+        code?: string;
+        label?: string | null;
+        type?: string;
+        show_in_public_channels?: boolean | null;
+    } | null;
 };
 
 export type ResolvedOptionValue = {
@@ -49,10 +111,11 @@ export type ResolvedVariant = {
     optionGroups?: ResolvedOptionGroup[];
     image_url?: string;
     description?: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    attributes?: any[];
+    attributes?: ResolvedProductAttribute[];
     allergens?: ResolvedAllergen[];
+    characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
+    notes?: ResolvedProductNote[];
     dimension_values?: ResolvedVariantDimValue[];
 };
 
@@ -67,10 +130,11 @@ export type ResolvedProduct = {
     from_price?: number;
     is_visible: boolean;
     is_disabled?: boolean;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    attributes?: any[];
+    attributes?: ResolvedProductAttribute[];
     allergens?: ResolvedAllergen[];
+    characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
+    notes?: ResolvedProductNote[];
     image_url?: string;
     variants?: ResolvedVariant[];
     optionGroups?: ResolvedOptionGroup[];

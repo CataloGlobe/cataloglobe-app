@@ -6,8 +6,6 @@ import {
     ResponsiveContainer,
     Tooltip,
     Legend,
-    BarChart,
-    Bar,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -15,7 +13,6 @@ import {
     Line
 } from "recharts";
 import { getAnalyticsReviews } from "@services/supabase/reviews";
-import { getAnalyticsQrScans } from "@services/supabase/qrScans";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import Text from "@components/ui/Text/Text";
@@ -37,12 +34,6 @@ type ExtendedAnalyticsReview = AnalyticsReview & {
     restaurant_name?: string | null;
 };
 
-type AnalyticsQrScan = {
-    id: string;
-    business_id?: string | null;
-    created_at: string;
-};
-
 type BusinessOption = {
     id: string;
     name: string;
@@ -53,42 +44,30 @@ export default function Analytics() {
     const { selectedTenant } = useTenant();
 
     const [reviews, setReviews] = useState<ExtendedAnalyticsReview[]>([]);
-    const [qrScans, setQrScans] = useState<AnalyticsQrScan[]>([]);
     const [range, setRange] = useState<Range>(30);
     const [selectedBusinessId, setSelectedBusinessId] = useState<string | "all">("all");
     const [businesses, setBusinesses] = useState<BusinessOption[]>([]);
 
     const [isLoadingReviews, setIsLoadingReviews] = useState(true);
-    const [isLoadingScans, setIsLoadingScans] = useState(true);
 
-    const isLoading = isLoadingReviews || isLoadingScans;
+    const isLoading = isLoadingReviews;
 
-    // 🔹 Caricamento dati reviews + scans
     useEffect(() => {
         async function init() {
             if (!tenantId) return;
 
             setIsLoadingReviews(true);
-            setIsLoadingScans(true);
 
-            // 1. Carico i ristoranti
             const userBusinesses = await getActivities(tenantId);
             setBusinesses(userBusinesses);
 
-            // 2. Imposto default ristorante
             const defaultId = userBusinesses[0]?.id ?? "all";
             setSelectedBusinessId(defaultId);
 
-            // 3. Carico reviews
             const revs = await getAnalyticsReviews();
             setReviews(revs);
 
-            // 4. Carico scansioni QR
-            const scans = await getAnalyticsQrScans();
-            setQrScans(scans);
-
             setIsLoadingReviews(false);
-            setIsLoadingScans(false);
         }
 
         void init();
@@ -141,19 +120,6 @@ export default function Analytics() {
         });
     }, [reviews, cutoff, selectedBusinessId]);
 
-    const filteredScans = useMemo(() => {
-        return qrScans.filter(s => {
-            const created = new Date(s.created_at);
-            if (created < cutoff) return false;
-
-            if (selectedBusinessId !== "all" && s.business_id) {
-                return s.business_id === selectedBusinessId;
-            }
-
-            return selectedBusinessId === "all" || !s.business_id;
-        });
-    }, [qrScans, cutoff, selectedBusinessId]);
-
     // 🔹 KPI recensioni
     const totalReviews = filteredReviews.length;
     const avgRating = totalReviews
@@ -164,9 +130,6 @@ export default function Analytics() {
     const negativeReviews = filteredReviews.filter(r => r.rating <= 3).length;
 
     const positiveRatio = totalReviews ? (positiveReviews / totalReviews) * 100 : 0;
-
-    // 🔹 KPI scansioni
-    const totalQrScans = filteredScans.length;
 
     // 🔹 Distribuzione punteggio
     const ratingDist = [1, 2, 3, 4, 5].map(stars => ({
@@ -206,32 +169,6 @@ export default function Analytics() {
             }));
     }, [filteredReviews]);
 
-    // 🔹 Andamento scansioni QR per giorno
-    const qrScansTrend = useMemo(() => {
-        const map = new Map<string, number>();
-
-        filteredScans.forEach(s => {
-            const date = new Date(s.created_at).toLocaleDateString("it-IT", {
-                day: "2-digit",
-                month: "2-digit"
-            });
-            map.set(date, (map.get(date) || 0) + 1);
-        });
-
-        return Array.from(map.entries())
-            .sort(([a], [b]) => {
-                const [da, ma] = a.split("/");
-                const [db, mb] = b.split("/");
-                const dateA = new Date(new Date().getFullYear(), Number(ma) - 1, Number(da));
-                const dateB = new Date(new Date().getFullYear(), Number(mb) - 1, Number(db));
-                return dateA.getTime() - dateB.getTime();
-            })
-            .map(([date, count]) => ({
-                name: date,
-                scansioni: count
-            }));
-    }, [filteredScans]);
-
     // 🔹 Skeleton realistici con nuovo layout
     if (isLoading) {
         return (
@@ -259,7 +196,7 @@ export default function Analytics() {
     }
 
     return (
-        <main className={styles.analytics} aria-label="Sezione analytics recensioni e scansioni QR">
+        <main className={styles.analytics} aria-label="Sezione analytics recensioni">
             <PageHeader title="Analitiche" businessName={selectedTenant?.name} subtitle="Monitora le performance delle tue attività." />
             <div className={styles.filtersRow}>
                 <div className={styles.businessSelector}>
@@ -298,13 +235,6 @@ export default function Analytics() {
                     color="success"
                 />
                 <KPI label="Recensioni negative" value={negativeReviews.toString()} color="error" />
-                <KPI
-                    label="Scansioni QR"
-                    value={totalQrScans.toString()}
-                    // badge={
-                    //     selectedBusinessId === "all" ? "Somma totale" : "Business selezionato"
-                    // }
-                />
             </section>
 
             {/* GRAFICI */}
@@ -371,23 +301,6 @@ export default function Analytics() {
                                 activeDot={{ r: 5 }}
                             />
                         </LineChart>
-                    </ResponsiveContainer>
-                </ChartCard>
-
-                <ChartCard title="Andamento scansioni QR nel periodo" wide>
-                    <ResponsiveContainer width="100%" height={360}>
-                        <BarChart data={qrScansTrend}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" />
-                            <YAxis allowDecimals={false} />
-                            <Tooltip />
-                            <Bar
-                                dataKey="scansioni"
-                                fill="#22c55e"
-                                radius={[6, 6, 0, 0]}
-                                maxBarSize={40}
-                            />
-                        </BarChart>
                     </ResponsiveContainer>
                 </ChartCard>
             </section>

@@ -190,6 +190,10 @@ serve(async (req: Request) => {
 
         const opening_hours = hoursResult.data ?? undefined;
         const upcoming_closures = closuresResult.data ?? undefined;
+        // vertical_type added to RPC by migration 20260430130000.
+        // `?? null` keeps the response shape stable if the edge function is
+        // deployed before the migration is applied (defensive fallback).
+        const vertical_type = tenantInfo.data?.vertical_type ?? null;
 
         // 3b. Check subscription status — block if canceled or suspended
         const subscriptionStatus = tenantInfo.data?.subscription_status;
@@ -236,6 +240,7 @@ serve(async (req: Request) => {
                 business,
                 tenantLogoUrl,
                 resolved,
+                vertical_type,
                 canonical_slug: isAliasMatch ? activity.slug : null,
                 ...(opening_hours ? { opening_hours } : {}),
                 ...(upcoming_closures ? { upcoming_closures } : {})

@@ -1,5 +1,6 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
+import type { VerticalType } from "@/constants/verticalTypes";
 
 /**
  * Uploads a logo file to the tenant-assets bucket.
@@ -65,10 +66,17 @@ export function getTenantLogoPublicUrl(path: string): string {
  * Fetches public tenant info (name + logo_url) via the anon-accessible RPC.
  * Used on the public collection page.
  */
-export async function getTenantPublicInfo(tenantId: string): Promise<{ logo_url: string | null; name: string } | null> {
+export type TenantPublicInfo = {
+    logo_url: string | null;
+    name: string;
+    subscription_status: string;
+    vertical_type: VerticalType;
+};
+
+export async function getTenantPublicInfo(tenantId: string): Promise<TenantPublicInfo | null> {
     const { data, error } = await supabase.rpc("get_tenant_public_info", { p_tenant_id: tenantId });
     if (error || !data) return null;
-    return data as { logo_url: string | null; name: string };
+    return data as TenantPublicInfo;
 }
 
 export interface DeletedTenant {

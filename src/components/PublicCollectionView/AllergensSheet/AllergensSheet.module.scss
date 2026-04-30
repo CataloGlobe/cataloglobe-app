@@ -1,0 +1,119 @@
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
+    flex-shrink: 0;
+    background: var(--pub-surface, #fff);
+}
+
+.headerTitle {
+    flex: 1;
+    min-width: 0;
+}
+
+.closeBtn {
+    /* Mobile: chiusura via swipe / overlay */
+    display: none;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: var(--pub-btn-radius, 6px);
+    border: none;
+    background: color-mix(in srgb, var(--pub-text, #000) 8%, transparent);
+    color: var(--pub-text, #333);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    flex-shrink: 0;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s ease;
+
+    &:hover {
+        background: color-mix(in srgb, var(--pub-text, #000) 14%, transparent);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pub-primary, #333);
+        outline-offset: 2px;
+    }
+
+    @media (min-width: 640px) {
+        display: inline-flex;
+    }
+}
+
+/* ── Body ────────────────────────────────────────────────────────────────── */
+
+.body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding: 12px 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+
+    scrollbar-width: none;
+}
+
+/* ── Lista ───────────────────────────────────────────────────────────────── */
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 8%, transparent);
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.iconWrap {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
+    color: var(--pub-surface-text);
+}
+
+.label {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.3;
+}
+
+/* ── Disclaimer ─────────────────────────────────────────────────────────── */
+
+.disclaimer {
+    line-height: 1.45;
+    margin: 0;
+    padding-top: 12px;
+    border-top: 1px solid color-mix(in srgb, var(--pub-text) 8%, transparent);
+}

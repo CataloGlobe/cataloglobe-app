@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/Select/Select";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import {
     createAttributeDefinition,
     updateAttributeDefinition,
@@ -46,6 +47,7 @@ export function AttributeCreateEditDrawer({
     tenantId
 }: AttributeCreateEditDrawerProps) {
     const { showToast } = useToast();
+    const verticalConfig = useVerticalConfig();
     const isEditing = !!attributeData;
 
     const [isSaving, setIsSaving] = useState(false);
@@ -207,7 +209,7 @@ export function AttributeCreateEditDrawer({
                         required
                         value={label}
                         onChange={e => setLabel(e.target.value)}
-                        placeholder="Es: Colore, Taglia, Livello piccantezza..."
+                        placeholder={verticalConfig.copy.productAttributes.placeholderExamples}
                     />
 
                     <Select

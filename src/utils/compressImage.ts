@@ -1,4 +1,17 @@
 const COMPRESS_TIMEOUT_MS = 15_000;
+const MAX_INPUT_SIZE = 10 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+export type CompressionErrorCode = "TOO_LARGE" | "INVALID_MIME" | "HEIC" | "LOAD_FAILED" | "TIMEOUT";
+
+export class CompressionError extends Error {
+    public code: CompressionErrorCode;
+    constructor(message: string, code: CompressionErrorCode) {
+        super(message);
+        this.name = "CompressionError";
+        this.code = code;
+    }
+}
 
 export type CompressFormat = "jpeg" | "png" | "webp" | "auto";
 
@@ -21,6 +34,22 @@ export async function compressImage(
     maxWidthOrOptions: number | CompressOptions = 900,
     quality = 0.8
 ): Promise<File> {
+    if (file.size > MAX_INPUT_SIZE) {
+        throw new CompressionError("File troppo grande. Massimo 10MB.", "TOO_LARGE");
+    }
+    if (file.type === "image/heic" || file.type === "image/heif") {
+        throw new CompressionError(
+            "Formato HEIC non supportato. Converti in JPEG/PNG.",
+            "HEIC"
+        );
+    }
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+        throw new CompressionError(
+            "Formato file non supportato. Usa JPEG, PNG o WEBP.",
+            "INVALID_MIME"
+        );
+    }
+
     const opts: CompressOptions =
         typeof maxWidthOrOptions === "number"
             ? { maxWidth: maxWidthOrOptions, quality }
@@ -28,7 +57,10 @@ export async function compressImage(
     return Promise.race([
         doCompress(file, opts),
         new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error("Timeout compressione immagine")), COMPRESS_TIMEOUT_MS)
+            setTimeout(
+                () => reject(new CompressionError("Timeout compressione immagine", "TIMEOUT")),
+                COMPRESS_TIMEOUT_MS
+            )
         )
     ]);
 }
@@ -88,6 +120,18 @@ function doCompress(file: File, opts: CompressOptions): Promise<File> {
                         reject(new Error("Compressione immagine fallita"));
                         return;
                     }
+                    // Skip-if-smaller: se la compressione produce un blob >= dell'originale
+                    // (tipico su PNG gia' piccoli convertiti a JPEG), restituisci il file
+                    // originale invariato. Evita peggioramenti di size e cambi di estensione
+                    // inutili.
+                    if (blob.size >= file.size) {
+                        console.debug(
+                            "compressImage: skip (output bigger), keeping original",
+                            { original: file.size, compressed: blob.size }
+                        );
+                        resolve(file);
+                        return;
+                    }
                     // Sincronizza l'estensione del filename con il MIME del Blob:
                     // necessario quando format forzato cambia il tipo (es. PNG->JPEG),
                     // perche' i service di upload derivano il path da file.name.
@@ -106,7 +150,7 @@ function doCompress(file: File, opts: CompressOptions): Promise<File> {
 
         img.onerror = () => {
             URL.revokeObjectURL(objectUrl);
-            reject(new Error("Impossibile caricare l'immagine"));
+            reject(new CompressionError("Impossibile caricare l'immagine", "LOAD_FAILED"));
         };
 
         img.src = objectUrl;

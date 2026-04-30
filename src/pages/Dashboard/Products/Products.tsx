@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import {
+    useFilteredProductTabs,
+    type ProductTabDef
+} from "@/hooks/useFilteredProductTabs";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
@@ -67,17 +70,26 @@ export default function Products() {
     const [productMetadata, setProductMetadata] = useState<Record<string, ProductListMetadata>>({});
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-    const [searchParams] = useSearchParams();
-    const initialTab = (searchParams.get("tab") ?? "products") as
-        | "products"
-        | "groups"
-        | "attributes"
-        | "ingredients";
-    const [activeTab, setActiveTab] = useState<"products" | "groups" | "attributes" | "ingredients">(
-        ["products", "groups", "attributes", "ingredients"].includes(initialTab)
-            ? initialTab
-            : "products"
+    type ProductsTab = "products" | "groups" | "attributes" | "ingredients";
+    const allTabs = useMemo<ProductTabDef<ProductsTab>[]>(
+        () => [
+            { value: "products", label: verticalConfig.productLabelPlural },
+            { value: "groups", label: "Gruppi Prodotti" },
+            {
+                value: "attributes",
+                label: verticalConfig.copy.productSections.customAttributes,
+                gated: c => c.productSections.customAttributes
+            },
+            {
+                value: "ingredients",
+                label: verticalConfig.copy.productSections.ingredients,
+                gated: c => c.productSections.ingredients
+            }
+        ],
+        [verticalConfig]
     );
+    const { visibleTabs, initialTab } = useFilteredProductTabs<ProductsTab>(allTabs, "products");
+    const [activeTab, setActiveTab] = useState<ProductsTab>(initialTab);
     const [isCreateGroupOpen, setCreateGroupOpen] = useState(false);
     const [attrCreateSeq, setAttrCreateSeq] = useState(0);
     const [ingredientCreateSeq, setIngredientCreateSeq] = useState(0);
@@ -411,7 +423,7 @@ export default function Products() {
                         <Button variant="primary" onClick={() => setAttrCreateSeq(s => s + 1)} disabled={!canEdit}>
                             Nuovo attributo
                         </Button>
-                    ) : activeTab === "ingredients" && verticalConfig.hasIngredients ? (
+                    ) : activeTab === "ingredients" && verticalConfig.productSections.ingredients ? (
                         <Button variant="primary" onClick={() => setIngredientCreateSeq(s => s + 1)} disabled={!canEdit}>
                             Crea ingrediente
                         </Button>
@@ -419,19 +431,13 @@ export default function Products() {
                 }
             />
 
-            <Tabs
-                value={activeTab}
-                onChange={val =>
-                    setActiveTab(val as "products" | "groups" | "attributes" | "ingredients")
-                }
-            >
+            <Tabs value={activeTab} onChange={val => setActiveTab(val as ProductsTab)}>
                 <Tabs.List>
-                    <Tabs.Tab value="products">{verticalConfig.productLabelPlural}</Tabs.Tab>
-                    <Tabs.Tab value="groups">Gruppi Prodotti</Tabs.Tab>
-                    <Tabs.Tab value="attributes">Attributi</Tabs.Tab>
-                    {verticalConfig.hasIngredients && (
-                        <Tabs.Tab value="ingredients">Ingredienti</Tabs.Tab>
-                    )}
+                    {visibleTabs.map(tab => (
+                        <Tabs.Tab key={tab.value} value={tab.value}>
+                            {tab.label}
+                        </Tabs.Tab>
+                    ))}
                 </Tabs.List>
 
                 <Tabs.Panel value="products">
@@ -547,14 +553,16 @@ export default function Products() {
                         onCloseCreate={() => setCreateGroupOpen(false)}
                     />
                 </Tabs.Panel>
-                <Tabs.Panel value="attributes">
-                    <ProductsAttributesTab
-                        tenantId={currentTenantId ?? undefined}
-                        vertical={selectedTenant?.vertical_type}
-                        createTrigger={attrCreateSeq}
-                    />
-                </Tabs.Panel>
-                {verticalConfig.hasIngredients && (
+                {verticalConfig.productSections.customAttributes && (
+                    <Tabs.Panel value="attributes">
+                        <ProductsAttributesTab
+                            tenantId={currentTenantId ?? undefined}
+                            vertical={selectedTenant?.vertical_type}
+                            createTrigger={attrCreateSeq}
+                        />
+                    </Tabs.Panel>
+                )}
+                {verticalConfig.productSections.ingredients && (
                     <Tabs.Panel value="ingredients">
                         <Ingredients createTrigger={ingredientCreateSeq} />
                     </Tabs.Panel>

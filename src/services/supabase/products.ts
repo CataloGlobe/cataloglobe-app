@@ -7,6 +7,12 @@ export type ProductType = "simple" | "formats" | "configurable";
 
 export type VariantStrategy = "manual" | "matrix";
 
+/** Single key-value note attached to a product. */
+export type ProductNote = {
+    label: string;
+    value: string;
+};
+
 export type V2Product = {
     id: string;
     tenant_id: string;
@@ -17,11 +23,59 @@ export type V2Product = {
     image_url: string | null;
     product_type: ProductType;
     variant_strategy?: VariantStrategy;
+    /**
+     * Structured notes. Always an array (DB DEFAULT '[]'). Validated by
+     * `validateProductNotes()` at create/update time.
+     */
+    notes: ProductNote[];
     created_at: string;
     updated_at: string;
     // Joined
     variants?: V2Product[];
 };
+
+const MAX_NOTES_PER_PRODUCT = 10;
+const MAX_NOTE_LABEL_LENGTH = 100;
+const MAX_NOTE_VALUE_LENGTH = 500;
+
+/**
+ * Normalizes and validates a product `notes` payload before write.
+ *
+ * - Returns an empty array for null/undefined input (treated as "clear notes").
+ * - Trims label and value of each entry; entries with both empty are dropped.
+ * - Rejects entries with empty label.
+ * - Rejects array longer than 10 entries, labels > 100 chars, values > 500 chars.
+ *
+ * Throws Error with a human-readable Italian message on validation failure.
+ */
+export function validateProductNotes(notes: unknown): ProductNote[] {
+    if (notes === undefined || notes === null) return [];
+    if (!Array.isArray(notes)) {
+        throw new Error("Le note devono essere un array di oggetti {label, value}.");
+    }
+    if (notes.length > MAX_NOTES_PER_PRODUCT) {
+        throw new Error(`Massimo ${MAX_NOTES_PER_PRODUCT} note per prodotto.`);
+    }
+    const cleaned: ProductNote[] = [];
+    for (const item of notes) {
+        if (!item || typeof item !== "object") continue;
+        const candidate = item as { label?: unknown; value?: unknown };
+        const label = String(candidate.label ?? "").trim();
+        const value = String(candidate.value ?? "").trim();
+        if (label === "" && value === "") continue;
+        if (label === "") {
+            throw new Error("Ogni nota deve avere un'etichetta non vuota.");
+        }
+        if (label.length > MAX_NOTE_LABEL_LENGTH) {
+            throw new Error(`L'etichetta della nota è troppo lunga (max ${MAX_NOTE_LABEL_LENGTH} caratteri).`);
+        }
+        if (value.length > MAX_NOTE_VALUE_LENGTH) {
+            throw new Error(`Il valore della nota è troppo lungo (max ${MAX_NOTE_VALUE_LENGTH} caratteri).`);
+        }
+        cleaned.push({ label, value });
+    }
+    return cleaned;
+}
 
 export type ProductListMetadata = {
     formatsCount: number;
@@ -259,12 +313,14 @@ export async function createProduct(
         base_price?: number | null;
         image_url?: string | null;
         product_type?: ProductType;
+        notes?: ProductNote[];
     },
     parentId?: string | null
 ): Promise<V2Product> {
     await validateParentBeforeSave(tenantId, parentId);
 
     const resolvedProductType: ProductType = data.product_type ?? "simple";
+    const validatedNotes = validateProductNotes(data.notes);
 
     const { data: newProduct, error } = await supabase
         .from("products")
@@ -276,7 +332,8 @@ export async function createProduct(
             base_price: data.base_price ?? null,
             parent_product_id: parentId || null,
             image_url: data.image_url ?? null,
-            product_type: resolvedProductType
+            product_type: resolvedProductType,
+            notes: validatedNotes
         })
         .select()
         .single();
@@ -300,6 +357,7 @@ export async function updateProduct(
         base_price?: number | null;
         image_url?: string | null;
         product_type?: ProductType;
+        notes?: ProductNote[];
     },
     parentId?: string | null
 ): Promise<V2Product> {
@@ -330,6 +388,7 @@ export async function updateProduct(
         image_url: string | null;
         product_type: ProductType;
         parent_product_id: string | null;
+        notes: ProductNote[];
         updated_at: string;
     }> = {
         updated_at: new Date().toISOString()
@@ -340,6 +399,7 @@ export async function updateProduct(
     if (data.image_url !== undefined) updatePayload.image_url = data.image_url;
     if (data.product_type !== undefined) updatePayload.product_type = data.product_type;
     if (parentId !== undefined) updatePayload.parent_product_id = parentId;
+    if (data.notes !== undefined) updatePayload.notes = validateProductNotes(data.notes);
 
     const { data: updatedProduct, error } = await supabase
         .from("products")
@@ -416,7 +476,8 @@ export async function duplicateProduct(productId: string, tenantId: string): Pro
             description: original.description,
             base_price: original.base_price,
             image_url: original.image_url,
-            product_type: original.product_type
+            product_type: original.product_type,
+            notes: original.notes ?? []
         },
         null // parent_product_id = null
     );
