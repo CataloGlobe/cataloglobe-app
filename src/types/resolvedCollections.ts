@@ -19,6 +19,32 @@ export type ResolvedIngredient = {
     name: string;
 };
 
+/**
+ * Shape of a single attribute as emitted by `resolve-public-catalog`.
+ *
+ * Source of truth: `mapAttributes` in `supabase/functions/_shared/resolveActivityCatalogs.ts`.
+ * The same shape is attached to both products and variants. Definition is null
+ * when the join produced no row; value_* are mutually exclusive based on type.
+ *
+ * The public renderer flattens this to `{ label, value }` in
+ * `mapProductToItem` (see `src/pages/PublicCollectionPage/PublicCollectionPage.tsx`)
+ * before it reaches `CollectionView` / `ItemDetail`. Components downstream of
+ * the mapper consume the flat shape, not this one.
+ */
+export type ResolvedProductAttribute = {
+    attribute_definition_id?: string;
+    value_text?: string | null;
+    value_number?: number | null;
+    value_boolean?: boolean | null;
+    value_json?: unknown;
+    definition?: {
+        code?: string;
+        label?: string | null;
+        type?: string;
+        show_in_public_channels?: boolean | null;
+    } | null;
+};
+
 export type ResolvedOptionValue = {
     id: string;
     name: string;
@@ -49,8 +75,7 @@ export type ResolvedVariant = {
     optionGroups?: ResolvedOptionGroup[];
     image_url?: string;
     description?: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    attributes?: any[];
+    attributes?: ResolvedProductAttribute[];
     allergens?: ResolvedAllergen[];
     ingredients?: ResolvedIngredient[];
     dimension_values?: ResolvedVariantDimValue[];
@@ -67,8 +92,7 @@ export type ResolvedProduct = {
     from_price?: number;
     is_visible: boolean;
     is_disabled?: boolean;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    attributes?: any[];
+    attributes?: ResolvedProductAttribute[];
     allergens?: ResolvedAllergen[];
     ingredients?: ResolvedIngredient[];
     image_url?: string;

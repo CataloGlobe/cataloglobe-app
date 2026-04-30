@@ -12,11 +12,14 @@ import type { HubTab } from "@/types/collectionStyle";
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 import type { OpeningHoursEntry, UpcomingClosure } from "@/components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 import type { ActivityFee } from "@/types/activity";
+import { VERTICAL_CONFIG, type VerticalType } from "@/constants/verticalTypes";
+import { listAllAllergens, type Allergen } from "@/services/supabase/allergens";
 
 import { supabase } from "@/services/supabase/client";
 import type {
     ResolvedCollections,
     ResolvedProduct,
+    ResolvedProductAttribute,
     ResolvedCategory
 } from "@/types/resolvedCollections";
 import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
@@ -34,24 +37,28 @@ import { loadPublicFonts } from "@utils/loadPublicFonts";
    ResolvedCollections → CollectionViewSectionGroup[]
 =============================================== */
 
-type RawAttr = {
-    value_text?: string | null;
-    value_number?: number | null;
-    value_boolean?: boolean | null;
-    value_json?: unknown;
-    definition?: { label?: string | null; show_in_public_channels?: boolean | null } | null;
-};
-
-function mapProductToItem(p: ResolvedProduct): CollectionViewSectionItem {
-    const attributes = (p.attributes as RawAttr[] | undefined)
+/**
+ * Flattens the structured attribute shape emitted by `resolve-public-catalog`
+ * (see `ResolvedProductAttribute`) into the `{ label, value }` form consumed
+ * by `CollectionView` / `ItemDetail`. The edge function already filters by
+ * `show_in_public_channels !== false`; the strict check here is defensive.
+ */
+function mapAttributes(
+    attrs: ResolvedProductAttribute[] | undefined
+): { label: string; value: string }[] | undefined {
+    const mapped = attrs
         ?.filter(a => a.definition?.show_in_public_channels === true)
         .map(a => {
-            const value = getDisplayValue(
-                a.value_text ?? a.value_number ?? a.value_boolean ?? a.value_json
-            );
+            const raw = a.value_text ?? a.value_number ?? a.value_boolean ?? a.value_json;
+            const value = getDisplayValue(raw);
             return value ? { label: a.definition?.label ?? "—", value } : null;
         })
         .filter((x): x is { label: string; value: string } => x !== null);
+    return mapped && mapped.length > 0 ? mapped : undefined;
+}
+
+function mapProductToItem(p: ResolvedProduct): CollectionViewSectionItem {
+    const attributes = mapAttributes(p.attributes);
 
     const variants = p.variants?.map(v => ({
         id: v.id,
@@ -212,6 +219,7 @@ type PageState =
           tenantLogoUrl: string | null;
           openingHours?: OpeningHoursEntry[];
           upcomingClosures?: UpcomingClosure[];
+          allergens: Allergen[] | null;
       }
     | {
           status: "empty";
@@ -268,7 +276,7 @@ export default function PublicCollectionPage() {
 
                 if (error) throw error;
 
-                const { business, tenantLogoUrl, resolved, subscription_inactive, canonical_slug, opening_hours, upcoming_closures } = data as {
+                const { business, tenantLogoUrl, resolved, subscription_inactive, canonical_slug, opening_hours, upcoming_closures, vertical_type } = data as {
                     business: PublicBusiness;
                     tenantLogoUrl: string | null;
                     resolved: ResolvedCollections;
@@ -276,6 +284,7 @@ export default function PublicCollectionPage() {
                     canonical_slug?: string | null;
                     opening_hours?: OpeningHoursEntry[];
                     upcoming_closures?: UpcomingClosure[];
+                    vertical_type?: VerticalType | null;
                 };
 
                 // Slug cercato era un alias — redirect verso lo slug canonico
@@ -311,13 +320,29 @@ export default function PublicCollectionPage() {
                     return;
                 }
 
+                const showAllergens = vertical_type
+                    ? VERTICAL_CONFIG[vertical_type]?.hasAllergens === true
+                    : false;
+                let allergens: Allergen[] | null = null;
+                if (showAllergens) {
+                    try {
+                        allergens = await listAllAllergens();
+                    } catch (e) {
+                        // Non-blocking: allergens panel is auxiliary; log and continue without it.
+                        console.error("[PublicCollectionPage] allergens load error:", e);
+                        allergens = null;
+                    }
+                    if (cancelled) return;
+                }
+
                 setState({
                     status: "ready",
                     business,
                     resolved,
                     tenantLogoUrl,
                     openingHours: opening_hours,
-                    upcomingClosures: upcoming_closures
+                    upcomingClosures: upcoming_closures,
+                    allergens
                 });
             } catch (err) {
                 if (cancelled) return;
@@ -414,7 +439,7 @@ export default function PublicCollectionPage() {
         return <NotFound variant="business-empty" />;
     }
 
-    const { business, resolved, tenantLogoUrl, openingHours, upcomingClosures } = state;
+    const { business, resolved, tenantLogoUrl, openingHours, upcomingClosures, allergens } = state;
 
     // Derive CollectionStyle from stored tokens so runtime matches preview
     const tokens = parseTokens(resolved.style?.config ?? null);
@@ -536,6 +561,7 @@ export default function PublicCollectionPage() {
                 paymentMethods={business.payment_methods}
                 activityServices={business.services}
                 fees={business.fees}
+                allergens={allergens}
             />
         </PublicThemeScope>
     );

@@ -162,9 +162,14 @@ serve(async (req: Request) => {
         }
 
         // 3. Resolve catalogs + tenant info in parallel
-        const [resolved, tenantInfo, hoursResult, closuresResult] = await Promise.all([
+        const [resolved, tenantInfo, tenantVerticalResult, hoursResult, closuresResult] = await Promise.all([
             resolveActivityCatalogs(supabase, activity.id, simulatedAt, activity.tenant_id),
             supabase.rpc("get_tenant_public_info", { p_tenant_id: activity.tenant_id }),
+            supabase
+                .from("tenants")
+                .select("vertical_type")
+                .eq("id", activity.tenant_id)
+                .maybeSingle(),
             activity.hours_public
                 ? supabase
                       .from("activity_hours")
@@ -190,6 +195,7 @@ serve(async (req: Request) => {
 
         const opening_hours = hoursResult.data ?? undefined;
         const upcoming_closures = closuresResult.data ?? undefined;
+        const vertical_type = tenantVerticalResult.data?.vertical_type ?? null;
 
         // 3b. Check subscription status — block if canceled or suspended
         const subscriptionStatus = tenantInfo.data?.subscription_status;
@@ -236,6 +242,7 @@ serve(async (req: Request) => {
                 business,
                 tenantLogoUrl,
                 resolved,
+                vertical_type,
                 canonical_slug: isAliasMatch ? activity.slug : null,
                 ...(opening_hours ? { opening_hours } : {}),
                 ...(upcoming_closures ? { upcoming_closures } : {})

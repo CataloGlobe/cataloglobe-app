@@ -31,6 +31,7 @@ const ReviewsView = lazy(() => import("../ReviewsView/ReviewsView"));
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
 import type { ActivityFee } from "@/types/activity";
+import type { Allergen } from "@/services/supabase/allergens";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
 
@@ -500,6 +501,8 @@ type Props = {
     activityServices?: string[];
     /** Tariffe della sede (visibili se non vuote). */
     fees?: ActivityFee[];
+    /** Lista allergeni UE (visibile nel footer solo per tenant food-related). */
+    allergens?: Allergen[] | null;
 };
 
 export default function CollectionView({
@@ -527,7 +530,8 @@ export default function CollectionView({
     activityId,
     paymentMethods,
     activityServices,
-    fees
+    fees,
+    allergens
 }: Props) {
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
         () => sectionGroups[0]?.root.id ?? null
@@ -1710,6 +1714,7 @@ export default function CollectionView({
                             fees={mode !== "preview" ? fees : undefined}
                             paymentMethods={mode !== "preview" ? paymentMethods : undefined}
                             services={mode !== "preview" ? activityServices : undefined}
+                            allergens={mode !== "preview" ? allergens : null}
                         />
                     )}
                 </>
