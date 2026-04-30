@@ -1,0 +1,151 @@
+@use "@/styles/mixins.scss" as *;
+
+.root {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+// ── Category section ─────────────────────────────────────────────────────────
+
+.categorySection {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.categoryHeader {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    color: var(--color-gray-800);
+
+    & > :first-child {
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+}
+
+// ── Chip grid ────────────────────────────────────────────────────────────────
+
+.chipGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background-color: var(--color-white, #fff);
+    border: 1px solid var(--color-gray-200);
+    border-radius: 999px;
+    color: var(--color-gray-700);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.2;
+    cursor: pointer;
+    transition:
+        background-color 0.12s ease,
+        border-color 0.12s ease,
+        color 0.12s ease,
+        box-shadow 0.12s ease;
+
+    &:hover:not(:disabled) {
+        background-color: var(--color-gray-50);
+        border-color: var(--color-gray-300);
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--color-primary-100, rgba(37, 99, 235, 0.18));
+    }
+
+    &:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+}
+
+.chipActive {
+    background-color: var(--color-primary-50, #eff6ff);
+    border-color: var(--color-primary-500, #2563eb);
+    color: var(--color-primary-700, #1d4ed8);
+
+    &:hover:not(:disabled) {
+        background-color: var(--color-primary-100, #dbeafe);
+    }
+}
+
+.chipLabel {
+    user-select: none;
+}
+
+// ── Loading skeleton ─────────────────────────────────────────────────────────
+
+.skeletonGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.skeletonChip {
+    width: 110px;
+    height: 32px;
+    background: linear-gradient(
+        90deg,
+        var(--color-gray-100) 0%,
+        var(--color-gray-50) 50%,
+        var(--color-gray-100) 100%
+    );
+    background-size: 200% 100%;
+    border-radius: 999px;
+    animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+    0% {
+        background-position: 100% 0;
+    }
+    100% {
+        background-position: -100% 0;
+    }
+}
+
+// ── Empty / error states ─────────────────────────────────────────────────────
+
+.emptyState,
+.errorState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 32px 16px;
+    text-align: center;
+    background-color: var(--color-gray-50);
+    border: 1px dashed var(--color-gray-200);
+    border-radius: var(--radius-md);
+}
+
+.emptyIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: var(--color-white, #fff);
+    border: 1px solid var(--color-gray-200);
+    color: var(--color-gray-500);
+    margin-bottom: 4px;
+}
+
+.errorState {
+    border-style: solid;
+    border-color: var(--color-error-200, var(--color-gray-200));
+    background-color: var(--color-error-50, var(--color-gray-50));
+}
