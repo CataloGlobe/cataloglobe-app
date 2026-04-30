@@ -20,7 +20,6 @@ import {
     TrendingUp,
     Cpu,
     Archive,
-    Tags,
     CreditCard
 } from "lucide-react";
 import logoPng from "@/assets/logo-V2.png";
@@ -94,7 +93,6 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
             title: "Sistema",
             icon: <Cpu size={12} />,
             items: [
-                // { to: `${b}/attributes`, label: "Attributi prodotto", icon: <Tags size={18} /> },
                 { to: `${b}/team`, label: "Team", icon: <Users size={18} /> },
                 { to: `${b}/subscription`, label: "Abbonamento", icon: <CreditCard size={18} /> },
                 { to: `${b}/settings`, label: "Impostazioni", icon: <Settings size={18} /> }
