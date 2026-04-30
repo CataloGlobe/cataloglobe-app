@@ -1,0 +1,131 @@
+@use "@/styles/mixins.scss" as *;
+
+// ── Wrapper variants ─────────────────────────────────────────────────────────
+
+.wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-gray-700);
+    border-radius: var(--radius-sm);
+    transition: color 0.15s ease;
+
+    &:hover {
+        color: var(--color-gray-900);
+    }
+}
+
+.wrapperBare {
+    color: inherit;
+}
+
+.bareWrapper {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+}
+
+// Lucide SVG inherits color from the wrapper. The inline `style.color` set by
+// the component (e.g. spicy gradient) wins via CSS specificity (style attr).
+.icon {
+    display: block;
+    color: inherit;
+}
+
+// ── Badge variant (text mark) ────────────────────────────────────────────────
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    background-color: var(--color-gray-100);
+    color: var(--color-gray-800);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border: 1px solid var(--color-gray-300);
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.badgeBare {
+    background-color: transparent;
+    border-color: transparent;
+    padding: 0;
+}
+
+// ── Tooltip (CSS-only, hover-driven) ─────────────────────────────────────────
+
+.hasTooltip {
+    cursor: help;
+}
+
+.tooltip {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    padding: 4px 8px;
+    background-color: var(--color-gray-900);
+    color: var(--color-white, #fff);
+    font-size: 12px;
+    line-height: 1.2;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease, transform 0.12s ease;
+    z-index: 10;
+
+    &::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 4px solid transparent;
+        border-top-color: var(--color-gray-900);
+    }
+}
+
+.hasTooltip:hover .tooltip,
+.hasTooltip:focus-within .tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+// ── Demo grid (CharacteristicIconDemo, dev-only) ─────────────────────────────
+
+.demoGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    padding: 16px;
+    background-color: var(--color-gray-50);
+    border-radius: var(--radius-md);
+}
+
+.demoTile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 8px;
+    background-color: var(--color-white, #fff);
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-md);
+}
+
+.demoCode {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11px;
+    color: var(--color-gray-600);
+    background-color: var(--color-gray-100);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+}
