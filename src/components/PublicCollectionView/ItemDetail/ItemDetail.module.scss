@@ -150,6 +150,40 @@
     gap: 0.4rem;
 }
 
+/* ── Caratteristiche ─────────────────────────────────────────────────────── */
+
+.characteristicSection {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
+}
+
+.characteristicSectionLabel {
+    color: var(--pub-text);
+}
+
+.characteristicBadges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.characteristicBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--pub-text) 8%, var(--pub-surface));
+    color: var(--pub-text);
+    border: 1px solid color-mix(in srgb, var(--pub-text) 14%, var(--pub-surface));
+}
+
 /* ── Allergeni ───────────────────────────────────────────────────────────── */
 
 .allergenSection {

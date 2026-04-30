@@ -17,6 +17,7 @@ import { listAllAllergens, type Allergen } from "@/services/supabase/allergens";
 
 import { supabase } from "@/services/supabase/client";
 import type {
+    ResolvedCharacteristic,
     ResolvedCollections,
     ResolvedProduct,
     ResolvedProductAttribute,
@@ -119,9 +120,36 @@ function mapProductToItem(p: ResolvedProduct): CollectionViewSectionItem {
         ...(attributes && attributes.length > 0 ? { attributes } : {}),
         ...(variants && variants.length > 0 ? { variants } : {}),
         ...(p.allergens && p.allergens.length > 0 ? { allergens: p.allergens } : {}),
+        ...(p.characteristics && p.characteristics.length > 0
+            ? { characteristics: p.characteristics }
+            : {}),
         ...(p.ingredients && p.ingredients.length > 0 ? { ingredients: p.ingredients } : {}),
         is_disabled: p.is_disabled ?? false
     };
+}
+
+/**
+ * Collects the union of all characteristics referenced by visible products in
+ * the catalog (parent products only — variants don't carry their own
+ * assignments by design). Sorted by `sort_order` for stable legend rendering.
+ *
+ * Used by the public footer to populate the "Caratteristiche" sheet with
+ * only the items actually used in this catalog (vs. the full pool, which
+ * would be too long for legend display).
+ */
+function collectCatalogCharacteristics(
+    catalog: ResolvedCollections["catalog"]
+): ResolvedCharacteristic[] {
+    if (!catalog?.categories) return [];
+    const seen = new Map<string, ResolvedCharacteristic>();
+    for (const category of catalog.categories) {
+        for (const product of category.products) {
+            for (const c of product.characteristics ?? []) {
+                if (!seen.has(c.id)) seen.set(c.id, c);
+            }
+        }
+    }
+    return Array.from(seen.values()).sort((a, b) => a.sort_order - b.sort_order);
 }
 
 function mapCategoryToSection(cat: ResolvedCategory): CollectionViewSection {
@@ -466,6 +494,7 @@ export default function PublicCollectionPage() {
     } as const;
 
     const sectionGroups = mapCatalogToSectionGroups(resolved);
+    const catalogCharacteristics = collectCatalogCharacteristics(resolved.catalog);
     const emptyState =
         sectionGroups.length === 0
             ? { title: "Nessun prodotto disponibile al momento" }
@@ -562,6 +591,7 @@ export default function PublicCollectionPage() {
                 activityServices={business.services}
                 fees={business.fees}
                 allergens={allergens}
+                catalogCharacteristics={catalogCharacteristics}
             />
         </PublicThemeScope>
     );

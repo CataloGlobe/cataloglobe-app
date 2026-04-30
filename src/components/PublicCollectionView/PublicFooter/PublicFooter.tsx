@@ -5,8 +5,10 @@ import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
 import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
 import PublicFees from "./PublicFees";
 import AllergensSheet from "../AllergensSheet/AllergensSheet";
+import CharacteristicsSheet from "../CharacteristicsSheet/CharacteristicsSheet";
 import type { Allergen } from "@/services/supabase/allergens";
 import type { ActivityFee } from "@/types/activity";
+import type { ResolvedCharacteristic } from "@/types/resolvedCollections";
 import styles from "./PublicFooter.module.scss";
 
 /* ── Icone SVG inline ─────────────────────────────────────────
@@ -108,6 +110,12 @@ type Props = {
     services?: string[];
     /** Lista allergeni UE (passata solo per tenant food-related). null = nascondi pulsante. */
     allergens?: Allergen[] | null;
+    /**
+     * Caratteristiche presenti nel catalogo (filtrate runtime, già ordinate
+     * per `sort_order`). Lista vuota / undefined → bottone "Caratteristiche"
+     * nascosto.
+     */
+    characteristics?: ResolvedCharacteristic[];
 };
 
 export default function PublicFooter({
@@ -116,11 +124,14 @@ export default function PublicFooter({
     openingHours,
     upcomingClosures,
     fees,
-    allergens
+    allergens,
+    characteristics
 }: Props) {
     const hasFees = (fees?.length ?? 0) > 0;
     const hasAllergens = !!allergens && allergens.length > 0;
+    const hasCharacteristics = !!characteristics && characteristics.length > 0;
     const [isAllergensSheetOpen, setIsAllergensSheetOpen] = useState(false);
+    const [isCharacteristicsSheetOpen, setIsCharacteristicsSheetOpen] = useState(false);
     // Costruisce la lista di social visibili
     const visibleSocials: { href: string; label: string; icon: ReactNode; socialType: SocialType }[] = [];
 
@@ -200,6 +211,22 @@ export default function PublicFooter({
                 </button>
             )}
 
+            {/* Caratteristiche — visibile solo se almeno 1 prodotto del catalogo le usa */}
+            {hasCharacteristics && (
+                <button
+                    type="button"
+                    className={styles.characteristicsBtn}
+                    onClick={() => setIsCharacteristicsSheetOpen(true)}
+                    aria-label="Apri lista caratteristiche"
+                >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                        <line x1="7" y1="7" x2="7.01" y2="7" />
+                    </svg>
+                    <span>Caratteristiche</span>
+                </button>
+            )}
+
             {/* Social icons — visibili solo se configurati e pubblici */}
             {visibleSocials.length > 0 && (
                 <div className={styles.socialRow}>
@@ -242,6 +269,14 @@ export default function PublicFooter({
                     isOpen={isAllergensSheetOpen}
                     onClose={() => setIsAllergensSheetOpen(false)}
                     allergens={allergens!}
+                />
+            )}
+
+            {hasCharacteristics && (
+                <CharacteristicsSheet
+                    isOpen={isCharacteristicsSheetOpen}
+                    onClose={() => setIsCharacteristicsSheetOpen(false)}
+                    characteristics={characteristics!}
                 />
             )}
 

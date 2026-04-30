@@ -53,8 +53,9 @@
   }
 }
 
-/* ── ALLERGENI BUTTON ───────────────────────────────────── */
-.allergensBtn {
+/* ── ALLERGENI / CARATTERISTICHE BUTTONS ────────────────── */
+.allergensBtn,
+.characteristicsBtn {
   display: inline-flex;
   align-items: center;
   gap: 6px;

@@ -108,6 +108,25 @@ const CUSTOM_FALLBACK_MAP: Record<string, CustomFallback> = {
 
 const NEUTRAL_FALLBACK: LucideComponent = Tag;
 
+/**
+ * Maps each `badge:<name>` to the short token displayed inside the badge.
+ * Visible text is always derived from the icon key (NOT from the human label),
+ * so badges stay compact in card view regardless of the verbose label_it
+ * passed for tooltips. Unknown keys fall back to the uppercased name with
+ * separators turned into spaces.
+ */
+const BADGE_LABEL_MAP: Record<string, string> = {
+    halal: "HALAL",
+    kosher: "KOSHER",
+    "slow-food": "SLOW FOOD",
+    fivi: "FIVI",
+    "18plus": "18+"
+};
+
+function badgeTextFor(name: string): string {
+    return BADGE_LABEL_MAP[name] ?? name.replace(/[-_]/g, " ").toUpperCase();
+}
+
 // Debounced dev warnings: emit once per missing custom name across the lifetime
 // of the page. Avoids console spam when the same characteristic icon renders
 // across many cards on a single page.
@@ -188,19 +207,23 @@ export default function CharacteristicIcon({
             renderable = <NEUTRAL_FALLBACK size={size} className={styles.icon} />;
         }
     } else if (prefix === "badge") {
-        // For badges the wrapper itself is the visual; pre-bake a short token
-        // (3-6 chars) from the name when no label is provided.
-        const text = label ?? name.replace(/[-_]/g, " ").slice(0, 6);
+        // Badge visible text is always derived from the icon key
+        // (`<name>` after `badge:`), NOT from `label`. Keeps badges compact
+        // in card view (e.g. "18+") while the verbose label_it stays
+        // available for tooltip + aria-label.
+        const badgeText = badgeTextFor(name);
         return (
             <span
                 className={`${styles.wrapper} ${variant === "bare" ? styles.wrapperBare : ""} ${
-                    label ? styles.hasTooltip : ""
+                    label && variant !== "bare" ? styles.hasTooltip : ""
                 } ${className ?? ""}`.trim()}
                 aria-label={label}
                 role={label ? "img" : undefined}
             >
-                <CharacteristicBadge label={text} size={size} variant={variant} />
-                {label && <span className={styles.tooltip}>{label}</span>}
+                <CharacteristicBadge label={badgeText} size={size} variant={variant} />
+                {label && variant !== "bare" && (
+                    <span className={styles.tooltip}>{label}</span>
+                )}
             </span>
         );
     } else {

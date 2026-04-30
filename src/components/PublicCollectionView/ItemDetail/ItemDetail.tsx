@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Package, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
+import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import styles from "./ItemDetail.module.scss";
 import type { CollectionViewSectionItem } from "../CollectionView/CollectionView";
@@ -399,17 +400,20 @@ export default function ItemDetail({
                             )
                         )}
 
-                        {/* ATTRIBUTI */}
-                        {displayItem.attributes && displayItem.attributes.length > 0 && (
-                            <div style={{ marginTop: 12 }}>
-                                {displayItem.attributes.map((a, idx) => {
-                                    if (!a.value || a.value.trim() === "") return null;
-                                    return (
-                                        <Text key={idx} variant="body-sm" color="var(--pub-surface-text-muted)">
-                                            <strong>{a.label}:</strong> {a.value}
-                                        </Text>
-                                    );
-                                })}
+                        {/* CARATTERISTICHE — flat layout, sort_order from server */}
+                        {displayItem.characteristics && displayItem.characteristics.length > 0 && (
+                            <div className={styles.characteristicSection}>
+                                <Text variant="body-sm" weight={700} className={styles.characteristicSectionLabel} color="var(--pub-surface-text)">
+                                    Caratteristiche
+                                </Text>
+                                <div className={styles.characteristicBadges}>
+                                    {displayItem.characteristics.map(c => (
+                                        <span key={c.id} className={styles.characteristicBadge}>
+                                            <CharacteristicIcon icon={c.icon} size={14} variant="bare" />
+                                            {c.label_it}
+                                        </span>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
@@ -439,6 +443,20 @@ export default function ItemDetail({
                                 <Text variant="body-sm" className={styles.ingredientList} color="var(--pub-surface-text-muted)">
                                     {displayItem.ingredients.map(i => i.name).join(", ")}
                                 </Text>
+                            </div>
+                        )}
+
+                        {/* ATTRIBUTI */}
+                        {displayItem.attributes && displayItem.attributes.length > 0 && (
+                            <div style={{ marginTop: 12 }}>
+                                {displayItem.attributes.map((a, idx) => {
+                                    if (!a.value || a.value.trim() === "") return null;
+                                    return (
+                                        <Text key={idx} variant="body-sm" color="var(--pub-surface-text-muted)">
+                                            <strong>{a.label}:</strong> {a.value}
+                                        </Text>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
