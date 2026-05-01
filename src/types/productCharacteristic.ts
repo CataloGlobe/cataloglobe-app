@@ -42,7 +42,6 @@ export type ProductCharacteristic = {
     label_en: string;
     icon: string;
     sort_order: number;
-    show_in_card: boolean;
     mutex_group: string | null;
     dietary_claim: boolean;
     created_at: string;

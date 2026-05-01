@@ -32,7 +32,6 @@ export type ResolvedCharacteristic = {
     label_en: string;
     icon: string;
     sort_order: number;
-    show_in_card: boolean;
     mutex_group: string | null;
     dietary_claim: boolean;
 };
@@ -211,7 +210,6 @@ type RawCharacteristicRow = {
         label_en: string;
         icon: string;
         sort_order: number;
-        show_in_card: boolean;
         mutex_group: string | null;
         dietary_claim: boolean;
     } | null;
@@ -475,7 +473,6 @@ function normalizeCatalog(
                                   label_en: c.label_en,
                                   icon: c.icon,
                                   sort_order: c.sort_order,
-                                  show_in_card: c.show_in_card,
                                   mutex_group: c.mutex_group,
                                   dietary_claim: c.dietary_claim
                               }
@@ -857,7 +854,6 @@ export async function loadCatalogById(catalogId: string, tenantId: string): Prom
                             label_en,
                             icon,
                             sort_order,
-                            show_in_card,
                             mutex_group,
                             dietary_claim
                         )
@@ -899,7 +895,6 @@ export async function loadCatalogById(catalogId: string, tenantId: string): Prom
                           label_en,
                           icon,
                           sort_order,
-                          show_in_card,
                           mutex_group,
                           dietary_claim
                       )
