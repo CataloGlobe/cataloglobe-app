@@ -446,6 +446,23 @@ export default function ItemDetail({
                             </div>
                         )}
 
+                        {/* INFORMAZIONI — note libere {label, value} dichiarate dal ristoratore */}
+                        {displayItem.notes && displayItem.notes.length > 0 && (
+                            <div className={styles.notesSection}>
+                                <Text variant="body-sm" weight={700} className={styles.notesSectionLabel} color="var(--pub-surface-text)">
+                                    Informazioni
+                                </Text>
+                                <dl className={styles.notesList}>
+                                    {displayItem.notes.map((note, idx) => (
+                                        <div key={idx} className={styles.notesRow}>
+                                            <dt className={styles.notesLabel}>{note.label}</dt>
+                                            <dd className={styles.notesValue}>{note.value}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </div>
+                        )}
+
                         {/* ATTRIBUTI */}
                         {displayItem.attributes && displayItem.attributes.length > 0 && (
                             <div style={{ marginTop: 12 }}>

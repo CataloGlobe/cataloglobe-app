@@ -59,12 +59,15 @@ export default function ProductPage() {
         () => [
             { value: "general", label: "Generale" },
             {
-                // TODO Phase 4b.2: rename to "Caratteristiche e Note" once
-                // ProductNotesSection is wired into CharacteristicsAndNotesTab.
                 value: "characteristics",
                 label: verticalConfig.copy.productSections.characteristics,
+                // Tab is visible when EITHER section is enabled. Generic
+                // vertical (characteristics off, notes on) shows the tab
+                // with an empty-state characteristics block + a working
+                // notes editor.
                 gated: c =>
-                    c.productSections.characteristics && characteristicsAllowedForProduct
+                    (c.productSections.characteristics || c.productSections.notes) &&
+                    characteristicsAllowedForProduct
             },
             {
                 value: "pricing",
@@ -227,13 +230,16 @@ export default function ProductPage() {
                         </Card>
                     </Tabs.Panel>
 
-                    {verticalConfig.productSections.characteristics &&
+                    {(verticalConfig.productSections.characteristics ||
+                        verticalConfig.productSections.notes) &&
                         product.parent_product_id === null && (
                             <Tabs.Panel value="characteristics">
                                 <CharacteristicsAndNotesTab
                                     productId={productId!}
                                     tenantId={tenantId!}
                                     vertical={selectedTenant?.vertical_type}
+                                    initialNotes={product.notes}
+                                    onProductUpdated={updated => setProduct(updated)}
                                 />
                             </Tabs.Panel>
                         )}

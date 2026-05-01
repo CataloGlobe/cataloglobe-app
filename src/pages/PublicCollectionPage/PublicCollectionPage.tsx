@@ -124,6 +124,7 @@ function mapProductToItem(p: ResolvedProduct): CollectionViewSectionItem {
             ? { characteristics: p.characteristics }
             : {}),
         ...(p.ingredients && p.ingredients.length > 0 ? { ingredients: p.ingredients } : {}),
+        ...(p.notes && p.notes.length > 0 ? { notes: p.notes } : {}),
         is_disabled: p.is_disabled ?? false
     };
 }

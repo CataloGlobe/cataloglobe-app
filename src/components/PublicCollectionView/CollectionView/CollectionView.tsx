@@ -5,6 +5,7 @@ import type {
     ResolvedAllergen,
     ResolvedCharacteristic,
     ResolvedIngredient,
+    ResolvedProductNote,
     V2FeaturedContent
 } from "@/types/resolvedCollections";
 import type { HubTab } from "@/types/collectionStyle";
@@ -102,6 +103,7 @@ export type CollectionViewSectionItem = {
     allergens?: ResolvedAllergen[];
     characteristics?: ResolvedCharacteristic[];
     ingredients?: ResolvedIngredient[];
+    notes?: ResolvedProductNote[];
     /** Child variants (products with parent_product_id = this.id). */
     variants?: {
         id: string;
@@ -783,6 +785,7 @@ export default function CollectionView({
                                     : {}),
                                 ...(item.allergens?.length ? { allergens: item.allergens } : {}),
                                 ...(item.ingredients?.length ? { ingredients: item.ingredients } : {}),
+                                ...(item.notes?.length ? { notes: item.notes } : {}),
                             };
                         }
                     }
@@ -1339,6 +1342,9 @@ export default function CollectionView({
                                                             : {}),
                                                         ...(item.ingredients && item.ingredients.length > 0
                                                             ? { ingredients: item.ingredients }
+                                                            : {}),
+                                                        ...(item.notes && item.notes.length > 0
+                                                            ? { notes: item.notes }
                                                             : {})
                                                     });
                                                 }}
@@ -1369,6 +1375,9 @@ export default function CollectionView({
                                                                       : {}),
                                                                   ...(item.ingredients && item.ingredients.length > 0
                                                                       ? { ingredients: item.ingredients }
+                                                                      : {}),
+                                                                  ...(item.notes && item.notes.length > 0
+                                                                      ? { notes: item.notes }
                                                                       : {})
                                                               })
                                                           )
@@ -1412,6 +1421,9 @@ export default function CollectionView({
                                                             : {}),
                                                         ...(item.ingredients && item.ingredients.length > 0
                                                             ? { ingredients: item.ingredients }
+                                                            : {}),
+                                                        ...(item.notes && item.notes.length > 0
+                                                            ? { notes: item.notes }
                                                             : {})
                                                     });
                                                 }}
@@ -1442,6 +1454,9 @@ export default function CollectionView({
                                                                       : {}),
                                                                   ...(item.ingredients && item.ingredients.length > 0
                                                                       ? { ingredients: item.ingredients }
+                                                                      : {}),
+                                                                  ...(item.notes && item.notes.length > 0
+                                                                      ? { notes: item.notes }
                                                                       : {})
                                                               })
                                                           )

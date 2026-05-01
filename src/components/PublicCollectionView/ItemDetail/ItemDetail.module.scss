@@ -237,6 +237,64 @@
     line-height: 1.5;
 }
 
+/* ── Informazioni (note prodotto) ────────────────────────────────────────── */
+
+.notesSection {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
+}
+
+.notesSectionLabel {
+    color: var(--pub-text);
+}
+
+.notesList {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.notesRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    gap: 8px;
+    align-items: baseline;
+    padding: 4px 0;
+
+    &:not(:last-child) {
+        border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 6%, transparent);
+    }
+
+    @media (max-width: 480px) {
+        grid-template-columns: 1fr;
+        gap: 2px;
+    }
+}
+
+.notesLabel {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--pub-text);
+    line-height: 1.3;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.notesValue {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: color-mix(in srgb, var(--pub-text) 75%, var(--pub-surface));
+    line-height: 1.4;
+}
+
 /* ── Section label row (formato / add-on) ────────────────────────────────── */
 
 .sectionLabelRow {

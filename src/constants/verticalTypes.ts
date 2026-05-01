@@ -140,7 +140,7 @@ const FOOD_BEVERAGE_CONFIG: VerticalConfig = {
         productSections: {
             allergens: "Allergeni",
             ingredients: "Ingredienti",
-            characteristics: "Caratteristiche",
+            characteristics: "Caratteristiche e Note",
             customAttributes: "Attributi"
         },
         productAttributes: {
@@ -190,7 +190,7 @@ export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
             productSections: {
                 allergens: "Allergeni",
                 ingredients: "Ingredienti",
-                characteristics: "Caratteristiche",
+                characteristics: "Caratteristiche e Note",
                 customAttributes: "Attributi"
             },
             productAttributes: {
@@ -222,7 +222,7 @@ export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
             productSections: {
                 allergens: "Allergeni",
                 ingredients: "Ingredienti",
-                characteristics: "Caratteristiche",
+                characteristics: "Caratteristiche e Note",
                 customAttributes: "Attributi"
             },
             productAttributes: {
@@ -254,7 +254,7 @@ export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
             productSections: {
                 allergens: "Allergeni",
                 ingredients: "Ingredienti",
-                characteristics: "Caratteristiche",
+                characteristics: "Caratteristiche e Note",
                 customAttributes: "Attributi"
             },
             productAttributes: {
