@@ -210,20 +210,23 @@ export default function CharacteristicIcon({
         // Badge visible text is always derived from the icon key
         // (`<name>` after `badge:`), NOT from `label`. Keeps badges compact
         // in card view (e.g. "18+") while the verbose label_it stays
-        // available for tooltip + aria-label.
+        // available for tooltip + aria-label on the default variant.
         const badgeText = badgeTextFor(name);
+        if (variant === "bare") {
+            // Mirror AllergenIcon variant=bare: standalone element, no
+            // wrapper, label prop intentionally ignored. Consumers
+            // (ItemDetail, CharacteristicsSheet) render the label_it
+            // adjacent to the icon themselves.
+            return <CharacteristicBadge label={badgeText} size={size} variant="bare" />;
+        }
         return (
             <span
-                className={`${styles.wrapper} ${variant === "bare" ? styles.wrapperBare : ""} ${
-                    label && variant !== "bare" ? styles.hasTooltip : ""
-                } ${className ?? ""}`.trim()}
+                className={`${styles.wrapper} ${label ? styles.hasTooltip : ""} ${className ?? ""}`.trim()}
                 aria-label={label}
                 role={label ? "img" : undefined}
             >
-                <CharacteristicBadge label={badgeText} size={size} variant={variant} />
-                {label && variant !== "bare" && (
-                    <span className={styles.tooltip}>{label}</span>
-                )}
+                <CharacteristicBadge label={badgeText} size={size} variant="default" />
+                {label && <span className={styles.tooltip}>{label}</span>}
             </span>
         );
     } else {
@@ -231,15 +234,10 @@ export default function CharacteristicIcon({
     }
 
     if (variant === "bare") {
-        return (
-            <span
-                className={`${styles.bareWrapper} ${className ?? ""}`.trim()}
-                aria-label={label}
-                role={label ? "img" : undefined}
-            >
-                {renderable}
-            </span>
-        );
+        // Mirror AllergenIcon variant=bare: return the renderable directly,
+        // no wrapper span, no aria-label, label prop ignored. Consumers
+        // pass label_it as adjacent text in detail/sheet surfaces.
+        return renderable;
     }
 
     return (

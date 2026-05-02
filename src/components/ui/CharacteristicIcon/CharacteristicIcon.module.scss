@@ -19,17 +19,6 @@
     }
 }
 
-.wrapperBare {
-    color: inherit;
-}
-
-.bareWrapper {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: inherit;
-}
-
 // Lucide SVG inherits color from the wrapper. The inline `style.color` set by
 // the component (e.g. spicy gradient) wins via CSS specificity (style attr).
 .icon {
