@@ -7,7 +7,10 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-gray-700);
+    // Theme-aware: uses --pub-surface-text in public scope
+    // (PublicThemeScope injects pub-* tokens), falls back to admin
+    // gray-700 outside (e.g. CharacteristicsSection in product detail).
+    color: var(--pub-surface-text, var(--color-gray-700));
     border-radius: var(--radius-sm);
     transition: color 0.15s ease;
 
