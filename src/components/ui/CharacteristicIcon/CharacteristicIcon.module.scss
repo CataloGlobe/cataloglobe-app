@@ -7,16 +7,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    // Theme-aware: uses --pub-surface-text in public scope
-    // (PublicThemeScope injects pub-* tokens), falls back to admin
-    // gray-700 outside (e.g. CharacteristicsSection in product detail).
-    color: var(--pub-surface-text, var(--color-gray-700));
-    border-radius: var(--radius-sm);
-    transition: color 0.15s ease;
-
-    &:hover {
-        color: var(--color-gray-900);
-    }
+    // Chip-style mirror of AllergenIcon: theme-aware soft-tinted round
+    // chip with primary-color icon. Pepper color overrides (inline
+    // style on the SVG) win over this color via CSS specificity.
+    color: var(--pub-primary, var(--color-gray-700));
+    background-color: var(--pub-primary-soft, #F1F3F5);
+    border-radius: 50%;
+    padding: 4px;
+    flex-shrink: 0;
 }
 
 // Lucide SVG inherits color from the wrapper. The inline `style.color` set by
