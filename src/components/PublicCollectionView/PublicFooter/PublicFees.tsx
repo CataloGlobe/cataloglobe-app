@@ -40,12 +40,13 @@ export function PublicFeeRows({ fees }: { fees: ActivityFee[] }) {
 }
 
 export default function PublicFees({ fees }: Props) {
+    const { t } = useTranslation("public");
     if (!fees || fees.length === 0) return null;
 
     return (
         <div className={styles.feesBlock}>
             <section className={styles.section}>
-                <h3 className={styles.sectionTitle}>Tariffe</h3>
+                <h3 className={styles.sectionTitle}>{t("info.fees")}</h3>
                 <PublicFeeRows fees={fees} />
             </section>
         </div>

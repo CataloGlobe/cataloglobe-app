@@ -620,6 +620,28 @@ export default function CollectionView({
     const handleOpenSearch = useCallback(() => setIsSearchOpen(true), []);
     const handleCloseSearch = useCallback(() => setIsSearchOpen(false), []);
 
+    // Cmd+F (Mac) / Ctrl+F (Win/Linux) apre la ricerca interna invece della find del browser
+    useEffect(() => {
+        if (mode === "preview") return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const isFindShortcut =
+                (e.metaKey || e.ctrlKey) &&
+                !e.shiftKey &&
+                !e.altKey &&
+                e.key.toLowerCase() === "f";
+
+            if (!isFindShortcut) return;
+            if (isSearchOpen) return;
+
+            e.preventDefault();
+            handleOpenSearch();
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [mode, isSearchOpen, handleOpenSearch]);
+
     // ── Info sheet ──────────────────────────────────────────────────────────
     const [isInfoSheetOpen, setIsInfoSheetOpen] = useState(false);
     const hasHours = (openingHours?.length ?? 0) > 0;
