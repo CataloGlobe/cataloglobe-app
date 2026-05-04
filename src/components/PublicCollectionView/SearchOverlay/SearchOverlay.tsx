@@ -15,6 +15,51 @@ type Props = {
     activityId?: string;
 };
 
+// ── Helpers di normalizzazione e scoring ─────────────────────────────────────
+
+const normalizeForSearch = (s: string): string =>
+    s
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .trim();
+
+const escapeRegex = (s: string): string =>
+    s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+function computeScore(item: CollectionViewSectionItem, q: string): number {
+    if (!q) return 0;
+    const escaped = escapeRegex(q);
+    const wordRe = new RegExp(`\\b${escaped}\\b`);
+
+    const name = normalizeForSearch(item.name ?? "");
+    const desc = normalizeForSearch(item.description ?? "");
+
+    let score = 0;
+
+    // Nome: match parola-iniziale > word-boundary > substring
+    if (name.startsWith(q) && wordRe.test(name)) score = Math.max(score, 100);
+    else if (wordRe.test(name)) score = Math.max(score, 50);
+    else if (name.includes(q)) score = Math.max(score, 20);
+
+    // Varianti: contribuiscono al parent con score ridotto
+    const variants = Array.isArray(item.variants) ? item.variants : [];
+    let variantScore = 0;
+    for (const v of variants) {
+        const vname = normalizeForSearch(v?.name ?? "");
+        if (wordRe.test(vname)) variantScore = Math.max(variantScore, 40);
+        else if (vname.includes(q)) variantScore = Math.max(variantScore, 15);
+    }
+    score = Math.max(score, variantScore);
+
+    // Description: solo se nessun match più forte
+    if (score === 0 && desc.includes(q)) score = 5;
+
+    return score;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function formatPrice(item: CollectionViewSectionItem): string | null {
     if (item.from_price != null) return `da €${item.from_price.toFixed(2)}`;
     const p = item.effective_price ?? item.price;
@@ -37,24 +82,39 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
         return () => clearTimeout(t);
     }, [isOpen]);
 
-    // Risultati raggruppati per sezione
-    const groupedResults = useMemo(
-        () =>
-            query.trim().length > 0
-                ? sections
-                      .map(s => ({
-                          sectionId: s.id,
-                          sectionName: s.name,
-                          items: s.items.filter(
-                              item =>
-                                  item.name.toLowerCase().includes(query.toLowerCase()) ||
-                                  (item.description?.toLowerCase().includes(query.toLowerCase()) ?? false)
-                          )
-                      }))
-                      .filter(g => g.items.length > 0)
-                : [],
-        [query, sections]
+    // Debounce 100ms: l'input resta reattivo, il filtro si aggiorna con ritardo
+    const [debouncedQuery, setDebouncedQuery] = useState("");
+    useEffect(() => {
+        const t = setTimeout(() => setDebouncedQuery(query), 100);
+        return () => clearTimeout(t);
+    }, [query]);
+
+    const normalizedQuery = useMemo(
+        () => normalizeForSearch(debouncedQuery),
+        [debouncedQuery]
     );
+
+    // Risultati raggruppati per sezione, ordinati per score DESC
+    const groupedResults = useMemo(() => {
+        if (!normalizedQuery) return [];
+
+        return sections
+            .map(s => {
+                const scored = s.items
+                    .map((item, originalIndex) => ({
+                        item,
+                        score: computeScore(item, normalizedQuery),
+                        originalIndex,
+                    }))
+                    .filter(r => r.score > 0)
+                    .sort((a, b) => b.score - a.score || a.originalIndex - b.originalIndex);
+
+                return scored.length > 0
+                    ? { sectionId: s.id, sectionName: s.name, items: scored.map(r => r.item) }
+                    : null;
+            })
+            .filter((g): g is NonNullable<typeof g> => g !== null);
+    }, [sections, normalizedQuery]);
 
     // Lista piatta per la navigazione da tastiera
     const flatResults = useMemo(
@@ -64,7 +124,7 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
 
     const totalCount = flatResults.length;
 
-    // Reset highlight quando la query cambia
+    // Reset highlight quando la query cambia (immediato, non debounced)
     useEffect(() => {
         setHighlightedIndex(-1);
         resultRefsRef.current = [];

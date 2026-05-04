@@ -237,7 +237,7 @@
   justify-content: center;
   padding: 2rem 1rem;
   font-size: 0.875rem;
-  color: var(--pub-text-muted);
+  color: var(--pub-bg-text-muted);
   font-family: var(--pub-font-family, sans-serif);
   text-align: center;
 }
@@ -245,7 +245,7 @@
 .hintQuery {
   font-style: normal;
   font-weight: 600;
-  color: var(--pub-text);
+  color: var(--pub-bg-text);
 }
 
 /* ── GRUPPO SEZIONE ──────────────────────────────────────── */
@@ -260,7 +260,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: var(--pub-text-muted);
+  color: var(--pub-bg-text-muted);
   font-family: var(--pub-font-family, sans-serif);
 }
 
@@ -280,16 +280,16 @@
   transition: background 0.1s ease;
 
   &:hover {
-    background: color-mix(in srgb, var(--pub-text) 4%, var(--pub-surface));
+    background: color-mix(in srgb, var(--pub-bg-text) 4%, var(--pub-bg));
   }
 
   &:active {
-    background: color-mix(in srgb, var(--pub-text) 8%, var(--pub-surface));
+    background: color-mix(in srgb, var(--pub-bg-text) 8%, var(--pub-bg));
   }
 }
 
 .resultBtnHighlighted {
-  background: color-mix(in srgb, var(--pub-primary) 8%, var(--pub-surface));
+  background: color-mix(in srgb, var(--pub-primary) 8%, var(--pub-bg));
 
   .resultName {
     color: var(--pub-primary);
@@ -307,7 +307,7 @@
 .resultName {
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--pub-text);
+  color: var(--pub-bg-text);
   font-family: var(--pub-font-family, sans-serif);
   white-space: nowrap;
   overflow: hidden;
@@ -316,7 +316,7 @@
 
 .resultDesc {
   font-size: 0.775rem;
-  color: var(--pub-text-muted);
+  color: var(--pub-bg-text-muted);
   font-family: var(--pub-font-family, sans-serif);
   white-space: nowrap;
   overflow: hidden;
@@ -336,7 +336,7 @@
 .countNote {
   padding: 0.6rem 1rem 0;
   font-size: 0.7rem;
-  color: var(--pub-text-muted);
+  color: var(--pub-bg-text-muted);
   font-family: var(--pub-font-family, sans-serif);
   border-top: 1px solid var(--pub-border);
   margin-top: 0.5rem;
