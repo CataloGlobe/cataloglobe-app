@@ -2,6 +2,9 @@ import { supabase } from "@/services/supabase/client";
 import { getProductAttributes, setProductAttributeValue } from "./attributes";
 import { getProductAllergens, setProductAllergens } from "./allergens";
 import { getProductGroupAssignments, assignProductToGroup } from "./productGroups";
+import { computeFieldHash, computeNotesHash } from "@/services/translation/hashUtils";
+import { enqueueWithSilentError, serializeNotes } from "./translationJobs";
+import { deleteTranslationsForEntity } from "./translations";
 
 export type ProductType = "simple" | "formats" | "configurable";
 
@@ -28,6 +31,9 @@ export type V2Product = {
      * `validateProductNotes()` at create/update time.
      */
     notes: ProductNote[];
+    /** Hash dei source field per traduzioni (Prompt 7+). Esposto da getProduct (SELECT *). */
+    description_hash?: string | null;
+    notes_hash?: string | null;
     created_at: string;
     updated_at: string;
     // Joined
@@ -321,6 +327,11 @@ export async function createProduct(
 
     const resolvedProductType: ProductType = data.product_type ?? "simple";
     const validatedNotes = validateProductNotes(data.notes);
+    const description = data.description || null;
+
+    // Hash translation fields (canonical form) prima dell'INSERT.
+    const descriptionHash = await computeFieldHash(description);
+    const notesHash = await computeNotesHash(validatedNotes);
 
     const { data: newProduct, error } = await supabase
         .from("products")
@@ -328,12 +339,14 @@ export async function createProduct(
             id: crypto.randomUUID(),
             tenant_id: tenantId,
             name: data.name,
-            description: data.description || null,
+            description,
             base_price: data.base_price ?? null,
             parent_product_id: parentId || null,
             image_url: data.image_url ?? null,
             product_type: resolvedProductType,
-            notes: validatedNotes
+            notes: validatedNotes,
+            description_hash: descriptionHash,
+            notes_hash: notesHash
         })
         .select()
         .single();
@@ -343,6 +356,28 @@ export async function createProduct(
     // When a variant is created, the parent transitions to "configurable".
     if (parentId) {
         await recomputeProductType(parentId, tenantId);
+    }
+
+    // Enqueue translation jobs (fire-and-forget, silent error).
+    if (descriptionHash !== null) {
+        await enqueueWithSilentError({
+            tenantId,
+            entityType: "product",
+            entityId: newProduct.id,
+            field: "description",
+            newSourceText: description,
+            newSourceHash: descriptionHash
+        });
+    }
+    if (notesHash !== null) {
+        await enqueueWithSilentError({
+            tenantId,
+            entityType: "product_notes",
+            entityId: newProduct.id,
+            field: "notes",
+            newSourceText: serializeNotes(validatedNotes),
+            newSourceHash: notesHash
+        });
     }
 
     return newProduct;
@@ -393,13 +428,29 @@ export async function updateProduct(
     }> = {
         updated_at: new Date().toISOString()
     };
+    // Track presenza dei field tradotti per enqueue post-UPDATE.
+    const descriptionInData = "description" in data;
+    const notesInData = "notes" in data;
+    let descriptionHash: string | null = null;
+    let notesHash: string | null = null;
+    let validatedNotes: ProductNote[] | undefined;
+
     if (data.name !== undefined) updatePayload.name = data.name;
-    if (data.description !== undefined) updatePayload.description = data.description;
+    if (descriptionInData) {
+        updatePayload.description = data.description ?? null;
+        descriptionHash = await computeFieldHash(data.description ?? null);
+        (updatePayload as Record<string, unknown>).description_hash = descriptionHash;
+    }
     if (data.base_price !== undefined) updatePayload.base_price = data.base_price;
     if (data.image_url !== undefined) updatePayload.image_url = data.image_url;
     if (data.product_type !== undefined) updatePayload.product_type = data.product_type;
     if (parentId !== undefined) updatePayload.parent_product_id = parentId;
-    if (data.notes !== undefined) updatePayload.notes = validateProductNotes(data.notes);
+    if (notesInData) {
+        validatedNotes = validateProductNotes(data.notes);
+        updatePayload.notes = validatedNotes;
+        notesHash = await computeNotesHash(validatedNotes);
+        (updatePayload as Record<string, unknown>).notes_hash = notesHash;
+    }
 
     const { data: updatedProduct, error } = await supabase
         .from("products")
@@ -415,6 +466,28 @@ export async function updateProduct(
     // Only applies to base products (variants are always "simple").
     if (!updatedProduct.parent_product_id) {
         await recomputeProductType(id, tenantId);
+    }
+
+    // Enqueue translation jobs solo per i field effettivamente changed.
+    if (descriptionInData) {
+        await enqueueWithSilentError({
+            tenantId,
+            entityType: "product",
+            entityId: id,
+            field: "description",
+            newSourceText: data.description ?? null,
+            newSourceHash: descriptionHash
+        });
+    }
+    if (notesInData) {
+        await enqueueWithSilentError({
+            tenantId,
+            entityType: "product_notes",
+            entityId: id,
+            field: "notes",
+            newSourceText: serializeNotes(validatedNotes ?? null),
+            newSourceHash: notesHash
+        });
     }
 
     return updatedProduct;
@@ -451,6 +524,17 @@ export async function deleteProduct(id: string, tenantId: string): Promise<void>
     if (existing?.parent_product_id) {
         await recomputeProductType(existing.parent_product_id, tenantId);
     }
+
+    // Cleanup translations associate (entity_id non ha FK CASCADE, va manuale).
+    // Silent error: il prodotto è già stato cancellato, eventuali fallimenti
+    // di cleanup non devono propagare; al massimo restano translations orfane
+    // (cleanable in batch successivo).
+    try {
+        await deleteTranslationsForEntity(tenantId, "product", id, "description");
+        await deleteTranslationsForEntity(tenantId, "product_notes", id, "notes");
+    } catch (err) {
+        console.error("[translations] cleanup on deleteProduct failed:", err);
+    }
 }
 
 import {
@@ -462,6 +546,10 @@ import {
 import { getProductIngredients, setProductIngredients } from "./ingredients";
 
 export async function duplicateProduct(productId: string, tenantId: string): Promise<V2Product> {
+    // NOTA traduzioni: il duplicato eredita description/notes dall'originale.
+    // L'enqueue dei translation_jobs avviene automaticamente al passo 2 sotto
+    // tramite createProduct (Prompt 9 hook). Niente lazy-at-first-edit: il
+    // duplicato ha translations subito allineate al primo cron tick.
     // 1. Fetch original product
     const original = await getProduct(productId, tenantId);
     if (!original) {

@@ -1,4 +1,7 @@
 import { supabase } from "@/services/supabase/client";
+import { computeFieldHash } from "@/services/translation/hashUtils";
+import { enqueueWithSilentError } from "./translationJobs";
+import { deleteTranslationsForEntity } from "./translations";
 
 export type OptionGroupKind = "PRIMARY_PRICE" | "ADDON";
 export type OptionPricingMode = "ABSOLUTE" | "DELTA";
@@ -116,6 +119,8 @@ export async function createProductOptionGroup(data: {
         if (updateErr) throw updateErr;
     }
 
+    const nameHash = await computeFieldHash(data.name);
+
     const { data: newGroup, error } = await supabase
         .from("product_option_groups")
         .insert({
@@ -125,12 +130,25 @@ export async function createProductOptionGroup(data: {
             is_required: data.is_required,
             max_selectable: data.max_selectable,
             group_kind: data.group_kind ?? "ADDON",
-            pricing_mode: data.pricing_mode ?? "DELTA"
+            pricing_mode: data.pricing_mode ?? "DELTA",
+            name_hash: nameHash
         })
         .select()
         .single();
 
     if (error) throw error;
+
+    if (nameHash !== null) {
+        await enqueueWithSilentError({
+            tenantId: data.tenant_id,
+            entityType: "option_group",
+            entityId: newGroup.id,
+            field: "name",
+            newSourceText: data.name,
+            newSourceHash: nameHash
+        });
+    }
+
     return newGroup;
 }
 
@@ -144,18 +162,18 @@ export async function updateProductOptionGroup(
         pricing_mode?: OptionPricingMode;
     }
 ): Promise<V2ProductOptionGroup> {
-    const updatePayload: Partial<{
-        name: string;
-        is_required: boolean;
-        max_selectable: number | null;
-        group_kind: OptionGroupKind;
-        pricing_mode: OptionPricingMode;
-    }> = {};
+    const nameInData = "name" in data;
+    let nameHash: string | null = null;
+    const updatePayload: Record<string, unknown> = {};
     if (data.name !== undefined) updatePayload.name = data.name;
     if (data.is_required !== undefined) updatePayload.is_required = data.is_required;
     if (data.max_selectable !== undefined) updatePayload.max_selectable = data.max_selectable;
     if (data.group_kind !== undefined) updatePayload.group_kind = data.group_kind;
     if (data.pricing_mode !== undefined) updatePayload.pricing_mode = data.pricing_mode;
+    if (nameInData) {
+        nameHash = await computeFieldHash(data.name ?? null);
+        updatePayload.name_hash = nameHash;
+    }
 
     const { data: updatedGroup, error } = await supabase
         .from("product_option_groups")
@@ -165,24 +183,42 @@ export async function updateProductOptionGroup(
         .single();
 
     if (error) throw error;
+
+    if (nameInData) {
+        // tenant_id non è in input — letto dalla row aggiornata.
+        await enqueueWithSilentError({
+            tenantId: updatedGroup.tenant_id,
+            entityType: "option_group",
+            entityId: id,
+            field: "name",
+            newSourceText: data.name ?? null,
+            newSourceHash: nameHash
+        });
+    }
+
     return updatedGroup;
 }
 
 export async function deleteProductOptionGroup(id: string, tenantId?: string): Promise<void> {
-    // When tenantId is provided, fetch the group first so we can sync product_type afterward.
-    let productId: string | undefined;
-    let groupKind: string | undefined;
+    // Fetch sempre il group per ottenere tenant_id (necessario per cleanup
+    // translations) + product_id/group_kind per il sync product_type.
+    const { data: group, error: fetchErr } = await supabase
+        .from("product_option_groups")
+        .select("tenant_id, product_id, group_kind")
+        .eq("id", id)
+        .single();
+    if (fetchErr) throw fetchErr;
+    const productId: string | undefined = group?.product_id;
+    const groupKind: string | undefined = group?.group_kind;
+    const groupTenantId: string | undefined = group?.tenant_id;
 
-    if (tenantId) {
-        const { data: group, error: fetchErr } = await supabase
-            .from("product_option_groups")
-            .select("product_id, group_kind")
-            .eq("id", id)
-            .single();
-        if (fetchErr) throw fetchErr;
-        productId = group?.product_id;
-        groupKind = group?.group_kind;
-    }
+    // Fetch ids dei value figli PRIMA del DELETE per cleanup translations
+    // (CASCADE elimina le row ma le translations.entity_id non hanno FK CASCADE).
+    const { data: valueRows } = await supabase
+        .from("product_option_values")
+        .select("id")
+        .eq("option_group_id", id);
+    const childValueIds = ((valueRows ?? []) as { id: string }[]).map(v => v.id);
 
     const { error } = await supabase.from("product_option_groups").delete().eq("id", id);
     if (error) throw error;
@@ -204,6 +240,19 @@ export async function deleteProductOptionGroup(id: string, tenantId?: string): P
                 .eq("id", productId)
                 .eq("tenant_id", tenantId);
             if (updateErr) throw updateErr;
+        }
+    }
+
+    // Cleanup translations: group + tutti i value figli (silent error).
+    const cleanupTenantId = groupTenantId ?? tenantId;
+    if (cleanupTenantId) {
+        try {
+            await deleteTranslationsForEntity(cleanupTenantId, "option_group", id, "name");
+            for (const valueId of childValueIds) {
+                await deleteTranslationsForEntity(cleanupTenantId, "option_value", valueId, "name");
+            }
+        } catch (err) {
+            console.error("[translations] cleanup on deleteProductOptionGroup failed:", err);
         }
     }
 }
@@ -230,6 +279,8 @@ export async function createOptionValue(data: {
     price_modifier: number | null;
     absolute_price?: number | null;
 }): Promise<V2ProductOptionValue> {
+    const nameHash = await computeFieldHash(data.name);
+
     const { data: newValue, error } = await supabase
         .from("product_option_values")
         .insert({
@@ -237,12 +288,25 @@ export async function createOptionValue(data: {
             option_group_id: data.option_group_id,
             name: data.name,
             price_modifier: data.price_modifier,
-            absolute_price: data.absolute_price ?? null
+            absolute_price: data.absolute_price ?? null,
+            name_hash: nameHash
         })
         .select()
         .single();
 
     if (error) throw error;
+
+    if (nameHash !== null) {
+        await enqueueWithSilentError({
+            tenantId: data.tenant_id,
+            entityType: "option_value",
+            entityId: newValue.id,
+            field: "name",
+            newSourceText: data.name,
+            newSourceHash: nameHash
+        });
+    }
+
     return newValue;
 }
 
@@ -254,14 +318,16 @@ export async function updateOptionValue(
         absolute_price?: number | null;
     }
 ): Promise<V2ProductOptionValue> {
-    const updatePayload: Partial<{
-        name: string;
-        price_modifier: number | null;
-        absolute_price: number | null;
-    }> = {};
+    const nameInData = "name" in data;
+    let nameHash: string | null = null;
+    const updatePayload: Record<string, unknown> = {};
     if (data.name !== undefined) updatePayload.name = data.name;
     if (data.price_modifier !== undefined) updatePayload.price_modifier = data.price_modifier;
     if (data.absolute_price !== undefined) updatePayload.absolute_price = data.absolute_price;
+    if (nameInData) {
+        nameHash = await computeFieldHash(data.name ?? null);
+        updatePayload.name_hash = nameHash;
+    }
 
     const { data: updatedValue, error } = await supabase
         .from("product_option_values")
@@ -271,13 +337,42 @@ export async function updateOptionValue(
         .single();
 
     if (error) throw error;
+
+    if (nameInData) {
+        // tenant_id non è in input — letto dalla row aggiornata.
+        await enqueueWithSilentError({
+            tenantId: updatedValue.tenant_id,
+            entityType: "option_value",
+            entityId: id,
+            field: "name",
+            newSourceText: data.name ?? null,
+            newSourceHash: nameHash
+        });
+    }
+
     return updatedValue;
 }
 
 export async function deleteOptionValue(id: string): Promise<void> {
+    // Fetch tenant_id PRIMA del DELETE per cleanup translations.
+    const { data: existing } = await supabase
+        .from("product_option_values")
+        .select("tenant_id")
+        .eq("id", id)
+        .maybeSingle();
+    const valueTenantId: string | undefined = existing?.tenant_id;
+
     const { error } = await supabase.from("product_option_values").delete().eq("id", id);
 
     if (error) throw error;
+
+    if (valueTenantId) {
+        try {
+            await deleteTranslationsForEntity(valueTenantId, "option_value", id, "name");
+        } catch (err) {
+            console.error("[translations] cleanup on deleteOptionValue failed:", err);
+        }
+    }
 }
 
 /**

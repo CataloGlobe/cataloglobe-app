@@ -142,3 +142,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/join-waitlist/index.ts"
+
+[functions.process-translation-jobs]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/process-translation-jobs/index.ts"

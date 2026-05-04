@@ -243,6 +243,16 @@ export async function getVariantMatrixConfig(
 // saveVariantMatrixConfig
 // =============================================================================
 
+// TODO Prompt 10c: refactor su pattern delta (vedi Prompt 8 per featured_content_products).
+// Stato attuale "DELETE all + INSERT all" perde gli id stabili dei dimensions/values
+// → translations diventerebbero orfane ad ogni save. Hook write-side rinviato finché
+// la struttura non è stable-id-preserving.
+//
+// Pattern target: sync delta su due livelli (dimensions + values) con match by stable id
+// passato dall'UI, oppure fallback match by (dim.name, val.label) se UI non passa id.
+// Hooks da aggiungere dopo refactor:
+//   - variant_dim.name
+//   - variant_dim_value.label
 export async function saveVariantMatrixConfig(
     productId: string,
     tenantId: string,
