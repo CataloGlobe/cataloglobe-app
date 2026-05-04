@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { X, Search } from "lucide-react";
 import type { CollectionViewSection, CollectionViewSectionItem } from "../CollectionView/CollectionView";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
@@ -21,6 +22,7 @@ function formatPrice(item: CollectionViewSectionItem): string | null {
 }
 
 export default function SearchOverlay({ isOpen, onClose, sections, scrollContainerEl, mode, activityId }: Props) {
+    const { t } = useTranslation("public");
     const [query, setQuery] = useState("");
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -131,7 +133,7 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
     let flatIdx = 0;
 
     const panel = (
-        <div className={styles.panel} role="dialog" aria-modal aria-label="Ricerca nel catalogo">
+        <div className={styles.panel} role="dialog" aria-modal aria-label={t("search.dialog_aria")}>
             {/* Riga di ricerca */}
             <div className={styles.searchRow}>
                 <div className={styles.inputWrapper}>
@@ -145,7 +147,7 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
                         ref={inputRef}
                         type="search"
                         className={styles.input}
-                        placeholder="Cerca prodotto…"
+                        placeholder={t("search.placeholder")}
                         value={query}
                         onChange={e => setQuery(e.target.value)}
                         autoComplete="off"
@@ -159,7 +161,7 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
                                 setQuery("");
                                 inputRef.current?.focus();
                             }}
-                            aria-label="Cancella testo"
+                            aria-label={t("search.clear_aria")}
                         >
                             <X size={13} strokeWidth={2.5} />
                         </button>
@@ -169,19 +171,19 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
                     type="button"
                     className={styles.closeBtn}
                     onClick={onClose}
-                    aria-label="Chiudi ricerca"
+                    aria-label={t("search.close_aria")}
                 >
-                    Annulla
+                    {t("search.close_label")}
                 </button>
             </div>
 
             {/* Risultati */}
             <div className={styles.results}>
                 {query.trim() === "" ? (
-                    <p className={styles.hint}>Cerca per nome o descrizione</p>
+                    <p className={styles.hint}>{t("search.hint")}</p>
                 ) : groupedResults.length === 0 ? (
                     <p className={styles.hint}>
-                        Nessun risultato per{" "}
+                        {t("search.no_results")}{" "}
                         <em className={styles.hintQuery}>"{query}"</em>
                     </p>
                 ) : (
@@ -230,8 +232,7 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
                             </div>
                         ))}
                         <p className={styles.countNote}>
-                            {totalCount}{" "}
-                            {totalCount === 1 ? "risultato" : "risultati"}
+                            {t("search.results_count", { count: totalCount })}
                         </p>
                     </>
                 )}

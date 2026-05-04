@@ -8,6 +8,7 @@ import { ToastProvider } from "@/context/Toast/ToastProvider";
 import { TooltipProvider } from "@/context/Tooltip/TooltipProvider";
 import App from "./App";
 import "@styles/global.scss";
+import "./i18n";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>

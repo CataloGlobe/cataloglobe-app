@@ -1,0 +1,12 @@
+{
+    "reviews": {
+        "INVALID_RATING": "Il rating deve essere un intero tra 1 e 5",
+        "INVALID_PAYLOAD": "Dati non validi",
+        "RATE_LIMIT_IP": "Troppe richieste. Riprova più tardi.",
+        "RATE_LIMIT_SESSION": "Hai già lasciato una recensione di recente.",
+        "ACTIVITY_NOT_FOUND": "Attività non trovata",
+        "METHOD_NOT_ALLOWED": "Metodo non consentito",
+        "SERVER_ERROR": "Errore durante il salvataggio della recensione"
+    },
+    "generic": "Si è verificato un errore"
+}

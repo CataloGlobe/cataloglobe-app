@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState, useRef, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import styles from "./FeaturedBlock.module.scss";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import FeaturedCard from "@/components/PublicCollectionView/FeaturedCard/FeaturedCard";
@@ -29,8 +30,9 @@ function FeaturedDots({
     activeIndex: number;
     onDotClick: (idx: number) => void;
 }) {
+    const { t } = useTranslation("public");
     return (
-        <div className={styles.dots} role="tablist" aria-label="Indicatore contenuti in evidenza">
+        <div className={styles.dots} role="tablist" aria-label={t("featured.indicator_aria")}>
             {Array.from({ length: count }, (_, idx) => (
                 <button
                     key={idx}
@@ -39,7 +41,7 @@ function FeaturedDots({
                     aria-selected={idx === activeIndex}
                     className={`${styles.dot} ${idx === activeIndex ? styles.dotActive : ""}`}
                     onClick={() => onDotClick(idx)}
-                    aria-label={`Contenuto ${idx + 1} di ${count}`}
+                    aria-label={t("featured.dot_aria", { index: idx + 1, count })}
                 />
             ))}
         </div>
@@ -89,6 +91,7 @@ function scrollToSnap(el: HTMLElement, idx: number, totalCount: number) {
    ══════════════════════════════════════════════════════════════════════════ */
 
 export default function FeaturedBlock({ blocks, activityId, slot, layout = "card" }: Props) {
+    const { t } = useTranslation("public");
     // Slot above-the-fold: immagini caricate eager con priorità alta
     const isAboveFold = slot === "before_catalog";
     const [previewBlock, setPreviewBlock] = useState<V2FeaturedContent | null>(null);
@@ -192,7 +195,7 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
                 className={trackClass}
                 ref={trackRef}
                 role="list"
-                aria-label="Contenuti in evidenza"
+                aria-label={t("featured.section_aria")}
                 style={!isMany ? { "--grid-cols": gridCols } as React.CSSProperties : undefined}
             >
                 {blocks.map((block) => (

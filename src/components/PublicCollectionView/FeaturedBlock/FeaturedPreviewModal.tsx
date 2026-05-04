@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { X, ImageIcon } from "lucide-react";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import Text from "@/components/ui/Text/Text";
@@ -20,6 +21,7 @@ type Props = {
 };
 
 export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
+    const { t } = useTranslation("public");
     // displayBlock persiste durante l'animazione di chiusura.
     // Quando onClose() viene chiamato, il parent imposta block=null e isOpen=false
     // simultaneamente. Senza questo stato, `if (!block) return null` smonterebbe
@@ -65,10 +67,10 @@ export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
                         type="button"
                         className={styles.closeBtn}
                         onClick={onClose}
-                        aria-label="Chiudi"
+                        aria-label={t("featured.preview_close_aria")}
                     >
                         <X size={16} strokeWidth={2} />
-                        <span>Chiudi</span>
+                        <span>{t("featured.preview_close_aria")}</span>
                     </button>
                 </div>
             }

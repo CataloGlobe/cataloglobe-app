@@ -71,7 +71,6 @@ export default function WorkspacePage() {
         if (!user) return;
 
         const fetchInvites = async () => {
-            // Step 1: fetch pending membership rows with inviter info via RPC
             let rows;
             try {
                 rows = await listMyPendingInvites();
@@ -80,31 +79,14 @@ export default function WorkspacePage() {
                 return;
             }
 
-            if (rows.length === 0) {
-                setPendingInvites([]);
-                return;
-            }
-
-            // Step 2: batch-fetch tenant names
-            const tenantIds = [...new Set(rows.map((r: any) => r.tenant_id as string))];
-            const { data: tenantRows } = await supabase
-                .from("tenants")
-                .select("id, name")
-                .in("id", tenantIds);
-
-            const nameById: Record<string, string> = {};
-            for (const t of tenantRows ?? []) {
-                nameById[(t as any).id] = (t as any).name;
-            }
-
             setPendingInvites(
-                rows.map((r: any) => ({
-                    id: r.membership_id as string,
-                    invite_token: r.invite_token as string,
-                    role: r.role as string,
-                    tenant_id: r.tenant_id as string,
-                    tenant_name: nameById[r.tenant_id] ?? "",
-                    inviter_email: (r.inviter_email as string | null) ?? null
+                rows.map(r => ({
+                    id: r.membership_id,
+                    invite_token: r.invite_token ?? "",
+                    role: r.role,
+                    tenant_id: r.tenant_id,
+                    tenant_name: r.tenant_name,
+                    inviter_email: r.inviter_email ?? null,
                 }))
             );
         };

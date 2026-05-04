@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import styles from "./ReviewsView.module.scss";
 
@@ -17,16 +18,15 @@ export type ReviewsViewProps = {
 
 type RatingConfig = {
     emoji: string;
-    label: string;
     colorClass: string;
 };
 
 const RATING_CONFIG: Record<number, RatingConfig> = {
-    1: { emoji: "\u{1F61E}", label: "Pessima", colorClass: "ratingRed" },
-    2: { emoji: "\u{1F615}", label: "Scarsa", colorClass: "ratingOrange" },
-    3: { emoji: "\u{1F610}", label: "Nella media", colorClass: "ratingYellow" },
-    4: { emoji: "\u{1F60A}", label: "Buona", colorClass: "ratingGreen" },
-    5: { emoji: "\u{1F929}", label: "Eccellente!", colorClass: "ratingGreenDark" },
+    1: { emoji: "\u{1F61E}", colorClass: "ratingRed" },
+    2: { emoji: "\u{1F615}", colorClass: "ratingOrange" },
+    3: { emoji: "\u{1F610}", colorClass: "ratingYellow" },
+    4: { emoji: "\u{1F60A}", colorClass: "ratingGreen" },
+    5: { emoji: "\u{1F929}", colorClass: "ratingGreenDark" },
 };
 
 function ratingCategory(rating: number): "positive" | "neutral" | "negative" {
@@ -72,6 +72,7 @@ export default function ReviewsView({
     supabaseUrl,
     onReviewSubmitted,
 }: ReviewsViewProps) {
+    const { t } = useTranslation("public");
     // ── Check se ha già recensito nelle ultime 24h ──────────────────────────
     const [alreadyReviewed] = useState(() => {
         try {
@@ -89,6 +90,7 @@ export default function ReviewsView({
 
     const displayStars = hoverStars || selectedStars;
     const ratingConfig = displayStars > 0 ? RATING_CONFIG[displayStars] : null;
+    const ratingLabel = displayStars > 0 ? t(`reviews.rating_labels.${displayStars}`) : "";
 
     const isLowRating = selectedStars >= 1 && selectedStars <= 3;
     const isHighRating = selectedStars >= 4;
@@ -147,14 +149,25 @@ export default function ReviewsView({
                 }
             }
 
-            if (res.status === 429) {
-                setSubmitError("Hai già lasciato una recensione di recente");
-            } else {
-                setSubmitError("Si è verificato un errore. Riprova più tardi.");
+            // Read structured error from edge (Prompt 12: error_code + error legacy).
+            let errorCode = "SERVER_ERROR";
+            let legacyMessage: string | undefined;
+            try {
+                const errBody = await res.json();
+                if (typeof errBody?.error_code === "string") errorCode = errBody.error_code;
+                if (typeof errBody?.error === "string") legacyMessage = errBody.error;
+            } catch {
+                // body not JSON → keep defaults
             }
+
+            const i18nMessage = t(`reviews.${errorCode}`, {
+                ns: "errors",
+                defaultValue: legacyMessage ?? t("error_generic", { ns: "common" })
+            });
+            setSubmitError(i18nMessage);
             setPhase("feedback");
         } catch {
-            setSubmitError("Si è verificato un errore. Riprova più tardi.");
+            setSubmitError(t("error_generic", { ns: "common" }));
             setPhase("feedback");
         }
     }
@@ -183,9 +196,9 @@ export default function ReviewsView({
                             />
                         </svg>
                     </div>
-                    <h2 className={styles.thanksTitle}>Grazie per il tuo feedback!</h2>
+                    <h2 className={styles.thanksTitle}>{t("reviews.thanks_title")}</h2>
                     <p className={styles.thanksSubtitle}>
-                        Hai già lasciato una recensione per questa sede. Torna a trovarci!
+                        {t("reviews.already_reviewed_subtitle")}
                     </p>
                 </div>
             </div>
@@ -198,16 +211,16 @@ export default function ReviewsView({
             <div className={styles.root}>
                 <div className={styles.starsPhase}>
                     <h2 className={styles.title}>
-                        Come è stata la tua esperienza?
+                        {t("reviews.title_question")}
                     </h2>
                     <p className={styles.subtitle}>
-                        Il tuo feedback ci aiuta a migliorare
+                        {t("reviews.subtitle")}
                     </p>
 
                     <div
                         className={styles.starsRow}
                         role="group"
-                        aria-label="Valutazione"
+                        aria-label={t("reviews.rating_group_aria")}
                     >
                         {[1, 2, 3, 4, 5].map((n) => (
                             <button
@@ -217,7 +230,7 @@ export default function ReviewsView({
                                 onMouseEnter={() => setHoverStars(n)}
                                 onMouseLeave={() => setHoverStars(0)}
                                 onClick={() => handleStarClick(n)}
-                                aria-label={`${n} ${n === 1 ? "stella" : "stelle"}`}
+                                aria-label={t("reviews.stars_aria", { count: n })}
                             >
                                 <StarIcon filled={displayStars >= n} />
                             </button>
@@ -237,7 +250,7 @@ export default function ReviewsView({
                                 {ratingConfig.emoji}
                             </span>
                             <span className={styles.ratingLabel}>
-                                {ratingConfig.label}
+                                {ratingLabel}
                             </span>
                         </div>
                     )}
@@ -249,26 +262,24 @@ export default function ReviewsView({
     /* ── PHASE: feedback ────────────────────────────── */
     if (phase === "feedback") {
         const config = RATING_CONFIG[selectedStars];
+        const summaryLabel = t(`reviews.rating_labels.${selectedStars}`);
 
         let textareaLabel: string;
         let privacyNote: string;
         let placeholder: string;
 
         if (selectedStars <= 2) {
-            textareaLabel = "Cosa possiamo migliorare?";
-            privacyNote =
-                "Il tuo feedback resterà privato e ci aiuterà a migliorare.";
-            placeholder = "Descrivi cosa non ha funzionato...";
+            textareaLabel = t("reviews.feedback_label_low");
+            privacyNote = t("reviews.privacy_note_low");
+            placeholder = t("reviews.placeholder_low");
         } else if (selectedStars === 3) {
-            textareaLabel = "Raccontaci di più sulla tua esperienza";
-            privacyNote =
-                "Il tuo feedback resterà privato e ci aiuterà a migliorare.";
-            placeholder = "Lascia un commento...";
+            textareaLabel = t("reviews.feedback_label_neutral");
+            privacyNote = t("reviews.privacy_note_neutral");
+            placeholder = t("reviews.placeholder_neutral");
         } else {
-            textareaLabel = "Cosa ti è piaciuto di più?";
-            privacyNote =
-                "Facoltativo — puoi anche inviare direttamente.";
-            placeholder = "Es. Ottimo servizio, piatti deliziosi!";
+            textareaLabel = t("reviews.feedback_label_high");
+            privacyNote = t("reviews.privacy_note_high");
+            placeholder = t("reviews.placeholder_high");
         }
 
         const bgClass = `${config.colorClass}Bg` as keyof typeof styles;
@@ -281,7 +292,7 @@ export default function ReviewsView({
                         className={styles.backLink}
                         onClick={handleBack}
                     >
-                        &larr; Cambia voto
+                        {t("reviews.back")}
                     </button>
 
                     {/* Rating summary card */}
@@ -298,7 +309,7 @@ export default function ReviewsView({
                         </span>
                         <div className={styles.ratingSummaryInfo}>
                             <span className={styles.ratingSummaryLabel}>
-                                {config.label}
+                                {summaryLabel}
                             </span>
                             <div className={styles.ratingSummaryStars}>
                                 {[1, 2, 3, 4, 5].map((n) => (
@@ -347,8 +358,7 @@ export default function ReviewsView({
 
                     {submitDisabled && (
                         <p className={styles.requiredNote}>
-                            Per i voti bassi, un commento ci aiuta a capire cosa
-                            migliorare
+                            {t("reviews.required_note")}
                         </p>
                     )}
 
@@ -358,7 +368,7 @@ export default function ReviewsView({
                         onClick={handleSubmit}
                         disabled={submitDisabled}
                     >
-                        Invia feedback
+                        {t("reviews.submit")}
                     </button>
                 </div>
             </div>
@@ -371,7 +381,7 @@ export default function ReviewsView({
             <div className={styles.root}>
                 <div className={styles.submittingPhase}>
                     <div className={styles.spinner} />
-                    <p className={styles.submittingText}>Invio in corso...</p>
+                    <p className={styles.submittingText}>{t("reviews.submitting")}</p>
                 </div>
             </div>
         );
@@ -395,12 +405,12 @@ export default function ReviewsView({
                 </div>
 
                 <h2 className={styles.thanksTitle}>
-                    Grazie per il tuo feedback!
+                    {t("reviews.thanks_title")}
                 </h2>
                 <p className={styles.thanksSubtitle}>
                     {isHighRating
-                        ? "Siamo felici che la tua esperienza sia stata positiva."
-                        : "Il tuo feedback ci aiuterà a migliorare."}
+                        ? t("reviews.thanks_subtitle_high")
+                        : t("reviews.thanks_subtitle_low")}
                 </p>
 
                 {showGoogleCard && googleReviewUrl && (
@@ -410,11 +420,10 @@ export default function ReviewsView({
                         </div>
                         <div className={styles.googleCardText}>
                             <span className={styles.googleCardTitle}>
-                                Ti è piaciuta la tua esperienza?
+                                {t("reviews.google_card_title")}
                             </span>
                             <span className={styles.googleCardDesc}>
-                                Lascia una recensione anche su Google per aiutare
-                                altre persone a scoprirci!
+                                {t("reviews.google_card_desc")}
                             </span>
                         </div>
                         <a
@@ -429,7 +438,7 @@ export default function ReviewsView({
                             }}
                         >
                             <GoogleIcon size={16} />
-                            Recensisci su Google
+                            {t("reviews.google_btn")}
                         </a>
                     </div>
                 )}

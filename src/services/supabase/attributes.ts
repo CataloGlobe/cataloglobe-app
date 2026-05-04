@@ -1,4 +1,7 @@
 import { supabase } from "@/services/supabase/client";
+import { computeFieldHash } from "@/services/translation/hashUtils";
+import { enqueueWithSilentError } from "./translationJobs";
+import { deleteTranslationsForEntity } from "./translations";
 
 export type AttributeType = "text" | "number" | "boolean" | "select" | "multi_select";
 
@@ -71,6 +74,10 @@ export async function createAttributeDefinition(
         vertical?: string;
     }
 ): Promise<V2ProductAttributeDefinition> {
+    // TODO Prompt 10b: handle 'options' translation (requires options_hash
+    // column migration + helper computeOptionsHash). Skipped in MVP.
+    const labelHash = await computeFieldHash(data.label);
+
     const { data: newDef, error } = await supabase
         .from("product_attribute_definitions")
         .insert({
@@ -81,7 +88,8 @@ export async function createAttributeDefinition(
             options: data.options || null,
             is_required: data.is_required || false,
             show_in_public_channels: data.show_in_public_channels ?? true,
-            vertical: data.vertical || null
+            vertical: data.vertical || null,
+            label_hash: labelHash
         })
         .select()
         .single();
@@ -95,6 +103,18 @@ export async function createAttributeDefinition(
         }
         throw error;
     }
+
+    if (labelHash !== null) {
+        await enqueueWithSilentError({
+            tenantId,
+            entityType: "attr_def",
+            entityId: newDef.id,
+            field: "label",
+            newSourceText: data.label,
+            newSourceHash: labelHash
+        });
+    }
+
     return newDef;
 }
 
@@ -108,20 +128,42 @@ export async function updateAttributeDefinition(
         show_in_public_channels?: boolean;
     }
 ): Promise<V2ProductAttributeDefinition> {
+    // TODO Prompt 10b: handle 'options' in data (requires options_hash column migration).
+    // For F&B vertical, attr_* entities are skipped by vertical-aware filter,
+    // so this gap doesn't affect launch market.
+    const labelInData = "label" in data;
+    let labelHash: string | null = null;
+    const updatePayload: Record<string, unknown> = {};
+    if (data.label !== undefined) updatePayload.label = data.label;
+    if (data.is_required !== undefined) updatePayload.is_required = data.is_required;
+    if (data.options !== undefined) updatePayload.options = data.options;
+    if (data.show_in_public_channels !== undefined) updatePayload.show_in_public_channels = data.show_in_public_channels;
+    if (labelInData) {
+        labelHash = await computeFieldHash(data.label ?? null);
+        updatePayload.label_hash = labelHash;
+    }
+
     const { data: updatedDef, error } = await supabase
         .from("product_attribute_definitions")
-        .update({
-            ...(data.label !== undefined && { label: data.label }),
-            ...(data.is_required !== undefined && { is_required: data.is_required }),
-            ...(data.options !== undefined && { options: data.options }),
-            ...(data.show_in_public_channels !== undefined && { show_in_public_channels: data.show_in_public_channels })
-        })
+        .update(updatePayload)
         .eq("id", id)
         .eq("tenant_id", tenantId)
         .select()
         .single();
 
     if (error) throw error;
+
+    if (labelInData) {
+        await enqueueWithSilentError({
+            tenantId,
+            entityType: "attr_def",
+            entityId: id,
+            field: "label",
+            newSourceText: data.label ?? null,
+            newSourceHash: labelHash
+        });
+    }
+
     return updatedDef;
 }
 
@@ -133,6 +175,12 @@ export async function deleteAttributeDefinition(id: string, tenantId: string): P
         .eq("tenant_id", tenantId);
 
     if (error) throw error;
+
+    try {
+        await deleteTranslationsForEntity(tenantId, "attr_def", id, "label");
+    } catch (err) {
+        console.error("[translations] cleanup on deleteAttributeDefinition failed:", err);
+    }
 }
 
 /**
@@ -174,6 +222,10 @@ export async function setProductAttributeValue(
 
     if (checkError) throw checkError;
 
+    // Hash su value_text (unico field tradotto del payload values).
+    const valueTextHash = await computeFieldHash(payload.value_text ?? null);
+    let valueRowId: string | null = existing?.id ?? null;
+
     if (existing) {
         // Update
         const { error: updateError } = await supabase
@@ -182,7 +234,8 @@ export async function setProductAttributeValue(
                 value_text: payload.value_text ?? null,
                 value_number: payload.value_number ?? null,
                 value_boolean: payload.value_boolean ?? null,
-                value_json: payload.value_json ?? null
+                value_json: payload.value_json ?? null,
+                value_text_hash: valueTextHash
             })
             .eq("id", existing.id)
             .eq("tenant_id", tenantId);
@@ -202,17 +255,36 @@ export async function setProductAttributeValue(
 
         if (isEmpty) return; // Don't create empty rows
 
-        const { error: insertError } = await supabase.from("product_attribute_values").insert({
-            tenant_id: tenantId,
-            product_id: productId,
-            attribute_definition_id: attributeDefinitionId,
-            value_text: payload.value_text ?? null,
-            value_number: payload.value_number ?? null,
-            value_boolean: payload.value_boolean ?? null,
-            value_json: payload.value_json ?? null
-        });
+        const { data: insertedRow, error: insertError } = await supabase
+            .from("product_attribute_values")
+            .insert({
+                tenant_id: tenantId,
+                product_id: productId,
+                attribute_definition_id: attributeDefinitionId,
+                value_text: payload.value_text ?? null,
+                value_number: payload.value_number ?? null,
+                value_boolean: payload.value_boolean ?? null,
+                value_json: payload.value_json ?? null,
+                value_text_hash: valueTextHash
+            })
+            .select("id")
+            .single();
 
         if (insertError) throw insertError;
+        valueRowId = insertedRow?.id ?? null;
+    }
+
+    // Enqueue translation job per value_text. Vertical-aware skip su F&B
+    // gestito centralmente in enqueueTranslationJobsIfChanged.
+    if (valueRowId !== null) {
+        await enqueueWithSilentError({
+            tenantId,
+            entityType: "attr_value",
+            entityId: valueRowId,
+            field: "value_text",
+            newSourceText: payload.value_text ?? null,
+            newSourceHash: valueTextHash
+        });
     }
 }
 
@@ -254,6 +326,16 @@ export async function removeProductAttributeValue(
     productId: string,
     attributeDefinitionId: string
 ): Promise<void> {
+    // Fetch id PRIMA del DELETE per cleanup translations.
+    const { data: existing } = await supabase
+        .from("product_attribute_values")
+        .select("id")
+        .eq("product_id", productId)
+        .eq("attribute_definition_id", attributeDefinitionId)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+    const valueRowId: string | null = existing?.id ?? null;
+
     const { error } = await supabase
         .from("product_attribute_values")
         .delete()
@@ -262,4 +344,12 @@ export async function removeProductAttributeValue(
         .eq("tenant_id", tenantId);
 
     if (error) throw error;
+
+    if (valueRowId !== null) {
+        try {
+            await deleteTranslationsForEntity(tenantId, "attr_value", valueRowId, "value_text");
+        } catch (err) {
+            console.error("[translations] cleanup on removeProductAttributeValue failed:", err);
+        }
+    }
 }

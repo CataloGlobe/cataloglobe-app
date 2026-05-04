@@ -1,0 +1,211 @@
+{
+    "page": {
+        "loading": "Caricamento...",
+        "invalid_link": "Link non valido.",
+        "loading_error": "Errore di caricamento.",
+        "simulation_banner": "Anteprima simulazione",
+        "empty_catalog": "Nessun prodotto disponibile al momento",
+        "menu_label": "Menu"
+    },
+    "skip_to_content": "Salta al contenuto",
+    "hub": {
+        "menu": "Menu",
+        "events": "Eventi & Promo",
+        "reviews": "Dicci la tua"
+    },
+    "header": {
+        "info_aria": "Informazioni sede",
+        "search_aria": "Cerca nel catalogo",
+        "info_sheet_aria": "Informazioni sede"
+    },
+    "search": {
+        "placeholder": "Cerca prodotto…",
+        "hint": "Cerca per nome o descrizione",
+        "no_results": "Nessun risultato per",
+        "results_count_one": "{{count}} risultato",
+        "results_count_other": "{{count}} risultati",
+        "clear_aria": "Cancella testo",
+        "close_aria": "Chiudi ricerca",
+        "close_label": "Annulla",
+        "dialog_aria": "Ricerca nel catalogo"
+    },
+    "allergens": {
+        "title": "Allergeni",
+        "close_aria": "Chiudi",
+        "close_label": "Chiudi",
+        "disclaimer": "Per informazioni dettagliate sulla preparazione e sulla presenza di allergeni nei singoli piatti, chiedi al personale di sala."
+    },
+    "characteristics": {
+        "title": "Caratteristiche",
+        "close_aria": "Chiudi",
+        "close_label": "Chiudi",
+        "disclaimer": "Le caratteristiche indicate sono dichiarate dal ristoratore. Per certificazioni specifiche (Halal, Kosher, Bio) o esigenze particolari, chiedi al personale di sala.",
+        "category": {
+            "diet": "Dieta",
+            "spicy": "Piccantezza",
+            "origin": "Origine e qualità",
+            "preparation": "Preparazione",
+            "warning": "Avvertenze",
+            "status": "Stato"
+        }
+    },
+    "selection": {
+        "add_aria": "Aggiungi alla selezione",
+        "sheet_aria": "La mia selezione",
+        "empty": "Nessun elemento",
+        "decrease_aria": "Diminuisci quantità",
+        "remove_aria": "Rimuovi",
+        "increase_aria": "Aumenta quantità",
+        "update_label": "Aggiorna selezione",
+        "title": "La mia selezione",
+        "items_one": "{{count}} elemento",
+        "items_other": "{{count}} elementi",
+        "clear": "Svuota",
+        "close_label": "Chiudi",
+        "empty_subtitle": "Aggiungi prodotti dal menu",
+        "edit": "Modifica",
+        "unit_suffix": "cad.",
+        "estimated_total": "Totale stimato",
+        "fab_label": "La mia selezione",
+        "fab_aria_one": "La mia selezione, {{count}} elemento",
+        "fab_aria_other": "La mia selezione, {{count}} elementi"
+    },
+    "item_detail": {
+        "submit_default": "Aggiungi alla selezione",
+        "close_aria": "Chiudi",
+        "format_required": "Scegli un formato per continuare"
+    },
+    "fab": {
+        "review_aria": "Com'è andata?",
+        "review_label": "Com'è andata?"
+    },
+    "footer": {
+        "open_allergens_aria": "Apri lista allergeni",
+        "open_characteristics_aria": "Apri lista caratteristiche",
+        "allergens_label": "Allergeni",
+        "characteristics_label": "Caratteristiche",
+        "powered_by_aria": "Powered by CataloGlobe"
+    },
+    "social": {
+        "phone": "Telefono",
+        "email": "Email",
+        "website": "Sito web",
+        "instagram": "Instagram",
+        "facebook": "Facebook",
+        "whatsapp": "WhatsApp"
+    },
+    "featured": {
+        "type_bundle": "Bundle",
+        "type_promo": "Promo",
+        "type_event": "Evento",
+        "type_announcement": "Annuncio",
+        "indicator_aria": "Indicatore contenuti in evidenza",
+        "section_aria": "Contenuti in evidenza",
+        "dot_aria": "Contenuto {{index}} di {{count}}",
+        "preview_close_aria": "Chiudi"
+    },
+    "events": {
+        "list_aria": "Eventi e promozioni",
+        "empty": "Nessun evento o promozione attiva al momento."
+    },
+    "hero": {
+        "aria": "Intestazione del catalogo"
+    },
+    "section_nav": {
+        "aria": "Navigazione sezioni del catalogo"
+    },
+    "language_selector": {
+        "trigger_aria": "Seleziona lingua",
+        "list_aria": "Lingue disponibili"
+    },
+    "brand": {
+        "logo_alt_default": "Logo",
+        "logo_alt_named": "Logo {{name}}"
+    },
+    "info": {
+        "title": "Informazioni",
+        "fees": "Tariffe",
+        "payment_methods": "Metodi di pagamento",
+        "services": "Servizi",
+        "contacts": "Contatti",
+        "address": "Indirizzo"
+    },
+    "opening_hours": {
+        "title": "Orari di apertura",
+        "closed": "Chiuso",
+        "closures_title": "Prossime chiusure",
+        "closures_status_closed": "Chiuso",
+        "days": {
+            "monday": "Lunedì",
+            "tuesday": "Martedì",
+            "wednesday": "Mercoledì",
+            "thursday": "Giovedì",
+            "friday": "Venerdì",
+            "saturday": "Sabato",
+            "sunday": "Domenica"
+        },
+        "months_short": {
+            "1": "gen",
+            "2": "feb",
+            "3": "mar",
+            "4": "apr",
+            "5": "mag",
+            "6": "giu",
+            "7": "lug",
+            "8": "ago",
+            "9": "set",
+            "10": "ott",
+            "11": "nov",
+            "12": "dic"
+        }
+    },
+    "fees": {
+        "labels": {
+            "coperto": "Coperto",
+            "servizio": "Servizio",
+            "prenotazione_minima": "Prenotazione minima",
+            "spesa_minima": "Spesa minima",
+            "eta_minima": "Età minima"
+        },
+        "unit_format": {
+            "per_person": "€{{value}}/persona",
+            "percent": "{{value}}%",
+            "currency": "€{{value}}",
+            "years": "{{value}} anni"
+        }
+    },
+    "reviews": {
+        "rating_labels": {
+            "1": "Pessima",
+            "2": "Scarsa",
+            "3": "Nella media",
+            "4": "Buona",
+            "5": "Eccellente!"
+        },
+        "stars_aria_one": "{{count}} stella",
+        "stars_aria_other": "{{count}} stelle",
+        "rating_group_aria": "Valutazione",
+        "title_question": "Come è stata la tua esperienza?",
+        "subtitle": "Il tuo feedback ci aiuta a migliorare",
+        "back": "← Cambia voto",
+        "feedback_label_low": "Cosa possiamo migliorare?",
+        "feedback_label_neutral": "Raccontaci di più sulla tua esperienza",
+        "feedback_label_high": "Cosa ti è piaciuto di più?",
+        "privacy_note_low": "Il tuo feedback resterà privato e ci aiuterà a migliorare.",
+        "privacy_note_neutral": "Il tuo feedback resterà privato e ci aiuterà a migliorare.",
+        "privacy_note_high": "Facoltativo — puoi anche inviare direttamente.",
+        "placeholder_low": "Descrivi cosa non ha funzionato...",
+        "placeholder_neutral": "Lascia un commento...",
+        "placeholder_high": "Es. Ottimo servizio, piatti deliziosi!",
+        "required_note": "Per i voti bassi, un commento ci aiuta a capire cosa migliorare",
+        "submit": "Invia feedback",
+        "submitting": "Invio in corso...",
+        "thanks_title": "Grazie per il tuo feedback!",
+        "thanks_subtitle_high": "Siamo felici che la tua esperienza sia stata positiva.",
+        "thanks_subtitle_low": "Il tuo feedback ci aiuterà a migliorare.",
+        "already_reviewed_subtitle": "Hai già lasciato una recensione per questa sede. Torna a trovarci!",
+        "google_card_title": "Ti è piaciuta la tua esperienza?",
+        "google_card_desc": "Lascia una recensione anche su Google per aiutare altre persone a scoprirci!",
+        "google_btn": "Recensisci su Google"
+    }
+}

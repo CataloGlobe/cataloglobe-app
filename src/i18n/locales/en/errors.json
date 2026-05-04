@@ -1,0 +1,12 @@
+{
+    "reviews": {
+        "INVALID_RATING": "Rating must be an integer between 1 and 5",
+        "INVALID_PAYLOAD": "Invalid data",
+        "RATE_LIMIT_IP": "Too many requests. Try again later.",
+        "RATE_LIMIT_SESSION": "You've already left a review recently.",
+        "ACTIVITY_NOT_FOUND": "Venue not found",
+        "METHOD_NOT_ALLOWED": "Method not allowed",
+        "SERVER_ERROR": "Error while saving the review"
+    },
+    "generic": "An error occurred"
+}

@@ -1,4 +1,5 @@
 import { Minus, Plus, Trash2, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Text from "@/components/ui/Text/Text";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import styles from "./SelectionSheet.module.scss";
@@ -54,6 +55,7 @@ export default function SelectionSheet({
     onClear,
     onEditItem
 }: Props) {
+    const { t } = useTranslation("public");
     const totalCount = items.reduce((s, i) => s + i.qty, 0);
     const totalPrice = items.reduce((s, i) => s + i.unitPrice * i.qty, 0);
     const isEmpty = items.length === 0;
@@ -62,33 +64,33 @@ export default function SelectionSheet({
         <PublicSheet
             isOpen={isOpen}
             onClose={onClose}
-            ariaLabel="La mia selezione"
+            ariaLabel={t("selection.sheet_aria")}
             headerContent={
                 <div className={styles.header}>
                     <div className={styles.headerLeft}>
                         <Text as="h2" variant="title-sm" weight={700} className={styles.headerTitle} color="var(--pub-surface-text)">
-                            La mia selezione
+                            {t("selection.title")}
                         </Text>
                         {!isEmpty && (
                             <span className={styles.headerCount}>
-                                {totalCount} {totalCount === 1 ? "elemento" : "elementi"}
+                                {t("selection.items", { count: totalCount })}
                             </span>
                         )}
                     </div>
                     <div className={styles.headerActions}>
                         {!isEmpty && (
                             <button type="button" className={styles.clearBtn} onClick={onClear}>
-                                Svuota
+                                {t("selection.clear")}
                             </button>
                         )}
                         <button
                             type="button"
                             className={styles.closeBtn}
                             onClick={onClose}
-                            aria-label="Chiudi"
+                            aria-label={t("item_detail.close_aria")}
                         >
                             <X size={15} strokeWidth={2} />
-                            <span>Chiudi</span>
+                            <span>{t("selection.close_label")}</span>
                         </button>
                     </div>
                 </div>
@@ -99,9 +101,9 @@ export default function SelectionSheet({
                 {isEmpty ? (
                     <div className={styles.emptyState}>
                         <span className={styles.emptyIcon}>📋</span>
-                        <Text variant="body" weight={600} color="var(--pub-surface-text)">Nessun elemento</Text>
+                        <Text variant="body" weight={600} color="var(--pub-surface-text)">{t("selection.empty")}</Text>
                         <Text variant="body-sm" color="var(--pub-surface-text-muted)">
-                            Aggiungi prodotti dal menu
+                            {t("selection.empty_subtitle")}
                         </Text>
                     </div>
                 ) : (
@@ -127,14 +129,14 @@ export default function SelectionSheet({
                                                     className={styles.editLink}
                                                     onClick={() => onEditItem(index, item)}
                                                 >
-                                                    Modifica
+                                                    {t("selection.edit")}
                                                 </button>
                                             )}
                                         </span>
                                     )}
                                     {item.unitPrice > 0 && (
                                         <span className={styles.itemPrice}>
-                                            {formatPrice(item.unitPrice)} cad.
+                                            {formatPrice(item.unitPrice)} {t("selection.unit_suffix")}
                                         </span>
                                     )}
                                 </div>
@@ -147,7 +149,7 @@ export default function SelectionSheet({
                                                 ? onRemove(index)
                                                 : onUpdateQty(index, item.qty - 1)
                                         }
-                                        aria-label={item.qty === 1 ? "Rimuovi" : "Diminuisci quantità"}
+                                        aria-label={item.qty === 1 ? t("selection.remove_aria") : t("selection.decrease_aria")}
                                     >
                                         {item.qty === 1 ? (
                                             <Trash2 size={13} strokeWidth={2} />
@@ -160,7 +162,7 @@ export default function SelectionSheet({
                                         type="button"
                                         className={styles.qtyBtn}
                                         onClick={() => onUpdateQty(index, item.qty + 1)}
-                                        aria-label="Aumenta quantità"
+                                        aria-label={t("selection.increase_aria")}
                                     >
                                         <Plus size={13} strokeWidth={2} />
                                     </button>
@@ -175,7 +177,7 @@ export default function SelectionSheet({
             {/* Footer fisso — solo quando non vuoto */}
             {!isEmpty && (
                 <div className={styles.footer}>
-                    <span className={styles.footerLabel}>Totale stimato</span>
+                    <span className={styles.footerLabel}>{t("selection.estimated_total")}</span>
                     <span className={styles.footerTotal}>{formatPrice(totalPrice)}</span>
                 </div>
             )}

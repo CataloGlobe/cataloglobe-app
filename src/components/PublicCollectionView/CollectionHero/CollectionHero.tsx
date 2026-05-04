@@ -1,4 +1,5 @@
 import { ImageIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Text from "@/components/ui/Text/Text";
 import styles from "./CollectionHero.module.scss";
 
@@ -21,13 +22,14 @@ export default function CollectionHero({
     showTitle = true,
     showSubtitle = true
 }: CollectionHeroProps) {
+    const { t } = useTranslation("public");
     const hasText = showTitle || (showSubtitle && !!subtitle);
 
     return (
         <header
             className={styles.hero}
             data-variant={variant}
-            aria-label="Intestazione del catalogo"
+            aria-label={t("hero.aria")}
         >
             <div className={styles.inner}>
                 {showImage && (

@@ -24,6 +24,7 @@
 .footer {
   flex: 0 0 auto;
   padding: 1rem 1.5rem;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
   border-top: 1px solid var(--border, #e2e8f0);
   background-color: var(--bg, #f8fafc); // Slightly different bg for contrast
   display: flex;

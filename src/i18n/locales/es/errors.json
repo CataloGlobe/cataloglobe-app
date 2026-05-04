@@ -1,0 +1,12 @@
+{
+    "reviews": {
+        "INVALID_RATING": "La puntuación debe ser un número entero entre 1 y 5",
+        "INVALID_PAYLOAD": "Datos no válidos",
+        "RATE_LIMIT_IP": "Demasiadas solicitudes. Vuelva a intentarlo más tarde.",
+        "RATE_LIMIT_SESSION": "Ya ha dejado una opinión recientemente.",
+        "ACTIVITY_NOT_FOUND": "Actividad no encontrada",
+        "METHOD_NOT_ALLOWED": "Método no permitido",
+        "SERVER_ERROR": "Error al guardar la revisión"
+    },
+    "generic": "Se ha producido un error"
+}

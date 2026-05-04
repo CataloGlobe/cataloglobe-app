@@ -1,4 +1,7 @@
 import { supabase } from "@/services/supabase/client";
+import { computeFieldHash } from "@/services/translation/hashUtils";
+import { enqueueWithSilentError } from "./translationJobs";
+import { deleteTranslationsForEntity } from "./translations";
 
 // ==========================================
 // TYPES
@@ -155,6 +158,8 @@ export async function createCategory(
         throw new Error("Una categoria di livello superiore a 1 deve avere un genitore.");
     }
 
+    const nameHash = await computeFieldHash(name);
+
     const { data, error } = await supabase
         .from("catalog_categories")
         .insert([
@@ -164,13 +169,26 @@ export async function createCategory(
                 name,
                 level,
                 parent_category_id: parentCategoryId,
-                sort_order: sortOrder
+                sort_order: sortOrder,
+                name_hash: nameHash
             }
         ])
         .select()
         .single();
 
     if (error) throw error;
+
+    if (nameHash !== null) {
+        await enqueueWithSilentError({
+            tenantId,
+            entityType: "category",
+            entityId: data.id,
+            field: "name",
+            newSourceText: name,
+            newSourceHash: nameHash
+        });
+    }
+
     return data;
 }
 
@@ -184,15 +202,36 @@ export async function updateCategory(
         level?: 1 | 2 | 3;
     }
 ): Promise<V2CatalogCategory> {
+    const nameInUpdates = "name" in updates;
+    let nameHash: string | null = null;
+    const payload: Record<string, unknown> = { ...updates };
+
+    if (nameInUpdates) {
+        nameHash = await computeFieldHash(updates.name ?? null);
+        payload.name_hash = nameHash;
+    }
+
     const { data, error } = await supabase
         .from("catalog_categories")
-        .update(updates)
+        .update(payload)
         .eq("id", categoryId)
         .eq("tenant_id", tenantId)
         .select()
         .single();
 
     if (error) throw error;
+
+    if (nameInUpdates) {
+        await enqueueWithSilentError({
+            tenantId,
+            entityType: "category",
+            entityId: categoryId,
+            field: "name",
+            newSourceText: updates.name ?? null,
+            newSourceHash: nameHash
+        });
+    }
+
     return data;
 }
 
@@ -204,6 +243,12 @@ export async function deleteCategory(categoryId: string, tenantId: string): Prom
         .eq("tenant_id", tenantId);
 
     if (error) throw error;
+
+    try {
+        await deleteTranslationsForEntity(tenantId, "category", categoryId, "name");
+    } catch (err) {
+        console.error("[translations] cleanup on deleteCategory failed:", err);
+    }
 }
 
 // ==========================================

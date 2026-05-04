@@ -20,9 +20,11 @@ import {
     TrendingUp,
     Cpu,
     Archive,
-    CreditCard
+    CreditCard,
+    Languages
 } from "lucide-react";
-import logoPng from "@/assets/logo-V2.png";
+import logoHorizontal from "@/assets/brand/logo-horizontal.png";
+import logoMark from "@/assets/brand/logo-mark.png";
 import styles from "./Sidebar.module.scss";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
@@ -95,7 +97,8 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
             items: [
                 { to: `${b}/team`, label: "Team", icon: <Users size={18} /> },
                 { to: `${b}/subscription`, label: "Abbonamento", icon: <CreditCard size={18} /> },
-                { to: `${b}/settings`, label: "Impostazioni", icon: <Settings size={18} /> }
+                { to: `${b}/settings`, label: "Impostazioni", icon: <Settings size={18} />, end: true },
+                { to: `${b}/settings/languages`, label: "Lingue", icon: <Languages size={18} /> }
             ]
         }
     ];
@@ -168,28 +171,24 @@ export default function Sidebar({
                 {/* ===== Logo ===== */}
                 {!isMobile && (
                     <div
-                        style={{
-                            padding: collapsed ? "20px 0" : "24px 22px 12px",
-                            display: "flex",
-                            justifyContent: collapsed ? "center" : "flex-start",
-                            alignItems: "center"
-                        }}
+                        className={[
+                            styles.logoWrap,
+                            collapsed ? styles.logoWrapCollapsed : ""
+                        ].join(" ")}
                     >
-                        {collapsed ? (
+                        <a
+                            href="/"
+                            aria-label="CataloGlobe home"
+                            className={styles.logoLink}
+                        >
                             <img
-                                src={logoPng}
-                                alt="Logo"
-                                style={{
-                                    width: "32px",
-                                    height: "32px",
-                                    objectFit: "contain"
-                                }}
+                                src={collapsed ? logoMark : logoHorizontal}
+                                alt="CataloGlobe"
+                                className={
+                                    collapsed ? styles.logoMark : styles.logoHorizontal
+                                }
                             />
-                        ) : (
-                            <a href="/" className={styles.sidebarLogo}>
-                                Catalo<span className={styles.sidebarLogoGlobe}>Globe</span>
-                            </a>
-                        )}
+                        </a>
                     </div>
                 )}
 

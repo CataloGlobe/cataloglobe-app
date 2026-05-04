@@ -20,19 +20,20 @@ export type ResolvedVariantDimValue = {
 export type ResolvedAllergen = {
     id: number;
     code: string;
-    label_it: string;
-    label_en: string;
+    label: string;
+    label_it?: string;
+    label_en?: string;
 };
 
 export type ResolvedCharacteristic = {
     id: string;
     code: string;
     category: "diet" | "spicy" | "origin" | "preparation" | "warning" | "status";
-    label_it: string;
-    label_en: string;
+    label: string;
+    label_it?: string;
+    label_en?: string;
     icon: string;
     sort_order: number;
-    show_in_card: boolean;
     mutex_group: string | null;
     dietary_claim: boolean;
 };
@@ -211,7 +212,6 @@ type RawCharacteristicRow = {
         label_en: string;
         icon: string;
         sort_order: number;
-        show_in_card: boolean;
         mutex_group: string | null;
         dietary_claim: boolean;
     } | null;
@@ -447,12 +447,13 @@ function normalizeCatalog(
 
             const mapAllergens = (rows: RawAllergenRow[] | RawAllergenRow | null): ResolvedAllergen[] =>
                 normalizeMany(rows)
-                    .map((al: RawAllergenRow) => {
+                    .map((al: RawAllergenRow): ResolvedAllergen | null => {
                         const allergen = normalizeOne(al.allergen);
                         return allergen
                             ? {
                                   id: allergen.id,
                                   code: allergen.code,
+                                  label: allergen.label_it,
                                   label_it: allergen.label_it,
                                   label_en: allergen.label_en
                               }
@@ -464,18 +465,18 @@ function normalizeCatalog(
                 rows: RawCharacteristicRow[] | RawCharacteristicRow | null
             ): ResolvedCharacteristic[] =>
                 normalizeMany(rows)
-                    .map((row: RawCharacteristicRow) => {
+                    .map((row: RawCharacteristicRow): ResolvedCharacteristic | null => {
                         const c = normalizeOne(row.characteristic);
                         return c
                             ? {
                                   id: c.id,
                                   code: c.code,
                                   category: c.category,
+                                  label: c.label_it,
                                   label_it: c.label_it,
                                   label_en: c.label_en,
                                   icon: c.icon,
                                   sort_order: c.sort_order,
-                                  show_in_card: c.show_in_card,
                                   mutex_group: c.mutex_group,
                                   dietary_claim: c.dietary_claim
                               }
@@ -857,7 +858,6 @@ export async function loadCatalogById(catalogId: string, tenantId: string): Prom
                             label_en,
                             icon,
                             sort_order,
-                            show_in_card,
                             mutex_group,
                             dietary_claim
                         )
@@ -899,7 +899,6 @@ export async function loadCatalogById(catalogId: string, tenantId: string): Prom
                           label_en,
                           icon,
                           sort_order,
-                          show_in_card,
                           mutex_group,
                           dietary_claim
                       )

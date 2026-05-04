@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { BookOpen, CalendarDays, ImageIcon, Info, MessageSquareHeart, Search } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
 
-const HUB_TABS: { id: HubTab; icon: ReactNode; label: string }[] = [
-    { id: "menu", icon: <BookOpen size={14} />, label: "Menu" },
-    { id: "events", icon: <CalendarDays size={14} />, label: "Eventi & Promo" },
-    { id: "reviews", icon: <MessageSquareHeart size={14} />, label: "Dicci la tua" },
+const HUB_TABS: { id: HubTab; icon: ReactNode; labelKey: string }[] = [
+    { id: "menu", icon: <BookOpen size={14} />, labelKey: "hub.menu" },
+    { id: "events", icon: <CalendarDays size={14} />, labelKey: "hub.events" },
+    { id: "reviews", icon: <MessageSquareHeart size={14} />, labelKey: "hub.reviews" },
 ];
 
 // ── Prototype constants (authoritative — do not change) ─────────────────────
@@ -72,6 +73,7 @@ export default function PublicCollectionHeader({
     hasInfo,
     onInfoPress,
 }: PublicCollectionHeaderProps) {
+    const { t } = useTranslation("public");
     // ── ResizeObserver: write --pub-header-height on <main> ancestor ────────────
     const headerRef = useRef<HTMLElement | null>(null);
 
@@ -253,7 +255,7 @@ export default function PublicCollectionHeader({
                                 type="button"
                                 className={styles.iconBtn}
                                 onClick={onInfoPress}
-                                aria-label="Informazioni sede"
+                                aria-label={t("header.info_aria")}
                             >
                                 <Info size={15} strokeWidth={2} />
                             </button>
@@ -264,7 +266,7 @@ export default function PublicCollectionHeader({
                                 type="button"
                                 className={styles.iconBtn}
                                 onClick={onSearchOpen}
-                                aria-label="Cerca nel catalogo"
+                                aria-label={t("header.search_aria")}
                             >
                                 <Search size={15} strokeWidth={2} />
                             </button>
@@ -279,19 +281,19 @@ export default function PublicCollectionHeader({
                             .filter(Boolean)
                             .join(" ")}
                     >
-                        {HUB_TABS.map(t => (
+                        {HUB_TABS.map(tab => (
                             <button
-                                key={t.id}
+                                key={tab.id}
                                 type="button"
                                 className={[
                                     styles.chip,
-                                    activeTab === t.id ? styles.chipActive : "",
+                                    activeTab === tab.id ? styles.chipActive : "",
                                 ]
                                     .filter(Boolean)
                                     .join(" ")}
-                                onClick={() => onTabChange(t.id)}
+                                onClick={() => onTabChange(tab.id)}
                             >
-                                {t.icon} {t.label}
+                                {tab.icon} {t(tab.labelKey)}
                             </button>
                         ))}
                     </div>

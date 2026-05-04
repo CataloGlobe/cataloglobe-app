@@ -1,4 +1,38 @@
 import { supabase } from "@/services/supabase/client";
+import { computeFieldHash } from "@/services/translation/hashUtils";
+import { enqueueWithSilentError } from "./translationJobs";
+import { deleteTranslationsForEntity } from "./translations";
+
+// Field di featured_contents tradotti via pipeline (Prompt 9 hook).
+const FEATURED_TRANSLATABLE_FIELDS = ["title", "subtitle", "description", "cta_text"] as const;
+type FeaturedTranslatableField = (typeof FEATURED_TRANSLATABLE_FIELDS)[number];
+
+/**
+ * Calcola gli hash dei field tradotti presenti in `data`. Ritorna una mappa
+ * field → hash + il payload aggiornato con le colonne `<field>_hash` settate.
+ *
+ * Solo i field presenti in `data` (check `'X' in data`) entrano nella mappa.
+ * Niente hash → niente enqueue al chiamante.
+ */
+async function buildFeaturedTranslatableHashes(
+    data: Partial<FeaturedContent>
+): Promise<{
+    hashes: Map<FeaturedTranslatableField, string | null>;
+    hashColumns: Record<string, string | null>;
+}> {
+    const hashes = new Map<FeaturedTranslatableField, string | null>();
+    const hashColumns: Record<string, string | null> = {};
+
+    for (const field of FEATURED_TRANSLATABLE_FIELDS) {
+        if (!(field in data)) continue;
+        const value = data[field] as string | null | undefined;
+        const hash = await computeFieldHash(value ?? null);
+        hashes.set(field, hash);
+        hashColumns[`${field}_hash`] = hash;
+    }
+
+    return { hashes, hashColumns };
+}
 
 export type FeaturedContentStatus = "draft" | "published";
 export type FeaturedContentPricingMode = "none" | "per_item" | "bundle";
@@ -119,10 +153,13 @@ export async function createFeaturedContent(
     contentData: Partial<FeaturedContent>,
     productsData: Partial<FeaturedContentProduct>[] = []
 ) {
+    const { hashes, hashColumns } = await buildFeaturedTranslatableHashes(contentData);
+
     const { data: content, error: contentError } = await supabase
         .from("featured_contents")
         .insert({
             ...contentData,
+            ...hashColumns,
             tenant_id: tenantId
         })
         .select()
@@ -130,33 +167,90 @@ export async function createFeaturedContent(
 
     if (contentError) throw contentError;
 
+    let insertedProducts: FeaturedContentProduct[] = [];
     if (productsData.length > 0) {
-        const productsToInsert = productsData.map((p, index) => ({
-            ...p,
-            tenant_id: tenantId,
-            featured_content_id: content.id,
-            sort_order: p.sort_order ?? index
-        }));
+        // Compute note_hash per ogni product item (note opzionale).
+        const productsToInsert = await Promise.all(
+            productsData.map(async (p, index) => ({
+                ...p,
+                tenant_id: tenantId,
+                featured_content_id: content.id,
+                sort_order: p.sort_order ?? index,
+                note_hash: await computeFieldHash(p.note ?? null)
+            }))
+        );
 
-        const { error: productsError } = await supabase
+        const { data: insertedRows, error: productsError } = await supabase
             .from("featured_content_products")
-            .insert(productsToInsert);
+            .insert(productsToInsert)
+            .select();
 
         if (productsError) throw productsError;
+        insertedProducts = (insertedRows ?? []) as FeaturedContentProduct[];
+    }
+
+    // Enqueue translation jobs (silent error).
+    for (const field of FEATURED_TRANSLATABLE_FIELDS) {
+        if (!hashes.has(field)) continue;
+        const hash = hashes.get(field) ?? null;
+        if (hash === null) continue;
+        const sourceText = (contentData[field] as string | null | undefined) ?? null;
+        await enqueueWithSilentError({
+            tenantId,
+            entityType: "featured",
+            entityId: content.id,
+            field,
+            newSourceText: sourceText,
+            newSourceHash: hash
+        });
+    }
+
+    for (const row of insertedProducts) {
+        if (!row.note) continue;
+        const noteHash = await computeFieldHash(row.note);
+        if (noteHash === null) continue;
+        await enqueueWithSilentError({
+            tenantId,
+            entityType: "featured_product",
+            entityId: row.id,
+            field: "note",
+            newSourceText: row.note,
+            newSourceHash: noteHash
+        });
     }
 
     return content;
 }
 
+/**
+ * Aggiorna SOLO i field di `featured_contents` (titolo, sottotitolo, descrizione,
+ * cta_text, cta_url, media_id, status, layout_style, pricing_mode, ecc.).
+ *
+ * NON gestisce il lifecycle dei `featured_content_products`. Pattern delta-based
+ * con id stabili — i prodotti hanno helper dedicati:
+ *
+ *   - `syncFeaturedContentProducts(featuredId, tenantId, toRemoveIds, toAddItems)`
+ *     → add/remove (id stabili: nuove righe ricevono id nuovi, rimosse vengono
+ *     cancellate puntualmente per id; le righe NON toccate conservano l'id).
+ *   - `updateFeaturedContentProductNote(id, tenantId, note)` → update per-row.
+ *   - `updateFeaturedContentProductsSortOrder(rows, tenantId)` → update per-row.
+ *
+ * Razionale: l'id di `featured_content_products` deve restare stabile attraverso
+ * gli edit del parent featured_content. Precondizione P4 per il sistema
+ * traduzioni (Prompt 9): le translation della colonna `note` saranno linkate
+ * via `entity_id = featured_content_products.id`. Un DELETE+REINSERT al save
+ * di featured_contents perderebbe l'id e renderebbe orfane le translation.
+ */
 export async function updateFeaturedContent(
     id: string,
     tenantId: string,
-    contentData: Partial<FeaturedContent>,
-    productsData?: Partial<FeaturedContentProduct>[]
+    contentData: Partial<FeaturedContent>
 ): Promise<FeaturedContent> {
+    const { hashes, hashColumns } = await buildFeaturedTranslatableHashes(contentData);
+
     const { data: content, error: contentError } = await supabase
         .from("featured_contents")
-        .update(contentData)
+        .update({ ...contentData, ...hashColumns })
         .eq("id", id)
         .eq("tenant_id", tenantId)
         .select()
@@ -164,31 +258,20 @@ export async function updateFeaturedContent(
 
     if (contentError) throw contentError;
 
-    // Solo se productsData è esplicitamente passato, esegui delete+reinsert
-    if (productsData !== undefined) {
-        const { error: delError } = await supabase
-            .from("featured_content_products")
-            .delete()
-            .eq("featured_content_id", id)
-            .eq("tenant_id", tenantId);
-
-        if (delError) throw delError;
-
-        if (productsData.length > 0) {
-            const productsToInsert = productsData.map((p, index) => ({
-                product_id: p.product_id,
-                note: p.note || null,
-                tenant_id: tenantId,
-                featured_content_id: id,
-                sort_order: p.sort_order ?? index
-            }));
-
-            const { error: productsError } = await supabase
-                .from("featured_content_products")
-                .insert(productsToInsert);
-
-            if (productsError) throw productsError;
-        }
+    // Enqueue translation jobs solo per i field effettivamente presenti
+    // in contentData (controllato da buildFeaturedTranslatableHashes).
+    for (const field of FEATURED_TRANSLATABLE_FIELDS) {
+        if (!hashes.has(field)) continue;
+        const hash = hashes.get(field) ?? null;
+        const sourceText = (contentData[field] as string | null | undefined) ?? null;
+        await enqueueWithSilentError({
+            tenantId,
+            entityType: "featured",
+            entityId: id,
+            field,
+            newSourceText: sourceText,
+            newSourceHash: hash
+        });
     }
 
     return content as FeaturedContent;
@@ -236,6 +319,13 @@ export async function deleteFeaturedContentProduct(id: string, tenantId: string)
         .eq("tenant_id", tenantId);
 
     if (error) throw error;
+
+    // Cleanup translations associate (entity_id senza FK CASCADE).
+    try {
+        await deleteTranslationsForEntity(tenantId, "featured_product", id, "note");
+    } catch (err) {
+        console.error("[translations] cleanup on deleteFeaturedContentProduct failed:", err);
+    }
 }
 
 export async function updateFeaturedContentProductNote(
@@ -243,13 +333,24 @@ export async function updateFeaturedContentProductNote(
     tenantId: string,
     note: string | null
 ): Promise<void> {
+    const noteHash = await computeFieldHash(note);
+
     const { error } = await supabase
         .from("featured_content_products")
-        .update({ note })
+        .update({ note, note_hash: noteHash })
         .eq("id", id)
         .eq("tenant_id", tenantId);
 
     if (error) throw error;
+
+    await enqueueWithSilentError({
+        tenantId,
+        entityType: "featured_product",
+        entityId: id,
+        field: "note",
+        newSourceText: note,
+        newSourceHash: noteHash
+    });
 }
 
 export async function updateFeaturedContentProductsSortOrder(
@@ -293,6 +394,9 @@ export async function syncFeaturedContentProducts(
     }
 
     if (toAddItems.length > 0) {
+        // ADD: note hardcoded a null → niente translation_jobs da enqueue al
+        // momento dell'aggiunta. La nota viene popolata in seguito via
+        // updateFeaturedContentProductNote che gestisce hash + enqueue.
         const payload = toAddItems.map(item => ({
             tenant_id: tenantId,
             featured_content_id: featuredId,
@@ -313,4 +417,16 @@ export async function syncFeaturedContentProducts(
     }
 
     await Promise.all(ops);
+
+    // Cleanup translations dei product rimossi (entity_id senza FK CASCADE).
+    // Eseguito DOPO le ops principali per non bloccare il sync se fallisce.
+    if (toRemoveIds.length > 0) {
+        for (const removedId of toRemoveIds) {
+            try {
+                await deleteTranslationsForEntity(tenantId, "featured_product", removedId, "note");
+            } catch (err) {
+                console.error("[translations] cleanup on syncFeaturedContentProducts remove failed:", err);
+            }
+        }
+    }
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CalendarDays } from "lucide-react";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import FeaturedCard from "@/components/PublicCollectionView/FeaturedCard/FeaturedCard";
@@ -12,6 +13,7 @@ type EventsViewProps = {
 };
 
 export default function EventsView({ featuredContents, layout = "card" }: EventsViewProps) {
+    const { t } = useTranslation("public");
     const [previewBlock, setPreviewBlock] = useState<V2FeaturedContent | null>(null);
 
     if (featuredContents.length === 0) {
@@ -19,7 +21,7 @@ export default function EventsView({ featuredContents, layout = "card" }: Events
             <div className={styles.emptyState}>
                 <CalendarDays size={48} strokeWidth={1.5} className={styles.emptyIcon} />
                 <Text variant="body" color="var(--pub-bg-text-muted)">
-                    Nessun evento o promozione attiva al momento.
+                    {t("events.empty")}
                 </Text>
             </div>
         );
@@ -27,7 +29,7 @@ export default function EventsView({ featuredContents, layout = "card" }: Events
 
     return (
         <>
-        <div className={styles.container} role="list" aria-label="Eventi e promozioni">
+        <div className={styles.container} role="list" aria-label={t("events.list_aria")}>
             {featuredContents.map(fc => (
                 <FeaturedCard
                     key={fc.id}

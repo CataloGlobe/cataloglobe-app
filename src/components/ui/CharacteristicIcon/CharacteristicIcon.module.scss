@@ -7,24 +7,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-gray-700);
-    border-radius: var(--radius-sm);
-    transition: color 0.15s ease;
-
-    &:hover {
-        color: var(--color-gray-900);
-    }
-}
-
-.wrapperBare {
-    color: inherit;
-}
-
-.bareWrapper {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: inherit;
+    // Chip-style mirror of AllergenIcon: theme-aware soft-tinted round
+    // chip with primary-color icon. Pepper color overrides (inline
+    // style on the SVG) win over this color via CSS specificity.
+    color: var(--pub-primary, var(--color-gray-700));
+    background-color: var(--pub-primary-soft, #F1F3F5);
+    border-radius: 50%;
+    padding: 4px;
+    flex-shrink: 0;
 }
 
 // Lucide SVG inherits color from the wrapper. The inline `style.color` set by
@@ -70,11 +60,14 @@
     left: 50%;
     transform: translateX(-50%) translateY(4px);
     padding: 4px 8px;
-    background-color: var(--color-gray-900);
-    color: var(--color-white, #fff);
-    font-size: 12px;
+    // Direct values (mirror of AllergenIcon.module.scss). Token aliases
+    // like --color-gray-900 / --radius-sm are NOT defined in _theme.scss
+    // and would resolve to initial values (transparent bg, no rounding).
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    font-size: 11px;
     line-height: 1.2;
-    border-radius: var(--radius-sm);
+    border-radius: 4px;
     white-space: nowrap;
     opacity: 0;
     pointer-events: none;
@@ -88,7 +81,7 @@
         left: 50%;
         transform: translateX(-50%);
         border: 4px solid transparent;
-        border-top-color: var(--color-gray-900);
+        border-top-color: rgba(0, 0, 0, 0.8);
     }
 }
 

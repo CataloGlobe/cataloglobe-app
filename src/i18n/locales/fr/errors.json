@@ -1,0 +1,12 @@
+{
+    "reviews": {
+        "INVALID_RATING": "La note doit être un nombre entier entre 1 et 5.",
+        "INVALID_PAYLOAD": "Données non valides",
+        "RATE_LIMIT_IP": "Trop de demandes. Veuillez réessayer plus tard.",
+        "RATE_LIMIT_SESSION": "Vous avez déjà laissé un commentaire récemment.",
+        "ACTIVITY_NOT_FOUND": "Activité non trouvée",
+        "METHOD_NOT_ALLOWED": "Méthode non autorisée",
+        "SERVER_ERROR": "Erreur lors de l'enregistrement de l'examen"
+    },
+    "generic": "Une erreur s'est produite"
+}

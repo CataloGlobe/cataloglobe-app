@@ -279,6 +279,15 @@ Due tipi di regola sullo stesso modello `schedules`:
 - `activity_hours.closes_next_day` — BOOLEAN DEFAULT false. Se `closes_at < opens_at`, il form imposta il flag automaticamente. Overlap detection usa `closes_at_minutes + 1440` per slot notturni. Stesso pattern per `activity_closures` (JSONB slots, `closes_next_day` è campo del JSON — nessun campo DB aggiuntivo).
 - View utenti vs RPC: `user_tenants_view` è SECURITY INVOKER e delega a `get_user_tenants()`. Per dati membri/inviti usare le RPC `get_tenant_members(uuid)` e `get_my_pending_invites()` (entrambe SECURITY DEFINER, accesso filtrato internamente). Le view legacy `tenant_members_view` e `my_pending_invites_view` sono state droppate nelle migration `20260427100000_security_advisor_fixes.sql` + `20260427110000_drop_orphan_member_views.sql`.
 - Stripe lifecycle: usare sempre `_shared/stripe-helpers.ts` per chiamate Stripe nelle Edge Functions. Pattern: `scheduleStripeCancel()` al soft-delete (account/tenant) → `reactivateStripeSubIfScheduled()` al recovery → `cancelStripeSubImmediate()` + `deleteStripeCustomer()` al hard-delete (cron purge). Tutti idempotenti e non-throwing. NON chiamare `stripe.subscriptions.cancel()` direttamente in soft-delete (perde l'utente i giorni pagati e disincentiva il recovery). Usato da: delete-tenant, delete-account, restore-tenant, recover-account, _shared/tenant-purge.ts.
+- **Storage policy naming canonico** (post canonicalizzazione 30/04/2026, migration `20260430180000_storage_policy_canonicalize.sql`): tutte le 24 policy su `storage.objects` seguono il pattern `<bucket> <op>` (lowercase, hyphen-space). 6 bucket × 4 operazioni (select/insert/update/delete). Tutte `TO authenticated`. UPDATE policy hanno SEMPRE sia USING che WITH CHECK populate (identici).
+
+  Storia: 3 stili coesistevano (snake_case, sentence-case, hyphen-space) con drift staging/prod. Canonicalizzazione ha allineato entrambi gli ambienti. Future migration storage devono mantenere il pattern.
+
+  **Pattern obbligatorio per nuove policy `storage.objects`**:
+  - Naming: `<bucket-id> <operation>` (es. `avatars insert`, `product-images update`)
+  - Roles: `TO authenticated` (no public listing). I file pubblici sono serviti via `getPublicUrl()` che bypassa RLS senza policy SELECT public.
+  - UPDATE policy: SEMPRE `USING (...) WITH CHECK (...)` con espressione identica. Senza WITH CHECK, l'SDK upsert fallisce silenziosamente.
+  - Sempre usare `DROP POLICY IF EXISTS` (idempotenza cross-env).
 - **Security Advisor — stato target post-hardening (aprile 2026)**: chiusi 81 advisor su 112 (errori → 0, warning → 27, info → 4). I 27 warning residui sono **tutti intenzionali**, NON da fixare:
   - 18 `authenticated_security_definer_function_executable` — 15 RPC frontend (`accept_invite_by_token`, `decline_invite_by_token`, `change_member_role`, `get_invite_info_by_token`, `get_my_deleted_tenants`, `get_my_pending_invites`, `get_schedule_featured_contents`, `get_tenant_members`, `get_tenant_public_info`, `invite_tenant_member`, `leave_tenant`, `remove_tenant_member`, `resend_invite`, `revoke_invite`, `update_tenant_logo`) + 3 eccezioni RLS-critiche (`get_my_tenant_ids`, `get_public_tenant_ids`, `get_user_tenants` — usate da ~150 policy RLS, non revocabili).
   - 7 `anon_security_definer_function_executable` — 5 anon-legittime (flow invito via link email + pagina pubblica: `accept_invite_by_token`, `decline_invite_by_token`, `get_invite_info_by_token`, `get_schedule_featured_contents`, `get_tenant_public_info`) + 2 eccezioni RLS pubbliche (`get_public_tenant_ids`, `get_user_tenants`).
@@ -292,6 +301,17 @@ Due tipi di regola sullo stesso modello `schedules`:
   - `SET search_path TO ''` obbligatorio + qualifiche `public.<table>` esplicite nel body.
   - `REVOKE EXECUTE ... FROM PUBLIC` dopo `CREATE FUNCTION` (Postgres concede grant PUBLIC di default).
   - `GRANT EXECUTE` solo a ruoli specifici (`anon`/`authenticated`/`service_role`) in base al caso d'uso.
+- **Trigger DB auto-create su `tenants` insert**: alla creazione di una nuova riga in `tenants`, trigger automatici creano:
+  - 1 `style` di default + 1 `style_versions` collegato
+  - 1 `activity_group` di default
+
+  Test che si aspettano "tenant minimal con 0 styles/groups" sono sbagliati: la baseline post-create è già `{styles: 1+, activity_groups: 1}`. Verificato via test purge runtime 01/05/2026.
+- **Tabelle audit duplicate (cleanup futuro)**: due tabelle di audit con schema diverso e scope sovrapposto:
+  - `public.audit_logs`: usata da `purge-tenants` e `purge-tenant-now` per eventi `tenant_purged`. Schema: `event_type`, `user_id`, `metadata` (jsonb), `created_at`.
+  - `public.audit_events`: usata da `purge-accounts` per eventi `account_purged`. Schema: `event_type`, `actor_user_id`, `target_user_id`, `tenant_id`, `payload` (jsonb), `created_at`.
+
+  Inconsistenza nota da consolidare: candidate per merge in singola tabella con schema unificato. Per ora, nei test verificare ENTRAMBE.
+- **Soft-delete account semantica**: il flow soft-delete account NON popola `auth.users.deleted_at`. Usa `banned_until` su `auth.users` + `profiles.account_deleted_at`. Query del tipo "trova account purgable" devono cercare in `profiles.account_deleted_at`, non in `auth.users.deleted_at` (che è sempre NULL nel flow attuale).
 
 ---
 
@@ -316,6 +336,14 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 
 **scheduleResolver.ts** esiste in DUE posti: `src/services/supabase/` e `supabase/functions/_shared/`. Sincronizzarli ENTRAMBI ad ogni modifica.
 
+**`purge-tenant-now` vs `purge-tenants`**:
+- `purge-tenant-now`: endpoint on-demand chiamato dall'UI Workspace ("Elimina definitivamente"). Richiede JWT user owner del tenant + ownership check interno. **Bypassa il filtro 30gg** (immediate purge se `deleted_at IS NOT NULL`).
+- `purge-tenants`: cron daily 03:00 UTC. Richiede `x-purge-secret` header (`vault.purge_tenants_secret`). Filtra `WHERE deleted_at < now() - interval '30 days'`. Batch 10 tenant.
+
+Entrambi usano `purgeTenantData()` shared in `_shared/tenant-purge.ts`. Path identico.
+
+**Trigger `prevent_deleted_at_client_update`**: trigger PostgreSQL che blocca UPDATE su `tenants.deleted_at` se non sei `service_role`. Significa che testi via Dashboard SQL Editor (role `postgres`) **non possono** forzare il backdate manualmente. Per backdate serve girare via Edge Function con service_role oppure via API admin. Per test rapidi, preferire `purge-tenant-now` che bypassa il filtro temporale.
+
 ---
 
 ## Integrazioni
@@ -323,6 +351,12 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 - **Supabase client**: solo `src/services/supabase/client.ts`. Mai `service_role` nel frontend.
 - **Email**: solo via Edge Functions (Resend), mai dal frontend.
 - **Upload**: `src/services/supabase/upload.ts` + `src/utils/compressImage.ts`.
+- **Upload con upsert** (`supabase.storage.upload(path, file, { upsert: true })`): l'SDK Supabase invoca internamente `INSERT ON CONFLICT DO UPDATE` su `storage.objects`. Per funzionare richiede 3 cose lato DB:
+  1. INSERT policy con `WITH CHECK (...)`
+  2. UPDATE policy con `USING (...) WITH CHECK (...)` (entrambi populate)
+  3. SELECT policy `TO authenticated` (per leggere riga esistente nel ramo ON CONFLICT)
+
+  Senza una di queste 3, l'upsert fallisce con HTTP 400 + messaggio fuorviante `"new row violates row-level security policy"`. Il messaggio non distingue quale delle 3 manca: indagare sempre tutte le policy del bucket.
 - **Stripe**: sottoscrizione tenant, seat management, webhook. Service: `src/services/supabase/billing.ts`.
 - **Google Places**: Edge Function `search-google-places` + `GooglePlacesSearch` component in `src/pages/Operativita/Attivita/tabs/contacts/`.
 
@@ -355,6 +389,7 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 - **Fasce orarie multiple per regola** — analisi di impatto completata (aprile 2026). Opzione scelta: colonna JSONB `time_ranges` su `schedules`. 16 file da modificare, complessità media. Non implementata per rapporto costo-beneficio: il workaround (duplicare la regola con orari diversi) è sufficiente. Da implementare quando il feedback clienti lo richiede. Rischi principali: sincronizzazione atomica (migration + 2 copie resolver + deploy edge function), retrocompatibilità regole esistenti (migration SQL converte `time_from`/`time_to` → `time_ranges`).
 - **Refactor `CONTENT_MAX_WIDTH` in token condiviso** — il valore max content width desktop (1280px) vive in 2 file SCSS + 1 costante TS in PublicCollectionHeader.tsx senza single source of truth. Causa documentata di edit incompleti. Da estrarre in `--pub-frame-max-desktop` letto sia da SCSS che via getComputedStyle() da TS.
 - **Toggle "Prevent use of leaked passwords"** — Supabase Dashboard → Authentication → Attack Protection. Bloccato su piano Free: feature disponibile solo da Pro plan in su. Quando passerai a Pro, attivalo su staging E prod (toggle + Save changes, niente migration). Risolve 1 warning Security Advisor "auth_leaked_password_protection". Razionale: Supabase verifica le password contro DB HaveIBeenPwned al signup/password change, rifiuta password compromesse note. Zero rischio abilitare, zero impatto runtime.
+- **Consolidare tabelle audit `audit_logs` + `audit_events`** — schema diverso, scope sovrapposto (vedi sezione Schema facts critici). Candidate per merge in singola tabella. Bassa priorità.
 
 ---
 
@@ -458,7 +493,7 @@ Questi file NON devono essere modificati automaticamente da nessun plugin:
 
 **Architettura**: Supabase diretto da componenti | `tenant_id` da `auth.user.id` | nuovi provider context | modali centrate per CRUD | router fuori da App.tsx | top navbar | `any` in TypeScript
 
-**Database**: prefisso `v2_` nelle query service | tabelle senza `tenant_id` | `CASCADE` cross-dominio senza richiesta | modificare `get_my_tenant_ids()`
+**Database**: prefisso `v2_` nelle query service | tabelle senza `tenant_id` | `CASCADE` cross-dominio senza richiesta | modificare `get_my_tenant_ids()` | `DROP POLICY` senza `IF EXISTS` (rompe idempotenza cross-env, fallisce silenziosamente in caso di drift naming)
 
 **Frontend**: CSS inline | testi in inglese | esporre `owner_user_id` | librerie npm non richieste | submit button dentro `<form>` nei drawer | SystemDrawer/DrawerLayout nella pagina pubblica (usare PublicSheet)
 

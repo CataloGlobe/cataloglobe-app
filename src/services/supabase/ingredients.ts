@@ -1,4 +1,7 @@
 import { supabase } from "@/services/supabase/client";
+import { computeFieldHash } from "@/services/translation/hashUtils";
+import { enqueueWithSilentError } from "./translationJobs";
+import { deleteTranslationsForEntity } from "./translations";
 
 export type V2Ingredient = {
     id: string;
@@ -30,11 +33,15 @@ export async function getIngredients(tenantId: string): Promise<V2Ingredient[]> 
 }
 
 export async function createIngredient(tenantId: string, name: string): Promise<V2Ingredient> {
+    const trimmedName = name.trim();
+    const nameHash = await computeFieldHash(trimmedName);
+
     const { data, error } = await supabase
         .from("ingredients")
         .insert({
             tenant_id: tenantId,
-            name: name.trim()
+            name: trimmedName,
+            name_hash: nameHash
         })
         .select()
         .single();
@@ -46,6 +53,18 @@ export async function createIngredient(tenantId: string, name: string): Promise<
         }
         throw error;
     }
+
+    if (nameHash !== null) {
+        await enqueueWithSilentError({
+            tenantId,
+            entityType: "ingredient",
+            entityId: data.id,
+            field: "name",
+            newSourceText: trimmedName,
+            newSourceHash: nameHash
+        });
+    }
+
     return data;
 }
 
@@ -58,9 +77,12 @@ export async function updateIngredient(
     tenantId: string,
     data: { name: string }
 ): Promise<V2Ingredient> {
+    const trimmedName = data.name.trim();
+    const nameHash = await computeFieldHash(trimmedName);
+
     const { data: updated, error } = await supabase
         .from("ingredients")
-        .update({ name: data.name.trim() })
+        .update({ name: trimmedName, name_hash: nameHash })
         .eq("id", id)
         .eq("tenant_id", tenantId)
         .select()
@@ -72,6 +94,16 @@ export async function updateIngredient(
         }
         throw error;
     }
+
+    await enqueueWithSilentError({
+        tenantId,
+        entityType: "ingredient",
+        entityId: id,
+        field: "name",
+        newSourceText: trimmedName,
+        newSourceHash: nameHash
+    });
+
     return updated;
 }
 
@@ -83,6 +115,12 @@ export async function deleteIngredient(id: string, tenantId: string): Promise<vo
         .eq("tenant_id", tenantId);
 
     if (error) throw error;
+
+    try {
+        await deleteTranslationsForEntity(tenantId, "ingredient", id, "name");
+    } catch (err) {
+        console.error("[translations] cleanup on deleteIngredient failed:", err);
+    }
 }
 
 // =========================================

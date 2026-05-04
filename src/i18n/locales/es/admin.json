@@ -1,0 +1,26 @@
+{
+    "languages": {
+        "title": "Idiomas",
+        "description": "Active los idiomas a los que desea traducir su menú público. El contenido existente se traducirá automáticamente en cuestión de minutos.",
+        "italian_base": "Su contenido está en italiano (lengua básica).",
+        "activated": "{{lang}} activado. Contenido de {{count}} en traducción.",
+        "activated_no_jobs": "{{lang}} activado. No hay contenido nuevo que traducir.",
+        "deactivated": "{{lang}} desactivado.",
+        "confirm_title": "¿Activar {{lang}}?",
+        "confirm_description": "Traduciremos automáticamente sus productos, categorías y otros contenidos. Estará disponible en cuestión de minutos.",
+        "confirm_button": "Activar"
+    },
+    "errors": {
+        "load_failed": "Error al cargar idiomas",
+        "activate_failed": "Error de activación del idioma",
+        "deactivate_failed": "Error al desactivar el idioma"
+    },
+    "translation_status": {
+        "completed_one": "Traducido a 1 idioma",
+        "completed_other": "Traducido a las lenguas {{count}}",
+        "in_progress": "Traducción en curso ({{done}}/{{total}})",
+        "error_one": "Error en 1 idioma",
+        "error_other": "Error en las lenguas {{count}}",
+        "retry": "Inténtalo de nuevo"
+    }
+}

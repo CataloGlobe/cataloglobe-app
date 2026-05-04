@@ -1,0 +1,26 @@
+{
+    "languages": {
+        "title": "Lingue",
+        "description": "Attiva le lingue in cui vuoi tradurre il tuo menu pubblico. I contenuti esistenti saranno tradotti automaticamente in pochi minuti.",
+        "italian_base": "I tuoi contenuti sono in italiano (lingua base).",
+        "activated": "{{lang}} attivata. {{count}} contenuti in traduzione.",
+        "activated_no_jobs": "{{lang}} attivata. Nessun nuovo contenuto da tradurre.",
+        "deactivated": "{{lang}} disattivata.",
+        "confirm_title": "Attivare {{lang}}?",
+        "confirm_description": "Tradurremo automaticamente i tuoi prodotti, categorie e altri contenuti. Sarà disponibile in pochi minuti.",
+        "confirm_button": "Attiva"
+    },
+    "errors": {
+        "load_failed": "Errore nel caricamento delle lingue",
+        "activate_failed": "Errore nell'attivazione della lingua",
+        "deactivate_failed": "Errore nella disattivazione della lingua"
+    },
+    "translation_status": {
+        "completed_one": "Tradotto in 1 lingua",
+        "completed_other": "Tradotto in {{count}} lingue",
+        "in_progress": "Traduzione in corso ({{done}}/{{total}})",
+        "error_one": "Errore in 1 lingua",
+        "error_other": "Errore in {{count}} lingue",
+        "retry": "Riprova"
+    }
+}

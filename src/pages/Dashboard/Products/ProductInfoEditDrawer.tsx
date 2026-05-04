@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { FileInput } from "@/components/ui/Input/FileInput";
 import Text from "@/components/ui/Text/Text";
+import { TranslationStatusBadge } from "@/components/ui/TranslationStatusBadge/TranslationStatusBadge";
 import { useToast } from "@/context/Toast/ToastContext";
 import { V2Product, updateProduct } from "@/services/supabase/products";
 import { uploadProductImage } from "@/services/supabase/upload";
@@ -133,6 +134,15 @@ export function ProductInfoEditDrawer({
                             rows={4}
                             placeholder="Descrizione del prodotto..."
                         />
+                        {productId && tenantId && (
+                            <TranslationStatusBadge
+                                tenantId={tenantId}
+                                entityType="product"
+                                entityId={productId}
+                                field="description"
+                                refreshKey={productId}
+                            />
+                        )}
                     </div>
 
                     <FileInput

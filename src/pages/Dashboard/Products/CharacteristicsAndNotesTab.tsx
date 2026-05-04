@@ -7,7 +7,13 @@ import {
     getProductCharacteristics,
     setProductCharacteristics
 } from "@/services/supabase/productCharacteristics";
+import {
+    updateProduct,
+    type ProductNote,
+    type V2Product
+} from "@/services/supabase/products";
 import CharacteristicsSection from "./components/CharacteristicsSection/CharacteristicsSection";
+import ProductNotesSection from "./components/ProductNotesSection/ProductNotesSection";
 import styles from "./CharacteristicsAndNotesTab.module.scss";
 
 interface CharacteristicsAndNotesTabProps {
@@ -15,29 +21,37 @@ interface CharacteristicsAndNotesTabProps {
     tenantId: string;
     /** Tenant vertical, used to scope the characteristics lookup. */
     vertical?: string;
+    /** Notes loaded from the product (Phase 4a column). Array, possibly empty. */
+    initialNotes: ProductNote[];
+    /** Bubble back the updated product after a successful notes save. */
+    onProductUpdated: (product: V2Product) => void;
 }
 
 /**
- * Tab "Caratteristiche e Note" — Phase 4b.1 wires only the Characteristics
- * section. The Notes section will land in Phase 4b.2 in the placeholder
- * area below; the orchestrator already tracks dirty state and renders the
- * sticky save/reset bar so 4b.2 only needs to plug the second section.
+ * Tab "Caratteristiche e Note" — orchestrator for the two product sections.
  *
- * TODO Phase 4b.2:
- * - Mount <ProductNotesSection> in the placeholder area.
- * - Extend dirty tracking + handleSave to include notes via updateProduct.
- * - Update tab label in verticalTypes.copy.productSections.characteristics
- *   to "Caratteristiche e Note" once notes is wired.
+ * Persistence is independent per concern via Promise.allSettled:
+ * characteristics save through `setProductCharacteristics`, notes save
+ * through `updateProduct({ notes })`. A partial save (one fulfilled, one
+ * rejected) updates only the fulfilled snapshot and surfaces a toast for the
+ * other; the user keeps editing the failed side.
+ *
+ * Notes snapshot is re-synced from the parent's `initialNotes` only while
+ * the tab is NOT dirty, to avoid clobbering pending user edits.
  */
 export default function CharacteristicsAndNotesTab({
     productId,
     tenantId,
-    vertical
+    vertical,
+    initialNotes,
+    onProductUpdated
 }: CharacteristicsAndNotesTabProps) {
     const { showToast } = useToast();
 
     const [characteristicIds, setCharacteristicIds] = useState<string[]>([]);
-    const [savedSnapshot, setSavedSnapshot] = useState<string[]>([]);
+    const [characteristicsSnapshot, setCharacteristicsSnapshot] = useState<string[]>([]);
+    const [notes, setNotes] = useState<ProductNote[]>(initialNotes);
+    const [notesSnapshot, setNotesSnapshot] = useState<ProductNote[]>(initialNotes);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -48,7 +62,7 @@ export default function CharacteristicsAndNotesTab({
             .then(ids => {
                 if (cancelled) return;
                 setCharacteristicIds(ids);
-                setSavedSnapshot(ids);
+                setCharacteristicsSnapshot(ids);
                 setIsLoading(false);
             })
             .catch(err => {
@@ -63,28 +77,71 @@ export default function CharacteristicsAndNotesTab({
     }, [productId, tenantId, showToast]);
 
     const isDirty = useMemo(() => {
-        if (characteristicIds.length !== savedSnapshot.length) return true;
-        const saved = new Set(savedSnapshot);
-        return characteristicIds.some(id => !saved.has(id));
-    }, [characteristicIds, savedSnapshot]);
+        const idsDiffer =
+            characteristicIds.length !== characteristicsSnapshot.length ||
+            characteristicIds.some(id => !new Set(characteristicsSnapshot).has(id));
+        const notesDiffer = JSON.stringify(notes) !== JSON.stringify(notesSnapshot);
+        return idsDiffer || notesDiffer;
+    }, [characteristicIds, characteristicsSnapshot, notes, notesSnapshot]);
+
+    // Re-sync notes from the parent when initialNotes changes (e.g. parent
+    // reloaded the product after a save in another tab). Guarded by !isDirty
+    // to avoid clobbering pending edits.
+    useEffect(() => {
+        if (isDirty) return;
+        setNotes(initialNotes);
+        setNotesSnapshot(initialNotes);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialNotes]);
 
     const handleSave = useCallback(async () => {
         setIsSaving(true);
-        try {
-            await setProductCharacteristics(tenantId, productId, characteristicIds);
-            setSavedSnapshot(characteristicIds);
-            showToast({ message: "Caratteristiche salvate.", type: "success" });
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : "Errore nel salvataggio.";
+        const results = await Promise.allSettled([
+            setProductCharacteristics(tenantId, productId, characteristicIds),
+            updateProduct(productId, tenantId, { notes })
+        ]);
+        const [charsResult, notesResult] = results;
+
+        if (charsResult.status === "fulfilled") {
+            setCharacteristicsSnapshot(characteristicIds);
+        } else {
+            const msg =
+                charsResult.reason instanceof Error
+                    ? charsResult.reason.message
+                    : "Errore nel salvataggio delle caratteristiche.";
             showToast({ message: msg, type: "error" });
-        } finally {
-            setIsSaving(false);
         }
-    }, [tenantId, productId, characteristicIds, showToast]);
+
+        if (notesResult.status === "fulfilled") {
+            const updated = notesResult.value;
+            // Use the cleaned/trimmed array returned by the service so the
+            // editor immediately reflects what was actually persisted (empty
+            // rows dropped, whitespace stripped).
+            setNotes(updated.notes);
+            setNotesSnapshot(updated.notes);
+            onProductUpdated(updated);
+        } else {
+            const msg =
+                notesResult.reason instanceof Error
+                    ? notesResult.reason.message
+                    : "Errore nel salvataggio delle note.";
+            showToast({ message: msg, type: "error" });
+        }
+
+        if (
+            charsResult.status === "fulfilled" &&
+            notesResult.status === "fulfilled"
+        ) {
+            showToast({ message: "Caratteristiche e note salvate.", type: "success" });
+        }
+
+        setIsSaving(false);
+    }, [tenantId, productId, characteristicIds, notes, onProductUpdated, showToast]);
 
     const handleReset = useCallback(() => {
-        setCharacteristicIds(savedSnapshot);
-    }, [savedSnapshot]);
+        setCharacteristicIds(characteristicsSnapshot);
+        setNotes(notesSnapshot);
+    }, [characteristicsSnapshot, notesSnapshot]);
 
     return (
         <div className={styles.root}>
@@ -114,18 +171,24 @@ export default function CharacteristicsAndNotesTab({
                 )}
             </Card>
 
-            {/* TODO Phase 4b.2: <ProductNotesSection /> goes here */}
             <Card>
-                <div className={styles.notesPlaceholder}>
-                    <Text variant="title-sm" weight={600}>
-                        Note prodotto
-                    </Text>
-                    <Text variant="body-sm" colorVariant="muted">
-                        Disponibile a breve. Le note ti permetteranno di aggiungere coppie
-                        chiave-valore personalizzate (es. provenienza, tempi di cottura,
-                        certificazioni).
-                    </Text>
+                <div className={styles.cardHeader}>
+                    <div>
+                        <Text variant="title-sm" weight={600}>
+                            Note prodotto
+                        </Text>
+                        <Text variant="body-sm" colorVariant="muted">
+                            Aggiungi coppie chiave-valore personalizzate visibili nella scheda
+                            pubblica.
+                        </Text>
+                    </div>
                 </div>
+
+                <ProductNotesSection
+                    value={notes}
+                    onChange={setNotes}
+                    disabled={isSaving}
+                />
             </Card>
 
             {isDirty && (

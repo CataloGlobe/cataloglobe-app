@@ -15,6 +15,51 @@ function jsonResponse(body: Record<string, unknown>, status: number) {
     });
 }
 
+/**
+ * Catalogo messaggi errore strutturati. Mantengo italiano per backward compat
+ * UX: il frontend pre-Prompt 18 legge data.error (campo legacy) e mostra
+ * direttamente la stringa. Quando il Prompt 18 introduce i18next, il frontend
+ * leggerà data.error_code e farà lookup chiavi i18n.
+ *
+ * TODO Prompt 18: rimuovere il campo data.error fallback dopo conferma
+ * transizione del caller (ReviewsView.tsx).
+ */
+const ERROR_MESSAGES: Record<string, string> = {
+    METHOD_NOT_ALLOWED:  "Metodo non consentito",
+    INVALID_PAYLOAD:     "Dati non validi",
+    INVALID_RATING:      "Il rating deve essere un intero tra 1 e 5",
+    RATE_LIMIT_IP:       "Troppe richieste. Riprova più tardi.",
+    RATE_LIMIT_SESSION:  "Hai già lasciato una recensione di recente.",
+    ACTIVITY_NOT_FOUND:  "Attività non trovata",
+    SERVER_ERROR:        "Errore durante il salvataggio della recensione"
+};
+
+/**
+ * Response error strutturata con error_code per i18n + campi legacy per
+ * compat con il caller frontend pre-Prompt 18.
+ */
+function errorResponse(
+    code: string,
+    status: number,
+    details?: Record<string, unknown>
+): Response {
+    const message = ERROR_MESSAGES[code] ?? "Si è verificato un errore";
+    return new Response(
+        JSON.stringify({
+            error_code: code,
+            // backward compat (deprecated): rimuovere post Prompt 18 quando
+            // ReviewsView.tsx leggerà error_code + i18n lookup.
+            error: message,
+            message,
+            ...(details ? { details } : {})
+        }),
+        {
+            status,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+    );
+}
+
 function ratingCategory(rating: number): "positive" | "neutral" | "negative" {
     if (rating >= 4) return "positive";
     if (rating === 3) return "neutral";
@@ -27,7 +72,7 @@ serve(async (req: Request) => {
     }
 
     if (req.method !== "POST") {
-        return jsonResponse({ error: "Metodo non consentito" }, 405);
+        return errorResponse("METHOD_NOT_ALLOWED", 405);
     }
 
     // ── Extract IP (preparatorio per rate limit per IP) ─────────────
@@ -46,22 +91,22 @@ serve(async (req: Request) => {
         // ── Validation ──────────────────────────────────────────────
         const activityId = body.activity_id;
         if (typeof activityId !== "string" || activityId.trim() === "") {
-            return jsonResponse({ error: "activity_id è obbligatorio" }, 400);
+            return errorResponse("INVALID_PAYLOAD", 400, { field: "activity_id", reason: "required" });
         }
         // UUID = 36 chars max
         if (activityId.trim().length > 36) {
-            return jsonResponse({ error: "activity_id non valido" }, 400);
+            return errorResponse("INVALID_PAYLOAD", 400, { field: "activity_id", reason: "invalid" });
         }
 
         const rating = body.rating;
         if (typeof rating !== "number" || !Number.isInteger(rating) || rating < 1 || rating > 5) {
-            return jsonResponse({ error: "rating deve essere un intero tra 1 e 5" }, 400);
+            return errorResponse("INVALID_RATING", 400);
         }
 
         let comment: string | null = null;
         if (body.comment !== undefined && body.comment !== null) {
             if (typeof body.comment !== "string") {
-                return jsonResponse({ error: "comment deve essere una stringa" }, 400);
+                return errorResponse("INVALID_PAYLOAD", 400, { field: "comment", reason: "type" });
             }
             const trimmed = body.comment.trim();
             comment = trimmed.length > 0 ? trimmed.slice(0, 2000) : null;
@@ -70,10 +115,10 @@ serve(async (req: Request) => {
         let sessionId: string | null = null;
         if (body.session_id !== undefined && body.session_id !== null) {
             if (typeof body.session_id !== "string" || body.session_id.trim() === "") {
-                return jsonResponse({ error: "session_id non valido" }, 400);
+                return errorResponse("INVALID_PAYLOAD", 400, { field: "session_id", reason: "type" });
             }
             if (body.session_id.trim().length > 100) {
-                return jsonResponse({ error: "session_id non valido" }, 400);
+                return errorResponse("INVALID_PAYLOAD", 400, { field: "session_id", reason: "too_long" });
             }
             sessionId = body.session_id.trim();
         }
@@ -98,7 +143,7 @@ serve(async (req: Request) => {
             if (ipRlError) throw ipRlError;
 
             if (ipReviews && ipReviews.length >= 10) {
-                return jsonResponse({ error: "Troppe richieste. Riprova più tardi." }, 429);
+                return errorResponse("RATE_LIMIT_IP", 429);
             }
         }
 
@@ -115,10 +160,7 @@ serve(async (req: Request) => {
             if (rlError) throw rlError;
 
             if (existing && existing.length > 0) {
-                return jsonResponse(
-                    { error: "Hai già lasciato una recensione di recente. Riprova più tardi." },
-                    429
-                );
+                return errorResponse("RATE_LIMIT_SESSION", 429);
             }
         }
 
@@ -132,7 +174,7 @@ serve(async (req: Request) => {
         if (activityError) throw activityError;
 
         if (!activity) {
-            return jsonResponse({ error: "Attività non trovata" }, 404);
+            return errorResponse("ACTIVITY_NOT_FOUND", 404);
         }
 
         // ── Insert review ───────────────────────────────────────────
@@ -155,6 +197,6 @@ serve(async (req: Request) => {
         return jsonResponse({ success: true }, 200);
     } catch (err) {
         console.error("[submit-review] error:", err);
-        return jsonResponse({ error: "Errore durante il salvataggio della recensione" }, 500);
+        return errorResponse("SERVER_ERROR", 500);
     }
 });
