@@ -69,7 +69,6 @@ export default function WorkspaceLayout() {
                             onClick={() => setMobileSidebarOpen(true)}
                             aria-label="Apri menu"
                         />
-                        <div className={styles.mobileTitle}>CataloGlobe</div>
                     </div>
                 )}
                 <Outlet />

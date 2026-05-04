@@ -8,7 +8,8 @@ import { useAuth } from "@/context/useAuth";
 import { getProfile } from "@/services/supabase/profile";
 import { supabase } from "@/services/supabase/client";
 import type { Profile } from "@/types/database";
-import logoPng from "@/assets/logo-V2.png";
+import logoHorizontal from "@/assets/brand/logo-horizontal.png";
+import logoMark from "@/assets/brand/logo-mark.png";
 import { NotificationBell } from "@/components/Notifications/NotificationBell";
 import { NotificationsDrawer } from "@/components/Notifications/NotificationsDrawer";
 import styles from "./WorkspaceSidebar.module.scss";
@@ -200,25 +201,24 @@ export default function WorkspaceSidebar({
                 {/* ===== Logo ===== */}
                 {!isMobile && (
                     <div
-                        style={{
-                            padding: collapsed ? "20px 0" : "24px 22px 12px",
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "center",
-                            alignItems: collapsed ? "center" : "flex-start"
-                        }}
+                        className={[
+                            styles.logoWrap,
+                            collapsed ? styles.logoWrapCollapsed : ""
+                        ].join(" ")}
                     >
-                        {collapsed ? (
+                        <a
+                            href="/"
+                            aria-label="CataloGlobe home"
+                            className={styles.logoLink}
+                        >
                             <img
-                                src={logoPng}
-                                alt="Logo"
-                                style={{ width: "32px", height: "32px", objectFit: "contain" }}
+                                src={collapsed ? logoMark : logoHorizontal}
+                                alt="CataloGlobe"
+                                className={
+                                    collapsed ? styles.logoMark : styles.logoHorizontal
+                                }
                             />
-                        ) : (
-                            <a href="/" className={styles.sidebarLogo}>
-                                Catalo<span className={styles.sidebarLogoGlobe}>Globe</span>
-                            </a>
-                        )}
+                        </a>
                     </div>
                 )}
 

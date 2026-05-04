@@ -3,12 +3,13 @@ import { Link } from "react-router-dom";
 import { CreditCard, ShieldCheck } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
+
 import { SeatsInput } from "@/components/ui/SeatsInput/SeatsInput";
 import { useTenant } from "@/context/useTenant";
 import { createCheckoutSession } from "@/services/supabase/billing";
 import { useToast } from "@/context/Toast/ToastContext";
 import { formatPrice, MAX_SEATS } from "@/utils/pricing";
-import logoPng from "@/assets/logo-V2.png";
+import logoPng from "@/assets/brand/logo-stacked.png";
 import styles from "./ActivationRequired.module.scss";
 
 /**
@@ -45,9 +46,6 @@ export function ActivationRequired() {
         <div className={styles.page}>
             <div className={styles.logo}>
                 <img src={logoPng} alt="CataloGlobe" className={styles.logoImg} />
-                <Text variant="title-md" weight={700} colorVariant="primary">
-                    CataloGlobe
-                </Text>
             </div>
 
             <div className={styles.card}>

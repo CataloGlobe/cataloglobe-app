@@ -22,7 +22,8 @@
 .drawer {
   position: relative;
   z-index: 2;
-  height: 100vh;
+  height: 100vh;  /* fallback per browser senza supporto dvh */
+  height: 100dvh;
   // Default max-width ensures responsiveness
   max-width: 100vw;
   // width handled by prop (default 520px), mobile overrides via !important
