@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { ActivityFee } from "@/types/activity";
 import { FEE_DEFINITIONS_BY_KEY } from "@/constants/activityFees";
 import styles from "./PublicFees.module.scss";
@@ -10,29 +11,13 @@ type Props = {
     services?: string[];
 };
 
-function formatFeeValue(fee: ActivityFee): string {
-    const def = FEE_DEFINITIONS_BY_KEY[fee.key];
-    if (!def) return fee.value;
-    switch (def.unit) {
-        case "€/persona":
-            return `€${fee.value}/persona`;
-        case "%":
-            return `${fee.value}%`;
-        case "€":
-            return `€${fee.value}`;
-        case "anni":
-            return `${fee.value} anni`;
-        default:
-            return `${fee.value} ${def.unit}`;
-    }
-}
-
 /**
  * Lista righe tariffe (label sinistra, valore destra).
  * Riusabile sia nel footer che nella modale Informazioni.
  * Allineato visivamente al pattern di PublicOpeningHours.
  */
 export function PublicFeeRows({ fees }: { fees: ActivityFee[] }) {
+    const { t } = useTranslation("public");
     return (
         <dl className={styles.feeList}>
             {fees.map(fee => {
@@ -40,10 +25,12 @@ export function PublicFeeRows({ fees }: { fees: ActivityFee[] }) {
                 return (
                     <div key={fee.key} className={styles.feeRow}>
                         <dt className={styles.feeLabel}>
-                            {def?.label ?? fee.key}
+                            {def ? t(def.labelKey) : fee.key}
                         </dt>
                         <dd className={styles.feeValue}>
-                            {formatFeeValue(fee)}
+                            {def
+                                ? t(`fees.unit_format.${def.unitFormatKey}`, { value: fee.value })
+                                : fee.value}
                         </dd>
                     </div>
                 );

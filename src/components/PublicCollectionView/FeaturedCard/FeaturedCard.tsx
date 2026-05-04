@@ -1,4 +1,5 @@
 import { type KeyboardEvent, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import styles from "./FeaturedCard.module.scss";
 
@@ -21,16 +22,18 @@ function formatPrice(price: number): string {
     }).format(price);
 }
 
-function getTagLabel(contentType: string | null): string {
+function getTagKey(contentType: string | null): string {
     switch (contentType) {
-        case "bundle": return "Bundle";
-        case "promo": return "Promo";
-        case "event": return "Evento";
-        default: return "Annuncio";
+        case "bundle": return "featured.type_bundle";
+        case "promo": return "featured.type_promo";
+        case "event": return "featured.type_event";
+        default: return "featured.type_announcement";
     }
 }
 
 export default function FeaturedCard({ block, onClick, onCtaClick, className, variant = "card", eager = false }: FeaturedCardProps) {
+    const { t } = useTranslation("public");
+    const tagLabel = t(getTagKey(block.content_type));
     const hasImage = !!block.media_id;
     const hasCta = !!block.cta_text && !!block.cta_url;
     const keyHandler = (e: KeyboardEvent) => {
@@ -69,7 +72,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                 <span
                     className={`${styles.cardTag} ${styles.tagPrimary} ${styles.highlightBadge} ${styles.cardTagOnImage}`}
                 >
-                    {getTagLabel(block.content_type)}
+                    {tagLabel}
                 </span>
                 <div className={styles.highlightContent}>
                     <span className={styles.highlightTitle}>{block.title}</span>
@@ -117,7 +120,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                     <div className={styles.cardThumbPlaceholder} />
                 )}
                 <span className={`${styles.cardTag} ${styles.tagPrimary} ${hasImage ? styles.cardTagOnImage : ""}`}>
-                    {getTagLabel(block.content_type)}
+                    {tagLabel}
                 </span>
             </div>
             <div className={styles.cardBody}>

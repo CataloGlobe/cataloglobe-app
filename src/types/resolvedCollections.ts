@@ -10,8 +10,9 @@ export type ResolvedVariantDimValue = {
 export type ResolvedAllergen = {
     id: number;
     code: string;
-    label_it: string;
-    label_en: string;
+    label: string;
+    label_it?: string;
+    label_en?: string;
 };
 
 /**
@@ -30,8 +31,9 @@ export type ResolvedCharacteristic = {
     id: string;
     code: string;
     category: "diet" | "spicy" | "origin" | "preparation" | "warning" | "status";
-    label_it: string;
-    label_en: string;
+    label: string;
+    label_it?: string;
+    label_en?: string;
     icon: string;
     sort_order: number;
     mutex_group: string | null;

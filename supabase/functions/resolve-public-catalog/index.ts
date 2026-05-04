@@ -6,6 +6,235 @@ import { toRomeDateTime, getNowInRome } from "../_shared/schedulingNow.ts";
 
 interface ActivityFee { key: string; value: string; }
 
+// =============================================================================
+// Translation helpers (Prompt 13a + 13b)
+// =============================================================================
+//
+// Scope read-side: traduzione di tutti i campi pubblici nei payload `resolved`
+// + `upcoming_closures` per `lang` diversa dal base_language del tenant.
+// Coperti: products (description, notes), variants (description, notes),
+// categories (name), ingredients (name), optionGroups (name), optionValues
+// (name), allergens (label_it legacy, refactor a label al Prompt 14),
+// characteristics (label_it legacy idem), featured_contents (title, subtitle,
+// description, cta_text), activity_closures (label).
+//
+// Skip noti:
+// - featured_content_products.note → fcp.id non esposto nel payload (vedi
+//   TODO commento in applyFeatured).
+// - attr_def/attr_def_option/attr_value → niente in payload F&B (vertical skip
+//   gestito centralmente lato write-side; lato read i campi non sono
+//   serializzati nel response per F&B → no-op).
+// - variant_dim/variant_dim_value → Prompt 10c (refactor stable-id pendente).
+//
+// Fallback chain:
+//   1. lang = base_language → resolver salta la chiamata RPC.
+//   2. lang != base → RPC get_public_translations filtra SOLO per la lingua
+//      richiesta (NO fallback automatico al base). Per ogni campo:
+//        - translation row trovata → translated_text mostrato.
+//        - mancante → fallback a source row originale (già presente nel
+//          payload resolved).
+
+type EntityIdSet = {
+    productIds: Set<string>;
+    categoryIds: Set<string>;
+    ingredientIds: Set<string>;
+    optionGroupIds: Set<string>;
+    optionValueIds: Set<string>;
+    allergenIds: Set<string>;
+    characteristicIds: Set<string>;
+    featuredIds: Set<string>;
+    closureIds: Set<string>;
+};
+
+function emptyIdSet(): EntityIdSet {
+    return {
+        productIds: new Set(),
+        categoryIds: new Set(),
+        ingredientIds: new Set(),
+        optionGroupIds: new Set(),
+        optionValueIds: new Set(),
+        allergenIds: new Set(),
+        characteristicIds: new Set(),
+        featuredIds: new Set(),
+        closureIds: new Set()
+    };
+}
+
+function collectProductIds(p: any, ids: EntityIdSet): void {
+    if (!p?.id) return;
+    ids.productIds.add(p.id);
+    for (const a of p.allergens ?? []) if (a?.id !== undefined && a?.id !== null) ids.allergenIds.add(String(a.id));
+    for (const c of p.characteristics ?? []) if (c?.id) ids.characteristicIds.add(c.id);
+    for (const i of p.ingredients ?? []) if (i?.id) ids.ingredientIds.add(i.id);
+    for (const og of p.optionGroups ?? []) {
+        if (og?.id) ids.optionGroupIds.add(og.id);
+        for (const ov of og.values ?? []) if (ov?.id) ids.optionValueIds.add(ov.id);
+    }
+}
+
+function collectIds(resolved: any, closures: any[] | null | undefined): EntityIdSet {
+    const ids = emptyIdSet();
+
+    for (const cat of resolved?.catalog?.categories ?? []) {
+        if (cat?.id) ids.categoryIds.add(cat.id);
+        for (const p of cat.products ?? []) {
+            collectProductIds(p, ids);
+            for (const v of p.variants ?? []) collectProductIds(v, ids);
+        }
+    }
+
+    for (const f of resolved?.featured?.before_catalog ?? []) {
+        if (f?.id) ids.featuredIds.add(f.id);
+    }
+    for (const f of resolved?.featured?.after_catalog ?? []) {
+        if (f?.id) ids.featuredIds.add(f.id);
+    }
+
+    for (const c of closures ?? []) {
+        if (c?.id) ids.closureIds.add(c.id);
+    }
+
+    return ids;
+}
+
+function buildEntitiesArray(ids: EntityIdSet): Array<{ type: string; ids: string[] }> {
+    const entities: Array<{ type: string; ids: string[] }> = [];
+    if (ids.productIds.size > 0) {
+        const productIdArr = [...ids.productIds];
+        entities.push({ type: "product", ids: productIdArr });
+        entities.push({ type: "product_notes", ids: productIdArr });
+    }
+    if (ids.categoryIds.size > 0) entities.push({ type: "category", ids: [...ids.categoryIds] });
+    if (ids.ingredientIds.size > 0) entities.push({ type: "ingredient", ids: [...ids.ingredientIds] });
+    if (ids.optionGroupIds.size > 0) entities.push({ type: "option_group", ids: [...ids.optionGroupIds] });
+    if (ids.optionValueIds.size > 0) entities.push({ type: "option_value", ids: [...ids.optionValueIds] });
+    if (ids.allergenIds.size > 0) entities.push({ type: "allergen", ids: [...ids.allergenIds] });
+    if (ids.characteristicIds.size > 0) entities.push({ type: "characteristic", ids: [...ids.characteristicIds] });
+    if (ids.featuredIds.size > 0) {
+        const fIds = [...ids.featuredIds];
+        entities.push({ type: "featured", ids: fIds });
+        // Featured ha 4 field tradotti (title/subtitle/description/cta_text);
+        // la RPC ritorna la riga per ogni field disponibile in DB. Niente da
+        // fare di speciale lato build entities.
+    }
+    if (ids.closureIds.size > 0) entities.push({ type: "closure", ids: [...ids.closureIds] });
+    return entities;
+}
+
+function setIfPresent(obj: any, field: string, key: string, map: Map<string, string>): void {
+    if (obj && map.has(key)) obj[field] = map.get(key);
+}
+
+function applyProduct(p: any, map: Map<string, string>): void {
+    if (!p?.id) return;
+
+    setIfPresent(p, "description", `product:${p.id}:description`, map);
+
+    // notes: deserialize JSON canonical (parallelo a serializeNotes write-side).
+    const notesKey = `product_notes:${p.id}:notes`;
+    if (map.has(notesKey)) {
+        try {
+            const parsed = JSON.parse(map.get(notesKey)!);
+            if (Array.isArray(parsed)) p.notes = parsed;
+        } catch (err) {
+            console.error(`[resolver] notes deserialize failed for product ${p.id}:`, err);
+        }
+    }
+
+    // Prompt 14 transition: scriviamo sia label_it (legacy) sia label (nuovo).
+    // label_it sarà rimosso al Prompt 15 dopo drop columns DB.
+    // Allergen.id è SMALLINT → cast a string per chiave map.
+    for (const a of p.allergens ?? []) {
+        if (a?.id === undefined || a?.id === null) continue;
+        setIfPresent(a, "label_it", `allergen:${String(a.id)}:label`, map);
+        setIfPresent(a, "label", `allergen:${String(a.id)}:label`, map);
+    }
+    for (const c of p.characteristics ?? []) {
+        if (!c?.id) continue;
+        setIfPresent(c, "label_it", `characteristic:${c.id}:label`, map);
+        setIfPresent(c, "label", `characteristic:${c.id}:label`, map);
+    }
+    for (const i of p.ingredients ?? []) {
+        if (!i?.id) continue;
+        setIfPresent(i, "name", `ingredient:${i.id}:name`, map);
+    }
+    for (const og of p.optionGroups ?? []) {
+        if (!og?.id) continue;
+        setIfPresent(og, "name", `option_group:${og.id}:name`, map);
+        for (const ov of og.values ?? []) {
+            if (!ov?.id) continue;
+            setIfPresent(ov, "name", `option_value:${ov.id}:name`, map);
+        }
+    }
+}
+
+function applyFeatured(f: any, map: Map<string, string>): void {
+    if (!f?.id) return;
+    setIfPresent(f, "title", `featured:${f.id}:title`, map);
+    setIfPresent(f, "subtitle", `featured:${f.id}:subtitle`, map);
+    setIfPresent(f, "description", `featured:${f.id}:description`, map);
+    setIfPresent(f, "cta_text", `featured:${f.id}:cta_text`, map);
+
+    // TODO follow-up Prompt 13c: tradurre featured_content_products.note.
+    // Bloccato: get_schedule_featured_contents non espone l'id della row di join,
+    // quindi impossibile lookup translations[entity_id]. Fix richiede:
+    //   1. UPDATE mapper get_schedule_featured_contents per includere row.id
+    //   2. UPDATE _shared/resolveActivityCatalogs.ts per propagare l'id nel payload
+    //   3. UPDATE V2FeaturedContent.products[] type
+    // Niente impatto immediato per MVP — pochi tenant usano `note` su featured products.
+}
+
+function applyCategory(cat: any, map: Map<string, string>): void {
+    if (!cat?.id) return;
+    setIfPresent(cat, "name", `category:${cat.id}:name`, map);
+    for (const p of cat.products ?? []) {
+        applyProduct(p, map);
+        for (const v of p.variants ?? []) applyProduct(v, map);
+    }
+}
+
+function applyClosure(c: any, map: Map<string, string>): void {
+    if (!c?.id) return;
+    setIfPresent(c, "label", `closure:${c.id}:label`, map);
+}
+
+async function applyAllTranslations(
+    supabase: ReturnType<typeof createClient>,
+    resolved: any,
+    closures: any[] | null | undefined,
+    tenantId: string,
+    requestedLang: string
+): Promise<void> {
+    if (!resolved && (!closures || closures.length === 0)) return;
+
+    const ids = collectIds(resolved, closures);
+    const entities = buildEntitiesArray(ids);
+    if (entities.length === 0) return;
+
+    const { data, error } = await supabase.rpc("get_public_translations", {
+        p_tenant_id: tenantId,
+        p_lang: requestedLang,
+        p_entities: entities
+    });
+
+    if (error) {
+        // Fallback graceful: errore RPC → niente translation, render in source.
+        console.error("[resolver] get_public_translations failed:", error);
+        return;
+    }
+
+    const map = new Map<string, string>();
+    for (const t of (data ?? []) as Array<{ entity_type: string; entity_id: string; field: string; translated_text: string }>) {
+        map.set(`${t.entity_type}:${t.entity_id}:${t.field}`, t.translated_text);
+    }
+
+    // Walk + mutate in-place.
+    for (const cat of resolved?.catalog?.categories ?? []) applyCategory(cat, map);
+    for (const f of resolved?.featured?.before_catalog ?? []) applyFeatured(f, map);
+    for (const f of resolved?.featured?.after_catalog ?? []) applyFeatured(f, map);
+    for (const c of closures ?? []) applyClosure(c, map);
+}
+
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -18,9 +247,10 @@ serve(async (req: Request) => {
     }
 
     try {
-        const { slug, simulate } = await req.json() as {
+        const { slug, simulate, lang } = await req.json() as {
             slug?: string;
             simulate?: string;
+            lang?: string;
         };
 
         if (!slug) {
@@ -162,7 +392,7 @@ serve(async (req: Request) => {
         }
 
         // 3. Resolve catalogs + tenant info in parallel
-        const [resolved, tenantInfo, hoursResult, closuresResult] = await Promise.all([
+        const [resolved, tenantInfo, hoursResult, closuresResult, tenantBaseResult] = await Promise.all([
             resolveActivityCatalogs(supabase, activity.id, simulatedAt, activity.tenant_id),
             supabase.rpc("get_tenant_public_info", { p_tenant_id: activity.tenant_id }),
             activity.hours_public
@@ -179,13 +409,20 @@ serve(async (req: Request) => {
                       const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(now);
                       return supabase
                           .from("activity_closures")
-                          .select("closure_date, end_date, label, is_closed, slots")
+                          .select("id, closure_date, end_date, label, is_closed, slots")
                           .eq("activity_id", activity.id)
                           .or(`closure_date.gte.${todayStr},end_date.gte.${todayStr}`)
                           .order("closure_date", { ascending: true })
                           .limit(10);
                   })()
                 : Promise.resolve({ data: null, error: null }),
+            // base_language_code NON è esposto da get_tenant_public_info → fetch
+            // diretto. Una sola SELECT extra in parallelo: nessun overhead seriale.
+            supabase
+                .from("tenants")
+                .select("base_language_code")
+                .eq("id", activity.tenant_id)
+                .single()
         ]);
 
         const opening_hours = hoursResult.data ?? undefined;
@@ -194,6 +431,76 @@ serve(async (req: Request) => {
         // `?? null` keeps the response shape stable if the edge function is
         // deployed before the migration is applied (defensive fallback).
         const vertical_type = tenantInfo.data?.vertical_type ?? null;
+        const baseLanguage: string = (tenantBaseResult.data?.base_language_code ?? "it") as string;
+        const requestedLang = (lang ?? "").toLowerCase().trim();
+        const needsTranslation = requestedLang.length > 0 && requestedLang !== baseLanguage;
+
+        // Fetch sempre (anche senza needsTranslation): serve al LanguageSelector
+        // frontend per popolare la lista lingue selezionabili. JOIN con
+        // supported_languages per name_native + flag_emoji.
+        const [activeLangsRes, baseLangRes] = await Promise.all([
+            supabase
+                .from("tenant_languages")
+                .select("language_code, supported_languages!inner(name_native, name_en, flag_emoji)")
+                .eq("tenant_id", activity.tenant_id)
+                .eq("is_active", true),
+            // Base lang NON è in tenant_languages per design (vive su tenants.base_language_code).
+            // Fetch separato dal catalogo supported_languages per esporre name_native + flag.
+            supabase
+                .from("supported_languages")
+                .select("name_native, name_en, flag_emoji")
+                .eq("code", baseLanguage)
+                .single()
+        ]);
+
+        type RawActiveLangRow = {
+            language_code: string;
+            supported_languages: { name_native: string; name_en: string; flag_emoji: string | null };
+        };
+        const activeRows = (activeLangsRes.data ?? []) as unknown as RawActiveLangRow[];
+
+        // Verifica che la lingua richiesta sia attiva per il tenant. Se non lo è,
+        // skippiamo applyAllTranslations (sprecato) e segnaliamo lang_unsupported
+        // al frontend per redirect canonico verso /:slug.
+        let isLangSupported = true;
+        if (needsTranslation) {
+            if (activeLangsRes.error) {
+                console.error("[resolver] tenant_languages fetch failed:", activeLangsRes.error);
+                // graceful: assume supported, fallback a source faccia il resto
+            } else {
+                const activeCodes = activeRows.map(r => r.language_code);
+                isLangSupported = activeCodes.includes(requestedLang);
+            }
+        }
+
+        const effectiveLang = needsTranslation && isLangSupported ? requestedLang : baseLanguage;
+
+        // Build available_languages: base lang prima (sempre), poi attive escluso duplicato.
+        const baseLangRow = baseLangRes.data;
+        type AvailableLanguage = {
+            code: string;
+            name_native: string;
+            name_en: string;
+            flag_emoji: string | null;
+        };
+        const availableLanguages: AvailableLanguage[] = [
+            ...(baseLangRow
+                ? [{
+                      code: baseLanguage,
+                      name_native: baseLangRow.name_native,
+                      name_en: baseLangRow.name_en,
+                      flag_emoji: baseLangRow.flag_emoji ?? null
+                  }]
+                : []),
+            ...activeRows
+                .filter(r => r.language_code !== baseLanguage)
+                .map(r => ({
+                    code: r.language_code,
+                    name_native: r.supported_languages.name_native,
+                    name_en: r.supported_languages.name_en,
+                    flag_emoji: r.supported_languages.flag_emoji ?? null
+                }))
+        ];
 
         // 3b. Check subscription status — block if canceled or suspended
         const subscriptionStatus = tenantInfo.data?.subscription_status;
@@ -235,6 +542,20 @@ serve(async (req: Request) => {
             }
         }
 
+        // Apply translations (mutate in-place) PRIMA del return. Skip totale
+        // se needsTranslation=false → response identica al pre-translations.
+        // Copre: products (+ variants), categories, ingredients, optionGroups,
+        // optionValues, allergens, characteristics, featured_contents, closures.
+        if (needsTranslation && isLangSupported) {
+            await applyAllTranslations(
+                supabase,
+                resolved,
+                upcoming_closures ?? null,
+                activity.tenant_id,
+                requestedLang
+            );
+        }
+
         return new Response(
             JSON.stringify({
                 business,
@@ -242,6 +563,10 @@ serve(async (req: Request) => {
                 resolved,
                 vertical_type,
                 canonical_slug: isAliasMatch ? activity.slug : null,
+                effective_language: effectiveLang,
+                base_language_code: baseLanguage,
+                available_languages: availableLanguages,
+                ...(needsTranslation && !isLangSupported ? { lang_unsupported: true } : {}),
                 ...(opening_hours ? { opening_hours } : {}),
                 ...(upcoming_closures ? { upcoming_closures } : {})
             }),

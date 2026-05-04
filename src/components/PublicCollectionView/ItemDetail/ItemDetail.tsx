@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Package, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
@@ -38,9 +39,11 @@ export default function ItemDetail({
     onAddToSelection,
     initialFormat,
     initialAddons,
-    submitLabel = "Aggiungi alla selezione",
+    submitLabel,
     showImage = true
 }: Props) {
+    const { t } = useTranslation("public");
+    const submitLabelResolved = submitLabel ?? t("item_detail.submit_default");
     // displayItem persiste durante l'animazione di chiusura.
     const [displayItem, setDisplayItem] = useState(item);
     const [selectedFormatId, setSelectedFormatId] = useState<string | null>(null);
@@ -154,9 +157,9 @@ export default function ItemDetail({
                     <Text as="h2" variant="title-md" weight={700} className={styles.headerTitle} color="var(--pub-surface-text)">
                         {displayItem.name}
                     </Text>
-                    <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Chiudi">
+                    <button type="button" className={styles.closeBtn} onClick={onClose} aria-label={t("item_detail.close_aria")}>
                         <X size={16} strokeWidth={2} />
-                        <span>Chiudi</span>
+                        <span>{t("selection.close_label")}</span>
                     </button>
                 </div>
             }
@@ -404,13 +407,13 @@ export default function ItemDetail({
                         {displayItem.characteristics && displayItem.characteristics.length > 0 && (
                             <div className={styles.characteristicSection}>
                                 <Text variant="body-sm" weight={700} className={styles.characteristicSectionLabel} color="var(--pub-surface-text)">
-                                    Caratteristiche
+                                    {t("characteristics.title")}
                                 </Text>
                                 <div className={styles.characteristicBadges}>
                                     {displayItem.characteristics.map(c => (
                                         <span key={c.id} className={styles.characteristicBadge}>
                                             <CharacteristicIcon icon={c.icon} size={14} variant="bare" />
-                                            {c.label_it}
+                                            {c.label}
                                         </span>
                                     ))}
                                 </div>
@@ -421,13 +424,13 @@ export default function ItemDetail({
                         {displayItem.allergens && displayItem.allergens.length > 0 && (
                             <div className={styles.allergenSection}>
                                 <Text variant="body-sm" weight={700} className={styles.allergenSectionLabel} color="var(--pub-surface-text)">
-                                    Allergeni
+                                    {t("allergens.title")}
                                 </Text>
                                 <div className={styles.allergenBadges}>
                                     {displayItem.allergens.map(a => (
                                         <span key={a.id} className={styles.allergenBadge}>
                                             <AllergenIcon code={a.code} size={14} variant="bare" />
-                                            {a.label_it}
+                                            {a.label}
                                         </span>
                                     ))}
                                 </div>
@@ -450,7 +453,7 @@ export default function ItemDetail({
                         {displayItem.notes && displayItem.notes.length > 0 && (
                             <div className={styles.notesSection}>
                                 <Text variant="body-sm" weight={700} className={styles.notesSectionLabel} color="var(--pub-surface-text)">
-                                    Informazioni
+                                    {t("info.title")}
                                 </Text>
                                 <dl className={styles.notesList}>
                                     {displayItem.notes.map((note, idx) => (
@@ -490,10 +493,10 @@ export default function ItemDetail({
                         onClick={handleAddToSelection}
                     >
                         {isAddDisabled ? (
-                            "Scegli un formato per continuare"
+                            t("item_detail.format_required")
                         ) : (
                             <>
-                                <span>{submitLabel}</span>
+                                <span>{submitLabelResolved}</span>
                                 <span>€ {computedPrice.toFixed(2)}</span>
                             </>
                         )}

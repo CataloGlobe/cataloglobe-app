@@ -116,15 +116,6 @@
   }
 }
 
-.itemDisabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-
-  &:hover {
-    background: transparent;
-  }
-}
-
 .itemFlag {
   font-size: 16px;
   line-height: 1;
@@ -135,13 +126,6 @@
   flex: 1;
   text-align: left;
   font-weight: 500;
-}
-
-.itemSoon {
-  font-size: 11px;
-  color: #a8a29e;
-  font-style: italic;
-  font-weight: 400;
 }
 
 .itemCheck {

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type { SocialLinks } from "../CollectionView/CollectionView";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
@@ -127,6 +128,7 @@ export default function PublicFooter({
     allergens,
     characteristics
 }: Props) {
+    const { t } = useTranslation("public");
     const hasFees = (fees?.length ?? 0) > 0;
     const hasAllergens = !!allergens && allergens.length > 0;
     const hasCharacteristics = !!characteristics && characteristics.length > 0;
@@ -138,7 +140,7 @@ export default function PublicFooter({
     if (socialLinks?.phone && socialLinks.phone_public) {
         visibleSocials.push({
             href: `tel:${socialLinks.phone}`,
-            label: "Telefono",
+            label: t("social.phone"),
             icon: <IconPhone />,
             socialType: "phone"
         });
@@ -146,7 +148,7 @@ export default function PublicFooter({
     if (socialLinks?.email_public && socialLinks.email_public_visible) {
         visibleSocials.push({
             href: `mailto:${socialLinks.email_public}`,
-            label: "Email",
+            label: t("social.email"),
             icon: <IconMail />,
             socialType: "email"
         });
@@ -154,7 +156,7 @@ export default function PublicFooter({
     if (socialLinks?.website && socialLinks.website_public) {
         visibleSocials.push({
             href: ensureHttps(socialLinks.website),
-            label: "Sito web",
+            label: t("social.website"),
             icon: <IconGlobe />,
             socialType: "website"
         });
@@ -162,7 +164,7 @@ export default function PublicFooter({
     if (socialLinks?.instagram && socialLinks.instagram_public) {
         visibleSocials.push({
             href: instagramHref(socialLinks.instagram),
-            label: "Instagram",
+            label: t("social.instagram"),
             icon: <IconInstagram />,
             socialType: "instagram"
         });
@@ -170,7 +172,7 @@ export default function PublicFooter({
     if (socialLinks?.facebook && socialLinks.facebook_public) {
         visibleSocials.push({
             href: facebookHref(socialLinks.facebook),
-            label: "Facebook",
+            label: t("social.facebook"),
             icon: <IconFacebook />,
             socialType: "facebook"
         });
@@ -178,7 +180,7 @@ export default function PublicFooter({
     if (socialLinks?.whatsapp && socialLinks.whatsapp_public) {
         visibleSocials.push({
             href: whatsappHref(socialLinks.whatsapp),
-            label: "WhatsApp",
+            label: t("social.whatsapp"),
             icon: <IconWhatsApp />,
             socialType: "whatsapp"
         });
@@ -200,14 +202,14 @@ export default function PublicFooter({
                     type="button"
                     className={styles.allergensBtn}
                     onClick={() => setIsAllergensSheetOpen(true)}
-                    aria-label="Apri lista allergeni"
+                    aria-label={t("footer.open_allergens_aria")}
                 >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                         <circle cx="12" cy="12" r="10" />
                         <line x1="12" y1="8" x2="12" y2="12" />
                         <line x1="12" y1="16" x2="12.01" y2="16" />
                     </svg>
-                    <span>Allergeni</span>
+                    <span>{t("footer.allergens_label")}</span>
                 </button>
             )}
 
@@ -217,13 +219,13 @@ export default function PublicFooter({
                     type="button"
                     className={styles.characteristicsBtn}
                     onClick={() => setIsCharacteristicsSheetOpen(true)}
-                    aria-label="Apri lista caratteristiche"
+                    aria-label={t("footer.open_characteristics_aria")}
                 >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                         <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
                         <line x1="7" y1="7" x2="7.01" y2="7" />
                     </svg>
-                    <span>Caratteristiche</span>
+                    <span>{t("footer.characteristics_label")}</span>
                 </button>
             )}
 

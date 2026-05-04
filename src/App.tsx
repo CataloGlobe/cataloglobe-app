@@ -46,6 +46,7 @@ const CatalogEngine = lazy(() => import("./pages/Dashboard/Catalogs/CatalogEngin
 const Reviews = lazy(() => import("@pages/Dashboard/Reviews/Reviews"));
 const AnalyticsPage = lazy(() => import("@pages/Dashboard/Analytics/AnalyticsPage"));
 const BusinessSettingsPage = lazy(() => import("./pages/Business/BusinessSettingsPage"));
+const SettingsLanguages = lazy(() => import("./pages/Business/SettingsLanguages"));
 const BusinessTeamPage = lazy(() => import("./pages/Business/TeamPage"));
 const Programming = lazy(() => import("./pages/Dashboard/Programming/Programming"));
 const ProgrammingRuleDetail = lazy(() => import("./pages/Dashboard/Programming/ProgrammingRuleDetail"));
@@ -217,6 +218,7 @@ export default function App() {
                 <Route path="team" element={<BusinessTeamPage />} />
                 <Route path="subscription" element={<SubscriptionPage />} />
                 <Route path="settings" element={<BusinessSettingsPage />} />
+                <Route path="settings/languages" element={<SettingsLanguages />} />
             </Route>
 
             {/* Legacy backward-compatibility redirects */}
@@ -233,7 +235,7 @@ export default function App() {
             <Route path="/legal/termini" element={<TermsPage />} />
 
             {/* PUBLIC BUSINESS */}
-            <Route path="/:slug" element={<PublicCollectionPage />} />
+            <Route path="/:slug/:lang?" element={<PublicCollectionPage />} />
 
             {/* Global 404 */}
             <Route path="*" element={<NotFound />} />

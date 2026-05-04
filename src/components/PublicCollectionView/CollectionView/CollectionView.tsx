@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus, Search } from "lucide-react";
 import type {
     ResolvedAllergen,
@@ -210,6 +211,7 @@ function ProductRow({
     selectionQty = 0
 }: ProductRowProps) {
     const hasConfigurations = optionGroups?.some(g => g.group_kind === "ADDON") ?? false;
+    const { t } = useTranslation("public");
     const hasAttributes = (attributes?.length ?? 0) > 0;
     const hasAllergens = (allergens?.length ?? 0) > 0;
     const MAX_ALLERGEN_EMOJIS = 6;
@@ -268,7 +270,7 @@ function ProductRow({
                                 e.stopPropagation();
                                 onAddToSelection();
                             }}
-                            aria-label="Aggiungi alla selezione"
+                            aria-label={t("selection.add_aria")}
                         >
                             <Plus size={16} strokeWidth={2.5} />
                             {selectionQty > 0 && <span className={styles.addBtnBadge}>{selectionQty}</span>}
@@ -332,7 +334,7 @@ function ProductRow({
                                 <CharacteristicIcon
                                     icon={c.icon}
                                     size={20}
-                                    label={c.label_it}
+                                    label={c.label}
                                 />
                             </span>
                         ))}
@@ -347,7 +349,7 @@ function ProductRow({
                     <div className={styles.allergenEmojis}>
                         {visibleAllergens.map(a => (
                             <span key={a.id} className={styles.allergenEmoji}>
-                                <AllergenIcon code={a.code} size={20} label={a.label_it} />
+                                <AllergenIcon code={a.code} size={20} label={a.label} />
                             </span>
                         ))}
                         {hiddenCount > 0 && (
@@ -367,7 +369,7 @@ function ProductRow({
                         e.stopPropagation();
                         onAddToSelection();
                     }}
-                    aria-label="Aggiungi alla selezione"
+                    aria-label={t("selection.add_aria")}
                 >
                     <Plus size={16} strokeWidth={2.5} />
                     {selectionQty > 0 && <span className={styles.addBtnBadge}>{selectionQty}</span>}
@@ -406,6 +408,7 @@ function ProductCompactRow({
     onAddToSelection,
     selectionQty = 0
 }: ProductCompactRowProps) {
+    const { t } = useTranslation("public");
     const hasAllergens = (allergens?.length ?? 0) > 0;
     const MAX_ALLERGEN_ICONS = 6;
     const visibleAllergens = hasAllergens ? allergens!.slice(0, MAX_ALLERGEN_ICONS) : [];
@@ -447,7 +450,7 @@ function ProductCompactRow({
                                 e.stopPropagation();
                                 onAddToSelection();
                             }}
-                            aria-label="Aggiungi alla selezione"
+                            aria-label={t("selection.add_aria")}
                         >
                             <Plus size={14} strokeWidth={2.5} />
                             {selectionQty > 0 && <span className={styles.addBtnBadge}>{selectionQty}</span>}
@@ -462,7 +465,7 @@ function ProductCompactRow({
                                 <CharacteristicIcon
                                     icon={c.icon}
                                     size={16}
-                                    label={c.label_it}
+                                    label={c.label}
                                 />
                             </span>
                         ))}
@@ -477,7 +480,7 @@ function ProductCompactRow({
                     <div className={styles.compactAllergens}>
                         {visibleAllergens.map(a => (
                             <span key={a.id} className={styles.allergenEmoji}>
-                                <AllergenIcon code={a.code} size={16} label={a.label_it} />
+                                <AllergenIcon code={a.code} size={16} label={a.label} />
                             </span>
                         ))}
                         {hiddenCount > 0 && (
@@ -601,6 +604,7 @@ export default function CollectionView({
     allergens,
     catalogCharacteristics
 }: Props) {
+    const { t } = useTranslation("public");
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
         () => sectionGroups[0]?.root.id ?? null
     );
@@ -1480,7 +1484,7 @@ export default function CollectionView({
             {/* Skip link (solo public) */}
             {mode === "public" && (
                 <a className={styles.skipLink} href={`#${contentId}`}>
-                    <Text variant="caption">Salta al contenuto</Text>
+                    <Text variant="caption">{t("skip_to_content")}</Text>
                 </a>
             )}
 
@@ -1526,14 +1530,14 @@ export default function CollectionView({
                 <PublicSheet
                     isOpen={isInfoSheetOpen}
                     onClose={() => setIsInfoSheetOpen(false)}
-                    ariaLabel="Informazioni sede"
+                    ariaLabel={t("header.info_sheet_aria")}
                 >
                     <div className={styles.infoSheetContent}>
-                        <h2 className={styles.infoSheetTitle}>Informazioni</h2>
+                        <h2 className={styles.infoSheetTitle}>{t("info.title")}</h2>
 
                         {hasHours && (
                             <div className={styles.infoSection}>
-                                <h3 className={styles.infoSectionHeader}>Orari di apertura</h3>
+                                <h3 className={styles.infoSectionHeader}>{t("opening_hours.title")}</h3>
                                 <PublicOpeningHours
                                     openingHours={openingHours ?? []}
                                     upcomingClosures={upcomingClosures}
@@ -1544,14 +1548,14 @@ export default function CollectionView({
 
                         {hasFees && (
                             <div className={styles.infoSection}>
-                                <h3 className={styles.infoSectionHeader}>Tariffe</h3>
+                                <h3 className={styles.infoSectionHeader}>{t("info.fees")}</h3>
                                 <PublicFeeRows fees={fees!} />
                             </div>
                         )}
 
                         {hasPaymentMethods && (
                             <div className={styles.infoSection}>
-                                <h3 className={styles.infoSectionHeader}>Metodi di pagamento</h3>
+                                <h3 className={styles.infoSectionHeader}>{t("info.payment_methods")}</h3>
                                 <div className={styles.tagList}>
                                     {paymentMethods!.map(m => (
                                         <span key={m} className={styles.tag}>{m}</span>
@@ -1562,7 +1566,7 @@ export default function CollectionView({
 
                         {hasActivityServices && (
                             <div className={styles.infoSection}>
-                                <h3 className={styles.infoSectionHeader}>Servizi</h3>
+                                <h3 className={styles.infoSectionHeader}>{t("info.services")}</h3>
                                 <div className={styles.tagList}>
                                     {activityServices!.map(s => (
                                         <span key={s} className={styles.tag}>{s}</span>
@@ -1573,7 +1577,7 @@ export default function CollectionView({
 
                         {hasContacts && (
                             <div className={styles.infoSection}>
-                                <h3 className={styles.infoSectionHeader}>Contatti</h3>
+                                <h3 className={styles.infoSectionHeader}>{t("info.contacts")}</h3>
                                 <div className={styles.contactList}>
                                     {socialLinks?.phone_public && socialLinks?.phone && (
                                         <a href={`tel:${socialLinks.phone}`} className={styles.contactRow}>
@@ -1637,7 +1641,7 @@ export default function CollectionView({
 
                         {activityAddress && (
                             <div className={styles.infoSection}>
-                                <h3 className={styles.infoSectionHeader}>Indirizzo</h3>
+                                <h3 className={styles.infoSectionHeader}>{t("info.address")}</h3>
                                 <div className={styles.contactRow}>
                                     <MapPin size={14} strokeWidth={2} />
                                     <span className={styles.addressText}>{activityAddress}</span>
@@ -1789,7 +1793,7 @@ export default function CollectionView({
                                                 ? selection[editingSelectionIndex]?.selectedAddons
                                                 : undefined
                                             }
-                                            submitLabel={editingSelectionIndex !== null ? "Aggiorna selezione" : undefined}
+                                            submitLabel={editingSelectionIndex !== null ? t("selection.update_label") : undefined}
                                         />
                                     </Suspense>
                                 )}
@@ -1872,9 +1876,9 @@ export default function CollectionView({
                             });
                         }
                     }}
-                    aria-label={`La mia selezione, ${selectionCount} elementi`}
+                    aria-label={t("selection.fab_aria", { count: selectionCount })}
                 >
-                    La mia selezione
+                    {t("selection.fab_label")}
                     <span className={styles.selectionFabBadge}>{selectionCount}</span>
                 </button>
             )}
@@ -1899,9 +1903,9 @@ export default function CollectionView({
                             window.scrollTo({ top: 0, behavior: "smooth" });
                         }
                     }}
-                    aria-label="Com'è andata?"
+                    aria-label={t("fab.review_aria")}
                 >
-                    <MessageSquareHeart size={20} /><span className={styles.valutaFabText}>{"Com'è andata?"}</span>
+                    <MessageSquareHeart size={20} /><span className={styles.valutaFabText}>{t("fab.review_label")}</span>
                 </button>
             )}
         </main>

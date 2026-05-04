@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePageTitle } from "@/hooks/usePageTitle";
+import { useTranslation } from "react-i18next";
+import { usePageHead } from "@/hooks/usePageHead";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
@@ -31,6 +32,10 @@ import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import NotFound from "../NotFound/NotFound";
 import { getDisplayValue } from "@/utils/attributes";
 import { loadPublicFonts } from "@utils/loadPublicFonts";
+import { isValidLangFormat } from "@/utils/lang";
+import { LanguageProvider } from "@context/Language/LanguageProvider";
+import type { AvailableLanguage } from "@context/Language/LanguageContext";
+import pageStyles from "./PublicCollectionPage.module.scss";
 // reviews_summary and recent_reviews still returned by edge function — unused in frontend for now
 
 /* ===============================================
@@ -238,7 +243,7 @@ type PublicBusiness = {
 
 type PageState =
     | { status: "loading" }
-    | { status: "error"; message: string }
+    | { status: "error"; messageKey: string }
     | { status: "inactive"; inactiveReason: string | null }
     | { status: "subscription_inactive" }
     | {
@@ -249,6 +254,10 @@ type PageState =
           openingHours?: OpeningHoursEntry[];
           upcomingClosures?: UpcomingClosure[];
           allergens: Allergen[] | null;
+          effectiveLanguage: string;
+          baseLanguage: string;
+          availableLanguages: AvailableLanguage[];
+          isRefetching?: boolean;
       }
     | {
           status: "empty";
@@ -257,14 +266,32 @@ type PageState =
       };
 
 export default function PublicCollectionPage() {
-    const { slug } = useParams<{ slug: string }>();
+    const { slug, lang: langFromUrl } = useParams<{ slug: string; lang?: string }>();
     const navigate = useNavigate();
+    const { t } = useTranslation("public");
     const [searchParams] = useSearchParams();
     const simulateParam = searchParams.get("simulate");
     const [effectiveSimulate, setEffectiveSimulate] = useState<string | null>(null);
     const isSimulation = !!effectiveSimulate;
     const [state, setState] = useState<PageState>({ status: "loading" });
-    usePageTitle(state.status === "ready" ? state.business.name : undefined);
+
+    // Dinamic head tags (title, description, OG) — only when ready.
+    const headBusiness = state.status === "ready" ? state.business : null;
+    const headLang = state.status === "ready" ? state.effectiveLanguage : undefined;
+    const menuLabel = t("page.menu_label", { defaultValue: "Menu" });
+    const headTitle = headBusiness ? `${headBusiness.name} · ${menuLabel}` : undefined;
+    const headDescription = headBusiness
+        ? headBusiness.address
+            ? `${headBusiness.name} · ${headBusiness.address}`
+            : headBusiness.name
+        : undefined;
+    const headImage = headBusiness?.cover_image ?? undefined;
+    usePageHead({
+        title: headTitle,
+        description: headDescription,
+        lang: headLang,
+        imageUrl: headImage
+    });
 
     useEffect(() => {
         return loadPublicFonts();
@@ -272,15 +299,36 @@ export default function PublicCollectionPage() {
 
     useEffect(() => {
         if (!slug) {
-            setState({ status: "error", message: "Link non valido." });
+            setState({ status: "error", messageKey: "page.invalid_link" });
             return;
         }
+
+        // Pre-fetch redirect 1: lang format invalido → /:slug
+        if (langFromUrl && !isValidLangFormat(langFromUrl)) {
+            navigate(`/${slug}`, { replace: true });
+            return;
+        }
+
+        // Pre-fetch redirect 2: uppercase normalize → /:slug/:lang(lowercase)
+        if (langFromUrl && langFromUrl !== langFromUrl.toLowerCase()) {
+            navigate(`/${slug}/${langFromUrl.toLowerCase()}`, { replace: true });
+            return;
+        }
+
+        const validatedLang = isValidLangFormat(langFromUrl) ? langFromUrl!.toLowerCase() : undefined;
 
         let cancelled = false;
 
         async function load() {
             try {
-                setState({ status: "loading" });
+                // Sol 2: durante refetch (state già "ready") manteniamo i dati
+                // visibili + flag overlay; SOLO al primo load mostriamo loader.
+                setState(prev => {
+                    if (prev.status === "ready") {
+                        return { ...prev, isRefetching: true };
+                    }
+                    return { status: "loading" };
+                });
 
                 // Gate simulation behind authentication
                 let simulate: string | undefined = undefined;
@@ -298,19 +346,27 @@ export default function PublicCollectionPage() {
                 setEffectiveSimulate(simulate ?? null);
 
                 const { data, error } = await supabase.functions.invoke("resolve-public-catalog", {
-                    body: { slug, simulate }
+                    body: {
+                        slug,
+                        ...(validatedLang ? { lang: validatedLang } : {}),
+                        ...(simulate ? { simulate } : {})
+                    }
                 });
 
                 if (cancelled) return;
 
                 if (error) throw error;
 
-                const { business, tenantLogoUrl, resolved, subscription_inactive, canonical_slug, opening_hours, upcoming_closures, vertical_type } = data as {
+                const { business, tenantLogoUrl, resolved, subscription_inactive, canonical_slug, base_language_code, effective_language, available_languages, lang_unsupported, opening_hours, upcoming_closures, vertical_type } = data as {
                     business: PublicBusiness;
                     tenantLogoUrl: string | null;
                     resolved: ResolvedCollections;
                     subscription_inactive?: boolean;
                     canonical_slug?: string | null;
+                    base_language_code?: string | null;
+                    effective_language?: string | null;
+                    available_languages?: AvailableLanguage[];
+                    lang_unsupported?: boolean;
                     opening_hours?: OpeningHoursEntry[];
                     upcoming_closures?: UpcomingClosure[];
                     vertical_type?: VerticalType | null;
@@ -319,6 +375,18 @@ export default function PublicCollectionPage() {
                 // Slug cercato era un alias — redirect verso lo slug canonico
                 if (canonical_slug && canonical_slug !== slug) {
                     navigate(`/${canonical_slug}`, { replace: true });
+                    return;
+                }
+
+                // Post-fetch redirect: lang format valido ma non attiva sul tenant → /:slug
+                if (lang_unsupported) {
+                    navigate(`/${slug}`, { replace: true });
+                    return;
+                }
+
+                // Post-fetch redirect: lang === base_language → /:slug (canonical)
+                if (validatedLang && base_language_code && validatedLang === base_language_code) {
+                    navigate(`/${slug}`, { replace: true });
                     return;
                 }
 
@@ -364,6 +432,12 @@ export default function PublicCollectionPage() {
                     if (cancelled) return;
                 }
 
+                const baseLang = base_language_code ?? "it";
+                const effectiveLang = effective_language ?? baseLang;
+                const availLangs: AvailableLanguage[] = available_languages && available_languages.length > 0
+                    ? available_languages
+                    : [{ code: baseLang, name_native: "Italiano", flag_emoji: null }];
+
                 setState({
                     status: "ready",
                     business,
@@ -371,14 +445,18 @@ export default function PublicCollectionPage() {
                     tenantLogoUrl,
                     openingHours: opening_hours,
                     upcomingClosures: upcoming_closures,
-                    allergens
+                    allergens,
+                    effectiveLanguage: effectiveLang,
+                    baseLanguage: baseLang,
+                    availableLanguages: availLangs,
+                    isRefetching: false
                 });
             } catch (err) {
                 if (cancelled) return;
                 console.error("[PublicCollectionPage] loading error:", err);
                 setState({
                     status: "error",
-                    message: "Errore di caricamento."
+                    messageKey: "page.loading_error"
                 });
             }
         }
@@ -387,7 +465,7 @@ export default function PublicCollectionPage() {
         return () => {
             cancelled = true;
         };
-    }, [slug, simulateParam]);
+    }, [slug, langFromUrl, simulateParam, navigate]);
 
     const [activeTab, setActiveTab] = useState<HubTab>("menu");
     const handleTabChange = useCallback(
@@ -468,7 +546,7 @@ export default function PublicCollectionPage() {
         return <NotFound variant="business-empty" />;
     }
 
-    const { business, resolved, tenantLogoUrl, openingHours, upcomingClosures, allergens } = state;
+    const { business, resolved, tenantLogoUrl, openingHours, upcomingClosures, allergens, effectiveLanguage, baseLanguage, availableLanguages } = state;
 
     // Derive CollectionStyle from stored tokens so runtime matches preview
     const tokens = parseTokens(resolved.style?.config ?? null);
@@ -498,7 +576,7 @@ export default function PublicCollectionPage() {
     const catalogCharacteristics = collectCatalogCharacteristics(resolved.catalog);
     const emptyState =
         sectionGroups.length === 0
-            ? { title: "Nessun prodotto disponibile al momento" }
+            ? { title: t("page.empty_catalog") }
             : undefined;
 
     const allFeaturedContents = [
@@ -507,6 +585,12 @@ export default function PublicCollectionPage() {
     ];
 
     return (
+        <LanguageProvider
+            slug={slug!}
+            currentLang={effectiveLanguage}
+            availableLanguages={availableLanguages}
+            baseLanguage={baseLanguage}
+        >
         <PublicThemeScope style={resolved.style}>
             {isSimulation && (
                 <div
@@ -524,7 +608,7 @@ export default function PublicCollectionPage() {
                         borderBottom: "1px solid #fde68a"
                     }}
                 >
-                    <span>Anteprima simulazione</span>
+                    <span>{t("page.simulation_banner")}</span>
                     <span>
                         {new Date(effectiveSimulate!).toLocaleString("it-IT", {
                             timeZone: "Europe/Rome"
@@ -594,6 +678,10 @@ export default function PublicCollectionPage() {
                 allergens={allergens}
                 catalogCharacteristics={catalogCharacteristics}
             />
+            {state.isRefetching && (
+                <div className={pageStyles.refetchingOverlay} aria-hidden />
+            )}
         </PublicThemeScope>
+        </LanguageProvider>
     );
 }

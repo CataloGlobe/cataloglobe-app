@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import styles from "./PublicOpeningHours.module.scss";
 import type { ClosureSlot } from "@/types/activity-closures";
 
@@ -23,26 +24,35 @@ type Props = {
     showHeading?: boolean;
 };
 
-const DAY_NAMES = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
-const IT_MONTH_SHORT = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+const DAY_KEYS = [
+    "opening_hours.days.monday",
+    "opening_hours.days.tuesday",
+    "opening_hours.days.wednesday",
+    "opening_hours.days.thursday",
+    "opening_hours.days.friday",
+    "opening_hours.days.saturday",
+    "opening_hours.days.sunday"
+];
+import type { TFunction } from "i18next";
 
 function parseDate(s: string): Date {
     return new Date(s + "T12:00:00");
 }
 
-function formatShort(dateStr: string): string {
+function formatShort(dateStr: string, t: TFunction): string {
     const d = parseDate(dateStr);
-    return `${d.getDate()} ${IT_MONTH_SHORT[d.getMonth()]}`;
+    return `${d.getDate()} ${t(`opening_hours.months_short.${d.getMonth() + 1}`)}`;
 }
 
-function formatClosureDateLabel(c: UpcomingClosure): string {
+function formatClosureDateLabel(c: UpcomingClosure, t: TFunction): string {
     if (c.end_date) {
-        return `${formatShort(c.closure_date)} – ${formatShort(c.end_date)}`;
+        return `${formatShort(c.closure_date, t)} – ${formatShort(c.end_date, t)}`;
     }
-    return formatShort(c.closure_date);
+    return formatShort(c.closure_date, t);
 }
 
 export default function PublicOpeningHours({ openingHours, upcomingClosures, showHeading = true }: Props) {
+    const { t } = useTranslation("public");
     const byDay = new Map<number, OpeningHoursEntry[]>();
     for (const entry of openingHours) {
         const list = byDay.get(entry.day_of_week) ?? [];
@@ -53,20 +63,20 @@ export default function PublicOpeningHours({ openingHours, upcomingClosures, sho
     return (
         <div className={styles.hoursSection}>
             {showHeading !== false && (
-                <h3 className={styles.hoursTitle}>Orari di apertura</h3>
+                <h3 className={styles.hoursTitle}>{t("opening_hours.title")}</h3>
             )}
             <dl className={styles.hoursList}>
-                {DAY_NAMES.map((name, i) => {
+                {DAY_KEYS.map((dayKey, i) => {
                     const slots = byDay.get(i) ?? [];
                     const isClosed = slots.length > 0 && slots[0].is_closed;
                     const openSlots = slots.filter(s => !s.is_closed && s.opens_at && s.closes_at);
                     return (
                         <div key={i} className={styles.hoursRow}>
-                            <dt className={styles.hoursDay}>{name}</dt>
+                            <dt className={styles.hoursDay}>{t(dayKey)}</dt>
                             <dd className={styles.hoursSlotsCol}>
                                 {isClosed || slots.length === 0 ? (
                                     <span className={`${styles.hoursSlot} ${styles.hoursSlotClosed}`}>
-                                        {isClosed ? "Chiuso" : "—"}
+                                        {isClosed ? t("opening_hours.closed") : "—"}
                                     </span>
                                 ) : openSlots.length === 0 ? (
                                     <span className={`${styles.hoursSlot} ${styles.hoursSlotClosed}`}>—</span>
@@ -85,19 +95,19 @@ export default function PublicOpeningHours({ openingHours, upcomingClosures, sho
 
             {upcomingClosures && upcomingClosures.length > 0 && (
                 <div className={styles.closuresSection}>
-                    <h4 className={styles.closuresTitle}>Prossime chiusure</h4>
+                    <h4 className={styles.closuresTitle}>{t("opening_hours.closures_title")}</h4>
                     <dl className={styles.closuresList}>
                         {upcomingClosures.map((c) => (
                             <div key={c.closure_date} className={styles.closureRow}>
                                 <dt className={styles.closureDate}>
-                                    {formatClosureDateLabel(c)}
+                                    {formatClosureDateLabel(c, t)}
                                 </dt>
                                 <dd className={styles.closureInfo}>
                                     {c.label && (
                                         <span className={styles.closureLabel}>{c.label}</span>
                                     )}
                                     {c.is_closed ? (
-                                        <span className={styles.closureStatus}>Chiuso</span>
+                                        <span className={styles.closureStatus}>{t("opening_hours.closures_status_closed")}</span>
                                     ) : (
                                         c.slots?.map((slot, i) => (
                                             <span key={i} className={styles.closureStatus}>

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Text from "@/components/ui/Text/Text";
@@ -36,6 +37,7 @@ export default function CollectionSectionNav({
     variant = "public",
     style,
 }: CollectionSectionNavProps) {
+    const { t } = useTranslation("public");
     const listRef = useRef<HTMLUListElement | null>(null);
     const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
     const chevronRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -186,7 +188,7 @@ export default function CollectionSectionNav({
             data-nav-style={navStyle}
             data-overflow-left={canScrollLeft || undefined}
             data-overflow-right={canScrollRight || undefined}
-            aria-label="Navigazione sezioni del catalogo"
+            aria-label={t("section_nav.aria")}
         >
             <div className={styles.listWrapper}>
             <ul className={styles.list} role="tablist" ref={listRef}>

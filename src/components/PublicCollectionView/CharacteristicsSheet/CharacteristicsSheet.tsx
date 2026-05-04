@@ -1,10 +1,10 @@
+import { useTranslation } from "react-i18next";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
 import Text from "@/components/ui/Text/Text";
 import type {
     ResolvedCharacteristic
 } from "@/types/resolvedCollections";
-import type { ProductCharacteristicCategory } from "@/types/productCharacteristic";
 import styles from "./CharacteristicsSheet.module.scss";
 
 type Props = {
@@ -21,20 +21,12 @@ type Props = {
  */
 const CATEGORY_CAPTION_THRESHOLD = 3;
 
-const CATEGORY_LABELS: Record<ProductCharacteristicCategory, string> = {
-    diet: "Dieta",
-    spicy: "Piccantezza",
-    origin: "Origine e qualità",
-    preparation: "Preparazione",
-    warning: "Avvertenze",
-    status: "Stato"
-};
-
 export default function CharacteristicsSheet({
     isOpen,
     onClose,
     characteristics
 }: Props) {
+    const { t } = useTranslation("public");
     const distinctCategories = new Set(characteristics.map(c => c.category)).size;
     const showCategoryCaption = distinctCategories >= CATEGORY_CAPTION_THRESHOLD;
 
@@ -42,7 +34,7 @@ export default function CharacteristicsSheet({
         <PublicSheet
             isOpen={isOpen}
             onClose={onClose}
-            ariaLabel="Caratteristiche"
+            ariaLabel={t("characteristics.title")}
             headerContent={
                 <div className={styles.header}>
                     <Text
@@ -51,15 +43,15 @@ export default function CharacteristicsSheet({
                         className={styles.headerTitle}
                         color="var(--pub-surface-text)"
                     >
-                        Caratteristiche
+                        {t("characteristics.title")}
                     </Text>
                     <button
                         type="button"
                         className={styles.closeBtn}
                         onClick={onClose}
-                        aria-label="Chiudi"
+                        aria-label={t("characteristics.close_aria")}
                     >
-                        Chiudi
+                        {t("characteristics.close_label")}
                     </button>
                 </div>
             }
@@ -77,7 +69,7 @@ export default function CharacteristicsSheet({
                                     className={styles.label}
                                     color="var(--pub-surface-text)"
                                 >
-                                    {c.label_it}
+                                    {c.label}
                                 </Text>
                                 {showCategoryCaption && (
                                     <Text
@@ -85,7 +77,7 @@ export default function CharacteristicsSheet({
                                         className={styles.caption}
                                         color="var(--pub-surface-text-muted)"
                                     >
-                                        {CATEGORY_LABELS[c.category]}
+                                        {t(`characteristics.category.${c.category}`)}
                                     </Text>
                                 )}
                             </div>
@@ -97,9 +89,7 @@ export default function CharacteristicsSheet({
                     className={styles.disclaimer}
                     color="var(--pub-surface-text-muted)"
                 >
-                    Le caratteristiche indicate sono dichiarate dal ristoratore. Per
-                    certificazioni specifiche (Halal, Kosher, Bio) o esigenze
-                    particolari, chiedi al personale di sala.
+                    {t("characteristics.disclaimer")}
                 </Text>
             </div>
         </PublicSheet>
