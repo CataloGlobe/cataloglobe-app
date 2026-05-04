@@ -9,7 +9,7 @@ import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 
 const ROLE_OPTIONS = [
-    { value: "member", label: "Member" },
+    { value: "member", label: "Membro" },
     { value: "admin", label: "Admin" }
 ];
 
@@ -76,6 +76,7 @@ export function InviteMemberDrawer({
             showToast({ type: "success", message: "Invito inviato con successo." });
 
             onSuccess?.();
+            setSubmitting(false);
             handleClose();
         } catch (err) {
             console.error("[InviteMemberDrawer] invite failed:", err);
@@ -89,7 +90,7 @@ export function InviteMemberDrawer({
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={700}>
-                        Invite member
+                        Invita membro
                     </Text>
                 }
                 footer={
@@ -103,7 +104,7 @@ export function InviteMemberDrawer({
                             form="invite-member-form"
                             loading={submitting}
                         >
-                            Send invite
+                            Invia invito
                         </Button>
                     </>
                 }
@@ -124,7 +125,7 @@ export function InviteMemberDrawer({
                     />
 
                     <Select
-                        label="Role"
+                        label="Ruolo"
                         value={role}
                         onChange={e => setRole(e.target.value)}
                         options={ROLE_OPTIONS}
