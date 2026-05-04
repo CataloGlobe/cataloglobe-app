@@ -1,0 +1,211 @@
+{
+    "page": {
+        "loading": "Laden...",
+        "invalid_link": "Ungültiger Link.",
+        "loading_error": "Ladefehler.",
+        "simulation_banner": "Vorschau Simulation",
+        "empty_catalog": "Zurzeit kein Produkt verfügbar",
+        "menu_label": "Menü"
+    },
+    "skip_to_content": "Zum Inhalt springen",
+    "hub": {
+        "menu": "Menü",
+        "events": "Veranstaltungen & Promo",
+        "reviews": "Erzählen Sie uns Ihre"
+    },
+    "header": {
+        "info_aria": "Informationen zum Veranstaltungsort",
+        "search_aria": "Suche im Katalog",
+        "info_sheet_aria": "Informationen zum Veranstaltungsort"
+    },
+    "search": {
+        "placeholder": "Produkt suchen...",
+        "hint": "Suche nach Name oder Beschreibung",
+        "no_results": "Keine Ergebnisse für",
+        "results_count_one": "{{count}} Ergebnis",
+        "results_count_other": "{{count}}-Ergebnisse",
+        "clear_aria": "Text löschen",
+        "close_aria": "Suche beenden",
+        "close_label": "Abbrechen",
+        "dialog_aria": "Suche im Katalog"
+    },
+    "allergens": {
+        "title": "Allergene",
+        "close_aria": "Schließen Sie",
+        "close_label": "Schließen Sie",
+        "disclaimer": "Ausführliche Informationen über die Zubereitung und das Vorhandensein von Allergenen in den einzelnen Gerichten erhalten Sie von der Bedienung."
+    },
+    "characteristics": {
+        "title": "Eigenschaften",
+        "close_aria": "Schließen Sie",
+        "close_label": "Schließen Sie",
+        "disclaimer": "Die angegebenen Eigenschaften werden vom Gastronomen angegeben. Für spezifische Zertifizierungen (Halal, Koscher, Bio) oder besondere Anforderungen, fragen Sie das Restaurantpersonal.",
+        "category": {
+            "diet": "Diät",
+            "spicy": "Schärfe",
+            "origin": "Herkunft und Qualität",
+            "preparation": "Vorbereitung",
+            "warning": "Warnungen",
+            "status": "Status"
+        }
+    },
+    "selection": {
+        "add_aria": "Zur Auswahl hinzufügen",
+        "sheet_aria": "Meine Auswahl",
+        "empty": "Kein Artikel",
+        "decrease_aria": "Verringerung der Menge",
+        "remove_aria": "entfernen",
+        "increase_aria": "Menge erhöhen",
+        "update_label": "Auswahl aktualisieren",
+        "title": "Meine Auswahl",
+        "items_one": "{{count}}-Element",
+        "items_other": "{{count}}-Elemente",
+        "clear": "Leere",
+        "close_label": "Schließen Sie",
+        "empty_subtitle": "Produkte aus dem Menü hinzufügen",
+        "edit": "bearbeiten",
+        "unit_suffix": "cad.",
+        "estimated_total": "Geschätzter Gesamtbetrag",
+        "fab_label": "Meine Auswahl",
+        "fab_aria_one": "Meine Auswahl, {{count}}-Element",
+        "fab_aria_other": "Meine Auswahl, {{count}}-Elemente"
+    },
+    "item_detail": {
+        "submit_default": "Zur Auswahl hinzufügen",
+        "close_aria": "Schließen Sie",
+        "format_required": "Wählen Sie ein Format, um fortzufahren"
+    },
+    "fab": {
+        "review_aria": "Wie ist es gelaufen?",
+        "review_label": "Wie ist es gelaufen?"
+    },
+    "footer": {
+        "open_allergens_aria": "Allergenliste öffnen",
+        "open_characteristics_aria": "Liste der Merkmale öffnen",
+        "allergens_label": "Allergene",
+        "characteristics_label": "Eigenschaften",
+        "powered_by_aria": "Angetrieben von CataloGlobe"
+    },
+    "social": {
+        "phone": "Telefon",
+        "email": "E-Mail",
+        "website": "Website",
+        "instagram": "Instagram",
+        "facebook": "Facebook",
+        "whatsapp": "WhatsApp"
+    },
+    "featured": {
+        "type_bundle": "Bündel",
+        "type_promo": "Promo",
+        "type_event": "Veranstaltung",
+        "type_announcement": "Ankündigung",
+        "indicator_aria": "Indikator für herausgehobene Inhalte",
+        "section_aria": "Ausgewählter Inhalt",
+        "dot_aria": "{{index}} Inhalt von {{count}}",
+        "preview_close_aria": "Schließen Sie"
+    },
+    "events": {
+        "list_aria": "Veranstaltungen und Promotionen",
+        "empty": "Zurzeit keine aktiven Veranstaltungen oder Aktionen."
+    },
+    "hero": {
+        "aria": "Kopfzeile des Katalogs"
+    },
+    "section_nav": {
+        "aria": "Navigation im Katalogbereich"
+    },
+    "language_selector": {
+        "trigger_aria": "Sprache auswählen",
+        "list_aria": "Verfügbare Sprachen"
+    },
+    "brand": {
+        "logo_alt_default": "Logo",
+        "logo_alt_named": "{{name}}-Logo"
+    },
+    "info": {
+        "title": "Informationen",
+        "fees": "Tarife",
+        "payment_methods": "Zahlungsarten",
+        "services": "Dienstleistungen",
+        "contacts": "Kontakt",
+        "address": "Adresse"
+    },
+    "opening_hours": {
+        "title": "Die Öffnungszeiten",
+        "closed": "Geschlossen",
+        "closures_title": "Kommende Schließungen",
+        "closures_status_closed": "Geschlossen",
+        "days": {
+            "monday": "Montag",
+            "tuesday": "Dienstag",
+            "wednesday": "Mittwoch",
+            "thursday": "Donnerstag",
+            "friday": "Freitag",
+            "saturday": "Samstag",
+            "sunday": "Sonntag"
+        },
+        "months_short": {
+            "1": "Jan",
+            "2": "Februar",
+            "3": "Di",
+            "4": "Apr.",
+            "5": "mag",
+            "6": "unten",
+            "7": "Jul",
+            "8": "Nadel",
+            "9": "einstellen.",
+            "10": "Okt.",
+            "11": "Nov.",
+            "12": "Dez."
+        }
+    },
+    "fees": {
+        "labels": {
+            "coperto": "Abgedeckt",
+            "servizio": "Dienst",
+            "prenotazione_minima": "Mindestbuchung",
+            "spesa_minima": "Mindestausgaben",
+            "eta_minima": "Mindestalter"
+        },
+        "unit_format": {
+            "per_person": "€{{value}}/Person",
+            "percent": "{{value}}%",
+            "currency": "€{{value}}",
+            "years": "{{value}} Jahre"
+        }
+    },
+    "reviews": {
+        "rating_labels": {
+            "1": "Sehr schlecht",
+            "2": "Knapp",
+            "3": "Durchschnitt",
+            "4": "Gut",
+            "5": "Ausgezeichnet!"
+        },
+        "stars_aria_one": "{{count}} Stern",
+        "stars_aria_other": "{{count}}-Sterne",
+        "rating_group_aria": "Bewertung",
+        "title_question": "Wie war Ihre Erfahrung?",
+        "subtitle": "Ihr Feedback hilft uns bei der Verbesserung",
+        "back": "← Abstimmung ändern",
+        "feedback_label_low": "Was können wir verbessern?",
+        "feedback_label_neutral": "Erzählen Sie uns mehr über Ihre Erfahrungen",
+        "feedback_label_high": "Was hat Ihnen am besten gefallen?",
+        "privacy_note_low": "Ihr Feedback wird vertraulich behandelt und hilft uns, uns zu verbessern.",
+        "privacy_note_neutral": "Ihr Feedback wird vertraulich behandelt und hilft uns, uns zu verbessern.",
+        "privacy_note_high": "Optional - Sie können auch direkt senden.",
+        "placeholder_low": "Beschreiben Sie, was nicht funktioniert hat...",
+        "placeholder_neutral": "Hinterlassen Sie einen Kommentar...",
+        "placeholder_high": "Z.B. Toller Service, köstliche Gerichte!",
+        "required_note": "Bei schlechten Noten hilft uns ein Kommentar zu verstehen, was zu verbessern ist.",
+        "submit": "Feedback senden",
+        "submitting": "Ich schicke...",
+        "thanks_title": "Vielen Dank für Ihr Feedback!",
+        "thanks_subtitle_high": "Wir freuen uns, dass Ihre Erfahrung positiv war.",
+        "thanks_subtitle_low": "Ihr Feedback wird uns helfen, uns zu verbessern.",
+        "already_reviewed_subtitle": "Sie haben bereits eine Bewertung für diesen Ort abgegeben. Besuchen Sie uns wieder!",
+        "google_card_title": "Haben Sie Ihre Erfahrung genossen?",
+        "google_card_desc": "Hinterlassen Sie auch eine Bewertung auf Google, damit andere Menschen uns entdecken können!",
+        "google_btn": "Bewertung auf Google"
+    }
+}

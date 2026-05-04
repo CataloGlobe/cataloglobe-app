@@ -1,0 +1,211 @@
+{
+    "page": {
+        "loading": "Loading...",
+        "invalid_link": "Invalid link.",
+        "loading_error": "Loading error.",
+        "simulation_banner": "Simulation preview",
+        "empty_catalog": "No products available at the moment",
+        "menu_label": "Menu"
+    },
+    "skip_to_content": "Skip to content",
+    "hub": {
+        "menu": "Menu",
+        "events": "Events & Promo",
+        "reviews": "Tell us"
+    },
+    "header": {
+        "info_aria": "Venue information",
+        "search_aria": "Search the catalog",
+        "info_sheet_aria": "Venue information"
+    },
+    "search": {
+        "placeholder": "Search product…",
+        "hint": "Search by name or description",
+        "no_results": "No results for",
+        "results_count_one": "{{count}} result",
+        "results_count_other": "{{count}} results",
+        "clear_aria": "Clear text",
+        "close_aria": "Close search",
+        "close_label": "Cancel",
+        "dialog_aria": "Catalog search"
+    },
+    "allergens": {
+        "title": "Allergens",
+        "close_aria": "Close",
+        "close_label": "Close",
+        "disclaimer": "For detailed information about preparation and allergen presence in individual dishes, ask the dining staff."
+    },
+    "characteristics": {
+        "title": "Characteristics",
+        "close_aria": "Close",
+        "close_label": "Close",
+        "disclaimer": "The characteristics shown are declared by the restaurant. For specific certifications (Halal, Kosher, Organic) or particular requirements, ask the dining staff.",
+        "category": {
+            "diet": "Diet",
+            "spicy": "Spicy",
+            "origin": "Origin & quality",
+            "preparation": "Preparation",
+            "warning": "Warnings",
+            "status": "Status"
+        }
+    },
+    "selection": {
+        "add_aria": "Add to selection",
+        "sheet_aria": "My selection",
+        "empty": "No items",
+        "decrease_aria": "Decrease quantity",
+        "remove_aria": "Remove",
+        "increase_aria": "Increase quantity",
+        "update_label": "Update selection",
+        "title": "My selection",
+        "items_one": "{{count}} item",
+        "items_other": "{{count}} items",
+        "clear": "Clear",
+        "close_label": "Close",
+        "empty_subtitle": "Add products from the menu",
+        "edit": "Edit",
+        "unit_suffix": "each",
+        "estimated_total": "Estimated total",
+        "fab_label": "My selection",
+        "fab_aria_one": "My selection, {{count}} item",
+        "fab_aria_other": "My selection, {{count}} items"
+    },
+    "item_detail": {
+        "submit_default": "Add to selection",
+        "close_aria": "Close",
+        "format_required": "Choose a format to continue"
+    },
+    "fab": {
+        "review_aria": "How did it go?",
+        "review_label": "How did it go?"
+    },
+    "footer": {
+        "open_allergens_aria": "Open allergens list",
+        "open_characteristics_aria": "Open characteristics list",
+        "allergens_label": "Allergens",
+        "characteristics_label": "Characteristics",
+        "powered_by_aria": "Powered by CataloGlobe"
+    },
+    "social": {
+        "phone": "Phone",
+        "email": "Email",
+        "website": "Website",
+        "instagram": "Instagram",
+        "facebook": "Facebook",
+        "whatsapp": "WhatsApp"
+    },
+    "featured": {
+        "type_bundle": "Bundle",
+        "type_promo": "Promo",
+        "type_event": "Event",
+        "type_announcement": "Announcement",
+        "indicator_aria": "Featured content indicator",
+        "section_aria": "Featured content",
+        "dot_aria": "Item {{index}} of {{count}}",
+        "preview_close_aria": "Close"
+    },
+    "events": {
+        "list_aria": "Events and promotions",
+        "empty": "No events or promotions active right now."
+    },
+    "hero": {
+        "aria": "Catalog header"
+    },
+    "section_nav": {
+        "aria": "Catalog section navigation"
+    },
+    "language_selector": {
+        "trigger_aria": "Select language",
+        "list_aria": "Available languages"
+    },
+    "brand": {
+        "logo_alt_default": "Logo",
+        "logo_alt_named": "{{name}} logo"
+    },
+    "info": {
+        "title": "Information",
+        "fees": "Fees",
+        "payment_methods": "Payment methods",
+        "services": "Services",
+        "contacts": "Contacts",
+        "address": "Address"
+    },
+    "opening_hours": {
+        "title": "Opening hours",
+        "closed": "Closed",
+        "closures_title": "Upcoming closures",
+        "closures_status_closed": "Closed",
+        "days": {
+            "monday": "Monday",
+            "tuesday": "Tuesday",
+            "wednesday": "Wednesday",
+            "thursday": "Thursday",
+            "friday": "Friday",
+            "saturday": "Saturday",
+            "sunday": "Sunday"
+        },
+        "months_short": {
+            "1": "Jan",
+            "2": "Feb",
+            "3": "Mar",
+            "4": "Apr",
+            "5": "May",
+            "6": "Jun",
+            "7": "Jul",
+            "8": "Aug",
+            "9": "Sep",
+            "10": "Oct",
+            "11": "Nov",
+            "12": "Dec"
+        }
+    },
+    "fees": {
+        "labels": {
+            "coperto": "Cover charge",
+            "servizio": "Service charge",
+            "prenotazione_minima": "Minimum booking",
+            "spesa_minima": "Minimum spend",
+            "eta_minima": "Minimum age"
+        },
+        "unit_format": {
+            "per_person": "€{{value}}/person",
+            "percent": "{{value}}%",
+            "currency": "€{{value}}",
+            "years": "{{value}} years"
+        }
+    },
+    "reviews": {
+        "rating_labels": {
+            "1": "Terrible",
+            "2": "Poor",
+            "3": "Average",
+            "4": "Good",
+            "5": "Excellent!"
+        },
+        "stars_aria_one": "{{count}} star",
+        "stars_aria_other": "{{count}} stars",
+        "rating_group_aria": "Rating",
+        "title_question": "How was your experience?",
+        "subtitle": "Your feedback helps us improve",
+        "back": "← Change rating",
+        "feedback_label_low": "What can we improve?",
+        "feedback_label_neutral": "Tell us more about your experience",
+        "feedback_label_high": "What did you enjoy most?",
+        "privacy_note_low": "Your feedback will remain private and help us improve.",
+        "privacy_note_neutral": "Your feedback will remain private and help us improve.",
+        "privacy_note_high": "Optional — you can also submit directly.",
+        "placeholder_low": "Describe what didn't work...",
+        "placeholder_neutral": "Leave a comment...",
+        "placeholder_high": "E.g. Great service, delicious dishes!",
+        "required_note": "For low ratings, a comment helps us understand what to improve",
+        "submit": "Submit feedback",
+        "submitting": "Submitting...",
+        "thanks_title": "Thanks for your feedback!",
+        "thanks_subtitle_high": "We're glad your experience was positive.",
+        "thanks_subtitle_low": "Your feedback will help us improve.",
+        "already_reviewed_subtitle": "You've already left a review for this venue. Come back and visit us!",
+        "google_card_title": "Did you enjoy your experience?",
+        "google_card_desc": "Leave a review on Google too to help others discover us!",
+        "google_btn": "Review on Google"
+    }
+}

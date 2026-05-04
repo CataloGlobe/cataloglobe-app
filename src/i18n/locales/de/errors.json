@@ -1,0 +1,12 @@
+{
+    "reviews": {
+        "INVALID_RATING": "Die Bewertung muss eine ganze Zahl zwischen 1 und 5 sein.",
+        "INVALID_PAYLOAD": "Ungültige Daten",
+        "RATE_LIMIT_IP": "Zu viele Anfragen. Bitte versuchen Sie es später noch einmal.",
+        "RATE_LIMIT_SESSION": "Sie haben vor kurzem bereits eine Bewertung abgegeben.",
+        "ACTIVITY_NOT_FOUND": "Aktivität nicht gefunden",
+        "METHOD_NOT_ALLOWED": "Unzulässige Methode",
+        "SERVER_ERROR": "Fehler beim Speichern der Bewertung"
+    },
+    "generic": "Es ist ein Fehler aufgetreten"
+}

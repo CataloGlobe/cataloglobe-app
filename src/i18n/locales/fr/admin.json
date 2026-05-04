@@ -1,0 +1,26 @@
+{
+    "languages": {
+        "title": "Langues",
+        "description": "Activez les langues dans lesquelles vous souhaitez traduire votre menu public. Le contenu existant sera traduit automatiquement en quelques minutes.",
+        "italian_base": "Votre contenu est en italien (langue de base).",
+        "activated": "{{lang}} activée. Contenu du {{count}} en cours de traduction.",
+        "activated_no_jobs": "{{lang}} activé. Pas de nouveau contenu à traduire.",
+        "deactivated": "{{lang}} désactivé.",
+        "confirm_title": "Activer {{lang}} ?",
+        "confirm_description": "Nous traduirons automatiquement vos produits, catégories et autres contenus. Ils seront disponibles en quelques minutes.",
+        "confirm_button": "Activer"
+    },
+    "errors": {
+        "load_failed": "Erreur de chargement des langues",
+        "activate_failed": "Erreur d'activation de la langue",
+        "deactivate_failed": "Erreur lors de la désactivation de la langue"
+    },
+    "translation_status": {
+        "completed_one": "Traduit en 1 langue",
+        "completed_other": "Traduit en langues {{count}}",
+        "in_progress": "Traduction en cours ({{done}}/{{total}})",
+        "error_one": "Erreur dans 1 langue",
+        "error_other": "Erreur dans les langues {{count}}",
+        "retry": "Réessayer"
+    }
+}

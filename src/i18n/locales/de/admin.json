@@ -1,0 +1,26 @@
+{
+    "languages": {
+        "title": "Sprachen",
+        "description": "Aktivieren Sie die Sprachen, in die Sie Ihr öffentliches Menü übersetzen möchten. Vorhandene Inhalte werden innerhalb weniger Minuten automatisch übersetzt.",
+        "italian_base": "Ihr Inhalt ist in Italienisch (Basissprache).",
+        "activated": "{{lang}} aktiviert. {{count}} Inhalt in Übersetzung.",
+        "activated_no_jobs": "{{lang}} aktiviert. Kein neuer zu übersetzender Inhalt.",
+        "deactivated": "{{lang}} ist deaktiviert.",
+        "confirm_title": "Aktivieren Sie {{lang}}?",
+        "confirm_description": "Wir übersetzen automatisch Ihre Produkte, Kategorien und andere Inhalte. Sie werden innerhalb von Minuten verfügbar sein.",
+        "confirm_button": "Aktivieren Sie"
+    },
+    "errors": {
+        "load_failed": "Fehler beim Laden von Sprachen",
+        "activate_failed": "Fehler bei der Sprachaktivierung",
+        "deactivate_failed": "Fehler beim Deaktivieren der Sprache"
+    },
+    "translation_status": {
+        "completed_one": "Übersetzt in 1 Sprache",
+        "completed_other": "Übersetzt in {{count}}-Sprachen",
+        "in_progress": "Übersetzung in Arbeit ({{done}}/{{total}})",
+        "error_one": "Fehler in 1 Sprache",
+        "error_other": "Fehler in {{count}}-Sprachen",
+        "retry": "Erneut versuchen"
+    }
+}

@@ -1,0 +1,47 @@
+.wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.success {
+    color: var(--color-success-fg, #15803d);
+}
+
+.pending {
+    color: var(--color-warning-fg, #b45309);
+}
+
+.error {
+    color: var(--color-error-fg, #b91c1c);
+}
+
+.retryButton {
+    padding: 2px 10px;
+    background: transparent;
+    color: var(--color-error-fg, #b91c1c);
+    border: 1px solid var(--color-error-fg, #b91c1c);
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease;
+
+    &:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--color-error-fg, #b91c1c) 8%, transparent);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
