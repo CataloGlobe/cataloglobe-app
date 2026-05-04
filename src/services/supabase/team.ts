@@ -21,11 +21,14 @@ export async function listTenantMembers(tenantId: string): Promise<TenantMemberR
 
 /**
  * Tipo locale per gli inviti pending ritornati da get_my_pending_invites.
- * Le 6 colonne corrispondono esattamente al return type della RPC.
+ * Le 7 colonne corrispondono esattamente al return type della RPC
+ * (tenant_name aggiunto via JOIN nella migration
+ * 20260504142529_extend_get_my_pending_invites_with_tenant_name).
  */
 export type PendingInviteRow = {
     membership_id: string;
     tenant_id: string;
+    tenant_name: string;
     invite_token: string | null;
     role: string;
     status: string;
