@@ -49,3 +49,9 @@ skills-lock.json
 
 # Internal planning docs
 docs/superpowers/
+FASE_*.md
+CANTIERE_*.md
+AUDIT_*.md
+VERIFICA_*.md
+DESIGN_*.md
+CSS_REFINEMENTS_AUDIT.md
