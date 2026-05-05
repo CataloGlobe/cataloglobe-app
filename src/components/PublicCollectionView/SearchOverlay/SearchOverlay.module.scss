@@ -6,24 +6,6 @@
               clippato dal deviceScreen (overflow-y:auto)
 ──────────────────────────────────────────────────────────── */
 
-/* ── ANIMAZIONI ─────────────────────────────────────────── */
-
-@keyframes panelIn {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes backdropIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
 /* ── PUBLIC OVERLAY ────────────────────────────────────── */
 
 .publicOverlay {
@@ -39,7 +21,6 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.42);
-  animation: backdropIn 200ms ease forwards;
 }
 
 /* Mobile: pannello floating con margini su tutti i lati.
@@ -79,7 +60,6 @@
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.42);
-  animation: backdropIn 200ms ease forwards;
 }
 
 /* Wrapper del panel — sopra il backdrop, con padding come mobile public */
@@ -102,7 +82,6 @@
   flex-direction: column;
   /* Il contenuto scrolla internamente */
   overflow: hidden;
-  animation: panelIn 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
   /* Mobile: quasi full-screen senza toccare il bordo inferiore */
   max-height: 88dvh;
 

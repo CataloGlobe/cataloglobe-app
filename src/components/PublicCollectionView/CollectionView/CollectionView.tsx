@@ -1,7 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus, Search } from "lucide-react";
+import { Facebook, Globe, Instagram, ListChecks, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus, Search } from "lucide-react";
 import type {
     ResolvedAllergen,
     ResolvedCharacteristic,
@@ -22,6 +23,7 @@ import { PublicFeeRows } from "../PublicFooter/PublicFees";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
 import type { CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
+import { useFabCollapse } from "../hooks/useFabCollapse";
 import EventsView from "../EventsView/EventsView";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../SelectionSheet/SelectionSheet";
 import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
@@ -684,6 +686,10 @@ export default function CollectionView({
 
     const selectionCount = useMemo(() => selection.reduce((s, i) => s + i.qty, 0), [selection]);
 
+    // FAB collapse: si comprimono dopo timer (3s) o scroll (100px), indipendentemente
+    const isSelectionVisible = mode === "public" && activeTab === "menu" && selectionCount > 0;
+    const isSelectionCollapsed = useFabCollapse(isSelectionVisible);
+
     // Map id → total qty per lookups O(1) nel render (somma tutte le configurazioni)
     const selectionMap = useMemo(() => {
         const map: Record<string, number> = {};
@@ -902,9 +908,9 @@ export default function CollectionView({
 
     // ── Valuta FAB ──────────────────────────────────────────────────────────
     const [valutaVisible, setValutaVisible] = useState(false);
-    const [valutaExpanded, setValutaExpanded] = useState(false);
     // true = visitatore di ritorno entro 4h, senza review recente → FAB idoneo
     const valutaEligibleRef = useRef(false);
+    const isValutaCollapsed = useFabCollapse(valutaVisible);
 
     // ── Keep first section active when sections load asynchronously ─────────
     useEffect(() => {
@@ -935,7 +941,6 @@ export default function CollectionView({
     // 4. Recensione inviata nelle ultime 24h → FAB nascosto
     useEffect(() => {
         setValutaVisible(false);
-        setValutaExpanded(false);
         valutaEligibleRef.current = false;
 
         if (mode !== "public" || activeTab !== "menu" || !activityId) return;
@@ -1534,17 +1539,21 @@ export default function CollectionView({
             )}
 
             {/* ── SEARCH OVERLAY — nascosta in preview, lazy al primo click ── */}
-            {mode !== "preview" && isSearchOpen && (
-                <Suspense fallback={null}>
-                    <SearchOverlay
-                        isOpen={isSearchOpen}
-                        onClose={handleCloseSearch}
-                        sections={sections}
-                        scrollContainerEl={scrollContainerEl}
-                        mode={mode}
-                        activityId={activityId}
-                    />
-                </Suspense>
+            {mode !== "preview" && (
+                <AnimatePresence>
+                    {isSearchOpen && (
+                        <Suspense fallback={null}>
+                            <SearchOverlay
+                                isOpen={isSearchOpen}
+                                onClose={handleCloseSearch}
+                                sections={sections}
+                                scrollContainerEl={scrollContainerEl}
+                                mode={mode}
+                                activityId={activityId}
+                            />
+                        </Suspense>
+                    )}
+                </AnimatePresence>
             )}
 
             {/* ── INFO SHEET ── */}
@@ -1564,6 +1573,7 @@ export default function CollectionView({
                                     openingHours={openingHours ?? []}
                                     upcomingClosures={upcomingClosures}
                                     showHeading={false}
+                                    surface="surface"
                                 />
                             </div>
                         )}
@@ -1571,7 +1581,7 @@ export default function CollectionView({
                         {hasFees && (
                             <div className={styles.infoSection}>
                                 <h3 className={styles.infoSectionHeader}>{t("info.fees")}</h3>
-                                <PublicFeeRows fees={fees!} />
+                                <PublicFeeRows fees={fees!} surface="surface" />
                             </div>
                         )}
 
@@ -1797,7 +1807,7 @@ export default function CollectionView({
                                                 setEditingSelectionIndex(null);
                                             }}
                                             mode={mode}
-                                            showImage={style.cardTemplate !== "no-image"}
+                                            showImage={style.productStyle !== "compact" && style.cardTemplate !== "no-image"}
                                             onAddToSelection={mode === "public" && activeTab === "menu"
                                                 ? (editingSelectionIndex !== null
                                                     ? handleUpdateSelection
@@ -1888,6 +1898,7 @@ export default function CollectionView({
                     type="button"
                     className={styles.selectionFab}
                     style={{ bottom: `calc(20px + env(safe-area-inset-bottom, 0px))` }}
+                    data-collapsed={isSelectionCollapsed}
                     onClick={() => {
                         setIsSelectionOpen(true);
                         if (activityId) {
@@ -1900,7 +1911,8 @@ export default function CollectionView({
                     }}
                     aria-label={t("selection.fab_aria", { count: selectionCount })}
                 >
-                    {t("selection.fab_label")}
+                    <ListChecks className={styles.selectionFabIcon} size={20} />
+                    <span className={styles.selectionFabLabel}>{t("selection.fab_label")}</span>
                     <span className={styles.selectionFabBadge}>{selectionCount}</span>
                 </button>
             )}
@@ -1911,19 +1923,15 @@ export default function CollectionView({
                     type="button"
                     className={[
                         styles.valutaFab,
-                        valutaVisible ? styles.valutaFabVisible : "",
-                        valutaExpanded ? styles.valutaFabExpanded : ""
+                        valutaVisible ? styles.valutaFabVisible : ""
                     ]
                         .filter(Boolean)
                         .join(" ")}
                     style={{ bottom: `calc(20px + env(safe-area-inset-bottom, 0px))` }}
+                    data-collapsed={isValutaCollapsed}
                     onClick={() => {
-                        if (!valutaExpanded) {
-                            setValutaExpanded(true);
-                        } else {
-                            onTabChange?.("reviews");
-                            window.scrollTo({ top: 0, behavior: "smooth" });
-                        }
+                        onTabChange?.("reviews");
+                        window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
                     aria-label={t("fab.review_aria")}
                 >
