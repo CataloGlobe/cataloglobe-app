@@ -53,6 +53,12 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
     // ── Controls animazione di uscita — permette di fermarla se l'utente ───────
     // riapre la modale (es. clicca un nuovo prodotto) durante i 280ms di uscita.
     const closeAnimationRef = useRef<AnimationPlaybackControlsWithThen | null>(null);
+
+    // ── Soppressione click durante uscita ────────────────────────────────────
+    // Timestamp fino al quale bloccare i click. Previene tap accidentali su
+    // prodotti sottostanti mentre la pagina torna interattiva dopo releaseBodyLock.
+    // 0 = nessun blocco attivo.
+    const clickSuppressUntilRef = useRef(0);
     useEffect(() => {
         isMountedRef.current = true;
         return () => { isMountedRef.current = false; };
@@ -171,6 +177,11 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
             if (isClosingRef.current) return;
             isClosingRef.current = true;
 
+            // ⚡ Finestra di soppressione click: previene tap accidentali sui
+            // contenuti sottostanti durante l'animazione di uscita. Lo scroll
+            // non è un click event → non viene bloccato → fluidità preservata.
+            clickSuppressUntilRef.current = Date.now() + 250;
+
             // ⚡ IMMEDIATO — pointer-events off su TUTTI gli elementi.
             // Impedisce interazioni durante l'animazione di uscita.
             if (isMobile) {
@@ -236,6 +247,23 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     }, [isOpen, triggerClose]);
+
+    // ── Soppressione click post-chiusura ─────────────────────────────────────
+    // Capture phase: intercetta PRIMA dei React handlers. Blocca i click per
+    // 250ms dal momento in cui triggerClose setta clickSuppressUntilRef, evitando
+    // aperture accidentali di prodotti mentre il panel sta uscendo.
+    // Lo scroll (touchmove) NON è un click event → non viene bloccato.
+    useEffect(() => {
+        if (!isOpen) return;
+        const suppressClick = (e: MouseEvent) => {
+            if (Date.now() < clickSuppressUntilRef.current) {
+                e.stopPropagation();
+                e.preventDefault();
+            }
+        };
+        document.addEventListener("click", suppressClick, true);
+        return () => document.removeEventListener("click", suppressClick, true);
+    }, [isOpen]);
 
     // ── Desktop: AnimatePresence (nessun drag, nessun conflitto) ────────────
     if (!isMobile) {
