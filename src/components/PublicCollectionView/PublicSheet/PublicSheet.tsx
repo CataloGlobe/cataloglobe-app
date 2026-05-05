@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, animate, motion, useMotionValue, useTransform, useDragControls } from "framer-motion";
+import type { AnimationPlaybackControlsWithThen } from "framer-motion";
 import styles from "./PublicSheet.module.scss";
 
 function useIsMobile(breakpoint = 640) {
@@ -48,6 +49,10 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
     // ── Guard unmount esterno ─────────────────────────────────────────────────
     // Evita setState/onClose su elemento già rimosso dal parent durante animazione.
     const isMountedRef = useRef(true);
+
+    // ── Controls animazione di uscita — permette di fermarla se l'utente ───────
+    // riapre la modale (es. clicca un nuovo prodotto) durante i 280ms di uscita.
+    const closeAnimationRef = useRef<AnimationPlaybackControlsWithThen | null>(null);
     useEffect(() => {
         isMountedRef.current = true;
         return () => { isMountedRef.current = false; };
@@ -114,11 +119,31 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
     // Copre l'edge case dove React batchizza close+reopen nella stessa renderizzata
     // (isOpen resta true → l'open effect con dep [isOpen] non ri-esegue →
     // isClosingRef resterebbe true e tutti i close sarebbero bloccati).
+    // Gestisce anche "reopen-during-close": se l'utente seleziona un nuovo item
+    // mentre il panel sta uscendo, ferma l'animazione e ri-avvia l'apertura.
     useLayoutEffect(() => {
         if (!isOpen) return;
-        isClosingRef.current = false;
+
+        // Reopen-during-close: c'è un'animazione di uscita ancora in volo.
+        // Fermarla subito: il panel è ancorato al viewport via .mobileRoot,
+        // quindi .stop() lo congela visivamente dove si trova.
+        if (closeAnimationRef.current) {
+            closeAnimationRef.current.stop();
+            closeAnimationRef.current = null;
+
+            if (isMobile) {
+                // Reset y sotto schermo: evita che la ri-apertura parta da una
+                // posizione intermedia (metà discesa → metà schermo → aspetto strano).
+                y.set(window.innerHeight);
+                requestAnimationFrame(() => {
+                    animate(y, 0, { type: "spring", damping: 32, stiffness: 320 });
+                });
+            }
+        }
+
         // Stale pointer-events: triggerClose muta il DOM direttamente per zero-latency,
         // ma se il componente non si smonta tra chiusura e riapertura le mutazioni persistono.
+        isClosingRef.current = false;
         if (backdropRef.current) backdropRef.current.style.pointerEvents = "";
         if (overlayRef.current) overlayRef.current.style.pointerEvents = "";
         if (panelRef.current) panelRef.current.style.pointerEvents = "";
@@ -165,16 +190,30 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                 // Animazione completata PRIMA di notificare il parent: evita il re-render
                 // di React che nella versione precedente interferiva con i frame di animazione.
                 // La pagina sotto è già libera mentre il panel scende.
-                await animate(y, window.innerHeight * 1.1, {
+                // I controls sono salvati in closeAnimationRef per permettere cancellazione
+                // dall'esterno (es. useLayoutEffect reset-stale su reopen-during-close).
+                const controls = animate(y, window.innerHeight * 1.1, {
                     type: "spring",
                     damping: 28,
                     stiffness: 260,
                     velocity: velocityY,
                     restDelta: 1,
                 });
+                closeAnimationRef.current = controls;
+                try {
+                    await controls;
+                } finally {
+                    closeAnimationRef.current = null;
+                }
+
                 // Guard: componente rimosso dal parent esternamente durante l'animazione.
                 if (!isMountedRef.current) return;
             }
+
+            // Guard reopen-during-close: isClosingRef è stato resettato dall'useLayoutEffect
+            // reset-stale perché l'utente ha selezionato un nuovo item durante l'uscita.
+            // Non chiamare onClose: cancellerebbe il nuovo selectedItem appena settato.
+            if (!isClosingRef.current) return;
 
             // Notifica parent dopo animazione completata.
             onClose();
