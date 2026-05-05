@@ -8,7 +8,17 @@
         "deactivated": "{{lang}} disattivata.",
         "confirm_title": "Attivare {{lang}}?",
         "confirm_description": "Tradurremo automaticamente i tuoi prodotti, categorie e altri contenuti. Sarà disponibile in pochi minuti.",
-        "confirm_button": "Attiva"
+        "confirm_button": "Attiva",
+        "progress": {
+            "title": "Stato traduzioni",
+            "in_progress": "{{count}} elementi in corso",
+            "errors_count": "{{count}} errori",
+            "retry_all": "Riprova {{count}} elementi falliti",
+            "retrying": "Riprova in corso...",
+            "retry_success": "{{count}} elementi rimessi in coda",
+            "retry_error": "Errore durante il retry",
+            "completed": "Traduzione completata ({{count}} elementi)"
+        }
     },
     "errors": {
         "load_failed": "Errore nel caricamento delle lingue",

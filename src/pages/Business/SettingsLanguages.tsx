@@ -6,6 +6,7 @@ import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import Text from "@/components/ui/Text/Text";
+import { TranslationProgressWidget } from "@/components/Translations/TranslationProgressWidget/TranslationProgressWidget";
 import {
     listAvailableLanguages,
     listTenantLanguages,
@@ -25,6 +26,7 @@ export default function SettingsLanguages() {
     const [active, setActive] = useState<TenantLanguage[]>([]);
     const [loading, setLoading] = useState(true);
     const [pendingLang, setPendingLang] = useState<SupportedLanguage | null>(null);
+    const [refreshKey, setRefreshKey] = useState(0);
 
     const loadData = useCallback(async () => {
         if (!tenantId) return;
@@ -70,6 +72,7 @@ export default function SettingsLanguages() {
                 type: "success"
             });
             await loadData();
+            setRefreshKey(k => k + 1);
             return true;
         } catch {
             showToast({ message: t("errors.activate_failed"), type: "error" });
@@ -86,6 +89,7 @@ export default function SettingsLanguages() {
                 type: "success"
             });
             await loadData();
+            setRefreshKey(k => k + 1);
         } catch {
             showToast({ message: t("errors.deactivate_failed"), type: "error" });
         }
@@ -94,6 +98,8 @@ export default function SettingsLanguages() {
     return (
         <>
             <PageHeader title={t("languages.title")} subtitle={t("languages.description")} />
+
+            <TranslationProgressWidget tenantId={tenantId} refreshKey={refreshKey} />
 
             <div className={styles.banner}>
                 <Text variant="body-sm" colorVariant="muted">
