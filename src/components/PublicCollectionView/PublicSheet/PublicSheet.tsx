@@ -178,9 +178,11 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
             isClosingRef.current = true;
 
             // ⚡ Finestra di soppressione click: previene tap accidentali sui
-            // contenuti sottostanti durante l'animazione di uscita. Lo scroll
-            // non è un click event → non viene bloccato → fluidità preservata.
-            clickSuppressUntilRef.current = Date.now() + 250;
+            // contenuti sottostanti durante l'animazione di uscita. La finestra
+            // copre il ritardo variabile con cui i browser moderni emettono
+            // click events dopo touchend (~50-500ms a seconda del browser).
+            // Lo scroll non è un click event → non viene bloccato.
+            clickSuppressUntilRef.current = Date.now() + 500;
 
             // ⚡ IMMEDIATO — pointer-events off su TUTTI gli elementi.
             // Impedisce interazioni durante l'animazione di uscita.
