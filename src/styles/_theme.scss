@@ -21,6 +21,12 @@
   --color-red-50:  #fff1f2;
   --color-red-200: #fecdd3;
   --color-red-900: #450a0a;
+
+  // Green / success palette
+  --color-green-50:  #f0fdf4;
+  --color-green-200: #bbf7d0;
+  --color-green-500: #10b981;
+  --color-green-900: #14532d;
 }
 
 [data-theme="dark"] {
@@ -33,4 +39,10 @@
   --brand-primary-hover: #1d4ed8;
   --skeleton-base: #1e293b;
   --skeleton-highlight: #334155;
+
+  // Green / success palette
+  --color-green-50:  #f0fdf4;
+  --color-green-200: #bbf7d0;
+  --color-green-500: #10b981;
+  --color-green-900: #14532d;
 }

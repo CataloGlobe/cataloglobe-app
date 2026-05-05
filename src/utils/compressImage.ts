@@ -23,10 +23,10 @@ export type CompressOptions = {
 };
 
 export const COMPRESS_PROFILES = {
-    cover:    { maxWidth: 1920, maxHeight: 1080, quality: 0.82, format: "jpeg" },
-    product:  { maxWidth: 800,  maxHeight: 800,  quality: 0.82, format: "jpeg" },
+    cover:    { maxWidth: 1280, maxHeight: 720,  quality: 0.82, format: "webp" },
+    product:  { maxWidth: 800,  maxHeight: 800,  quality: 0.82, format: "webp" },
     logo:     { maxWidth: 512, maxHeight: 256,    quality: 0.90, format: "webp" },
-    featured: { maxWidth: 1200, maxHeight: 800,  quality: 0.85, format: "jpeg" },
+    featured: { maxWidth: 1200, maxHeight: 800,  quality: 0.85, format: "webp" },
 } satisfies Record<string, CompressOptions>;
 
 export async function compressImage(

@@ -98,3 +98,61 @@ export async function deactivateTenantLanguage(
         .eq("language_code", languageCode);
     if (error) throw error;
 }
+
+export type LanguageProgress = {
+    lang: string;
+    pending: number;
+    done: number;
+    error: number;
+    total: number;
+};
+
+export type TranslationProgress = {
+    by_lang: LanguageProgress[];
+    total_pending: number;
+    total_error: number;
+    total_done: number;
+};
+
+const EMPTY_PROGRESS: TranslationProgress = {
+    by_lang: [],
+    total_pending: 0,
+    total_error: 0,
+    total_done: 0
+};
+
+/**
+ * Aggrega translation_jobs per (tenant, target_language_code, status).
+ * RPC SECURITY DEFINER con membership check via tenant_memberships.
+ *
+ * Status mapping (DB → output):
+ *   - 'pending'    → pending
+ *   - 'processing' → pending (in corso)
+ *   - 'done'       → done
+ *   - 'failed'     → error
+ *
+ * Polling consigliato: ogni 5 sec se total_pending > 0; stop quando 0.
+ */
+export async function getTranslationProgress(
+    tenantId: string
+): Promise<TranslationProgress> {
+    const { data, error } = await supabase.rpc("get_translation_progress", {
+        p_tenant_id: tenantId
+    });
+    if (error) throw error;
+    if (!data) return EMPTY_PROGRESS;
+    return data as TranslationProgress;
+}
+
+/**
+ * Resetta tutti i translation_jobs status='failed' del tenant a 'pending',
+ * azzerando last_error e attempts. Il cron li riprende al prossimo ciclo.
+ * Ritorna count righe aggiornate.
+ */
+export async function retryAllFailedTranslations(tenantId: string): Promise<number> {
+    const { data, error } = await supabase.rpc("retry_all_failed_translations", {
+        p_tenant_id: tenantId
+    });
+    if (error) throw error;
+    return typeof data === "number" ? data : 0;
+}

@@ -155,10 +155,16 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
             }
             if (panelRef.current) panelRef.current.style.pointerEvents = "none";
 
+            // ⚡ IMMEDIATO — rilascio body lock: la pagina sotto torna interactive
+            // subito (scroll libero, tap affidabili su iOS Safari). Il panel è
+            // position:fixed via .mobileRoot (ancorato al viewport, non al body)
+            // → rilasciare body.position non sposta visivamente il panel.
+            releaseBodyLock();
+
             if (isMobile) {
                 // Animazione completata PRIMA di notificare il parent: evita il re-render
                 // di React che nella versione precedente interferiva con i frame di animazione.
-                // Il body lock resta attivo durante l'uscita → nessun salto di scroll su iOS.
+                // La pagina sotto è già libera mentre il panel scende.
                 await animate(y, window.innerHeight * 1.1, {
                     type: "spring",
                     damping: 28,
@@ -170,8 +176,7 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                 if (!isMountedRef.current) return;
             }
 
-            // Rilascio body lock + notifica parent dopo animazione completata.
-            releaseBodyLock();
+            // Notifica parent dopo animazione completata.
             onClose();
 
             if (isMobile && isClosingRef.current) {

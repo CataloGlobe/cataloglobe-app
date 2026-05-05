@@ -8,7 +8,17 @@
         "deactivated": "{{lang}} disabled.",
         "confirm_title": "Enable {{lang}}?",
         "confirm_description": "We'll automatically translate your products, categories and other content. It'll be available in a few minutes.",
-        "confirm_button": "Enable"
+        "confirm_button": "Enable",
+        "progress": {
+            "title": "Translation status",
+            "in_progress": "{{count}} items in progress",
+            "errors_count": "{{count}} errors",
+            "retry_all": "Retry {{count}} failed items",
+            "retrying": "Retrying...",
+            "retry_success": "{{count}} items requeued",
+            "retry_error": "Error during retry",
+            "completed": "Translation completed ({{count}} items)"
+        }
     },
     "errors": {
         "load_failed": "Error loading languages",

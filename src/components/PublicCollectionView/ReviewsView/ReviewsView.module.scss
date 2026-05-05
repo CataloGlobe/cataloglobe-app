@@ -496,15 +496,17 @@
     line-height: 1.4;
 }
 
+/* Colori hardcoded intenzionalmente: il pulsante Google mantiene
+   l'identità brand indipendentemente dal tema del cliente. */
 .googleBtn {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     padding: 10px 20px;
     border-radius: var(--pub-radius, 10px);
-    border: 1px solid var(--pub-surface-border);
-    background: #fff;
-    color: var(--pub-text);
+    border: 1px solid #dadce0;
+    background: #ffffff;
+    color: #1f1f1f;
     font-size: 0.85rem;
     font-weight: 600;
     font-family: inherit;
@@ -513,7 +515,6 @@
     transition: border-color 0.15s ease, background 0.15s ease;
 
     &:hover {
-        border-color: #4285f4;
-        background: #eff6ff;
+        background: #f8f9fa;
     }
 }
