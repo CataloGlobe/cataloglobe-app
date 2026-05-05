@@ -45,6 +45,14 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
     const [shouldRender, setShouldRender] = useState(false);
     const isClosingRef = useRef(false);
 
+    // ── Guard unmount esterno ─────────────────────────────────────────────────
+    // Evita setState/onClose su elemento già rimosso dal parent durante animazione.
+    const isMountedRef = useRef(true);
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => { isMountedRef.current = false; };
+    }, []);
+
     // ── Refs per disabilitare pointer-events immediatamente alla chiusura ───
     // Mutazione DOM diretta: sincrona, zero-latency, nessun re-render React.
     // Senza questo, overlay+panel (opacity ~0) bloccano click/scroll per 50-320ms
@@ -138,9 +146,8 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
             if (isClosingRef.current) return;
             isClosingRef.current = true;
 
-            // ⚡ IMMEDIATO — blocco #1: pointer-events off su TUTTI gli elementi.
-            // L'overlay/backdrop da solo non basta: .panel ha pointer-events:auto
-            // nel CSS e, come figlio, sovrascrive il none del genitore.
+            // ⚡ IMMEDIATO — pointer-events off su TUTTI gli elementi.
+            // Impedisce interazioni durante l'animazione di uscita.
             if (isMobile) {
                 if (backdropRef.current) backdropRef.current.style.pointerEvents = "none";
             } else {
@@ -148,20 +155,10 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
             }
             if (panelRef.current) panelRef.current.style.pointerEvents = "none";
 
-            // ⚡ IMMEDIATO — blocco #2: body lock (position:fixed + overflow:hidden).
-            // Rilasciato PRIMA dell'animazione: l'utente può scrollare subito.
-            // L'animazione di uscita continua visivamente sopra il contenuto sbloccato.
-            releaseBodyLock();
-
-            // ⚡ IMMEDIATO — blocco #3: stato parent aggiornato PRIMA dell'animazione.
-            // Senza questo, se l'utente clicca un'altra card durante l'animazione di uscita
-            // (~300ms), il setSelectedItem(newItem) del click viene sovrascritto dal
-            // setSelectedItem(null) di onClose() che arriva dopo l'await → serve doppio click.
-            onClose();
-
             if (isMobile) {
-                // Anima dalla posizione ATTUALE verso il basso, usando la velocità del flick.
-                // Un flick veloce → chiusura rapida e naturale come iOS nativo.
+                // Animazione completata PRIMA di notificare il parent: evita il re-render
+                // di React che nella versione precedente interferiva con i frame di animazione.
+                // Il body lock resta attivo durante l'uscita → nessun salto di scroll su iOS.
                 await animate(y, window.innerHeight * 1.1, {
                     type: "spring",
                     damping: 28,
@@ -169,11 +166,16 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                     velocity: velocityY,
                     restDelta: 1,
                 });
-                // Guard: se durante l'animazione l'utente ha aperto un nuovo item,
-                // l'open effect ha resettato isClosingRef a false → non smontare.
-                if (isClosingRef.current) {
-                    setShouldRender(false);
-                }
+                // Guard: componente rimosso dal parent esternamente durante l'animazione.
+                if (!isMountedRef.current) return;
+            }
+
+            // Rilascio body lock + notifica parent dopo animazione completata.
+            releaseBodyLock();
+            onClose();
+
+            if (isMobile && isClosingRef.current) {
+                setShouldRender(false);
             }
         },
         [isMobile, onClose, releaseBodyLock, y]

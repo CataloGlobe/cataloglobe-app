@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { X, Search } from "lucide-react";
 import type { CollectionViewSection, CollectionViewSectionItem } from "../CollectionView/CollectionView";
@@ -187,8 +188,6 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
         return () => document.removeEventListener("keydown", handle);
     }, [isOpen, onClose, flatResults, highlightedIndex, handleSelect]);
 
-    if (!isOpen) return null;
-
     // Contatore per assegnare l'indice piatto a ogni risultato nel JSX
     let flatIdx = 0;
 
@@ -310,12 +309,25 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
                 className={styles.previewShell}
                 style={{ height: shellHeight, marginBottom: -shellHeight }}
             >
-                <div
+                <motion.div
                     className={styles.previewBackdrop}
                     onClick={onClose}
                     aria-hidden
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2, ease: "linear" }}
                 />
-                <div className={styles.previewPanelWrap}>{panel}</div>
+                <div className={styles.previewPanelWrap}>
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                        {panel}
+                    </motion.div>
+                </div>
             </div>
         );
     }
@@ -323,8 +335,25 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
     // ── PUBLIC: position:fixed su tutto il viewport ─────────────────────────
     return (
         <div className={styles.publicOverlay}>
-            <div className={styles.backdrop} onClick={onClose} aria-hidden />
-            <div className={styles.publicPanelWrap}>{panel}</div>
+            <motion.div
+                className={styles.backdrop}
+                onClick={onClose}
+                aria-hidden
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: "linear" }}
+            />
+            <div className={styles.publicPanelWrap}>
+                <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                >
+                    {panel}
+                </motion.div>
+            </div>
         </div>
     );
 }

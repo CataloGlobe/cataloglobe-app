@@ -729,6 +729,7 @@
               opacity 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   &:hover {
+    transform: translateY(-2px);
     box-shadow: 0 6px 20px color-mix(in srgb, var(--pub-accent, #F59E0B) 45%, transparent);
   }
 
@@ -740,9 +741,29 @@
     transform: translateX(0);
     opacity: 1;
 
+    /* Hover ri-dichiarato qui: stessa specificità di .valutaFabVisible (0-2-0),
+       ma dichiarato dopo → vince sulla regola base translateX(0). */
+    &:hover {
+      transform: translateY(-2px);
+    }
+
     &:active {
       transform: scale(0.95);
     }
+
+    /* Mostra il testo quando il FAB è visibile e non collassato */
+    .valutaFabText {
+      max-width: 140px;
+      opacity: 1;
+      margin-left: 6px;
+    }
+  }
+
+  /* Collassa il testo dopo timer/scroll */
+  &[data-collapsed="true"] .valutaFabText {
+    max-width: 0;
+    opacity: 0;
+    margin-left: 0;
   }
 }
 
@@ -755,13 +776,7 @@
   font-weight: 700;
   font-family: var(--pub-font-family, sans-serif);
   margin-left: 0;
-  transition: max-width 0.25s ease, opacity 0.25s ease, margin-left 0.25s ease;
-
-  .valutaFabExpanded & {
-    max-width: 140px;
-    opacity: 1;
-    margin-left: 6px;
-  }
+  transition: max-width 0.25s ease-out, opacity 0.25s ease-out, margin-left 0.25s ease-out;
 }
 
 /* ----------------------------------------------------
@@ -947,8 +962,8 @@
   min-width: 16px;
   height: 16px;
   border-radius: var(--pub-btn-radius, 8px);
-  background: #EF4444;
-  color: #fff;
+  background: var(--pub-primary);
+  color: var(--pub-cta-text);
   font-size: 0.6rem;
   font-weight: 700;
   font-family: var(--pub-font-family, sans-serif);
@@ -982,7 +997,8 @@
   font-family: var(--pub-font-family, sans-serif);
   cursor: pointer;
   box-shadow: 0 4px 20px color-mix(in srgb, var(--pub-bg-text) 25%, transparent);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, bottom 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, bottom 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 250ms ease-out, gap 250ms ease-out;
   white-space: nowrap;
 
   &:hover {
@@ -993,21 +1009,70 @@
   &:active {
     transform: translateY(0);
   }
+
+  /* Stato compatto: solo icona — padding simmetrico, gap azzerato per eliminare spazio residuo della label */
+  &[data-collapsed="true"] {
+    padding: 0 9px;
+    gap: 0;
+  }
 }
 
+/* Icona ListChecks */
+.selectionFabIcon {
+  flex-shrink: 0;
+}
+
+/* Label testuale — sparisce in stato compatto */
+.selectionFabLabel {
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 200px;
+  opacity: 1;
+  transition: max-width 250ms ease-out, opacity 200ms ease-out;
+
+  .selectionFab[data-collapsed="true"] & {
+    max-width: 0;
+    opacity: 0;
+  }
+}
+
+/* Badge numerico in alto a destra — posizionato fuori dal flow del bottone */
 .selectionFabBadge {
-  background: #EF4444;
-  color: #fff;
-  border-radius: var(--pub-radius, 12px);
-  min-width: 22px;
-  height: 22px;
-  display: flex;
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 700;
   font-family: var(--pub-font-family, sans-serif);
-  padding: 0 5px;
+  line-height: 1;
+  background: var(--pub-primary);
+  color: var(--pub-cta-text);
+  /* Bordo che separa il badge dallo sfondo del FAB */
+  border: 2px solid var(--pub-bg);
+  pointer-events: none;
+}
+
+/* prefers-reduced-motion: snap immediato, nessuna transizione né trasformazione */
+@media (prefers-reduced-motion: reduce) {
+  .valutaFab,
+  .valutaFabText,
+  .selectionFab,
+  .selectionFabLabel {
+    transition: none;
+  }
+
+  .valutaFab,
+  .valutaFab:hover,
+  .selectionFab:hover {
+    transform: none;
+  }
 }
 
 /* ----------------------------------------------------
@@ -1030,7 +1095,14 @@
 ---------------------------------------------------- */
 
 .infoSheetContent {
-  padding: 1rem 1.5rem 2rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding: 1rem 1.5rem;
+  padding-bottom: max(2rem, env(safe-area-inset-bottom));
 }
 
 .infoSheetTitle {

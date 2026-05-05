@@ -50,9 +50,9 @@
   min-height: 44px;
   padding: 5px 10px;
   border-radius: var(--pub-btn-radius, 8px);
-  border: 1px solid #EF4444;
+  border: 1px solid transparent;  /* ripristina 2px di box-sizing tolti rimuovendo il bordo rosso */
   background: transparent;
-  color: #EF4444;
+  color: var(--pub-primary);
   font-size: 0.78rem;
   font-weight: 600;
   font-family: var(--pub-font-family, sans-serif);
@@ -61,15 +61,14 @@
   -webkit-tap-highlight-color: transparent;
   display: inline-flex;
   align-items: center;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease;
 
   &:hover {
-    background: #EF4444;
-    color: #fff;
+    background: color-mix(in srgb, var(--pub-primary) 8%, transparent);
   }
 
   &:focus-visible {
-    outline: 2px solid #EF4444;
+    outline: 2px solid var(--pub-primary);
     outline-offset: 2px;
   }
 }
