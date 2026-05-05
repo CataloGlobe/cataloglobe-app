@@ -22,6 +22,8 @@ type Props = {
     openingHours: OpeningHoursEntry[];
     upcomingClosures?: UpcomingClosure[];
     showHeading?: boolean;
+    /** Contesto di sfondo: "bg" (footer, default) o "surface" (modale Info). */
+    surface?: "bg" | "surface";
 };
 
 const DAY_KEYS = [
@@ -51,7 +53,7 @@ function formatClosureDateLabel(c: UpcomingClosure, t: TFunction): string {
     return formatShort(c.closure_date, t);
 }
 
-export default function PublicOpeningHours({ openingHours, upcomingClosures, showHeading = true }: Props) {
+export default function PublicOpeningHours({ openingHours, upcomingClosures, showHeading = true, surface = "bg" }: Props) {
     const { t } = useTranslation("public");
     const byDay = new Map<number, OpeningHoursEntry[]>();
     for (const entry of openingHours) {
@@ -61,7 +63,7 @@ export default function PublicOpeningHours({ openingHours, upcomingClosures, sho
     }
 
     return (
-        <div className={styles.hoursSection}>
+        <div className={styles.hoursSection} data-surface={surface}>
             {showHeading !== false && (
                 <h3 className={styles.hoursTitle}>{t("opening_hours.title")}</h3>
             )}

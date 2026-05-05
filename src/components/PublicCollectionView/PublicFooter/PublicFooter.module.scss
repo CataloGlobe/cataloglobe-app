@@ -40,9 +40,9 @@
     transform 0.15s ease;
 
   &:hover {
-    background: var(--pub-text);
-    color: var(--pub-bg);
-    border-color: var(--pub-text);
+    background: color-mix(in srgb, var(--pub-primary) 10%, var(--pub-surface));
+    color: var(--pub-primary);
+    border-color: var(--pub-primary);
     transform: translateY(-1px);
   }
 
@@ -76,9 +76,9 @@
     transform 0.15s ease;
 
   &:hover {
-    background: var(--pub-text);
-    color: var(--pub-bg);
-    border-color: var(--pub-text);
+    background: color-mix(in srgb, var(--pub-primary) 10%, var(--pub-surface));
+    color: var(--pub-primary);
+    border-color: var(--pub-primary);
     transform: translateY(-1px);
   }
 
@@ -102,6 +102,11 @@
   gap: 0.4rem;
   text-decoration: none;
   color: inherit;
+
+  &:hover {
+    text-decoration: underline;
+    text-decoration-color: var(--pub-bg-text-muted);
+  }
 
   &:hover .brandName {
     opacity: 0.75;

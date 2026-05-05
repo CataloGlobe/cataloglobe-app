@@ -16,10 +16,10 @@ type Props = {
  * Riusabile sia nel footer che nella modale Informazioni.
  * Allineato visivamente al pattern di PublicOpeningHours.
  */
-export function PublicFeeRows({ fees }: { fees: ActivityFee[] }) {
+export function PublicFeeRows({ fees, surface = "bg" }: { fees: ActivityFee[]; surface?: "bg" | "surface" }) {
     const { t } = useTranslation("public");
     return (
-        <dl className={styles.feeList}>
+        <dl className={styles.feeList} data-surface={surface}>
             {fees.map(fee => {
                 const def = FEE_DEFINITIONS_BY_KEY[fee.key];
                 return (
