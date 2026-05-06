@@ -268,7 +268,7 @@ type PageState =
 export default function PublicCollectionPage() {
     const { slug, lang: langFromUrl } = useParams<{ slug: string; lang?: string }>();
     const navigate = useNavigate();
-    const { t } = useTranslation("public");
+    const { t, i18n } = useTranslation("public");
     const [searchParams] = useSearchParams();
     const simulateParam = searchParams.get("simulate");
     const [effectiveSimulate, setEffectiveSimulate] = useState<string | null>(null);
@@ -484,6 +484,34 @@ export default function PublicCollectionPage() {
     const sessionId = useMemo(() => crypto.randomUUID(), []);
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 
+    // ── Language change toast ──────────────────────────────────────────────
+    type ToastPhase = "idle" | "loading" | "done";
+    const [toastPhase, setToastPhase] = useState<ToastPhase>("idle");
+    const [toastLabel, setToastLabel] = useState<string>("");
+    const prevIsRefetchingRef = useRef(false);
+    const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        if (state.status !== "ready") return;
+        const isRefetching = state.isRefetching ?? false;
+
+        if (isRefetching && !prevIsRefetchingRef.current) {
+            if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+            setToastPhase("loading");
+        } else if (!isRefetching && prevIsRefetchingRef.current) {
+            const lang = state.availableLanguages.find(l => l.code === state.effectiveLanguage);
+            setToastLabel(lang?.name_native ?? state.effectiveLanguage.toUpperCase());
+            setToastPhase("done");
+            toastTimerRef.current = setTimeout(() => setToastPhase("idle"), 1200);
+        }
+
+        prevIsRefetchingRef.current = isRefetching;
+    }, [state]);
+
+    useEffect(() => {
+        return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
+    }, []);
+
     // ── Preload cover image (LCP) as soon as Edge Function resolves ──────
     useEffect(() => {
         if (state.status !== "ready") return;
@@ -568,6 +596,7 @@ export default function PublicCollectionPage() {
         showCoverImage: tokens.header.showCoverImage,
         showActivityName: tokens.header.showActivityName,
         showCatalogName: tokens.header.showCatalogName,
+        showAddress: tokens.header.showAddress,
         featuredStyle: tokens.appearance.featuredStyle,
         appearanceRadius: borderRadiusToPx(tokens.appearance.borderRadius)
     } as const;
@@ -584,6 +613,11 @@ export default function PublicCollectionPage() {
         ...(resolved.featured?.after_catalog ?? [])
     ];
 
+    const isRefetchingNow = state.status === "ready" && (state.isRefetching ?? false);
+    // Lingua di destinazione: già nell'URL quando il refetch inizia.
+    // Fallback a baseLanguage se si torna alla lingua base (URL senza /lang).
+    const toastTargetLang = langFromUrl ?? (state.status === "ready" ? state.baseLanguage : "it");
+
     return (
         <LanguageProvider
             slug={slug!}
@@ -592,6 +626,10 @@ export default function PublicCollectionPage() {
             baseLanguage={baseLanguage}
         >
         <PublicThemeScope style={resolved.style}>
+            <div
+                className={pageStyles.contentWrapper}
+                data-refetching={isRefetchingNow ? "true" : undefined}
+            >
             {isSimulation && (
                 <div
                     style={{
@@ -678,9 +716,29 @@ export default function PublicCollectionPage() {
                 allergens={allergens}
                 catalogCharacteristics={catalogCharacteristics}
             />
-            {state.isRefetching && (
-                <div className={pageStyles.refetchingOverlay} aria-hidden />
-            )}
+            </div>
+            {/* Toast cambio lingua — sempre nel DOM, CSS transitions */}
+            <div
+                className={pageStyles.languageToast}
+                data-phase={toastPhase}
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+            >
+                {toastPhase === "loading" && (
+                    <span className={pageStyles.languageToastSpinner} />
+                )}
+                {toastPhase === "done" && (
+                    <span className={pageStyles.languageToastCheck}>✓</span>
+                )}
+                <span>
+                    {toastPhase === "loading"
+                        ? i18n.t("toast.translating", { lng: toastTargetLang, ns: "public" })
+                        : toastPhase === "done"
+                          ? toastLabel
+                          : ""}
+                </span>
+            </div>
         </PublicThemeScope>
         </LanguageProvider>
     );

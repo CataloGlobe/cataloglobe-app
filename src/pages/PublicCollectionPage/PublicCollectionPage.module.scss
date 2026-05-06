@@ -1,10 +1,84 @@
-.refetchingOverlay {
+/* ── Content wrapper — fade durante refetch lingua ── */
+
+.contentWrapper {
+    transition: opacity 0.35s ease;
+
+    &[data-refetching="true"] {
+        opacity: 0.55;
+        pointer-events: none;
+    }
+}
+
+/* ── Language change toast ─────────────────────────── */
+
+/* Toast sempre nel DOM — CSS transitions gestiscono enter/exit.
+   data-phase="idle" → opaco invisibile
+   data-phase="loading" | "done" → visibile */
+
+.languageToast {
     position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.1);
+    top: max(16px, calc(env(safe-area-inset-top, 0px) + 8px));
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    background: rgba(28, 24, 18, 0.92);
+    color: #ffffff;
+    padding: 8px 14px;
+    border-radius: var(--pub-radius);
+    font-size: 12px;
+    font-weight: 500;
+    font-family: var(--pub-font-family, sans-serif);
+    letter-spacing: 0.015em;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 1000;
     display: flex;
     align-items: center;
-    justify-content: center;
-    z-index: 100;
+    gap: 8px;
+    opacity: 0;
     pointer-events: none;
+    user-select: none;
+    white-space: nowrap;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+
+    &[data-phase="loading"],
+    &[data-phase="done"] {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+@keyframes languageToastSpin {
+    to { transform: rotate(360deg); }
+}
+
+.languageToastSpinner {
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: languageToastSpin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+.languageToastCheck {
+    font-size: 12px;
+    line-height: 1;
+}
+
+/* ── Reduced motion ──────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+    .contentWrapper {
+        transition: none;
+    }
+
+    .languageToast {
+        transition: none;
+    }
+
+    .languageToastSpinner {
+        animation: none;
+    }
 }
