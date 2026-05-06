@@ -412,19 +412,30 @@ export default function Businesses() {
         setIsDeleting(true);
 
         try {
-            await deleteActivityAtomic(deleteTargetId);
+            const result = await deleteActivityAtomic(deleteTargetId);
 
             await refreshBusinesses();
-            showToast({
-                message: "Sede eliminata con successo.",
-                type: "success",
-                duration: 2500
-            });
+
+            const disabled = result.affected_schedules_disabled ?? 0;
+            const message =
+                disabled === 1
+                    ? "Sede eliminata. 1 regola di programmazione è stata spostata in bozze perché senza target."
+                    : disabled > 1
+                    ? `Sede eliminata. ${disabled} regole di programmazione sono state spostate in bozze perché senza target.`
+                    : "Sede eliminata con successo.";
+            const duration = disabled > 0 ? 4000 : 2500;
+
+            showToast({ message, type: "success", duration });
         } catch (e) {
             console.error("Errore durante l'eliminazione della sede:", e);
             let message = "Errore durante l'eliminazione della sede.";
             if (e instanceof DeleteActivityError) {
-                if (e.code === "INSUFFICIENT_ROLE") {
+                if (e.code === "FK_VIOLATION") {
+                    // Safety net: dopo la migration analytics_events CASCADE,
+                    // questo branch resta per future FK NO ACTION non gestite.
+                    message =
+                        "Impossibile eliminare la sede: ci sono dati collegati che impediscono l'eliminazione. Contatta il supporto.";
+                } else if (e.code === "INSUFFICIENT_ROLE") {
                     message = "Solo owner o admin possono eliminare una sede.";
                 } else if (e.code === "INACTIVE_MEMBERSHIP") {
                     message = "Il tuo accesso a questa organizzazione non è attivo.";
