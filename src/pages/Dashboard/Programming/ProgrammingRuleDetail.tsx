@@ -264,6 +264,21 @@ export default function ProgrammingRuleDetail() {
                 new Map(optionsData.activities.map(activity => [activity.id, activity]))
             );
             const nextSnapshot = JSON.stringify(nextForm);
+
+            // Pre-compila lo stile di default (sistema) per nuove regole layout
+            // senza stile selezionato. Lo snapshot resta sull'originale così la
+            // regola risulta dirty e l'utente può salvare il default.
+            if (ruleData.rule_type === "layout" && !nextForm.styleId) {
+                const tenantStylesList = optionsData.styles.filter(
+                    s => s.tenant_id === ruleData.tenant_id
+                );
+                const defaultStyle =
+                    tenantStylesList.find(s => s.is_system) ?? tenantStylesList[0];
+                if (defaultStyle) {
+                    nextForm.styleId = defaultStyle.id;
+                }
+            }
+
             setForm(nextForm);
             setInitialSnapshot(nextSnapshot);
         } catch (error) {

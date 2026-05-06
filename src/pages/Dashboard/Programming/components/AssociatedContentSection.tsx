@@ -442,13 +442,10 @@ export function AssociatedContentSection({
                         label="Stile"
                         value={styleId}
                         onChange={event => onFormChange({ styleId: event.target.value })}
-                        options={[
-                            { value: "", label: "Nessuno stile" },
-                            ...tenantStyles.map(style => ({
-                                value: style.id,
-                                label: style.name
-                            }))
-                        ]}
+                        options={tenantStyles.map(style => ({
+                            value: style.id,
+                            label: style.name
+                        }))}
                     />
                 </div>
             </section>
