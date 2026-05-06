@@ -29,6 +29,7 @@ export interface StyleTokenModel {
         showCoverImage: boolean;
         showActivityName: boolean;
         showCatalogName: boolean;
+        showAddress: boolean;
     };
     navigation: {
         style: NavigationStyle;
@@ -66,7 +67,8 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
         showLogo: true,
         showCoverImage: true,
         showActivityName: true,
-        showCatalogName: true
+        showCatalogName: true,
+        showAddress: false
     },
     navigation: {
         style: "filled"
@@ -163,7 +165,11 @@ export function parseTokens(rawJson: any): StyleTokenModel {
             showCatalogName:
                 typeof rawHeader.showCatalogName === "boolean"
                     ? rawHeader.showCatalogName
-                    : DEFAULT_STYLE_TOKENS.header.showCatalogName
+                    : DEFAULT_STYLE_TOKENS.header.showCatalogName,
+            showAddress:
+                typeof rawHeader.showAddress === "boolean"
+                    ? rawHeader.showAddress
+                    : DEFAULT_STYLE_TOKENS.header.showAddress
         },
         navigation: {
             style: (() => {
@@ -224,7 +230,8 @@ export function serializeTokens(model: StyleTokenModel): Record<string, unknown>
             showLogo: model.header.showLogo,
             showCoverImage: model.header.showCoverImage,
             showActivityName: model.header.showActivityName,
-            showCatalogName: model.header.showCatalogName
+            showCatalogName: model.header.showCatalogName,
+            showAddress: model.header.showAddress
         },
         navigation: {
             style: model.navigation.style

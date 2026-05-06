@@ -23,6 +23,18 @@
   letter-spacing: 1px;
   font-size: 0.85rem;
   color: var(--color-text-muted, #64748b);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.warningDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-warning-500, #f59e0b);
+  flex-shrink: 0;
 }
 
 .controlField {

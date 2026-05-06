@@ -125,6 +125,11 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                     tooltip="Mostra o nascondi il nome del catalogo sotto il nome della sede."
                     value={model.header.showCatalogName ? "Visibile" : "Nascosto"}
                 />
+                <ValueReadRow
+                    label="Indirizzo"
+                    tooltip="Mostra o nascondi l'indirizzo della sede sotto il nome."
+                    value={model.header.showAddress ? "Visibile" : "Nascosto"}
+                />
             </section>
 
             {/* NAVIGAZIONE SEZIONI */}

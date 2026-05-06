@@ -27,6 +27,7 @@ export type PublicCollectionHeaderProps = {
     logoUrl?: string | null;
     activityName: string;
     activityAddress?: string | null;
+    showAddress?: boolean;
     catalogName?: string | null;
     showCatalogName?: boolean;
     coverImageUrl?: string | null;
@@ -58,6 +59,7 @@ export default function PublicCollectionHeader({
     logoUrl,
     activityName,
     activityAddress,
+    showAddress = false,
     catalogName,
     showCatalogName = false,
     coverImageUrl,
@@ -240,7 +242,7 @@ export default function PublicCollectionHeader({
 
                         <div className={styles.textBlock}>
                             <span className={styles.name}>{activityName}</span>
-                            {activityAddress && (
+                            {showAddress && activityAddress && (
                                 <span className={styles.address}>{activityAddress}</span>
                             )}
                             {showCatalogName && catalogName && (

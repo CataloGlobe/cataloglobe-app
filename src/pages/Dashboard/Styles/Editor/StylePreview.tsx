@@ -324,6 +324,7 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
         showCoverImage: model.header.showCoverImage,
         showActivityName: model.header.showActivityName,
         showCatalogName: model.header.showCatalogName,
+        showAddress: model.header.showAddress,
         featuredStyle: model.appearance.featuredStyle,
         appearanceRadius: borderRadiusToPx(model.appearance.borderRadius)
     };
