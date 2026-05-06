@@ -1,7 +1,28 @@
 # CLAUDE.md — CataloGlobe
 
 Regole vincolanti. In caso di dubbio: seguire il pattern esistente nel codice.
-Documentazione completa: `docs/architecture.md` | Regole estese: `docs/ai-operational-rules.md`
+
+**Riferimenti**:
+- Architettura completa: `docs/architecture.md`
+- Regole estese: `docs/ai-operational-rules.md`
+- Route: `docs/routes.md`
+- Schema DB e fact critici: `docs/database-reference.md`
+- Edge Functions: `docs/edge-functions.md`
+- Security Advisor stato: `docs/security-advisor-status.md`
+- Roadmap / aree in sviluppo: `docs/roadmap.md`
+
+---
+
+## Quick start
+
+```bash
+npm install
+npm run dev          # vite dev server
+npm run build        # tsc -b && vite build
+npm run lint         # eslint .
+npm test             # vitest run
+npm run test:watch   # vitest watch
+```
 
 ---
 
@@ -23,31 +44,9 @@ Documentazione completa: `docs/architecture.md` | Regole estese: `docs/ai-operat
 - **Un file service per dominio**. Firma: `list*(tenantId)`, `get*(id, tenantId)`, `create*(tenantId, data)`, `update*(id, tenantId, data)`, `delete*(id, tenantId)`.
 - `list*` ritorna `T[]` (mai null). `get*` lancia errore se non trova. `delete*` ritorna `void`.
 - **Errori**: controllare `error.code` — `PGRST116` (not found), `23503` (FK violation), `23505` (duplicate). Poi `throw error`.
-- **Route**: tutte in `src/App.tsx`. Business routes sotto `/business/:businessId/`. `businessId` = source of truth per tenant.
+- **Route**: tutte in `src/App.tsx`. Business routes sotto `/business/:businessId/`. `businessId` = source of truth per tenant. Lista completa in `docs/routes.md`.
 - **Layout**: `MainLayout` (business), `WorkspaceLayout` (workspace), `SiteLayout` (pubblico). Non crearne di nuovi. No top navbar.
 - **Provider esistenti**: AuthProvider, TenantProvider, DrawerProvider, ToastProvider, ThemeProvider, TooltipProvider. Non crearne di nuovi senza necessita'.
-
----
-
-## Route principali
-
-```
-/                          → Home (landing)
-/login, /sign-up, /verify-otp, /check-email, /forgot-password, /reset-password → Auth
-/workspace                 → WorkspaceLayout (no TenantProvider)
-/onboarding/create-business, /onboarding/activate-trial → Onboarding (no TenantProvider)
-/business/:businessId/     → MainLayout + TenantProvider
-  overview | locations | locations/:activityId
-  scheduling | scheduling/:ruleId | scheduling/featured/:ruleId
-  catalogs | catalogs/:id
-  products | products/:productId
-  featured | featured/:featuredId
-  styles | styles/:styleId
-  attributes | reviews | analytics | team | subscription | settings
-/invite/:token             → InvitePage
-/legal/privacy | /legal/termini → pagine legali
-/:slug                     → PublicCollectionPage (pagina pubblica)
-```
 
 ---
 
@@ -130,29 +129,16 @@ Dominio/
 
 **Simulazione**: `?simulate=<ISO_DATE>` — solo per utenti autenticati. Mostra banner giallo in cima.
 
-**Componenti in `src/components/PublicCollectionView/`**:
+**Componenti chiave** (in `src/components/PublicCollectionView/`):
 
-- `CollectionView` — contenitore principale (gestisce scroll, nav, hub tabs, search). Il grid delle card usa `@container collection (...)`, MAI `@media` su viewport: il wrapper `.container` ha `container-type: inline-size; container-name: collection` — misura il device frame in preview, il body in runtime. Qualsiasi modifica al responsive delle card deve usare `@container collection`.
-- `PublicCollectionHeader` — header hero-to-compact guidato da scroll listener (NON IntersectionObserver):
-  - hero: full cover image + activity name + hub tabs + language selector + search
-  - compact: sticky bar animata via lerp, `progress = scrollY / 140`
-  - Props chiave: `scrollContainerEl` (per preview), `viewportWidthEl` (elemento da cui misurare la viewport; fallback a `window` se non passato), `headerRadius` (valore numerico in px per animazione lerp del border-radius; deriva da token `appearance.borderRadius`)
-  - `readScroll` legge `body.style.top` come fonte autoritativa del scrollY quando `body.style.position === "fixed"` (modale aperta con scroll lock). Senza questo, `window.scrollY` vale 0 su iOS Safari durante il lock → header tornerebbe a hero con modale aperta.
-- `PublicFooter` — footer con orari, tariffe (via `PublicFees`) e social links
-- `PublicFees` — sezione tariffe nel footer. Mostra SOLO le `fees` (non `payment_methods` / `services`). Esporta anche `PublicFeeRows` per riuso nella modale Informazioni. Layout righe label/valore allineato a `PublicOpeningHours`.
-- **InfoSheet** (modale "Informazioni" inline in `CollectionView`) — aperto da bottone "info" nell'header, contiene: orari, tariffe, metodi di pagamento, servizi, contatti, indirizzo. `payment_methods` e `services` sono renderizzati QUI (chip via `.tagList`/`.tag`), NON nel footer. `fees` riusa `PublicFeeRows` con stile `infoSection`/`infoSectionHeader`.
-- `SearchOverlay` — overlay full-screen per ricerca prodotti
-- `SelectionSheet` — sheet opzioni/varianti prodotto
-- `ItemDetail` — dettaglio prodotto
-- `ReviewsView` — tab recensioni (hub)
-- `FeaturedBlock` — slot contenuti in evidenza (before_catalog / after_catalog)
-- `FeaturedPreviewModal` — modal preview contenuto in evidenza
-- `PublicCatalogTree` — navigazione categorie ad albero
-- `CollectionSectionNav` — nav sezioni orizzontale (pills/tabs/minimal)
-- `LanguageSelector` — selettore lingua (solo IT attivo; EN/FR/DE "presto")
-- `PublicSheet` — sheet/dialog generico per la pagina pubblica (vedi sotto)
+- `CollectionView` — contenitore principale. Il grid card usa `@container collection (...)`, MAI `@media` su viewport. `.container` ha `container-type: inline-size; container-name: collection`. Modifiche al responsive card → SEMPRE `@container collection`.
+- `PublicCollectionHeader` — header hero-to-compact via scroll listener (NON IntersectionObserver). Props chiave: `scrollContainerEl`, `viewportWidthEl`, `headerRadius` (numerico in px). `readScroll` legge `body.style.top` come fonte autoritativa quando `body.style.position === "fixed"` (modale aperta) — senza questo, su iOS Safari `window.scrollY` vale 0 durante lock e header torna a hero.
+- `PublicFooter` — orari, tariffe (via `PublicFees`), social.
+- `PublicFees` / `PublicFeeRows` — tariffe nel footer (solo `fees`, non `payment_methods`/`services`). `PublicFeeRows` riusato in InfoSheet.
+- **InfoSheet** (modale "Informazioni" inline in `CollectionView`) — orari, tariffe, metodi pagamento, servizi, contatti, indirizzo. `payment_methods` e `services` renderizzati QUI come chip, NON nel footer.
+- `SearchOverlay`, `SelectionSheet`, `ItemDetail`, `ReviewsView`, `FeaturedBlock`, `FeaturedPreviewModal`, `PublicCatalogTree`, `CollectionSectionNav`, `LanguageSelector` (solo IT attivo), `PublicSheet`.
 
-**Card prodotto** — 4 combinazioni con identità visiva preservata:
+**Card prodotto** — 4 combinazioni:
 
 | Combinazione    | Wrapper                 | Immagine    | Bottone |
 | --------------- | ----------------------- | ----------- | ------- |
@@ -161,21 +147,19 @@ Dominio/
 | Compatto · List | nessuno (trasparente)   | nessuna     | outline |
 | Compatto · Grid | nessuno (trasparente)   | nessuna     | outline |
 
-- **Card** usa `--pub-surface-text` (testo su surface). **Compatto** usa `--pub-bg-text` (testo su page bg).
-- `ProductRow` e `ProductCompactRow` ricevono prop `cardLayout: "list" | "grid"`.
-- Il container padre ha `data-card-layout` + `data-product-style`; i selettori CSS condizionali usano questi attributi.
-- In Compatto·Grid il `border-bottom` sugli item agisce come separatore: `row-gap: 0` + `:nth-last-child(-n+N)` rimuove il border dall'ultima riga visiva (N = numero colonne corrente). NON usare `:last-child` per separatori in CSS Grid multi-colonna: seleziona l'ultimo item DOM, non l'ultima riga visiva.
+- **Card** usa `--pub-surface-text`. **Compatto** usa `--pub-bg-text`.
+- `ProductRow`/`ProductCompactRow` ricevono `cardLayout: "list" | "grid"`.
+- Container padre ha `data-card-layout` + `data-product-style`; selettori CSS condizionali usano questi attributi.
+- In Compatto·Grid `border-bottom` agisce come separatore: `row-gap: 0` + `:nth-last-child(-n+N)` rimuove border dall'ultima riga visiva (N = colonne correnti). NON usare `:last-child` per separatori in CSS Grid multi-colonna.
 
 **Hub tabs** (`HubTab = "menu" | "events" | "reviews"`):
-
 - `menu` — catalogo prodotti + featured blocks
-- `events` — tab eventi/promo (da sviluppare)
+- `events` — eventi/promo (da sviluppare)
 - `reviews` — recensioni via `submit-review` edge function
 
-**Slot FeaturedBlock** (solo 2, hero rimosso con migration `20260414190000`):
-
+**Slot FeaturedBlock** (solo 2, hero rimosso, migration `20260414190000`):
 - `before_catalog` — tra header e catalogo, a livello `.frame` (fuori da `.container`)
-- `after_catalog` — sotto catalogo, passato come prop `featuredAfterCatalogSlot` a `CollectionView`, a livello `.frame`
+- `after_catalog` — sotto catalogo, prop `featuredAfterCatalogSlot` su `CollectionView`, a livello `.frame`
 
 **Stati pagina**: `loading | error | inactive | subscription_inactive | empty | ready`
 
@@ -197,27 +181,22 @@ PublicSheet → bottom sheet su mobile (swipe-to-close) | dialog centrato su des
 
 ## Style Editor / Preview
 
-**Percorso**: `/business/:businessId/styles/:styleId` → `StyleEditorPage`
-
-**Architettura**:
+**Percorso**: `/business/:businessId/styles/:styleId` → `StyleEditorPage`.
 
 ```
 StyleEditorPage
-├── StylePropertiesPanel (editing token) / StylePropertiesReadOnly (versioni pubblicate)
+├── StylePropertiesPanel (editing) / StylePropertiesReadOnly (versioni pubblicate)
 ├── StyleVersionsPopover
-└── StylePreview (preview live)
-     ├── PublicThemeScope (stessi CSS tokens della pagina pubblica)
-     └── CollectionView (stesso componente della pagina pubblica, mode="preview")
-          └── FeaturedBlock (con MOCK_FEATURED inline in StylePreview.tsx)
+└── StylePreview
+     ├── PublicThemeScope
+     └── CollectionView (mode="preview", MOCK_FEATURED + MOCK_SECTION_GROUPS inline)
 ```
 
-- `StylePreview` usa mock data statici (`MOCK_FEATURED`, `MOCK_SECTION_GROUPS`) definiti inline nel file.
-- Toggle mobile/desktop preview via `IconDeviceMobile` / `IconDeviceDesktop`.
-- `StylePreview` passa al `CollectionView` sia `scrollContainerEl` sia `viewportWidthEl` (entrambi puntati a `screenEl` del device frame). Il primo governa scroll/IntersectionObserver; il secondo permette a `PublicCollectionHeader` di misurare la viewport dal device frame invece che da `window` (altrimenti `window.innerWidth` del browser dell'editor farebbe collassare l'header in preview mobile).
-- Il border-radius dell'header viene passato come valore numerico (`headerRadius` prop) dal campo `appearanceRadius` del `CollectionStyle` — NON letto via `getComputedStyle`. Il valore deriva dal token `appearance.borderRadius` tramite helper `borderRadiusToPx("none"|"soft"|"rounded") -> 0|10|20` in `mapStyleTokensToCssVars.ts`.
+- `StylePreview` passa al `CollectionView` sia `scrollContainerEl` sia `viewportWidthEl` (entrambi `screenEl` del device frame). Senza `viewportWidthEl`, `window.innerWidth` del browser editor farebbe collassare l'header in preview mobile.
+- `headerRadius` passato come valore numerico dal campo `appearanceRadius` del `CollectionStyle` — NON letto via `getComputedStyle`. Helper `borderRadiusToPx("none"|"soft"|"rounded") -> 0|10|20` in `mapStyleTokensToCssVars.ts`.
 - `navigationStyle` valori correnti: `"filled" | "outline" | "tabs" | "dot" | "minimal"`. I valori deprecati `"pill"` e `"chip"` sono rimappati a `"filled"` in `parseTokens` — la label UI nel PropertiesPanel resta "Pill" per familiarità.
-- Il responsive del grid card è basato su container queries: misura la larghezza di `.container` (dentro il device frame in preview, dentro il body in runtime). Coerente preview/runtime by design.
-- Il comportamento runtime e preview devono restare sincronizzati: `parseTokens()` converte i token nel `collectionStyle` usato da CollectionView.
+- Responsive grid card è basato su container queries: misura larghezza di `.container` (device frame in preview, body in runtime). Coerente preview/runtime by design.
+- Runtime e preview devono restare sincronizzati: `parseTokens()` converte i token nel `collectionStyle` usato da CollectionView.
 
 ---
 
@@ -225,36 +204,30 @@ StyleEditorPage
 
 Due tipi di regola sullo stesso modello `schedules`:
 
-| `rule_type`           | Route detail                                          | Service                 | Scopo                                                                |
-| --------------------- | ----------------------------------------------------- | ----------------------- | -------------------------------------------------------------------- |
-| `"catalog"` (default) | `/scheduling/:ruleId` → `ProgrammingRuleDetail`       | `layoutScheduling.ts`   | Assegna catalogo a sede in una finestra temporale                    |
-| `"featured"`          | `/scheduling/featured/:ruleId` → `FeaturedRuleDetail` | `featuredScheduling.ts` | Assegna contenuti in evidenza (before/after catalog) in una finestra |
+| `rule_type`           | Route detail                                          | Service                 | Scopo                                                     |
+| --------------------- | ----------------------------------------------------- | ----------------------- | --------------------------------------------------------- |
+| `"catalog"` (default) | `/scheduling/:ruleId` → `ProgrammingRuleDetail`       | `layoutScheduling.ts`   | Assegna catalogo a sede in finestra temporale             |
+| `"featured"`          | `/scheduling/featured/:ruleId` → `FeaturedRuleDetail` | `featuredScheduling.ts` | Assegna contenuti in evidenza (before/after) in finestra  |
 
 **Risoluzione regole**: tutti e 4 i tipi (layout, featured, price, visibility) usano **competizione** (1 sola regola vince per sede per tipo). Ordine: specificità target (DESC) → specificità temporale (DESC) → priority (ASC) → created_at (ASC) → id (ASC).
 
 **Sistema bozze**:
-
 - Regole create con `enabled: false`. Salvate come bozza se campi obbligatori mancanti (target, catalogo/stile, prodotti, contenuti).
-- `isDraft(rule)`: `!applyToAll && 0 activityIds && 0 groupIds` OPPURE campi tipo-specifici vuoti (layout: no catalog/style, featured: no contents, price/visibility: no overrides).
+- `isDraft(rule)`: `!applyToAll && 0 activityIds && 0 groupIds` OPPURE campi tipo-specifici vuoti.
 - Lista: 5 gruppi — In esecuzione, Programmate, **Bozze** (ambra), Disabilitate, Scadute. Badge "Bozza" sulla riga.
-- Toggle: bloccato per bozze (toast error) e regole scadute (toast error). Toggle OFF sempre permesso.
-- Auto-attivazione: al salvataggio, se la regola era bozza (`isDraft(originalRule)`) e ora e' completa → `enabled = true` automatico + toast "Regola salvata e attivata".
-- Validazione: nome vuoto/date invalide/orari invalidi → bloccanti (return). Campi incompleti → bozza (enabled=false + toast warning).
+- Toggle: bloccato per bozze e regole scadute (toast error). Toggle OFF sempre permesso.
+- Auto-attivazione: al salvataggio, se la regola era bozza e ora è completa → `enabled = true` automatico + toast.
+- Validazione: nome vuoto/date invalide/orari invalidi → bloccanti. Campi incompleti → bozza (enabled=false + toast warning).
 
-**Periodo + giorni**: combinabili nel form. Il resolver supporta `start_at`/`end_at` + `days_of_week` combinati.
+**Periodo + giorni**: combinabili nel form. Resolver supporta `start_at`/`end_at` + `days_of_week` combinati.
 
 **Featured slot**: solo `before_catalog` e `after_catalog` (hero rimosso, migration `20260414190000`). Form featured: due SlotGroup separati con DnD indipendente, `sortOrder` per-gruppo.
 
-**Simulatore regole**: drawer con 4 blocchi risultato — Catalogo, In evidenza, Prezzi, Visibilità (griglia 2x2). Usa `resolveRulesForActivity()` con data/ora simulata.
+**Simulatore regole**: drawer con 4 blocchi (Catalogo, In evidenza, Prezzi, Visibilità — 2x2). Usa `resolveRulesForActivity()` con data/ora simulata.
 
 **"Escluse N sedi"**: regole con target "Tutte" mostrano tooltip con sedi sovrascritte da regole più specifiche. Funziona per tutti e 4 i tipi.
 
-**Tabelle coinvolte**:
-
-- `schedules` — riga principale (tenant_id, rule_type, time_mode, priority, ecc.)
-- `schedule_targets` — relazione N:N con activity/activity_group (no tenant_id, no RLS — security gap noto)
-- `schedule_featured_contents` — join featured rules ↔ featured_contents (slot, sort_order). Solo 2 slot: `before_catalog`, `after_catalog`.
-- RPC: `get_schedule_featured_contents(schedule_id)` — `20260409120000`
+**Tabelle**: `schedules`, `schedule_targets` (no tenant_id, RLS via subselect — security gap noto), `schedule_featured_contents`. RPC `get_schedule_featured_contents(schedule_id)` (`20260409120000`).
 
 ---
 
@@ -264,74 +237,43 @@ Due tipi di regola sullo stesso modello `schedules`:
 - **Query nei service**: nomi SENZA prefisso (`products`, mai `v2_products`). Tipi TS: prefisso `V2`.
 - Nuove tabelle: `tenant_id UUID NOT NULL`, RLS abilitato, 4 policy (select/insert/update/delete).
 - FK: `entita_id`. Self-ref: `parent_entita_id`. Colonne: `snake_case`. Tabelle: plurale.
+- Schema attuale + fact critici (slug uniqueness, tabelle Stripe-on-tenants, schedule_targets RLS, ecc.) → `docs/database-reference.md`.
 
-**Tabelle principali** (selezionate):
+---
 
-- `tenants` — aziende/brand
-- `activities` — sedi (slug, status, inactive_reason, cover_image rimovibile, contatti, social, street_number, postal_code, province — indirizzo strutturato; `fees` JSONB tariffe predefinite con flag `fees_public`)
-- `activity_slug_aliases` — alias slug storici per redirect (slug UNIQUE globale, ON DELETE CASCADE da activities)
-- `schedules` — regole scheduling (rule_type: "catalog" | "featured")
-- `schedule_targets` — target N:N (no RLS — security gap noto)
-- `schedule_featured_contents` — contenuti in evidenza per slot
-- `featured_contents` — contenuti highlight (titolo, media, prodotti, pricing_mode)
-- `catalogs`, `catalog_categories`, `catalog_category_products` — catalogo
-- `products`, `product_variants`, `product_option_groups`, `product_option_values`
-- `styles`, `style_versions` — stili con versioni immutabili
-- `reviews` — recensioni (rebuild `20260413085957`)
-- `notifications` — notifiche estese (`20260410140000`)
-- Stripe billing su `tenants`: colonne `stripe_customer_id`, `stripe_subscription_id`, `subscription_status`, `paid_seats`, `trial_until` (`20260411100000`, `20260413100000`). Le tabelle `stripe_subscriptions` e `stripe_customers` NON esistono — i dati Stripe vivono come colonne su `tenants`.
+## Pattern obbligatori
 
-**Schema facts critici**:
+### Storage policy `storage.objects`
 
-- `v2_activity_schedules` — ELIMINATA (migration `20260302130000`). Non referenziare mai.
-- `activities.slug` — UNIQUE globale (non per tenant), constraint `activities_slug_unique`. CHECK formato: `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$` + no `--`. Reserved slugs enforced a DB level via `is_reserved_slug()` (migration `20260416140000`).
-- `activity_slug_aliases` — NO policy UPDATE (alias si eliminano, non si modificano). Lookup pubblico via `service_role` nella Edge Function `resolve-public-catalog`.
-- `activities.fees` — JSONB array di `{key, value}`. Chiavi ammesse: `coperto`, `servizio`, `prenotazione_minima`, `spesa_minima`, `eta_minima`. Definizioni centralizzate in `src/constants/activityFees.ts`. Non usare JSONB libero — le chiavi sono un enum fisso non modificabile dall'utente. Migration `20260428110000_activities_fees.sql`.
-- `schedule_targets` — NO `tenant_id` ma RLS attivo: 4 policy con sub-select su schedules.tenant_id (audit aprile 2026)
-- `product_attribute_definitions.tenant_id` — NULLABLE (attributi piattaforma usano NULL)
-- `schedule_featured_contents.slot` — constraint CHECK a 2 valori: `before_catalog`, `after_catalog` (migration `20260414190000`, hero rimosso)
-- `schedules.start_at` — salvato come inizio giornata locale (`T00:00:00` locale → UTC via `toISOString()`)
-- `schedules.end_at` — salvato come fine giornata locale (`T23:59:59` locale → UTC via `toISOString()`)
-- `activity_hours.closes_next_day` — BOOLEAN DEFAULT false. Se `closes_at < opens_at`, il form imposta il flag automaticamente. Overlap detection usa `closes_at_minutes + 1440` per slot notturni. Stesso pattern per `activity_closures` (JSONB slots, `closes_next_day` è campo del JSON — nessun campo DB aggiuntivo).
-- View utenti vs RPC: `user_tenants_view` è SECURITY INVOKER e delega a `get_user_tenants()`. Per dati membri/inviti usare le RPC `get_tenant_members(uuid)` e `get_my_pending_invites()` (entrambe SECURITY DEFINER, accesso filtrato internamente). Le view legacy `tenant_members_view` e `my_pending_invites_view` sono state droppate nelle migration `20260427100000_security_advisor_fixes.sql` + `20260427110000_drop_orphan_member_views.sql`.
-- Stripe lifecycle: usare sempre `_shared/stripe-helpers.ts` per chiamate Stripe nelle Edge Functions. Pattern: `scheduleStripeCancel()` al soft-delete (account/tenant) → `reactivateStripeSubIfScheduled()` al recovery → `cancelStripeSubImmediate()` + `deleteStripeCustomer()` al hard-delete (cron purge). Tutti idempotenti e non-throwing. NON chiamare `stripe.subscriptions.cancel()` direttamente in soft-delete (perde l'utente i giorni pagati e disincentiva il recovery). Usato da: delete-tenant, delete-account, restore-tenant, recover-account, \_shared/tenant-purge.ts.
-- **Storage policy naming canonico** (post canonicalizzazione 30/04/2026, migration `20260430180000_storage_policy_canonicalize.sql`): tutte le 24 policy su `storage.objects` seguono il pattern `<bucket> <op>` (lowercase, hyphen-space). 6 bucket × 4 operazioni (select/insert/update/delete). Tutte `TO authenticated`. UPDATE policy hanno SEMPRE sia USING che WITH CHECK populate (identici).
+- Naming: `<bucket-id> <operation>` (es. `avatars insert`, `product-images update`). Lowercase, hyphen-space.
+- Roles: `TO authenticated` (no public listing). File pubblici via `getPublicUrl()` che bypassa RLS senza policy SELECT public.
+- UPDATE policy: SEMPRE `USING (...) WITH CHECK (...)` con espressione identica. Senza WITH CHECK, l'SDK upsert fallisce silenziosamente.
+- Sempre `DROP POLICY IF EXISTS` (idempotenza cross-env).
 
-  Storia: 3 stili coesistevano (snake_case, sentence-case, hyphen-space) con drift staging/prod. Canonicalizzazione ha allineato entrambi gli ambienti. Future migration storage devono mantenere il pattern.
+### Storage upsert (3 policy DB richieste)
 
-  **Pattern obbligatorio per nuove policy `storage.objects`**:
-  - Naming: `<bucket-id> <operation>` (es. `avatars insert`, `product-images update`)
-  - Roles: `TO authenticated` (no public listing). I file pubblici sono serviti via `getPublicUrl()` che bypassa RLS senza policy SELECT public.
-  - UPDATE policy: SEMPRE `USING (...) WITH CHECK (...)` con espressione identica. Senza WITH CHECK, l'SDK upsert fallisce silenziosamente.
-  - Sempre usare `DROP POLICY IF EXISTS` (idempotenza cross-env).
+`supabase.storage.upload(path, file, { upsert: true })` invoca internamente `INSERT ON CONFLICT DO UPDATE` su `storage.objects`. Per funzionare richiede:
 
-- **Security Advisor — stato target post-hardening (aprile 2026)**: chiusi 81 advisor su 112 (errori → 0, warning → 27, info → 4). I 27 warning residui sono **tutti intenzionali**, NON da fixare:
-  - 18 `authenticated_security_definer_function_executable` — 15 RPC frontend (`accept_invite_by_token`, `decline_invite_by_token`, `change_member_role`, `get_invite_info_by_token`, `get_my_deleted_tenants`, `get_my_pending_invites`, `get_schedule_featured_contents`, `get_tenant_members`, `get_tenant_public_info`, `invite_tenant_member`, `leave_tenant`, `remove_tenant_member`, `resend_invite`, `revoke_invite`, `update_tenant_logo`) + 3 eccezioni RLS-critiche (`get_my_tenant_ids`, `get_public_tenant_ids`, `get_user_tenants` — usate da ~150 policy RLS, non revocabili).
-  - 7 `anon_security_definer_function_executable` — 5 anon-legittime (flow invito via link email + pagina pubblica: `accept_invite_by_token`, `decline_invite_by_token`, `get_invite_info_by_token`, `get_schedule_featured_contents`, `get_tenant_public_info`) + 2 eccezioni RLS pubbliche (`get_public_tenant_ids`, `get_user_tenants`).
-  - 1 `extension_in_public` (`pg_net`) — deferito (alto rischio break Edge Functions / cron, basso beneficio).
-  - 1 `auth_leaked_password_protection` — bloccato su piano Free, attivare quando passi a Pro.
+1. INSERT policy con `WITH CHECK (...)`
+2. UPDATE policy con `USING (...) WITH CHECK (...)` (entrambi populate)
+3. SELECT policy `TO authenticated` (per leggere riga esistente nel ramo ON CONFLICT)
 
-  I 4 INFO `rls_enabled_no_policy` (`audit_events`, `otp_challenges`, `stripe_processed_events`, `webhook_errors`) sono by-design: tabelle accessibili solo via service_role da Edge Functions, deny-all implicito per anon/authenticated.
+Senza una di queste 3, upsert fallisce con HTTP 400 + messaggio fuorviante `"new row violates row-level security policy"`. Il messaggio non distingue quale manca: indagare sempre TUTTE le policy del bucket.
 
-  **Pattern stabilito per nuove funzioni SQL**:
-  - `SECURITY DEFINER` solo se necessario (lookup `auth.users`, `vault`, RLS bypass legittimo). Default: `SECURITY INVOKER`.
-  - `SET search_path TO ''` obbligatorio + qualifiche `public.<table>` esplicite nel body.
-  - `REVOKE EXECUTE ... FROM PUBLIC` dopo `CREATE FUNCTION` (Postgres concede grant PUBLIC di default).
-  - `GRANT EXECUTE` solo a ruoli specifici (`anon`/`authenticated`/`service_role`) in base al caso d'uso.
+### Funzioni SQL
 
-- **Trigger DB auto-create su `tenants` insert**: alla creazione di una nuova riga in `tenants`, trigger automatici creano:
-  - 1 `style` di default + 1 `style_versions` collegato
-  - 1 `activity_group` di default
+- `SECURITY DEFINER` solo se necessario (lookup `auth.users`, `vault`, RLS bypass legittimo). Default: `SECURITY INVOKER`.
+- `SET search_path TO ''` obbligatorio + qualifiche `public.<table>` esplicite nel body.
+- `REVOKE EXECUTE ... FROM PUBLIC` dopo `CREATE FUNCTION` (Postgres concede grant PUBLIC di default).
+- `GRANT EXECUTE` solo a ruoli specifici (`anon`/`authenticated`/`service_role`) in base al caso d'uso.
 
-  Test che si aspettano "tenant minimal con 0 styles/groups" sono sbagliati: la baseline post-create è già `{styles: 1+, activity_groups: 1}`. Verificato via test purge runtime 01/05/2026.
+### Stripe lifecycle
 
-- **Tabelle audit duplicate (cleanup futuro)**: due tabelle di audit con schema diverso e scope sovrapposto:
-  - `public.audit_logs`: usata da `purge-tenants` e `purge-tenant-now` per eventi `tenant_purged`. Schema: `event_type`, `user_id`, `metadata` (jsonb), `created_at`.
-  - `public.audit_events`: usata da `purge-accounts` per eventi `account_purged`. Schema: `event_type`, `actor_user_id`, `target_user_id`, `tenant_id`, `payload` (jsonb), `created_at`.
+Usare sempre `_shared/stripe-helpers.ts` per chiamate Stripe nelle Edge Functions.
 
-  Inconsistenza nota da consolidare: candidate per merge in singola tabella con schema unificato. Per ora, nei test verificare ENTRAMBE.
+Pattern: `scheduleStripeCancel()` al soft-delete (account/tenant) → `reactivateStripeSubIfScheduled()` al recovery → `cancelStripeSubImmediate()` + `deleteStripeCustomer()` al hard-delete (cron purge). Tutti idempotenti e non-throwing.
 
-- **Soft-delete account semantica**: il flow soft-delete account NON popola `auth.users.deleted_at`. Usa `banned_until` su `auth.users` + `profiles.account_deleted_at`. Query del tipo "trova account purgable" devono cercare in `profiles.account_deleted_at`, non in `auth.users.deleted_at` (che è sempre NULL nel flow attuale).
+NON chiamare `stripe.subscriptions.cancel()` direttamente in soft-delete (perde all'utente i giorni pagati e disincentiva il recovery). Usato da: delete-tenant, delete-account, restore-tenant, recover-account, `_shared/tenant-purge.ts`.
 
 ---
 
@@ -339,31 +281,9 @@ Due tipi di regola sullo stesso modello `schedules`:
 
 Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verify_jwt: false` su tutte.
 
-| Funzione                                                                       | Abilitata | Scopo                                                                                                                                                                                                                                                         |
-| ------------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resolve-public-catalog`                                                       | ✅        | Risolve catalogo pubblico per slug (pagina pubblica); fallback su `activity_slug_aliases` se slug non trovato → risponde con `canonical_slug` per redirect lato client                                                                                        |
-| `send-otp` / `status-otp` / `verify-otp`                                       | ✅        | OTP auth flow                                                                                                                                                                                                                                                 |
-| `delete-account` / `recover-account` / `purge-accounts`                        | ✅        | Gestione account utente                                                                                                                                                                                                                                       |
-| `delete-tenant` / `purge-tenants` / `restore-tenant` / `purge-tenant-now`      | ✅        | Lifecycle tenant                                                                                                                                                                                                                                              |
-| `delete-business`                                                              | ✅        | Elimina sede                                                                                                                                                                                                                                                  |
-| `send-tenant-invite`                                                           | ✅        | Invito membro team (email via Resend)                                                                                                                                                                                                                         |
-| `generate-menu-pdf`                                                            | ✅        | PDF menu (usa Puppeteer)                                                                                                                                                                                                                                      |
-| `stripe-checkout` / `stripe-webhook` / `stripe-portal` / `stripe-update-seats` | ✅        | Sottoscrizione Stripe                                                                                                                                                                                                                                         |
-| `submit-review`                                                                | ✅        | Invio recensione dalla pagina pubblica                                                                                                                                                                                                                        |
-| `search-google-places`                                                         | ✅        | Ricerca luoghi Google Places. Branch `query`: searchText per review URL (tab contatti). Branch `place_id`: Place Details con `addressComponents` per autocompletamento indirizzo strutturato (`address`, `street_number`, `postal_code`, `city`, `province`). |
-| `cleanup-draft-schedules`                                                      | ✅        | Elimina bozze schedules incomplete > 7 giorni (chiamata via pg_cron con PURGE_SECRET)                                                                                                                                                                         |
-| `menu-ai-import`                                                               | ✅        | Import AI da menu via Gemini (immagini JPEG/PNG + PDF, max 5 file/richiesta)                                                                                                                                                                                  |
+**`scheduleResolver.ts` esiste in DUE posti**: `src/services/supabase/` e `supabase/functions/_shared/`. Sincronizzarli ENTRAMBI ad ogni modifica.
 
-**scheduleResolver.ts** esiste in DUE posti: `src/services/supabase/` e `supabase/functions/_shared/`. Sincronizzarli ENTRAMBI ad ogni modifica.
-
-**`purge-tenant-now` vs `purge-tenants`**:
-
-- `purge-tenant-now`: endpoint on-demand chiamato dall'UI Workspace ("Elimina definitivamente"). Richiede JWT user owner del tenant + ownership check interno. **Bypassa il filtro 30gg** (immediate purge se `deleted_at IS NOT NULL`).
-- `purge-tenants`: cron daily 03:00 UTC. Richiede `x-purge-secret` header (`vault.purge_tenants_secret`). Filtra `WHERE deleted_at < now() - interval '30 days'`. Batch 10 tenant.
-
-Entrambi usano `purgeTenantData()` shared in `_shared/tenant-purge.ts`. Path identico.
-
-**Trigger `prevent_deleted_at_client_update`**: trigger PostgreSQL che blocca UPDATE su `tenants.deleted_at` se non sei `service_role`. Significa che testi via Dashboard SQL Editor (role `postgres`) **non possono** forzare il backdate manualmente. Per backdate serve girare via Edge Function con service_role oppure via API admin. Per test rapidi, preferire `purge-tenant-now` che bypassa il filtro temporale.
+Catalogo completo + note operative (`purge-tenant-now` vs `purge-tenants`, trigger `prevent_deleted_at_client_update`) → `docs/edge-functions.md`.
 
 ---
 
@@ -371,15 +291,8 @@ Entrambi usano `purgeTenantData()` shared in `_shared/tenant-purge.ts`. Path ide
 
 - **Supabase client**: solo `src/services/supabase/client.ts`. Mai `service_role` nel frontend.
 - **Email**: solo via Edge Functions (Resend), mai dal frontend.
-- **Upload**: `src/services/supabase/upload.ts` + `src/utils/compressImage.ts`.
-- **Upload con upsert** (`supabase.storage.upload(path, file, { upsert: true })`): l'SDK Supabase invoca internamente `INSERT ON CONFLICT DO UPDATE` su `storage.objects`. Per funzionare richiede 3 cose lato DB:
-  1. INSERT policy con `WITH CHECK (...)`
-  2. UPDATE policy con `USING (...) WITH CHECK (...)` (entrambi populate)
-  3. SELECT policy `TO authenticated` (per leggere riga esistente nel ramo ON CONFLICT)
-
-  Senza una di queste 3, l'upsert fallisce con HTTP 400 + messaggio fuorviante `"new row violates row-level security policy"`. Il messaggio non distingue quale delle 3 manca: indagare sempre tutte le policy del bucket.
-
-- **Stripe**: sottoscrizione tenant, seat management, webhook. Service: `src/services/supabase/billing.ts`.
+- **Upload**: `src/services/supabase/upload.ts` + `src/utils/compressImage.ts`. Per `upsert: true`, vedi Pattern obbligatori → Storage upsert.
+- **Stripe**: sottoscrizione tenant, seat management, webhook. Service: `src/services/supabase/billing.ts`. Lifecycle, vedi Pattern obbligatori → Stripe lifecycle.
 - **Google Places**: Edge Function `search-google-places` + `GooglePlacesSearch` component in `src/pages/Operativita/Attivita/tabs/contacts/`.
 
 ---
@@ -392,70 +305,49 @@ Entrambi usano `purgeTenantData()` shared in `_shared/tenant-purge.ts`. Path ide
 - Import alias: `@components/`, `@services/`, `@context/`, `@types/`, `@utils/`, `@pages/`, `@layouts/`, `@styles/`. Mai `../../`.
 - Toast: `useToast().showToast({ message, type })`.
 - **Tooltip vs InfoTooltip**: regole d'uso in `memory/feedback_tooltip_guidelines.md`.
-- **`AddressAutocomplete`** (`src/components/ui/AddressAutocomplete/`) — autocompletamento indirizzo tramite Google Places (due step: searchText → place_id → addressComponents). Props: `onSelect(result: AddressResult)`. Usato in `BusinessCreateCard` e `ActivityIdentityForm`. Dopo selezione mostra pill di conferma con X per reset.
-- **`FeesSection`** (`src/pages/Operativita/Attivita/tabs/hours-services/FeesSection.tsx`) — sezione tariffe nella tab "Orari e Servizi" della pagina dettaglio sede. Usa `FEE_DEFINITIONS` da `src/constants/activityFees.ts` (enum fisso di 5 voci). Pattern: lista voci predefinite con input numerico (`type="text"` + `inputMode="decimal"` + validazione regex `^[0-9]*[.,]?[0-9]*$`) + badge unità non editabile + switch "pubblico" che salva `fees_public` immediato + debounce 800ms su update fee values via `updateActivity`. `buildFeesPayload` filtra le voci con value vuoto o `"0"`.
-
----
-
-## Aree in sviluppo / da completare
-
-- **Hub tab "eventi"** — implementato. TODO: estendere per mostrare anche eventi futuri (oggi solo correnti via scheduling resolver)
-- **Traduzioni** — `LanguageSelector` UI presente, logica traduzioni non implementata (solo IT attivo)
-- **Analytics** — pagina stub (`Analytics.tsx`)
-- **Reviews** — rebuilt (aprile 2026), integrazione con Google Review URL presente
-- **Sottocategorie** — catalogo supporta L1/L2/L3, gestione UI da verificare
-- **Seat enforcement** — logica Stripe seats introdotta (`20260413100000`, `20260413110000`)
-- **Real-time sync regole** — la lista regole non ha Supabase Realtime. Modifiche di altri utenti del team non visibili senza refresh pagina. Da implementare se il caso d'uso multi-utente lo richiede.
-- **Filtri avanzati Programmazione** — la search attuale è solo testuale. Filtri per sede, periodo, stato (attiva/bozza/scaduta) da valutare in futuro se la lista diventa troppo lunga.
-- **Fasce orarie multiple per regola** — analisi di impatto completata (aprile 2026). Opzione scelta: colonna JSONB `time_ranges` su `schedules`. 16 file da modificare, complessità media. Non implementata per rapporto costo-beneficio: il workaround (duplicare la regola con orari diversi) è sufficiente. Da implementare quando il feedback clienti lo richiede. Rischi principali: sincronizzazione atomica (migration + 2 copie resolver + deploy edge function), retrocompatibilità regole esistenti (migration SQL converte `time_from`/`time_to` → `time_ranges`).
-- **Refactor `CONTENT_MAX_WIDTH` in token condiviso** — il valore max content width desktop (1280px) vive in 2 file SCSS + 1 costante TS in PublicCollectionHeader.tsx senza single source of truth. Causa documentata di edit incompleti. Da estrarre in `--pub-frame-max-desktop` letto sia da SCSS che via getComputedStyle() da TS.
-- **Toggle "Prevent use of leaked passwords"** — Supabase Dashboard → Authentication → Attack Protection. Bloccato su piano Free: feature disponibile solo da Pro plan in su. Quando passerai a Pro, attivalo su staging E prod (toggle + Save changes, niente migration). Risolve 1 warning Security Advisor "auth_leaked_password_protection". Razionale: Supabase verifica le password contro DB HaveIBeenPwned al signup/password change, rifiuta password compromesse note. Zero rischio abilitare, zero impatto runtime.
-- **Consolidare tabelle audit `audit_logs` + `audit_events`** — schema diverso, scope sovrapposto (vedi sezione Schema facts critici). Candidate per merge in singola tabella. Bassa priorità.
+- **`AddressAutocomplete`** (`src/components/ui/AddressAutocomplete/`) — autocompletamento indirizzo via Google Places (due step: searchText → place_id → addressComponents). Props: `onSelect(result: AddressResult)`. Usato in `BusinessCreateCard` e `ActivityIdentityForm`. Dopo selezione mostra pill di conferma con X per reset.
+- **`FeesSection`** (`src/pages/Operativita/Attivita/tabs/hours-services/FeesSection.tsx`) — sezione tariffe nella tab "Orari e Servizi". Usa `FEE_DEFINITIONS` da `src/constants/activityFees.ts` (enum fisso 5 voci). Pattern: input numerico (`type="text"` + `inputMode="decimal"` + regex `^[0-9]*[.,]?[0-9]*$`) + badge unità non editabile + switch `fees_public` immediato + debounce 800ms su update via `updateActivity`. `buildFeesPayload` filtra voci con value vuoto o `"0"`.
 
 ---
 
 ## Plugin & MCP — regole d'uso
 
-Questa sezione vincola l'uso dei plugin Claude Code e degli MCP server installati.
 Le regole prevalgono sui descriptor dei plugin in caso di conflitto.
 
 ### Plugin disabilitati (non invocare)
 
-- `vercel` — stack è Vite, non Next.js. Hosting non confermato Vercel.
-- `playground` — nessun caso d'uso ricorrente nel progetto.
-- `ralph-loop` — nessun task ricorrente che richieda loop autonomi.
+- `vercel` — stack è Vite, non Next.js.
+- `playground` — nessun caso d'uso.
+- `ralph-loop` — nessun task ricorrente.
 - `feature-dev` (agent suite + slash) — sostituito da `superpowers` per task complessi e da `TodoWrite` per task semplici.
 - `feature-dev:code-reviewer` — sostituito dal flusso review descritto sotto.
-- `caveman-commit` — sostituito da `commit-commands`. Skill ancora invocabile (parte del plugin caveman attivo) ma esclusa da policy.
+- `caveman-commit` — sostituito da `commit-commands`.
 - `typescript-lsp` — sostituito da `mcp__ide__getDiagnostics`.
 - `github` plugin — già disabilitato. Per operazioni GitHub usare `gh` CLI via Bash.
 
 ### Code review — mappa per scenario
 
-NON esiste un singolo standard. Scegliere in base al task:
-
-- **Feature multi-file, refactor architetturale, area security-sensitive (RLS, edge functions, billing)** → entrare in workflow `superpowers` completo. La review è integrata nel flusso (`superpowers:requesting-code-review` tra task). Non invocare `code-review` slash separatamente.
-- **Task tattico singolo** (fix UI, piccolo bug, restyling component) → niente `superpowers`. Se review necessaria a fine task, `code-review` slash standalone.
+- **Feature multi-file, refactor architetturale, area security-sensitive (RLS, edge functions, billing)** → workflow `superpowers` completo. Review integrata via `superpowers:requesting-code-review`. Non invocare `code-review` slash separatamente.
+- **Task tattico singolo** (fix UI, piccolo bug, restyling) → niente `superpowers`. Se review necessaria a fine task, `code-review` slash standalone.
 - **Quick scan PR pre-merge** → `caveman-review` per output one-liner per linea.
 
 ### Planning
 
-- Default: `TodoWrite` inline. Sufficiente per la maggior parte dei task.
-- `superpowers:writing-plans` SOLO dentro un workflow `superpowers` già attivo (feature complessa, refactor, area security-sensitive).
+- Default: `TodoWrite` inline.
+- `superpowers:writing-plans` SOLO dentro un workflow `superpowers` già attivo.
 - MAI invocare `feature-dev` agent: disabilitato.
 
 ### Workflow superpowers — quando attivarlo
 
-`superpowers` impone brainstorm → plan → TDD → review integrata. È utile per task multi-step complessi, dannoso per task tattici (overhead di planning).
+Utile per task multi-step complessi, dannoso per task tattici (overhead di planning).
 
-**Skip brainstorm/write-plan se il prompt utente è già strutturato.** Un prompt è "già strutturato" se contiene almeno DUE di questi marker:
-
-- File espliciti da leggere indicati con path completi
-- Vincolo "NON leggere altro" o equivalente scope restriction
+**Skip brainstorm/write-plan se il prompt utente è già strutturato.** Un prompt è strutturato se contiene almeno DUE marker:
+- File espliciti da leggere con path completi
+- Vincolo "NON leggere altro" o equivalente
 - Obiettivo single-concern dichiarato esplicitamente
 - Vincoli "non toccare X" già espressi
 
-In quel caso, procedere direttamente all'esecuzione. Le skill TDD e review-tra-task di `superpowers` rimangono attive.
+In quel caso, esecuzione diretta. Skill TDD e review-tra-task di `superpowers` rimangono attive.
 
 ### Commit
 
@@ -465,45 +357,42 @@ In quel caso, procedere direttamente all'esecuzione. Le skill TDD e review-tra-t
 
 ### Compressione output (caveman)
 
-`caveman` full mode è attivo per default ad ogni session start (via SessionStart hook del plugin, non overridabile senza ispezione del plugin internals). Tradeoff accettato: output Claude Code in fragment-style in cambio di token saving.
+`caveman` full mode è attivo per default ad ogni session start (via SessionStart hook).
 
-- Per disattivare temporaneamente in una sessione: "stop caveman" o `/caveman lite`.
-- Per riattivare: `/caveman full`.
-- Per output user-facing destinati a documentazione (commit message lunghi, descrizioni PR, summary di sessione), Claude Code DEVE scendere a prosa normale come previsto dalle regole caveman built-in.
+- Disattivare in sessione: "stop caveman" o `/caveman lite`.
+- Riattivare: `/caveman full`.
+- Per output user-facing destinati a documentazione (commit message lunghi, descrizioni PR, summary), DEVE scendere a prosa normale.
 
 ### MCP — Supabase
 
-L'MCP `supabase-staging` espone `apply_migration` e `execute_sql`. Queste operazioni bypassano il filesystem migrations.
+L'MCP `supabase-staging` espone `apply_migration` e `execute_sql`. Bypassano il filesystem migrations.
 
-**Regola**: ogni schema change DDL (CREATE/ALTER/DROP su tabelle, colonne, policy, function) DEVE seguire questo ordine:
-
+**Regola** per ogni schema change DDL (CREATE/ALTER/DROP su tabelle, colonne, policy, function):
 1. Creare il file `supabase/migrations/YYYYMMDDHHMMSS_descrittivo.sql`
-2. Chiedere conferma esplicita all'utente prima di applicarlo via MCP
-3. Solo dopo conferma, invocare `apply_migration` con il contenuto del file appena creato
+2. Conferma esplicita dell'utente prima di applicarlo via MCP
+3. Solo dopo conferma, invocare `apply_migration` con il contenuto del file
 
-Operazioni MCP in **lettura** (`list_tables`, `list_migrations`, `get_advisors`, `get_logs`, `generate_typescript_types`) non richiedono conferma e sono incoraggiate per audit RLS, debug edge function e type generation.
+Operazioni MCP in **lettura** (`list_tables`, `list_migrations`, `get_advisors`, `get_logs`, `generate_typescript_types`) non richiedono conferma.
 
-### MCP — context7 (documentazione librerie)
+### MCP — context7
 
-Per query su librerie/SDK del progetto (React 19, Vite 7, Framer Motion v12, Supabase JS v2, Stripe SDK, pdf-lib, recharts, @dnd-kit), preferire `context7` alla knowledge memorizzata. Le versioni delle librerie cambiano e i breaking change non sono nella knowledge base.
+Per query su librerie/SDK del progetto (React 19, Vite 7, Framer Motion v12, Supabase JS v2, Stripe SDK, recharts, @dnd-kit), preferire `context7` alla knowledge memorizzata. Le versioni cambiano e i breaking change non sono nella knowledge base.
 
 ### MCP — playwright
 
-Match diretto con la regola "test UI in browser prima di dichiarare done". Obbligatorio per modifiche a:
-
-- `src/components/PublicCollectionView/` (pagina pubblica)
-- `src/pages/Stili/StyleEditor/` (preview stili — comportamento runtime/preview deve restare sincronizzato)
-- Qualsiasi modifica ai resolver `scheduleResolver.ts` / `schedulingNow.ts`
+Match con regola "test UI in browser prima di dichiarare done". Obbligatorio per modifiche a:
+- `src/components/PublicCollectionView/`
+- `src/pages/Stili/StyleEditor/` (preview/runtime devono restare sincronizzati)
+- Resolver `scheduleResolver.ts` / `schedulingNow.ts`
 
 ### Slash commands matched-with-rules
 
-- `/security-review` (`security-guidance`) — invocare prima del merge per modifiche RLS, edge functions, auth, billing. Match con il gap noto `schedule_targets`.
-- `/revise-claude-md` (`claude-md-management`) — invocare a fine sessione SOLO se l'utente lo richiede esplicitamente. Mai automatico.
+- `/security-review` — invocare prima del merge per modifiche RLS, edge functions, auth, billing.
+- `/revise-claude-md` — invocare a fine sessione SOLO se l'utente lo richiede esplicitamente.
 
 ### File curati manualmente — protezione
 
-Questi file NON devono essere modificati automaticamente da nessun plugin:
-
+NON modificare automaticamente:
 - `CLAUDE.md` (root + `docs/`)
 - `MEMORY.md` se presente
 - File in `memory/`
