@@ -13,7 +13,7 @@ import {
     uploadFeaturedContentImage,
     deleteFeaturedContentImage
 } from "@/services/supabase/upload";
-import { compressImage } from "@/utils/compressImage";
+import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./FeaturedMediaDrawer.module.scss";
 
@@ -64,7 +64,7 @@ export function FeaturedMediaDrawer({ open, onClose, content, tenantId, onSucces
             if (content.media_id) {
                 await tryDeleteStorageFile(tenantId, content.id, content.media_id);
             }
-            const compressed = await compressImage(file, 1200, 0.85);
+            const compressed = await compressImage(file, COMPRESS_PROFILES.featured);
             const url = await uploadFeaturedContentImage(tenantId, content.id, compressed);
             // Cache-busting: aggiunge timestamp per evitare che il browser
             // mostri la versione precedente quando il path storage è lo stesso

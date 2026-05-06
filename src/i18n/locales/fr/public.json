@@ -207,5 +207,8 @@
     "google_card_title": "Avez-vous apprécié votre expérience ?",
     "google_card_desc": "Laissez également un commentaire sur Google pour aider d'autres personnes à nous découvrir !",
     "google_btn": "Avis sur Google"
+  },
+  "toast": {
+    "translating": "Traduction..."
   }
 }

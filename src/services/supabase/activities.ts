@@ -306,12 +306,26 @@ export class DeleteActivityError extends Error {
     }
 }
 
-export async function deleteActivityAtomic(activityId: string): Promise<void> {
-    const { error } = await supabase.functions.invoke("delete-business", {
+export interface DeleteActivityResult {
+    affected_schedules_disabled?: number;
+}
+
+export async function deleteActivityAtomic(
+    activityId: string
+): Promise<DeleteActivityResult> {
+    const { data, error } = await supabase.functions.invoke("delete-business", {
         body: { businessId: activityId }
     });
 
-    if (!error) return;
+    if (!error) {
+        const payload = (data ?? {}) as DeleteActivityResult;
+        return {
+            affected_schedules_disabled:
+                typeof payload.affected_schedules_disabled === "number"
+                    ? payload.affected_schedules_disabled
+                    : undefined
+        };
+    }
 
     // FunctionsHttpError exposes the raw Response as .context.
     // Read the JSON body to extract structured error codes returned by the function.

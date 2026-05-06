@@ -29,6 +29,8 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
+import { CatalogDeleteDrawer } from "./CatalogDeleteDrawer";
+import { isPostgrestFKError } from "@/utils/supabaseErrors";
 import styles from "./Catalogs.module.scss";
 
 export default function Catalogs() {
@@ -62,7 +64,6 @@ export default function Catalogs() {
     // Delete confirmation state
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [catalogToDelete, setCatalogToDelete] = useState<V2Catalog | null>(null);
-    const [isDeleting, setIsDeleting] = useState(false);
 
     const loadData = useCallback(async () => {
         if (!currentTenantId) return;
@@ -136,40 +137,46 @@ export default function Catalogs() {
         }
     };
 
-    const handleDelete = async () => {
-        if (!currentTenantId || !catalogToDelete) return;
-
-        setIsDeleting(true);
-        try {
-            await deleteCatalog(catalogToDelete.id, currentTenantId);
-            showToast({ message: "Catalogo eliminato con successo.", type: "success" });
-            setIsDeleteOpen(false);
-            setCatalogToDelete(null);
-            loadData();
-        } catch (error) {
-            console.error("Errore eliminazione catalogo:", error);
-            showToast({ message: "Errore durante l'eliminazione.", type: "error" });
-        } finally {
-            setIsDeleting(false);
-        }
+    const handleDeleteClose = () => {
+        setIsDeleteOpen(false);
+        setCatalogToDelete(null);
     };
 
     const handleBulkDelete = async (selectedIds: string[]) => {
         if (!currentTenantId || selectedIds.length === 0) return;
-        try {
-            await Promise.all(selectedIds.map(id => deleteCatalog(id, currentTenantId)));
+
+        const results = await Promise.allSettled(
+            selectedIds.map(id => deleteCatalog(id, currentTenantId))
+        );
+        const ok = results.filter(r => r.status === "fulfilled").length;
+        const blocked = results.filter(
+            (r): r is PromiseRejectedResult =>
+                r.status === "rejected" && isPostgrestFKError(r.reason)
+        ).length;
+        const otherErrors = results.length - ok - blocked;
+
+        if (ok > 0) {
+            showToast({ message: `${ok} cataloghi eliminati.`, type: "success" });
+        }
+        if (blocked > 0) {
             showToast({
-                message: `${selectedIds.length} cataloghi eliminati con successo.`,
-                type: "success"
-            });
-            loadData();
-        } catch (error) {
-            console.error("Errore eliminazione multipla cataloghi:", error);
-            showToast({
-                message: "Errore durante l'eliminazione di alcuni cataloghi.",
+                message: `${blocked} cataloghi non eliminati: in uso da regole di programmazione.`,
                 type: "error"
             });
         }
+        if (otherErrors > 0) {
+            results.forEach(r => {
+                if (r.status === "rejected" && !isPostgrestFKError(r.reason)) {
+                    console.error("Errore eliminazione catalogo:", r.reason);
+                }
+            });
+            showToast({
+                message: `${otherErrors} cataloghi non eliminati per errore.`,
+                type: "error"
+            });
+        }
+
+        await loadData();
     };
 
     const filteredCatalogs = useMemo(() => {
@@ -396,43 +403,15 @@ export default function Catalogs() {
             />
 
             {/* Delete Drawer */}
-            <SystemDrawer open={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} width={400}>
-                <DrawerLayout
-                    header={
-                        <div>
-                            <Text variant="title-sm" weight={600}>
-                                {`Elimina ${verticalConfig.catalogLabel}`}
-                            </Text>
-                        </div>
-                    }
-                    footer={
-                        <>
-                            <Button
-                                variant="secondary"
-                                onClick={() => setIsDeleteOpen(false)}
-                                disabled={isDeleting}
-                            >
-                                Annulla
-                            </Button>
-                            <Button variant="danger" onClick={handleDelete} loading={isDeleting}>
-                                Elimina
-                            </Button>
-                        </>
-                    }
-                >
-                    <div className={styles.deleteWarning}>
-                        <Text variant="body-sm">
-                            Sei sicuro di voler eliminare il {catalogLower} "
-                            <strong>{catalogToDelete?.name}</strong>"?
-                        </Text>
-                        <Text variant="body-sm" colorVariant="muted" style={{ marginTop: 8 }}>
-                            Tutta la struttura di categorie e i collegamenti ai prodotti verranno
-                            eliminati in modo irreversibile. I prodotti originali non verranno
-                            cancellati dal tuo database.
-                        </Text>
-                    </div>
-                </DrawerLayout>
-            </SystemDrawer>
+            <CatalogDeleteDrawer
+                isOpen={isDeleteOpen}
+                onClose={handleDeleteClose}
+                catalog={catalogToDelete}
+                tenantId={currentTenantId ?? ""}
+                businessId={currentTenantId ?? ""}
+                catalogLabel={verticalConfig.catalogLabel}
+                onSuccess={loadData}
+            />
         </section>
     );
 }

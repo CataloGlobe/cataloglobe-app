@@ -1521,6 +1521,7 @@ export default function CollectionView({
                     logoUrl={tenantLogoUrl}
                     activityName={businessName}
                     activityAddress={activityAddress}
+                    showAddress={style.showAddress ?? false}
                     catalogName={collectionTitle}
                     showCatalogName={style.showCatalogName}
                     coverImageUrl={businessImage}

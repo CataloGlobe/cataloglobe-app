@@ -13,6 +13,8 @@ import {
 import { getPatternCss } from "@/features/public/utils/mapStyleTokensToCssVars";
 import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
 import { StyleColorPicker } from "./StyleColorPicker";
+import { usePaletteWarnings } from "./usePaletteWarnings";
+import { PaletteWarningsBox } from "./PaletteWarningsBox";
 import styles from "./StyleSettingsControls.module.scss";
 
 type StylePropertiesPanelProps = {
@@ -21,6 +23,11 @@ type StylePropertiesPanelProps = {
 };
 
 export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelProps) => {
+    const paletteWarnings = usePaletteWarnings({
+        primary: model.colors.primary,
+        surface: model.colors.surface
+    });
+
     const fontOptions: Array<{ value: FontFamily; label: string; css: string }> = [
         { value: "inter", label: "Inter", css: "'Inter', sans-serif" },
         { value: "poppins", label: "Poppins", css: "'Poppins', sans-serif" },
@@ -98,7 +105,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
     };
 
     const updateHeaderBool = (
-        key: "showLogo" | "showCoverImage" | "showCatalogName",
+        key: "showLogo" | "showCoverImage" | "showCatalogName" | "showAddress",
         value: boolean
     ) => {
         onChange({ ...model, header: { ...model.header, [key]: value } });
@@ -138,6 +145,13 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
             <section className={styles.panelSection}>
                 <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
                     Aspetto Generale
+                    {paletteWarnings.length > 0 && (
+                        <span
+                            className={styles.warningDot}
+                            title={`${paletteWarnings.length} ${paletteWarnings.length === 1 ? "suggerimento" : "suggerimenti"} sulla palette`}
+                            aria-label={`${paletteWarnings.length} ${paletteWarnings.length === 1 ? "suggerimento" : "suggerimenti"} sulla palette`}
+                        />
+                    )}
                 </Text>
 
                 <StyleColorPicker
@@ -158,6 +172,8 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     value={model.colors.surface}
                     onChange={val => updateColor("surface", val)}
                 />
+
+                <PaletteWarningsBox warnings={paletteWarnings} />
 
                 <div className={styles.controlField}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
@@ -240,9 +256,10 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                             label: "Header espanso",
                             tooltip: "Mostra l'header grande con immagine di copertina, logo e informazioni. Se disattivato, viene mostrato solo l'header compatto."
                         },
-                        { key: "showCatalogName", label: "Nome catalogo", tooltip: "Mostra o nascondi il nome del catalogo sotto il nome della sede." }
+                        { key: "showCatalogName", label: "Nome catalogo", tooltip: "Mostra o nascondi il nome del catalogo sotto il nome della sede." },
+                        { key: "showAddress", label: "Indirizzo", tooltip: "Mostra o nascondi l'indirizzo della sede sotto il nome." }
                     ] as Array<{
-                        key: "showLogo" | "showCoverImage" | "showCatalogName";
+                        key: "showLogo" | "showCoverImage" | "showCatalogName" | "showAddress";
                         label: string;
                         tooltip?: string;
                     }>

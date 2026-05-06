@@ -24,6 +24,7 @@ export type CollectionStyle = {
     showCoverImage?: boolean;
     showActivityName?: boolean;
     showCatalogName?: boolean;
+    showAddress?: boolean;
 
     /** Border radius globale in px (da tokens.appearance.borderRadius). Passato all'header per animazione lerp. */
     appearanceRadius?: number;
@@ -66,6 +67,7 @@ export const DEFAULT_COLLECTION_STYLE: Required<CollectionStyle> = {
     showCoverImage: true,
     showActivityName: true,
     showCatalogName: true,
+    showAddress: false,
     appearanceRadius: 20,
 
     sectionNavColor: "#6366f1",
