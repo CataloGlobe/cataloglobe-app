@@ -1427,6 +1427,92 @@ export async function reorderSchedulesInLevel(
 // duplicateRule
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// listSchedulesUsingCatalog — FK guard for catalog deletion
+// ---------------------------------------------------------------------------
+
+export interface CatalogScheduleUsage {
+    id: string;
+    name: string | null;
+    enabled: boolean;
+    start_at: string | null;
+    end_at: string | null;
+}
+
+interface ScheduleLayoutWithScheduleRow {
+    schedule_id: string;
+    schedule:
+        | {
+              id: string;
+              name: string | null;
+              enabled: boolean;
+              start_at: string | null;
+              end_at: string | null;
+              tenant_id: string;
+          }
+        | {
+              id: string;
+              name: string | null;
+              enabled: boolean;
+              start_at: string | null;
+              end_at: string | null;
+              tenant_id: string;
+          }[]
+        | null;
+}
+
+export async function listSchedulesUsingCatalog(
+    tenantId: string,
+    catalogId: string
+): Promise<CatalogScheduleUsage[]> {
+    const { data, error } = await supabase
+        .from("schedule_layout")
+        .select(
+            `
+            schedule_id,
+            schedule:schedules!inner(id, name, enabled, start_at, end_at, tenant_id)
+            `
+        )
+        .eq("tenant_id", tenantId)
+        .eq("catalog_id", catalogId);
+
+    if (error) throw error;
+
+    const rows = (data ?? []) as ScheduleLayoutWithScheduleRow[];
+    const seen = new Set<string>();
+    const out: CatalogScheduleUsage[] = [];
+
+    for (const row of rows) {
+        const schedule = Array.isArray(row.schedule)
+            ? (row.schedule[0] ?? null)
+            : row.schedule;
+        if (!schedule) continue;
+        if (schedule.tenant_id !== tenantId) continue;
+        if (seen.has(schedule.id)) continue;
+        seen.add(schedule.id);
+        out.push({
+            id: schedule.id,
+            name: schedule.name,
+            enabled: schedule.enabled,
+            start_at: schedule.start_at,
+            end_at: schedule.end_at
+        });
+    }
+
+    out.sort((a, b) => {
+        if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+        if (a.start_at === null && b.start_at !== null) return 1;
+        if (a.start_at !== null && b.start_at === null) return -1;
+        if (a.start_at !== null && b.start_at !== null) {
+            const cmp = a.start_at.localeCompare(b.start_at);
+            if (cmp !== 0) return cmp;
+        }
+        return (a.name ?? "").localeCompare(b.name ?? "");
+    });
+
+    return out;
+}
+
 export async function duplicateRule(ruleId: string, tenantId: string): Promise<string> {
     const original = await getLayoutRuleById(ruleId, tenantId);
     if (!original) throw new Error("Regola non trovata.");
