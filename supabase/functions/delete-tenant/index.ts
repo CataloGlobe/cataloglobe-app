@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createStripeClient, scheduleStripeCancel } from "../_shared/stripe-helpers.ts";
+import { serializeError } from "../_shared/errors.ts";
 
 const TERMINAL_DB_STATUSES = new Set(["canceled", "incomplete_expired"]);
 
@@ -146,8 +147,12 @@ serve(async req => {
 
         return json(200, { success: true });
     } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error("delete-tenant: Unhandled error:", message);
-        return json(500, { error: "delete_failed", detail: message });
+        const info = serializeError(err);
+        console.error("delete-tenant: Unhandled error:", info);
+        return json(500, {
+            error: "delete_failed",
+            message: info.message,
+            code: info.code
+        });
     }
 });

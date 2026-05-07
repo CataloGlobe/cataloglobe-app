@@ -5,6 +5,7 @@ import {
     cancelStripeSubImmediate,
     deleteStripeCustomer
 } from "./stripe-helpers.ts";
+import { serializeError } from "./errors.ts";
 
 // ---------------------------------------------------------------------------
 // Shared tenant purge logic.
@@ -237,7 +238,10 @@ export async function purgeTenantData(
                 console.log(`tenant-purge: removed ${removed} files from ${bucket}/${tenantId}`);
             }
         } catch (err) {
-            console.warn(`tenant-purge: bucket ${bucket} cleanup failed: ${err instanceof Error ? err.message : String(err)}`);
+            console.warn("tenant-purge: bucket cleanup failed:", {
+                bucket,
+                error: serializeError(err)
+            });
         }
     }
 
