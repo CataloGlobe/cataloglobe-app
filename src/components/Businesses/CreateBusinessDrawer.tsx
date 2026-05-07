@@ -12,6 +12,7 @@ import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { uploadTenantLogo, updateTenantLogoUrl, updateTenantName, getTenantLogoPublicUrl } from "@/services/supabase/tenants";
 import { createCheckoutSession } from "@/services/supabase/billing";
+import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { formatPrice, MAX_SEATS } from "@/utils/pricing";
 
 import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
@@ -41,11 +42,13 @@ export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantDat
         if (mode === "edit" && tenantData) {
             setName(tenantData.name);
             setLogoFile(null);
+            setSubmitting(false);
         } else if (mode === "create") {
             setName("");
             setSubtype(DEFAULT_SUBTYPE);
             setLogoFile(null);
             setSeats(1);
+            setSubmitting(false);
         }
     }, [open, mode, tenantData?.id]);
 
@@ -81,10 +84,15 @@ export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantDat
 
             if (logoFile) {
                 try {
-                    const logoPath = await uploadTenantLogo(data.id, logoFile);
+                    const compressed = await compressImage(logoFile, COMPRESS_PROFILES.logo);
+                    const logoPath = await uploadTenantLogo(data.id, compressed);
                     await updateTenantLogoUrl(data.id, logoPath);
-                } catch {
-                    // logo upload failure is non-blocking — tenant is created
+                } catch (logoErr) {
+                    console.error("[CreateBusinessDrawer] logo upload failed:", logoErr);
+                    showToast({
+                        type: "warning",
+                        message: "Attività creata, ma non è stato possibile caricare il logo. Puoi riprovare dalle impostazioni dell'attività.",
+                    });
                 }
             }
 
@@ -104,6 +112,7 @@ export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantDat
         } catch (err) {
             console.error("[CreateBusinessDrawer] creation failed:", err);
             showToast({ type: "error", message: "Errore durante la creazione dell'attività" });
+        } finally {
             setSubmitting(false);
         }
     };
@@ -125,10 +134,15 @@ export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantDat
 
             if (logoFile) {
                 try {
-                    const logoPath = await uploadTenantLogo(tenantData.id, logoFile);
+                    const compressed = await compressImage(logoFile, COMPRESS_PROFILES.logo);
+                    const logoPath = await uploadTenantLogo(tenantData.id, compressed);
                     await updateTenantLogoUrl(tenantData.id, logoPath);
-                } catch {
-                    // logo upload failure is non-blocking
+                } catch (logoErr) {
+                    console.error("[CreateBusinessDrawer] logo upload failed:", logoErr);
+                    showToast({
+                        type: "warning",
+                        message: "Non è stato possibile caricare il logo. Puoi riprovare dalle impostazioni dell'attività.",
+                    });
                 }
             }
 
@@ -137,6 +151,7 @@ export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantDat
         } catch (err) {
             console.error("[CreateBusinessDrawer] edit failed:", err);
             showToast({ type: "error", message: "Errore durante il salvataggio" });
+        } finally {
             setSubmitting(false);
         }
     };

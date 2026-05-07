@@ -40,6 +40,42 @@ export async function deleteProductImage(
     if (error) throw error;
 }
 
+const PRODUCT_IMAGE_EXTS = ["jpg", "jpeg", "png", "webp"] as const;
+
+/**
+ * Extracts the bucket-relative path from a Supabase Storage public/signed URL.
+ * Returns null if the URL doesn't match the expected pattern.
+ */
+export function extractStoragePath(imageUrl: string, bucket: string): string | null {
+    const re = new RegExp(`/storage/v1/object/(?:public|sign)/${bucket}/([^?]+)`);
+    const match = imageUrl.match(re);
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
+/**
+ * Best-effort cleanup of a product image after the product row has been deleted.
+ *
+ * Strategy:
+ *   1. If `imageUrl` is provided, parse the bucket path from the URL — single precise remove.
+ *   2. Otherwise, attempt removal on the deterministic path with all known extensions.
+ *
+ * `storage.remove` is idempotent on missing paths, so the fallback is safe even
+ * when only one extension actually exists. Throws on transport errors so the
+ * caller can decide whether to swallow (recommended: silent warn).
+ */
+export async function deleteProductImageBestEffort(
+    tenantId: string,
+    productId: string,
+    imageUrl: string | null
+): Promise<void> {
+    const parsed = imageUrl ? extractStoragePath(imageUrl, "product-images") : null;
+    const paths = parsed
+        ? [parsed]
+        : PRODUCT_IMAGE_EXTS.map(ext => `${tenantId}/products/${productId}.${ext}`);
+    const { error } = await supabase.storage.from("product-images").remove(paths);
+    if (error) throw error;
+}
+
 export async function uploadFeaturedContentImage(
     tenantId: string,
     contentId: string,

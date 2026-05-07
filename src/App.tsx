@@ -21,8 +21,8 @@ import EmailConfirmed from "./pages/Auth/EmailConfirmed";
 import ForgotPassword from "./pages/Auth/ForgotPassword";
 import ResetPassword from "./pages/Auth/ResetPassword";
 
-// Public pages — lazy
-const PublicCollectionPage = lazy(() => import("./pages/PublicCollectionPage/PublicCollectionPage"));
+// Public pages — eager (entry point visitatori anonimi, evita round-trip extra del lazy chunk)
+import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
 import Home from "./pages/Home/Home";
 import NotFound from "./pages/NotFound/NotFound";
 import InvitePage from "./pages/Invite/InvitePage";

@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useState, useEffect } from "react";
+import { type KeyboardEvent, useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import styles from "./FeaturedCard.module.scss";
@@ -41,10 +41,18 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
     };
 
     // ── Fade-in: reset quando cambia immagine ─────────────────────────────
+    const imgRef = useRef<HTMLImageElement>(null);
     const [imgLoaded, setImgLoaded] = useState(false);
-    useEffect(() => { setImgLoaded(false); }, [block.media_id]);
+    useEffect(() => {
+        // Cached image: browser completa load prima che React attacchi onLoad → evento perso.
+        // Verifica img.complete dopo mount/cambio src.
+        const img = imgRef.current;
+        if (img?.complete && img.naturalWidth > 0) setImgLoaded(true);
+        else setImgLoaded(false);
+    }, [block.media_id]);
 
     const imgProps = {
+        ref: imgRef,
         loading: (eager ? "eager" : "lazy") as "eager" | "lazy",
         ...(eager && { fetchPriority: "high" as const }),
         onLoad: () => setImgLoaded(true),

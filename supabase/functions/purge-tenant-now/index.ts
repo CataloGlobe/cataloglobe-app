@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { purgeTenantData } from "../_shared/tenant-purge.ts";
+import { serializeError } from "../_shared/errors.ts";
 
 // ---------------------------------------------------------------------------
 // purge-tenant-now
@@ -122,8 +123,12 @@ serve(async req => {
 
         return json(200, { success: true });
     } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error("purge-tenant-now: Unhandled error:", message);
-        return json(500, { error: "purge_failed", detail: message });
+        const info = serializeError(err);
+        console.error("purge-tenant-now: Unhandled error:", info);
+        return json(500, {
+            error: "purge_failed",
+            message: info.message,
+            code: info.code
+        });
     }
 });

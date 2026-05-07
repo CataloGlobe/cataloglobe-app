@@ -57,9 +57,15 @@ export async function uploadAvatar(
         throw new Error("File troppo grande. Max 5MB.");
     }
 
-    const compressed = await compressImage(file, COMPRESS_PROFILES.logo);
+    const compressed = await compressImage(file, COMPRESS_PROFILES.avatar);
 
-    const filePath = `${userId}/avatar.jpg`;
+    const ext =
+        compressed.type === "image/png"
+            ? "png"
+            : compressed.type === "image/webp"
+                ? "webp"
+                : "jpg";
+    const filePath = `${userId}/avatar.${ext}`;
 
     const { error: uploadError } = await supabase.storage
         .from("avatars")

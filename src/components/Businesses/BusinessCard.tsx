@@ -48,6 +48,7 @@ export default function BusinessCard({ tenant, locationCount, productCount, cata
         ?? tenant.vertical_type;
     const { bg, text } = avatarColors(tenant.name);
     const isOwner = tenant.user_role === "owner";
+    const isMember = tenant.user_role === "member";
     const isActivated = !!tenant.stripe_subscription_id;
 
     const handleCardClick = () => {
@@ -69,11 +70,13 @@ export default function BusinessCard({ tenant, locationCount, productCount, cata
                 label: "Modifica attività",
                 icon: Pencil,
                 onClick: () => onEdit(tenant.id),
+                hidden: !isOwner,
             },
             {
                 label: "Impostazioni attività",
                 icon: Settings,
                 onClick: () => onOpenSettings(tenant.id),
+                hidden: isMember,
             },
             {
                 label: "Lascia attività",

@@ -3,8 +3,13 @@ import { getProductAttributes, setProductAttributeValue } from "./attributes";
 import { getProductAllergens, setProductAllergens } from "./allergens";
 import { getProductGroupAssignments, assignProductToGroup } from "./productGroups";
 import { computeFieldHash, computeNotesHash } from "@/services/translation/hashUtils";
-import { enqueueWithSilentError, serializeNotes } from "./translationJobs";
+import {
+    enqueueWithSilentError,
+    serializeNotes,
+    deleteTranslationJobsForEntity
+} from "./translationJobs";
 import { deleteTranslationsForEntity } from "./translations";
+import { deleteProductImageBestEffort } from "./upload";
 
 export type ProductType = "simple" | "formats" | "configurable";
 
@@ -493,16 +498,89 @@ export async function updateProduct(
     return updatedProduct;
 }
 
+export interface ProductDeleteImpact {
+    /** Distinct catalogs containing the product (via catalog_items). */
+    catalogs: number;
+    /** Distinct featured contents containing the product. */
+    featured: number;
+    /** Distinct schedules with price/visibility overrides on the product. */
+    schedules: number;
+    /** Direct child variants. */
+    variants: number;
+}
+
+/**
+ * Counts the entities that reference the product, used to render an informative
+ * confirmation in the delete drawer. Pure read, safe to call repeatedly.
+ */
+export async function countProductDeleteImpact(
+    productId: string,
+    tenantId: string
+): Promise<ProductDeleteImpact> {
+    const [catRes, featRes, priceRes, visRes, varRes] = await Promise.all([
+        supabase
+            .from("catalog_items")
+            .select("catalog_id")
+            .eq("tenant_id", tenantId)
+            .eq("product_id", productId),
+        supabase
+            .from("featured_content_products")
+            .select("featured_content_id")
+            .eq("tenant_id", tenantId)
+            .eq("product_id", productId),
+        supabase
+            .from("schedule_price_overrides")
+            .select("schedule_id")
+            .eq("tenant_id", tenantId)
+            .eq("product_id", productId),
+        supabase
+            .from("schedule_visibility_overrides")
+            .select("schedule_id")
+            .eq("tenant_id", tenantId)
+            .eq("product_id", productId),
+        supabase
+            .from("products")
+            .select("id", { count: "exact", head: true })
+            .eq("tenant_id", tenantId)
+            .eq("parent_product_id", productId)
+    ]);
+
+    if (catRes.error) throw catRes.error;
+    if (featRes.error) throw featRes.error;
+    if (priceRes.error) throw priceRes.error;
+    if (visRes.error) throw visRes.error;
+    if (varRes.error) throw varRes.error;
+
+    const distinct = <T extends Record<string, unknown>>(rows: T[], key: keyof T) =>
+        new Set(rows.map(r => r[key] as string)).size;
+
+    const scheduleIds = new Set<string>([
+        ...(priceRes.data ?? []).map(r => r.schedule_id as string),
+        ...(visRes.data ?? []).map(r => r.schedule_id as string)
+    ]);
+
+    return {
+        catalogs: distinct(catRes.data ?? [], "catalog_id"),
+        featured: distinct(featRes.data ?? [], "featured_content_id"),
+        schedules: scheduleIds.size,
+        variants: varRes.count ?? 0
+    };
+}
+
 /**
  * Deletes a product and all its dependencies via ON DELETE CASCADE.
  * Cascades to: variants, catalog items, featured content products,
  * activity overrides, schedule overrides, allergens, attributes, ingredients.
+ *
+ * Polymorphic cleanup (translations, translation_jobs) and storage cleanup
+ * (product image) are best-effort and never block the logical delete.
  */
 export async function deleteProduct(id: string, tenantId: string): Promise<void> {
-    // Fetch before delete so we can recompute the parent's product_type afterward.
+    // Fetch before delete: parent_product_id for product_type recomputation,
+    // image_url to derive the storage path post-delete.
     const { data: existing } = await supabase
         .from("products")
-        .select("parent_product_id")
+        .select("parent_product_id, image_url")
         .eq("id", id)
         .eq("tenant_id", tenantId)
         .single();
@@ -513,27 +591,31 @@ export async function deleteProduct(id: string, tenantId: string): Promise<void>
         .eq("id", id)
         .eq("tenant_id", tenantId);
 
-    if (error) {
-        if (error.code === "23503") {
-            throw new Error("Cannot delete product because it is referenced by another record.");
-        }
-        throw error;
-    }
+    // All FKs on products.id are ON DELETE CASCADE — 23503 cannot occur here.
+    if (error) throw error;
 
     // If a variant was deleted, the parent may revert from "configurable" to "simple"/"formats".
     if (existing?.parent_product_id) {
         await recomputeProductType(existing.parent_product_id, tenantId);
     }
 
-    // Cleanup translations associate (entity_id non ha FK CASCADE, va manuale).
-    // Silent error: il prodotto è già stato cancellato, eventuali fallimenti
-    // di cleanup non devono propagare; al massimo restano translations orfane
-    // (cleanable in batch successivo).
+    // Cleanup polimorfici (entity_id TEXT, no FK CASCADE → cleanup manuale).
+    // Silent: il prodotto è già stato cancellato, eventuali fallimenti
+    // non devono propagare; al massimo restano righe orfane (cleanable in batch).
     try {
         await deleteTranslationsForEntity(tenantId, "product", id, "description");
         await deleteTranslationsForEntity(tenantId, "product_notes", id, "notes");
+        await deleteTranslationJobsForEntity(tenantId, "product", id, "description");
+        await deleteTranslationJobsForEntity(tenantId, "product_notes", id, "notes");
     } catch (err) {
-        console.error("[translations] cleanup on deleteProduct failed:", err);
+        console.warn("[translations] cleanup on deleteProduct failed:", err);
+    }
+
+    // Storage cleanup best-effort: niente FK su storage.objects.
+    try {
+        await deleteProductImageBestEffort(tenantId, id, existing?.image_url ?? null);
+    } catch (err) {
+        console.warn("[storage] product image cleanup failed:", err);
     }
 }
 

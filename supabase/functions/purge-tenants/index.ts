@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { purgeTenantData, PurgeSummary } from "../_shared/tenant-purge.ts";
+import { serializeError } from "../_shared/errors.ts";
 
 // ---------------------------------------------------------------------------
 // purge-tenants
@@ -61,9 +62,9 @@ async function purgeTenant(
                 if (error) console.error(`purge-tenants: audit log insert failed for ${tenantId}:`, error.message);
             });
     } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        result.error = message;
-        console.error(`purge-tenants: ERROR purging tenant ${tenantId}:`, message);
+        const info = serializeError(err);
+        result.error = info.message;
+        console.error(`purge-tenants: ERROR purging tenant ${tenantId}:`, info);
     }
 
     return result;
@@ -132,12 +133,13 @@ serve(async req => {
             if (outcome.status === "fulfilled") {
                 allResults.push(outcome.value);
             } else {
-                console.error("purge-tenants: Unexpected rejection:", String(outcome.reason));
+                const info = serializeError(outcome.reason);
+                console.error("purge-tenants: Unexpected rejection:", info);
                 allResults.push({
                     tenantId: "unknown",
                     deleted: {},
                     storageFilesRemoved: 0,
-                    error: String(outcome.reason)
+                    error: info.message
                 });
             }
         }
