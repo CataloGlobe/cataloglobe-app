@@ -214,6 +214,35 @@ export async function enqueueWithSilentError(
     }
 }
 
+/**
+ * Cancella i translation_jobs per un'entità + field opzionale.
+ *
+ * Simmetrica a `deleteTranslationsForEntity` (translations.ts) ma su
+ * tabella `translation_jobs`. Usata in cleanup post-delete dell'entità
+ * sorgente: la FK su translation_jobs è polimorfica (entity_id TEXT, no
+ * vincolo), quindi il cleanup va fatto manualmente dal service.
+ */
+export async function deleteTranslationJobsForEntity(
+    tenantId: string,
+    entityType: TranslationEntityType,
+    entityId: string,
+    field?: TranslationField
+): Promise<void> {
+    let query = supabase
+        .from("translation_jobs")
+        .delete()
+        .eq("tenant_id", tenantId)
+        .eq("entity_type", entityType)
+        .eq("entity_id", entityId);
+
+    if (field !== undefined) {
+        query = query.eq("field", field);
+    }
+
+    const { error } = await query;
+    if (error) throw error;
+}
+
 // Helpers ---------------------------------------------------------------
 
 async function getTenantVerticalType(tenantId: string): Promise<string> {

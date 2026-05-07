@@ -238,19 +238,31 @@ export default function Products() {
 
     const handleBulkDelete = async (selectedIds: string[]) => {
         if (!currentTenantId || selectedIds.length === 0) return;
-        try {
-            await Promise.all(selectedIds.map(id => deleteProduct(id, currentTenantId)));
+        const results = await Promise.allSettled(
+            selectedIds.map(id => deleteProduct(id, currentTenantId))
+        );
+        const ok = results.filter(r => r.status === "fulfilled").length;
+        const failed = results.length - ok;
+
+        if (ok > 0) {
             showToast({
-                message: `${selectedIds.length} prodotti eliminati con successo.`,
+                message: `${ok} ${ok === 1 ? "prodotto eliminato" : "prodotti eliminati"}.`,
                 type: "success"
             });
-            loadData();
-        } catch {
+        }
+        if (failed > 0) {
             showToast({
-                message: "Errore durante l'eliminazione di alcuni prodotti.",
+                message: `${failed} ${
+                    failed === 1 ? "prodotto non eliminato" : "prodotti non eliminati"
+                } per errore.`,
                 type: "error"
             });
+            results
+                .filter((r): r is PromiseRejectedResult => r.status === "rejected")
+                .forEach(r => console.error("Bulk delete product failed:", r.reason));
         }
+
+        await loadData();
     };
 
     const handleViewChange = (v: "list" | "grid") => {
