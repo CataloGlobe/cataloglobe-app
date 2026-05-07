@@ -129,4 +129,47 @@
             border-bottom: none;
         }
     }
+
+    .dataTable {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0.75rem 0 1.25rem;
+        font-size: 0.8125rem;
+        color: var(--text);
+
+        thead th {
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.75rem;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            color: var(--text);
+            opacity: 0.65;
+            padding: 0.5rem 0.625rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tbody td {
+            vertical-align: top;
+            padding: 0.625rem;
+            line-height: 1.55;
+            color: var(--text);
+            opacity: 0.82;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.8125rem;
+            background: color-mix(in srgb, var(--brand-primary) 8%, transparent);
+            color: var(--brand-primary);
+            padding: 0.0625rem 0.3125rem;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+    }
 }

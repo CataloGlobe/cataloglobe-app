@@ -2,7 +2,7 @@ import LegalLayout from './LegalLayout';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import styles from './PrivacyPolicyPage.module.scss';
 
-const LAST_UPDATED = '2026-04-12';
+const LAST_UPDATED = '2026-05-06';
 
 function formatDate(isoDate: string): string {
     const [year, month, day] = isoDate.split('-').map(Number);
@@ -74,7 +74,48 @@ export default function PrivacyPolicyPage() {
                         <li>Dati di navigazione tecnici (indirizzo IP, tipo di browser, sistema operativo)</li>
                         <li>Cookie tecnici necessari al funzionamento del servizio</li>
                         <li>Log di accesso e utilizzo della piattaforma (a fini di sicurezza e diagnostica)</li>
-                        <li>Dati di visualizzazione aggregati dei cataloghi pubblici (in futuro, previa informativa aggiornata)</li>
+                    </ul>
+
+                    <p><strong>Dati di interazione con la pagina pubblica del menu:</strong></p>
+                    <p>
+                        Quando un utente visita una pagina pubblica del menu (es. <em>/nome-locale</em>),
+                        raccogliamo eventi di interazione anonimi e aggregati per migliorare il servizio:
+                        visualizzazioni di prodotti, ricerche effettuate, prodotti aggiunti alla selezione,
+                        click su contenuti in evidenza, sezioni visitate, tipologia di dispositivo
+                        (mobile/tablet/desktop) e larghezza schermo.
+                    </p>
+                    <p>
+                        Per ciascuna sessione viene generato un identificatore casuale temporaneo che non
+                        persiste tra ricaricamenti della pagina e non è collegato ad alcun account utente.
+                        Non raccogliamo indirizzo IP, user-agent, geolocalizzazione precisa né dati
+                        identificativi del visitatore.
+                    </p>
+                    <ul>
+                        <li>
+                            <strong>Base giuridica:</strong> legittimo interesse del Titolare al
+                            miglioramento del servizio (art. 6, par. 1, lett. f GDPR).
+                        </li>
+                        <li>
+                            <strong>Conservazione:</strong> i dati di interazione sono conservati per
+                            24 mesi e successivamente cancellati o ulteriormente anonimizzati.
+                        </li>
+                    </ul>
+
+                    <p><strong>Recensioni anonime:</strong></p>
+                    <p>
+                        Quando un visitatore lascia una recensione tramite la pagina pubblica,
+                        raccogliamo: voto numerico (1–5), categoria opzionale del feedback, testo libero
+                        opzionale (massimo 2000 caratteri) e l'indirizzo IP del recensore.
+                    </p>
+                    <ul>
+                        <li>
+                            <strong>Finalità dell'IP:</strong> l'indirizzo IP è utilizzato esclusivamente
+                            per prevenire abusi (rate limiting anti-spam) ed è conservato per 6 mesi.
+                        </li>
+                        <li>
+                            <strong>Base giuridica:</strong> legittimo interesse del Titolare alla
+                            prevenzione di abusi (art. 6, par. 1, lett. f GDPR).
+                        </li>
                     </ul>
                 </div>
 
@@ -105,6 +146,11 @@ export default function PrivacyPolicyPage() {
                         <li>
                             <strong>Miglioramento del servizio:</strong> analisi aggregate e anonime sull'utilizzo
                             della piattaforma per migliorare funzionalità ed esperienza utente.
+                        </li>
+                        <li>
+                            <strong>Analisi delle interazioni sui menu pubblici:</strong> migliorare il servizio
+                            attraverso l'analisi aggregata e anonima delle interazioni dei visitatori con i
+                            menu pubblici (vedi Sezione 02 — Dati di interazione).
                         </li>
                     </ul>
                     <p>
@@ -230,36 +276,94 @@ export default function PrivacyPolicyPage() {
                         <span className={styles.sectionNum}>07</span>
                         Cookie Policy
                     </h2>
+
+                    <p><strong>Cookie e tecnologie di archiviazione locale</strong></p>
                     <p>
-                        CataloGlobe utilizza esclusivamente <strong>cookie tecnici</strong> necessari
-                        al funzionamento della piattaforma. Non vengono utilizzati cookie di profilazione
-                        o di tracciamento di terze parti senza previo consenso.
+                        Sulla pagina pubblica del menu non utilizziamo cookie HTTP scritti dal nostro
+                        codice. Utilizziamo invece le seguenti tecnologie di archiviazione locale del
+                        browser, tutte considerate tecniche/funzionali e non richiedenti consenso esplicito:
                     </p>
-                    <p><strong>Cookie tecnici utilizzati:</strong></p>
+
+                    <table className={styles.dataTable}>
+                        <thead>
+                            <tr>
+                                <th scope="col">Chiave</th>
+                                <th scope="col">Tipo</th>
+                                <th scope="col">Scopo</th>
+                                <th scope="col">Durata</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>fab_visit_&lt;id&gt;</code></td>
+                                <td>localStorage</td>
+                                <td>
+                                    Memorizza l'ultima visita di un utente a una sede, per gestire
+                                    l'apparizione del pulsante recensioni.
+                                </td>
+                                <td>Persistente (logica applicativa: 4 ore)</td>
+                            </tr>
+                            <tr>
+                                <td><code>fab_reviewed_&lt;id&gt;</code></td>
+                                <td>localStorage</td>
+                                <td>
+                                    Memorizza l'invio di una recensione, per evitare richieste ripetute.
+                                </td>
+                                <td>Persistente (logica applicativa: 24 ore)</td>
+                            </tr>
+                            <tr>
+                                <td><code>catalogobe-selection-&lt;id&gt;</code></td>
+                                <td>sessionStorage</td>
+                                <td>
+                                    Memorizza la selezione di prodotti dell'utente durante la sessione.
+                                </td>
+                                <td>Solo durata sessione browser</td>
+                            </tr>
+                            <tr>
+                                <td>Identificatore di sessione analytics</td>
+                                <td>Memoria volatile (RAM)</td>
+                                <td>
+                                    Genera un ID casuale per aggregare gli eventi di una singola
+                                    sessione di navigazione.
+                                </td>
+                                <td>Solo durata pagina (cancellato al ricaricamento)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p><strong>Tecnologie di terze parti utilizzate sulla pagina pubblica</strong></p>
                     <ul>
                         <li>
-                            <strong>Cookie di sessione (autenticazione):</strong> gestione della sessione
-                            autenticata dell'utente, necessari per il corretto funzionamento dell'area
-                            gestionale. Durata: sessione (eliminati alla chiusura del browser) o token
-                            persistente con scadenza configurata.
+                            <strong>Google Fonts</strong> (<em>fonts.googleapis.com</em>): per il
+                            caricamento dei font web. Non installa cookie, ma genera richieste HTTP
+                            che includono il vostro indirizzo IP. Per maggiori informazioni:{' '}
+                            <a
+                                href="https://policies.google.com/privacy"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                Privacy Google
+                            </a>.
                         </li>
                         <li>
-                            <strong>Cookie di preferenze:</strong> memorizzazione delle preferenze di
-                            visualizzazione (es. tema chiaro/scuro). Durata: 12 mesi.
+                            <strong>Supabase</strong>: in qualità di responsabile del trattamento per
+                            l'erogazione del servizio.
                         </li>
                     </ul>
+
+                    <p><strong>Cookie tecnici dell'area amministrativa</strong></p>
                     <p>
-                        I cookie tecnici non richiedono il consenso dell'utente ai sensi dell'art. 122
-                        del Codice Privacy (D.Lgs. 196/2003) come modificato dal D.Lgs. 101/2018.
+                        L'area amministrativa (gestione del menu da parte del cliente) utilizza cookie
+                        di sessione tecnici per l'autenticazione (Supabase Auth). Questi cookie sono
+                        accessibili solo agli utenti registrati e amministratori, e sono indispensabili
+                        per il funzionamento del servizio.
                     </p>
-                    <div className={styles.infoBox}>
-                        <p>
-                            <strong>Nota:</strong> In futuro, CataloGlobe potrebbe introdurre strumenti
-                            di analytics (es. dati aggregati sulle visualizzazioni dei cataloghi). Prima
-                            di qualsiasi utilizzo di cookie non tecnici verrà aggiornata la presente
-                            informativa e, ove necessario, verrà richiesto il tuo consenso.
-                        </p>
-                    </div>
+
+                    <p>
+                        I cookie e le tecnologie di archiviazione tecniche non richiedono il consenso
+                        dell'utente ai sensi dell'art. 122 del Codice Privacy (D.Lgs. 196/2003) come
+                        modificato dal D.Lgs. 101/2018.
+                    </p>
                 </div>
 
                 {/* 8. Condivisione dei dati */}
