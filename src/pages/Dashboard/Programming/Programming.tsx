@@ -44,6 +44,7 @@ import {
 } from "@/services/supabase/scheduleResolver";
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import { buildRuleSummary, isRuleCurrentlyActive } from "@/utils/ruleHelpers";
+import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
 import styles from "./Programming.module.scss";
 
 type RuleTypeFilter = RuleType | "all";
@@ -218,25 +219,6 @@ function RuleBlock({
     );
 }
 
-function isDraft(rule: LayoutRule): boolean {
-    // Target vuoti (non "tutte le sedi" ma nessun target specifico)
-    if (!rule.applyToAll && rule.activityIds.length === 0 && rule.groupIds.length === 0) {
-        return true;
-    }
-    if (rule.rule_type === "layout") {
-        return !rule.layout?.catalog_id || !rule.layout?.style_id;
-    }
-    if (rule.rule_type === "featured") {
-        return rule.featured_contents.length === 0;
-    }
-    if (rule.rule_type === "price") {
-        return rule.price_overrides.length === 0;
-    }
-    if (rule.rule_type === "visibility") {
-        return rule.visibility_overrides.length === 0;
-    }
-    return false;
-}
 
 export default function Programming() {
     const navigate = useNavigate();
@@ -548,7 +530,7 @@ export default function Programming() {
         };
 
         for (const rule of filteredRules) {
-            if (!rule.enabled && isDraft(rule)) {
+            if (!rule.enabled && isLayoutRuleDraft(rule)) {
                 drafts.push(rule);
             } else if (!rule.enabled) {
                 disabled.push(rule);
