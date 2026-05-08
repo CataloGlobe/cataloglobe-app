@@ -15,8 +15,13 @@ export async function getBusinessReviews(activityId: string): Promise<Review[]> 
     return data ?? [];
 }
 
-export async function deleteReview(reviewId: string) {
-    const { data, error } = await supabase.from("reviews").delete().eq("id", reviewId).select("id");
+export async function deleteReview(reviewId: string, tenantId: string) {
+    const { data, error } = await supabase
+        .from("reviews")
+        .delete()
+        .eq("id", reviewId)
+        .eq("tenant_id", tenantId)
+        .select("id");
 
     if (error) {
         console.error("Errore Supabase deleteReview:", error);
