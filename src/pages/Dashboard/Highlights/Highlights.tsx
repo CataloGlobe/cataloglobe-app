@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
@@ -7,18 +7,17 @@ import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/Data
 import { Pencil, Trash2, Layers } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
-import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
-import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import {
     listFeaturedContents,
     deleteFeaturedContent,
-    FeaturedContentWithProducts
+    FeaturedContentWithProducts,
+    type DeleteFeaturedContentResult
 } from "@/services/supabase/featuredContents";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import FeaturedContentDrawer from "./FeaturedContentDrawer";
+import FeaturedContentDeleteDrawer from "./FeaturedContentDeleteDrawer";
 import FeaturedContentCard from "./components/FeaturedContentCard";
 import styles from "./Highlights.module.scss";
-import { useDrawer } from "@/context/Drawer/useDrawer";
 
 import { useNavigate } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
@@ -32,7 +31,7 @@ export default function Highlights() {
     const { canEdit } = useSubscriptionGuard();
     const [loading, setLoading] = useState(true);
     const [contents, setContents] = useState<FeaturedContentWithProducts[]>([]);
-    const { openDrawer, closeDrawer } = useDrawer();
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
     const navigate = useNavigate();
 
     // Filters and Toolbar
@@ -49,7 +48,6 @@ export default function Highlights() {
 
     // Delete state
     const [deleteTarget, setDeleteTarget] = useState<FeaturedContentWithProducts | null>(null);
-    const [isDeleting, setIsDeleting] = useState(false);
 
     const loadData = useCallback(async () => {
         if (!tenantId) return;
@@ -74,81 +72,70 @@ export default function Highlights() {
     }, [loadData]);
 
     const handleCreate = () => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
-        openDrawer({
-            title: "Crea contenuto",
-            size: "md",
-            content: (
-                <FeaturedContentDrawer
-                    onClose={closeDrawer}
-                    onSuccess={() => {
-                        closeDrawer();
-                        loadData();
-                    }}
-                />
-            ),
-            footer: (
-                <>
-                    <Button variant="secondary" onClick={closeDrawer}>
-                        Annulla
-                    </Button>
-                    <Button variant="primary" type="submit" form="featured-content-form">
-                        Crea
-                    </Button>
-                </>
-            )
-        });
+        if (!canEdit) {
+            showToast({
+                message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.",
+                type: "error"
+            });
+            return;
+        }
+        setIsCreateOpen(true);
     };
 
     const handleEdit = (item: FeaturedContentWithProducts) => {
         navigate(`/business/${tenantId}/featured/${item.id}`);
     };
 
-    const handleDelete = async () => {
-        if (!tenantId) return;
-        if (!deleteTarget) return;
-
-        try {
-            setIsDeleting(true);
-            await deleteFeaturedContent(deleteTarget.id, tenantId);
-            setContents(prev => prev.filter(c => c.id !== deleteTarget.id));
-            showToast({
-                type: "success",
-                message: "Contenuto eliminato con successo",
-                duration: 2500
-            });
-        } catch (error) {
-            console.error(error);
-            showToast({
-                type: "error",
-                message: "Errore durante l'eliminazione del contenuto",
-                duration: 3000
-            });
-        } finally {
-            setIsDeleting(false);
-            setDeleteTarget(null);
-        }
-    };
-
     const handleBulkDelete = async (selectedIds: string[]) => {
         if (!tenantId) return;
         if (selectedIds.length === 0) return;
-        try {
-            await Promise.all(selectedIds.map(id => deleteFeaturedContent(id, tenantId)));
-            setContents(prev => prev.filter(c => !selectedIds.includes(c.id)));
-            showToast({
-                type: "success",
-                message: `${selectedIds.length} contenuti eliminati con successo`,
-                duration: 2500
-            });
-        } catch (error) {
-            console.error(error);
+
+        const results = await Promise.allSettled(
+            selectedIds.map(id => deleteFeaturedContent(id, tenantId))
+        );
+
+        const fulfilledIndexes: number[] = [];
+        const rejected: PromiseRejectedResult[] = [];
+        let totalDisabled = 0;
+
+        results.forEach((r, idx) => {
+            if (r.status === "fulfilled") {
+                fulfilledIndexes.push(idx);
+                const value = r.value as DeleteFeaturedContentResult;
+                totalDisabled += value.schedules_disabled;
+            } else {
+                rejected.push(r);
+            }
+        });
+
+        const okIds = fulfilledIndexes.map(i => selectedIds[i]);
+        if (okIds.length > 0) {
+            setContents(prev => prev.filter(c => !okIds.includes(c.id)));
+            const ok = okIds.length;
+            const parts = [
+                `${ok} ${ok === 1 ? "contenuto eliminato" : "contenuti eliminati"}.`
+            ];
+            if (totalDisabled > 0) {
+                parts.push(
+                    `${totalDisabled} ${totalDisabled === 1 ? "regola spostata" : "regole spostate"} in bozze.`
+                );
+            }
+            showToast({ type: "success", message: parts.join(" "), duration: 3000 });
+        }
+
+        if (rejected.length > 0) {
+            const failed = rejected.length;
+            rejected.forEach(r =>
+                console.error("[Highlights] bulk delete featured failed:", r.reason)
+            );
             showToast({
                 type: "error",
-                message: "Errore durante l'eliminazione di alcuni contenuti",
-                duration: 3000
+                message: `${failed} ${failed === 1 ? "contenuto non eliminato" : "contenuti non eliminati"} per errore.`,
+                duration: 3500
             });
         }
+
+        await loadData();
     };
 
     const filteredContents = useMemo(() => {
@@ -292,38 +279,22 @@ export default function Highlights() {
                 </div>
             </div>
 
-            <SystemDrawer
-                open={Boolean(deleteTarget)}
-                onClose={() => !isDeleting && setDeleteTarget(null)}
-                width={400}
-            >
-                <DrawerLayout
-                    header={
-                        <Text as="h2" variant="title-sm" weight={700}>
-                            Elimina contenuto
-                        </Text>
-                    }
-                    footer={
-                        <>
-                            <Button
-                                variant="secondary"
-                                onClick={() => setDeleteTarget(null)}
-                                disabled={isDeleting}
-                            >
-                                Annulla
-                            </Button>
-                            <Button variant="primary" onClick={handleDelete} loading={isDeleting}>
-                                Elimina
-                            </Button>
-                        </>
-                    }
-                >
-                    <Text variant="body">
-                        Sei sicuro di voler eliminare <b>{deleteTarget?.title}</b>?
-                        Questa azione non può essere annullata.
-                    </Text>
-                </DrawerLayout>
-            </SystemDrawer>
+            <FeaturedContentDrawer
+                open={isCreateOpen}
+                onClose={() => setIsCreateOpen(false)}
+                onSuccess={() => {
+                    setIsCreateOpen(false);
+                    loadData();
+                }}
+            />
+
+            <FeaturedContentDeleteDrawer
+                open={Boolean(deleteTarget) && Boolean(tenantId)}
+                onClose={() => setDeleteTarget(null)}
+                featured={deleteTarget}
+                tenantId={tenantId ?? ""}
+                onSuccess={loadData}
+            />
         </>
     );
 }

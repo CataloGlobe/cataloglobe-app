@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
+import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -9,12 +12,15 @@ import {
 } from "@/services/supabase/featuredContents";
 import { useTenantId } from "@/context/useTenantId";
 
+const FORM_ID = "featured-content-form";
+
 interface DrawerProps {
+    open: boolean;
     onClose: () => void;
     onSuccess: () => void;
 }
 
-export default function FeaturedContentDrawer({ onClose, onSuccess }: DrawerProps) {
+export default function FeaturedContentDrawer({ open, onClose, onSuccess }: DrawerProps) {
     const tenantId = useTenantId();
     const { showToast } = useToast();
     const navigate = useNavigate();
@@ -24,9 +30,11 @@ export default function FeaturedContentDrawer({ onClose, onSuccess }: DrawerProp
     const [title, setTitle] = useState("");
 
     useEffect(() => {
+        if (!open) return;
         setInternalName("");
         setTitle("");
-    }, []);
+        setSubmitting(false);
+    }, [open]);
 
     const handleSave = async () => {
         if (!title.trim()) {
@@ -61,36 +69,70 @@ export default function FeaturedContentDrawer({ onClose, onSuccess }: DrawerProp
         }
     };
 
+    const handleRequestClose = () => {
+        if (submitting) return;
+        onClose();
+    };
+
     return (
-        <form
-            id="featured-content-form"
-            onSubmit={e => { e.preventDefault(); handleSave(); }}
-            style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "24px",
-                opacity: submitting ? 0.7 : 1,
-                pointerEvents: submitting ? "none" : "auto"
-            }}
-        >
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                <Text variant="title-sm" weight={600}>
-                    Informazioni base
-                </Text>
-                <TextInput
-                    label="Titolo pubblico *"
-                    value={title}
-                    onChange={e => setTitle(e.target.value)}
-                    placeholder="Es: Promozione speciale"
-                />
-                <TextInput
-                    label="Nome interno"
-                    value={internalName}
-                    onChange={e => setInternalName(e.target.value)}
-                    placeholder="Es: RistoPromo - Sede Roma"
-                />
-            </div>
-            <input type="submit" id="featured-content-submit" style={{ display: "none" }} />
-        </form>
+        <SystemDrawer open={open} onClose={handleRequestClose} width={520}>
+            <DrawerLayout
+                header={
+                    <Text variant="title-sm" weight={600}>
+                        Crea contenuto
+                    </Text>
+                }
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={onClose} disabled={submitting}>
+                            Annulla
+                        </Button>
+                        <Button
+                            variant="primary"
+                            type="submit"
+                            form={FORM_ID}
+                            loading={submitting}
+                            disabled={submitting}
+                        >
+                            {submitting ? "Creazione..." : "Crea"}
+                        </Button>
+                    </>
+                }
+            >
+                <form
+                    id={FORM_ID}
+                    onSubmit={e => {
+                        e.preventDefault();
+                        handleSave();
+                    }}
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "24px",
+                        opacity: submitting ? 0.7 : 1,
+                        pointerEvents: submitting ? "none" : "auto"
+                    }}
+                >
+                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                        <Text variant="title-sm" weight={600}>
+                            Informazioni base
+                        </Text>
+                        <TextInput
+                            label="Titolo pubblico *"
+                            value={title}
+                            onChange={e => setTitle(e.target.value)}
+                            placeholder="Es: Promozione speciale"
+                        />
+                        <TextInput
+                            label="Nome interno"
+                            value={internalName}
+                            onChange={e => setInternalName(e.target.value)}
+                            placeholder="Es: RistoPromo - Sede Roma"
+                        />
+                    </div>
+                    <input type="submit" id="featured-content-submit" style={{ display: "none" }} />
+                </form>
+            </DrawerLayout>
+        </SystemDrawer>
     );
 }

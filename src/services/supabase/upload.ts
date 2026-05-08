@@ -103,3 +103,37 @@ export async function deleteFeaturedContentImage(
     const { error } = await supabase.storage.from("featured-contents").remove([filePath]);
     if (error) throw error;
 }
+
+const FEATURED_IMAGE_EXTS = ["jpg", "jpeg", "png", "webp"] as const;
+
+/**
+ * Best-effort cleanup of a featured-content image after the row has been deleted.
+ *
+ * Mirrors `deleteProductImageBestEffort`:
+ *   1. Parse bucket path from the URL when possible (precise single remove).
+ *   2. Otherwise fan out on deterministic path with all known extensions.
+ *
+ * `media` may be a full URL, a bucket-relative path, or null. `storage.remove`
+ * is idempotent on missing paths, so the fallback is safe.
+ */
+export async function deleteFeaturedContentImageBestEffort(
+    tenantId: string,
+    contentId: string,
+    media: string | null
+): Promise<void> {
+    let paths: string[];
+    if (media) {
+        const parsed = extractStoragePath(media, "featured-contents");
+        if (parsed) {
+            paths = [parsed];
+        } else if (media.includes("/")) {
+            paths = [media];
+        } else {
+            paths = FEATURED_IMAGE_EXTS.map(ext => `${tenantId}/${contentId}.${ext}`);
+        }
+    } else {
+        paths = FEATURED_IMAGE_EXTS.map(ext => `${tenantId}/${contentId}.${ext}`);
+    }
+    const { error } = await supabase.storage.from("featured-contents").remove(paths);
+    if (error) throw error;
+}
