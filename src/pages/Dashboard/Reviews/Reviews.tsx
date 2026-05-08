@@ -318,8 +318,9 @@ export default function Reviews() {
     }
 
     async function handleDelete(reviewId: string) {
+        if (!tenantId) return;
         try {
-            await deleteReview(reviewId);
+            await deleteReview(reviewId, tenantId);
             setReviews((prev) => prev.filter((r) => r.id !== reviewId));
             setDeletingId(null);
             showToast({ message: "Recensione eliminata", type: "success" });

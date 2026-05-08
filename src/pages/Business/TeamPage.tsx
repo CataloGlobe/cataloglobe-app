@@ -102,7 +102,18 @@ export default function TeamPage() {
 
         if (error) {
             console.error("[BusinessTeamPage] remove member failed:", error);
-            showToast({ type: "error", message: `Errore: ${error.message}` });
+            const msg = error.message ?? "";
+            let userMessage = "Impossibile rimuovere il membro. Riprova più tardi.";
+            if (msg.includes("cannot remove yourself")) {
+                userMessage = "Non puoi rimuovere te stesso. Esci dal tenant invece.";
+            } else if (msg.includes("cannot remove owner")) {
+                userMessage = "Non puoi rimuovere il proprietario del tenant.";
+            } else if (msg.includes("not allowed")) {
+                userMessage = "Non hai i permessi per rimuovere questo membro.";
+            } else if (msg.includes("member not found")) {
+                userMessage = "Membro non trovato.";
+            }
+            showToast({ type: "error", message: userMessage });
             return false;
         }
 
@@ -120,7 +131,15 @@ export default function TeamPage() {
         });
 
         if (error) {
-            showToast({ type: "error", message: `Errore: ${error.message}` });
+            console.error("[BusinessTeamPage] revoke invite failed:", error);
+            const msg = error.message ?? "";
+            let userMessage = "Impossibile annullare l'invito. Riprova più tardi.";
+            if (msg.includes("not allowed")) {
+                userMessage = "Non hai i permessi per annullare questo invito.";
+            } else if (msg.includes("member not found")) {
+                userMessage = "Invito non trovato.";
+            }
+            showToast({ type: "error", message: userMessage });
             return;
         }
 
@@ -134,7 +153,15 @@ export default function TeamPage() {
         });
 
         if (error) {
-            showToast({ type: "error", message: `Errore: ${error.message}` });
+            console.error("[BusinessTeamPage] resend invite failed:", error);
+            const msg = error.message ?? "";
+            let userMessage = "Impossibile rispedire l'invito. Riprova più tardi.";
+            if (msg.includes("cannot resend invite to an active member")) {
+                userMessage = "L'invito è già stato accettato. Non serve rispedirlo.";
+            } else if (msg.includes("not allowed")) {
+                userMessage = "Non hai i permessi per rispedire questo invito.";
+            }
+            showToast({ type: "error", message: userMessage });
             return;
         }
 

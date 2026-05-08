@@ -53,6 +53,15 @@ export async function signIn(email: string, password: string, options?: SignInOp
 
 // Logout
 export async function signOut() {
+    // Invalidate OTP verification BEFORE signOut: after signOut the JWT is gone
+    // and auth.uid() inside the SECURITY DEFINER RPC would be null.
+    // Best-effort: sign-out must complete even if the RPC call fails.
+    try {
+        await supabase.rpc("delete_my_otp_verification");
+    } catch (err) {
+        console.warn("[AUTH] delete_my_otp_verification failed", err);
+    }
+
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     if (typeof window !== "undefined") {

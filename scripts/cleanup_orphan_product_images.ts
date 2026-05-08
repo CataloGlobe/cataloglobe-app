@@ -14,9 +14,9 @@
  * Esecuzione:
  *   SUPABASE_URL="https://xxx.supabase.co" \
  *   SUPABASE_SERVICE_ROLE_KEY="..." \
- *   node --loader ./scripts/ts-loader.mjs scripts/cleanup_orphan_product_images.ts
+ *   node --loader ./scripts/ts-loader.mjs scripts/cleanup_orphan_product_images.ts [--execute]
  *
- * Flag opzionale `--dry-run` per stampare gli orfani senza rimuoverli.
+ * Default = dry-run. Passa `--execute` per rimuovere realmente i file.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -29,7 +29,8 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     process.exit(1);
 }
 
-const DRY_RUN = process.argv.includes("--dry-run");
+const EXECUTE = process.argv.includes("--execute");
+const DRY_RUN = !EXECUTE;
 const BUCKET = "product-images";
 const REMOVE_BATCH_SIZE = 100;
 
@@ -52,27 +53,31 @@ let totalRemoved = 0;
 let totalRemoveErrors = 0;
 
 /**
- * Lista tutti i file del bucket leggendo direttamente `storage.objects` via
- * SQL (più semplice e affidabile della ricorsione su `storage.list` con i
- * suoi limiti di paginazione).
+ * Lista ricorsiva di tutti i file del bucket via Storage API.
+ * Schema `storage` non è esposto via PostgREST: usare esclusivamente
+ * `supabase.storage.from(...).list()`. Le "cartelle" hanno `id === null`.
  */
-async function listAllFiles(): Promise<string[]> {
+async function listAllFiles(prefix = ""): Promise<string[]> {
     const PAGE = 1000;
     const all: string[] = [];
-    let from = 0;
+    let offset = 0;
     for (;;) {
-        const { data, error } = await supabase
-            .schema("storage")
-            .from("objects")
-            .select("name")
-            .eq("bucket_id", BUCKET)
-            .order("name", { ascending: true })
-            .range(from, from + PAGE - 1);
+        const { data, error } = await supabase.storage
+            .from(BUCKET)
+            .list(prefix, { limit: PAGE, offset });
         if (error) throw error;
-        const rows = (data ?? []) as Array<{ name: string }>;
-        all.push(...rows.map(r => r.name));
-        if (rows.length < PAGE) break;
-        from += PAGE;
+        const items = data ?? [];
+        for (const item of items) {
+            const fullPath = prefix ? `${prefix}/${item.name}` : item.name;
+            if (item.id === null) {
+                const sub = await listAllFiles(fullPath);
+                all.push(...sub);
+            } else {
+                all.push(fullPath);
+            }
+        }
+        if (items.length < PAGE) break;
+        offset += PAGE;
     }
     return all;
 }
@@ -152,6 +157,7 @@ async function main(): Promise<void> {
 
     if (DRY_RUN) {
         for (const o of orphans) console.log(`  DRY: ${o.path}`);
+        console.log("\nDRY RUN: nessun file rimosso. Esegui con --execute per rimuovere.");
     } else {
         for (let i = 0; i < orphans.length; i += REMOVE_BATCH_SIZE) {
             const batch = orphans.slice(i, i + REMOVE_BATCH_SIZE).map(o => o.path);

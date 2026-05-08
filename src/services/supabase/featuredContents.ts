@@ -1,7 +1,8 @@
 import { supabase } from "@/services/supabase/client";
 import { computeFieldHash } from "@/services/translation/hashUtils";
-import { enqueueWithSilentError } from "./translationJobs";
+import { enqueueWithSilentError, deleteTranslationJobsForEntity } from "./translationJobs";
 import { deleteTranslationsForEntity } from "./translations";
+import { deleteFeaturedContentImageBestEffort } from "./upload";
 
 // Field di featured_contents tradotti via pipeline (Prompt 9 hook).
 const FEATURED_TRANSLATABLE_FIELDS = ["title", "subtitle", "description", "cta_text"] as const;
@@ -116,7 +117,8 @@ export async function listFeaturedContents(tenantId: string): Promise<FeaturedCo
     if (error) throw error;
 
     return (data as unknown as FeaturedContentListRaw[]).map(item => {
-        const { products: _, ...rest } = item;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { products: _products, ...rest } = item;
         return { ...rest, products_count: item.products?.[0]?.count || 0 };
     });
 }
@@ -277,14 +279,171 @@ export async function updateFeaturedContent(
     return content as FeaturedContent;
 }
 
-export async function deleteFeaturedContent(id: string, tenantId: string) {
+export interface FeaturedContentDeleteImpact {
+    /** Distinct featured rules referencing this content via schedule_featured_contents. */
+    rules: number;
+    /** Products linked through featured_content_products. */
+    products: number;
+}
+
+/**
+ * Counts entities referencing a featured content. Pure read, used to render
+ * an informative confirmation in the delete drawer.
+ */
+export async function countFeaturedContentDeleteImpact(
+    contentId: string,
+    tenantId: string
+): Promise<FeaturedContentDeleteImpact> {
+    const [rulesRes, productsRes] = await Promise.all([
+        supabase
+            .from("schedule_featured_contents")
+            .select("schedule_id")
+            .eq("tenant_id", tenantId)
+            .eq("featured_content_id", contentId),
+        supabase
+            .from("featured_content_products")
+            .select("id", { count: "exact", head: true })
+            .eq("tenant_id", tenantId)
+            .eq("featured_content_id", contentId)
+    ]);
+
+    if (rulesRes.error) throw rulesRes.error;
+    if (productsRes.error) throw productsRes.error;
+
+    const ruleIds = new Set<string>(
+        (rulesRes.data ?? []).map(r => r.schedule_id as string)
+    );
+
+    return {
+        rules: ruleIds.size,
+        products: productsRes.count ?? 0
+    };
+}
+
+export interface DeleteFeaturedContentResult {
+    /** Featured rules left empty after delete and toggled to enabled=false. */
+    schedules_disabled: number;
+}
+
+/**
+ * Deletes a featured content and all DB dependencies via ON DELETE CASCADE
+ * (featured_content_products, schedule_featured_contents).
+ *
+ * Side effects beyond the cascade:
+ *   - Storage cleanup on bucket `featured-contents` (best-effort, silent).
+ *   - Polymorphic translations + translation_jobs cleanup for entity_type
+ *     "featured" (parent) and "featured_product" (each linked FCP id).
+ *   - Featured rules left without any content row are toggled to enabled=false
+ *     so they appear under "Bozze" in the scheduling list.
+ *
+ * Returns the number of rules disabled so callers can render an informative
+ * toast.
+ */
+export async function deleteFeaturedContent(
+    contentId: string,
+    tenantId: string
+): Promise<DeleteFeaturedContentResult> {
+    // Pre-DELETE snapshot: media path, FCP ids (for translations cleanup),
+    // schedule ids (for post-cascade emptiness check).
+    const { data: existing } = await supabase
+        .from("featured_contents")
+        .select("media_id")
+        .eq("id", contentId)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+
+    const { data: fcpRows } = await supabase
+        .from("featured_content_products")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("featured_content_id", contentId);
+
+    const fcpIds: string[] = (fcpRows ?? []).map(r => r.id as string);
+
+    const { data: sfcRows } = await supabase
+        .from("schedule_featured_contents")
+        .select("schedule_id")
+        .eq("tenant_id", tenantId)
+        .eq("featured_content_id", contentId);
+
+    const scheduleIds: string[] = Array.from(
+        new Set((sfcRows ?? []).map(r => r.schedule_id as string))
+    );
+
+    // CASCADE wipes featured_content_products and schedule_featured_contents.
     const { error } = await supabase
         .from("featured_contents")
         .delete()
-        .eq("id", id)
+        .eq("id", contentId)
         .eq("tenant_id", tenantId);
 
     if (error) throw error;
+
+    // Storage cleanup (best-effort, silent).
+    try {
+        await deleteFeaturedContentImageBestEffort(
+            tenantId,
+            contentId,
+            existing?.media_id ?? null
+        );
+    } catch (err) {
+        console.warn("[storage] featured content image cleanup failed:", err);
+    }
+
+    // Polymorphic translations cleanup. Wildcard call (no field arg) wipes
+    // title/subtitle/description/cta_text in one shot for the parent entity.
+    try {
+        await deleteTranslationsForEntity(tenantId, "featured", contentId);
+        await deleteTranslationJobsForEntity(tenantId, "featured", contentId);
+        for (const fcpId of fcpIds) {
+            await deleteTranslationsForEntity(tenantId, "featured_product", fcpId, "note");
+            await deleteTranslationJobsForEntity(tenantId, "featured_product", fcpId, "note");
+        }
+    } catch (err) {
+        console.warn("[translations] cleanup on deleteFeaturedContent failed:", err);
+    }
+
+    // Disable featured rules left without any content row. Race condition
+    // (concurrent insert between count and update) is accepted — same trade-off
+    // as delete-business cleanup.
+    let schedulesDisabled = 0;
+    for (const scheduleId of scheduleIds) {
+        try {
+            const { count, error: countErr } = await supabase
+                .from("schedule_featured_contents")
+                .select("id", { count: "exact", head: true })
+                .eq("schedule_id", scheduleId);
+
+            if (countErr) {
+                console.warn(
+                    "[scheduling] residual count failed for schedule",
+                    scheduleId,
+                    countErr
+                );
+                continue;
+            }
+
+            if ((count ?? 0) > 0) continue;
+
+            const { error: updErr } = await supabase
+                .from("schedules")
+                .update({ enabled: false })
+                .eq("id", scheduleId)
+                .eq("tenant_id", tenantId)
+                .eq("rule_type", "featured");
+
+            if (updErr) {
+                console.warn("[scheduling] disable failed for schedule", scheduleId, updErr);
+                continue;
+            }
+
+            schedulesDisabled += 1;
+        } catch (err) {
+            console.warn("[scheduling] cleanup failed for schedule", scheduleId, err);
+        }
+    }
+
+    return { schedules_disabled: schedulesDisabled };
 }
 
 export async function listFeaturedContentProducts(

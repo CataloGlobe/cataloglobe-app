@@ -2,15 +2,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-type JwtPayload = {
-    sub?: string;
-    sid?: string;
-    session_id?: string;
-    exp?: number;
-};
-
 /* ================= CONFIG ================= */
 const LOCK_MINUTES = 15;
+const VERIFICATION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -36,15 +30,6 @@ async function sha256(value: string): Promise<string> {
         .join("");
 }
 
-function getSessionIdFromJwt(jwt: string): string | null {
-    try {
-        const payload = JSON.parse(atob(jwt.split(".")[1])) as JwtPayload;
-        return payload.session_id ?? payload.sid ?? null;
-    } catch {
-        return null;
-    }
-}
-
 serve(async req => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
@@ -66,8 +51,6 @@ serve(async req => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json(401, { error: "unauthorized" });
 
-    const jwt = authHeader.replace("Bearer ", "");
-
     const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         global: { headers: { Authorization: authHeader } }
     });
@@ -76,9 +59,6 @@ serve(async req => {
     const userId = authData?.user?.id;
 
     if (authError || !userId) return json(401, { error: "unauthorized" });
-
-    const sessionId = getSessionIdFromJwt(jwt);
-    if (!sessionId) return json(401, { error: "unauthorized" });
 
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
@@ -143,22 +123,20 @@ serve(async req => {
         .update({ consumed_at: now, attempts: (challenge.attempts ?? 0) + 1 })
         .eq("id", challenge.id);
 
-    if (!sessionId) {
-        console.error("verify-otp: missing session_id");
-        return json(500, { error: "session_error" });
-    }
+    const verifiedAt = new Date();
+    const expiresAt = new Date(verifiedAt.getTime() + VERIFICATION_TTL_MS);
 
-    const { error: insertErr } = await supabaseAdmin.from("otp_session_verifications").upsert(
+    const { error: insertErr } = await supabaseAdmin.from("otp_user_verifications").upsert(
         {
-            session_id: sessionId,
             user_id: userId,
-            verified_at: new Date()
+            verified_at: verifiedAt.toISOString(),
+            expires_at: expiresAt.toISOString()
         },
-        { onConflict: "session_id" }
+        { onConflict: "user_id" }
     );
 
     if (insertErr) {
-        console.error("verify-otp: otp_session_verifications insert failed", insertErr);
+        console.error("verify-otp: otp_user_verifications upsert failed", insertErr);
         return json(500, { error: "db_error" });
     }
 

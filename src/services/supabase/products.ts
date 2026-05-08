@@ -106,7 +106,7 @@ type ProductOptionValueListRow = {
     absolute_price: number | null;
 };
 
-type CatalogItemListRow = {
+type CatalogCategoryProductListRow = {
     product_id: string;
     catalog_id: string;
 };
@@ -138,7 +138,7 @@ export async function getProductListMetadata(
             .eq("tenant_id", tenantId)
             .in("product_id", uniqueProductIds),
         supabase
-            .from("catalog_items")
+            .from("catalog_category_products")
             .select("product_id, catalog_id")
             .eq("tenant_id", tenantId)
             .in("product_id", uniqueProductIds)
@@ -191,7 +191,7 @@ export async function getProductListMetadata(
     }
 
     const catalogIdsByProductId = new Map<string, Set<string>>();
-    const catalogItems = (catalogItemsRes.data ?? []) as CatalogItemListRow[];
+    const catalogItems = (catalogItemsRes.data ?? []) as CatalogCategoryProductListRow[];
 
     for (const item of catalogItems) {
         const catalogIds = catalogIdsByProductId.get(item.product_id) ?? new Set<string>();
@@ -499,7 +499,7 @@ export async function updateProduct(
 }
 
 export interface ProductDeleteImpact {
-    /** Distinct catalogs containing the product (via catalog_items). */
+    /** Distinct catalogs containing the product (via catalog_category_products). */
     catalogs: number;
     /** Distinct featured contents containing the product. */
     featured: number;
@@ -519,7 +519,7 @@ export async function countProductDeleteImpact(
 ): Promise<ProductDeleteImpact> {
     const [catRes, featRes, priceRes, visRes, varRes] = await Promise.all([
         supabase
-            .from("catalog_items")
+            .from("catalog_category_products")
             .select("catalog_id")
             .eq("tenant_id", tenantId)
             .eq("product_id", productId),

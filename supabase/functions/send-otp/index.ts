@@ -49,6 +49,25 @@ function firstForwardedFor(header: string | null) {
     return header.split(",")[0]?.trim() || null;
 }
 
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+    try {
+        const parts = token.split(".");
+        if (parts.length < 2) return null;
+        const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+        const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+        const json = atob(padded);
+        return JSON.parse(json);
+    } catch {
+        return null;
+    }
+}
+
+function extractBearer(authHeader: string | null): string | null {
+    if (!authHeader) return null;
+    const m = authHeader.match(/^Bearer\s+(.+)$/i);
+    return m ? m[1] : null;
+}
+
 /* ================= HANDLER ================= */
 serve(async req => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -76,6 +95,58 @@ serve(async req => {
     const now = new Date();
     const nowMs = now.getTime();
 
+    // ---------- Telemetria: contesto richiesta ----------
+    const requestIp = firstForwardedFor(req.headers.get("x-forwarded-for"));
+    const userAgent = req.headers.get("user-agent");
+    const callerOrigin = req.headers.get("origin") ?? req.headers.get("referer");
+
+    const rawToken = extractBearer(authHeader);
+    const jwtPayload = rawToken ? decodeJwtPayload(rawToken) : null;
+    const jwtSessionId =
+        jwtPayload && typeof jwtPayload.session_id === "string"
+            ? (jwtPayload.session_id as string)
+            : null;
+
+    // OTP verification key moved from session_id to user_id (migration 20260508005454).
+    // session_id_rotated / latest_known_session_id_for_user / expected_session_match
+    // remain in otp_send_audit schema for backward compatibility but are no longer
+    // meaningful — they are written as null/false on every new audit row.
+
+    async function auditSend(params: {
+        outcome:
+            | "sent"
+            | "cooldown_blocked"
+            | "rate_limited"
+            | "locked"
+            | "error";
+        cooldownRemainingMs?: number | null;
+        sendCountInWindow?: number | null;
+    }) {
+        const row = {
+            auth_user_id: user.id,
+            jwt_session_id: jwtSessionId,
+            latest_known_session_id_for_user: null,
+            session_id_rotated: false,
+            expected_session_match: null,
+            request_ip: requestIp,
+            user_agent: userAgent,
+            caller_origin: callerOrigin,
+            triggered_by: "verify_otp_page_mount",
+            outcome: params.outcome,
+            cooldown_remaining_ms: params.cooldownRemainingMs ?? null,
+            send_count_in_window: params.sendCountInWindow ?? null
+        };
+
+        console.log("[OTP_AUDIT]", JSON.stringify(row));
+
+        try {
+            await supabaseAdmin.from("otp_send_audit").insert(row);
+        } catch (e) {
+            console.error("[OTP_AUDIT] insert failed:", e);
+        }
+    }
+    // ---------- /Telemetria ----------
+
     // Prendi challenge attiva (se esiste)
     const { data: challenge } = await supabaseAdmin
         .from("otp_challenges")
@@ -86,13 +157,21 @@ serve(async req => {
 
     // LOCK
     if (challenge?.locked_until && new Date(challenge.locked_until).getTime() > nowMs) {
+        await auditSend({ outcome: "locked" });
         return json(429, { error: "locked" });
     }
 
     // COOLDOWN
     if (challenge?.last_sent_at) {
         const last = new Date(challenge.last_sent_at).getTime();
-        if (nowMs - last < COOLDOWN_MS) return json(429, { error: "cooldown" });
+        const elapsed = nowMs - last;
+        if (elapsed < COOLDOWN_MS) {
+            await auditSend({
+                outcome: "cooldown_blocked",
+                cooldownRemainingMs: COOLDOWN_MS - elapsed
+            });
+            return json(429, { error: "cooldown" });
+        }
     }
 
     // RATE LIMIT WINDOW (usa window_start_at, non created_at)
@@ -128,6 +207,7 @@ serve(async req => {
             });
         }
 
+        await auditSend({ outcome: "rate_limited", sendCountInWindow: sendCount });
         return json(429, { error: "rate_limited" });
     }
 
@@ -135,9 +215,6 @@ serve(async req => {
     const otp = generateOtp();
     const codeHash = await sha256(otp + OTP_PEPPER);
     const expiresAt = new Date(nowMs + OTP_TTL_MS);
-
-    const requestIp = firstForwardedFor(req.headers.get("x-forwarded-for"));
-    const userAgent = req.headers.get("user-agent");
 
     // Se esiste challenge attiva, la aggiorno (NO delete)
     if (challenge?.id) {
@@ -158,7 +235,10 @@ serve(async req => {
             })
             .eq("id", challenge.id);
 
-        if (updErr) return json(500, { error: "db_error" });
+        if (updErr) {
+            await auditSend({ outcome: "error", sendCountInWindow: sendCount });
+            return json(500, { error: "db_error" });
+        }
     } else {
         const { error: insErr } = await supabaseAdmin.from("otp_challenges").insert({
             user_id: user.id,
@@ -173,7 +253,10 @@ serve(async req => {
             user_agent: userAgent
         });
 
-        if (insErr) return json(500, { error: "db_error" });
+        if (insErr) {
+            await auditSend({ outcome: "error", sendCountInWindow: sendCount });
+            return json(500, { error: "db_error" });
+        }
     }
 
     // Invia email
@@ -201,5 +284,6 @@ serve(async req => {
     `
     });
 
+    await auditSend({ outcome: "sent", sendCountInWindow: sendCount });
     return json(200, { ok: true });
 });

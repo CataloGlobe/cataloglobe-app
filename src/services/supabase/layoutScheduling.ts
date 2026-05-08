@@ -1513,6 +1513,70 @@ export async function listSchedulesUsingCatalog(
     return out;
 }
 
+// ---------------------------------------------------------------------------
+// listSchedulesUsingStyle — informational list for style deletion drawer
+// ---------------------------------------------------------------------------
+
+export interface StyleScheduleUsage {
+    id: string;
+    name: string | null;
+    enabled: boolean;
+    start_at: string | null;
+    end_at: string | null;
+}
+
+export async function listSchedulesUsingStyle(
+    tenantId: string,
+    styleId: string
+): Promise<StyleScheduleUsage[]> {
+    const { data, error } = await supabase
+        .from("schedule_layout")
+        .select(
+            `
+            schedule_id,
+            schedule:schedules!inner(id, name, enabled, start_at, end_at, tenant_id)
+            `
+        )
+        .eq("tenant_id", tenantId)
+        .eq("style_id", styleId);
+
+    if (error) throw error;
+
+    const rows = (data ?? []) as ScheduleLayoutWithScheduleRow[];
+    const seen = new Set<string>();
+    const out: StyleScheduleUsage[] = [];
+
+    for (const row of rows) {
+        const schedule = Array.isArray(row.schedule)
+            ? (row.schedule[0] ?? null)
+            : row.schedule;
+        if (!schedule) continue;
+        if (schedule.tenant_id !== tenantId) continue;
+        if (seen.has(schedule.id)) continue;
+        seen.add(schedule.id);
+        out.push({
+            id: schedule.id,
+            name: schedule.name,
+            enabled: schedule.enabled,
+            start_at: schedule.start_at,
+            end_at: schedule.end_at
+        });
+    }
+
+    out.sort((a, b) => {
+        if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+        if (a.start_at === null && b.start_at !== null) return 1;
+        if (a.start_at !== null && b.start_at === null) return -1;
+        if (a.start_at !== null && b.start_at !== null) {
+            const cmp = a.start_at.localeCompare(b.start_at);
+            if (cmp !== 0) return cmp;
+        }
+        return (a.name ?? "").localeCompare(b.name ?? "");
+    });
+
+    return out;
+}
+
 export async function duplicateRule(ruleId: string, tenantId: string): Promise<string> {
     const original = await getLayoutRuleById(ruleId, tenantId);
     if (!original) throw new Error("Regola non trovata.");

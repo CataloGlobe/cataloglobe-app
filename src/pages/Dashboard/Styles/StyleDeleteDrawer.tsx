@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
@@ -7,8 +8,46 @@ import { Select } from "@/components/ui/Select/Select";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
 import { deleteStyle, V2Style } from "@/services/supabase/styles";
+import {
+    listSchedulesUsingStyle,
+    type StyleScheduleUsage
+} from "@/services/supabase/layoutScheduling";
 import { IconAlertTriangle } from "@tabler/icons-react";
-import styles from "./Styles.module.scss";
+import pageStyles from "./Styles.module.scss";
+import drawerStyles from "./StyleDeleteDrawer.module.scss";
+
+const MAX_VISIBLE_SCHEDULES = 10;
+
+type ScheduleStatus = "active" | "scheduled" | "expired" | "disabled";
+
+const STATUS_LABEL: Record<ScheduleStatus, string> = {
+    active: "Attiva",
+    scheduled: "Programmata",
+    expired: "Scaduta",
+    disabled: "Disabilitata"
+};
+
+const STATUS_PILL_CLASS: Record<ScheduleStatus, string> = {
+    active: drawerStyles.pillActive,
+    scheduled: drawerStyles.pillScheduled,
+    expired: drawerStyles.pillExpired,
+    disabled: drawerStyles.pillDisabled
+};
+
+function deriveScheduleStatus(rule: StyleScheduleUsage, now: Date): ScheduleStatus {
+    if (!rule.enabled) return "disabled";
+    if (rule.end_at !== null && new Date(rule.end_at) < now) return "expired";
+    if (rule.start_at !== null && new Date(rule.start_at) > now) return "scheduled";
+    return "active";
+}
+
+function StatusPill({ status }: { status: ScheduleStatus }) {
+    return (
+        <span className={`${drawerStyles.pill} ${STATUS_PILL_CLASS[status]}`}>
+            {STATUS_LABEL[status]}
+        </span>
+    );
+}
 
 type StyleDeleteDrawerProps = {
     open: boolean;
@@ -29,11 +68,12 @@ export function StyleDeleteDrawer({
     const currentTenantId = useTenantId();
     const [isDeleting, setIsDeleting] = useState(false);
     const [replacementId, setReplacementId] = useState<string>("");
+    const [schedulesUsing, setSchedulesUsing] = useState<StyleScheduleUsage[] | null>(null);
+    const [isLoadingUsage, setIsLoadingUsage] = useState(false);
 
     const isSystemError = styleData?.is_system;
     const isUsed = (styleData?.usage_count || 0) > 0;
 
-    // Filter out the current style from replacement options
     const replacementOptions = allStyles
         .filter(s => s.id !== styleData?.id)
         .map(s => ({
@@ -41,12 +81,33 @@ export function StyleDeleteDrawer({
             label: s.name
         }));
 
-    useEffect(() => {
-        if (open) {
-            setReplacementId("");
-            setIsDeleting(false);
+    const loadUsage = useCallback(async (): Promise<void> => {
+        if (!styleData || !currentTenantId) return;
+        setIsLoadingUsage(true);
+        try {
+            const data = await listSchedulesUsingStyle(currentTenantId, styleData.id);
+            setSchedulesUsing(data);
+        } catch (err) {
+            console.warn("[StyleDeleteDrawer] usage fetch failed:", err);
+            setSchedulesUsing([]);
+        } finally {
+            setIsLoadingUsage(false);
         }
-    }, [open]);
+    }, [styleData, currentTenantId]);
+
+    useEffect(() => {
+        if (!open || !styleData) {
+            setReplacementId("");
+            setSchedulesUsing(null);
+            setIsDeleting(false);
+            return;
+        }
+        if (isSystemError || !isUsed) {
+            setSchedulesUsing([]);
+            return;
+        }
+        void loadUsage();
+    }, [open, styleData, isSystemError, isUsed, loadUsage]);
 
     const handleDelete = async () => {
         if (!styleData) return;
@@ -69,10 +130,10 @@ export function StyleDeleteDrawer({
             showToast({ message: successMsg, type: "success" });
             onSuccess();
             onClose();
-        } catch (error: any) {
+        } catch (error) {
             console.error("Errore nell'eliminazione dello stile:", error);
             showToast({
-                message: error.message || "Impossibile eliminare lo stile.",
+                message: "Impossibile eliminare lo stile. Riprova più tardi.",
                 type: "error"
             });
         } finally {
@@ -82,11 +143,20 @@ export function StyleDeleteDrawer({
 
     if (!styleData) return null;
 
+    const blocking = schedulesUsing ?? [];
+    const visibleSchedules = blocking.slice(0, MAX_VISIBLE_SCHEDULES);
+    const hiddenCount = blocking.length - visibleSchedules.length;
+    const now = new Date();
+
+    const usageCopy = replacementId
+        ? "Queste regole useranno lo stile selezionato:"
+        : "Seleziona uno stile sostitutivo per le seguenti regole:";
+
     return (
         <SystemDrawer open={open} onClose={onClose}>
             <DrawerLayout
                 header={
-                    <div className={styles.drawerHeader}>
+                    <div className={pageStyles.drawerHeader}>
                         <Text variant="title-sm" weight={600} colorVariant="error">
                             Elimina Stile
                         </Text>
@@ -102,6 +172,7 @@ export function StyleDeleteDrawer({
                                 variant="danger"
                                 onClick={handleDelete}
                                 loading={isDeleting}
+                                disabled={isDeleting || isLoadingUsage || (isUsed && !replacementId)}
                             >
                                 Conferma Eliminazione
                             </Button>
@@ -109,12 +180,12 @@ export function StyleDeleteDrawer({
                     </>
                 }
             >
-                <div>
+                <div className={drawerStyles.body}>
                     {isSystemError ? (
-                        <div className={styles.warningBox}>
+                        <div className={pageStyles.warningBox}>
                             <IconAlertTriangle
                                 size={24}
-                                className={styles.warningIcon}
+                                className={pageStyles.warningIcon}
                                 color="var(--color-warning-500)"
                             />
                             <div>
@@ -130,30 +201,68 @@ export function StyleDeleteDrawer({
                         </div>
                     ) : (
                         <>
-                            <Text variant="body" style={{ marginBottom: "24px", display: "block" }}>
+                            <Text variant="body">
                                 Stai per eliminare lo stile <strong>{styleData.name}</strong>.
                                 Questa operazione eliminerà anche tutte le sue versioni e non è
                                 reversibile.
                             </Text>
 
                             {isUsed && (
-                                <div className={styles.replacementBox}>
-                                    <Text
-                                        variant="body-sm"
-                                        weight={600}
-                                        style={{ marginBottom: "8px" }}
-                                    >
+                                <div className={pageStyles.replacementBox}>
+                                    <Text variant="body-sm" weight={600}>
                                         Stile attualmente in uso
                                     </Text>
-                                    <Text
-                                        variant="body-sm"
-                                        colorVariant="muted"
-                                        style={{ marginBottom: "16px" }}
-                                    >
-                                        Questo stile è associato a {styleData.usage_count} regola/e
-                                        di layout. Seleziona uno stile alternativo per sostituirlo
-                                        prima dell'eliminazione:
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        {usageCopy}
                                     </Text>
+
+                                    {isLoadingUsage && (
+                                        <div className={drawerStyles.usageLoading}>
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                Caricamento regole...
+                                            </Text>
+                                        </div>
+                                    )}
+
+                                    {!isLoadingUsage && blocking.length > 0 && (
+                                        <ul className={drawerStyles.scheduleList}>
+                                            {visibleSchedules.map(rule => {
+                                                const status = deriveScheduleStatus(rule, now);
+                                                return (
+                                                    <li
+                                                        key={rule.id}
+                                                        className={drawerStyles.scheduleItem}
+                                                    >
+                                                        <Link
+                                                            to={`/business/${currentTenantId}/scheduling/${rule.id}`}
+                                                            className={drawerStyles.scheduleLink}
+                                                        >
+                                                            <Text
+                                                                variant="body-sm"
+                                                                className={drawerStyles.scheduleName}
+                                                            >
+                                                                {rule.name ?? "Regola senza nome"}
+                                                            </Text>
+                                                            <StatusPill status={status} />
+                                                        </Link>
+                                                    </li>
+                                                );
+                                            })}
+                                            {hiddenCount > 0 && (
+                                                <li className={drawerStyles.scheduleItem}>
+                                                    <Link
+                                                        to={`/business/${currentTenantId}/scheduling`}
+                                                        className={drawerStyles.scheduleMoreLink}
+                                                    >
+                                                        <Text variant="body-sm" colorVariant="muted">
+                                                            Altre {hiddenCount}{" "}
+                                                            {hiddenCount === 1 ? "regola" : "regole"}...
+                                                        </Text>
+                                                    </Link>
+                                                </li>
+                                            )}
+                                        </ul>
+                                    )}
 
                                     <Select
                                         label="Sostituisci con stile"

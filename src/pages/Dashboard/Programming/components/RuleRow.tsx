@@ -6,6 +6,7 @@ import { DropdownMenu } from "@components/ui/DropdownMenu/DropdownMenu";
 import { DropdownItem } from "@components/ui/DropdownMenu/DropdownItem";
 import { useToast } from "@/context/Toast/ToastContext";
 import { buildRuleSummary } from "@utils/ruleHelpers";
+import { isLayoutRuleDraft } from "@utils/scheduleDraft";
 import type { LayoutRule, LayoutRuleOption } from "@services/supabase/layoutScheduling";
 import styles from "./PriorityGroup.module.scss";
 
@@ -57,14 +58,7 @@ export function RuleRow({
 }: RuleRowProps) {
     const { showToast } = useToast();
 
-    const ruleIsDraft = (() => {
-        if (!rule.applyToAll && rule.activityIds.length === 0 && rule.groupIds.length === 0) return true;
-        if (rule.rule_type === "layout") return !rule.layout?.catalog_id || !rule.layout?.style_id;
-        if (rule.rule_type === "featured") return rule.featured_contents.length === 0;
-        if (rule.rule_type === "price") return rule.price_overrides.length === 0;
-        if (rule.rule_type === "visibility") return rule.visibility_overrides.length === 0;
-        return false;
-    })();
+    const ruleIsDraft = isLayoutRuleDraft(rule);
 
     const displayName = (
         rule.name ?? `${getRuleTypeLabel(rule.rule_type)} · ${rule.id.slice(0, 6)}`
