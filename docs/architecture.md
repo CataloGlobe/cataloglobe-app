@@ -578,7 +578,7 @@ VariantAssignment {
 1. Utente → /login → email/password via Supabase Auth
 2. Supabase Auth → session JWT con session_id custom
 3. AuthProvider intercetta onAuthStateChange
-4. AuthProvider verifica OTP: SELECT FROM otp_session_verifications WHERE session_id = ?
+4. AuthProvider verifica OTP: SELECT FROM otp_user_verifications WHERE user_id = ? AND expires_at > now() (TTL 30 giorni)
 5. Se OTP non verificato → redirect /verify-otp
 6. Se OTP verificato → otpVerified = true → accesso consentito
 7. Password recovery: sessionStorage flag → RecoveryRoute → /reset-password

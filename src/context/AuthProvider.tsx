@@ -3,15 +3,6 @@ import { supabase } from "@services/supabase/client";
 import { AuthContext } from "./AuthContextBase";
 import type { User } from "@supabase/supabase-js";
 
-function getSessionIdFromJwt(token: string): string | null {
-    try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        return payload.session_id ?? payload.sessionid ?? null;
-    } catch {
-        return null;
-    }
-}
-
 async function withTimeout<T>(p: Promise<T>, ms = 4000): Promise<T> {
     return await Promise.race([
         p,
@@ -32,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // evita race condition tra chiamate multiple
     const otpReqIdRef = useRef(0);
 
-    async function checkOtpForSession(reason: OtpCheckReason = "bootstrap") {
+    async function checkOtpForUser(reason: OtpCheckReason = "bootstrap") {
         const reqId = ++otpReqIdRef.current;
 
         if (reason === "bootstrap") {
@@ -42,30 +33,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-            const { data: sessionData } = await withTimeout(supabase.auth.getSession(), 4000);
-            const session = sessionData.session;
+            const { data: userData } = await withTimeout(supabase.auth.getUser(), 4000);
+            const userId = userData.user?.id;
 
-            if (!session?.access_token) {
+            if (!userId) {
                 if (reqId === otpReqIdRef.current && reason === "bootstrap") {
                     setOtpVerified(false);
                 }
                 return;
             }
 
-            const sessionId = getSessionIdFromJwt(session.access_token);
-            if (!sessionId) {
-                if (reqId === otpReqIdRef.current && reason === "bootstrap") {
-                    setOtpVerified(false);
-                }
-                return;
-            }
-
+            // Lookup keyed on user_id with TTL filter (migration 20260508005454).
+            // Replaces the old session_id-based lookup which desynced on every
+            // Supabase JWT rotation.
+            const nowIso = new Date().toISOString();
             const { data, error } = await withTimeout(
                 (async () =>
                     await supabase
-                        .from("otp_session_verifications")
-                        .select("session_id")
-                        .eq("session_id", sessionId)
+                        .from("otp_user_verifications")
+                        .select("user_id")
+                        .eq("user_id", userId)
+                        .gt("expires_at", nowIso)
                         .maybeSingle())(),
                 4000
             );
@@ -108,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                 // IMPORTANTISSIMO:
                 // non bloccare l'app aspettando OTP check
-                if (data.user) void checkOtpForSession("bootstrap");
+                if (data.user) void checkOtpForUser("bootstrap");
                 else {
                     setOtpVerified(false);
                     setOtpLoading(false);
@@ -144,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (session?.user) {
                 setUser(prev => (prev?.id === session.user.id ? prev : session.user));
-                void checkOtpForSession("refresh");
+                void checkOtpForUser("refresh");
             }
         });
 
@@ -155,6 +143,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     async function handleSignOut() {
+        // Invalidate OTP verification BEFORE signOut: after signOut the JWT is
+        // gone and auth.uid() inside the SECURITY DEFINER RPC would be null.
+        // Best-effort: sign-out must complete even if the RPC call fails.
+        try {
+            await supabase.rpc("delete_my_otp_verification");
+        } catch (err) {
+            console.warn("[AUTH] delete_my_otp_verification failed", err);
+        }
+
         await supabase.auth.signOut();
         setUser(null);
         setOtpVerified(false);
@@ -171,8 +168,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 otpLoading,
                 otpRefreshing,
                 signOut: handleSignOut,
-                refreshOtp: () => checkOtpForSession("refresh"),
-                forceOtpCheck: () => checkOtpForSession("force")
+                refreshOtp: () => checkOtpForUser("refresh"),
+                forceOtpCheck: () => checkOtpForUser("force")
             }}
         >
             {children}
