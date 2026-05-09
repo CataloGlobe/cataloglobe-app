@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, Children, isValidElement } from "react";
+import { createPortal } from "react-dom";
 import FocusLock from "react-focus-lock";
 import { motion, AnimatePresence } from "framer-motion";
 import styles from "./ModalLayout.module.scss";
@@ -138,7 +139,12 @@ export default function ModalLayout({
 
     const sidebarWidth = 360;
 
-    return (
+    // SSR guard: createPortal requires document. Skip render in non-DOM
+    // environments (build/test). In this Vite client-only app it never
+    // triggers in practice, but the guard prevents future regressions.
+    if (typeof document === "undefined") return null;
+
+    const overlayTree = (
         <AnimatePresence>
             {isOpen && (
                 <motion.div
@@ -293,4 +299,6 @@ export default function ModalLayout({
             )}
         </AnimatePresence>
     );
+
+    return createPortal(overlayTree, document.body);
 }

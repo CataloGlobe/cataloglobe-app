@@ -60,6 +60,7 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
     const [draftValues, setDraftValues] = useState<Record<string, string>>({});
     const [savingLang, setSavingLang] = useState<string | null>(null);
     const [revertConfirmFor, setRevertConfirmFor] = useState<string | null>(null);
+    const [pendingAutoLangs, setPendingAutoLangs] = useState<Set<string>>(new Set());
 
     const sourceText = product.description ?? "";
     const hasSource = sourceText.trim().length > 0;
@@ -78,11 +79,25 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
             setSupportedOrdered(supported);
             setActiveCodes(active.map(l => l.language_code));
             setBaseLanguage(base);
-            setTranslations(
-                allTranslations.filter(t => t.field === "description" && t.entity_type === "product")
+            const filtered = allTranslations.filter(
+                t => t.field === "description" && t.entity_type === "product"
             );
+            setTranslations(filtered);
             setCurrentSourceHash(sourceHash);
             setDraftValues({});
+
+            // Clear pending state per le lingue dove la riga 'auto' è
+            // ricomparsa (cron ha processato il job post-revert).
+            setPendingAutoLangs(prev => {
+                if (prev.size === 0) return prev;
+                const next = new Set(prev);
+                for (const t of filtered) {
+                    if (t.status === "auto" && next.has(t.language_code)) {
+                        next.delete(t.language_code);
+                    }
+                }
+                return next.size === prev.size ? prev : next;
+            });
         } catch {
             showToast({ message: "Errore nel caricamento delle traduzioni", type: "error" });
         } finally {
@@ -167,9 +182,15 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
                 field: "description",
                 languageCode
             });
+            setPendingAutoLangs(prev => {
+                const next = new Set(prev);
+                next.add(languageCode);
+                return next;
+            });
             await loadData();
             showToast({
-                message: "Tornato alla traduzione automatica. La nuova traduzione sarà disponibile a breve.",
+                message:
+                    "Tornato alla traduzione automatica. Ricarica la pagina tra qualche istante per vedere la nuova traduzione.",
                 type: "success"
             });
             return true;
@@ -252,6 +273,7 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
                     const code = lang.code;
                     const translation = translationsByCode[code];
                     const kind = getStatusKind(translation);
+                    const isPendingAuto = pendingAutoLangs.has(code);
                     const draft = draftValues[code];
                     const currentValue = draft ?? translation?.translated_text ?? "";
                     const baseline = translation?.translated_text ?? "";
@@ -261,6 +283,28 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
                         currentSourceHash !== null &&
                         translation?.source_hash !== currentSourceHash;
                     const isSaving = savingLang === code;
+
+                    if (isPendingAuto) {
+                        return (
+                            <div key={code} className={styles.languageCard}>
+                                <div className={styles.langHeader}>
+                                    {lang.flag_emoji && (
+                                        <span className={styles.flag}>{lang.flag_emoji}</span>
+                                    )}
+                                    <span className={styles.langName}>{lang.name_native}</span>
+                                    <Badge variant="warning">Traduzione in corso</Badge>
+                                </div>
+                                <Textarea
+                                    rows={4}
+                                    placeholder="Generazione automatica in corso. Ricarica la pagina tra qualche istante."
+                                    value=""
+                                    readOnly
+                                    disabled
+                                    onChange={() => {}}
+                                />
+                            </div>
+                        );
+                    }
 
                     return (
                         <div key={code} className={styles.languageCard}>
