@@ -98,31 +98,19 @@ export async function setProductAllergens(
     productId: string,
     allergenIds: number[]
 ): Promise<void> {
-    // Replace all assigned allergens: delete existing, then insert new ones
-    // We do this in two steps from the client side since standard REST doesn't expose transactions directly.
+    const { error } = await supabase.rpc("replace_product_allergens", {
+        p_tenant_id: tenantId,
+        p_product_id: productId,
+        p_allergen_ids: allergenIds
+    });
 
-    // 1. Delete all existing allergens for this product
-    const { error: deleteError } = await supabase
-        .from("product_allergens")
-        .delete()
-        .eq("product_id", productId)
-        .eq("tenant_id", tenantId);
-
-    if (deleteError) throw deleteError;
-
-    // 2. Insert new allergens if any
-    if (allergenIds && allergenIds.length > 0) {
-        // Create an array of objects to insert in bulk
-        const insertPayload = allergenIds.map(allergenId => ({
-            tenant_id: tenantId,
-            product_id: productId,
-            allergen_id: allergenId
-        }));
-
-        const { error: insertError } = await supabase
-            .from("product_allergens")
-            .insert(insertPayload);
-
-        if (insertError) throw insertError;
+    if (error) {
+        if (error.code === "42501") {
+            throw new Error("Operazione non autorizzata");
+        }
+        if (error.code === "P0002") {
+            throw new Error("Prodotto non trovato");
+        }
+        throw error;
     }
 }

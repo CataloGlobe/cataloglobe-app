@@ -107,8 +107,9 @@ export async function getProductsCharacteristics(
 }
 
 /**
- * Replaces all characteristic assignments for a product. Pattern delete-all +
- * insert (non-atomic, mirror of `setProductAllergens`).
+ * Replaces all characteristic assignments for a product atomically via the
+ * `replace_product_characteristics` RPC (DELETE + INSERT inside a single
+ * SECURITY DEFINER transaction).
  *
  * Validation that the assigned characteristics belong to the tenant's
  * vertical is delegated to the caller (UI restricts the pickable set via
@@ -120,25 +121,19 @@ export async function setProductCharacteristics(
     productId: string,
     characteristicIds: string[]
 ): Promise<void> {
-    const { error: deleteError } = await supabase
-        .from("product_characteristic_assignments")
-        .delete()
-        .eq("product_id", productId)
-        .eq("tenant_id", tenantId);
+    const { error } = await supabase.rpc("replace_product_characteristics", {
+        p_tenant_id: tenantId,
+        p_product_id: productId,
+        p_characteristic_ids: characteristicIds
+    });
 
-    if (deleteError) throw deleteError;
-
-    if (characteristicIds.length === 0) return;
-
-    const insertPayload = characteristicIds.map(characteristicId => ({
-        tenant_id: tenantId,
-        product_id: productId,
-        characteristic_id: characteristicId
-    }));
-
-    const { error: insertError } = await supabase
-        .from("product_characteristic_assignments")
-        .insert(insertPayload);
-
-    if (insertError) throw insertError;
+    if (error) {
+        if (error.code === "42501") {
+            throw new Error("Operazione non autorizzata");
+        }
+        if (error.code === "P0002") {
+            throw new Error("Prodotto non trovato");
+        }
+        throw error;
+    }
 }
