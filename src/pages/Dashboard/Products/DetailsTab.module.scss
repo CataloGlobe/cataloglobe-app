@@ -3,15 +3,156 @@
     flex-direction: column;
     gap: 24px;
     padding: 16px;
+    // Reserve space so the sticky action bar of the last dirty section
+    // never sits flush against the viewport bottom.
+    padding-bottom: 80px;
 }
 
 .section {
     display: flex;
     flex-direction: column;
+    gap: 12px;
+}
+
+.sectionHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.fieldGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.descriptionField {
+    display: flex;
+    flex-direction: column;
     gap: 8px;
+}
+
+.translationRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.translationLink {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--color-primary-600, var(--color-gray-700));
+    cursor: pointer;
+    font-size: 13px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+        color: var(--color-primary-700, var(--color-gray-900));
+    }
+}
+
+.chipList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background-color: var(--color-gray-100);
+    color: var(--color-gray-800);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.emptyGroupsRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.inlineLink {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--color-primary-600, var(--color-gray-700));
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
 }
 
 .placeholder {
     font-style: italic;
     padding: 4px 0;
+}
+
+// ── Sticky action bar ─────────────────────────────────────────────────
+// Mirrors the pattern in CharacteristicsAndNotesTab.module.scss
+
+.actionBar {
+    position: sticky;
+    bottom: 16px;
+    z-index: 10;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 16px;
+    background-color: var(--color-white, #fff);
+    border: 1px solid var(--color-warning-200, var(--color-gray-200));
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+    border-radius: var(--radius-md);
+    animation: actionBarSlideIn 0.18s ease-out;
+}
+
+@keyframes actionBarSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.actionBarLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-warning-700, var(--color-gray-800));
+}
+
+.dirtyDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--color-warning-500, #f59e0b);
+    box-shadow: 0 0 0 3px var(--color-warning-100, rgba(245, 158, 11, 0.18));
+    animation: dirtyDotPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes dirtyDotPulse {
+    0%, 100% {
+        box-shadow: 0 0 0 3px var(--color-warning-100, rgba(245, 158, 11, 0.18));
+    }
+    50% {
+        box-shadow: 0 0 0 6px var(--color-warning-100, rgba(245, 158, 11, 0.05));
+    }
+}
+
+.actionBarButtons {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
 }

@@ -221,6 +221,9 @@ export default function ProductPage() {
                                 productId={productId!}
                                 tenantId={tenantId!}
                                 onProductUpdated={updated => setProduct(updated)}
+                                onNavigateToTab={tab =>
+                                    setActiveTab(tab as ProductPageTab)
+                                }
                             />
                         </Card>
                     </Tabs.Panel>
