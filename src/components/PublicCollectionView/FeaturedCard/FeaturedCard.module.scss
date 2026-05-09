@@ -9,20 +9,16 @@
   overflow: hidden;
   cursor: pointer;
   border: 1px solid var(--pub-surface-border);
-  background: var(--pub-card-bg, #fff);
-  box-shadow:
-    0 2px 8px color-mix(in srgb, var(--pub-bg-text) 10%, transparent),
-    0 0 1px color-mix(in srgb, var(--pub-surface-text) 8%, transparent);
+  background: var(--pub-surface);
+  box-shadow: var(--pub-card-shadow);
   text-align: left;
   font: inherit;
   color: inherit;
   padding: 0;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 
   &:hover {
-    box-shadow:
-      0 4px 14px color-mix(in srgb, var(--pub-bg-text) 14%, transparent),
-      0 0 2px color-mix(in srgb, var(--pub-surface-text) 10%, transparent);
+    box-shadow: var(--pub-card-shadow-hover);
     transform: translateY(-1px);
   }
 }
@@ -168,15 +164,12 @@
   min-height: 200px;
   /* Fallback gradient when no image (uses primary color from CSS var) */
   background: linear-gradient(135deg, var(--pub-primary, #6366f1), color-mix(in srgb, var(--pub-primary, #6366f1) 55%, black));
-  border: none;
   flex-direction: column;
   justify-content: flex-end;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow:
-      0 6px 20px color-mix(in srgb, var(--pub-bg-text) 18%, transparent),
-      0 0 2px color-mix(in srgb, var(--pub-surface-text) 12%, transparent);
+    transform: translateY(-1px);
+    box-shadow: var(--pub-card-shadow-hover);
   }
 }
 

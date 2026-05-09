@@ -327,18 +327,14 @@
 
   background: var(--pub-surface);
   border: 1px solid var(--pub-surface-border);
-  box-shadow:
-    0 2px 8px color-mix(in srgb, var(--pub-bg-text) 10%, transparent),
-    0 0 1px color-mix(in srgb, var(--pub-surface-text) 8%, transparent);
+  box-shadow: var(--pub-card-shadow);
   border-radius: var(--pub-radius);
 
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow:
-      0 4px 14px color-mix(in srgb, var(--pub-bg-text) 14%, transparent),
-      0 0 2px color-mix(in srgb, var(--pub-surface-text) 10%, transparent);
+    box-shadow: var(--pub-card-shadow-hover);
   }
 }
 
