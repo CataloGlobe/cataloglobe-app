@@ -111,33 +111,41 @@ Deno.serve(async (req: Request) => {
                 targetLang: group.target
             });
 
-            // UPSERT translations + UPDATE jobs done (uno per uno per safety)
+            // UPSERT translations via RPC (skips rows with status='manual')
+            // + UPDATE jobs done (uno per uno per safety).
             for (let i = 0; i < group.jobs.length; i++) {
                 const job = group.jobs[i];
                 const translated = result.translations[i];
 
-                const { error: upsertError } = await supabase
-                    .from("translations")
-                    .upsert({
-                        tenant_id: job.tenant_id,
-                        entity_type: job.entity_type,
-                        entity_id: job.entity_id,
-                        field: job.field,
-                        language_code: job.target_language_code,
-                        source_text: job.source_text,
-                        source_hash: job.source_hash,
-                        translated_text: translated,
-                        provider: result.provider,
-                        status: "auto"
-                    }, {
-                        onConflict: "tenant_id,entity_type,entity_id,field,language_code"
-                    });
+                const { data: wrote, error: upsertError } = await supabase.rpc(
+                    "upsert_auto_translation",
+                    {
+                        p_tenant_id: job.tenant_id,
+                        p_entity_type: job.entity_type,
+                        p_entity_id: job.entity_id,
+                        p_field: job.field,
+                        p_language_code: job.target_language_code,
+                        p_source_text: job.source_text,
+                        p_source_hash: job.source_hash,
+                        p_translated_text: translated,
+                        p_provider: result.provider
+                    }
+                );
 
                 if (upsertError) {
                     console.error(`Upsert failed for job ${job.id}:`, upsertError);
                     await markJobFailed(supabase, job.id, `upsert: ${upsertError.message}`);
                     counters.failed++;
                     continue;
+                }
+
+                if (wrote === false) {
+                    console.log("[TRANSLATION] preserved manual override:", {
+                        entity_type: job.entity_type,
+                        entity_id: job.entity_id,
+                        field: job.field,
+                        language_code: job.target_language_code
+                    });
                 }
 
                 await markJobDone(supabase, job.id);

@@ -47,6 +47,19 @@ function isInternalPath(path: unknown): path is string {
     return true;
 }
 
+// Probe diagnostico: tipo di navigazione corrente del documento.
+// Serve a distinguere bootstrap normale ("navigate") da reload causato
+// da tab-discard/freeze del browser ("reload" / "back_forward").
+function getNavigationType(): string | null {
+    try {
+        const entries = performance.getEntriesByType("navigation");
+        const nav = entries[0] as PerformanceNavigationTiming | undefined;
+        return nav?.type ?? null;
+    } catch {
+        return null;
+    }
+}
+
 export default function VerifyOtp() {
     usePageTitle('Verifica OTP');
     const { forceOtpCheck } = useAuth();
@@ -87,7 +100,8 @@ export default function VerifyOtp() {
             }
 
             const { error } = await supabase.functions.invoke("send-otp", {
-                headers: { Authorization: `Bearer ${jwt}` }
+                headers: { Authorization: `Bearer ${jwt}` },
+                body: { navigation_type: getNavigationType() }
             });
 
             if (error) {

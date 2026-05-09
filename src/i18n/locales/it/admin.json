@@ -2,7 +2,7 @@
     "languages": {
         "title": "Lingue",
         "description": "Attiva le lingue in cui vuoi tradurre il tuo menu pubblico. I contenuti esistenti saranno tradotti automaticamente in pochi minuti.",
-        "italian_base": "I tuoi contenuti sono in italiano (lingua base).",
+        "base_label": "Lingua base",
         "activated": "{{lang}} attivata. {{count}} contenuti in traduzione.",
         "activated_no_jobs": "{{lang}} attivata. Nessun nuovo contenuto da tradurre.",
         "deactivated": "{{lang}} disattivata.",
@@ -17,7 +17,10 @@
             "retrying": "Riprova in corso...",
             "retry_success": "{{count}} elementi rimessi in coda",
             "retry_error": "Errore durante il retry",
-            "completed": "Traduzione completata ({{count}} elementi)"
+            "completed": "Traduzione completata ({{count}} elementi)",
+            "translated_aria": "Tradotto",
+            "in_progress_aria": "In corso",
+            "retry_count_label": "{{count}} da riprovare"
         }
     },
     "errors": {

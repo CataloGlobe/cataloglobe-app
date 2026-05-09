@@ -95,7 +95,15 @@ export async function enqueueTranslationJobsIfChanged(input: {
         targetLanguages
     );
 
+    // Skip lingue con override manuale: la edge function preserverebbe
+    // comunque la riga (guard server-side in upsert_auto_translation),
+    // ma evitiamo l'enqueue per non sprecare round-trip DeepL.
+    const manualLangs = new Set(
+        existing.filter(t => t.status === "manual").map(t => t.language_code)
+    );
+
     const langsNeedingJob = targetLanguages.filter(lang => {
+        if (manualLangs.has(lang)) return false;
         const existingRow = existing.find(t => t.language_code === lang);
         return !existingRow || existingRow.source_hash !== input.newSourceHash;
     });
@@ -268,10 +276,10 @@ async function fetchExistingTranslationsHashes(
     entityId: string,
     field: TranslationField,
     targetLanguages: string[]
-): Promise<Array<{ language_code: string; source_hash: string }>> {
+): Promise<Array<{ language_code: string; source_hash: string; status: string }>> {
     const { data, error } = await supabase
         .from("translations")
-        .select("language_code, source_hash")
+        .select("language_code, source_hash, status")
         .eq("tenant_id", tenantId)
         .eq("entity_type", entityType)
         .eq("entity_id", entityId)
@@ -279,7 +287,7 @@ async function fetchExistingTranslationsHashes(
         .in("language_code", targetLanguages);
 
     if (error) throw error;
-    return (data ?? []) as Array<{ language_code: string; source_hash: string }>;
+    return (data ?? []) as Array<{ language_code: string; source_hash: string; status: string }>;
 }
 
 async function dedupAndEnqueueJobs(input: {

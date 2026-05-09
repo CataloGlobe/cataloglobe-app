@@ -94,6 +94,83 @@ export async function getActiveTenantLanguages(
 }
 
 /**
+ * Scrive (o aggiorna) una traduzione manuale per un'entità + lingua.
+ *
+ * Usata dal pannello override traduzioni (variante C2). Invoca la RPC
+ * `upsert_manual_translation`, che gira SECURITY DEFINER e applica:
+ *   - tenant guard via get_my_tenant_ids()
+ *   - validazione source_text/translated_text non vuoti
+ *   - validazione language_code presente in supported_languages
+ *
+ * Sovrascrive incondizionatamente eventuale riga esistente (auto o manual
+ * precedente). status='manual', provider='manual'.
+ */
+export async function upsertManualTranslation(input: {
+    tenantId: string;
+    entityType: TranslationEntityType;
+    entityId: string;
+    field: TranslationField;
+    languageCode: string;
+    sourceText: string;
+    sourceHash: string;
+    translatedText: string;
+}): Promise<void> {
+    const { error } = await supabase.rpc("upsert_manual_translation", {
+        p_tenant_id: input.tenantId,
+        p_entity_type: input.entityType,
+        p_entity_id: input.entityId,
+        p_field: input.field,
+        p_language_code: input.languageCode,
+        p_source_text: input.sourceText,
+        p_source_hash: input.sourceHash,
+        p_translated_text: input.translatedText
+    });
+
+    if (error) {
+        if (error.code === "42501") {
+            throw new Error("Operazione non autorizzata");
+        }
+        if (error.code === "22023") {
+            throw new Error(error.message);
+        }
+        throw error;
+    }
+}
+
+/**
+ * Cancella la traduzione manuale per (entity, field, lingua) e accoda un
+ * translation_job per ri-tradurre automaticamente lo stesso source.
+ *
+ * Invoca la RPC `revert_manual_translation`. La RPC verifica tenant
+ * authz e l'esistenza della riga manual; se assente, lancia `P0002`.
+ */
+export async function revertManualTranslation(input: {
+    tenantId: string;
+    entityType: TranslationEntityType;
+    entityId: string;
+    field: TranslationField;
+    languageCode: string;
+}): Promise<void> {
+    const { error } = await supabase.rpc("revert_manual_translation", {
+        p_tenant_id: input.tenantId,
+        p_entity_type: input.entityType,
+        p_entity_id: input.entityId,
+        p_field: input.field,
+        p_language_code: input.languageCode
+    });
+
+    if (error) {
+        if (error.code === "42501") {
+            throw new Error("Operazione non autorizzata");
+        }
+        if (error.code === "P0002") {
+            throw new Error("Traduzione manuale non trovata");
+        }
+        throw error;
+    }
+}
+
+/**
  * Lingua base del tenant (es. 'it'). Letta da tenants.base_language_code,
  * source of truth dopo la decisione architetturale Opzione B (Prompt 1):
  * la base NON vive in tenant_languages.

@@ -142,37 +142,19 @@ export async function setProductIngredients(
     productId: string,
     ingredientIds: string[]
 ): Promise<void> {
-    // 1. Get current assignments
-    const currentAssignments = await getProductIngredients(productId);
-    const currentIngredientIds = currentAssignments.map(a => a.ingredient_id);
+    const { error } = await supabase.rpc("replace_product_ingredients", {
+        p_tenant_id: tenantId,
+        p_product_id: productId,
+        p_ingredient_ids: ingredientIds
+    });
 
-    // 2. Calculate delta
-    const toAdd = ingredientIds.filter(id => !currentIngredientIds.includes(id));
-    const toRemove = currentIngredientIds.filter(id => !ingredientIds.includes(id));
-
-    // 3. Remove deselected ingredients
-    if (toRemove.length > 0) {
-        const { error: removeError } = await supabase
-            .from("product_ingredients")
-            .delete()
-            .eq("product_id", productId)
-            .in("ingredient_id", toRemove);
-
-        if (removeError) throw removeError;
-    }
-
-    // 4. Add newly selected ingredients
-    if (toAdd.length > 0) {
-        const insertPayload = toAdd.map(ingredientId => ({
-            tenant_id: tenantId,
-            product_id: productId,
-            ingredient_id: ingredientId
-        }));
-
-        const { error: addError } = await supabase
-            .from("product_ingredients")
-            .insert(insertPayload);
-
-        if (addError) throw addError;
+    if (error) {
+        if (error.code === "42501") {
+            throw new Error("Operazione non autorizzata");
+        }
+        if (error.code === "P0002") {
+            throw new Error("Prodotto non trovato");
+        }
+        throw error;
     }
 }

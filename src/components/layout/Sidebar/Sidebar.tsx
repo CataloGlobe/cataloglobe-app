@@ -80,7 +80,8 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
                     label: "Contenuti in evidenza",
                     icon: <Layers size={18} />
                 },
-                { to: `${b}/styles`, label: "Stili", icon: <Palette size={18} /> }
+                { to: `${b}/styles`, label: "Stili", icon: <Palette size={18} /> },
+                { to: `${b}/languages`, label: "Lingue", icon: <Languages size={18} /> }
             ]
         },
         {
@@ -97,8 +98,7 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
             items: [
                 { to: `${b}/team`, label: "Team", icon: <Users size={18} /> },
                 { to: `${b}/subscription`, label: "Abbonamento", icon: <CreditCard size={18} /> },
-                { to: `${b}/settings`, label: "Impostazioni", icon: <Settings size={18} />, end: true },
-                { to: `${b}/settings/languages`, label: "Lingue", icon: <Languages size={18} /> }
+                { to: `${b}/settings`, label: "Impostazioni", icon: <Settings size={18} />, end: true }
             ]
         }
     ];
@@ -126,7 +126,7 @@ export default function Sidebar({
     const groups = allGroups.map(group => ({
         ...group,
         items: group.items.filter(item => {
-            if (item.to.endsWith("/subscription") && userRole !== "owner") return false;
+            if (item.to.endsWith("/subscription") && userRole === "member") return false;
             return true;
         })
     }));

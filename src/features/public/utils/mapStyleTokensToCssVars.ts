@@ -161,8 +161,6 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         "--pub-primary": tokens.colors.primary,
         "--pub-header-bg": tokens.colors.primary,
         "--pub-font-family": fontFamily,
-        // --pub-card-bg kept for backward compat with existing SCSS modules
-        "--pub-card-bg": tokens.colors.surface,
 
         // ── Shape ────────────────────────────────────────────────────────
         "--pub-radius": pubRadius,
@@ -199,9 +197,16 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         "--pub-bg-text-secondary": bgTextSecondary,
         "--pub-bg-text-muted": bgTextMuted,
 
-        // Text directly on --pub-surface / --pub-card-bg (content areas, cards, nav bar)
+        // Text directly on --pub-surface (content areas, cards, nav bar)
         "--pub-surface-text": surfaceText,
         "--pub-surface-text-secondary": surfaceTextSecondary,
-        "--pub-surface-text-muted": surfaceTextMuted
+        "--pub-surface-text-muted": surfaceTextMuted,
+
+        // ── Card shadows ─────────────────────────────────────────────────
+        // Centralized to keep FeaturedCard and product cards in sync
+        "--pub-card-shadow":
+            "0 2px 8px color-mix(in srgb, var(--pub-bg-text) 10%, transparent), 0 0 1px color-mix(in srgb, var(--pub-surface-text) 8%, transparent)",
+        "--pub-card-shadow-hover":
+            "0 4px 14px color-mix(in srgb, var(--pub-bg-text) 14%, transparent), 0 0 2px color-mix(in srgb, var(--pub-surface-text) 10%, transparent)"
     };
 }

@@ -14,6 +14,7 @@ Riferimento route applicazione. Tutte definite in `src/App.tsx`.
   products | products/:productId
   featured | featured/:featuredId
   styles | styles/:styleId
+  languages
   attributes | reviews | analytics | team | subscription | settings
 /invite/:token             → InvitePage
 /legal/privacy | /legal/termini → pagine legali

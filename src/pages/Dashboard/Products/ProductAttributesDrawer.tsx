@@ -96,7 +96,12 @@ export function ProductAttributesDrawer({
 
     // ── Handlers: existing tab ─────────────────────────────────────────
 
-    const handleLink = async () => {
+    const formIdExisting = "product-attributes-existing-form";
+    const formIdNew = "product-attributes-new-form";
+
+    const handleSubmitExisting = async (e: React.FormEvent) => {
+        e.preventDefault();
+
         const newlyLinked = selectedIds.filter(id => !linkedIds.has(id));
         const newlyUnlinked = [...linkedIds].filter(id => !selectedIds.includes(id));
 
@@ -204,12 +209,13 @@ export function ProductAttributesDrawer({
 
     const footer = activeTab === "existing" ? (
         <>
-            <Button variant="secondary" onClick={onClose} disabled={linking}>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={linking}>
                 Annulla
             </Button>
             <Button
+                type="submit"
+                form={formIdExisting}
                 variant="primary"
-                onClick={handleLink}
                 loading={linking}
             >
                 Salva
@@ -217,13 +223,13 @@ export function ProductAttributesDrawer({
         </>
     ) : (
         <>
-            <Button variant="secondary" onClick={onClose} disabled={creating}>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={creating}>
                 Annulla
             </Button>
             <Button
-                variant="primary"
                 type="submit"
-                form="attr-inline-form"
+                form={formIdNew}
+                variant="primary"
                 loading={creating}
             >
                 Crea e collega
@@ -253,26 +259,28 @@ export function ProductAttributesDrawer({
                         </Tabs.List>
 
                         <Tabs.Panel<ActiveTab> value="existing">
-                            {definitions.length === 0 ? (
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Nessun attributo disponibile. Creane uno nel tab "Nuovo".
-                                </Text>
-                            ) : (
-                                <DataTable<V2ProductAttributeDefinition>
-                                    data={definitions}
-                                    columns={columns}
-                                    selectable
-                                    showSelectionBar={false}
-                                    selectedRowIds={selectedIds}
-                                    onSelectedRowsChange={setSelectedIds}
-                                    density="compact"
-                                />
-                            )}
+                            <form id={formIdExisting} onSubmit={handleSubmitExisting}>
+                                {definitions.length === 0 ? (
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        Nessun attributo disponibile. Creane uno nel tab "Nuovo".
+                                    </Text>
+                                ) : (
+                                    <DataTable<V2ProductAttributeDefinition>
+                                        data={definitions}
+                                        columns={columns}
+                                        selectable
+                                        showSelectionBar={false}
+                                        selectedRowIds={selectedIds}
+                                        onSelectedRowsChange={setSelectedIds}
+                                        density="compact"
+                                    />
+                                )}
+                            </form>
                         </Tabs.Panel>
 
                         <Tabs.Panel<ActiveTab> value="new">
                             <form
-                                id="attr-inline-form"
+                                id={formIdNew}
                                 onSubmit={handleCreate}
                                 style={{ display: "flex", flexDirection: "column", gap: 16 }}
                             >

@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@context/useAuth";
 import { AppLoader } from "../ui/AppLoader/AppLoader";
+import { OtpCheckErrorScreen } from "../OtpCheckErrorScreen/OtpCheckErrorScreen";
 import type { ReactNode } from "react";
 
 type ProtectedRouteProps = {
@@ -8,7 +9,7 @@ type ProtectedRouteProps = {
 };
 
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-    const { user, loading, otpVerified, otpLoading, otpRefreshing } = useAuth();
+    const { user, loading, otpVerified, otpLoading, otpRefreshing, otpCheckFailed } = useAuth();
     const location = useLocation();
 
     // Bootstrap auth
@@ -25,6 +26,13 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     // Verifica OTP
     if (otpLoading && !otpRefreshing) {
         return <AppLoader intent="otp" />;
+    }
+
+    // Errore di rete sulla query di check OTP: non sappiamo se l'utente è
+    // verificato. Non rediriggere a /verify-otp (che farebbe partire un
+    // send-otp non richiesto). Mostra schermata con retry esplicito.
+    if (otpCheckFailed) {
+        return <OtpCheckErrorScreen />;
     }
 
     if (!otpVerified && !otpRefreshing) {
