@@ -3,12 +3,14 @@ import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { FileInput } from "@/components/ui/Input/FileInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
+import { Pill } from "@/components/ui/Pill/Pill";
 import { TranslationStatusBadge } from "@/components/ui/TranslationStatusBadge/TranslationStatusBadge";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import {
     type V2Product,
+    type ProductNote,
     updateProduct
 } from "@/services/supabase/products";
 import { uploadProductImage } from "@/services/supabase/upload";
@@ -18,7 +20,27 @@ import {
     getProductGroups,
     getProductGroupAssignments
 } from "@/services/supabase/productGroups";
+import {
+    type V2SystemAllergen,
+    listAllergens,
+    getProductAllergens,
+    setProductAllergens
+} from "@/services/supabase/allergens";
+import {
+    type V2Ingredient,
+    listIngredients,
+    getProductIngredients,
+    setProductIngredients,
+    createIngredient
+} from "@/services/supabase/ingredients";
+import {
+    getProductCharacteristics,
+    setProductCharacteristics
+} from "@/services/supabase/productCharacteristics";
 import { ProductGroupsEditDrawer } from "./ProductGroupsEditDrawer";
+import { IngredientCombobox } from "./components/IngredientCombobox";
+import CharacteristicsSection from "./components/CharacteristicsSection/CharacteristicsSection";
+import ProductNotesSection from "./components/ProductNotesSection/ProductNotesSection";
 import styles from "./DetailsTab.module.scss";
 
 interface DetailsTabProps {
@@ -26,20 +48,67 @@ interface DetailsTabProps {
     productId: string;
     tenantId: string;
     onProductUpdated: (updated: V2Product) => void;
+    /** Vertical type del tenant — necessario per `CharacteristicsSection`. */
+    vertical?: string;
     /** Switch to another tab in the parent ProductPage. */
     onNavigateToTab: (tab: string) => void;
 }
 
+function arraysEqualUnordered<T>(a: T[], b: T[]): boolean {
+    if (a.length !== b.length) return false;
+    const set = new Set(a);
+    return b.every(v => set.has(v));
+}
+
+interface ActionBarProps {
+    isSaving: boolean;
+    onCancel: () => void;
+    onSave: () => void;
+}
+
+function ActionBar({ isSaving, onCancel, onSave }: ActionBarProps) {
+    return (
+        <div className={styles.actionBar} role="status" aria-live="polite">
+            <div className={styles.actionBarLabel}>
+                <span className={styles.dirtyDot} aria-hidden />
+                <Text variant="body-sm" weight={600}>
+                    Modifiche non salvate
+                </Text>
+            </div>
+            <div className={styles.actionBarButtons}>
+                <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={onCancel}
+                    disabled={isSaving}
+                >
+                    Annulla
+                </Button>
+                <Button
+                    type="button"
+                    variant="primary"
+                    onClick={onSave}
+                    loading={isSaving}
+                    disabled={isSaving}
+                >
+                    Salva
+                </Button>
+            </div>
+        </div>
+    );
+}
+
 /**
- * Tab "Dettagli" — orchestrator delle sub-sezioni Identità, Gruppi,
- * Specifiche food, Caratteristiche, Note. Task 1.2 implementa Identità +
- * Gruppi inline; Specifiche food + Caratteristiche + Note arrivano in 1.3.
+ * Tab "Dettagli" — orchestrator delle 5 sub-sezioni Identità, Gruppi,
+ * Specifiche food, Caratteristiche, Note. Ogni sub-sezione ha proprio
+ * dirty state e sticky save bar indipendente.
  */
 export function DetailsTab({
     product,
     productId,
     tenantId,
     onProductUpdated,
+    vertical,
     onNavigateToTab
 }: DetailsTabProps) {
     const { showToast } = useToast();
@@ -51,6 +120,7 @@ export function DetailsTab({
         verticalConfig.productSections.ingredients;
     const showCharacteristics =
         verticalConfig.productSections.characteristics && isBaseProduct;
+    const showNotes = verticalConfig.productSections.notes && isBaseProduct;
 
     // ── Identità ────────────────────────────────────────────────────────
     const [draftName, setDraftName] = useState(product.name);
@@ -70,7 +140,6 @@ export function DetailsTab({
         return false;
     }, [draftName, draftDescription, pendingImageFile, removeImage, product.name, product.description]);
 
-    // Re-sync drafts from product when parent updates and we're not dirty.
     useEffect(() => {
         if (isIdentityDirty) return;
         setDraftName(product.name);
@@ -171,6 +240,195 @@ export function DetailsTab({
         [allGroups, assignedGroupIds]
     );
 
+    // ── Specifiche food (allergeni + ingredienti) ───────────────────────
+    const [allergens, setAllergens] = useState<V2SystemAllergen[]>([]);
+    const [allIngredients, setAllIngredients] = useState<V2Ingredient[]>([]);
+    const [draftAllergenIds, setDraftAllergenIds] = useState<number[]>([]);
+    const [savedAllergenIds, setSavedAllergenIds] = useState<number[]>([]);
+    const [draftIngredientIds, setDraftIngredientIds] = useState<string[]>([]);
+    const [savedIngredientIds, setSavedIngredientIds] = useState<string[]>([]);
+    const [specsLoading, setSpecsLoading] = useState(true);
+    const [isSavingSpecs, setIsSavingSpecs] = useState(false);
+
+    const isSpecsDirty = useMemo(
+        () =>
+            !arraysEqualUnordered(draftAllergenIds, savedAllergenIds) ||
+            !arraysEqualUnordered(draftIngredientIds, savedIngredientIds),
+        [draftAllergenIds, savedAllergenIds, draftIngredientIds, savedIngredientIds]
+    );
+
+    const loadSpecs = useCallback(async () => {
+        if (!showSpecs) return;
+        try {
+            setSpecsLoading(true);
+            const [allAllergens, productAllergenIds, ingredients, productIngredients] =
+                await Promise.all([
+                    listAllergens(),
+                    getProductAllergens(productId, tenantId),
+                    listIngredients(tenantId),
+                    getProductIngredients(productId)
+                ]);
+            setAllergens(allAllergens);
+            setAllIngredients(ingredients);
+            setDraftAllergenIds(productAllergenIds);
+            setSavedAllergenIds(productAllergenIds);
+            const ingIds = productIngredients.map(i => i.ingredient_id);
+            setDraftIngredientIds(ingIds);
+            setSavedIngredientIds(ingIds);
+        } catch {
+            showToast({ message: "Errore nel caricamento delle specifiche", type: "error" });
+        } finally {
+            setSpecsLoading(false);
+        }
+    }, [productId, tenantId, showSpecs, showToast]);
+
+    useEffect(() => {
+        loadSpecs();
+    }, [loadSpecs]);
+
+    const toggleAllergen = useCallback((id: number) => {
+        setDraftAllergenIds(prev =>
+            prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
+        );
+    }, []);
+
+    const toggleIngredient = useCallback((id: string) => {
+        setDraftIngredientIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    }, []);
+
+    const handleCreateIngredient = useCallback(
+        async (name: string): Promise<string> => {
+            const newIngredient = await createIngredient(tenantId, name);
+            setAllIngredients(prev => [...prev, newIngredient]);
+            return newIngredient.id;
+        },
+        [tenantId]
+    );
+
+    const handleCancelSpecs = useCallback(() => {
+        setDraftAllergenIds(savedAllergenIds);
+        setDraftIngredientIds(savedIngredientIds);
+    }, [savedAllergenIds, savedIngredientIds]);
+
+    const handleSaveSpecs = useCallback(async () => {
+        try {
+            setIsSavingSpecs(true);
+            await Promise.all([
+                setProductAllergens(tenantId, productId, draftAllergenIds),
+                setProductIngredients(tenantId, productId, draftIngredientIds)
+            ]);
+            setSavedAllergenIds(draftAllergenIds);
+            setSavedIngredientIds(draftIngredientIds);
+            showToast({ message: "Specifiche salvate", type: "success" });
+        } catch (err) {
+            showToast({
+                message: err instanceof Error ? err.message : "Errore nel salvataggio",
+                type: "error"
+            });
+        } finally {
+            setIsSavingSpecs(false);
+        }
+    }, [tenantId, productId, draftAllergenIds, draftIngredientIds, showToast]);
+
+    // ── Caratteristiche ────────────────────────────────────────────────
+    const [draftCharacteristicIds, setDraftCharacteristicIds] = useState<string[]>([]);
+    const [savedCharacteristicIds, setSavedCharacteristicIds] = useState<string[]>([]);
+    const [characteristicsLoading, setCharacteristicsLoading] = useState(true);
+    const [isSavingCharacteristics, setIsSavingCharacteristics] = useState(false);
+
+    const isCharacteristicsDirty = useMemo(
+        () => !arraysEqualUnordered(draftCharacteristicIds, savedCharacteristicIds),
+        [draftCharacteristicIds, savedCharacteristicIds]
+    );
+
+    const loadCharacteristics = useCallback(async () => {
+        if (!showCharacteristics) return;
+        try {
+            setCharacteristicsLoading(true);
+            const ids = await getProductCharacteristics(productId, tenantId);
+            setDraftCharacteristicIds(ids);
+            setSavedCharacteristicIds(ids);
+        } catch {
+            showToast({
+                message: "Errore nel caricamento delle caratteristiche",
+                type: "error"
+            });
+        } finally {
+            setCharacteristicsLoading(false);
+        }
+    }, [productId, tenantId, showCharacteristics, showToast]);
+
+    useEffect(() => {
+        loadCharacteristics();
+    }, [loadCharacteristics]);
+
+    const handleCancelCharacteristics = useCallback(() => {
+        setDraftCharacteristicIds(savedCharacteristicIds);
+    }, [savedCharacteristicIds]);
+
+    const handleSaveCharacteristics = useCallback(async () => {
+        try {
+            setIsSavingCharacteristics(true);
+            await setProductCharacteristics(tenantId, productId, draftCharacteristicIds);
+            setSavedCharacteristicIds(draftCharacteristicIds);
+            showToast({ message: "Caratteristiche salvate", type: "success" });
+        } catch (err) {
+            showToast({
+                message: err instanceof Error ? err.message : "Errore nel salvataggio",
+                type: "error"
+            });
+        } finally {
+            setIsSavingCharacteristics(false);
+        }
+    }, [tenantId, productId, draftCharacteristicIds, showToast]);
+
+    // ── Note prodotto ──────────────────────────────────────────────────
+    const [draftNotes, setDraftNotes] = useState<ProductNote[]>(product.notes ?? []);
+    const [savedNotes, setSavedNotes] = useState<ProductNote[]>(product.notes ?? []);
+    const [isSavingNotes, setIsSavingNotes] = useState(false);
+
+    const isNotesDirty = useMemo(
+        () => JSON.stringify(draftNotes) !== JSON.stringify(savedNotes),
+        [draftNotes, savedNotes]
+    );
+
+    // Re-sync notes from product when parent updates and we're not dirty.
+    useEffect(() => {
+        if (isNotesDirty) return;
+        const current = product.notes ?? [];
+        setDraftNotes(current);
+        setSavedNotes(current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [product.notes]);
+
+    const handleCancelNotes = useCallback(() => {
+        setDraftNotes(savedNotes);
+    }, [savedNotes]);
+
+    const handleSaveNotes = useCallback(async () => {
+        try {
+            setIsSavingNotes(true);
+            const updated = await updateProduct(productId, tenantId, {
+                notes: draftNotes
+            });
+            // Service ritorna note normalizzate (trim + skip-empty); allinea i
+            // due snapshot al risultato server per evitare dirty fantasma.
+            setDraftNotes(updated.notes);
+            setSavedNotes(updated.notes);
+            onProductUpdated(updated);
+            showToast({ message: "Note salvate", type: "success" });
+        } catch (err) {
+            showToast({
+                message: err instanceof Error ? err.message : "Errore nel salvataggio",
+                type: "error"
+            });
+        } finally {
+            setIsSavingNotes(false);
+        }
+    }, [productId, tenantId, draftNotes, onProductUpdated, showToast]);
+
     return (
         <div className={styles.tab}>
             {/* ── Identità ──────────────────────────────────────────── */}
@@ -252,37 +510,11 @@ export function DetailsTab({
                 </div>
 
                 {isIdentityDirty && (
-                    <div
-                        className={styles.actionBar}
-                        role="status"
-                        aria-live="polite"
-                    >
-                        <div className={styles.actionBarLabel}>
-                            <span className={styles.dirtyDot} aria-hidden />
-                            <Text variant="body-sm" weight={600}>
-                                Modifiche non salvate
-                            </Text>
-                        </div>
-                        <div className={styles.actionBarButtons}>
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                onClick={handleCancelIdentity}
-                                disabled={isSavingIdentity}
-                            >
-                                Annulla
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="primary"
-                                onClick={handleSaveIdentity}
-                                loading={isSavingIdentity}
-                                disabled={isSavingIdentity}
-                            >
-                                Salva
-                            </Button>
-                        </div>
-                    </div>
+                    <ActionBar
+                        isSaving={isSavingIdentity}
+                        onCancel={handleCancelIdentity}
+                        onSave={handleSaveIdentity}
+                    />
                 )}
             </section>
 
@@ -336,37 +568,123 @@ export function DetailsTab({
                 )}
             </section>
 
-            {/* ── Sub-sezioni placeholder (Task 1.3) ────────────────── */}
+            {/* ── Specifiche food ───────────────────────────────────── */}
             {showSpecs && (
                 <section className={styles.section} data-section="specs">
-                    <Text variant="title-sm" weight={600}>
-                        Specifiche food
-                    </Text>
-                    <Text variant="body-sm" colorVariant="muted" className={styles.placeholder}>
-                        Allergeni e ingredienti — Task 1.3
-                    </Text>
+                    <header className={styles.sectionHeader}>
+                        <Text variant="title-sm" weight={600}>
+                            Specifiche food
+                        </Text>
+                    </header>
+
+                    {specsLoading ? (
+                        <Text variant="body-sm" colorVariant="muted">
+                            Caricamento specifiche...
+                        </Text>
+                    ) : (
+                        <div className={styles.fieldGrid}>
+                            {verticalConfig.productSections.allergens && (
+                                <div className={styles.subBlock}>
+                                    <Text variant="body-sm" weight={600}>
+                                        {verticalConfig.copy.productSections.allergens}
+                                    </Text>
+                                    <div className={styles.allergenGrid}>
+                                        {allergens.map(a => (
+                                            <Pill
+                                                key={a.id}
+                                                label={a.label_it}
+                                                active={draftAllergenIds.includes(a.id)}
+                                                onClick={() => toggleAllergen(a.id)}
+                                                disabled={isSavingSpecs}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {verticalConfig.productSections.ingredients && (
+                                <div className={styles.subBlock}>
+                                    <Text variant="body-sm" weight={600}>
+                                        {verticalConfig.copy.productSections.ingredients}
+                                    </Text>
+                                    <IngredientCombobox
+                                        ingredients={allIngredients}
+                                        selectedIds={draftIngredientIds}
+                                        onToggle={toggleIngredient}
+                                        onCreate={handleCreateIngredient}
+                                        isLoadingIngredients={false}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {isSpecsDirty && (
+                        <ActionBar
+                            isSaving={isSavingSpecs}
+                            onCancel={handleCancelSpecs}
+                            onSave={handleSaveSpecs}
+                        />
+                    )}
                 </section>
             )}
 
+            {/* ── Caratteristiche ───────────────────────────────────── */}
             {showCharacteristics && (
                 <section className={styles.section} data-section="characteristics">
-                    <Text variant="title-sm" weight={600}>
-                        Caratteristiche
-                    </Text>
-                    <Text variant="body-sm" colorVariant="muted" className={styles.placeholder}>
-                        Categorie chip — Task 1.3
-                    </Text>
+                    <header className={styles.sectionHeader}>
+                        <Text variant="title-sm" weight={600}>
+                            Caratteristiche
+                        </Text>
+                    </header>
+
+                    {characteristicsLoading ? (
+                        <Text variant="body-sm" colorVariant="muted">
+                            Caricamento caratteristiche...
+                        </Text>
+                    ) : (
+                        <CharacteristicsSection
+                            vertical={vertical}
+                            value={draftCharacteristicIds}
+                            onChange={setDraftCharacteristicIds}
+                            disabled={isSavingCharacteristics}
+                        />
+                    )}
+
+                    {isCharacteristicsDirty && (
+                        <ActionBar
+                            isSaving={isSavingCharacteristics}
+                            onCancel={handleCancelCharacteristics}
+                            onSave={handleSaveCharacteristics}
+                        />
+                    )}
                 </section>
             )}
 
-            <section className={styles.section} data-section="notes">
-                <Text variant="title-sm" weight={600}>
-                    Note prodotto
-                </Text>
-                <Text variant="body-sm" colorVariant="muted" className={styles.placeholder}>
-                    Note key-value — Task 1.3
-                </Text>
-            </section>
+            {/* ── Note prodotto ─────────────────────────────────────── */}
+            {showNotes && (
+                <section className={styles.section} data-section="notes">
+                    <header className={styles.sectionHeader}>
+                        <Text variant="title-sm" weight={600}>
+                            Note prodotto
+                        </Text>
+                    </header>
+
+                    <ProductNotesSection
+                        value={draftNotes}
+                        onChange={setDraftNotes}
+                        disabled={isSavingNotes}
+                    />
+
+                    {isNotesDirty && (
+                        <ActionBar
+                            isSaving={isSavingNotes}
+                            onCancel={handleCancelNotes}
+                            onSave={handleSaveNotes}
+                        />
+                    )}
+                </section>
+            )}
 
             <ProductGroupsEditDrawer
                 open={isGroupsDrawerOpen}

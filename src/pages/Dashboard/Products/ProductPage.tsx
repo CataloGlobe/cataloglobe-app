@@ -220,6 +220,7 @@ export default function ProductPage() {
                                 product={product}
                                 productId={productId!}
                                 tenantId={tenantId!}
+                                vertical={selectedTenant?.vertical_type}
                                 onProductUpdated={updated => setProduct(updated)}
                                 onNavigateToTab={tab =>
                                     setActiveTab(tab as ProductPageTab)

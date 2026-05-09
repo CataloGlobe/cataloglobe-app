@@ -27,6 +27,18 @@
     gap: 16px;
 }
 
+.subBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.allergenGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
 .descriptionField {
     display: flex;
     flex-direction: column;
@@ -96,7 +108,7 @@
 }
 
 // ── Sticky action bar ─────────────────────────────────────────────────
-// Mirrors the pattern in CharacteristicsAndNotesTab.module.scss
+// Per-section dirty/save bar. Una bar per sub-sezione attiva.
 
 .actionBar {
     position: sticky;
