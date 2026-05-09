@@ -1,17 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
-import { Switch } from "@/components/ui/Switch/Switch";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import Text from "@/components/ui/Text/Text";
-import { TranslationProgressWidget } from "@/components/Translations/TranslationProgressWidget/TranslationProgressWidget";
+import { LanguageRow } from "@/components/SettingsLanguages/LanguageRow";
+import { useTranslationProgress } from "@/hooks/useTranslationProgress";
 import {
     listAvailableLanguages,
     listTenantLanguages,
     activateTenantLanguage,
     deactivateTenantLanguage,
+    retryAllFailedTranslations,
     type SupportedLanguage,
     type TenantLanguage
 } from "@/services/supabase/tenantLanguages";
@@ -28,6 +29,8 @@ export default function SettingsLanguages() {
     const [pendingLang, setPendingLang] = useState<SupportedLanguage | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
 
+    const progress = useTranslationProgress(tenantId, refreshKey);
+
     const loadData = useCallback(async () => {
         if (!tenantId) return;
         try {
@@ -36,8 +39,7 @@ export default function SettingsLanguages() {
                 listAvailableLanguages(),
                 listTenantLanguages(tenantId)
             ]);
-            // Filtra italiano (lingua base, non gestibile da UI)
-            setAvailable(avail.filter(l => l.code !== "it"));
+            setAvailable(avail);
             setActive(act);
         } catch {
             showToast({ message: t("errors.load_failed"), type: "error" });
@@ -50,8 +52,20 @@ export default function SettingsLanguages() {
         loadData();
     }, [loadData]);
 
+    // Italiano sempre primo, resto in ordine già fornito dal service (sort_order).
+    const orderedLangs = useMemo(() => {
+        const it = available.find(l => l.code === "it");
+        const others = available.filter(l => l.code !== "it");
+        return it ? [it, ...others] : others;
+    }, [available]);
+
     const isLangActive = (code: string): boolean =>
         active.some(a => a.language_code === code && a.is_active);
+
+    const progressByLang = useCallback(
+        (code: string) => progress?.by_lang.find(b => b.lang === code),
+        [progress]
+    );
 
     const handleToggle = (lang: SupportedLanguage, checked: boolean) => {
         if (!checked) {
@@ -95,52 +109,65 @@ export default function SettingsLanguages() {
         }
     };
 
+    const handleRetryErrors = async (): Promise<void> => {
+        if (!tenantId) return;
+        try {
+            const count = await retryAllFailedTranslations(tenantId);
+            showToast({
+                message: t("languages.progress.retry_success", { count }),
+                type: "success"
+            });
+            setRefreshKey(k => k + 1);
+        } catch {
+            showToast({
+                message: t("languages.progress.retry_error"),
+                type: "error"
+            });
+        }
+    };
+
     return (
         <>
-            <PageHeader title={t("languages.title")} subtitle={t("languages.description")} />
+            <div className={styles.page}>
+                <PageHeader
+                    title={t("languages.title")}
+                    subtitle={t("languages.description")}
+                />
 
-            <TranslationProgressWidget tenantId={tenantId} refreshKey={refreshKey} />
-
-            <div className={styles.banner}>
-                <Text variant="body-sm" colorVariant="muted">
-                    {t("languages.italian_base")}
-                </Text>
+                {loading ? (
+                    <div className={styles.loading}>
+                        <Text variant="body" colorVariant="muted">
+                            {t("languages.title")}…
+                        </Text>
+                    </div>
+                ) : (
+                    <div className={styles.list}>
+                        {orderedLangs.map((lang, idx) => {
+                            const isBase = lang.code === "it";
+                            return (
+                                <LanguageRow
+                                    key={lang.code}
+                                    code={lang.code}
+                                    name={lang.name_it}
+                                    flagEmoji={lang.flag_emoji}
+                                    isActive={isLangActive(lang.code)}
+                                    isBase={isBase}
+                                    progress={progressByLang(lang.code)}
+                                    rowIndex={idx}
+                                    onToggle={
+                                        isBase
+                                            ? undefined
+                                            : next => handleToggle(lang, next)
+                                    }
+                                    onRetryErrors={
+                                        isBase ? undefined : handleRetryErrors
+                                    }
+                                />
+                            );
+                        })}
+                    </div>
+                )}
             </div>
-
-            {loading ? (
-                <div className={styles.loading}>
-                    <Text variant="body" colorVariant="muted">
-                        {t("languages.title")}…
-                    </Text>
-                </div>
-            ) : (
-                <div className={styles.list}>
-                    {available.map(lang => {
-                        const checked = isLangActive(lang.code);
-                        return (
-                            <div key={lang.code} className={styles.row}>
-                                {lang.flag_emoji && (
-                                    <span className={styles.flag} aria-hidden>
-                                        {lang.flag_emoji}
-                                    </span>
-                                )}
-                                <div className={styles.info}>
-                                    <Text variant="body" weight={600}>
-                                        {lang.name_it}
-                                    </Text>
-                                    <span className={styles.code}>{lang.code}</span>
-                                </div>
-                                <div className={styles.toggle}>
-                                    <Switch
-                                        checked={checked}
-                                        onChange={next => handleToggle(lang, next)}
-                                    />
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
 
             <ConfirmDialog
                 isOpen={pendingLang !== null}

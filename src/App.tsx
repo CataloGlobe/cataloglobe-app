@@ -210,6 +210,8 @@ export default function App() {
                     <Route path=":styleId" element={<StyleEditorPage />} />
                 </Route>
 
+                <Route path="languages" element={<SettingsLanguages />} />
+
                 <Route path="attributes" element={<Navigate to="../products?tab=attributes" replace />} />
 
                 <Route path="reviews" element={<Reviews />} />
@@ -218,7 +220,6 @@ export default function App() {
                 <Route path="team" element={<BusinessTeamPage />} />
                 <Route path="subscription" element={<SubscriptionPage />} />
                 <Route path="settings" element={<BusinessSettingsPage />} />
-                <Route path="settings/languages" element={<SettingsLanguages />} />
             </Route>
 
             {/* Legacy backward-compatibility redirects */}
