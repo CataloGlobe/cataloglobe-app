@@ -95,6 +95,20 @@ serve(async req => {
     const now = new Date();
     const nowMs = now.getTime();
 
+    // Body opzionale: il client può passare navigation_type derivato da
+    // PerformanceNavigationTiming.type ("navigate" | "reload" | "back_forward"
+    // | "prerender"). Sanitize: solo string ≤32 chars, altrimenti null.
+    let navigationType: string | null = null;
+    try {
+        const body = await req.json();
+        if (body && typeof body.navigation_type === "string") {
+            const v = body.navigation_type.trim().slice(0, 32);
+            if (v.length > 0) navigationType = v;
+        }
+    } catch {
+        // body assente o non JSON: ok, navigationType resta null
+    }
+
     // ---------- Telemetria: contesto richiesta ----------
     const requestIp = firstForwardedFor(req.headers.get("x-forwarded-for"));
     const userAgent = req.headers.get("user-agent");
@@ -134,7 +148,8 @@ serve(async req => {
             triggered_by: "verify_otp_page_mount",
             outcome: params.outcome,
             cooldown_remaining_ms: params.cooldownRemainingMs ?? null,
-            send_count_in_window: params.sendCountInWindow ?? null
+            send_count_in_window: params.sendCountInWindow ?? null,
+            navigation_type: navigationType
         };
 
         console.log("[OTP_AUDIT]", JSON.stringify(row));
