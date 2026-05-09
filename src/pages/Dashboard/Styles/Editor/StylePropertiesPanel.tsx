@@ -331,10 +331,43 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                 </div>
             </section>
 
-            {/* CARD LAYOUT */}
+            {/* CONTENUTI IN EVIDENZA */}
             <section className={styles.panelSection}>
                 <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
-                    Card Layout
+                    Contenuti in evidenza
+                </Text>
+
+                <div className={styles.controlField}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Stile contenuti in evidenza<InfoTooltip content="Card mostra immagine e testo separati. Highlight sovrappone il testo all'immagine." />
+                    </Text>
+                    <div className={`${styles.miniPreviewGrid} ${styles.miniPreviewGridTwoCols}`} role="radiogroup">
+                        {featuredStyleOptions.map(option => {
+                            const isActive = model.appearance.featuredStyle === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={isActive}
+                                    className={`${styles.miniPreviewCard} ${
+                                        isActive ? styles.miniPreviewCardActive : ""
+                                    }`}
+                                    onClick={() => updateFeaturedStyle(option.value)}
+                                >
+                                    <FeaturedStylePreview variant={option.value} />
+                                    <span className={styles.miniPreviewLabel}>{option.label}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            </section>
+
+            {/* PRODOTTI */}
+            <section className={styles.panelSection}>
+                <Text as="h4" variant="title-sm" weight={700} className={styles.sectionTitle}>
+                    Prodotti
                 </Text>
 
                 <div className={styles.controlField}>
@@ -468,32 +501,6 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     )}
                 </div>
                 )}
-
-                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
-                    <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Stile contenuti in evidenza<InfoTooltip content="Card mostra immagine e testo separati. Highlight sovrappone il testo all'immagine." />
-                    </Text>
-                    <div className={`${styles.miniPreviewGrid} ${styles.miniPreviewGridTwoCols}`} role="radiogroup">
-                        {featuredStyleOptions.map(option => {
-                            const isActive = model.appearance.featuredStyle === option.value;
-                            return (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    role="radio"
-                                    aria-checked={isActive}
-                                    className={`${styles.miniPreviewCard} ${
-                                        isActive ? styles.miniPreviewCardActive : ""
-                                    }`}
-                                    onClick={() => updateFeaturedStyle(option.value)}
-                                >
-                                    <FeaturedStylePreview variant={option.value} />
-                                    <span className={styles.miniPreviewLabel}>{option.label}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
             </section>
 
             {/* TIPOGRAFIA */}
