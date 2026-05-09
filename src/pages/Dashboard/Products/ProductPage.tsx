@@ -18,13 +18,12 @@ import { getProduct, V2Product } from "@/services/supabase/products";
 import { getProductOptions, GroupWithValues } from "@/services/supabase/productOptions";
 import { getVariantMatrixConfig, VariantMatrixConfig } from "@/services/supabase/productVariants";
 import { getProductUsage, ProductUsageData } from "@/services/supabase/productUsage";
-import { GeneralTab } from "./GeneralTab";
+import DetailsTab from "./DetailsTab";
 import { PricingTab } from "./PricingTab";
 import { ConfigTab } from "./ConfigTab";
 import { UsageTab } from "./UsageTab";
 import { VariantsTab } from "./VariantsTab";
 import { AttributesTab } from "./AttributesTab";
-import CharacteristicsAndNotesTab from "./CharacteristicsAndNotesTab";
 import { TranslationsTab } from "./TranslationsTab";
 import { ProductCreateEditDrawer } from "./ProductCreateEditDrawer";
 import { MatrixConfigDrawer } from "./MatrixConfigDrawer";
@@ -42,35 +41,15 @@ export default function ProductPage() {
     const [error, setError] = useState<string | null>(null);
 
     type ProductPageTab =
-        | "general"
-        | "characteristics"
+        | "details"
         | "pricing"
         | "config"
         | "attributes"
         | "translations"
         | "usage";
-    // While the product hasn't loaded yet (initial mount), keep the
-    // characteristics tab permissively visible so deep links like
-    // `?tab=characteristics` are not stripped by useFilteredProductTabs
-    // before we know whether the product is a parent. Once loaded, the
-    // gating tightens: variants drop the tab (parent-only persistence in
-    // Phase 4b; variants inherit visually in Phase 5).
-    const characteristicsAllowedForProduct =
-        product === null || product.parent_product_id === null;
     const allTabs = useMemo<ProductTabDef<ProductPageTab>[]>(
         () => [
-            { value: "general", label: "Generale" },
-            {
-                value: "characteristics",
-                label: verticalConfig.copy.productSections.characteristics,
-                // Tab is visible when EITHER section is enabled. Generic
-                // vertical (characteristics off, notes on) shows the tab
-                // with an empty-state characteristics block + a working
-                // notes editor.
-                gated: c =>
-                    (c.productSections.characteristics || c.productSections.notes) &&
-                    characteristicsAllowedForProduct
-            },
+            { value: "details", label: "Dettagli" },
             {
                 value: "pricing",
                 label: product?.parent_product_id ? "Prezzi" : "Prezzi & Varianti"
@@ -90,13 +69,19 @@ export default function ProductPage() {
             },
             { value: "usage", label: "Utilizzo" }
         ],
-        [product, verticalConfig, characteristicsAllowedForProduct]
+        [product, verticalConfig]
     );
     const { visibleTabs, initialTab } = useFilteredProductTabs<ProductPageTab>(
         allTabs,
-        "general",
-        // Legacy: ?tab=variants used to be a separate tab; merged into pricing
-        { variants: "pricing" }
+        "details",
+        // Legacy redirects:
+        // - ?tab=variants used to be a separate tab; merged into pricing
+        // - ?tab=general / ?tab=characteristics merged into details (Task 1.1)
+        {
+            variants: "pricing",
+            general: "details",
+            characteristics: "details"
+        }
     );
     const [activeTab, setActiveTab] = useState<ProductPageTab>(initialTab);
 
@@ -229,29 +214,16 @@ export default function ProductPage() {
                 </Tabs.List>
 
                 <div className={styles.tabContent}>
-                    <Tabs.Panel value="general">
+                    <Tabs.Panel value="details">
                         <Card>
-                            <GeneralTab
+                            <DetailsTab
                                 product={product}
+                                productId={productId!}
                                 tenantId={tenantId!}
                                 onProductUpdated={updated => setProduct(updated)}
                             />
                         </Card>
                     </Tabs.Panel>
-
-                    {(verticalConfig.productSections.characteristics ||
-                        verticalConfig.productSections.notes) &&
-                        product.parent_product_id === null && (
-                            <Tabs.Panel value="characteristics">
-                                <CharacteristicsAndNotesTab
-                                    productId={productId!}
-                                    tenantId={tenantId!}
-                                    vertical={selectedTenant?.vertical_type}
-                                    initialNotes={product.notes}
-                                    onProductUpdated={updated => setProduct(updated)}
-                                />
-                            </Tabs.Panel>
-                        )}
 
                     <Tabs.Panel value="pricing">
                         <Card>

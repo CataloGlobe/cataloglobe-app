@@ -1,0 +1,17 @@
+.tab {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 16px;
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.placeholder {
+    font-style: italic;
+    padding: 4px 0;
+}
