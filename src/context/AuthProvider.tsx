@@ -19,6 +19,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [otpVerified, setOtpVerified] = useState(false);
     const [otpLoading, setOtpLoading] = useState(true); // bootstrap
     const [otpRefreshing, setOtpRefreshing] = useState(false); // refresh background
+    // True quando la query di check OTP ha fallito per errore (rete/postgrest).
+    // Distingue "non sappiamo" da "non verificato" → ProtectedRoute non
+    // rediriga a /verify-otp (che genererebbe un send-otp non richiesto).
+    const [otpCheckFailed, setOtpCheckFailed] = useState(false);
 
     // evita race condition tra chiamate multiple
     const otpReqIdRef = useRef(0);
@@ -62,11 +66,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (error) {
                 console.error("[otp] check failed:", error);
-                if (reason === "bootstrap") {
-                    setOtpVerified(false);
-                }
+                // Errore di rete/postgrest: NON sappiamo se l'utente è
+                // verificato. Non flippare otpVerified — preserva lo stato.
+                // ProtectedRoute mostrerà OtpCheckErrorScreen invece di
+                // rediriggere a /verify-otp (che farebbe partire send-otp).
+                setOtpCheckFailed(true);
                 return;
             }
+
+            // Success: clear eventuale flag di errore precedente.
+            setOtpCheckFailed(false);
 
             if (reason === "bootstrap" || reason === "force") {
                 setOtpVerified(!!data);
@@ -75,8 +84,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         } catch (e) {
             console.error("[otp] check crashed:", e);
-            if (reqId === otpReqIdRef.current && reason === "bootstrap") {
-                setOtpVerified(false);
+            if (reqId === otpReqIdRef.current) {
+                setOtpCheckFailed(true);
             }
         } finally {
             if (reason === "bootstrap") setOtpLoading(false);
@@ -123,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setOtpVerified(false);
                 setOtpLoading(false);
                 setOtpRefreshing(false);
+                setOtpCheckFailed(false);
                 return;
             }
 
@@ -157,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setOtpVerified(false);
         setOtpLoading(false);
         setOtpRefreshing(false);
+        setOtpCheckFailed(false);
     }
 
     return (
@@ -167,6 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 otpVerified,
                 otpLoading,
                 otpRefreshing,
+                otpCheckFailed,
                 signOut: handleSignOut,
                 refreshOtp: () => checkOtpForUser("refresh"),
                 forceOtpCheck: () => checkOtpForUser("force")
