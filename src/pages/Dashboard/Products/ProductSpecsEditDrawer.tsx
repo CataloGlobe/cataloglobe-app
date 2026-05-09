@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
@@ -94,7 +94,10 @@ export function ProductSpecsEditDrawer({
         return newIngredient.id;
     };
 
-    const handleSave = async () => {
+    const formId = "product-specs-edit-form";
+
+    const handleSubmit = async (e: FormEvent) => {
+        e.preventDefault();
         try {
             setIsSaving(true);
             await Promise.all([
@@ -121,12 +124,18 @@ export function ProductSpecsEditDrawer({
                 }
                 footer={
                     <>
-                        <Button variant="secondary" onClick={onClose} disabled={isSaving}>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={onClose}
+                            disabled={isSaving}
+                        >
                             Annulla
                         </Button>
                         <Button
+                            type="submit"
+                            form={formId}
                             variant="primary"
-                            onClick={handleSave}
                             loading={isSaving}
                             disabled={isSaving || isLoading}
                         >
@@ -135,47 +144,49 @@ export function ProductSpecsEditDrawer({
                     </>
                 }
             >
-                {isLoading ? (
-                    <Text variant="body-sm" colorVariant="muted">
-                        Caricamento specifiche...
-                    </Text>
-                ) : (
-                    <div className={styles.content}>
-                        {verticalConfig.productSections.allergens && (
-                            <div className={styles.specsField}>
-                                <Text variant="body-sm" weight={600}>
-                                    {verticalConfig.copy.productSections.allergens}
-                                </Text>
-                                <div className={styles.allergenGrid}>
-                                    {systemAllergens.map(allergen => (
-                                        <Pill
-                                            key={allergen.id}
-                                            label={allergen.label_it}
-                                            active={selectedAllergenIds.includes(allergen.id)}
-                                            onClick={() => toggleAllergen(allergen.id)}
-                                            disabled={isSaving}
-                                        />
-                                    ))}
+                <form id={formId} onSubmit={handleSubmit}>
+                    {isLoading ? (
+                        <Text variant="body-sm" colorVariant="muted">
+                            Caricamento specifiche...
+                        </Text>
+                    ) : (
+                        <div className={styles.content}>
+                            {verticalConfig.productSections.allergens && (
+                                <div className={styles.specsField}>
+                                    <Text variant="body-sm" weight={600}>
+                                        {verticalConfig.copy.productSections.allergens}
+                                    </Text>
+                                    <div className={styles.allergenGrid}>
+                                        {systemAllergens.map(allergen => (
+                                            <Pill
+                                                key={allergen.id}
+                                                label={allergen.label_it}
+                                                active={selectedAllergenIds.includes(allergen.id)}
+                                                onClick={() => toggleAllergen(allergen.id)}
+                                                disabled={isSaving}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
 
-                        {verticalConfig.productSections.ingredients && (
-                            <div className={styles.specsField}>
-                                <Text variant="body-sm" weight={600}>
-                                    {verticalConfig.copy.productSections.ingredients}
-                                </Text>
-                                <IngredientCombobox
-                                    ingredients={systemIngredients}
-                                    selectedIds={selectedIngredientIds}
-                                    onToggle={toggleIngredient}
-                                    onCreate={handleCreateIngredient}
-                                    isLoadingIngredients={false}
-                                />
-                            </div>
-                        )}
-                    </div>
-                )}
+                            {verticalConfig.productSections.ingredients && (
+                                <div className={styles.specsField}>
+                                    <Text variant="body-sm" weight={600}>
+                                        {verticalConfig.copy.productSections.ingredients}
+                                    </Text>
+                                    <IngredientCombobox
+                                        ingredients={systemIngredients}
+                                        selectedIds={selectedIngredientIds}
+                                        onToggle={toggleIngredient}
+                                        onCreate={handleCreateIngredient}
+                                        isLoadingIngredients={false}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </form>
             </DrawerLayout>
         </SystemDrawer>
     );
