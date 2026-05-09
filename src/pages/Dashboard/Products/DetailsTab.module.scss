@@ -108,43 +108,42 @@
 }
 
 // ── Sticky action bar ─────────────────────────────────────────────────
-// Per-section dirty/save bar. Footer-pattern allineato al footer dei drawer
-// del backoffice: sfondo grigio tenue, border-top neutro, niente shadow né
-// animazioni. Una bar per sub-sezione attiva.
+// Self-contained pill inside the section: full border, radius 8px coerente
+// con input/bottoni, sticky bottom funzionante (no margin negativo).
 
 .actionBar {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+
     position: sticky;
     bottom: 16px;
     z-index: 10;
-    // Bleed orizzontale fino al bordo del .tab (padding 16px) — la section
-    // non ha padding-x propria, quindi -16px riporta la bar al bordo card.
-    margin: 8px -16px 0;
-    padding: 12px 16px;
-    background-color: var(--color-gray-50, #f8fafc);
-    border-top: 1px solid var(--color-gray-200, #e2e8f0);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
 }
 
 .actionBarLabel {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 8px;
     font-size: 13px;
-    color: var(--color-gray-600, #64748b);
+    color: #64748b;
 }
 
 .dirtyDot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background-color: var(--color-warning-500, #f59e0b);
+    background: var(--color-warning-500);
+    flex-shrink: 0;
 }
 
 .actionBarButtons {
-    display: inline-flex;
-    align-items: center;
+    display: flex;
     gap: 8px;
 }
