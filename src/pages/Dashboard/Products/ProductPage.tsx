@@ -25,6 +25,7 @@ import { UsageTab } from "./UsageTab";
 import { VariantsTab } from "./VariantsTab";
 import { AttributesTab } from "./AttributesTab";
 import CharacteristicsAndNotesTab from "./CharacteristicsAndNotesTab";
+import { TranslationsTab } from "./TranslationsTab";
 import { ProductCreateEditDrawer } from "./ProductCreateEditDrawer";
 import { MatrixConfigDrawer } from "./MatrixConfigDrawer";
 import styles from "./ProductPage.module.scss";
@@ -46,6 +47,7 @@ export default function ProductPage() {
         | "pricing"
         | "config"
         | "attributes"
+        | "translations"
         | "usage";
     // While the product hasn't loaded yet (initial mount), keep the
     // characteristics tab permissively visible so deep links like
@@ -79,9 +81,16 @@ export default function ProductPage() {
                 label: verticalConfig.copy.productSections.customAttributes,
                 gated: c => c.productSections.customAttributes
             },
+            {
+                value: "translations",
+                label: "Traduzioni",
+                // Translations live on the base product; variants inherit the
+                // parent's translated description through the resolver.
+                gated: () => product === null || product.parent_product_id === null
+            },
             { value: "usage", label: "Utilizzo" }
         ],
-        [product?.parent_product_id, verticalConfig, characteristicsAllowedForProduct]
+        [product, verticalConfig, characteristicsAllowedForProduct]
     );
     const { visibleTabs, initialTab } = useFilteredProductTabs<ProductPageTab>(
         allTabs,
@@ -286,6 +295,18 @@ export default function ProductPage() {
                                     productId={productId!}
                                     tenantId={tenantId!}
                                     vertical={selectedTenant?.vertical_type}
+                                />
+                            </Card>
+                        </Tabs.Panel>
+                    )}
+
+                    {product.parent_product_id === null && (
+                        <Tabs.Panel value="translations">
+                            <Card>
+                                <TranslationsTab
+                                    productId={productId!}
+                                    tenantId={tenantId!}
+                                    product={product}
                                 />
                             </Card>
                         </Tabs.Panel>
