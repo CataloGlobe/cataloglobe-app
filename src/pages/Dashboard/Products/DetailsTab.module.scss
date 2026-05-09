@@ -108,59 +108,39 @@
 }
 
 // ── Sticky action bar ─────────────────────────────────────────────────
-// Per-section dirty/save bar. Una bar per sub-sezione attiva.
+// Per-section dirty/save bar. Footer-pattern allineato al footer dei drawer
+// del backoffice: sfondo grigio tenue, border-top neutro, niente shadow né
+// animazioni. Una bar per sub-sezione attiva.
 
 .actionBar {
     position: sticky;
     bottom: 16px;
     z-index: 10;
-    margin-top: 8px;
+    // Bleed orizzontale fino al bordo del .tab (padding 16px) — la section
+    // non ha padding-x propria, quindi -16px riporta la bar al bordo card.
+    margin: 8px -16px 0;
+    padding: 12px 16px;
+    background-color: var(--color-gray-50, #f8fafc);
+    border-top: 1px solid var(--color-gray-200, #e2e8f0);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
-    padding: 12px 16px;
-    background-color: var(--color-white, #fff);
-    border: 1px solid var(--color-warning-200, var(--color-gray-200));
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-    border-radius: var(--radius-md);
-    animation: actionBarSlideIn 0.18s ease-out;
-}
-
-@keyframes actionBarSlideIn {
-    from {
-        opacity: 0;
-        transform: translateY(8px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    gap: 12px;
 }
 
 .actionBarLabel {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    color: var(--color-warning-700, var(--color-gray-800));
+    font-size: 13px;
+    color: var(--color-gray-600, #64748b);
 }
 
 .dirtyDot {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background-color: var(--color-warning-500, #f59e0b);
-    box-shadow: 0 0 0 3px var(--color-warning-100, rgba(245, 158, 11, 0.18));
-    animation: dirtyDotPulse 1.6s ease-in-out infinite;
-}
-
-@keyframes dirtyDotPulse {
-    0%, 100% {
-        box-shadow: 0 0 0 3px var(--color-warning-100, rgba(245, 158, 11, 0.18));
-    }
-    50% {
-        box-shadow: 0 0 0 6px var(--color-warning-100, rgba(245, 158, 11, 0.05));
-    }
 }
 
 .actionBarButtons {
