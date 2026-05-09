@@ -72,6 +72,16 @@ export default function Businesses() {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+    const [seatLimitDialogOpen, setSeatLimitDialogOpen] = useState(false);
+
+    // Role-aware copy for inactive subscription toast.
+    const subscriptionInactiveMessage = useCallback(() => {
+        if (userRole === "owner")
+            return "L'abbonamento non è attivo. Vai alla pagina abbonamento per riattivarlo.";
+        if (userRole === "admin")
+            return "L'abbonamento non è attivo. Solo il proprietario può riattivarlo.";
+        return "L'abbonamento non è attivo. Contatta il proprietario.";
+    }, [userRole]);
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTab = (searchParams.get("tab") as "activities" | "groups") || "activities";
     const setActiveTab = (tab: string) => {
@@ -286,7 +296,7 @@ export default function Businesses() {
         async (e: React.FormEvent) => {
             e.preventDefault();
 
-            if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+            if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
 
             const errors = validateCreateForm(createForm);
             setCreateErrors(errors);
@@ -328,18 +338,26 @@ export default function Businesses() {
                 return;
             }
 
-            // --- Seat limit enforcement ---
+            // --- Seat limit safety net (dialog at click should pre-empt this) ---
             if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
+                const paidSeats = selectedTenant.paid_seats;
+                const seatsLabel = paidSeats === 1 ? "una sede" : `${paidSeats} sedi`;
                 if (userRole === "owner") {
                     showToast({
-                        message: `Hai raggiunto il limite di ${selectedTenant.paid_seats} sed${selectedTenant.paid_seats === 1 ? "e" : "i"} del tuo piano.`,
+                        message: `Hai raggiunto il limite di sedi. Il tuo piano include ${seatsLabel}. Apri la pagina abbonamento per espandere.`,
                         type: "error",
                         duration: 4000
                     });
                     navigate(`/business/${businessId}/subscription`);
+                } else if (userRole === "admin") {
+                    showToast({
+                        message: `Hai raggiunto il limite di sedi. Il piano include ${seatsLabel}. Solo il proprietario può espandere l'abbonamento.`,
+                        type: "error",
+                        duration: 4000
+                    });
                 } else {
                     showToast({
-                        message: "Hai raggiunto il limite di sedi. Contatta il proprietario dell'attività per aggiungere sedi.",
+                        message: `Hai raggiunto il limite di sedi. Il piano include ${seatsLabel}. Contatta il proprietario.`,
                         type: "error",
                         duration: 4000
                     });
@@ -396,7 +414,20 @@ export default function Businesses() {
                 setCreateSlugState({ type: "idle" });
             }
         },
-        [tenantId, createForm, createCoverFile, refreshBusinesses, showToast, canEdit]
+        [
+            tenantId,
+            createForm,
+            createCoverFile,
+            refreshBusinesses,
+            showToast,
+            canEdit,
+            selectedTenant,
+            businesses,
+            navigate,
+            businessId,
+            userRole,
+            subscriptionInactiveMessage
+        ]
     );
 
     // ======================================
@@ -466,7 +497,7 @@ export default function Businesses() {
     // CALLBACK: edit business
     // ======================================
     const handleEditClick = useCallback((business: BusinessWithCapabilities) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
         setEditingBusiness(business);
         setEditingId(business.id);
         setEditForm({
@@ -482,7 +513,7 @@ export default function Businesses() {
         setEditCoverFile(null);
         setIsEditOpen(true);
         setEditSlugState({ type: "idle" });
-    }, [canEdit, showToast]);
+    }, [canEdit, showToast, subscriptionInactiveMessage]);
 
     const handleEditFieldChange = useCallback(
         <K extends keyof BusinessFormValues>(field: K, value: BusinessFormValues[K]) => {
@@ -733,9 +764,13 @@ export default function Businesses() {
                     activeTab === "activities" ? (
                         <Button
                             variant="primary"
-                            disabled={!canEdit || (!!selectedTenant && businesses.length >= selectedTenant.paid_seats)}
+                            disabled={!canEdit}
                             onClick={() => {
-                                if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+                                if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
+                                if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
+                                    setSeatLimitDialogOpen(true);
+                                    return;
+                                }
                                 setIsCreateOpen(true);
                                 setCreateSlugState({ type: "idle" });
                             }}
@@ -747,7 +782,7 @@ export default function Businesses() {
                             variant="primary"
                             disabled={!canEdit}
                             onClick={() => {
-                                if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+                                if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
                                 window.dispatchEvent(new CustomEvent("open-group-drawer"));
                             }}
                         >
@@ -910,6 +945,80 @@ export default function Businesses() {
                     <Button variant="primary" onClick={confirmDelete}>
                         {isDeleting ? "Eliminazione in corso..." : "Elimina"}
                     </Button>
+                </ModalLayoutFooter>
+            </ModalLayout>
+
+            <ModalLayout
+                isOpen={seatLimitDialogOpen}
+                onClose={() => setSeatLimitDialogOpen(false)}
+                width="sm"
+                height="fit"
+            >
+                <ModalLayoutHeader>
+                    <Text as="h2" variant="title-sm" weight={700}>
+                        Hai raggiunto il limite di sedi
+                    </Text>
+                </ModalLayoutHeader>
+
+                <ModalLayoutContent>
+                    <Text variant="body">
+                        {(() => {
+                            const paidSeats = selectedTenant?.paid_seats ?? 0;
+                            const seatsLabel = paidSeats === 1 ? "una sede" : `${paidSeats} sedi`;
+                            if (userRole === "owner")
+                                return `Il tuo piano include ${seatsLabel}. Per aggiungerne altre, espandi il piano dalla pagina abbonamento.`;
+                            if (userRole === "admin")
+                                return `Il piano include ${seatsLabel}. Solo il proprietario può espandere l'abbonamento.`;
+                            return `Il piano include ${seatsLabel}. Contatta il proprietario per aggiungere altre sedi.`;
+                        })()}
+                    </Text>
+                </ModalLayoutContent>
+
+                <ModalLayoutFooter>
+                    {userRole === "owner" ? (
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setSeatLimitDialogOpen(false)}
+                            >
+                                Annulla
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={() => {
+                                    setSeatLimitDialogOpen(false);
+                                    navigate(`/business/${businessId}/subscription`);
+                                }}
+                            >
+                                Apri abbonamento
+                            </Button>
+                        </>
+                    ) : userRole === "admin" ? (
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setSeatLimitDialogOpen(false)}
+                            >
+                                Chiudi
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={() => {
+                                    setSeatLimitDialogOpen(false);
+                                    navigate(`/business/${businessId}/subscription`);
+                                }}
+                            >
+                                Apri abbonamento
+                            </Button>
+                        </>
+                    ) : (
+                        <Button
+                            variant="primary"
+                            onClick={() => setSeatLimitDialogOpen(false)}
+                        >
+                            Ho capito
+                        </Button>
+                    )}
                 </ModalLayoutFooter>
             </ModalLayout>
         </section>

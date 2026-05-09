@@ -11,11 +11,12 @@ import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { SeatsInput } from "@/components/ui/SeatsInput/SeatsInput";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 
-import { ExternalLink, CreditCard, Shield, MapPin, Settings2, Lock } from "lucide-react";
+import { ExternalLink, CreditCard, Shield, MapPin, Settings2, Lock, Info } from "lucide-react";
 import styles from "./SubscriptionPage.module.scss";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "primary" | "warning" | "danger" }> = {
@@ -52,17 +53,17 @@ export default function SubscriptionPage() {
 
     if (loading || !selectedTenant) return null;
 
-    if (userRole !== "owner") {
+    if (userRole === "member") {
         return (
             <div className={styles.page}>
                 <PageHeader title="Abbonamento" />
                 <div className={styles.restrictedCard}>
                     <Lock size={32} className={styles.restrictedIcon} />
                     <Text variant="title-sm" weight={700}>
-                        Gestione riservata al proprietario
+                        Accesso riservato
                     </Text>
                     <Text variant="body-sm" colorVariant="muted" style={{ textAlign: "center", maxWidth: 360 }}>
-                        Solo il proprietario dell&apos;attività può gestire l&apos;abbonamento e il metodo di pagamento.
+                        Questa pagina è accessibile solo a proprietario e amministratori del team.
                     </Text>
                     <button
                         className={styles.restrictedLink}
@@ -165,6 +166,26 @@ export default function SubscriptionPage() {
                 subtitle="Gestisci il piano e il metodo di pagamento della tua attività."
             />
 
+            {userRole === "admin" && (
+                <div
+                    style={{
+                        display: "flex",
+                        gap: "10px",
+                        alignItems: "flex-start",
+                        background: "var(--info-bg, #eff6ff)",
+                        border: "1px solid var(--info-border, #bfdbfe)",
+                        borderRadius: "8px",
+                        padding: "10px 14px",
+                        color: "var(--info-text, #1e40af)"
+                    }}
+                >
+                    <Info size={16} style={{ flexShrink: 0, marginTop: "2px" }} />
+                    <Text variant="body-sm" weight={500}>
+                        Solo il proprietario può modificare l&apos;abbonamento. Hai accesso in sola lettura.
+                    </Text>
+                </div>
+            )}
+
             {/* --- Plan summary --- */}
             <div className={styles.section}>
                 <div className={styles.sectionHeader}>
@@ -246,17 +267,28 @@ export default function SubscriptionPage() {
                         />
                     </div>
 
-                    <Button
-                        variant="secondary"
-                        onClick={handleOpenSeatsDrawer}
-                        leftIcon={<Settings2 size={16} />}
-                    >
-                        Modifica numero sedi
-                    </Button>
+                    {activityCount >= paidSeats && paidSeats > 0 && (
+                        <InlineBanner variant="warning">
+                            {userRole === "owner"
+                                ? "Hai raggiunto il limite. Modifica il numero di sedi per espandere il piano."
+                                : "Hai raggiunto il limite. Solo il proprietario può modificare il numero di sedi."}
+                        </InlineBanner>
+                    )}
+
+                    {userRole === "owner" && (
+                        <Button
+                            variant="secondary"
+                            onClick={handleOpenSeatsDrawer}
+                            leftIcon={<Settings2 size={16} />}
+                        >
+                            Modifica numero sedi
+                        </Button>
+                    )}
                 </div>
             </div>
 
-            {/* --- Actions --- */}
+            {/* --- Actions (owner only) --- */}
+            {userRole === "owner" && (
             <div className={styles.section}>
                 <div className={styles.sectionHeader}>
                     <Shield size={18} />
@@ -329,8 +361,10 @@ export default function SubscriptionPage() {
                     </div>
                 )}
             </div>
+            )}
 
-            {/* --- Modify seats drawer (2-step) --- */}
+            {/* --- Modify seats drawer (2-step, owner only) --- */}
+            {userRole === "owner" && (
             <SystemDrawer
                 open={seatsDrawerOpen}
                 onClose={() => { setSeatsDrawerOpen(false); setSeatsDrawerStep("edit"); }}
@@ -434,6 +468,7 @@ export default function SubscriptionPage() {
                     </DrawerLayout>
                 )}
             </SystemDrawer>
+            )}
         </div>
     );
 }
