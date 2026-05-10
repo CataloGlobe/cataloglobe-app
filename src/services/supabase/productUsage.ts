@@ -122,10 +122,13 @@ export async function getProductUsage(
 }
 
 /**
- * Currently unused. Reserved for UsageTab catalog row enrichment (Task 3).
- *
  * Per un prodotto, restituisce tutte le assegnazioni (catalogo, categoria)
  * filtrate per tenant. Ordinamento: catalogo asc, categoria asc.
+ *
+ * Usata da UsageTab per arricchire le righe della card "Cataloghi" con
+ * il breadcrumb "Catalogo › Categoria" — un prodotto può apparire in
+ * più categorie dello stesso catalogo, in tal caso ritorna 1 row per
+ * coppia (catalog, category).
  *
  * Pattern multi-step (coerente con getProductUsage):
  *  1. catalog_category_products → coppie (catalog_id, category_id)

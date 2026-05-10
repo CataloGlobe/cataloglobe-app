@@ -247,6 +247,7 @@ export default function ProductPage() {
                         <Card>
                             <UsageTab
                                 productId={productId!}
+                                tenantId={tenantId!}
                                 usageData={usageData}
                                 usageLoading={usageLoading}
                             />

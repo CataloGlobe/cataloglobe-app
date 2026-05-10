@@ -1,6 +1,10 @@
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { IconChevronRight } from "@tabler/icons-react";
-import Text from "@/components/ui/Text/Text";
+import {
+    type ProductCategoryAssignment,
+    getProductCategoryAssignments
+} from "@/services/supabase/productUsage";
 import styles from "./UsageTab.module.scss";
 
 interface UsageItem {
@@ -16,79 +20,111 @@ interface UsageData {
 
 interface UsageTabProps {
     productId: string;
+    tenantId: string;
     usageData: UsageData | null;
     usageLoading: boolean;
 }
 
-export function UsageTab({ productId, usageData, usageLoading }: UsageTabProps) {
+export function UsageTab({ productId, tenantId, usageData, usageLoading }: UsageTabProps) {
     const { businessId } = useParams<{ businessId: string }>();
 
-    if (usageLoading) {
+    const [categoryAssignments, setCategoryAssignments] = useState<
+        ProductCategoryAssignment[]
+    >([]);
+    const [loadingAssignments, setLoadingAssignments] = useState(true);
+
+    useEffect(() => {
+        if (!productId || !tenantId) return;
+        let cancelled = false;
+        setLoadingAssignments(true);
+        getProductCategoryAssignments(productId, tenantId)
+            .then(data => {
+                if (!cancelled) setCategoryAssignments(data);
+            })
+            .catch(() => {
+                if (!cancelled) setCategoryAssignments([]);
+            })
+            .finally(() => {
+                if (!cancelled) setLoadingAssignments(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [productId, tenantId]);
+
+    if (usageLoading || loadingAssignments) {
         return (
-            <Text variant="body-sm" colorVariant="muted">
-                Caricamento utilizzo prodotto...
-            </Text>
+            <div className={styles.grid}>
+                <div className={styles.loading}>Caricamento utilizzo prodotto...</div>
+            </div>
         );
     }
 
     const data = usageData ?? { catalogs: [], schedules: [], activities: [] };
-
-    const activityCount = data.activities.length;
-    const catalogCount = data.catalogs.length;
-    const scheduleCount = data.schedules.length;
-
-    const catalogLabel = catalogCount === 1 ? "catalogo" : "cataloghi";
-    const scheduleLabel = scheduleCount === 1 ? "regola di programmazione" : "regole di programmazione";
+    const counts = {
+        activities: data.activities.length,
+        catalogs: data.catalogs.length,
+        schedules: data.schedules.length
+    };
 
     return (
-        <div className={styles.root}>
-            {/* Summary */}
-            <div className={styles.summary}>
-                <Text variant="body-sm" weight={600} className={styles.summaryTitle}>
-                    Questo prodotto è utilizzato in:
-                </Text>
-                <div className={styles.summaryBadges}>
-                    <span className={styles.summaryBadge}>{activityCount} attività</span>
-                    <span className={styles.badgeSeparator}>·</span>
-                    <span className={styles.summaryBadge}>{catalogCount} {catalogLabel}</span>
-                    <span className={styles.badgeSeparator}>·</span>
-                    <span className={styles.summaryBadge}>{scheduleCount} regole</span>
+        <div className={styles.grid}>
+            {/* ──────────────── Card 1 — Riepilogo utilizzo ──────────────── */}
+            <section className={styles.card} data-section="riepilogo">
+                <span className={styles.cardLabel}>Riepilogo utilizzo</span>
+                <span className={styles.cardHelp}>
+                    Visualizza dove questo prodotto è utilizzato nella piattaforma.
+                </span>
+                <div className={styles.summaryStats}>
+                    <span className={styles.summaryBadge}>
+                        <span className={styles.summaryBadgeNumber}>{counts.activities}</span>
+                        attività
+                    </span>
+                    <span className={styles.summaryBadge}>
+                        <span className={styles.summaryBadgeNumber}>{counts.catalogs}</span>
+                        {counts.catalogs === 1 ? "catalogo" : "cataloghi"}
+                    </span>
+                    <span className={styles.summaryBadge}>
+                        <span className={styles.summaryBadgeNumber}>{counts.schedules}</span>
+                        {counts.schedules === 1 ? "regola" : "regole"}
+                    </span>
                 </div>
-            </div>
+                <div className={styles.microcopy}>
+                    Per gestire i cataloghi vai a{" "}
+                    <Link to={`/business/${businessId}/catalogs`}>Cataloghi</Link>. Per
+                    modificare le regole di programmazione vai a{" "}
+                    <Link to={`/business/${businessId}/scheduling`}>Programmazione</Link>.
+                </div>
+            </section>
 
-            <Text variant="body-sm" colorVariant="muted" className={styles.microcopy}>
-                Questa sezione mostra dove il prodotto è utilizzato nel sistema. Per modificarne
-                l'utilizzo, vai alla sezione{" "}
-                <Link to={`/business/${businessId}/catalogs`} className={styles.inlineLink}>
-                    Cataloghi
-                </Link>{" "}
-                o{" "}
-                <Link to={`/business/${businessId}/scheduling`} className={styles.inlineLink}>
-                    Programmazione
-                </Link>
-                .
-            </Text>
-
-            {/* Catalogs */}
-            <section className={styles.section}>
-                <Text variant="title-sm" weight={600} className={styles.sectionTitle}>
-                    Cataloghi che includono questo prodotto
-                </Text>
-
-                {data.catalogs.length === 0 ? (
-                    <Text variant="body-sm" colorVariant="muted">
+            {/* ──────────────── Card 2 — Cataloghi (con breadcrumb categoria) ──────────────── */}
+            <section className={styles.card} data-section="cataloghi">
+                <span className={styles.cardLabel}>Cataloghi</span>
+                {categoryAssignments.length === 0 ? (
+                    <div className={styles.empty}>
                         Questo prodotto non è incluso in nessun catalogo.
-                    </Text>
+                    </div>
                 ) : (
                     <ul className={styles.list}>
-                        {data.catalogs.map(catalog => (
-                            <li key={catalog.id} className={styles.listItem}>
+                        {categoryAssignments.map(a => (
+                            <li
+                                key={`${a.catalog.id}-${a.category.id}`}
+                                className={styles.listItem}
+                            >
                                 <Link
-                                    to={`/business/${businessId}/catalogs/${catalog.id}?highlightProduct=${productId}`}
+                                    to={`/business/${businessId}/catalogs/${a.catalog.id}?highlightProduct=${productId}`}
                                     className={styles.link}
                                 >
-                                    {catalog.name}
-                                    <IconChevronRight size={14} />
+                                    <span className={styles.breadcrumb}>
+                                        <span className={styles.breadcrumbCatalog}>
+                                            {a.catalog.name}
+                                        </span>
+                                        <span className={styles.breadcrumbSeparator}>›</span>
+                                        <span className={styles.breadcrumbCategory}>
+                                            {a.category.name}
+                                        </span>
+                                    </span>
+                                    <IconChevronRight className={styles.chevron} size={16} />
                                 </Link>
                             </li>
                         ))}
@@ -96,16 +132,13 @@ export function UsageTab({ productId, usageData, usageLoading }: UsageTabProps) 
                 )}
             </section>
 
-            {/* Schedules */}
-            <section className={styles.section}>
-                <Text variant="title-sm" weight={600} className={styles.sectionTitle}>
-                    Programmazione
-                </Text>
-
+            {/* ──────────────── Card 3 — Programmazione ──────────────── */}
+            <section className={styles.card} data-section="programmazione">
+                <span className={styles.cardLabel}>Programmazione</span>
                 {data.schedules.length === 0 ? (
-                    <Text variant="body-sm" colorVariant="muted">
+                    <div className={styles.empty}>
                         Nessuna regola di programmazione coinvolge questo prodotto.
-                    </Text>
+                    </div>
                 ) : (
                     <ul className={styles.list}>
                         {data.schedules.map(schedule => (
@@ -114,8 +147,11 @@ export function UsageTab({ productId, usageData, usageLoading }: UsageTabProps) 
                                     to={`/business/${businessId}/scheduling/${schedule.id}`}
                                     className={styles.link}
                                 >
-                                    {schedule.name}
-                                    <IconChevronRight size={14} />
+                                    <span>{schedule.name}</span>
+                                    <IconChevronRight
+                                        className={styles.chevron}
+                                        size={16}
+                                    />
                                 </Link>
                             </li>
                         ))}
@@ -123,16 +159,13 @@ export function UsageTab({ productId, usageData, usageLoading }: UsageTabProps) 
                 )}
             </section>
 
-            {/* Activities */}
-            <section className={styles.section}>
-                <Text variant="title-sm" weight={600} className={styles.sectionTitle}>
-                    Attività coinvolte
-                </Text>
-
+            {/* ──────────────── Card 4 — Attività coinvolte ──────────────── */}
+            <section className={styles.card} data-section="attivita">
+                <span className={styles.cardLabel}>Attività coinvolte</span>
                 {data.activities.length === 0 ? (
-                    <Text variant="body-sm" colorVariant="muted">
+                    <div className={styles.empty}>
                         Questo prodotto non è attualmente visibile in nessuna attività.
-                    </Text>
+                    </div>
                 ) : (
                     <ul className={styles.list}>
                         {data.activities.map(activity => (
@@ -141,8 +174,11 @@ export function UsageTab({ productId, usageData, usageLoading }: UsageTabProps) 
                                     to={`/business/${businessId}/locations/${activity.id}`}
                                     className={styles.link}
                                 >
-                                    {activity.name}
-                                    <IconChevronRight size={14} />
+                                    <span>{activity.name}</span>
+                                    <IconChevronRight
+                                        className={styles.chevron}
+                                        size={16}
+                                    />
                                 </Link>
                             </li>
                         ))}
