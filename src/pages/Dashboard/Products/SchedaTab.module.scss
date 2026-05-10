@@ -97,59 +97,6 @@
     gap: 6px;
 }
 
-// ── Category assignments (read-only list) ───────────────────────────
-.assignmentList {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.assignmentRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-}
-
-.assignmentBreadcrumb {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 14px;
-    min-width: 0;
-}
-
-.assignmentCatalog {
-    color: #64748b;
-}
-
-.assignmentSep {
-    color: #94a3b8;
-}
-
-.assignmentCategory {
-    color: var(--text, #0f172a);
-    font-weight: 500;
-}
-
-.assignmentLink {
-    font-size: 13px;
-    color: var(--color-primary-600, #6366f1);
-    text-decoration: none;
-    flex-shrink: 0;
-
-    &:hover {
-        text-decoration: underline;
-    }
-}
-
 // ── Groups chips ────────────────────────────────────────────────────
 .chipList {
     display: flex;

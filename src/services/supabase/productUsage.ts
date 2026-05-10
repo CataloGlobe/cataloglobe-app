@@ -122,6 +122,8 @@ export async function getProductUsage(
 }
 
 /**
+ * Currently unused. Reserved for UsageTab catalog row enrichment (Task 3).
+ *
  * Per un prodotto, restituisce tutte le assegnazioni (catalogo, categoria)
  * filtrate per tenant. Ordinamento: catalogo asc, categoria asc.
  *

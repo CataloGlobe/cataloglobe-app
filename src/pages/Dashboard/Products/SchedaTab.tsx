@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { FileInput } from "@/components/ui/Input/FileInput";
@@ -38,10 +37,6 @@ import {
     getProductCharacteristics,
     setProductCharacteristics
 } from "@/services/supabase/productCharacteristics";
-import {
-    type ProductCategoryAssignment,
-    getProductCategoryAssignments
-} from "@/services/supabase/productUsage";
 import { ProductGroupsEditDrawer } from "./ProductGroupsEditDrawer";
 import { IngredientCombobox } from "./components/IngredientCombobox";
 import CharacteristicsSection from "./components/CharacteristicsSection/CharacteristicsSection";
@@ -260,26 +255,6 @@ export function SchedaTab({
             setIsSavingInformation(false);
         }
     }, [draftName, draftDescription, productId, tenantId, onProductUpdated, showToast]);
-
-    // ── Card Categoria nei cataloghi (read-only) ───────────────────────
-    const [categoryAssignments, setCategoryAssignments] = useState<ProductCategoryAssignment[]>([]);
-    const [categoryAssignmentsLoading, setCategoryAssignmentsLoading] = useState(true);
-
-    const loadCategoryAssignments = useCallback(async () => {
-        try {
-            setCategoryAssignmentsLoading(true);
-            const data = await getProductCategoryAssignments(productId, tenantId);
-            setCategoryAssignments(data);
-        } catch {
-            showToast({ message: "Errore nel caricamento delle categorie", type: "error" });
-        } finally {
-            setCategoryAssignmentsLoading(false);
-        }
-    }, [productId, tenantId, showToast]);
-
-    useEffect(() => {
-        loadCategoryAssignments();
-    }, [loadCategoryAssignments]);
 
     // ── Card Allergeni ─────────────────────────────────────────────────
     const [allergens, setAllergens] = useState<V2SystemAllergen[]>([]);
@@ -647,84 +622,53 @@ export function SchedaTab({
                     )}
                 </section>
 
-                {/* Card Categoria nei cataloghi (read-only) */}
-                <section className={styles.card} data-section="category-assignments">
+                {/* Card Gruppi prodotto (read-only + drawer) */}
+                <section className={styles.card} data-section="groups">
                     <header className={styles.cardHeader}>
-                        <span className={styles.cardLabel}>Categoria nei cataloghi</span>
+                        <span className={styles.cardLabel}>Gruppi prodotto</span>
+                        {!groupsLoading && allGroups.length > 0 && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setIsGroupsDrawerOpen(true)}
+                            >
+                                Modifica
+                            </Button>
+                        )}
                     </header>
 
-                    {categoryAssignmentsLoading ? (
+                    {groupsLoading ? (
                         <Text variant="body-sm" colorVariant="muted">
-                            Caricamento categorie...
+                            Caricamento gruppi...
                         </Text>
-                    ) : categoryAssignments.length === 0 ? (
+                    ) : allGroups.length === 0 ? (
                         <Text variant="body-sm" colorVariant="muted">
-                            Questo prodotto non è in nessun catalogo.
+                            Nessun gruppo disponibile per questo tenant.
                         </Text>
+                    ) : assignedGroups.length === 0 ? (
+                        <div className={styles.emptyGroupsRow}>
+                            <Text variant="body-sm" colorVariant="muted">
+                                Nessun gruppo assegnato.
+                            </Text>
+                            <button
+                                type="button"
+                                className={styles.inlineLink}
+                                onClick={() => setIsGroupsDrawerOpen(true)}
+                            >
+                                Aggiungi
+                            </button>
+                        </div>
                     ) : (
-                        <ul className={styles.assignmentList}>
-                            {categoryAssignments.map(a => (
-                                <li
-                                    key={`${a.catalog.id}:${a.category.id}`}
-                                    className={styles.assignmentRow}
-                                >
-                                    <span className={styles.assignmentBreadcrumb}>
-                                        <span className={styles.assignmentCatalog}>
-                                            {a.catalog.name}
-                                        </span>
-                                        <span className={styles.assignmentSep}>›</span>
-                                        <span className={styles.assignmentCategory}>
-                                            {a.category.name}
-                                        </span>
-                                    </span>
-                                    <Link
-                                        to={`/business/${tenantId}/catalogs/${a.catalog.id}`}
-                                        className={styles.assignmentLink}
-                                    >
-                                        Modifica
-                                    </Link>
-                                </li>
+                        <div className={styles.chipList}>
+                            {assignedGroups.map(g => (
+                                <span key={g.id} className={styles.chip}>
+                                    {g.name}
+                                </span>
                             ))}
-                        </ul>
+                        </div>
                     )}
                 </section>
-
-                {/* Card Allergeni */}
-                {showAllergens && (
-                    <section className={styles.card} data-section="allergens">
-                        <header className={styles.cardHeader}>
-                            <span className={styles.cardLabel}>
-                                {verticalConfig.copy.productSections.allergens}
-                            </span>
-                        </header>
-
-                        {allergensLoading ? (
-                            <Text variant="body-sm" colorVariant="muted">
-                                Caricamento allergeni...
-                            </Text>
-                        ) : (
-                            <div className={styles.allergenGrid}>
-                                {allergens.map(a => (
-                                    <Pill
-                                        key={a.id}
-                                        label={a.label_it}
-                                        active={draftAllergenIds.includes(a.id)}
-                                        onClick={() => toggleAllergen(a.id)}
-                                        disabled={isSavingAllergens}
-                                    />
-                                ))}
-                            </div>
-                        )}
-
-                        {isAllergensDirty && (
-                            <ActionBar
-                                isSaving={isSavingAllergens}
-                                onCancel={handleCancelAllergens}
-                                onSave={handleSaveAllergens}
-                            />
-                        )}
-                    </section>
-                )}
 
                 {/* Card Ingredienti */}
                 {showIngredients && (
@@ -785,6 +729,43 @@ export function SchedaTab({
 
             {/* ─────────────── COLONNA DESTRA ─────────────── */}
             <div className={styles.col}>
+                {/* Card Allergeni */}
+                {showAllergens && (
+                    <section className={styles.card} data-section="allergens">
+                        <header className={styles.cardHeader}>
+                            <span className={styles.cardLabel}>
+                                {verticalConfig.copy.productSections.allergens}
+                            </span>
+                        </header>
+
+                        {allergensLoading ? (
+                            <Text variant="body-sm" colorVariant="muted">
+                                Caricamento allergeni...
+                            </Text>
+                        ) : (
+                            <div className={styles.allergenGrid}>
+                                {allergens.map(a => (
+                                    <Pill
+                                        key={a.id}
+                                        label={a.label_it}
+                                        active={draftAllergenIds.includes(a.id)}
+                                        onClick={() => toggleAllergen(a.id)}
+                                        disabled={isSavingAllergens}
+                                    />
+                                ))}
+                            </div>
+                        )}
+
+                        {isAllergensDirty && (
+                            <ActionBar
+                                isSaving={isSavingAllergens}
+                                onCancel={handleCancelAllergens}
+                                onSave={handleSaveAllergens}
+                            />
+                        )}
+                    </section>
+                )}
+
                 {/* Card Caratteristiche */}
                 {showCharacteristics && (
                     <section className={styles.card} data-section="characteristics">
@@ -814,54 +795,6 @@ export function SchedaTab({
                         )}
                     </section>
                 )}
-
-                {/* Card Gruppi prodotto (read-only + drawer) */}
-                <section className={styles.card} data-section="groups">
-                    <header className={styles.cardHeader}>
-                        <span className={styles.cardLabel}>Gruppi prodotto</span>
-                        {!groupsLoading && allGroups.length > 0 && (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setIsGroupsDrawerOpen(true)}
-                            >
-                                Modifica
-                            </Button>
-                        )}
-                    </header>
-
-                    {groupsLoading ? (
-                        <Text variant="body-sm" colorVariant="muted">
-                            Caricamento gruppi...
-                        </Text>
-                    ) : allGroups.length === 0 ? (
-                        <Text variant="body-sm" colorVariant="muted">
-                            Nessun gruppo disponibile per questo tenant.
-                        </Text>
-                    ) : assignedGroups.length === 0 ? (
-                        <div className={styles.emptyGroupsRow}>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Nessun gruppo assegnato.
-                            </Text>
-                            <button
-                                type="button"
-                                className={styles.inlineLink}
-                                onClick={() => setIsGroupsDrawerOpen(true)}
-                            >
-                                Aggiungi
-                            </button>
-                        </div>
-                    ) : (
-                        <div className={styles.chipList}>
-                            {assignedGroups.map(g => (
-                                <span key={g.id} className={styles.chip}>
-                                    {g.name}
-                                </span>
-                            ))}
-                        </div>
-                    )}
-                </section>
             </div>
 
             <ProductGroupsEditDrawer
