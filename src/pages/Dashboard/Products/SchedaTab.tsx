@@ -613,60 +613,49 @@ export function SchedaTab({
                         </div>
                     </div>
 
+                    {/* Sub-section Gruppi prodotto */}
+                    <div className={styles.subSection}>
+                        <header className={styles.subSectionHeader}>
+                            <span className={styles.subSectionLabel}>Gruppi prodotto</span>
+                            {!groupsLoading && allGroups.length > 0 && (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setIsGroupsDrawerOpen(true)}
+                                >
+                                    Modifica
+                                </Button>
+                            )}
+                        </header>
+
+                        {groupsLoading ? (
+                            <Text variant="body-sm" colorVariant="muted">
+                                Caricamento gruppi...
+                            </Text>
+                        ) : allGroups.length === 0 ? (
+                            <Text variant="body-sm" colorVariant="muted">
+                                Nessun gruppo disponibile per questo tenant.
+                            </Text>
+                        ) : assignedGroups.length === 0 ? (
+                            <Text variant="body-sm" colorVariant="muted">
+                                Nessun gruppo assegnato.
+                            </Text>
+                        ) : (
+                            <div className={styles.groupChips}>
+                                {assignedGroups.map(g => (
+                                    <Pill key={g.id} label={g.name} active />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                     {isInformationDirty && (
                         <ActionBar
                             isSaving={isSavingInformation}
                             onCancel={handleCancelInformation}
                             onSave={handleSaveInformation}
                         />
-                    )}
-                </section>
-
-                {/* Card Gruppi prodotto (read-only + drawer) */}
-                <section className={styles.card} data-section="groups">
-                    <header className={styles.cardHeader}>
-                        <span className={styles.cardLabel}>Gruppi prodotto</span>
-                        {!groupsLoading && allGroups.length > 0 && (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setIsGroupsDrawerOpen(true)}
-                            >
-                                Modifica
-                            </Button>
-                        )}
-                    </header>
-
-                    {groupsLoading ? (
-                        <Text variant="body-sm" colorVariant="muted">
-                            Caricamento gruppi...
-                        </Text>
-                    ) : allGroups.length === 0 ? (
-                        <Text variant="body-sm" colorVariant="muted">
-                            Nessun gruppo disponibile per questo tenant.
-                        </Text>
-                    ) : assignedGroups.length === 0 ? (
-                        <div className={styles.emptyGroupsRow}>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Nessun gruppo assegnato.
-                            </Text>
-                            <button
-                                type="button"
-                                className={styles.inlineLink}
-                                onClick={() => setIsGroupsDrawerOpen(true)}
-                            >
-                                Aggiungi
-                            </button>
-                        </div>
-                    ) : (
-                        <div className={styles.chipList}>
-                            {assignedGroups.map(g => (
-                                <span key={g.id} className={styles.chip}>
-                                    {g.name}
-                                </span>
-                            ))}
-                        </div>
                     )}
                 </section>
 
