@@ -5,9 +5,6 @@
     flex-direction: column;
     gap: 16px;
     padding: 16px;
-    // Reserve space so the sticky action bar of the last dirty section
-    // never sits flush against the viewport bottom.
-    padding-bottom: 80px;
 
     @media (min-width: 1024px) {
         display: grid;
@@ -47,6 +44,15 @@
     letter-spacing: 0.5px;
     text-transform: uppercase;
     color: var(--text-muted, #94a3b8);
+}
+
+// ── Image preview ──────────────────────────────────────────────────
+.imagePreview {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    object-fit: cover;
 }
 
 // ── Field grids ─────────────────────────────────────────────────────
@@ -180,9 +186,10 @@
     text-underline-offset: 2px;
 }
 
-// ── Sticky action bar ─────────────────────────────────────────────────
-// Self-contained pill inside the card: full border, radius 8px coerente
-// con input/bottoni, sticky bottom funzionante.
+// ── Action bar ────────────────────────────────────────────────────────
+// Static pill at the end of the editable card content. Static (not sticky)
+// because with N potentially-dirty cards in the tab, multiple sticky bars
+// stacking creates visual noise.
 .actionBar {
     margin-top: 16px;
     padding: 12px 16px;
@@ -193,10 +200,6 @@
     justify-content: space-between;
     align-items: center;
     gap: 12px;
-
-    position: sticky;
-    bottom: 16px;
-    z-index: 10;
 }
 
 .actionBarLabel {

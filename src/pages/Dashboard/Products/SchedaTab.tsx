@@ -134,6 +134,22 @@ export function SchedaTab({
     const [removeImage, setRemoveImage] = useState(false);
     const [isSavingImage, setIsSavingImage] = useState(false);
 
+    const pendingImagePreviewUrl = useMemo(() => {
+        if (!pendingImageFile) return null;
+        return URL.createObjectURL(pendingImageFile);
+    }, [pendingImageFile]);
+
+    useEffect(() => {
+        if (!pendingImagePreviewUrl) return;
+        return () => {
+            URL.revokeObjectURL(pendingImagePreviewUrl);
+        };
+    }, [pendingImagePreviewUrl]);
+
+    const visibleImageUrl: string | null = removeImage
+        ? null
+        : pendingImagePreviewUrl ?? savedImageUrl;
+
     const isImageDirty = useMemo(
         () => pendingImageFile !== null || removeImage || draftImageUrl !== savedImageUrl,
         [pendingImageFile, removeImage, draftImageUrl, savedImageUrl]
@@ -527,10 +543,18 @@ export function SchedaTab({
                         <span className={styles.cardLabel}>Immagine</span>
                     </header>
 
+                    {visibleImageUrl && (
+                        <img
+                            src={visibleImageUrl}
+                            alt="Anteprima immagine prodotto"
+                            className={styles.imagePreview}
+                        />
+                    )}
+
                     <FileInput
                         accept="image/*"
                         maxSizeMb={5}
-                        preview="auto"
+                        preview="none"
                         value={pendingImageFile}
                         onChange={file => {
                             setPendingImageFile(file);
@@ -539,12 +563,15 @@ export function SchedaTab({
                         disabled={isSavingImage}
                     />
 
-                    {draftImageUrl && !removeImage && !pendingImageFile && (
+                    {visibleImageUrl && (
                         <Button
                             variant="ghost"
                             size="sm"
                             type="button"
-                            onClick={() => setRemoveImage(true)}
+                            onClick={() => {
+                                setRemoveImage(true);
+                                setPendingImageFile(null);
+                            }}
                             disabled={isSavingImage}
                         >
                             Rimuovi immagine
