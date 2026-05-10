@@ -292,7 +292,7 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
                                     <Badge variant="warning">Traduzione in corso</Badge>
                                 </div>
                                 <Textarea
-                                    rows={4}
+                                    rows={2}
                                     placeholder="Generazione automatica in corso. Ricarica la pagina tra qualche istante."
                                     value=""
                                     readOnly
@@ -320,7 +320,7 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
                             )}
 
                             <Textarea
-                                rows={4}
+                                rows={2}
                                 placeholder="Inserisci la traduzione manuale"
                                 value={currentValue}
                                 onChange={e =>
