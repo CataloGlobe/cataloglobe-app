@@ -16,17 +16,13 @@ import {
 } from "@/hooks/useFilteredProductTabs";
 import { getProduct, V2Product } from "@/services/supabase/products";
 import { getProductOptions, GroupWithValues } from "@/services/supabase/productOptions";
-import { getVariantMatrixConfig, VariantMatrixConfig } from "@/services/supabase/productVariants";
 import { getProductUsage, ProductUsageData } from "@/services/supabase/productUsage";
 import SchedaTab from "./SchedaTab";
-import { PricingTab } from "./PricingTab";
-import { ConfigTab } from "./ConfigTab";
+import PrezziOpzioniTab from "./PrezziOpzioniTab";
 import { UsageTab } from "./UsageTab";
-import { VariantsTab } from "./VariantsTab";
 import { AttributesTab } from "./AttributesTab";
 import { TranslationsTab } from "./TranslationsTab";
 import { ProductCreateEditDrawer } from "./ProductCreateEditDrawer";
-import { MatrixConfigDrawer } from "./MatrixConfigDrawer";
 import styles from "./ProductPage.module.scss";
 
 export default function ProductPage() {
@@ -42,19 +38,14 @@ export default function ProductPage() {
 
     type ProductPageTab =
         | "scheda"
-        | "pricing"
-        | "config"
+        | "prezzi-opzioni"
         | "attributes"
         | "translations"
         | "usage";
     const allTabs = useMemo<ProductTabDef<ProductPageTab>[]>(
         () => [
             { value: "scheda", label: "Scheda" },
-            {
-                value: "pricing",
-                label: product?.parent_product_id ? "Prezzi" : "Prezzi & Varianti"
-            },
-            { value: "config", label: "Opzioni" },
+            { value: "prezzi-opzioni", label: "Prezzi & Opzioni" },
             {
                 value: "attributes",
                 label: verticalConfig.copy.productSections.customAttributes,
@@ -75,14 +66,17 @@ export default function ProductPage() {
         allTabs,
         "scheda",
         // Legacy redirects:
-        // - ?tab=variants used to be a separate tab; merged into pricing
         // - ?tab=general / ?tab=characteristics merged into details (Task 1.1)
         // - ?tab=details renamed to ?tab=scheda (Task 1.5)
+        // - ?tab=pricing / ?tab=config / ?tab=variants merged into
+        //   prezzi-opzioni (Task 2.1)
         {
-            variants: "pricing",
             general: "scheda",
             characteristics: "scheda",
-            details: "scheda"
+            details: "scheda",
+            pricing: "prezzi-opzioni",
+            config: "prezzi-opzioni",
+            variants: "prezzi-opzioni"
         }
     );
     const [activeTab, setActiveTab] = useState<ProductPageTab>(initialTab);
@@ -92,10 +86,6 @@ export default function ProductPage() {
     const [addonGroups, setAddonGroups] = useState<GroupWithValues[]>([]);
 
     const [isVariantDrawerOpen, setIsVariantDrawerOpen] = useState(false);
-
-    const [matrixConfig, setMatrixConfig] = useState<VariantMatrixConfig | null>(null);
-    const [matrixLoading, setMatrixLoading] = useState(false);
-    const [isMatrixDrawerOpen, setIsMatrixDrawerOpen] = useState(false);
 
     const [usageLoading, setUsageLoading] = useState(true);
     const [usageData, setUsageData] = useState<ProductUsageData | null>(null);
@@ -129,19 +119,6 @@ export default function ProductPage() {
         }
     }, [productId, tenantId]);
 
-    const loadMatrixConfig = useCallback(async (pid: string, tid: string, isBaseProduct: boolean) => {
-        if (!isBaseProduct) return;
-        try {
-            setMatrixLoading(true);
-            const config = await getVariantMatrixConfig(pid, tid);
-            setMatrixConfig(config);
-        } catch {
-            setMatrixConfig(null);
-        } finally {
-            setMatrixLoading(false);
-        }
-    }, []);
-
     const loadProduct = useCallback(async () => {
         if (!productId || !tenantId) return;
         try {
@@ -149,17 +126,13 @@ export default function ProductPage() {
             setError(null);
             const data = await getProduct(productId, tenantId);
             setProduct(data);
-            await Promise.all([
-                loadOptions(),
-                loadUsage(),
-                loadMatrixConfig(productId, tenantId, data.parent_product_id === null)
-            ]);
+            await Promise.all([loadOptions(), loadUsage()]);
         } catch {
             setError("Prodotto non trovato");
         } finally {
             setLoading(false);
         }
-    }, [productId, tenantId, loadOptions, loadUsage, loadMatrixConfig]);
+    }, [productId, tenantId, loadOptions, loadUsage]);
 
     useEffect(() => {
         loadProduct();
@@ -198,8 +171,6 @@ export default function ProductPage() {
         );
     }
 
-    const isChildVariant = product.parent_product_id !== null;
-
     return (
         <div className={styles.container}>
             <Breadcrumb items={breadcrumbItems} />
@@ -231,37 +202,19 @@ export default function ProductPage() {
                         </Card>
                     </Tabs.Panel>
 
-                    <Tabs.Panel value="pricing">
+                    <Tabs.Panel value="prezzi-opzioni">
                         <Card>
-                            <PricingTab
+                            <PrezziOpzioniTab
                                 product={product}
-                                tenantId={tenantId!}
-                                primaryPriceGroup={primaryPriceGroup}
-                                optionsLoading={optionsLoading}
-                                onRefreshOptions={loadOptions}
-                                onProductUpdated={updated => setProduct(updated)}
-                            />
-                        </Card>
-                        {!isChildVariant && (
-                            <div className={styles.tabSectionGap}>
-                                <VariantsTab
-                                    product={product}
-                                    tenantId={tenantId!}
-                                    onOpenVariantDrawer={() => setIsVariantDrawerOpen(true)}
-                                    onVariantUpdated={loadProduct}
-                                />
-                            </div>
-                        )}
-                    </Tabs.Panel>
-
-                    <Tabs.Panel value="config">
-                        <Card>
-                            <ConfigTab
                                 productId={productId!}
                                 tenantId={tenantId!}
+                                primaryPriceGroup={primaryPriceGroup}
                                 addonGroups={addonGroups}
                                 optionsLoading={optionsLoading}
                                 onRefreshOptions={loadOptions}
+                                onProductUpdated={updated => setProduct(updated)}
+                                onOpenVariantDrawer={() => setIsVariantDrawerOpen(true)}
+                                onVariantUpdated={loadProduct}
                             />
                         </Card>
                     </Tabs.Panel>
@@ -314,19 +267,6 @@ export default function ProductPage() {
                     loadProduct();
                 }}
             />
-
-            {product.parent_product_id === null && tenantId && (
-                <MatrixConfigDrawer
-                    open={isMatrixDrawerOpen}
-                    onClose={() => setIsMatrixDrawerOpen(false)}
-                    productId={product.id}
-                    tenantId={tenantId}
-                    parentBasePrice={product.base_price}
-                    matrixConfig={matrixConfig}
-                    onSaveSuccess={() => loadMatrixConfig(product.id, tenantId, true)}
-                    onGenerateSuccess={() => loadProduct()}
-                />
-            )}
         </div>
     );
 }
