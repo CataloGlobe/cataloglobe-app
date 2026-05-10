@@ -283,7 +283,7 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
 
                     if (isPendingAuto) {
                         return (
-                            <div key={code} className={styles.languageCard}>
+                            <div key={code} className={styles.langBlock}>
                                 <div className={styles.langHeader}>
                                     {lang.flag_emoji && (
                                         <span className={styles.flag}>{lang.flag_emoji}</span>
@@ -298,13 +298,14 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
                                     readOnly
                                     disabled
                                     onChange={() => {}}
+                                    textareaClassName={styles.langTextarea}
                                 />
                             </div>
                         );
                     }
 
                     return (
-                        <div key={code} className={styles.languageCard}>
+                        <div key={code} className={styles.langBlock}>
                             <div className={styles.langHeader}>
                                 {lang.flag_emoji && <span className={styles.flag}>{lang.flag_emoji}</span>}
                                 <span className={styles.langName}>{lang.name_native}</span>
@@ -326,9 +327,10 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
                                     setDraftValues(prev => ({ ...prev, [code]: e.target.value }))
                                 }
                                 disabled={isSaving}
+                                textareaClassName={styles.langTextarea}
                             />
 
-                            <div className={styles.cardActions}>
+                            <div className={styles.langActions}>
                                 {kind === "manual" && (
                                     <Button
                                         type="button"

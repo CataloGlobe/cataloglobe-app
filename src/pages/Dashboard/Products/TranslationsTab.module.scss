@@ -38,15 +38,14 @@
     margin-top: -8px;
 }
 
-// ── Reference (source IT) box light ────────────────────────────────
+// ── Reference (source IT) box light senza border ───────────────────
 .referenceCard {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px 16px;
-    border-radius: var(--radius-md, 8px);
-    background-color: var(--bg, var(--color-gray-50));
-    border: 1px solid var(--border, var(--color-gray-200));
+    gap: 4px;
+    padding: 12px 14px;
+    background: var(--bg);
+    border-radius: 8px;
 }
 
 .langHeader {
@@ -72,28 +71,63 @@
     line-height: 1.4;
 }
 
-// ── Lista lingue (boxes light interni alla card outer) ─────────────
+// ── Lista lingue separata da source via border-top + divisori ──────
 .languageList {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 0;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
 }
 
-.languageCard {
+// ── Lingua block: divisori orizzontali invece di card individuali ─
+.langBlock {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 16px;
-    border-radius: var(--radius-md, 8px);
-    background-color: var(--card-bg, #fff);
-    border: 1px solid var(--border, var(--color-gray-200));
+    gap: 8px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
 }
 
-.cardActions {
+.langBlock:first-child {
+    padding-top: 0;
+}
+
+.langBlock:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.langActions {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 8px;
+}
+
+// ── Textarea ghost: invisibile in default, attivata in focus ───────
+// Applicato via prop textareaClassName del componente shared Textarea.
+// Override del border default solo per questo contesto.
+.langTextarea {
+    background: var(--bg);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: inherit;
+    color: var(--text);
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    min-height: 56px;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.langTextarea:focus,
+.langTextarea:focus-visible {
+    outline: none;
+    background: var(--card-bg, #fff);
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
 // ── Disclaimer body (Note prodotto info card) ──────────────────────
