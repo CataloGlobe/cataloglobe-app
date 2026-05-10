@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -20,8 +25,27 @@ import {
     createPrimaryPriceFormat,
     getProductOptions
 } from "@/services/supabase/productOptions";
+import {
+    type VariantMatrixConfig,
+    getVariantMatrixConfig
+} from "@/services/supabase/productVariants";
 import { getDisplayPrice } from "@/utils/priceDisplay";
+import { MatrixConfigDrawer } from "./MatrixConfigDrawer";
 import styles from "./PrezziOpzioniTab.module.scss";
+
+function computeFromPrice(
+    group: GroupWithValues | null | undefined,
+    fallback: number | null
+): number | null {
+    if (group === undefined) return null;
+    if (group !== null && group.values.length > 0) {
+        const prices = group.values
+            .map(v => v.absolute_price)
+            .filter((p): p is number => p !== null);
+        return prices.length > 0 ? Math.min(...prices) : null;
+    }
+    return fallback;
+}
 
 type PriceMode = "inherit" | "single" | "formats";
 
@@ -50,9 +74,13 @@ export default function PrezziOpzioniTab({
     primaryPriceGroup,
     optionsLoading,
     onRefreshOptions,
-    onProductUpdated
+    onProductUpdated,
+    onOpenVariantDrawer,
+    onVariantUpdated
 }: PrezziOpzioniTabProps) {
     const { showToast } = useToast();
+    const navigate = useNavigate();
+    const { businessId } = useParams<{ businessId: string }>();
     const isVariant = product.parent_product_id !== null;
 
     // ── Card Prezzo ────────────────────────────────────────────────────
@@ -297,6 +325,162 @@ export default function PrezziOpzioniTab({
               { value: "formats" as PriceMode, label: "Prezzi per formato" }
           ];
 
+    // ── Card Varianti ──────────────────────────────────────────────────
+    const variants = [...(product.variants ?? [])].sort((a, b) =>
+        a.name.localeCompare(b.name, "it")
+    );
+
+    const [variantOptions, setVariantOptions] = useState<
+        Record<string, GroupWithValues | null>
+    >({});
+    const [parentGroup, setParentGroup] = useState<
+        GroupWithValues | null | undefined
+    >(undefined);
+
+    useEffect(() => {
+        if (isVariant) return;
+        let cancelled = false;
+        void getProductOptions(product.id)
+            .then(opts => {
+                if (!cancelled) setParentGroup(opts.primaryPriceGroup);
+            })
+            .catch(() => {
+                if (!cancelled) setParentGroup(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [product.id, isVariant]);
+
+    useEffect(() => {
+        if (isVariant || variants.length === 0) {
+            setVariantOptions({});
+            return;
+        }
+        let cancelled = false;
+        void Promise.all(
+            variants.map(v =>
+                getProductOptions(v.id).then(opts => ({
+                    id: v.id,
+                    group: opts.primaryPriceGroup
+                }))
+            )
+        )
+            .then(results => {
+                if (cancelled) return;
+                const map: Record<string, GroupWithValues | null> = {};
+                for (const r of results) {
+                    map[r.id] = r.group;
+                }
+                setVariantOptions(map);
+            })
+            .catch(() => {
+                /* silent — price cells fall back to "—" */
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [variants, isVariant]);
+
+    const variantsParentFromPrice = computeFromPrice(parentGroup, product.base_price);
+
+    // ── MatrixConfigDrawer ────────────────────────────────────────────
+    const [isMatrixDrawerOpen, setIsMatrixDrawerOpen] = useState(false);
+    const [matrixConfig, setMatrixConfig] = useState<VariantMatrixConfig | null>(null);
+    const [, setMatrixLoading] = useState(false);
+
+    const loadMatrixConfig = useCallback(async () => {
+        if (isVariant) return;
+        try {
+            setMatrixLoading(true);
+            const config = await getVariantMatrixConfig(product.id, tenantId);
+            setMatrixConfig(config);
+        } catch {
+            setMatrixConfig(null);
+        } finally {
+            setMatrixLoading(false);
+        }
+    }, [product.id, tenantId, isVariant]);
+
+    useEffect(() => {
+        loadMatrixConfig();
+    }, [loadMatrixConfig]);
+
+    const handleOpenMatrixDrawer = useCallback(() => {
+        setIsMatrixDrawerOpen(true);
+    }, []);
+
+    const variantColumns: ColumnDefinition<V2Product>[] = [
+        {
+            id: "name",
+            header: "Nome",
+            cell: (_, variant) => (
+                <Text variant="body" weight={500}>
+                    {variant.name}
+                </Text>
+            )
+        },
+        {
+            id: "price",
+            header: "Prezzo",
+            width: "160px",
+            cell: (_, variant) => {
+                const group = variantOptions[variant.id];
+                if (group === undefined) {
+                    return (
+                        <Text variant="body" colorVariant="muted">
+                            —
+                        </Text>
+                    );
+                }
+                const fromPrice = computeFromPrice(group, null);
+                if (group !== null && group.values.length > 0) {
+                    return fromPrice !== null ? (
+                        <Text variant="body">da {fromPrice.toFixed(2)} €</Text>
+                    ) : (
+                        <Text variant="body" colorVariant="muted">
+                            —
+                        </Text>
+                    );
+                }
+                if (variant.base_price != null) {
+                    return (
+                        <Text variant="body">{variant.base_price.toFixed(2)} €</Text>
+                    );
+                }
+                if (variantsParentFromPrice !== null) {
+                    return (
+                        <Text variant="body-sm" colorVariant="muted">
+                            {variantsParentFromPrice.toFixed(2)} € (ereditato)
+                        </Text>
+                    );
+                }
+                return (
+                    <Text variant="body" colorVariant="muted">
+                        —
+                    </Text>
+                );
+            }
+        },
+        {
+            id: "actions",
+            header: "",
+            width: "48px",
+            align: "right",
+            cell: (_, variant) => (
+                <TableRowActions
+                    actions={[
+                        {
+                            label: "Modifica",
+                            onClick: () =>
+                                navigate(`/business/${businessId}/products/${variant.id}`)
+                        }
+                    ]}
+                />
+            )
+        }
+    ];
+
     return (
         <div className={styles.grid}>
             {/* ──────────────── Card 1 — Prezzo ──────────────── */}
@@ -538,16 +722,81 @@ export default function PrezziOpzioniTab({
                 )}
             </section>
 
-            {/* ──────────────── Card 2 — Varianti — placeholder ──────────────── */}
+            {/* ──────────────── Card 2 — Varianti ──────────────── */}
             {!isVariant && (
                 <section className={styles.card} data-section="varianti">
                     <header className={styles.cardHeader}>
-                        <span className={styles.cardLabel}>Varianti</span>
+                        <div className={styles.cardHeaderContent}>
+                            <span className={styles.cardLabel}>Varianti</span>
+                            {variants.length > 0 && (
+                                <Badge variant="secondary">{variants.length}</Badge>
+                            )}
+                        </div>
+                        {variants.length > 0 && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={onOpenVariantDrawer}
+                            >
+                                + Aggiungi
+                            </Button>
+                        )}
                     </header>
-                    <div className={styles.placeholder}>
-                        Sub-sezione Varianti — Task 2.3
-                    </div>
+
+                    {variants.length === 0 ? (
+                        <EmptyState
+                            icon={<LayoutGrid size={24} strokeWidth={1.8} />}
+                            title="Nessuna variante"
+                            description="Le varianti hanno prezzo e descrizione propri. Si vedono come prodotti separati nel menu pubblico."
+                            action={
+                                <div className={styles.emptyActions}>
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        onClick={onOpenVariantDrawer}
+                                    >
+                                        Aggiungi manualmente
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        onClick={handleOpenMatrixDrawer}
+                                    >
+                                        Configura matrice
+                                    </Button>
+                                </div>
+                            }
+                        />
+                    ) : (
+                        <DataTable
+                            data={variants}
+                            columns={variantColumns}
+                            density="compact"
+                            onRowClick={variant =>
+                                navigate(
+                                    `/business/${businessId}/products/${variant.id}`
+                                )
+                            }
+                        />
+                    )}
                 </section>
+            )}
+
+            {/* MatrixConfigDrawer — visibile solo per prodotti base */}
+            {!isVariant && (
+                <MatrixConfigDrawer
+                    open={isMatrixDrawerOpen}
+                    onClose={() => setIsMatrixDrawerOpen(false)}
+                    productId={product.id}
+                    tenantId={tenantId}
+                    parentBasePrice={product.base_price}
+                    matrixConfig={matrixConfig}
+                    onSaveSuccess={() => loadMatrixConfig()}
+                    onGenerateSuccess={() => {
+                        void onVariantUpdated();
+                    }}
+                />
             )}
 
             {/* ──────────────── Card 3 — Opzioni extra — placeholder ──────────────── */}

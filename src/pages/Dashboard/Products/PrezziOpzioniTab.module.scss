@@ -149,3 +149,18 @@
     gap: 6px;
     margin-top: 4px;
 }
+
+// ── Variants card ───────────────────────────────────────────────────
+.cardHeaderContent {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.emptyActions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
