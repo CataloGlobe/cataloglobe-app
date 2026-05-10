@@ -205,7 +205,7 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
 
     if (isLoading) {
         return (
-            <div className={styles.container}>
+            <div className={styles.grid}>
                 <div className={styles.loading}>
                     <Text variant="body-sm" colorVariant="muted">
                         Caricamento traduzioni...
@@ -215,9 +215,14 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
         );
     }
 
-    if (targetLanguages.length === 0) {
-        return (
-            <div className={styles.container}>
+    const hasNoTargetLangs = targetLanguages.length === 0;
+    const hasNoSource = !hasSource;
+    const showTranslationsCard = !hasNoTargetLangs && !hasNoSource;
+
+    return (
+        <div className={styles.grid}>
+            {/* ── Card 1 — Traduzioni descrizione (o EmptyState al suo posto) ── */}
+            {hasNoTargetLangs ? (
                 <EmptyState
                     icon={<Languages size={40} strokeWidth={1.5} />}
                     title="Nessuna lingua aggiuntiva configurata"
@@ -228,48 +233,40 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
                         </Link>
                     }
                 />
-            </div>
-        );
-    }
-
-    if (!hasSource) {
-        return (
-            <div className={styles.container}>
+            ) : hasNoSource ? (
                 <EmptyState
                     icon={<Languages size={40} strokeWidth={1.5} />}
                     title="Inserisci prima una descrizione del prodotto"
                     description="Le traduzioni vengono generate dalla descrizione italiana. Compila il campo 'Descrizione' nella tab Generale."
                 />
-            </div>
-        );
-    }
+            ) : null}
 
-    return (
-        <div className={styles.container}>
-            <div className={styles.intro}>
-                <Text variant="title-sm" weight={600}>
-                    Traduzioni del prodotto
-                </Text>
-                <Text variant="body-sm" colorVariant="muted">
-                    Modifica manualmente le traduzioni della descrizione. Le modifiche manuali non
-                    vengono sovrascritte dalla traduzione automatica.
-                </Text>
-            </div>
+            {showTranslationsCard && (
+                <section className={styles.card} data-section="translations">
+                    <header className={styles.cardHeader}>
+                        <span className={styles.cardLabel}>Traduzioni descrizione</span>
+                    </header>
+                    <div className={styles.cardHelp}>
+                        Modifica manualmente le traduzioni della descrizione. Le modifiche manuali
+                        non vengono sovrascritte dalla traduzione automatica.
+                    </div>
 
-            <div className={styles.referenceCard}>
-                <div className={styles.langHeader}>
-                    {baseMeta?.flag_emoji && <span className={styles.flag}>{baseMeta.flag_emoji}</span>}
-                    <span className={styles.langName}>
-                        {baseMeta?.name_native ?? baseLanguage.toUpperCase()} (sorgente)
-                    </span>
-                </div>
-                <Text variant="body-sm" className={styles.referenceText}>
-                    {sourceText}
-                </Text>
-            </div>
+                    <div className={styles.referenceCard}>
+                        <div className={styles.langHeader}>
+                            {baseMeta?.flag_emoji && (
+                                <span className={styles.flag}>{baseMeta.flag_emoji}</span>
+                            )}
+                            <span className={styles.langName}>
+                                {baseMeta?.name_native ?? baseLanguage.toUpperCase()} (sorgente)
+                            </span>
+                        </div>
+                        <Text variant="body-sm" className={styles.referenceText}>
+                            {sourceText}
+                        </Text>
+                    </div>
 
-            <div className={styles.languageList}>
-                {targetLanguages.map(lang => {
+                    <div className={styles.languageList}>
+                        {targetLanguages.map(lang => {
                     const code = lang.code;
                     const translation = translationsByCode[code];
                     const kind = getStatusKind(translation);
@@ -355,19 +352,22 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
                                 )}
                             </div>
                         </div>
-                    );
-                })}
-            </div>
+                            );
+                        })}
+                    </div>
+                </section>
+            )}
 
-            <div className={styles.disclaimerCard}>
-                <Text variant="body-sm" className={styles.disclaimerTitle}>
-                    Note prodotto
-                </Text>
-                <Text variant="body-sm" className={styles.disclaimerBody}>
-                    Le note del prodotto vengono tradotte automaticamente. La modifica manuale delle
-                    traduzioni delle note non è ancora disponibile.
-                </Text>
-            </div>
+            {/* ── Card 2 — Note prodotto (sempre visibile) ── */}
+            <section className={styles.card} data-section="notes-info">
+                <header className={styles.cardHeader}>
+                    <span className={styles.cardLabel}>Note prodotto</span>
+                </header>
+                <div className={styles.disclaimerBody}>
+                    Le note del prodotto vengono tradotte automaticamente. La modifica manuale
+                    delle traduzioni delle note non è ancora disponibile.
+                </div>
+            </section>
 
             <ConfirmDialog
                 isOpen={revertConfirmFor !== null}

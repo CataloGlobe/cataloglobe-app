@@ -1,24 +1,52 @@
-.container {
+// Layout 1 colonna, coerente con SchedaTab e PrezziOpzioniTab.
+.grid {
     display: flex;
     flex-direction: column;
     gap: 16px;
     padding: 16px;
 }
 
-.intro {
+// Card pattern duplicato da SchedaTab.module.scss — convenzione progetto.
+.card {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 12px;
+    padding: 20px;
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border);
+    border-radius: 12px;
 }
 
+.cardHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.cardLabel {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-muted, #94a3b8);
+}
+
+.cardHelp {
+    font-size: 13px;
+    color: var(--text-muted, #64748b);
+    margin-top: -8px;
+}
+
+// ── Reference (source IT) box light ────────────────────────────────
 .referenceCard {
     display: flex;
     flex-direction: column;
     gap: 8px;
     padding: 12px 16px;
-    border-radius: var(--radius-md);
-    background-color: var(--color-gray-50);
-    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-md, 8px);
+    background-color: var(--bg, var(--color-gray-50));
+    border: 1px solid var(--border, var(--color-gray-200));
 }
 
 .langHeader {
@@ -44,6 +72,7 @@
     line-height: 1.4;
 }
 
+// ── Lista lingue (boxes light interni alla card outer) ─────────────
 .languageList {
     display: flex;
     flex-direction: column;
@@ -55,9 +84,9 @@
     flex-direction: column;
     gap: 12px;
     padding: 16px;
-    border-radius: var(--radius-md);
-    background-color: var(--color-white);
-    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-md, 8px);
+    background-color: var(--card-bg, #fff);
+    border: 1px solid var(--border, var(--color-gray-200));
 }
 
 .cardActions {
@@ -67,26 +96,14 @@
     gap: 8px;
 }
 
-.disclaimerCard {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 12px 16px;
-    border-radius: var(--radius-md);
-    background-color: var(--color-gray-50);
-    border: 1px solid var(--color-gray-200);
-    margin-top: 8px;
-}
-
-.disclaimerTitle {
-    font-weight: 600;
-    color: var(--color-gray-800);
-}
-
+// ── Disclaimer body (Note prodotto info card) ──────────────────────
 .disclaimerBody {
-    color: var(--color-gray-600);
+    font-size: 13px;
+    color: var(--text-muted, var(--color-gray-600));
+    line-height: 1.5;
 }
 
+// ── Loading ─────────────────────────────────────────────────────────
 .loading {
     padding: 24px;
     text-align: center;
