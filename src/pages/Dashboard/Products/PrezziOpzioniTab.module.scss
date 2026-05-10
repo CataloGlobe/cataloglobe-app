@@ -130,12 +130,16 @@
     display: grid;
     grid-template-columns: 1fr 120px auto;
     gap: 8px;
-    align-items: center;
+    align-items: stretch;
     padding: 12px;
     background: var(--bg);
     border: 1px dashed var(--border);
     border-radius: 8px;
     margin-top: 8px;
+
+    & > * {
+        min-height: 40px;
+    }
 }
 
 // ── Inherit mode ────────────────────────────────────────────────────
@@ -216,8 +220,12 @@
     display: grid;
     grid-template-columns: 1fr 140px auto;
     gap: 8px;
-    align-items: end;
+    align-items: stretch;
     padding-top: 8px;
+
+    & > * {
+        min-height: 40px;
+    }
 }
 
 .cellStack {

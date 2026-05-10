@@ -1,3 +1,25 @@
+/**
+ * MatrixConfigDrawer — variante config drawer for retail vertical
+ * (size×color × etc. combinations).
+ *
+ * **CURRENTLY UNUSED** — Task 2.5 (May 2026) removed the "Configura
+ * matrice" CTA from PrezziOpzioniTab empty state because the matrix
+ * UX is not part of F&B launch. Component preserved on disk as dead
+ * code for future retail vertical re-activation.
+ *
+ * Re-activation steps:
+ * 1. Re-import in PrezziOpzioniTab.tsx + re-add VariantMatrixConfig
+ *    type and getVariantMatrixConfig service import
+ * 2. Re-add state: isMatrixDrawerOpen, matrixConfig, loadMatrixConfig
+ *    (gated isVariant === false)
+ * 3. Re-add CTA "Configura matrice" inside Varianti EmptyState (gate
+ *    by tenant vertical_type === "retail" or feature flag)
+ * 4. Re-render <MatrixConfigDrawer ... /> below the Varianti section
+ *
+ * Service contract unchanged: saveVariantMatrixConfig +
+ * generateMissingVariants. Drawer remains compatible with current
+ * productVariants.ts API.
+ */
 import { useEffect, useState } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { LayoutGrid, ListPlus } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
@@ -30,12 +30,7 @@ import {
     createPrimaryPriceFormat,
     getProductOptions
 } from "@/services/supabase/productOptions";
-import {
-    type VariantMatrixConfig,
-    getVariantMatrixConfig
-} from "@/services/supabase/productVariants";
 import { getDisplayPrice } from "@/utils/priceDisplay";
-import { MatrixConfigDrawer } from "./MatrixConfigDrawer";
 import styles from "./PrezziOpzioniTab.module.scss";
 
 function formatDelta(n: number | null): string {
@@ -89,8 +84,7 @@ export default function PrezziOpzioniTab({
     optionsLoading,
     onRefreshOptions,
     onProductUpdated,
-    onOpenVariantDrawer,
-    onVariantUpdated
+    onOpenVariantDrawer
 }: PrezziOpzioniTabProps) {
     const { showToast } = useToast();
     const navigate = useNavigate();
@@ -340,8 +334,15 @@ export default function PrezziOpzioniTab({
           ];
 
     // ── Card Varianti ──────────────────────────────────────────────────
-    const variants = [...(product.variants ?? [])].sort((a, b) =>
-        a.name.localeCompare(b.name, "it")
+    // useMemo evita di ricreare array reference ad ogni render — senza
+    // memoization l'effect che fetcha variant options entrava in loop
+    // perché `variants` era dep e cambiava ref ogni render.
+    const variants = useMemo(
+        () =>
+            [...(product.variants ?? [])].sort((a, b) =>
+                a.name.localeCompare(b.name, "it")
+            ),
+        [product.variants]
     );
 
     const [variantOptions, setVariantOptions] = useState<
@@ -397,32 +398,6 @@ export default function PrezziOpzioniTab({
     }, [variants, isVariant]);
 
     const variantsParentFromPrice = computeFromPrice(parentGroup, product.base_price);
-
-    // ── MatrixConfigDrawer ────────────────────────────────────────────
-    const [isMatrixDrawerOpen, setIsMatrixDrawerOpen] = useState(false);
-    const [matrixConfig, setMatrixConfig] = useState<VariantMatrixConfig | null>(null);
-    const [, setMatrixLoading] = useState(false);
-
-    const loadMatrixConfig = useCallback(async () => {
-        if (isVariant) return;
-        try {
-            setMatrixLoading(true);
-            const config = await getVariantMatrixConfig(product.id, tenantId);
-            setMatrixConfig(config);
-        } catch {
-            setMatrixConfig(null);
-        } finally {
-            setMatrixLoading(false);
-        }
-    }, [product.id, tenantId, isVariant]);
-
-    useEffect(() => {
-        loadMatrixConfig();
-    }, [loadMatrixConfig]);
-
-    const handleOpenMatrixDrawer = useCallback(() => {
-        setIsMatrixDrawerOpen(true);
-    }, []);
 
     // ── Card Opzioni extra ────────────────────────────────────────────
     // Create group form (toggle CTA)
@@ -1059,22 +1034,13 @@ export default function PrezziOpzioniTab({
                             title="Nessuna variante"
                             description="Le varianti hanno prezzo e descrizione propri. Si vedono come prodotti separati nel menu pubblico."
                             action={
-                                <div className={styles.emptyActions}>
-                                    <Button
-                                        type="button"
-                                        variant="secondary"
-                                        onClick={onOpenVariantDrawer}
-                                    >
-                                        Aggiungi manualmente
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="secondary"
-                                        onClick={handleOpenMatrixDrawer}
-                                    >
-                                        Configura matrice
-                                    </Button>
-                                </div>
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={onOpenVariantDrawer}
+                                >
+                                    Aggiungi manualmente
+                                </Button>
                             }
                         />
                     ) : (
@@ -1090,22 +1056,6 @@ export default function PrezziOpzioniTab({
                         />
                     )}
                 </section>
-            )}
-
-            {/* MatrixConfigDrawer — visibile solo per prodotti base */}
-            {!isVariant && (
-                <MatrixConfigDrawer
-                    open={isMatrixDrawerOpen}
-                    onClose={() => setIsMatrixDrawerOpen(false)}
-                    productId={product.id}
-                    tenantId={tenantId}
-                    parentBasePrice={product.base_price}
-                    matrixConfig={matrixConfig}
-                    onSaveSuccess={() => loadMatrixConfig()}
-                    onGenerateSuccess={() => {
-                        void onVariantUpdated();
-                    }}
-                />
             )}
 
             {/* ──────────────── Card 3 — Opzioni extra ──────────────── */}
