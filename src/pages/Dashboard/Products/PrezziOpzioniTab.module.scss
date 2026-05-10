@@ -164,3 +164,64 @@
     flex-wrap: wrap;
     justify-content: center;
 }
+
+// ── Opzioni extra ───────────────────────────────────────────────────
+.optionGroupsList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.createGroupForm {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+}
+
+.groupCard {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.groupHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.groupMeta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.groupEditForm {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.addValueRow {
+    display: grid;
+    grid-template-columns: 1fr 140px auto;
+    gap: 8px;
+    align-items: end;
+    padding-top: 8px;
+}
+
+.cellStack {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}

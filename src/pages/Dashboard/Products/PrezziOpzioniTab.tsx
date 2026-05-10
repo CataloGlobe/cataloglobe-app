@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { LayoutGrid } from "lucide-react";
+import { LayoutGrid, ListPlus } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { Badge } from "@/components/ui/Badge/Badge";
+import { Switch } from "@/components/ui/Switch/Switch";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -19,9 +21,12 @@ import {
 import {
     type GroupWithValues,
     type V2ProductOptionValue,
+    createProductOptionGroup,
+    updateProductOptionGroup,
+    deleteProductOptionGroup,
+    createOptionValue,
     updateOptionValue,
     deleteOptionValue,
-    deleteProductOptionGroup,
     createPrimaryPriceFormat,
     getProductOptions
 } from "@/services/supabase/productOptions";
@@ -32,6 +37,11 @@ import {
 import { getDisplayPrice } from "@/utils/priceDisplay";
 import { MatrixConfigDrawer } from "./MatrixConfigDrawer";
 import styles from "./PrezziOpzioniTab.module.scss";
+
+function formatDelta(n: number | null): string {
+    if (n === null) return "—";
+    return n >= 0 ? `+${n.toFixed(2)} €` : `${n.toFixed(2)} €`;
+}
 
 function computeFromPrice(
     group: GroupWithValues | null | undefined,
@@ -64,14 +74,18 @@ interface PrezziOpzioniTabProps {
 
 /**
  * Tab "Prezzi & Opzioni" — orchestrator delle 3 sub-card che assorbono
- * PricingTab + VariantsTab + ConfigTab. Task 2.2: card Prezzo migrata
- * (logica completa da PricingTab.tsx). Card Varianti + Opzioni extra
- * ancora placeholder, migrazione in 2.3 + 2.4.
+ * il contenuto delle vecchie PricingTab + VariantsTab + ConfigTab.
+ * Card Prezzo: SegmentedControl modalità + base price edit + formats CRUD
+ * + inherit (per varianti).
+ * Card Varianti: lista varianti + EmptyState con CTA manuale + matrice.
+ * Card Opzioni extra: CRUD addon groups + values inline.
  */
 export default function PrezziOpzioniTab({
     product,
+    productId,
     tenantId,
     primaryPriceGroup,
+    addonGroups,
     optionsLoading,
     onRefreshOptions,
     onProductUpdated,
@@ -409,6 +423,301 @@ export default function PrezziOpzioniTab({
     const handleOpenMatrixDrawer = useCallback(() => {
         setIsMatrixDrawerOpen(true);
     }, []);
+
+    // ── Card Opzioni extra ────────────────────────────────────────────
+    // Create group form (toggle CTA)
+    const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+    const [newGroupName, setNewGroupName] = useState("");
+    const [savingNewGroup, setSavingNewGroup] = useState(false);
+    const [newGroupError, setNewGroupError] = useState<string | null>(null);
+
+    // Edit group
+    const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+    const [editGroupName, setEditGroupName] = useState("");
+    const [editGroupMaxSelectable, setEditGroupMaxSelectable] = useState<number | null>(null);
+    const [savingGroupId, setSavingGroupId] = useState<string | null>(null);
+    const [groupEditError, setGroupEditError] = useState<string | null>(null);
+
+    // Delete group dialog
+    const [deleteGroup, setDeleteGroup] = useState<GroupWithValues | null>(null);
+    const [, setDeletingGroupId] = useState<string | null>(null);
+
+    // Edit value
+    const [editingValueId, setEditingValueId] = useState<string | null>(null);
+    const [editValueName, setEditValueName] = useState("");
+    const [editValuePrice, setEditValuePrice] = useState("");
+    const [savingValueId, setSavingValueId] = useState<string | null>(null);
+    const [valueEditError, setValueEditError] = useState<string | null>(null);
+
+    // Delete value
+    const [, setDeletingValueId] = useState<string | null>(null);
+
+    // Add value (per group)
+    const [newValueNames, setNewValueNames] = useState<Record<string, string>>({});
+    const [newValuePrices, setNewValuePrices] = useState<Record<string, string>>({});
+    const [savingNewValueGroupId, setSavingNewValueGroupId] = useState<string | null>(null);
+    const [newValueErrors, setNewValueErrors] = useState<Record<string, string | null>>({});
+
+    const handleOpenCreateGroup = () => {
+        setIsCreatingGroup(true);
+        setNewGroupName("");
+        setNewGroupError(null);
+    };
+
+    const handleCloseCreateGroup = () => {
+        setIsCreatingGroup(false);
+        setNewGroupName("");
+        setNewGroupError(null);
+    };
+
+    const handleCreateGroup = async () => {
+        const name = newGroupName.trim();
+        if (!name) {
+            setNewGroupError("Il nome del gruppo è obbligatorio");
+            return;
+        }
+        try {
+            setSavingNewGroup(true);
+            setNewGroupError(null);
+            await createProductOptionGroup({
+                tenant_id: tenantId,
+                product_id: productId,
+                name,
+                is_required: false,
+                max_selectable: null,
+                group_kind: "ADDON",
+                pricing_mode: "DELTA"
+            });
+            await onRefreshOptions();
+            setNewGroupName("");
+            setIsCreatingGroup(false);
+        } catch {
+            setNewGroupError("Errore nella creazione del gruppo");
+            showToast({ message: "Errore nella creazione del gruppo", type: "error" });
+        } finally {
+            setSavingNewGroup(false);
+        }
+    };
+
+    const handleStartEditGroup = (group: GroupWithValues) => {
+        setEditingGroupId(group.id);
+        setEditGroupName(group.name);
+        setEditGroupMaxSelectable(group.max_selectable ?? null);
+        setGroupEditError(null);
+    };
+
+    const handleCancelEditGroup = () => {
+        setEditingGroupId(null);
+        setGroupEditError(null);
+    };
+
+    const handleSaveGroup = async (groupId: string) => {
+        const name = editGroupName.trim();
+        if (!name) {
+            setGroupEditError("Il nome del gruppo è obbligatorio");
+            return;
+        }
+        try {
+            setSavingGroupId(groupId);
+            await updateProductOptionGroup(groupId, {
+                name,
+                max_selectable: editGroupMaxSelectable
+            });
+            await onRefreshOptions();
+            setEditingGroupId(null);
+        } catch {
+            setGroupEditError("Errore nel salvataggio del gruppo");
+            showToast({ message: "Errore nel salvataggio del gruppo", type: "error" });
+        } finally {
+            setSavingGroupId(null);
+        }
+    };
+
+    const handleConfirmDeleteGroup = async (groupId: string): Promise<boolean> => {
+        try {
+            setDeletingGroupId(groupId);
+            await deleteProductOptionGroup(groupId);
+            await onRefreshOptions();
+            return true;
+        } catch {
+            showToast({ message: "Errore nell'eliminazione del gruppo", type: "error" });
+            return false;
+        } finally {
+            setDeletingGroupId(null);
+        }
+    };
+
+    const handleStartEditValue = (val: V2ProductOptionValue) => {
+        setEditingValueId(val.id);
+        setEditValueName(val.name);
+        setEditValuePrice(val.price_modifier !== null ? String(val.price_modifier) : "0");
+        setValueEditError(null);
+    };
+
+    const handleCancelEditValue = () => {
+        setEditingValueId(null);
+        setValueEditError(null);
+    };
+
+    const handleSaveValue = async (valueId: string) => {
+        const name = editValueName.trim();
+        if (!name) {
+            setValueEditError("Il nome è obbligatorio");
+            return;
+        }
+        const parsed = parseFloat(editValuePrice.replace(",", "."));
+        if (isNaN(parsed)) {
+            setValueEditError("Inserisci un numero valido (es. 0.50 o -0.50)");
+            return;
+        }
+        try {
+            setSavingValueId(valueId);
+            await updateOptionValue(valueId, { name, price_modifier: parsed });
+            await onRefreshOptions();
+            setEditingValueId(null);
+        } catch {
+            setValueEditError("Errore nel salvataggio del valore");
+            showToast({ message: "Errore nel salvataggio del valore", type: "error" });
+        } finally {
+            setSavingValueId(null);
+        }
+    };
+
+    const handleDeleteValue = async (valueId: string) => {
+        try {
+            setDeletingValueId(valueId);
+            await deleteOptionValue(valueId);
+            await onRefreshOptions();
+        } catch {
+            showToast({ message: "Errore nell'eliminazione del valore", type: "error" });
+        } finally {
+            setDeletingValueId(null);
+        }
+    };
+
+    const handleAddValue = async (groupId: string) => {
+        const name = (newValueNames[groupId] ?? "").trim();
+        if (!name) {
+            setNewValueErrors(prev => ({ ...prev, [groupId]: "Il nome è obbligatorio" }));
+            return;
+        }
+        const priceStr = (newValuePrices[groupId] ?? "0").replace(",", ".");
+        const parsed = parseFloat(priceStr);
+        if (isNaN(parsed)) {
+            setNewValueErrors(prev => ({
+                ...prev,
+                [groupId]: "Inserisci un numero valido (es. 0.50 o -0.50)"
+            }));
+            return;
+        }
+        try {
+            setSavingNewValueGroupId(groupId);
+            setNewValueErrors(prev => ({ ...prev, [groupId]: null }));
+            await createOptionValue({
+                tenant_id: tenantId,
+                option_group_id: groupId,
+                name,
+                price_modifier: parsed,
+                absolute_price: null
+            });
+            await onRefreshOptions();
+            setNewValueNames(prev => ({ ...prev, [groupId]: "" }));
+            setNewValuePrices(prev => ({ ...prev, [groupId]: "" }));
+        } catch {
+            setNewValueErrors(prev => ({
+                ...prev,
+                [groupId]: "Errore nell'aggiunta del valore"
+            }));
+            showToast({ message: "Errore nell'aggiunta del valore", type: "error" });
+        } finally {
+            setSavingNewValueGroupId(null);
+        }
+    };
+
+    const valueColumns: ColumnDefinition<V2ProductOptionValue>[] = [
+        {
+            id: "name",
+            header: "Nome",
+            cell: (_, val) =>
+                editingValueId === val.id ? (
+                    <div className={styles.cellStack}>
+                        <TextInput
+                            value={editValueName}
+                            onChange={e => setEditValueName(e.target.value)}
+                            placeholder="Nome valore"
+                            disabled={savingValueId === val.id}
+                        />
+                        {valueEditError && (
+                            <Text variant="body-sm" colorVariant="error">
+                                {valueEditError}
+                            </Text>
+                        )}
+                    </div>
+                ) : (
+                    <Text variant="body">{val.name}</Text>
+                )
+        },
+        {
+            id: "delta",
+            header: "Delta €",
+            width: "140px",
+            cell: (_, val) =>
+                editingValueId === val.id ? (
+                    <NumberInput
+                        value={editValuePrice}
+                        onChange={e => setEditValuePrice(e.target.value)}
+                        placeholder="Delta €"
+                        step="0.01"
+                        disabled={savingValueId === val.id}
+                    />
+                ) : (
+                    <Text variant="body">{formatDelta(val.price_modifier)}</Text>
+                )
+        },
+        {
+            id: "actions",
+            header: "",
+            width: "80px",
+            align: "right",
+            cell: (_, val) =>
+                editingValueId === val.id ? (
+                    <div className={styles.formatActions}>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => handleSaveValue(val.id)}
+                            disabled={savingValueId === val.id}
+                            loading={savingValueId === val.id}
+                        >
+                            Salva
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCancelEditValue}
+                            disabled={savingValueId === val.id}
+                        >
+                            Annulla
+                        </Button>
+                    </div>
+                ) : (
+                    <TableRowActions
+                        actions={[
+                            {
+                                label: "Modifica",
+                                onClick: () => handleStartEditValue(val)
+                            },
+                            {
+                                label: "Elimina",
+                                onClick: () => handleDeleteValue(val.id),
+                                variant: "destructive",
+                                separator: true
+                            }
+                        ]}
+                    />
+                )
+        }
+    ];
 
     const variantColumns: ColumnDefinition<V2Product>[] = [
         {
@@ -799,14 +1108,240 @@ export default function PrezziOpzioniTab({
                 />
             )}
 
-            {/* ──────────────── Card 3 — Opzioni extra — placeholder ──────────────── */}
+            {/* ──────────────── Card 3 — Opzioni extra ──────────────── */}
             <section className={styles.card} data-section="opzioni">
                 <header className={styles.cardHeader}>
-                    <span className={styles.cardLabel}>Opzioni extra</span>
+                    <div className={styles.cardHeaderContent}>
+                        <span className={styles.cardLabel}>Opzioni extra</span>
+                    </div>
+                    {addonGroups.length > 0 && !isCreatingGroup && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleOpenCreateGroup}
+                        >
+                            + Crea gruppo
+                        </Button>
+                    )}
                 </header>
-                <div className={styles.placeholder}>
-                    Sub-sezione Opzioni extra — Task 2.4
+                <div className={styles.cardHelp}>
+                    Configurazioni selezionabili dal cliente (es. cottura, aggiunte)
                 </div>
+
+                {/* Inline create group form */}
+                {isCreatingGroup && (
+                    <div className={styles.createGroupForm}>
+                        <TextInput
+                            label="Nome gruppo"
+                            placeholder="Es. Cottura, Aggiunte..."
+                            value={newGroupName}
+                            onChange={e => setNewGroupName(e.target.value)}
+                            disabled={savingNewGroup}
+                            error={newGroupError ?? undefined}
+                        />
+                        <div className={styles.formatActions}>
+                            <Button
+                                type="button"
+                                variant="primary"
+                                size="sm"
+                                onClick={handleCreateGroup}
+                                disabled={savingNewGroup}
+                                loading={savingNewGroup}
+                            >
+                                Crea
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleCloseCreateGroup}
+                                disabled={savingNewGroup}
+                            >
+                                Annulla
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {optionsLoading ? (
+                    <Text variant="body-sm" colorVariant="muted">
+                        Caricamento configurazioni...
+                    </Text>
+                ) : addonGroups.length === 0 && !isCreatingGroup ? (
+                    <EmptyState
+                        icon={<ListPlus size={24} strokeWidth={1.8} />}
+                        title="Nessuna opzione extra"
+                        description='Aggiungi gruppi come "Cottura" (al sangue/medio/ben cotta) o "Aggiunte" (mozzarella, prosciutto…).'
+                        action={
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={handleOpenCreateGroup}
+                            >
+                                + Crea primo gruppo
+                            </Button>
+                        }
+                    />
+                ) : addonGroups.length > 0 ? (
+                    <div className={styles.optionGroupsList}>
+                        {addonGroups.map(group => (
+                            <div key={group.id} className={styles.groupCard}>
+                                {editingGroupId === group.id ? (
+                                    <div className={styles.groupEditForm}>
+                                        <TextInput
+                                            label="Nome gruppo"
+                                            value={editGroupName}
+                                            onChange={e => setEditGroupName(e.target.value)}
+                                            disabled={savingGroupId === group.id}
+                                        />
+                                        <Switch
+                                            label="Limita selezione"
+                                            checked={editGroupMaxSelectable !== null}
+                                            onChange={checked =>
+                                                setEditGroupMaxSelectable(checked ? 1 : null)
+                                            }
+                                            disabled={savingGroupId === group.id}
+                                        />
+                                        {editGroupMaxSelectable !== null && (
+                                            <NumberInput
+                                                label="Massimo selezionabile"
+                                                min="1"
+                                                value={editGroupMaxSelectable.toString()}
+                                                onChange={e => {
+                                                    const val = parseInt(e.target.value, 10);
+                                                    if (!isNaN(val) && val > 0)
+                                                        setEditGroupMaxSelectable(val);
+                                                }}
+                                                disabled={savingGroupId === group.id}
+                                            />
+                                        )}
+                                        {groupEditError && (
+                                            <Text variant="body-sm" colorVariant="error">
+                                                {groupEditError}
+                                            </Text>
+                                        )}
+                                        <div className={styles.formatActions}>
+                                            <Button
+                                                type="button"
+                                                variant="primary"
+                                                size="sm"
+                                                onClick={() => handleSaveGroup(group.id)}
+                                                disabled={savingGroupId === group.id}
+                                                loading={savingGroupId === group.id}
+                                            >
+                                                Salva
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={handleCancelEditGroup}
+                                                disabled={savingGroupId === group.id}
+                                            >
+                                                Annulla
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className={styles.groupHeader}>
+                                        <div className={styles.groupMeta}>
+                                            <Text variant="body" weight={600}>
+                                                {group.name}
+                                            </Text>
+                                            <Badge variant="secondary">
+                                                {group.values.length}{" "}
+                                                {group.values.length === 1 ? "opzione" : "opzioni"}
+                                            </Badge>
+                                            {group.max_selectable != null && (
+                                                <Badge variant="secondary">
+                                                    max {group.max_selectable}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <TableRowActions
+                                            actions={[
+                                                {
+                                                    label: "Modifica",
+                                                    onClick: () => handleStartEditGroup(group)
+                                                },
+                                                {
+                                                    label: "Elimina",
+                                                    onClick: () => setDeleteGroup(group),
+                                                    variant: "destructive",
+                                                    separator: true
+                                                }
+                                            ]}
+                                        />
+                                    </div>
+                                )}
+
+                                <DataTable
+                                    data={group.values}
+                                    columns={valueColumns}
+                                    density="compact"
+                                    emptyState={
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Nessun valore configurato
+                                        </Text>
+                                    }
+                                />
+
+                                <div className={styles.addValueRow}>
+                                    <TextInput
+                                        placeholder="Nome (es. Latte)"
+                                        value={newValueNames[group.id] ?? ""}
+                                        onChange={e =>
+                                            setNewValueNames(prev => ({
+                                                ...prev,
+                                                [group.id]: e.target.value
+                                            }))
+                                        }
+                                        disabled={savingNewValueGroupId === group.id}
+                                    />
+                                    <NumberInput
+                                        placeholder="Delta € (es. 0.50)"
+                                        value={newValuePrices[group.id] ?? ""}
+                                        onChange={e =>
+                                            setNewValuePrices(prev => ({
+                                                ...prev,
+                                                [group.id]: e.target.value
+                                            }))
+                                        }
+                                        step="0.01"
+                                        disabled={savingNewValueGroupId === group.id}
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="primary"
+                                        size="sm"
+                                        onClick={() => handleAddValue(group.id)}
+                                        disabled={savingNewValueGroupId === group.id}
+                                        loading={savingNewValueGroupId === group.id}
+                                    >
+                                        Aggiungi
+                                    </Button>
+                                </div>
+                                {newValueErrors[group.id] && (
+                                    <Text variant="body-sm" colorVariant="error">
+                                        {newValueErrors[group.id]}
+                                    </Text>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                ) : null}
+
+                {deleteGroup && (
+                    <ConfirmDialog
+                        isOpen={true}
+                        onClose={() => setDeleteGroup(null)}
+                        onConfirm={() => handleConfirmDeleteGroup(deleteGroup.id)}
+                        title={`Elimina "${deleteGroup.name}"`}
+                        message="Sei sicuro di voler eliminare questo gruppo? Tutti i valori associati verranno eliminati."
+                        confirmLabel="Elimina"
+                    />
+                )}
             </section>
         </div>
     );
