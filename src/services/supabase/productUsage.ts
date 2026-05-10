@@ -11,6 +11,11 @@ export type ProductUsageData = {
     activities: ProductUsageItem[];
 };
 
+export type ProductCategoryAssignment = {
+    catalog: { id: string; name: string };
+    category: { id: string; name: string };
+};
+
 type CatalogCategoryProductRow = {
     catalog_id: string;
 };
@@ -114,4 +119,75 @@ export async function getProductUsage(
     const activities = (activitiesData ?? []) as ActivityRow[];
 
     return { catalogs, schedules, activities };
+}
+
+/**
+ * Per un prodotto, restituisce tutte le assegnazioni (catalogo, categoria)
+ * filtrate per tenant. Ordinamento: catalogo asc, categoria asc.
+ *
+ * Pattern multi-step (coerente con getProductUsage):
+ *  1. catalog_category_products → coppie (catalog_id, category_id)
+ *  2. catalogs filtrati per tenant_id
+ *  3. catalog_categories per i category_id raccolti
+ *
+ * Le righe la cui FK catalog non risolve nel tenant vengono droppate
+ * (defense-in-depth: RLS già blocca, ma il filter applicativo evita di
+ * mostrare orfani).
+ */
+export async function getProductCategoryAssignments(
+    productId: string,
+    tenantId: string
+): Promise<ProductCategoryAssignment[]> {
+    const { data: rows, error: rowsErr } = await supabase
+        .from("catalog_category_products")
+        .select("catalog_id, category_id")
+        .eq("product_id", productId);
+    if (rowsErr) throw new Error(rowsErr.message);
+    if (!rows || rows.length === 0) return [];
+
+    const catalogIds = [...new Set(rows.map(r => r.catalog_id as string).filter(Boolean))];
+    const categoryIds = [...new Set(rows.map(r => r.category_id as string).filter(Boolean))];
+
+    const [{ data: catalogsData, error: cErr }, { data: categoriesData, error: catErr }] =
+        await Promise.all([
+            supabase
+                .from("catalogs")
+                .select("id, name")
+                .in("id", catalogIds)
+                .eq("tenant_id", tenantId),
+            supabase
+                .from("catalog_categories")
+                .select("id, name")
+                .in("id", categoryIds)
+        ]);
+    if (cErr) throw new Error(cErr.message);
+    if (catErr) throw new Error(catErr.message);
+
+    const catalogMap = new Map<string, string>(
+        (catalogsData ?? []).map(c => [c.id as string, c.name as string])
+    );
+    const categoryMap = new Map<string, string>(
+        (categoriesData ?? []).map(c => [c.id as string, c.name as string])
+    );
+
+    const assignments: ProductCategoryAssignment[] = [];
+    for (const row of rows) {
+        const catalogId = row.catalog_id as string;
+        const categoryId = row.category_id as string;
+        const catalogName = catalogMap.get(catalogId);
+        const categoryName = categoryMap.get(categoryId);
+        if (!catalogName || !categoryName) continue;
+        assignments.push({
+            catalog: { id: catalogId, name: catalogName },
+            category: { id: categoryId, name: categoryName }
+        });
+    }
+
+    assignments.sort((a, b) => {
+        const c = a.catalog.name.localeCompare(b.catalog.name);
+        if (c !== 0) return c;
+        return a.category.name.localeCompare(b.category.name);
+    });
+
+    return assignments;
 }

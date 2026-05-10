@@ -1,0 +1,221 @@
+// ── Grid wrapper ────────────────────────────────────────────────────
+// Stack mobile, 2 colonne >=1024px (convenzione progetto da Products list).
+.grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+    // Reserve space so the sticky action bar of the last dirty section
+    // never sits flush against the viewport bottom.
+    padding-bottom: 80px;
+
+    @media (min-width: 1024px) {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        align-items: start;
+    }
+}
+
+.col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+// ── Card pattern ────────────────────────────────────────────────────
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px;
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.cardHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.cardLabel {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-muted, #94a3b8);
+}
+
+// ── Field grids ─────────────────────────────────────────────────────
+.fieldGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.descriptionField {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.translationRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.translationLink {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--color-primary-600, var(--color-gray-700));
+    cursor: pointer;
+    font-size: 13px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+        color: var(--color-primary-700, var(--color-gray-900));
+    }
+}
+
+// ── Allergens grid ──────────────────────────────────────────────────
+.allergenGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+// ── Category assignments (read-only list) ───────────────────────────
+.assignmentList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.assignmentRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.assignmentBreadcrumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    min-width: 0;
+}
+
+.assignmentCatalog {
+    color: #64748b;
+}
+
+.assignmentSep {
+    color: #94a3b8;
+}
+
+.assignmentCategory {
+    color: var(--text, #0f172a);
+    font-weight: 500;
+}
+
+.assignmentLink {
+    font-size: 13px;
+    color: var(--color-primary-600, #6366f1);
+    text-decoration: none;
+    flex-shrink: 0;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+// ── Groups chips ────────────────────────────────────────────────────
+.chipList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background-color: var(--color-gray-100);
+    color: var(--color-gray-800);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.emptyGroupsRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.inlineLink {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--color-primary-600, var(--color-gray-700));
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+// ── Sticky action bar ─────────────────────────────────────────────────
+// Self-contained pill inside the card: full border, radius 8px coerente
+// con input/bottoni, sticky bottom funzionante.
+.actionBar {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+
+    position: sticky;
+    bottom: 16px;
+    z-index: 10;
+}
+
+.actionBarLabel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.dirtyDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-warning-500);
+    flex-shrink: 0;
+}
+
+.actionBarButtons {
+    display: flex;
+    gap: 8px;
+}

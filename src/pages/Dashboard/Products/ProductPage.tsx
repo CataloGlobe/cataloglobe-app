@@ -18,7 +18,7 @@ import { getProduct, V2Product } from "@/services/supabase/products";
 import { getProductOptions, GroupWithValues } from "@/services/supabase/productOptions";
 import { getVariantMatrixConfig, VariantMatrixConfig } from "@/services/supabase/productVariants";
 import { getProductUsage, ProductUsageData } from "@/services/supabase/productUsage";
-import DetailsTab from "./DetailsTab";
+import SchedaTab from "./SchedaTab";
 import { PricingTab } from "./PricingTab";
 import { ConfigTab } from "./ConfigTab";
 import { UsageTab } from "./UsageTab";
@@ -41,7 +41,7 @@ export default function ProductPage() {
     const [error, setError] = useState<string | null>(null);
 
     type ProductPageTab =
-        | "details"
+        | "scheda"
         | "pricing"
         | "config"
         | "attributes"
@@ -49,7 +49,7 @@ export default function ProductPage() {
         | "usage";
     const allTabs = useMemo<ProductTabDef<ProductPageTab>[]>(
         () => [
-            { value: "details", label: "Dettagli" },
+            { value: "scheda", label: "Scheda" },
             {
                 value: "pricing",
                 label: product?.parent_product_id ? "Prezzi" : "Prezzi & Varianti"
@@ -73,14 +73,16 @@ export default function ProductPage() {
     );
     const { visibleTabs, initialTab } = useFilteredProductTabs<ProductPageTab>(
         allTabs,
-        "details",
+        "scheda",
         // Legacy redirects:
         // - ?tab=variants used to be a separate tab; merged into pricing
         // - ?tab=general / ?tab=characteristics merged into details (Task 1.1)
+        // - ?tab=details renamed to ?tab=scheda (Task 1.5)
         {
             variants: "pricing",
-            general: "details",
-            characteristics: "details"
+            general: "scheda",
+            characteristics: "scheda",
+            details: "scheda"
         }
     );
     const [activeTab, setActiveTab] = useState<ProductPageTab>(initialTab);
@@ -214,9 +216,9 @@ export default function ProductPage() {
                 </Tabs.List>
 
                 <div className={styles.tabContent}>
-                    <Tabs.Panel value="details">
+                    <Tabs.Panel value="scheda">
                         <Card>
-                            <DetailsTab
+                            <SchedaTab
                                 product={product}
                                 productId={productId!}
                                 tenantId={tenantId!}
