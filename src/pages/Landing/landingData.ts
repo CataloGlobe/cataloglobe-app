@@ -1,6 +1,6 @@
-import ilMolo34Screenshot from '@/assets/demos/il-molo-34.png';
-import laPausaScreenshot from '@/assets/demos/la-pausa.png';
-import velvetGardenScreenshot from '@/assets/demos/velvet-garden.png';
+import ilMolo34Screenshot from '@/assets/demos/il-molo-34.webp';
+import laPausaScreenshot from '@/assets/demos/la-pausa.webp';
+import velvetGardenScreenshot from '@/assets/demos/velvet-garden.webp';
 
 export interface ScheduleRule {
     name: string;
