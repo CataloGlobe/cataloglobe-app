@@ -41,3 +41,111 @@
     border-radius: 8px;
     font-style: italic;
 }
+
+.cardHelp {
+    font-size: 13px;
+    color: var(--text-muted, #64748b);
+    margin-top: -8px;
+}
+
+.modeRow {
+    display: flex;
+}
+
+// ── Single mode ─────────────────────────────────────────────────────
+.singleMode {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 4px;
+}
+
+.priceDisplay {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.priceValue {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text, #0f172a);
+}
+
+.priceCurrency {
+    font-size: 18px;
+    color: var(--text-muted, #64748b);
+}
+
+.priceEditRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+// ── Formats mode ────────────────────────────────────────────────────
+.formatsMode {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 4px;
+}
+
+.formatRow {
+    display: grid;
+    grid-template-columns: 1fr 120px auto;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.formatEditRow {
+    display: grid;
+    grid-template-columns: 1fr 120px auto;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.formatRowError {
+    grid-column: 1 / -1;
+    margin-top: 4px;
+}
+
+.formatActions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    justify-content: flex-end;
+}
+
+.addFormatRow {
+    display: grid;
+    grid-template-columns: 1fr 120px auto;
+    gap: 8px;
+    align-items: center;
+    padding: 12px;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    margin-top: 8px;
+}
+
+// ── Inherit mode ────────────────────────────────────────────────────
+.inheritMode {
+    padding: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+}
