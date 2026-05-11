@@ -1,7 +1,7 @@
 import Text from "@/components/ui/Text/Text";
 import { InfoTooltip } from "@components/ui/Tooltip/InfoTooltip";
-import type { StyleTokenModel, BackgroundPattern, BorderRadius, NavigationStyle, ProductStyle, FeaturedStyle } from "./StyleTokenModel";
-import { getPatternCss } from "@/features/public/utils/mapStyleTokensToCssVars";
+import type { StyleTokenModel, BackgroundPattern, BorderRadius, NavigationStyle, ProductStyle, FeaturedStyle, PatternIntensity } from "./StyleTokenModel";
+import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
 import sharedStyles from "./StyleSettingsControls.module.scss";
 import roStyles from "./StylePropertiesReadOnly.module.scss";
@@ -73,13 +73,13 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                                 { value: "none" as BackgroundPattern, label: "Nessuno" },
                                 { value: "dots" as BackgroundPattern, label: "Puntini" },
                                 { value: "diagonal" as BackgroundPattern, label: "Diagonali" },
-                                { value: "grid" as BackgroundPattern, label: "Griglia" },
                                 { value: "waves" as BackgroundPattern, label: "Onde" },
-                                { value: "diamonds" as BackgroundPattern, label: "Rombi" }
+                                { value: "crosshatch" as BackgroundPattern, label: "Trama" },
+                                { value: "noise" as BackgroundPattern, label: "Texture" }
                             ]
                         ).map(opt => {
                             const isActive = model.appearance.backgroundPattern === opt.value;
-                            const [bgImage, bgSize] = getPatternCss(opt.value, model.colors.primary);
+                            const [bgImage, bgSize] = getPatternCss(opt.value, contrastText(model.colors.pageBackground));
                             return (
                                 <div
                                     key={opt.value}
@@ -102,6 +102,49 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                         })}
                     </div>
                 </div>
+
+                {model.appearance.backgroundPattern !== "none" && (
+                    <div className={sharedStyles.controlField}>
+                        <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
+                            Intensità<InfoTooltip content="Regola quanto è visibile il pattern di sfondo." />
+                        </Text>
+                        <div className={sharedStyles.miniPreviewGrid}>
+                            {(
+                                [
+                                    { value: "subtle" as PatternIntensity, label: "Soft" },
+                                    { value: "medium" as PatternIntensity, label: "Media" },
+                                    { value: "strong" as PatternIntensity, label: "Marcata" }
+                                ]
+                            ).map(opt => {
+                                const isActive = model.appearance.patternIntensity === opt.value;
+                                const [bgImage, bgSize] = getPatternCss(
+                                    model.appearance.backgroundPattern,
+                                    contrastText(model.colors.pageBackground),
+                                    opt.value
+                                );
+                                return (
+                                    <div
+                                        key={opt.value}
+                                        className={`${sharedStyles.miniPreviewCard} ${sharedStyles.miniPreviewCardReadonly} ${
+                                            isActive ? sharedStyles.miniPreviewCardActive : ""
+                                        }`}
+                                    >
+                                        <div
+                                            className={sharedStyles.patternSwatch}
+                                            aria-hidden="true"
+                                            style={{
+                                                backgroundColor: model.colors.pageBackground,
+                                                backgroundImage: bgImage,
+                                                backgroundSize: bgSize
+                                            }}
+                                        />
+                                        <span className={sharedStyles.miniPreviewLabel}>{opt.label}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
             </section>
 
             {/* HEADER */}

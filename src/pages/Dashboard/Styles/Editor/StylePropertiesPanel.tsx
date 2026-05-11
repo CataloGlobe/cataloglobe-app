@@ -8,9 +8,10 @@ import {
     FontFamily,
     BorderRadius,
     BackgroundPattern,
+    PatternIntensity,
     FeaturedStyle
 } from "./StyleTokenModel";
-import { getPatternCss } from "@/features/public/utils/mapStyleTokensToCssVars";
+import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
 import { StyleColorPicker } from "./StyleColorPicker";
 import { usePaletteWarnings } from "./usePaletteWarnings";
@@ -68,9 +69,15 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         { value: "none", label: "Nessuno" },
         { value: "dots", label: "Puntini" },
         { value: "diagonal", label: "Diagonali" },
-        { value: "grid", label: "Griglia" },
         { value: "waves", label: "Onde" },
-        { value: "diamonds", label: "Rombi" }
+        { value: "crosshatch", label: "Trama" },
+        { value: "noise", label: "Texture" }
+    ];
+
+    const patternIntensityOptions: Array<{ value: PatternIntensity; label: string }> = [
+        { value: "subtle", label: "Soft" },
+        { value: "medium", label: "Media" },
+        { value: "strong", label: "Marcata" }
     ];
 
     const featuredStyleOptions: Array<{ value: FeaturedStyle; label: string }> = [
@@ -98,6 +105,10 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
     const updateBackgroundPattern = (backgroundPattern: BackgroundPattern) => {
         onChange({ ...model, appearance: { ...model.appearance, backgroundPattern } });
+    };
+
+    const updatePatternIntensity = (patternIntensity: PatternIntensity) => {
+        onChange({ ...model, appearance: { ...model.appearance, patternIntensity } });
     };
 
     const updateFeaturedStyle = (featuredStyle: FeaturedStyle) => {
@@ -213,7 +224,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     <div className={styles.miniPreviewGrid} role="radiogroup">
                         {backgroundPatternOptions.map(option => {
                             const isActive = model.appearance.backgroundPattern === option.value;
-                            const [bgImage, bgSize] = getPatternCss(option.value, model.colors.primary);
+                            const [bgImage, bgSize] = getPatternCss(option.value, contrastText(model.colors.pageBackground));
                             return (
                                 <button
                                     key={option.value}
@@ -240,6 +251,47 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                         })}
                     </div>
                 </div>
+
+                {model.appearance.backgroundPattern !== "none" && (
+                    <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                        <Text variant="body" weight={500} className={styles.fieldLabel}>
+                            Intensità<InfoTooltip content="Regola quanto è visibile il pattern di sfondo." />
+                        </Text>
+                        <div className={styles.miniPreviewGrid} role="radiogroup">
+                            {patternIntensityOptions.map(option => {
+                                const isActive = model.appearance.patternIntensity === option.value;
+                                const [bgImage, bgSize] = getPatternCss(
+                                    model.appearance.backgroundPattern,
+                                    contrastText(model.colors.pageBackground),
+                                    option.value
+                                );
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={isActive}
+                                        className={`${styles.miniPreviewCard} ${
+                                            isActive ? styles.miniPreviewCardActive : ""
+                                        }`}
+                                        onClick={() => updatePatternIntensity(option.value)}
+                                    >
+                                        <div
+                                            className={styles.patternSwatch}
+                                            aria-hidden="true"
+                                            style={{
+                                                backgroundColor: model.colors.pageBackground,
+                                                backgroundImage: bgImage,
+                                                backgroundSize: bgSize
+                                            }}
+                                        />
+                                        <span className={styles.miniPreviewLabel}>{option.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
             </section>
 
             {/* HEADER */}
