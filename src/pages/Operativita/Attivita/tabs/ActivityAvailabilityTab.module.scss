@@ -1,0 +1,52 @@
+.layout {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.banner {
+    display: flex;
+    gap: 14px;
+    padding: 16px 20px;
+    border: 1px solid #BFDBFE;
+    background-color: #EFF6FF;
+    border-radius: 14px;
+}
+
+.bannerIcon {
+    flex-shrink: 0;
+    color: #2563EB;
+    padding-top: 2px;
+}
+
+.bannerBody {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.bannerTitle {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #1E3A8A;
+    line-height: 1.4;
+}
+
+.bannerDesc {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: #1E40AF;
+}
+
+.bannerMeta {
+    margin: 8px 0 0;
+    font-size: 0.8125rem;
+    color: #374151;
+
+    strong {
+        color: #111827;
+        font-weight: 600;
+    }
+}

@@ -1,0 +1,139 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 0.25rem 0;
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.searchWrap {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+}
+
+.searchIcon {
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    transform: translateY(-50%);
+    color: #9CA3AF;
+    pointer-events: none;
+}
+
+.searchInput {
+    width: 100%;
+    padding: 8px 12px 8px 34px;
+    border: 1px solid #D1D5DB;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    background: white;
+    color: #111827;
+    outline: none;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+
+    &::placeholder {
+        color: #9CA3AF;
+    }
+
+    &:focus {
+        border-color: #6366F1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+}
+
+.filters {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.filterPill {
+    padding: 6px 14px;
+    border: 1px solid #E5E7EB;
+    border-radius: 999px;
+    background: white;
+    color: #374151;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+
+    &:hover {
+        background-color: #F9FAFB;
+    }
+}
+
+.filterPillActive {
+    background-color: #EEF2FF;
+    border-color: #C7D2FE;
+    color: #4338CA;
+
+    &:hover {
+        background-color: #E0E7FF;
+    }
+}
+
+.tableWrapper {
+    overflow: hidden;
+
+    :global(.table-header) {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+}
+
+.productCell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.productNameRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rowSaving {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.loading {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 0;
+}
+
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 36px 24px;
+    text-align: center;
+    border: 1.5px dashed #E5E7EB;
+    border-radius: 12px;
+    background-color: #FAFAFA;
+}
+
+.emptyFilter {
+    padding: 24px;
+    text-align: center;
+    color: #6B7280;
+}
+
+.footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 6px;
+}
