@@ -228,7 +228,7 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
                     title="Nessuna lingua aggiuntiva configurata"
                     description="Per gestire le traduzioni, attiva almeno una lingua oltre all'italiano nelle impostazioni del tenant."
                     action={
-                        <Link to={`/business/${tenantId}/settings/languages`}>
+                        <Link to={`/business/${tenantId}/languages`}>
                             <Button variant="primary">Vai alle impostazioni lingue</Button>
                         </Link>
                     }
