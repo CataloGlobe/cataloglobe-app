@@ -23,7 +23,7 @@ import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
-import { ActivityVisibilityDrawer } from "@/components/Businesses/ActivityVisibilityDrawer/ActivityVisibilityDrawer";
+import { ActivityVisibilityDrawer } from "@/pages/Operativita/Attivita/components/ActivityVisibilityDrawer/ActivityVisibilityDrawer";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ActivityGroupsSection } from "@/components/Businesses/ActivityGroupsSection/ActivityGroupsSection";
 
