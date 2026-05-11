@@ -1,0 +1,424 @@
+// ── Layout ───────────────────────────────────────────────────────────────────
+
+.layout {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    align-items: start;
+
+    @media (max-width: 900px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+// ── Card ─────────────────────────────────────────────────────────────────────
+
+.card {
+    display: flex;
+    flex-direction: column;
+}
+
+.cardHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 24px;
+    border-bottom: 1px solid #F3F4F6;
+}
+
+.cardHeaderText {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+}
+
+.cardTitle {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #111827;
+    letter-spacing: -0.01em;
+}
+
+.cardSubtitle {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: #6B7280;
+}
+
+.cardBody {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 18px 24px 22px;
+}
+
+.cardBodyFlat {
+    padding: 0;
+}
+
+.skeletonCard {
+    min-height: 240px;
+    background-color: #F9FAFB;
+    border: 1px solid #F3F4F6;
+    border-radius: 12px;
+    animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+// ── Section labels & dividers ────────────────────────────────────────────────
+
+.sectionLabel {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6B7280;
+}
+
+.divider {
+    height: 1px;
+    background-color: #F3F4F6;
+    margin: 18px 0;
+}
+
+// ── URL section ──────────────────────────────────────────────────────────────
+
+.urlSection {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.urlBox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background-color: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+}
+
+.urlBoxIcon {
+    color: #6B7280;
+    flex-shrink: 0;
+}
+
+.urlCode {
+    flex: 1;
+    min-width: 0;
+    font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+    font-size: 0.8125rem;
+    color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.urlCopyBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    background: white;
+    color: #374151;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 0.12s ease, border-color 0.12s ease;
+
+    &:hover {
+        background-color: #F9FAFB;
+        border-color: #9CA3AF;
+    }
+}
+
+.urlExternal {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    align-self: flex-start;
+    font-size: 0.75rem;
+    color: #6366F1;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+        color: #4338CA;
+    }
+}
+
+// ── QR section ───────────────────────────────────────────────────────────────
+
+.qrSection {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.qrSectionHeader {
+    display: flex;
+}
+
+.qrSectionBody {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.qrThumb {
+    position: relative;
+    flex-shrink: 0;
+    padding: 6px;
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+
+    &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+    }
+
+    &:focus-visible {
+        outline: 2px solid #6366F1;
+        outline-offset: 2px;
+    }
+}
+
+.qrExpandBadge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 6px;
+    color: #4B5563;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+
+    .qrThumb:hover & {
+        opacity: 1;
+    }
+}
+
+.qrSectionInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.qrSectionDesc {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: #6B7280;
+    line-height: 1.4;
+}
+
+// ── PDF section ──────────────────────────────────────────────────────────────
+
+.pdfSection {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.pdfSectionText {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.pdfDesc {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: #6B7280;
+}
+
+// ── Publication status ───────────────────────────────────────────────────────
+
+.publicationRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.statusDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #D1D5DB;
+    flex-shrink: 0;
+}
+
+.statusDotActive {
+    background-color: #10B981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.publicationLabel {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.publicationHint {
+    font-size: 0.8125rem;
+    color: #6B7280;
+}
+
+// ── Destructive card ─────────────────────────────────────────────────────────
+
+.destructiveCard {
+    border-color: #FECACA !important;
+}
+
+.destructiveHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 24px;
+    color: #B91C1C;
+    border-bottom: 1px solid #FECACA;
+}
+
+.destructiveLabel {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.destructiveBody {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 24px;
+}
+
+.destructiveText {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.destructiveTitle {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.destructiveDesc {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: #6B7280;
+}
+
+// ── QR Modal ─────────────────────────────────────────────────────────────────
+
+.qrModalBody {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    padding: 4px 0;
+
+    @media (max-width: 640px) {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+
+.qrModalPreview {
+    flex-shrink: 0;
+    padding: 12px;
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+}
+
+.qrCustomize {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.qrCustomizeTitle {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6B7280;
+}
+
+.qrColorRow {
+    display: flex;
+    gap: 16px;
+}
+
+.qrColorField {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    label {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: #374151;
+    }
+
+    input[type="color"] {
+        width: 48px;
+        height: 36px;
+        border: 1px solid #D1D5DB;
+        border-radius: 8px;
+        cursor: pointer;
+        padding: 2px;
+        background: white;
+    }
+}
+
+.qrCustomizeActions {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.qrModalFooter {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    width: 100%;
+}

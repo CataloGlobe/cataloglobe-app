@@ -1,0 +1,91 @@
+.item {
+    border-bottom: 1px solid #F3F4F6;
+}
+
+.item.last {
+    border-bottom: none;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 14px 20px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    gap: 12px;
+    transition: background-color 0.12s ease;
+
+    &:hover {
+        background-color: #FAFAFA;
+    }
+}
+
+.title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #111827;
+    flex-shrink: 0;
+}
+
+.previewBadges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.previewBadge {
+    padding: 2px 8px;
+    background-color: #F3F4F6;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    color: #4B5563;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+}
+
+.previewBadgeMore {
+    padding: 2px 8px;
+    background-color: #E5E7EB;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    color: #374151;
+    font-weight: 500;
+}
+
+.chevron {
+    color: #6B7280;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.chevronOpen {
+    transform: rotate(180deg);
+}
+
+.body {
+    padding: 0 4px 8px;
+
+    // Flatten inner section's Card so it doesn't double-nest visually
+    > div {
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        background: transparent !important;
+
+        &:hover {
+            transform: none !important;
+            box-shadow: none !important;
+        }
+    }
+}
