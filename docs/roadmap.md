@@ -25,3 +25,7 @@ Snapshot al 06/05/2026. Aggiornare quando un'area viene completata o abbandonata
 ## Operativo
 
 - **Toggle "Prevent use of leaked passwords"** — Supabase Dashboard → Authentication → Attack Protection. Bloccato su piano Free: feature disponibile solo da Pro plan in su. Quando passerai a Pro, attivalo su staging E prod (toggle + Save changes, niente migration). Risolve 1 warning Security Advisor `auth_leaked_password_protection`. Razionale: Supabase verifica le password contro DB HaveIBeenPwned al signup/password change, rifiuta password compromesse note. Zero rischio abilitare, zero impatto runtime.
+
+## Completati di recente
+
+- **Test Fase 2 GDPR — `purgeTenantData` end-to-end (11/05/2026)** — Path completo verificato runtime con tenant realistico (cover sede + gallery image + scheduling rule layout + analytics events). Scoperti e fixati 2 bug bloccanti in `supabase/functions/_shared/tenant-purge.ts`: FK ordering (`schedule_layout` eliminato dopo `catalogs`/`styles` → `23503` su tutti i tenant con regole Programmazione) e storage ricorsione (`purgeActivityFolder` non scendeva nei subpath `gallery/`, throw su `remove()` errore bloccava cleanup altri bucket → file orfani indefinitamente). Nessun residuo DB/storage post-purge, audit log con contatori corretti incluso `storageFilesRemoved`. Task Notion `[Privacy] Diritto cancellazione` chiudibile come "Fatto" con confidenza piena. Dettagli pattern in `CLAUDE.md` → sezione Edge Functions.

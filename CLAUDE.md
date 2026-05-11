@@ -336,6 +336,10 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 
 Catalogo completo + note operative (`purge-tenant-now` vs `purge-tenants`, trigger `prevent_deleted_at_client_update`) → `docs/edge-functions.md`.
 
+- **`purgeTenantData` ordine DELETE (critico per FK)**: `schedule_targets` + `schedule_layout` devono essere eliminate PRIMA di `catalogs` e `styles` (FK RESTRICT su `schedule_layout.catalog_id` e `schedule_layout.style_id`). Ordine corretto in `_shared/tenant-purge.ts`: junctions/product-children → `schedule_targets` (filtrato by `schedule_id`) → `schedule_layout` → `catalog_categories` → `catalogs` → `product_*` → `featured_contents` → `styles` (con `current_version_id=NULL` prima di `style_versions`) → `schedules` → `activities` → `products` → `tenant_memberships` → `tenants`. Bug fixato 11/05/2026 dopo test runtime: ordine sbagliato bloccava il purge con `23503` su tenant con regole Programmazione layout (= praticamente tutti i tenant attivi).
+
+- **`purgeActivityFolder` deve essere ricorsivo e non-throwing**: il bucket `business-covers` ha sotto-path tipo `{tenantId}/{slug}__{activityId}/gallery/` (gallery delle sedi). La cancellazione storage deve scendere ricorsivamente nei subfolder, e gli errori `storage.remove()` devono essere `console.warn` (non `throw`) per evitare di bloccare il cleanup degli altri bucket. Pattern allineato a `purgeTenantFolder` (gli altri 4 bucket tenant-scoped: `product-images`, `featured-contents`, `tenant-assets`, `style-backgrounds`). Bug fixato 11/05/2026: senza ricorsione, gallery images sopravvivevano al purge → file orfani indefinitamente in storage → violazione GDPR.
+
 ---
 
 ## Integrazioni
