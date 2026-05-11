@@ -440,3 +440,81 @@
         background-color: #FEF2F2;
     }
 }
+
+// ── Google Reviews static row ────────────────────────────────────────────────
+
+.googleReviewsRow {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    margin: 0 -14px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.12s ease;
+
+    &:hover {
+        background-color: #FAFAFA;
+    }
+
+    &:focus-visible {
+        outline: 2px solid #6366F1;
+        outline-offset: 2px;
+    }
+}
+
+.googleReviewsBody {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.googleReviewsLabel {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6B7280;
+}
+
+.googleReviewsLinked {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.googleReviewsValue {
+    font-size: 0.9375rem;
+    color: #111827;
+}
+
+.googleReviewsMeta {
+    font-size: 0.75rem;
+    color: #6B7280;
+}
+
+.googleReviewsEmpty {
+    font-size: 0.9375rem;
+    font-style: italic;
+    color: #9CA3AF;
+}
+
+.googleReviewsExternal {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    color: #6366F1;
+    text-decoration: none;
+    flex-shrink: 0;
+    transition: background-color 0.12s ease;
+
+    &:hover {
+        background-color: rgba(99, 102, 241, 0.08);
+    }
+}

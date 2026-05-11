@@ -42,6 +42,7 @@ import { ActivityCoverDrawer } from "./ActivityCoverDrawer";
 import { ActivityGalleryUploadDrawer } from "./ActivityGalleryUploadDrawer";
 import { ActivityIdentityDrawer } from "./info/ActivityIdentityDrawer";
 import { ActivitySlugDrawer } from "./info/ActivitySlugDrawer";
+import { ActivityGoogleReviewsDrawer } from "./contacts/ActivityGoogleReviewsDrawer";
 import { InlineEditableField } from "./components/InlineEditableField";
 import styles from "./ActivityProfileTab.module.scss";
 
@@ -151,6 +152,7 @@ export const ActivityProfileTab: React.FC<ActivityProfileTabProps> = ({
     const [isUploadDrawerOpen, setIsUploadDrawerOpen] = useState(false);
     const [isIdentityDrawerOpen, setIsIdentityDrawerOpen] = useState(false);
     const [isSlugDrawerOpen, setIsSlugDrawerOpen] = useState(false);
+    const [isGoogleReviewsDrawerOpen, setIsGoogleReviewsDrawerOpen] = useState(false);
 
     const [media, setMedia] = useState<ActivityMedia[]>([]);
     const [mediaLoading, setMediaLoading] = useState(true);
@@ -534,16 +536,50 @@ export const ActivityProfileTab: React.FC<ActivityProfileTabProps> = ({
                                 activeFieldId={editingField}
                                 onActivate={setEditingField}
                             />
-                            <InlineEditableField
-                                fieldId="google_review_url"
-                                label="Google Reviews"
-                                value={activity.google_review_url}
-                                inputType="url"
-                                validate={validateUrl}
-                                onSave={saveField("google_review_url")}
-                                activeFieldId={editingField}
-                                onActivate={setEditingField}
-                            />
+                            <div
+                                className={styles.googleReviewsRow}
+                                onClick={() => setIsGoogleReviewsDrawerOpen(true)}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={e => {
+                                    if (e.key === "Enter" || e.key === " ") {
+                                        e.preventDefault();
+                                        setIsGoogleReviewsDrawerOpen(true);
+                                    }
+                                }}
+                            >
+                                <div className={styles.googleReviewsBody}>
+                                    <span className={styles.googleReviewsLabel}>
+                                        Google Reviews
+                                    </span>
+                                    {activity.google_review_url ? (
+                                        <span className={styles.googleReviewsLinked}>
+                                            <span className={styles.googleReviewsValue}>
+                                                Collegato
+                                            </span>
+                                            <span className={styles.googleReviewsMeta}>
+                                                via Google Places
+                                            </span>
+                                        </span>
+                                    ) : (
+                                        <span className={styles.googleReviewsEmpty}>
+                                            Non collegato
+                                        </span>
+                                    )}
+                                </div>
+                                {activity.google_review_url && (
+                                    <a
+                                        href={activity.google_review_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={styles.googleReviewsExternal}
+                                        onClick={e => e.stopPropagation()}
+                                        aria-label="Apri pagina recensione"
+                                    >
+                                        <ExternalLink size={16} />
+                                    </a>
+                                )}
+                            </div>
                         </div>
                     </Card>
 
@@ -628,6 +664,13 @@ export const ActivityProfileTab: React.FC<ActivityProfileTabProps> = ({
                 activity={activity}
                 tenantId={tenantId}
                 onSuccess={handleSlugSuccess}
+            />
+            <ActivityGoogleReviewsDrawer
+                open={isGoogleReviewsDrawerOpen}
+                onClose={() => setIsGoogleReviewsDrawerOpen(false)}
+                activity={activity}
+                tenantId={tenantId}
+                onSuccess={onReload}
             />
         </>
     );
