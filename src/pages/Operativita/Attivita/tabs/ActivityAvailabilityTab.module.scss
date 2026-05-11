@@ -44,9 +44,32 @@
     margin: 8px 0 0;
     font-size: 0.8125rem;
     color: #374151;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
 
     strong {
         color: #111827;
         font-weight: 600;
+    }
+}
+
+.bannerSep {
+    color: #9CA3AF;
+    margin: 0 4px;
+}
+
+.bannerLink {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: #2563EB;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    font-weight: 500;
+
+    &:hover {
+        color: #1D4ED8;
     }
 }

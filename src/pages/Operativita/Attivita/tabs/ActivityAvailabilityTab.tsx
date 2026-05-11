@@ -1,6 +1,8 @@
-import React, { useCallback, useState } from "react";
-import { AlertCircle } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { AlertCircle, ArrowRight } from "lucide-react";
 import type { V2Activity } from "@/types/activity";
+import { getRenderableCatalogForActivity } from "@/services/supabase/activeCatalog";
 import {
     ActivityVisibilityContent,
     type VisibilityContentMeta
@@ -13,12 +15,32 @@ interface ActivityAvailabilityTabProps {
     onReload: () => Promise<void>;
 }
 
-export const ActivityAvailabilityTab: React.FC<ActivityAvailabilityTabProps> = ({ activity }) => {
+type ActiveSchedule = { id: string; name: string };
+
+export const ActivityAvailabilityTab: React.FC<ActivityAvailabilityTabProps> = ({
+    activity,
+    tenantId
+}) => {
     const [meta, setMeta] = useState<VisibilityContentMeta | null>(null);
+    const [activeSchedule, setActiveSchedule] = useState<ActiveSchedule | null>(null);
 
     const handleMeta = useCallback((m: VisibilityContentMeta) => {
         setMeta(m);
     }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        getRenderableCatalogForActivity(activity.id, tenantId)
+            .then(r => {
+                if (!cancelled) setActiveSchedule(r.activeSchedule);
+            })
+            .catch(() => {
+                if (!cancelled) setActiveSchedule(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [activity.id, tenantId]);
 
     const hasActiveCatalog = meta?.catalogId !== null && meta?.catalogId !== undefined;
 
@@ -39,6 +61,20 @@ export const ActivityAvailabilityTab: React.FC<ActivityAvailabilityTabProps> = (
                         <p className={styles.bannerMeta}>
                             Catalogo attivo:{" "}
                             <strong>{meta?.catalogName ?? "—"}</strong>
+                            {activeSchedule && (
+                                <>
+                                    <span className={styles.bannerSep}>·</span>
+                                    Regola: <strong>{activeSchedule.name}</strong>
+                                    <span className={styles.bannerSep}>·</span>
+                                    <Link
+                                        to={`/business/${tenantId}/scheduling/${activeSchedule.id}`}
+                                        className={styles.bannerLink}
+                                    >
+                                        Gestisci regola
+                                        <ArrowRight size={13} />
+                                    </Link>
+                                </>
+                            )}
                         </p>
                     </div>
                 </div>
