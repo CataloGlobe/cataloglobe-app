@@ -490,6 +490,51 @@
   gap: var(--spacing-3, 12px);
 }
 
+.productsTitleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.productsTitleHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2, 8px);
+  min-width: 0;
+}
+
+.categorySettingsButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm, 8px);
+  background: transparent;
+  color: var(--color-gray-500, #64748b);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: var(--color-gray-100, #f1f5f9);
+    color: var(--text, #0f172a);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary, #2563eb);
+    outline-offset: 2px;
+  }
+}
+
+.translationsWrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .productsTools {
   display: flex;
   align-items: center;
