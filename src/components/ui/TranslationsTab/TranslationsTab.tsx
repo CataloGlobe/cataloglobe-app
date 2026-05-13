@@ -16,16 +16,27 @@ import {
     upsertManualTranslation,
     revertManualTranslation
 } from "@/services/supabase/translations";
-import { listAvailableLanguages, type SupportedLanguage } from "@/services/supabase/tenantLanguages";
+import {
+    listAvailableLanguages,
+    type SupportedLanguage
+} from "@/services/supabase/tenantLanguages";
 import { computeFieldHash } from "@/services/translation/hashUtils";
-import type { Translation } from "@/types/translations";
-import type { V2Product } from "@/services/supabase/products";
+import type {
+    Translation,
+    TranslationEntityType,
+    TranslationField
+} from "@/types/translations";
 import styles from "./TranslationsTab.module.scss";
 
 interface TranslationsTabProps {
-    productId: string;
+    entityType: TranslationEntityType;
+    entityId: string;
     tenantId: string;
-    product: V2Product;
+    sourceText: string;
+    fieldKey: TranslationField;
+    sectionLabel: string;
+    sectionDescription: string;
+    placeholderItalian?: string;
 }
 
 type StatusKind = "manual" | "auto" | "missing";
@@ -47,7 +58,16 @@ function getStatusBadge(kind: StatusKind) {
     }
 }
 
-export function TranslationsTab({ productId, tenantId, product }: TranslationsTabProps) {
+export function TranslationsTab({
+    entityType,
+    entityId,
+    tenantId,
+    sourceText,
+    fieldKey,
+    sectionLabel,
+    sectionDescription,
+    placeholderItalian
+}: TranslationsTabProps) {
     const { showToast } = useToast();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -62,8 +82,8 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
     const [revertConfirmFor, setRevertConfirmFor] = useState<string | null>(null);
     const [pendingAutoLangs, setPendingAutoLangs] = useState<Set<string>>(new Set());
 
-    const sourceText = product.description ?? "";
     const hasSource = sourceText.trim().length > 0;
+    const textareaPlaceholder = placeholderItalian ?? "Inserisci la traduzione manuale";
 
     const loadData = useCallback(async () => {
         try {
@@ -72,7 +92,7 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
                 listAvailableLanguages(),
                 getActiveTenantLanguages(tenantId),
                 getTenantBaseLanguage(tenantId),
-                listTranslationsForEntity(tenantId, "product", productId),
+                listTranslationsForEntity(tenantId, entityType, entityId),
                 computeFieldHash(sourceText)
             ]);
 
@@ -80,7 +100,7 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
             setActiveCodes(active.map(l => l.language_code));
             setBaseLanguage(base);
             const filtered = allTranslations.filter(
-                t => t.field === "description" && t.entity_type === "product"
+                t => t.field === fieldKey && t.entity_type === entityType
             );
             setTranslations(filtered);
             setCurrentSourceHash(sourceHash);
@@ -103,7 +123,7 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
         } finally {
             setIsLoading(false);
         }
-    }, [productId, tenantId, sourceText, showToast]);
+    }, [entityId, entityType, fieldKey, tenantId, sourceText, showToast]);
 
     useEffect(() => {
         loadData();
@@ -138,7 +158,7 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
         }
 
         if (!hasSource) {
-            showToast({ message: "Compila prima la descrizione italiana", type: "error" });
+            showToast({ message: "Compila prima il testo sorgente in italiano", type: "error" });
             return;
         }
 
@@ -151,9 +171,9 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
         try {
             await upsertManualTranslation({
                 tenantId,
-                entityType: "product",
-                entityId: productId,
-                field: "description",
+                entityType,
+                entityId,
+                field: fieldKey,
                 languageCode,
                 sourceText,
                 sourceHash: currentSourceHash,
@@ -177,9 +197,9 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
         try {
             await revertManualTranslation({
                 tenantId,
-                entityType: "product",
-                entityId: productId,
-                field: "description",
+                entityType,
+                entityId,
+                field: fieldKey,
                 languageCode
             });
             setPendingAutoLangs(prev => {
@@ -221,7 +241,6 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
 
     return (
         <div className={styles.grid}>
-            {/* ── Card 1 — Traduzioni descrizione (o EmptyState al suo posto) ── */}
             {hasNoTargetLangs ? (
                 <EmptyState
                     icon={<Languages size={40} strokeWidth={1.5} />}
@@ -236,20 +255,17 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
             ) : hasNoSource ? (
                 <EmptyState
                     icon={<Languages size={40} strokeWidth={1.5} />}
-                    title="Inserisci prima una descrizione del prodotto"
-                    description="Le traduzioni vengono generate dalla descrizione italiana. Compila il campo 'Descrizione' nella tab Generale."
+                    title="Inserisci prima il testo sorgente in italiano"
+                    description="Le traduzioni vengono generate dal testo italiano. Compila il campo originale prima di gestire le traduzioni."
                 />
             ) : null}
 
             {showTranslationsCard && (
                 <section className={styles.card} data-section="translations">
                     <header className={styles.cardHeader}>
-                        <span className={styles.cardLabel}>Traduzioni descrizione</span>
+                        <span className={styles.cardLabel}>{sectionLabel}</span>
                     </header>
-                    <div className={styles.cardHelp}>
-                        Modifica manualmente le traduzioni della descrizione. Le modifiche manuali
-                        non vengono sovrascritte dalla traduzione automatica.
-                    </div>
+                    <div className={styles.cardHelp}>{sectionDescription}</div>
 
                     <div className={styles.referenceCard}>
                         <div className={styles.langHeader}>
@@ -267,109 +283,103 @@ export function TranslationsTab({ productId, tenantId, product }: TranslationsTa
 
                     <div className={styles.languageList}>
                         {targetLanguages.map(lang => {
-                    const code = lang.code;
-                    const translation = translationsByCode[code];
-                    const kind = getStatusKind(translation);
-                    const isPendingAuto = pendingAutoLangs.has(code);
-                    const draft = draftValues[code];
-                    const currentValue = draft ?? translation?.translated_text ?? "";
-                    const baseline = translation?.translated_text ?? "";
-                    const isDirty = currentValue !== baseline;
-                    const isStaleManual =
-                        kind === "manual" &&
-                        currentSourceHash !== null &&
-                        translation?.source_hash !== currentSourceHash;
-                    const isSaving = savingLang === code;
+                            const code = lang.code;
+                            const translation = translationsByCode[code];
+                            const kind = getStatusKind(translation);
+                            const isPendingAuto = pendingAutoLangs.has(code);
+                            const draft = draftValues[code];
+                            const currentValue = draft ?? translation?.translated_text ?? "";
+                            const baseline = translation?.translated_text ?? "";
+                            const isDirty = currentValue !== baseline;
+                            const isStaleManual =
+                                kind === "manual" &&
+                                currentSourceHash !== null &&
+                                translation?.source_hash !== currentSourceHash;
+                            const isSaving = savingLang === code;
 
-                    if (isPendingAuto) {
-                        return (
-                            <div key={code} className={styles.langBlock}>
-                                <div className={styles.langHeader}>
-                                    {lang.flag_emoji && (
-                                        <span className={styles.flag}>{lang.flag_emoji}</span>
+                            if (isPendingAuto) {
+                                return (
+                                    <div key={code} className={styles.langBlock}>
+                                        <div className={styles.langHeader}>
+                                            {lang.flag_emoji && (
+                                                <span className={styles.flag}>{lang.flag_emoji}</span>
+                                            )}
+                                            <span className={styles.langName}>{lang.name_native}</span>
+                                            <Badge variant="warning">Traduzione in corso</Badge>
+                                        </div>
+                                        <Textarea
+                                            rows={2}
+                                            placeholder="Generazione automatica in corso. Ricarica la pagina tra qualche istante."
+                                            value=""
+                                            readOnly
+                                            disabled
+                                            onChange={() => {}}
+                                            textareaClassName={styles.langTextarea}
+                                        />
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div key={code} className={styles.langBlock}>
+                                    <div className={styles.langHeader}>
+                                        {lang.flag_emoji && (
+                                            <span className={styles.flag}>{lang.flag_emoji}</span>
+                                        )}
+                                        <span className={styles.langName}>{lang.name_native}</span>
+                                        {getStatusBadge(kind)}
+                                    </div>
+
+                                    {isStaleManual && (
+                                        <InlineBanner variant="warning">
+                                            Il testo italiano è stato modificato dopo questa traduzione.
+                                            Verifica se la traduzione manuale è ancora corretta.
+                                        </InlineBanner>
                                     )}
-                                    <span className={styles.langName}>{lang.name_native}</span>
-                                    <Badge variant="warning">Traduzione in corso</Badge>
+
+                                    <Textarea
+                                        rows={2}
+                                        placeholder={textareaPlaceholder}
+                                        value={currentValue}
+                                        onChange={e =>
+                                            setDraftValues(prev => ({
+                                                ...prev,
+                                                [code]: e.target.value
+                                            }))
+                                        }
+                                        disabled={isSaving}
+                                        textareaClassName={styles.langTextarea}
+                                    />
+
+                                    <div className={styles.langActions}>
+                                        {kind === "manual" && (
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                onClick={() => setRevertConfirmFor(code)}
+                                                disabled={isSaving}
+                                            >
+                                                Torna a traduzione automatica
+                                            </Button>
+                                        )}
+                                        {(isDirty || kind === "missing") && (
+                                            <Button
+                                                type="button"
+                                                variant="primary"
+                                                onClick={() => handleSaveManual(code)}
+                                                loading={isSaving}
+                                                disabled={isSaving}
+                                            >
+                                                Salva traduzione manuale
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
-                                <Textarea
-                                    rows={2}
-                                    placeholder="Generazione automatica in corso. Ricarica la pagina tra qualche istante."
-                                    value=""
-                                    readOnly
-                                    disabled
-                                    onChange={() => {}}
-                                    textareaClassName={styles.langTextarea}
-                                />
-                            </div>
-                        );
-                    }
-
-                    return (
-                        <div key={code} className={styles.langBlock}>
-                            <div className={styles.langHeader}>
-                                {lang.flag_emoji && <span className={styles.flag}>{lang.flag_emoji}</span>}
-                                <span className={styles.langName}>{lang.name_native}</span>
-                                {getStatusBadge(kind)}
-                            </div>
-
-                            {isStaleManual && (
-                                <InlineBanner variant="warning">
-                                    La descrizione italiana è stata modificata dopo questa traduzione.
-                                    Verifica se la traduzione manuale è ancora corretta.
-                                </InlineBanner>
-                            )}
-
-                            <Textarea
-                                rows={2}
-                                placeholder="Inserisci la traduzione manuale"
-                                value={currentValue}
-                                onChange={e =>
-                                    setDraftValues(prev => ({ ...prev, [code]: e.target.value }))
-                                }
-                                disabled={isSaving}
-                                textareaClassName={styles.langTextarea}
-                            />
-
-                            <div className={styles.langActions}>
-                                {kind === "manual" && (
-                                    <Button
-                                        type="button"
-                                        variant="secondary"
-                                        onClick={() => setRevertConfirmFor(code)}
-                                        disabled={isSaving}
-                                    >
-                                        Torna a traduzione automatica
-                                    </Button>
-                                )}
-                                {(isDirty || kind === "missing") && (
-                                    <Button
-                                        type="button"
-                                        variant="primary"
-                                        onClick={() => handleSaveManual(code)}
-                                        loading={isSaving}
-                                        disabled={isSaving}
-                                    >
-                                        Salva traduzione manuale
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
                             );
                         })}
                     </div>
                 </section>
             )}
-
-            {/* ── Card 2 — Note prodotto (sempre visibile) ── */}
-            <section className={styles.card} data-section="notes-info">
-                <header className={styles.cardHeader}>
-                    <span className={styles.cardLabel}>Note prodotto</span>
-                </header>
-                <div className={styles.disclaimerBody}>
-                    Le note del prodotto vengono tradotte automaticamente. La modifica manuale
-                    delle traduzioni delle note non è ancora disponibile.
-                </div>
-            </section>
 
             <ConfirmDialog
                 isOpen={revertConfirmFor !== null}

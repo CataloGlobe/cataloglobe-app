@@ -21,7 +21,7 @@ import SchedaTab from "./SchedaTab";
 import PrezziOpzioniTab from "./PrezziOpzioniTab";
 import { UsageTab } from "./UsageTab";
 import { AttributesTab } from "./AttributesTab";
-import { TranslationsTab } from "./TranslationsTab";
+import { TranslationsTab } from "@/components/ui/TranslationsTab/TranslationsTab";
 import { ProductCreateEditDrawer } from "./ProductCreateEditDrawer";
 import styles from "./ProductPage.module.scss";
 
@@ -234,11 +234,29 @@ export default function ProductPage() {
                     {product.parent_product_id === null && (
                         <Tabs.Panel value="translations">
                             <Card>
-                                <TranslationsTab
-                                    productId={productId!}
-                                    tenantId={tenantId!}
-                                    product={product}
-                                />
+                                <div className={styles.translationsStack}>
+                                    <TranslationsTab
+                                        entityType="product"
+                                        entityId={productId!}
+                                        tenantId={tenantId!}
+                                        sourceText={product.description ?? ""}
+                                        fieldKey="description"
+                                        sectionLabel="Traduzioni descrizione"
+                                        sectionDescription="Modifica manualmente le traduzioni della descrizione. Le modifiche manuali non vengono sovrascritte dalla traduzione automatica."
+                                    />
+                                    <section className={styles.notesCard}>
+                                        <header className={styles.notesCardHeader}>
+                                            <span className={styles.notesCardLabel}>
+                                                Note prodotto
+                                            </span>
+                                        </header>
+                                        <div className={styles.notesCardBody}>
+                                            Le note del prodotto vengono tradotte automaticamente.
+                                            La modifica manuale delle traduzioni delle note non è
+                                            ancora disponibile.
+                                        </div>
+                                    </section>
+                                </div>
                             </Card>
                         </Tabs.Panel>
                     )}

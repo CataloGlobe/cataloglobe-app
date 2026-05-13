@@ -55,3 +55,43 @@
 .tabContent {
   margin-top: 24px;
 }
+
+// ── Translations tab: stack wrapper + Note prodotto info card ──────
+// Note card lives in ProductPage (not in shared TranslationsTab) since
+// it's a product-specific placeholder. Margins emulate the 16px padding/gap
+// previously provided by the shared component's internal .grid container.
+.translationsStack {
+  display: block;
+}
+
+.notesCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 16px 16px;
+  padding: 20px;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.notesCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notesCardLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted, #94a3b8);
+}
+
+.notesCardBody {
+  font-size: 13px;
+  color: var(--text-muted, var(--color-gray-600));
+  line-height: 1.5;
+}
