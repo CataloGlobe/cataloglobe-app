@@ -1,7 +1,8 @@
 import React, { useMemo } from "react";
 import { IconClock, IconX, IconPlus, IconEdit } from "@tabler/icons-react";
+import { CalendarOff, Plus } from "lucide-react";
 import { Card, Button } from "@/components/ui";
-import Text from "@/components/ui/Text/Text";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import type { V2ActivityClosure, ClosureSlot } from "@/types/activity-closures";
 import pageStyles from "../../ActivityDetailPage.module.scss";
 import styles from "./HoursServices.module.scss";
@@ -99,14 +100,22 @@ export const ActivityClosuresSection: React.FC<ActivityClosuresSectionProps> = (
             </div>
             <div className={pageStyles.cardContent}>
                 {sorted.length === 0 ? (
-                    <div className={styles.closuresEmptyState}>
-                        <Text variant="body-sm" colorVariant="muted">
-                            Nessuna chiusura programmata.
-                        </Text>
-                        <Button variant="ghost" size="sm" leftIcon={<IconPlus size={14} />} onClick={onCreateRequest}>
-                            Nuova chiusura
-                        </Button>
-                    </div>
+                    <EmptyState
+                        compact
+                        icon={<CalendarOff size={28} />}
+                        title="Nessuna chiusura programmata"
+                        description="Aggiungi giornate o fasce orarie di chiusura eccezionale."
+                        action={
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                leftIcon={<Plus size={14} />}
+                                onClick={onCreateRequest}
+                            >
+                                Nuova chiusura
+                            </Button>
+                        }
+                    />
                 ) : (
                     <div className={styles.closureCardList}>
                         {sorted.map((c) => {
