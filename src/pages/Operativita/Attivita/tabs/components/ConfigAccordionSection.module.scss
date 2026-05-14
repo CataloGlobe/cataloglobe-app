@@ -23,11 +23,26 @@
     }
 }
 
+.titleWrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
 .title {
     font-size: 0.9375rem;
     font-weight: 600;
     color: #111827;
-    flex-shrink: 0;
+}
+
+.dirtyDot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: var(--color-warning-500);
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18);
 }
 
 .previewBadges {
@@ -44,6 +59,7 @@
     background-color: #F3F4F6;
     border-radius: 999px;
     font-size: 0.6875rem;
+    font-weight: 500;
     color: #4B5563;
     white-space: nowrap;
     overflow: hidden;
@@ -72,20 +88,19 @@
 }
 
 .body {
-    padding: 0 4px 8px;
+    padding: 0 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
 
-    // Flatten inner section's Card so it doesn't double-nest visually
-    > div {
-        border: none !important;
-        box-shadow: none !important;
-        border-radius: 0 !important;
-        overflow: visible !important;
-        padding: 0 !important;
-        background: transparent !important;
+.bodyContent {
+    /* wrapper for body slot */
+}
 
-        &:hover {
-            transform: none !important;
-            box-shadow: none !important;
-        }
-    }
+.publicRow {
+    border-top: 1px solid #F3F4F6;
+    padding-top: 12px;
+    display: flex;
+    align-items: center;
 }

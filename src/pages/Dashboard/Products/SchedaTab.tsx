@@ -5,6 +5,7 @@ import { FileInput } from "@/components/ui/Input/FileInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { Pill } from "@/components/ui/Pill/Pill";
 import { TranslationStatusBadge } from "@/components/ui/TranslationStatusBadge/TranslationStatusBadge";
+import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
@@ -58,44 +59,6 @@ function arraysEqualUnordered<T>(a: T[], b: T[]): boolean {
     if (a.length !== b.length) return false;
     const set = new Set(a);
     return b.every(v => set.has(v));
-}
-
-interface ActionBarProps {
-    isSaving: boolean;
-    onCancel: () => void;
-    onSave: () => void;
-}
-
-function ActionBar({ isSaving, onCancel, onSave }: ActionBarProps) {
-    return (
-        <div className={styles.actionBar} role="status" aria-live="polite">
-            <div className={styles.actionBarLabel}>
-                <span className={styles.dirtyDot} aria-hidden />
-                <Text variant="body-sm" weight={600}>
-                    Modifiche non salvate
-                </Text>
-            </div>
-            <div className={styles.actionBarButtons}>
-                <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={onCancel}
-                    disabled={isSaving}
-                >
-                    Annulla
-                </Button>
-                <Button
-                    type="button"
-                    variant="primary"
-                    onClick={onSave}
-                    loading={isSaving}
-                    disabled={isSaving}
-                >
-                    Salva
-                </Button>
-            </div>
-        </div>
-    );
 }
 
 /**
@@ -560,7 +523,7 @@ export function SchedaTab({
                     )}
 
                     {isImageDirty && (
-                        <ActionBar
+                        <UnsavedChangesBar
                             isSaving={isSavingImage}
                             onCancel={handleCancelImage}
                             onSave={handleSaveImage}
@@ -651,7 +614,7 @@ export function SchedaTab({
                     </div>
 
                     {isInformationDirty && (
-                        <ActionBar
+                        <UnsavedChangesBar
                             isSaving={isSavingInformation}
                             onCancel={handleCancelInformation}
                             onSave={handleSaveInformation}
@@ -683,7 +646,7 @@ export function SchedaTab({
                         )}
 
                         {isIngredientsDirty && (
-                            <ActionBar
+                            <UnsavedChangesBar
                                 isSaving={isSavingIngredients}
                                 onCancel={handleCancelIngredients}
                                 onSave={handleSaveIngredients}
@@ -706,7 +669,7 @@ export function SchedaTab({
                         />
 
                         {isNotesDirty && (
-                            <ActionBar
+                            <UnsavedChangesBar
                                 isSaving={isSavingNotes}
                                 onCancel={handleCancelNotes}
                                 onSave={handleSaveNotes}
@@ -746,7 +709,7 @@ export function SchedaTab({
                         )}
 
                         {isAllergensDirty && (
-                            <ActionBar
+                            <UnsavedChangesBar
                                 isSaving={isSavingAllergens}
                                 onCancel={handleCancelAllergens}
                                 onSave={handleSaveAllergens}
@@ -776,7 +739,7 @@ export function SchedaTab({
                         )}
 
                         {isCharacteristicsDirty && (
-                            <ActionBar
+                            <UnsavedChangesBar
                                 isSaving={isSavingCharacteristics}
                                 onCancel={handleCancelCharacteristics}
                                 onSave={handleSaveCharacteristics}

@@ -38,7 +38,13 @@ import { ActivityClosureCreateEditDrawer } from "./hours-services/ActivityClosur
 import { ActivityClosureDeleteDrawer } from "./hours-services/ActivityClosureDeleteDrawer";
 import { PaymentMethodsSection } from "./hours-services/PaymentMethodsSection";
 import { ServicesSection } from "./hours-services/ServicesSection";
-import { FeesSection } from "./hours-services/FeesSection";
+import {
+    FeesSection,
+    feesToState,
+    buildFeesPayload,
+    feesStateEqual,
+    type FeesState
+} from "./hours-services/FeesSection";
 import { ExportCatalogDrawer } from "./ExportCatalogDrawer";
 import { ConfigAccordionSection } from "./components/ConfigAccordionSection";
 import {
@@ -58,6 +64,13 @@ import styles from "./ActivitySettingsTab.module.scss";
 
 const DEFAULT_FG = "#000000";
 const DEFAULT_BG = "#FFFFFF";
+
+function arraysSameMembers(a: string[], b: string[]): boolean {
+    if (a.length !== b.length) return false;
+    const set = new Set(a);
+    for (const x of b) if (!set.has(x)) return false;
+    return true;
+}
 
 interface ActivitySettingsTabProps {
     activity: V2Activity;
@@ -105,6 +118,62 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
 
     // ── URL copied indicator ─────────────────────────────────────────────────
     const [isUrlCopied, setIsUrlCopied] = useState(false);
+
+    // ── Draft state: payment methods / services / fees ───────────────────────
+    const savedPaymentMethods = useMemo(
+        () => activity.payment_methods ?? [],
+        [activity.payment_methods]
+    );
+    const savedServices = useMemo(
+        () => activity.services ?? [],
+        [activity.services]
+    );
+    const savedFees = useMemo(() => feesToState(activity.fees), [activity.fees]);
+
+    const [paymentsDraft, setPaymentsDraft] = useState<string[]>(savedPaymentMethods);
+    const [servicesDraft, setServicesDraft] = useState<string[]>(savedServices);
+    const [feesDraft, setFeesDraft] = useState<FeesState>(savedFees);
+
+    const [isSavingPayments, setIsSavingPayments] = useState(false);
+    const [isSavingServices, setIsSavingServices] = useState(false);
+    const [isSavingFees, setIsSavingFees] = useState(false);
+
+    const lastSavedPaymentsRef = useRef<string[]>(savedPaymentMethods);
+    const lastSavedServicesRef = useRef<string[]>(savedServices);
+    const lastSavedFeesRef = useRef<FeesState>(savedFees);
+
+    // Re-sync drafts when the saved value changes externally,
+    // but preserve user's dirty draft.
+    useEffect(() => {
+        const newSaved = activity.payment_methods ?? [];
+        if (arraysSameMembers(newSaved, lastSavedPaymentsRef.current)) return;
+        setPaymentsDraft(prev =>
+            arraysSameMembers(prev, lastSavedPaymentsRef.current) ? newSaved : prev
+        );
+        lastSavedPaymentsRef.current = newSaved;
+    }, [activity.payment_methods]);
+
+    useEffect(() => {
+        const newSaved = activity.services ?? [];
+        if (arraysSameMembers(newSaved, lastSavedServicesRef.current)) return;
+        setServicesDraft(prev =>
+            arraysSameMembers(prev, lastSavedServicesRef.current) ? newSaved : prev
+        );
+        lastSavedServicesRef.current = newSaved;
+    }, [activity.services]);
+
+    useEffect(() => {
+        const newSaved = feesToState(activity.fees);
+        if (feesStateEqual(newSaved, lastSavedFeesRef.current)) return;
+        setFeesDraft(prev =>
+            feesStateEqual(prev, lastSavedFeesRef.current) ? newSaved : prev
+        );
+        lastSavedFeesRef.current = newSaved;
+    }, [activity.fees]);
+
+    const isPaymentsDirty = !arraysSameMembers(paymentsDraft, savedPaymentMethods);
+    const isServicesDirty = !arraysSameMembers(servicesDraft, savedServices);
+    const isFeesDirty = !feesStateEqual(feesDraft, savedFees);
 
     // ── Computed values ──────────────────────────────────────────────────────
     const domain = import.meta.env.VITE_PUBLIC_DOMAIN || window.location.host;
@@ -184,10 +253,6 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
         await loadClosures();
     }, [loadClosures]);
 
-    const handleActivitySaved = useCallback(async () => {
-        await onReload();
-    }, [onReload]);
-
     const openCreateClosure = () => {
         setClosureMode("create");
         setSelectedClosure(undefined);
@@ -204,6 +269,119 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
         setSelectedClosure(closure);
         setIsClosureDeleteDrawerOpen(true);
     };
+
+    // ── Draft save / cancel handlers ─────────────────────────────────────────
+    const savePayments = useCallback(async () => {
+        setIsSavingPayments(true);
+        try {
+            await updateActivity(activity.id, tenantId, {
+                payment_methods: paymentsDraft
+            });
+            await onReload();
+            showToast({ message: "Metodi di pagamento salvati.", type: "success" });
+        } catch {
+            showToast({
+                message: "Impossibile salvare i metodi di pagamento.",
+                type: "error"
+            });
+        } finally {
+            setIsSavingPayments(false);
+        }
+    }, [activity.id, tenantId, paymentsDraft, onReload, showToast]);
+
+    const cancelPayments = useCallback(() => {
+        setPaymentsDraft(savedPaymentMethods);
+    }, [savedPaymentMethods]);
+
+    const saveServices = useCallback(async () => {
+        setIsSavingServices(true);
+        try {
+            await updateActivity(activity.id, tenantId, {
+                services: servicesDraft
+            });
+            await onReload();
+            showToast({ message: "Servizi salvati.", type: "success" });
+        } catch {
+            showToast({ message: "Impossibile salvare i servizi.", type: "error" });
+        } finally {
+            setIsSavingServices(false);
+        }
+    }, [activity.id, tenantId, servicesDraft, onReload, showToast]);
+
+    const cancelServices = useCallback(() => {
+        setServicesDraft(savedServices);
+    }, [savedServices]);
+
+    const saveFees = useCallback(async () => {
+        setIsSavingFees(true);
+        try {
+            await updateActivity(activity.id, tenantId, {
+                fees: buildFeesPayload(feesDraft)
+            });
+            await onReload();
+            showToast({ message: "Tariffe salvate.", type: "success" });
+        } catch {
+            showToast({ message: "Impossibile salvare le tariffe.", type: "error" });
+        } finally {
+            setIsSavingFees(false);
+        }
+    }, [activity.id, tenantId, feesDraft, onReload, showToast]);
+
+    const cancelFees = useCallback(() => {
+        setFeesDraft(savedFees);
+    }, [savedFees]);
+
+    // ── Public toggles (immediate save) ──────────────────────────────────────
+    const handlePaymentsPublicToggle = useCallback(
+        async (checked: boolean) => {
+            try {
+                await updateActivity(activity.id, tenantId, {
+                    payment_methods_public: checked
+                });
+                await onReload();
+            } catch {
+                showToast({
+                    message: "Impossibile aggiornare la visibilità.",
+                    type: "error"
+                });
+            }
+        },
+        [activity.id, tenantId, onReload, showToast]
+    );
+
+    const handleServicesPublicToggle = useCallback(
+        async (checked: boolean) => {
+            try {
+                await updateActivity(activity.id, tenantId, {
+                    services_public: checked
+                });
+                await onReload();
+            } catch {
+                showToast({
+                    message: "Impossibile aggiornare la visibilità.",
+                    type: "error"
+                });
+            }
+        },
+        [activity.id, tenantId, onReload, showToast]
+    );
+
+    const handleFeesPublicToggle = useCallback(
+        async (checked: boolean) => {
+            try {
+                await updateActivity(activity.id, tenantId, {
+                    fees_public: checked
+                });
+                await onReload();
+            } catch {
+                showToast({
+                    message: "Impossibile aggiornare la visibilità.",
+                    type: "error"
+                });
+            }
+        },
+        [activity.id, tenantId, onReload, showToast]
+    );
 
     // ── Handlers: URL / QR / PDF ─────────────────────────────────────────────
     const handleCopyLink = useCallback(async () => {
@@ -347,10 +525,16 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
         }
     }, [activity.id, tenantId, navigate, showToast]);
 
-    // ── Preview badges for accordion ─────────────────────────────────────────
-    const paymentBadges = activity.payment_methods ?? [];
-    const serviceBadges = activity.services ?? [];
-    const feesBadges = useMemo(
+    // ── Preview badges for accordion (use SAVED, not draft) ──────────────────
+    const paymentPreviewBadges = useMemo<string[]>(
+        () => savedPaymentMethods,
+        [savedPaymentMethods]
+    );
+    const servicesPreviewBadges = useMemo<string[]>(
+        () => savedServices,
+        [savedServices]
+    );
+    const feesPreviewBadges = useMemo<string[]>(
         () =>
             (activity.fees ?? [])
                 .filter(f => f.value && f.value.trim() !== "")
@@ -527,34 +711,64 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                         <div className={styles.cardBodyFlat}>
                             <ConfigAccordionSection
                                 title="Metodi di pagamento"
-                                previewBadges={paymentBadges}
+                                previewBadges={paymentPreviewBadges}
                                 defaultOpen
+                                publicToggle={{
+                                    value: activity.payment_methods_public,
+                                    onChange: handlePaymentsPublicToggle
+                                }}
+                                draft={{
+                                    isDirty: isPaymentsDirty,
+                                    onSave: savePayments,
+                                    onCancel: cancelPayments,
+                                    isSaving: isSavingPayments
+                                }}
                             >
                                 <PaymentMethodsSection
-                                    activity={activity}
-                                    tenantId={tenantId}
-                                    onSaved={handleActivitySaved}
+                                    value={paymentsDraft}
+                                    onChange={setPaymentsDraft}
+                                    disabled={isSavingPayments}
                                 />
                             </ConfigAccordionSection>
                             <ConfigAccordionSection
                                 title="Servizi offerti"
-                                previewBadges={serviceBadges}
+                                previewBadges={servicesPreviewBadges}
+                                publicToggle={{
+                                    value: activity.services_public,
+                                    onChange: handleServicesPublicToggle
+                                }}
+                                draft={{
+                                    isDirty: isServicesDirty,
+                                    onSave: saveServices,
+                                    onCancel: cancelServices,
+                                    isSaving: isSavingServices
+                                }}
                             >
                                 <ServicesSection
-                                    activity={activity}
-                                    tenantId={tenantId}
-                                    onSaved={handleActivitySaved}
+                                    value={servicesDraft}
+                                    onChange={setServicesDraft}
+                                    disabled={isSavingServices}
                                 />
                             </ConfigAccordionSection>
                             <ConfigAccordionSection
                                 title="Tariffe"
-                                previewBadges={feesBadges}
+                                previewBadges={feesPreviewBadges}
                                 isLast
+                                publicToggle={{
+                                    value: activity.fees_public,
+                                    onChange: handleFeesPublicToggle
+                                }}
+                                draft={{
+                                    isDirty: isFeesDirty,
+                                    onSave: saveFees,
+                                    onCancel: cancelFees,
+                                    isSaving: isSavingFees
+                                }}
                             >
                                 <FeesSection
-                                    activity={activity}
-                                    tenantId={tenantId}
-                                    onSaved={handleActivitySaved}
+                                    value={feesDraft}
+                                    onChange={setFeesDraft}
+                                    disabled={isSavingFees}
                                 />
                             </ConfigAccordionSection>
                         </div>
