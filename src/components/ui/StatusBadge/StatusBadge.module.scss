@@ -1,0 +1,37 @@
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.success {
+    background-color: #D1FAE5;
+    color: #065F46;
+
+    .dot {
+        background-color: #10B981;
+    }
+}
+
+.neutral {
+    background-color: #F3F4F6;
+    color: #6B7280;
+
+    .dot {
+        background-color: #9CA3AF;
+    }
+}

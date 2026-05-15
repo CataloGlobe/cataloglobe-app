@@ -240,6 +240,12 @@
     align-items: flex-start;
 }
 
+.qrSectionActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 .qrSectionDesc {
     margin: 0;
     font-size: 0.8125rem;
@@ -301,6 +307,13 @@
 .publicationHint {
     font-size: 0.8125rem;
     color: #6B7280;
+}
+
+.publicationActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 // ── Destructive card ─────────────────────────────────────────────────────────

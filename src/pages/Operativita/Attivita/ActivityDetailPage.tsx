@@ -3,6 +3,7 @@ import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { IconLoader2 } from "@tabler/icons-react";
 import { Button } from "@/components/ui";
 import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ActivityProfileTab } from "./tabs/ActivityProfileTab";
 import { ActivityAvailabilityTab } from "./tabs/ActivityAvailabilityTab";
@@ -125,7 +126,14 @@ const ActivityDetailPage: React.FC = () => {
                 <div className={styles.header}>
                     <div className={styles.titleSection}>
                         <Breadcrumb items={breadcrumbItems} />
-                        <h1>{activity.name}</h1>
+                        <div className={styles.titleRow}>
+                            <h1>{activity.name}</h1>
+                            {activity.status === "active" ? (
+                                <StatusBadge variant="success" label="Pubblicata" />
+                            ) : (
+                                <StatusBadge variant="neutral" label="Sospesa" />
+                            )}
+                        </div>
                     </div>
                 </div>
 

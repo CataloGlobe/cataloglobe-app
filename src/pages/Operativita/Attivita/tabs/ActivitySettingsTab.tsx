@@ -9,7 +9,6 @@ import { useNavigate } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
     AlertTriangle,
-    Maximize2,
     Check,
     Copy,
     Download,
@@ -17,6 +16,7 @@ import {
     FileText,
     Image as ImageIcon,
     Link as LinkIcon,
+    Palette,
     Trash2
 } from "lucide-react";
 import { Button, Card } from "@/components/ui";
@@ -57,6 +57,10 @@ import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenant } from "@/context/useTenant";
 import { FEE_DEFINITIONS_BY_KEY } from "@/constants/activityFees";
+import {
+    formatInactiveReason,
+    type InactiveReason
+} from "@/utils/activityStatus";
 import type { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
 import type { V2ActivityClosure } from "@/types/activity-closures";
@@ -114,6 +118,9 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
 
     // ── Publication / delete dialogs ─────────────────────────────────────────
     const [isSuspendOpen, setIsSuspendOpen] = useState(false);
+    const [suspendDialogMode, setSuspendDialogMode] = useState<
+        "suspend" | "edit-reason"
+    >("suspend");
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
     // ── URL copied indicator ─────────────────────────────────────────────────
@@ -478,11 +485,17 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
     }, []);
 
     // ── Handlers: Publication / Delete ───────────────────────────────────────
-    const handleToggleStatus = useCallback(async () => {
-        if (isActive) {
-            setIsSuspendOpen(true);
-            return;
-        }
+    const handleSuspendRequest = useCallback(() => {
+        setSuspendDialogMode("suspend");
+        setIsSuspendOpen(true);
+    }, []);
+
+    const handleEditReasonRequest = useCallback(() => {
+        setSuspendDialogMode("edit-reason");
+        setIsSuspendOpen(true);
+    }, []);
+
+    const handleResumeStatus = useCallback(async () => {
         try {
             await updateActivity(activity.id, tenantId, {
                 status: "active",
@@ -493,24 +506,38 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
         } catch {
             showToast({ message: "Impossibile riattivare la sede.", type: "error" });
         }
-    }, [activity.id, tenantId, isActive, onReload, showToast]);
+    }, [activity.id, tenantId, onReload, showToast]);
 
-    const handleSuspendConfirm = useCallback(
-        async (reason: "maintenance" | "closed" | "unavailable"): Promise<boolean> => {
+    const handleSuspendDialogConfirm = useCallback(
+        async (reason: InactiveReason): Promise<boolean> => {
             try {
-                await updateActivity(activity.id, tenantId, {
-                    status: "inactive",
-                    inactive_reason: reason
-                });
-                await onReload();
-                showToast({ message: "Sede sospesa.", type: "success" });
+                if (suspendDialogMode === "edit-reason") {
+                    await updateActivity(activity.id, tenantId, {
+                        inactive_reason: reason
+                    });
+                    await onReload();
+                    showToast({ message: "Motivo aggiornato.", type: "success" });
+                } else {
+                    await updateActivity(activity.id, tenantId, {
+                        status: "inactive",
+                        inactive_reason: reason
+                    });
+                    await onReload();
+                    showToast({ message: "Sede sospesa.", type: "success" });
+                }
                 return true;
             } catch {
-                showToast({ message: "Impossibile sospendere la sede.", type: "error" });
+                showToast({
+                    message:
+                        suspendDialogMode === "edit-reason"
+                            ? "Impossibile aggiornare il motivo."
+                            : "Impossibile sospendere la sede.",
+                    type: "error"
+                });
                 return false;
             }
         },
-        [activity.id, tenantId, onReload, showToast]
+        [activity.id, tenantId, suspendDialogMode, onReload, showToast]
     );
 
     const handleDeleteActivity = useCallback(async (): Promise<boolean> => {
@@ -631,7 +658,7 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                         onKeyDown={e =>
                                             e.key === "Enter" && setIsQrPreviewOpen(true)
                                         }
-                                        aria-label="Espandi anteprima QR"
+                                        aria-label="Apri anteprima QR"
                                     >
                                         <QRCodeSVG
                                             ref={qrCardRef}
@@ -643,35 +670,44 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                             bgColor={qrBgColor}
                                             imageSettings={qrCardImageSettings}
                                         />
-                                        <div className={styles.qrExpandBadge}>
-                                            <Maximize2 size={12} />
-                                        </div>
                                     </div>
                                     <div className={styles.qrSectionInfo}>
                                         <p className={styles.qrSectionDesc}>
                                             Stampabile o condivisibile per accesso rapido alla
                                             pagina pubblica della sede.
                                         </p>
-                                        <DropdownMenu
-                                            trigger={
-                                                <Button
-                                                    variant="secondary"
-                                                    size="sm"
-                                                    leftIcon={<Download size={14} />}
-                                                >
-                                                    Scarica
-                                                </Button>
-                                            }
-                                        >
-                                            <DropdownItem onClick={handleDownloadQR}>
-                                                <ImageIcon size={14} />
-                                                Scarica PNG
-                                            </DropdownItem>
-                                            <DropdownItem onClick={handleDownloadSVG}>
-                                                <Download size={14} />
-                                                Scarica SVG
-                                            </DropdownItem>
-                                        </DropdownMenu>
+                                        <div className={styles.qrSectionActions}>
+                                            <DropdownMenu
+                                                trigger={
+                                                    <Button
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        leftIcon={<Download size={14} />}
+                                                    >
+                                                        Scarica
+                                                    </Button>
+                                                }
+                                            >
+                                                <DropdownItem onClick={handleDownloadQR}>
+                                                    <ImageIcon size={14} />
+                                                    Scarica PNG
+                                                </DropdownItem>
+                                                <DropdownItem onClick={handleDownloadSVG}>
+                                                    <Download size={14} />
+                                                    Scarica SVG
+                                                </DropdownItem>
+                                            </DropdownMenu>
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                leftIcon={<Palette size={14} />}
+                                                onClick={() =>
+                                                    setIsQrPreviewOpen(true)
+                                                }
+                                            >
+                                                Personalizza
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -794,16 +830,35 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                 <span className={styles.publicationHint}>
                                     {isActive
                                         ? "— visibile tramite URL e QR code."
-                                        : "— non visibile online."}
+                                        : `— ${formatInactiveReason(
+                                              activity.inactive_reason
+                                          )}`}
                                 </span>
                             </div>
                         </div>
-                        <Button
-                            variant={isActive ? "outline" : "primary"}
-                            onClick={handleToggleStatus}
-                        >
-                            {isActive ? "Sospendi pubblicazione" : "Riprendi pubblicazione"}
-                        </Button>
+                        {isActive ? (
+                            <Button
+                                variant="outline"
+                                onClick={handleSuspendRequest}
+                            >
+                                Sospendi pubblicazione
+                            </Button>
+                        ) : (
+                            <div className={styles.publicationActions}>
+                                <Button
+                                    variant="secondary"
+                                    onClick={handleEditReasonRequest}
+                                >
+                                    Modifica motivo
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    onClick={handleResumeStatus}
+                                >
+                                    Riprendi pubblicazione
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 </Card>
 
@@ -871,7 +926,13 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
             <SuspendActivityDialog
                 isOpen={isSuspendOpen}
                 onClose={() => setIsSuspendOpen(false)}
-                onConfirm={handleSuspendConfirm}
+                onConfirm={handleSuspendDialogConfirm}
+                mode={suspendDialogMode}
+                initialReason={
+                    suspendDialogMode === "edit-reason"
+                        ? activity.inactive_reason
+                        : null
+                }
             />
             <ConfirmDialog
                 isOpen={isDeleteOpen}
