@@ -4,7 +4,7 @@ Riferimento schema. Per regole binding (RLS, naming, migration discipline) vedi 
 
 ## Tabelle principali (selezionate)
 
-- `tenants` — aziende/brand
+- `tenants` — aziende/brand. Campi legali aggiunti con migration `20260518095654_add_legal_fields_to_tenants`: `legal_name`, `vat_number`, `fiscal_code`, `ateco`, `rea_code`, `pec`, indirizzo strutturato (`address`, `street_number`, `postal_code`, `city`, `province`, `country`). Tutti nullable.
 - `activities` — sedi (slug, status, inactive_reason, cover_image rimovibile, contatti, social, street_number, postal_code, province — indirizzo strutturato; `fees` JSONB tariffe predefinite con flag `fees_public`)
 - `activity_slug_aliases` — alias slug storici per redirect (slug UNIQUE globale, ON DELETE CASCADE da activities)
 - `schedules` — regole scheduling (rule_type: "catalog" | "featured")
@@ -31,6 +31,7 @@ Riferimento schema. Per regole binding (RLS, naming, migration discipline) vedi 
 - `schedules.end_at` — salvato come fine giornata locale (`T23:59:59` locale → UTC via `toISOString()`)
 - `activity_hours.closes_next_day` — BOOLEAN DEFAULT false. Se `closes_at < opens_at`, il form imposta il flag automaticamente. Overlap detection usa `closes_at_minutes + 1440` per slot notturni. Stesso pattern per `activity_closures` (JSONB slots, `closes_next_day` è campo del JSON — nessun campo DB aggiuntivo).
 - View utenti vs RPC: `user_tenants_view` è SECURITY INVOKER e delega a `get_user_tenants()`. Per dati membri/inviti usare le RPC `get_tenant_members(uuid)` e `get_my_pending_invites()` (entrambe SECURITY DEFINER, accesso filtrato internamente). Le view legacy `tenant_members_view` e `my_pending_invites_view` sono state droppate nelle migration `20260427100000_security_advisor_fixes.sql` + `20260427110000_drop_orphan_member_views.sql`.
+- `src/config/company.ts` e `supabase/functions/_shared/company-config.ts` sono **duplicazione sincronizzata** dei dati legali aziendali. Backend Deno non può importare da `src/`. Stesso pattern di `scheduleResolver.ts`. Entrambi i file iniziano con header `// ⚠️ SYNC`. Modifica sempre entrambi nello stesso commit.
 
 ## Storage policy naming canonico
 

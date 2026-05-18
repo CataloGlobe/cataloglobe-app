@@ -151,6 +151,52 @@ JSX: `PageHeader` → `FilterBar` → `DataTable` → `CreateEditDrawer` → `De
 
 ---
 
+## Pagina dettaglio sede
+
+**Percorso**: `/business/:businessId/locations/:activityId` → `ActivityDetailPage`.
+
+Struttura a **3 tab** via `?tab=` query param:
+
+- `profile` (default) — `ActivityProfileTab`
+- `availability` — `ActivityAvailabilityTab`
+- `settings` — `ActivitySettingsTab`
+
+**Legacy redirects** (`LEGACY_TAB_MAP` in `ActivityDetailPage.tsx`):
+`info → profile`, `media → profile`, `hours-services → settings`, `access-control → settings`. Vecchi link esterni continuano a funzionare.
+
+**Header pagina**: titolo + `StatusBadge` inline ("Pubblicata"/"Sospesa") — visibile su tutte le tab.
+
+**Tab Impostazioni** — card chiave:
+- **Accesso pubblico**: URL pubblico, QR code (modale customizzazione via bottone "Personalizza" + click su thumbnail), Catalogo PDF (drawer export).
+- **Configurazione sede**: accordion single-open con 3 sezioni — Pagamenti / Servizi / Tariffe. Pattern draft + `UnsavedChangesBar` (vedi sotto). Sezioni interne (`PaymentMethodsSection`, `ServicesSection`, `FeesSection`) sono **controlled**.
+- **Stato pubblicazione**: bottoni dinamici — "Sospendi pubblicazione" se active, "Modifica motivo" + "Riprendi pubblicazione" se inactive. La modale `SuspendActivityDialog` supporta `mode: "suspend" | "edit-reason"` con `initialReason` per pre-fill.
+
+---
+
+## Pattern: draft inline con `UnsavedChangesBar`
+
+Pattern per editing rapido senza salvataggio per cambio (sostituisce debounce manuale `useRef<setTimeout>` che era usato in passato — **tech debt chiuso**, NON reintrodurre). Esempi in produzione: `SchedaTab` (6 sezioni prodotto), `ActivitySettingsTab` (Pagamenti/Servizi/Tariffe).
+
+- State diviso `draft` + `saved` nel parent. `isDirty` deriva dal diff (helper di confronto adatto al tipo: `arraysSameMembers` per `string[]`, `feesStateEqual` per `FeesState`).
+- Componenti figli **controlled**: props `value: T` + `onChange: (next: T) => void` + `disabled?`. NO state interno, NO debounce.
+- Re-sync con `activity` prop esterno via `useEffect` su `activity.<field>` + `lastSaved*Ref` per detect external change: se il draft equivale all'ultimo saved (= utente non dirty) follow nuovo saved, altrimenti preserva draft. Evita reset del draft quando un altro Save (es. toggle visibilità) triggera `onReload`.
+- `<UnsavedChangesBar isSaving onCancel onSave>` appare in fondo SOLO quando `isDirty === true`. Annulla = `setDraft(saved)`. Salva = service call → `onReload()` (`saved` allinea via prop refresh).
+- Toggle binari (`*_public`) restano save-immediato (non draft): una decisione binaria sola non beneficia di "raccolta modifiche". Solo le selezioni multi-pill / multi-field usano draft.
+
+---
+
+## Pattern: accordion single-open
+
+Pattern in `ConfigAccordionSection` (`src/pages/Operativita/Attivita/tabs/components/`). Riusabile altrove se serve list di sezioni dirty-tracked.
+
+- Stato `openAccordion: K | null` nel parent (controlled).
+- Ogni `ConfigAccordionSection` riceve `isOpen` + `onToggle` (no state interno).
+- Click su un altro accordion chiude quello corrente; click sullo stesso lo chiude.
+- Dirty dot nell'header chiuso quando `draft?.isDirty === true` (la `UnsavedChangesBar` vive nel body, quindi quando chiuso il dot indica le modifiche parcheggiate).
+- Preview badges (anteprima `string[]` dei valori SALVATI, non draft) visibili sull'header chiuso fino a 4 + "+N".
+
+---
+
 ## File Structure per Dominio
 
 ```
@@ -289,6 +335,7 @@ Due tipi di regola sullo stesso modello `schedules`:
 - Nuove tabelle: `tenant_id UUID NOT NULL`, RLS abilitato, 4 policy (select/insert/update/delete).
 - FK: `entita_id`. Self-ref: `parent_entita_id`. Colonne: `snake_case`. Tabelle: plurale.
 - Schema attuale + fact critici (slug uniqueness, tabelle Stripe-on-tenants, schedule_targets RLS, ecc.) → `docs/database-reference.md`.
+- Dati legali aziendali: `src/config/company.ts` ↔ `supabase/functions/_shared/company-config.ts` sono **duplicazione sincronizzata** (header `// ⚠️ SYNC`). Modifica sempre entrambi nello stesso commit. Stesso pattern di `scheduleResolver.ts`.
 
 ---
 
@@ -356,12 +403,17 @@ Catalogo completo + note operative (`purge-tenant-now` vs `purge-tenants`, trigg
 
 - Componenti in `src/components/ui/` — verificare PRIMA di crearne di nuovi.
 - Lingua: **italiano** ovunque. Tenant→"Azienda", Activity→"Sede", `owner_user_id`→mai in UI.
+- **Stato attività**: UI usa sempre "**Pubblicata**" / "**Sospesa**" (mai "Attiva"/"Inattiva"). DB values restano `status: "active" | "inactive"` (intoccabili senza migration). Motivi sospensione mappati centralmente in `src/utils/activityStatus.ts` (`formatInactiveReason` + `INACTIVE_REASON_LABEL`), riusato da `SuspendActivityDialog`, riga "Stato pubblicazione", overlay copertina `BusinessCard`.
 - SCSS Modules (`.module.scss`). Tema: `src/styles/_theme.scss`.
 - Import alias: `@components/`, `@services/`, `@context/`, `@types/`, `@utils/`, `@pages/`, `@layouts/`, `@styles/`. Mai `../../`.
 - Toast: `useToast().showToast({ message, type })`.
 - **Tooltip vs InfoTooltip**: regole d'uso in `memory/feedback_tooltip_guidelines.md`.
 - **`AddressAutocomplete`** (`src/components/ui/AddressAutocomplete/`) — autocompletamento indirizzo via Google Places (due step: searchText → place_id → addressComponents). Props: `onSelect(result: AddressResult)`. Usato in `BusinessCreateCard` e `ActivityIdentityForm`. Dopo selezione mostra pill di conferma con X per reset.
-- **`FeesSection`** (`src/pages/Operativita/Attivita/tabs/hours-services/FeesSection.tsx`) — sezione tariffe nella tab "Orari e Servizi". Usa `FEE_DEFINITIONS` da `src/constants/activityFees.ts` (enum fisso 5 voci). Pattern: input numerico (`type="text"` + `inputMode="decimal"` + regex `^[0-9]*[.,]?[0-9]*$`) + badge unità non editabile + switch `fees_public` immediato + debounce 800ms su update via `updateActivity`. `buildFeesPayload` filtra voci con value vuoto o `"0"`.
+- **`FeesSection`** (`src/pages/Operativita/Attivita/tabs/hours-services/FeesSection.tsx`) — sezione tariffe nella card "Configurazione sede" (tab Impostazioni). Usa `FEE_DEFINITIONS` da `src/constants/activityFees.ts` (enum fisso 5 voci). Componente **controlled** (props `value: FeesState` + `onChange`). Input numerico (`type="text"` + `inputMode="decimal"` + regex `^[0-9]*[.,]?[0-9]*$`) + badge unità non editabile. Save esplicito via `UnsavedChangesBar` del parent (vedi pattern draft inline più sotto). Helper esportati: `feesToState`, `buildFeesPayload`, `feesStateEqual`. `buildFeesPayload` filtra voci con value vuoto o `"0"`.
+- **`StatusBadge`** (`src/components/ui/StatusBadge/StatusBadge.tsx`) — badge pill con dot + label, varianti `success` / `neutral`. Usato per stato attività nell'header pagina dettaglio sede ("Pubblicata" / "Sospesa") e nelle card lista sedi (`BusinessCard` + `BusinessList` — mostrato solo quando inactive per ridurre rumore).
+- **`UnsavedChangesBar`** (`src/components/ui/UnsavedChangesBar/UnsavedChangesBar.tsx`) — barra "Modifiche non salvate" con dot arancione + label + Annulla/Salva. Riusata in `SchedaTab` (pagina dettaglio prodotto, 6 sezioni dirty-tracked) e in `ConfigAccordionSection`. Pattern draft inline (vedi sotto).
+- **`EmptyState`** (`src/components/ui/EmptyState/EmptyState.tsx`) — empty state riusabile: icona Lucide + titolo + descrizione + action opzionale. Prop `compact?: boolean` riduce padding da 64px→40px e shrinka font: usato dentro card (tab Impostazioni: Orari/Chiusure vuote). Default = full-page empty state (DataTable, BusinessList).
+- **`TranslationsTab`** (`src/components/ui/TranslationsTab/`) — componente generic **single-field** per editing manuale delle traduzioni (manual override + revert + badge stato auto/manual/missing + pending state post-revert). Props: `entityType: TranslationEntityType`, `entityId: string`, `tenantId: string`, `sourceText: string`, `fieldKey: TranslationField`, `sectionLabel: string`, `sectionDescription: string`, `placeholderItalian?: string`. Per entità con **più campi traducibili**: montare più istanze (es. `ProductPage` istanzia 1 istanza per `description`; la card statica "Note prodotto" che precede l'abilitazione editing su `notes` vive inline nella pagina, non dentro il componente). Backend RPC `upsert_manual_translation` / `revert_manual_translation` sono entity-type-agnostic — riusabili senza modifiche per qualsiasi `(entityType, fieldKey)` valido. Esempi montaggio: `ProductPage` (entityType="product", fieldKey="description"), `CatalogEngine` right pane categoria (entityType="category", fieldKey="name").
 
 ---
 
@@ -464,7 +516,7 @@ NON modificare automaticamente:
 
 **Database**: prefisso `v2_` nelle query service | tabelle senza `tenant_id` | `CASCADE` cross-dominio senza richiesta | modificare `get_my_tenant_ids()` | `DROP POLICY` senza `IF EXISTS` (rompe idempotenza cross-env, fallisce silenziosamente in caso di drift naming)
 
-**Frontend**: CSS inline | testi in inglese | esporre `owner_user_id` | librerie npm non richieste | submit button dentro `<form>` nei drawer | SystemDrawer/DrawerLayout nella pagina pubblica (usare PublicSheet)
+**Frontend**: CSS inline | testi in inglese | esporre `owner_user_id` | librerie npm non richieste | submit button dentro `<form>` nei drawer | SystemDrawer/DrawerLayout nella pagina pubblica (usare PublicSheet) | usare "Attiva"/"Inattiva" come label UI per stato sede (usa sempre "Pubblicata"/"Sospesa" via `StatusBadge`) | rimuovere `position: relative` su `.wrapper` o `top: 0; left: 0` su `.input` in `Switch.module.scss` (input absolute senza coordinate sforava `<html>.scrollHeight` di 241px — bug fixato bceb822) | bypassare `formatInactiveReason` definendo label inline per motivi di sospensione | reintrodurre debounce manuale (`useRef<setTimeout>`) per save di multi-select rapidi (usare draft + `UnsavedChangesBar`)
 
 **Scheduling**: salvare `end_at` come mezzanotte UTC (usare `T23:59:59` locale) | disabilitare i giorni della settimana quando un periodo è attivo (sono combinabili) | slot `hero` nei featured (rimosso, solo `before_catalog`/`after_catalog`)
 

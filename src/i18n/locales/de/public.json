@@ -210,5 +210,18 @@
     },
     "toast": {
         "translating": "Übersetze..."
+    },
+    "stale_banner": {
+        "message": "Inhalte sind möglicherweise nicht aktuell.",
+        "retry": "Erneut versuchen"
+    },
+    "error": {
+        "title": "Laden fehlgeschlagen",
+        "description": "Das Menü konnte nicht geladen werden. Bitte überprüfe deine Verbindung und versuche es erneut.",
+        "retry": "Erneut versuchen"
+    },
+    "error_boundary": {
+        "message": "Ein unerwarteter Fehler ist aufgetreten.",
+        "reload": "Neu laden"
     }
 }

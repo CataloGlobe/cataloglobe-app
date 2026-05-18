@@ -210,5 +210,18 @@
     },
     "toast": {
         "translating": "Traduzione..."
+    },
+    "stale_banner": {
+        "message": "I contenuti potrebbero non essere aggiornati.",
+        "retry": "Riprova"
+    },
+    "error": {
+        "title": "Caricamento non riuscito",
+        "description": "Non siamo riusciti a caricare il menu. Verifica la connessione e riprova.",
+        "retry": "Riprova"
+    },
+    "error_boundary": {
+        "message": "Si è verificato un errore imprevisto.",
+        "reload": "Ricarica"
     }
 }

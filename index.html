@@ -17,7 +17,52 @@
       rel="stylesheet"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>CataloGlobe</title>
+
+    <!-- ⚠️ SYNC con src/config/company.ts. Se modifichi dati legali, aggiorna anche qui. -->
+    <title>CataloGlobe — Cataloghi digitali multi-sede con scheduling automatico</title>
+    <meta name="description" content="Piattaforma SaaS per la gestione di cataloghi digitali multi-sede. Menu digitali con QR code, scheduling automatico, Review Guard e hub pubblico per ristoranti, bar e retail." />
+    <meta name="author" content="CataloGlobe di D'Elia Alessandro" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="CataloGlobe — Cataloghi digitali multi-sede" />
+    <meta property="og:description" content="Piattaforma SaaS per cataloghi digitali con scheduling automatico, Review Guard e hub pubblico." />
+    <meta property="og:url" content="https://cataloglobe.com" />
+    <meta property="og:site_name" content="CataloGlobe" />
+    <meta property="og:locale" content="it_IT" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CataloGlobe" />
+    <meta name="twitter:description" content="Cataloghi digitali multi-sede con scheduling automatico." />
+
+    <link rel="canonical" href="https://cataloglobe.com" />
+
+    <!-- ⚠️ SYNC con src/config/company.ts (helper getOrganizationSchema). Se modifichi dati legali, aggiorna anche qui. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "CataloGlobe",
+      "legalName": "CataloGlobe di D'Elia Alessandro",
+      "url": "https://cataloglobe.com",
+      "description": "Piattaforma SaaS per cataloghi digitali multi-tenant",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Via Verdi, 30",
+        "postalCode": "20092",
+        "addressLocality": "Cinisello Balsamo",
+        "addressRegion": "MI",
+        "addressCountry": "IT"
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "Customer Service",
+        "email": "support@cataloglobe.com",
+        "availableLanguage": ["Italian"]
+      }
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

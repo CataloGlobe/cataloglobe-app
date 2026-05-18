@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
+import { Lock } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
-import { supabase } from "@/services/supabase/client";
 import { useToast } from "@/context/Toast/ToastContext";
 import Text from "@/components/ui/Text/Text";
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Button } from "@/components/ui/Button/Button";
 import { FileInput } from "@/components/ui/Input/FileInput";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { DeleteTenantDialog } from "@/components/Businesses/DeleteTenantDialog";
-import { deleteTenantSoft, getTenantLogoPublicUrl, updateTenantLogoUrl, uploadTenantLogo } from "@/services/supabase/tenants";
+import { deleteTenantSoft, getTenantLogoPublicUrl, updateTenantLogoUrl, updateTenantName, uploadTenantLogo } from "@/services/supabase/tenants";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { TENANT_KEY } from "@/constants/storageKeys";
 import { SUBTYPE_LABELS, DEFAULT_SUBTYPE } from "@/constants/verticalTypes";
@@ -39,16 +40,14 @@ export default function BusinessSettingsPage() {
         if (!trimmed) return;
 
         setSaving(true);
-        const { error } = await supabase
-            .from("tenants")
-            .update({ name: trimmed })
-            .eq("id", selectedTenant.id);
-        setSaving(false);
-
-        if (error) {
-            showToast({ message: "Errore durante il salvataggio. Riprova.", type: "error" });
-        } else {
+        try {
+            await updateTenantName(selectedTenant.id, trimmed);
+            await refreshTenants();
             showToast({ message: "Informazioni aggiornate.", type: "success" });
+        } catch {
+            showToast({ message: "Errore durante il salvataggio. Riprova.", type: "error" });
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -105,13 +104,20 @@ export default function BusinessSettingsPage() {
 
     if (loading || !selectedTenant) return null;
 
-    if (userRole === "member") {
+    if (userRole !== "owner") {
         return (
-            <div className="p-6">
-                <h2 className="text-lg font-semibold">Accesso limitato</h2>
-                <p className="text-sm text-muted-foreground">
-                    Solo il proprietario del business può modificare queste impostazioni.
-                </p>
+            <div className={styles.page}>
+                <PageHeader
+                    title="Impostazioni attività"
+                    subtitle="Gestisci le informazioni e le preferenze di questa attività."
+                />
+                <div className={styles.emptyWrap}>
+                    <EmptyState
+                        icon={<Lock size={40} strokeWidth={1.5} />}
+                        title="Solo il proprietario può modificare queste impostazioni"
+                        description="Le impostazioni dell'attività riguardano l'identità e la configurazione dell'azienda. Per modifiche, contatta il proprietario."
+                    />
+                </div>
             </div>
         );
     }
@@ -123,42 +129,44 @@ export default function BusinessSettingsPage() {
                 subtitle="Gestisci le informazioni e le preferenze di questa attività."
             />
 
-            {/* Section 1 — Business info */}
-            <div className={styles.section}>
-                <Text variant="title-sm" weight={600}>
-                    Informazioni attività
-                </Text>
+            {/* Section 1 — Business info (owner only) */}
+            {userRole === "owner" && (
+                <div className={styles.section}>
+                    <Text variant="title-sm" weight={600}>
+                        Informazioni attività
+                    </Text>
 
-                <form id="business-info-form" onSubmit={handleSave} className={styles.form}>
-                    <TextInput
-                        label="Nome attività"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        required
-                    />
+                    <form id="business-info-form" onSubmit={handleSave} className={styles.form}>
+                        <TextInput
+                            label="Nome attività"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            required
+                        />
 
-                    <div className={styles.readOnlyField}>
-                        <Text variant="body-sm" weight={500}>Tipo di attività</Text>
-                        <span className={styles.typePill}>
-                            {SUBTYPE_LABELS[selectedTenant.business_subtype ?? DEFAULT_SUBTYPE]}
-                        </span>
-                        <span className={styles.readOnlyHint}>
-                            Il tipo di attività non può essere modificato dopo la creazione
-                        </span>
+                        <div className={styles.readOnlyField}>
+                            <Text variant="body-sm" weight={500}>Tipo di attività</Text>
+                            <span className={styles.typePill}>
+                                {SUBTYPE_LABELS[selectedTenant.business_subtype ?? DEFAULT_SUBTYPE]}
+                            </span>
+                            <span className={styles.readOnlyHint}>
+                                Il tipo di attività non può essere modificato dopo la creazione
+                            </span>
+                        </div>
+                    </form>
+
+                    <div className={styles.sectionFooter}>
+                        <Button
+                            type="submit"
+                            form="business-info-form"
+                            variant="primary"
+                            disabled={saving || !name.trim()}
+                        >
+                            {saving ? "Salvataggio..." : "Salva modifiche"}
+                        </Button>
                     </div>
-                </form>
-
-                <div className={styles.sectionFooter}>
-                    <Button
-                        type="submit"
-                        form="business-info-form"
-                        variant="primary"
-                        disabled={saving || !name.trim()}
-                    >
-                        {saving ? "Salvataggio..." : "Salva modifiche"}
-                    </Button>
                 </div>
-            </div>
+            )}
 
             {/* Section 2 — Logo (owner only) */}
             {userRole === "owner" && (

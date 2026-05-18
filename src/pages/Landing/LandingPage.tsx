@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { motion, useInView } from 'framer-motion';
+import { COMPANY } from '@/config/company';
 import s from './LandingPage.module.scss';
 import {
     SCHEDULE_RULES,
@@ -184,7 +185,7 @@ function Hero() {
                             Inizia gratis
                         </a>
                         <a
-                            href="mailto:alessandro.delia@cataloglobe.com?subject=Richiesta%20demo%20CataloGlobe"
+                            href={`mailto:${COMPANY.contact.info}?subject=Richiesta%20demo%20CataloGlobe`}
                             className={s.ctaSecondary}
                         >
                             Richiedi una demo <span>→</span>
@@ -458,7 +459,7 @@ function DemoCarousel() {
                     aria-label={`Apri QR code per ${DEMOS[active].name}`}
                 >
                     <QRCodeSVG
-                        value={`https://cataloglobe.com/${DEMOS[active].slug}`}
+                        value={`${COMPANY.web.homepage}/${DEMOS[active].slug}`}
                         size={90}
                         bgColor="transparent"
                         fgColor="#1a1a2e"
@@ -516,7 +517,7 @@ function DemoCarousel() {
                         onClick={(e) => e.stopPropagation()}
                     >
                         <QRCodeSVG
-                            value={`https://cataloglobe.com/${DEMOS[active].slug}`}
+                            value={`${COMPANY.web.homepage}/${DEMOS[active].slug}`}
                             size={250}
                             bgColor="transparent"
                             fgColor="#ffffff"
@@ -524,7 +525,7 @@ function DemoCarousel() {
                         <p className={s.qrOverlayName}>{DEMOS[active].name}</p>
                         <p className={s.qrOverlaySub}>Scansiona per aprire il menu</p>
                         <a
-                            href={`https://cataloglobe.com/${DEMOS[active].slug}`}
+                            href={`${COMPANY.web.homepage}/${DEMOS[active].slug}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={s.qrOverlayLink}
@@ -731,14 +732,13 @@ function Footer() {
             links: [
                 { label: 'Privacy Policy', href: '/legal/privacy' },
                 { label: 'Termini di Servizio', href: '/legal/termini' },
-                { label: 'Cookie Policy', href: '/legal/privacy' },
             ],
         },
         {
             title: 'Contatti',
             links: [
-                { label: 'info@cataloglobe.com', href: 'mailto:info@cataloglobe.com' },
-                { label: 'Supporto', href: '#' },
+                { label: 'Informazioni', href: `mailto:${COMPANY.contact.info}` },
+                { label: 'Supporto', href: `mailto:${COMPANY.contact.support}` },
             ],
         },
     ];
@@ -766,8 +766,9 @@ function Footer() {
                 </div>
             </div>
             <div className={s.footerBottom}>
-                <p className={s.footerCopy}>© 2026 CataloGlobe · P.IVA XXXXXXXXXX</p>
-                <p className={s.footerCity}>Milano, Italia</p>
+                <p className={s.copyright}>
+                    © {new Date().getFullYear()} {COMPANY.legalName} · P.IVA {COMPANY.vatNumber} · {COMPANY.legalAddress.city} ({COMPANY.legalAddress.province})
+                </p>
             </div>
         </footer>
     );

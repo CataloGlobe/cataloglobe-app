@@ -23,6 +23,7 @@ import ResetPassword from "./pages/Auth/ResetPassword";
 
 // Public pages — eager (entry point visitatori anonimi, evita round-trip extra del lazy chunk)
 import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
+import PublicErrorBoundary from "./components/PublicErrorBoundary/PublicErrorBoundary";
 import Home from "./pages/Home/Home";
 import NotFound from "./pages/NotFound/NotFound";
 import InvitePage from "./pages/Invite/InvitePage";
@@ -236,7 +237,14 @@ export default function App() {
             <Route path="/legal/termini" element={<TermsPage />} />
 
             {/* PUBLIC BUSINESS */}
-            <Route path="/:slug/:lang?" element={<PublicCollectionPage />} />
+            <Route
+                path="/:slug/:lang?"
+                element={
+                    <PublicErrorBoundary>
+                        <PublicCollectionPage />
+                    </PublicErrorBoundary>
+                }
+            />
 
             {/* Global 404 */}
             <Route path="*" element={<NotFound />} />

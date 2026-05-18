@@ -210,5 +210,18 @@
     },
     "toast": {
         "translating": "Translating..."
+    },
+    "stale_banner": {
+        "message": "Content may be out of date.",
+        "retry": "Retry"
+    },
+    "error": {
+        "title": "Loading failed",
+        "description": "We couldn't load the menu. Check your connection and try again.",
+        "retry": "Try again"
+    },
+    "error_boundary": {
+        "message": "An unexpected error occurred.",
+        "reload": "Reload"
     }
 }

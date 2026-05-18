@@ -1,5 +1,6 @@
 import LegalLayout from './LegalLayout';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { COMPANY, getFullAddress } from '@/config/company';
 import styles from './TermsPage.module.scss';
 
 const LAST_UPDATED = '2026-04-12';
@@ -29,6 +30,28 @@ export default function TermsPage() {
                     i presenti termini. Si prega di leggerli attentamente prima di procedere alla
                     registrazione o all'utilizzo di qualsiasi funzionalità della piattaforma.
                 </p>
+
+                {/* 0. Titolare del contratto */}
+                <div className={styles.section}>
+                    <h2>
+                        <span className={styles.sectionNum}>00</span>
+                        Titolare del contratto
+                    </h2>
+                    <p>
+                        I presenti Termini e Condizioni regolano il rapporto contrattuale tra
+                        l'Utente e il Titolare del servizio CataloGlobe:
+                    </p>
+                    <div className={styles.infoBox}>
+                        <p>
+                            <strong>{COMPANY.legalName}</strong><br />
+                            Sede legale: {getFullAddress()}<br />
+                            Partita IVA: {COMPANY.vatNumber}<br />
+                            Codice REA: {COMPANY.reaCode}<br />
+                            PEC: <a href={`mailto:${COMPANY.contact.pec}`}>{COMPANY.contact.pec}</a><br />
+                            Email contatti legali: <a href={`mailto:${COMPANY.contact.legal}`}>{COMPANY.contact.legal}</a>
+                        </p>
+                    </div>
+                </div>
 
                 {/* 1. Descrizione del servizio */}
                 <div className={styles.section}>
@@ -140,7 +163,7 @@ export default function TermsPage() {
                     <p>
                         <strong>Piattaforma:</strong> CataloGlobe e tutti i suoi componenti (codice
                         sorgente, interfacce, loghi, marchi, design, documentazione) sono di proprietà
-                        esclusiva di <span className={styles.placeholder}>[NOME TITOLARE]</span> e
+                        esclusiva di <strong>{COMPANY.legalName}</strong> e
                         sono protetti dalla normativa italiana ed europea sul diritto d'autore e
                         sulla proprietà intellettuale.
                     </p>
@@ -245,6 +268,36 @@ export default function TermsPage() {
                     </ul>
                 </div>
 
+                {/* 7-bis. Diritto di recesso per Consumatori */}
+                <div className={styles.section}>
+                    <h2>
+                        <span className={styles.sectionNum}>07-bis</span>
+                        Diritto di recesso per Consumatori
+                    </h2>
+                    <p>
+                        Ai sensi degli artt. 52 e seguenti del D.Lgs. 206/2005 (Codice del Consumo),
+                        l'Utente che sottoscrive il servizio in qualità di <strong>Consumatore</strong>
+                        {' '}(persona fisica che agisce per scopi estranei all'attività imprenditoriale,
+                        commerciale, artigianale o professionale eventualmente svolta) ha diritto di
+                        recedere dal contratto entro <strong>14 giorni</strong> dalla data di
+                        sottoscrizione, senza dover fornire alcuna motivazione.
+                    </p>
+                    <p>
+                        Per esercitare il diritto di recesso, il Consumatore deve comunicare la propria
+                        decisione tramite dichiarazione esplicita inviata a{' '}
+                        <a href={`mailto:${COMPANY.contact.legal}`}>{COMPANY.contact.legal}</a>{' '}
+                        oppure via PEC a{' '}
+                        <a href={`mailto:${COMPANY.contact.pec}`}>{COMPANY.contact.pec}</a>.
+                    </p>
+                    <p>
+                        Il diritto di recesso non si applica nel caso in cui il servizio sia stato
+                        integralmente eseguito durante il periodo di recesso, su espressa richiesta
+                        dell'Utente, ai sensi dell'art. 59 lett. a) del Codice del Consumo. Il presente
+                        diritto non si applica agli Utenti che sottoscrivono il servizio in qualità
+                        di Professionisti, Imprese o Partite IVA.
+                    </p>
+                </div>
+
                 {/* 8. Modifica dei termini */}
                 <div className={styles.section}>
                     <h2>
@@ -282,8 +335,15 @@ export default function TermsPage() {
                     </p>
                     <p>
                         In caso di mancato accordo, sarà competente in via esclusiva il Tribunale
-                        di <span className={styles.placeholder}>[FORO COMPETENTE]</span>, salvo
-                        diversa disposizione inderogabile di legge applicabile nei confronti
+                        di{' '}
+                        {COMPANY.legal.forum ? (
+                            <strong>{COMPANY.legal.forum}</strong>
+                        ) : (
+                            <em style={{ color: 'var(--color-warning, #c2410c)' }}>
+                                [FORO COMPETENTE — da definire con consulenza legale]
+                            </em>
+                        )}
+                        , salvo diversa disposizione inderogabile di legge applicabile nei confronti
                         dei consumatori.
                     </p>
                     <div className={styles.infoBox}>
@@ -315,7 +375,48 @@ export default function TermsPage() {
                     <p>
                         Per qualsiasi comunicazione o richiesta relativa ai presenti Termini,
                         è possibile contattarci all'indirizzo:{' '}
-                        <span className={styles.placeholder}>[EMAIL PRIVACY]</span>
+                        <a href={`mailto:${COMPANY.contact.legal}`}>{COMPANY.contact.legal}</a>
+                    </p>
+                </div>
+
+                {/* 10-bis. Trattamento dei dati personali */}
+                <div className={styles.section}>
+                    <h2>
+                        <span className={styles.sectionNum}>10-bis</span>
+                        Trattamento dei dati personali
+                    </h2>
+                    <p>
+                        Il trattamento dei dati personali degli Utenti del servizio CataloGlobe è
+                        disciplinato dalla{' '}
+                        <a href={COMPANY.web.privacyUrl}>Privacy Policy</a>,
+                        parte integrante dei presenti Termini e Condizioni. L'accettazione dei
+                        presenti Termini implica la presa visione della Privacy Policy.
+                    </p>
+                </div>
+
+                {/* 10-ter. Risoluzione alternativa delle controversie (ODR) */}
+                <div className={styles.section}>
+                    <h2>
+                        <span className={styles.sectionNum}>10-ter</span>
+                        Risoluzione alternativa delle controversie
+                    </h2>
+                    <p>
+                        Ai sensi del Regolamento (UE) 524/2013, il Consumatore che intenda proporre
+                        un reclamo relativo al servizio acquistato online può accedere alla
+                        piattaforma europea di Risoluzione Online delle Controversie (ODR):
+                    </p>
+                    <p>
+                        <a
+                            href="https://ec.europa.eu/consumers/odr"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            https://ec.europa.eu/consumers/odr
+                        </a>
+                    </p>
+                    <p>
+                        L'email di contatto del Titolare per le comunicazioni ODR è{' '}
+                        <a href={`mailto:${COMPANY.contact.legal}`}>{COMPANY.contact.legal}</a>.
                     </p>
                 </div>
             </div>

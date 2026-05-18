@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { recordConsent } from '@services/supabase/consent';
-import styles from './ConsentBanner.module.scss';
+import styles from './TermsAcceptanceBanner.module.scss';
 
-interface ConsentBannerProps {
+interface TermsAcceptanceBannerProps {
   userId: string;
   onAccepted: () => void;
 }
 
-export default function ConsentBanner({ userId, onAccepted }: ConsentBannerProps) {
+export default function TermsAcceptanceBanner({ userId, onAccepted }: TermsAcceptanceBannerProps) {
   const [loading, setLoading] = useState(false);
 
   const handleAccept = async () => {

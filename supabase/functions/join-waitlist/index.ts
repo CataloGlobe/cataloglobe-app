@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@4";
+import { COMPANY, getEmailFooterHtml, getEmailFooterText } from "../_shared/company-config.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 
@@ -89,7 +90,8 @@ serve(async (req: Request) => {
 
         // ── Confirmation email (best-effort) ────────────────────────
         resend.emails.send({
-            from: "CataloGlobe <noreply@cataloglobe.com>",
+            from: COMPANY.email.sender,
+            reply_to: COMPANY.contact.info,
             to: email,
             subject: "Sei nella lista d'attesa di CataloGlobe!",
             html: `
@@ -106,8 +108,10 @@ serve(async (req: Request) => {
        <p style="font-size: 13px; color: #9895a8; margin: 0;">
          — Il team CataloGlobe
        </p>
+       ${getEmailFooterHtml()}
      </div>
-`
+`,
+            text: `Grazie per il tuo interesse!\n\nSei nella lista d'attesa di CataloGlobe. Ti contatteremo appena la piattaforma sarà disponibile.\n\nSe hai domande, rispondi a questa email.\n\n— Il team CataloGlobe\n\n${getEmailFooterText()}`
         }).catch((err: unknown) => {
             console.error("[join-waitlist] Resend error:", err);
         });
