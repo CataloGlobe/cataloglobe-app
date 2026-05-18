@@ -72,10 +72,12 @@ export const COMPANY = {
 
   // --- Termini e condizioni ---
   legal: {
-    // ⚠️ Foro competente: da validare con avvocato (P0 Notion).
-    // NON inventare un valore. Lascia stringa vuota: il TermsPage rendering
-    // mostrerà "[FORO COMPETENTE — da definire]" finché non sarà sostituito.
-    forum: "",
+    // Foro competente provvisorio: Tribunale di Monza
+    // (Cinisello Balsamo è sotto la giurisdizione del Tribunale di Monza dal 2013,
+    // a seguito della revisione delle circoscrizioni giudiziarie).
+    // ⚠️ Da validare con avvocato come parte della revisione legale completa
+    // di Privacy + Termini (P0 in Notion: "Revisione legale completa Privacy + Termini").
+    forum: "Monza",
   },
 } as const;
 
