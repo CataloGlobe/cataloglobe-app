@@ -98,9 +98,9 @@
     /* wrapper for body slot */
 }
 
-.publicRow {
-    border-top: 1px solid #F3F4F6;
-    padding-top: 12px;
+.publicToggleInline {
     display: flex;
     align-items: center;
+    margin-top: -4px;
+    margin-bottom: 4px;
 }

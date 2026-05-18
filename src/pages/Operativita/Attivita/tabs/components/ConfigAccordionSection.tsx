@@ -1,4 +1,4 @@
-import React, { ReactNode, useState } from "react";
+import React, { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
@@ -19,7 +19,8 @@ export interface PublicToggle {
 interface ConfigAccordionSectionProps {
     title: string;
     previewBadges?: string[];
-    defaultOpen?: boolean;
+    isOpen: boolean;
+    onToggle: () => void;
     publicToggle?: PublicToggle;
     draft?: DraftActions;
     children: ReactNode;
@@ -31,28 +32,28 @@ const MAX_PREVIEW = 4;
 export const ConfigAccordionSection: React.FC<ConfigAccordionSectionProps> = ({
     title,
     previewBadges,
-    defaultOpen = false,
+    isOpen,
+    onToggle,
     publicToggle,
     draft,
     children,
     isLast = false
 }) => {
-    const [open, setOpen] = useState(defaultOpen);
     const hasBadges = !!previewBadges && previewBadges.length > 0;
-    const previewVisible = !open && hasBadges;
-    const showDirtyDot = !open && !!draft?.isDirty;
+    const previewVisible = !isOpen && hasBadges;
+    const showDirtyDot = !isOpen && !!draft?.isDirty;
 
     return (
         <div
-            className={`${styles.item} ${open ? styles.open : ""} ${
+            className={`${styles.item} ${isOpen ? styles.open : ""} ${
                 isLast ? styles.last : ""
             }`}
         >
             <button
                 type="button"
                 className={styles.header}
-                onClick={() => setOpen(o => !o)}
-                aria-expanded={open}
+                onClick={onToggle}
+                aria-expanded={isOpen}
             >
                 <span className={styles.titleWrap}>
                     <span className={styles.title}>{title}</span>
@@ -80,14 +81,13 @@ export const ConfigAccordionSection: React.FC<ConfigAccordionSectionProps> = ({
                 )}
                 <ChevronDown
                     size={16}
-                    className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`}
+                    className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ""}`}
                 />
             </button>
-            {open && (
+            {isOpen && (
                 <div className={styles.body}>
-                    <div className={styles.bodyContent}>{children}</div>
                     {publicToggle && (
-                        <div className={styles.publicRow}>
+                        <div className={styles.publicToggleInline}>
                             <Switch
                                 label="Mostra nella pagina pubblica"
                                 checked={publicToggle.value}
@@ -95,6 +95,7 @@ export const ConfigAccordionSection: React.FC<ConfigAccordionSectionProps> = ({
                             />
                         </div>
                     )}
+                    <div className={styles.bodyContent}>{children}</div>
                     {draft && draft.isDirty && (
                         <UnsavedChangesBar
                             isSaving={!!draft.isSaving}

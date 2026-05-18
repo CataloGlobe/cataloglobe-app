@@ -182,6 +182,33 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
     const isServicesDirty = !arraysSameMembers(servicesDraft, savedServices);
     const isFeesDirty = !feesStateEqual(feesDraft, savedFees);
 
+    // ── Single-open accordion state ──────────────────────────────────────────
+    type AccordionKey = "payments" | "services" | "fees" | null;
+    const [openAccordion, setOpenAccordion] = useState<AccordionKey>(null);
+
+    const handleToggleAccordion = useCallback(
+        (key: Exclude<AccordionKey, null>) => {
+            if (key === openAccordion) {
+                setOpenAccordion(null);
+                return;
+            }
+            const currentlyOpenIsDirty =
+                (openAccordion === "payments" && isPaymentsDirty) ||
+                (openAccordion === "services" && isServicesDirty) ||
+                (openAccordion === "fees" && isFeesDirty);
+            if (currentlyOpenIsDirty) {
+                showToast({
+                    message:
+                        "Salva o annulla le modifiche prima di continuare",
+                    type: "warning"
+                });
+                return;
+            }
+            setOpenAccordion(key);
+        },
+        [openAccordion, isPaymentsDirty, isServicesDirty, isFeesDirty, showToast]
+    );
+
     // ── Computed values ──────────────────────────────────────────────────────
     const domain = import.meta.env.VITE_PUBLIC_DOMAIN || window.location.host;
     const protocol = window.location.protocol;
@@ -748,7 +775,8 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                             <ConfigAccordionSection
                                 title="Metodi di pagamento"
                                 previewBadges={paymentPreviewBadges}
-                                defaultOpen
+                                isOpen={openAccordion === "payments"}
+                                onToggle={() => handleToggleAccordion("payments")}
                                 publicToggle={{
                                     value: activity.payment_methods_public,
                                     onChange: handlePaymentsPublicToggle
@@ -769,6 +797,8 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                             <ConfigAccordionSection
                                 title="Servizi offerti"
                                 previewBadges={servicesPreviewBadges}
+                                isOpen={openAccordion === "services"}
+                                onToggle={() => handleToggleAccordion("services")}
                                 publicToggle={{
                                     value: activity.services_public,
                                     onChange: handleServicesPublicToggle
@@ -790,6 +820,8 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                 title="Tariffe"
                                 previewBadges={feesPreviewBadges}
                                 isLast
+                                isOpen={openAccordion === "fees"}
+                                onToggle={() => handleToggleAccordion("fees")}
                                 publicToggle={{
                                     value: activity.fees_public,
                                     onChange: handleFeesPublicToggle
