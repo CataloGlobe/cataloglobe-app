@@ -210,5 +210,18 @@
     },
     "toast": {
         "translating": "Traduciendo..."
+    },
+    "stale_banner": {
+        "message": "Los contenidos podrían no estar actualizados.",
+        "retry": "Reintentar"
+    },
+    "error": {
+        "title": "Error al cargar",
+        "description": "No hemos podido cargar el menú. Comprueba la conexión e inténtalo de nuevo.",
+        "retry": "Reintentar"
+    },
+    "error_boundary": {
+        "message": "Se ha producido un error inesperado.",
+        "reload": "Recargar"
     }
 }

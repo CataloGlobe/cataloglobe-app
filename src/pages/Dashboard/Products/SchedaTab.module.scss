@@ -1,0 +1,130 @@
+// ── Grid wrapper ────────────────────────────────────────────────────
+// Stack mobile, 2 colonne >=1024px (convenzione progetto da Products list).
+.grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+
+    @media (min-width: 1024px) {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        align-items: start;
+    }
+}
+
+.col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+// ── Card pattern ────────────────────────────────────────────────────
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px;
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.cardHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.cardLabel {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-muted, #94a3b8);
+}
+
+// ── Image preview ──────────────────────────────────────────────────
+.imagePreview {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+// ── Field grids ─────────────────────────────────────────────────────
+.fieldGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.descriptionField {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.translationRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.translationLink {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--color-primary-600, var(--color-gray-700));
+    cursor: pointer;
+    font-size: 13px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+        color: var(--color-primary-700, var(--color-gray-900));
+    }
+}
+
+// ── Allergens grid ──────────────────────────────────────────────────
+.allergenGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+// ── Sub-section dentro card (es. Gruppi prodotto in Informazioni) ──
+.subSection {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+}
+
+.subSectionHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.subSectionLabel {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+}
+
+.groupChips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+

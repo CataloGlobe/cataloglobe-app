@@ -92,8 +92,12 @@ async function purgeTenantFolder(
 }
 
 /**
- * Remove all storage files for a single activity folder.
- * Path convention: `{tenantId}/{safeSlug}__{activityId}/`
+ * Recursively remove all storage files for a single activity folder.
+ * Path convention: `{tenantId}/{safeSlug}__{activityId}/` plus any nested subfolders
+ * (e.g. `.../gallery/file.webp`).
+ *
+ * Non-throwing: on error logs a warning and continues.
+ * Returns total file count removed.
  */
 export async function purgeActivityFolder(
     admin: ReturnType<typeof createClient>,
@@ -110,21 +114,35 @@ export async function purgeActivityFolder(
         .replace(/^-+|-+$/g, "")
         .slice(0, 60) || "activity";
     const folder = `${tenantId}/${safeSlug}__${activity.id}`;
+    let totalRemoved = 0;
 
-    const { data: files, error: listErr } = await storage.list(folder, { limit: 1000 });
-    if (listErr) {
-        console.warn(`tenant-purge: storage list warn for ${bucket}/${folder}: ${listErr.message}`);
-        return 0;
+    async function purgePrefix(prefix: string): Promise<void> {
+        const { data: items, error: listErr } = await storage.list(prefix, { limit: 1000 });
+        if (listErr) {
+            console.warn(`tenant-purge: list warn ${bucket}/${prefix}: ${listErr.message}`);
+            return;
+        }
+        if (!items || items.length === 0) return;
+
+        const filePaths = items.filter(f => f.id !== null).map(f => `${prefix}/${f.name}`);
+        const subfolders = items.filter(f => f.id === null).map(f => `${prefix}/${f.name}`);
+
+        if (filePaths.length > 0) {
+            const { error: removeErr } = await storage.remove(filePaths);
+            if (removeErr) {
+                console.warn(`tenant-purge: remove warn ${bucket}/${prefix}: ${removeErr.message}`);
+            } else {
+                totalRemoved += filePaths.length;
+            }
+        }
+
+        for (const sub of subfolders) {
+            await purgePrefix(sub);
+        }
     }
-    if (!files || files.length === 0) return 0;
 
-    const paths = files.filter(f => f.id !== null).map(f => `${folder}/${f.name}`);
-    if (paths.length === 0) return 0;
-
-    const { error: removeErr } = await storage.remove(paths);
-    if (removeErr) throw new Error(`Storage remove error in ${bucket}/${folder}: ${removeErr.message}`);
-
-    return paths.length;
+    await purgePrefix(folder);
+    return totalRemoved;
 }
 
 /**
@@ -146,21 +164,22 @@ export async function purgeActivityFolder(
  *    7.  product_ingredients
  *    8.  product_attribute_values
  *    9.  product_allergens
+ *    --- schedule children (must clear BEFORE catalogs/styles — FK RESTRICT) ---
+ *   10.  schedule_targets   (no tenant_id — filtered by schedule_id)
+ *   11.  schedule_layout    (FK → catalogs, styles)
  *    --- secondary entities ---
- *   10.  catalog_categories
- *   11.  catalogs
- *   12.  product_option_groups
- *   13.  product_groups
- *   14.  ingredients
- *   15.  product_attribute_definitions
- *   16.  featured_contents
+ *   12.  catalog_categories
+ *   13.  catalogs
+ *   14.  product_option_groups
+ *   15.  product_groups
+ *   16.  ingredients
+ *   17.  product_attribute_definitions
+ *   18.  featured_contents
  *    --- styles (circular FK — must break before deleting versions) ---
- *   17.  UPDATE styles SET current_version_id = NULL
- *   18.  style_versions
- *   19.  styles
- *    --- schedules ---
- *   20.  schedule_targets   (no tenant_id — filtered by schedule_id)
- *   21.  schedule_layout
+ *   19.  UPDATE styles SET current_version_id = NULL
+ *   20.  style_versions
+ *   21.  styles
+ *    --- schedules (parent of schedule_layout/targets, cleared above) ---
  *   22.  schedules
  *    --- activity structures ---
  *   23.  activity_group_members
@@ -255,29 +274,8 @@ export async function purgeTenantData(
     deleted["product_attribute_values"]      = await deleteFromTable(admin, "product_attribute_values",      tenantId);
     deleted["product_allergens"]             = await deleteFromTable(admin, "product_allergens",             tenantId);
 
-    // 4. Secondary entities (children cleared above)
-    deleted["catalog_categories"]            = await deleteFromTable(admin, "catalog_categories",            tenantId);
-    deleted["catalogs"]                      = await deleteFromTable(admin, "catalogs",                      tenantId);
-    deleted["product_option_groups"]         = await deleteFromTable(admin, "product_option_groups",         tenantId);
-    deleted["product_groups"]                = await deleteFromTable(admin, "product_groups",                tenantId);
-    deleted["ingredients"]                   = await deleteFromTable(admin, "ingredients",                   tenantId);
-    // tenant_id is nullable here (platform attrs use NULL) — only removes tenant-owned definitions
-    deleted["product_attribute_definitions"] = await deleteFromTable(admin, "product_attribute_definitions", tenantId);
-    deleted["featured_contents"]             = await deleteFromTable(admin, "featured_contents",             tenantId);
-
-    // 5. Styles — break circular FK (styles.current_version_id → style_versions.id)
-    //    before deleting versions
-    const { error: nullifyErr } = await admin
-        .from("styles")
-        .update({ current_version_id: null })
-        .eq("tenant_id", tenantId);
-
-    if (nullifyErr) throw new Error(`Failed to nullify current_version_id: ${nullifyErr.message}`);
-
-    deleted["style_versions"] = await deleteFromTable(admin, "style_versions", tenantId);
-    deleted["styles"]         = await deleteFromTable(admin, "styles",         tenantId);
-
-    // 6. Schedules — schedule_targets has no tenant_id column; filter by schedule_id
+    // 4. Schedule children — MUST clear before catalogs/styles (FK RESTRICT on schedule_layout)
+    //    schedule_targets has no tenant_id column; filter by schedule_id.
     const { data: schedRows, error: schedErr } = await admin
         .from("schedules")
         .select("id")
@@ -300,20 +298,44 @@ export async function purgeTenantData(
     }
 
     deleted["schedule_layout"] = await deleteFromTable(admin, "schedule_layout", tenantId);
-    deleted["schedules"]       = await deleteFromTable(admin, "schedules",       tenantId);
 
-    // 7. Activity structures
+    // 5. Secondary entities (children cleared above)
+    deleted["catalog_categories"]            = await deleteFromTable(admin, "catalog_categories",            tenantId);
+    deleted["catalogs"]                      = await deleteFromTable(admin, "catalogs",                      tenantId);
+    deleted["product_option_groups"]         = await deleteFromTable(admin, "product_option_groups",         tenantId);
+    deleted["product_groups"]                = await deleteFromTable(admin, "product_groups",                tenantId);
+    deleted["ingredients"]                   = await deleteFromTable(admin, "ingredients",                   tenantId);
+    // tenant_id is nullable here (platform attrs use NULL) — only removes tenant-owned definitions
+    deleted["product_attribute_definitions"] = await deleteFromTable(admin, "product_attribute_definitions", tenantId);
+    deleted["featured_contents"]             = await deleteFromTable(admin, "featured_contents",             tenantId);
+
+    // 6. Styles — break circular FK (styles.current_version_id → style_versions.id)
+    //    before deleting versions
+    const { error: nullifyErr } = await admin
+        .from("styles")
+        .update({ current_version_id: null })
+        .eq("tenant_id", tenantId);
+
+    if (nullifyErr) throw new Error(`Failed to nullify current_version_id: ${nullifyErr.message}`);
+
+    deleted["style_versions"] = await deleteFromTable(admin, "style_versions", tenantId);
+    deleted["styles"]         = await deleteFromTable(admin, "styles",         tenantId);
+
+    // 7. Schedules (parent — schedule_layout/schedule_targets already cleared above)
+    deleted["schedules"] = await deleteFromTable(admin, "schedules", tenantId);
+
+    // 8. Activity structures
     deleted["activity_group_members"] = await deleteFromTable(admin, "activity_group_members", tenantId);
     deleted["activity_groups"]        = await deleteFromTable(admin, "activity_groups",        tenantId);
     deleted["activities"]             = await deleteFromTable(admin, "activities",             tenantId);
 
-    // 8. Products (RESTRICT on tenant_id — all children cleared above)
+    // 9. Products (RESTRICT on tenant_id — all children cleared above)
     deleted["products"] = await deleteFromTable(admin, "products", tenantId);
 
-    // 9. Memberships
+    // 10. Memberships
     deleted["tenant_memberships"] = await deleteFromTable(admin, "tenant_memberships", tenantId);
 
-    // 10. Hard-delete tenant row (cascades any remaining children)
+    // 11. Hard-delete tenant row (cascades any remaining children)
     const { error: tenantErr } = await admin.from("tenants").delete().eq("id", tenantId);
     if (tenantErr) throw new Error(`Failed to delete tenant row: ${tenantErr.message}`);
 

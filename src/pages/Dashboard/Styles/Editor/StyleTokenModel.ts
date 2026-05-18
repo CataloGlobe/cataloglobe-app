@@ -3,7 +3,8 @@ export type CardLayout = "grid" | "list";
 export type ProductStyle = "card" | "compact";
 export type BorderRadius = "none" | "soft" | "rounded";
 export type FontFamily = "inter" | "poppins" | "montserrat" | "josefin-sans" | "raleway" | "playfair" | "lora" | "cormorant-garamond" | "caveat";
-export type BackgroundPattern = "none" | "dots" | "diagonal" | "grid" | "waves" | "diamonds";
+export type BackgroundPattern = "none" | "dots" | "diagonal" | "waves" | "crosshatch" | "noise";
+export type PatternIntensity = "subtle" | "medium" | "strong";
 export type FeaturedStyle = "card" | "highlight";
 
 export interface StyleTokenModel {
@@ -22,6 +23,7 @@ export interface StyleTokenModel {
     appearance: {
         borderRadius: BorderRadius;
         backgroundPattern: BackgroundPattern;
+        patternIntensity: PatternIntensity;
         featuredStyle: FeaturedStyle;
     };
     header: {
@@ -61,6 +63,7 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
     appearance: {
         borderRadius: "rounded",
         backgroundPattern: "none",
+        patternIntensity: "medium",
         featuredStyle: "card"
     },
     header: {
@@ -83,7 +86,8 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
     }
 };
 
-const VALID_PATTERNS: BackgroundPattern[] = ["none", "dots", "diagonal", "grid", "waves", "diamonds"];
+const VALID_PATTERNS: BackgroundPattern[] = ["none", "dots", "diagonal", "waves", "crosshatch", "noise"];
+const VALID_PATTERN_INTENSITIES: PatternIntensity[] = ["subtle", "medium", "strong"];
 const VALID_FEATURED_STYLES: FeaturedStyle[] = ["card", "highlight"];
 
 /**
@@ -114,9 +118,22 @@ export function parseTokens(rawJson: any): StyleTokenModel {
     })();
 
     // backgroundImage (legacy) is ignored — always fall back to pattern
-    const backgroundPattern: BackgroundPattern = VALID_PATTERNS.includes(rawAppearance.backgroundPattern)
-        ? rawAppearance.backgroundPattern as BackgroundPattern
-        : "none";
+    const backgroundPattern: BackgroundPattern = (() => {
+        // Mapping deprecato: "grid" → "diagonal", "diamonds" → "dots"
+        const migrated =
+            rawAppearance.backgroundPattern === "grid"
+                ? "diagonal"
+                : rawAppearance.backgroundPattern === "diamonds"
+                    ? "dots"
+                    : rawAppearance.backgroundPattern;
+        return VALID_PATTERNS.includes(migrated)
+            ? (migrated as BackgroundPattern)
+            : "none";
+    })();
+
+    const patternIntensity: PatternIntensity = VALID_PATTERN_INTENSITIES.includes(rawAppearance.patternIntensity)
+        ? rawAppearance.patternIntensity as PatternIntensity
+        : DEFAULT_STYLE_TOKENS.appearance.patternIntensity;
 
     const featuredStyle: FeaturedStyle = VALID_FEATURED_STYLES.includes(rawAppearance.featuredStyle)
         ? rawAppearance.featuredStyle as FeaturedStyle
@@ -149,6 +166,7 @@ export function parseTokens(rawJson: any): StyleTokenModel {
         appearance: {
             borderRadius,
             backgroundPattern,
+            patternIntensity,
             featuredStyle
         },
         header: {
@@ -224,6 +242,7 @@ export function serializeTokens(model: StyleTokenModel): Record<string, unknown>
         appearance: {
             borderRadius: model.appearance.borderRadius,
             backgroundPattern: model.appearance.backgroundPattern,
+            patternIntensity: model.appearance.patternIntensity,
             featuredStyle: model.appearance.featuredStyle
         },
         header: {

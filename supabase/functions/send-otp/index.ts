@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@4";
+import { COMPANY, getEmailFooterHtml, getEmailFooterText } from "../_shared/company-config.ts";
 
 /* ================= CONFIG ================= */
 const OTP_LENGTH = 6;
@@ -276,7 +277,8 @@ serve(async req => {
 
     // Invia email
     await resend.emails.send({
-        from: "CataloGlobe <noreply@cataloglobe.com>",
+        from: COMPANY.email.sender,
+        reply_to: COMPANY.contact.support,
         to: user.email,
         subject: "Il tuo codice di verifica",
         html: `
@@ -294,9 +296,11 @@ serve(async req => {
           <p style="margin:24px 0 0;font-size:14px;color:#6b7280">
             Il codice scade tra 5 minuti.
           </p>
+          ${getEmailFooterHtml()}
         </div>
       </div>
-    `
+    `,
+        text: `Codice di accesso CataloGlobe: ${otp}\n\nUsa questo codice per completare l'accesso. Il codice scade tra 5 minuti.\n\n${getEmailFooterText()}`
     });
 
     await auditSend({ outcome: "sent", sendCountInWindow: sendCount });

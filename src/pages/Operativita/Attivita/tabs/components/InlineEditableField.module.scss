@@ -1,0 +1,110 @@
+.row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    margin: 0 -14px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.12s ease;
+
+    &:hover:not(.editing) {
+        background-color: #FAFAFA;
+    }
+
+    &:focus-visible {
+        outline: 2px solid #6366F1;
+        outline-offset: 2px;
+    }
+
+    &.editing {
+        cursor: default;
+        background-color: #F9FAFB;
+    }
+}
+
+.body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6B7280;
+}
+
+.value {
+    font-size: 0.9375rem;
+    color: #111827;
+    word-break: break-word;
+}
+
+.empty {
+    font-size: 0.9375rem;
+    font-style: italic;
+    color: #9CA3AF;
+}
+
+.input {
+    width: 100%;
+    border: 1px solid #D1D5DB;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 0.9375rem;
+    color: #111827;
+    background: white;
+    outline: none;
+
+    &:focus {
+        border-color: #6366F1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    &:disabled {
+        background-color: #F9FAFB;
+        cursor: wait;
+    }
+}
+
+.error {
+    font-size: 0.75rem;
+    color: #DC2626;
+    margin-top: 2px;
+}
+
+.eye {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 0.12s ease;
+
+    &:hover:not(:disabled) {
+        background-color: rgba(99, 102, 241, 0.08);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.eyeOn {
+    color: #6366F1;
+}
+
+.eyeOff {
+    color: #D1D5DB;
+}

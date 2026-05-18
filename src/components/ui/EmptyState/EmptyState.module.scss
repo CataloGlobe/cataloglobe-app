@@ -10,6 +10,32 @@
     gap: 16px;
 }
 
+.wrapper.compact {
+    padding: 40px 16px;
+    gap: 10px;
+    max-width: 320px;
+
+    .icon {
+        color: #9CA3AF;
+    }
+
+    .title {
+        font-size: 14px;
+        font-weight: 500;
+        color: #6B7280;
+    }
+
+    .description {
+        font-size: 12px;
+        color: #9CA3AF;
+        max-width: 280px;
+    }
+
+    .action {
+        margin-top: 4px;
+    }
+}
+
 .icon {
     color: var(--color-muted);
     opacity: 0.7;

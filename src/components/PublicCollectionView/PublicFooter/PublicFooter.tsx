@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { SocialLinks } from "../CollectionView/CollectionView";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
+import { COMPANY } from "@/config/company";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
 import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
 import PublicFees from "./PublicFees";
@@ -256,14 +257,14 @@ export default function PublicFooter({
 
             {/* Powered by CataloGlobe */}
             <a
-                href="https://cataloglobe.com"
+                href={COMPANY.web.homepage}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={styles.poweredByLink}
-                aria-label="Powered by CataloGlobe"
+                aria-label={`Powered by ${COMPANY.businessName}`}
             >
                 <span className={styles.poweredByLabel}>Powered by</span>
-                <span className={styles.brandName}>CataloGlobe</span>
+                <span className={styles.brandName}>{COMPANY.businessName}</span>
             </a>
 
             {hasAllergens && (

@@ -67,6 +67,67 @@
     line-height: 1;
 }
 
+/* ── Error fallback (network failure, no cache) ───── */
+
+.errorRoot {
+    position: fixed;
+    inset: 0;
+    background: #ffffff;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    z-index: 1100;
+}
+
+.errorCard {
+    max-width: 26rem;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    text-align: center;
+}
+
+.errorTitle {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.errorDescription {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.45;
+    color: #4b5563;
+}
+
+.errorButton {
+    appearance: none;
+    border: 1px solid #1f2937;
+    background: #1f2937;
+    color: #ffffff;
+    font: inherit;
+    font-weight: 500;
+    padding: 0.55rem 1.5rem;
+    border-radius: 999px;
+    cursor: pointer;
+    margin-top: 0.25rem;
+    transition: background 0.15s ease, color 0.15s ease;
+
+    &:hover {
+        background: #111827;
+    }
+
+    &:focus-visible {
+        outline: 2px solid #1f2937;
+        outline-offset: 2px;
+    }
+}
+
 /* ── Reduced motion ──────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {

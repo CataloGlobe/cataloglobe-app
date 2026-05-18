@@ -1,5 +1,6 @@
 import LegalLayout from './LegalLayout';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { COMPANY, getFullAddress } from '@/config/company';
 import styles from './PrivacyPolicyPage.module.scss';
 
 const LAST_UPDATED = '2026-05-06';
@@ -41,10 +42,12 @@ export default function PrivacyPolicyPage() {
                     </p>
                     <div className={styles.infoBox}>
                         <p>
-                            <strong><span className={styles.placeholder}>[NOME TITOLARE]</span></strong><br />
-                            Sede legale: <span className={styles.placeholder}>[INDIRIZZO SEDE]</span><br />
-                            Partita IVA: <span className={styles.placeholder}>[P.IVA]</span><br />
-                            Email privacy: <span className={styles.placeholder}>[EMAIL PRIVACY]</span>
+                            <strong>{COMPANY.legalName}</strong><br />
+                            Sede legale: {getFullAddress()}<br />
+                            Partita IVA: {COMPANY.vatNumber}<br />
+                            Codice REA: {COMPANY.reaCode}<br />
+                            Email privacy: <a href={`mailto:${COMPANY.contact.privacy}`}>{COMPANY.contact.privacy}</a><br />
+                            PEC: <a href={`mailto:${COMPANY.contact.pec}`}>{COMPANY.contact.pec}</a>
                         </p>
                     </div>
                     <p>
@@ -261,7 +264,13 @@ export default function PrivacyPolicyPage() {
                         </div>
                         <div className={styles.rightItem}>
                             <strong>Reclamo (art. 77)</strong>
-                            <span>Proporre reclamo all'Autorità Garante (www.garanteprivacy.it).</span>
+                            <span>
+                                Proporre reclamo all'Autorità Garante per la Protezione dei Dati Personali (
+                                <a href="https://www.garanteprivacy.it" target="_blank" rel="noopener noreferrer">
+                                    www.garanteprivacy.it
+                                </a>
+                                ).
+                            </span>
                         </div>
                     </div>
                     <p>

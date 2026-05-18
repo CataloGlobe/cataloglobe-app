@@ -30,7 +30,7 @@ export default function FeaturedContentCard({ item, onEdit, onDelete }: Props) {
     const productsCount = item.products_count ?? 0;
     const productsLabel =
         item.pricing_mode === "none"
-            ? CONTENT_TYPE_LABELS[item.content_type ?? "announcement"]
+            ? null
             : productsCount === 0
               ? "Nessun prodotto"
               : `${productsCount} prodott${productsCount === 1 ? "o" : "i"}`;
@@ -70,12 +70,14 @@ export default function FeaturedContentCard({ item, onEdit, onDelete }: Props) {
                 </Text>
 
                 <div className={styles.meta}>
-                    <Text variant="caption" colorVariant="muted" className={styles.productsCount}>
-                        {productsLabel}
-                    </Text>
                     <span className={styles.badge}>
                         {CONTENT_TYPE_LABELS[item.content_type ?? "announcement"]}
                     </span>
+                    {productsLabel && (
+                        <Text variant="caption" colorVariant="muted" className={styles.productsCount}>
+                            {productsLabel}
+                        </Text>
+                    )}
                 </div>
             </div>
 

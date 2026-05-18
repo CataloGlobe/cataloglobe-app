@@ -57,7 +57,7 @@ export default function BusinessSwitcher({ collapsed }: BusinessSwitcherProps) {
 
             {!collapsed && (
                 <>
-                    <span className={styles.name}>{name}</span>
+                    <span className={styles.name} title={name}>{name}</span>
                     {hasMultiple && (
                         <ChevronDown
                             size={14}
@@ -91,7 +91,7 @@ export default function BusinessSwitcher({ collapsed }: BusinessSwitcherProps) {
                             <span className={styles.checkIcon}>
                                 {t.id === selectedTenant?.id ? <Check size={13} /> : null}
                             </span>
-                            <span className={styles.dropdownName}>{t.name}</span>
+                            <span className={styles.dropdownName} title={t.name}>{t.name}</span>
                         </button>
                     ))}
 

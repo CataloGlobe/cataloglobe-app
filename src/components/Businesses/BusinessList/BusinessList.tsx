@@ -5,7 +5,7 @@ import { LocationsGrid } from "../LocationsGrid/LocationsGrid";
 import type { BusinessListProps, BusinessWithCapabilities } from "@/types/Businesses";
 import styles from "./BusinessList.module.scss";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { Badge } from "@/components/ui/Badge/Badge";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { ExternalLink, Link, FileText, Edit, Trash2, Calendar, ClipboardCheck, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
@@ -58,11 +58,10 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 header: "Stato",
                 width: "100px",
                 align: "center",
-                cell: (_, business) => (
-                    <Badge variant={business.status === "active" ? "success" : "secondary"}>
-                        {business.status === "active" ? "Attiva" : "Inattiva"}
-                    </Badge>
-                )
+                cell: (_, business) =>
+                    business.status === "inactive" ? (
+                        <StatusBadge variant="neutral" label="Sospesa" />
+                    ) : null
             },
             {
                 id: "catalog",

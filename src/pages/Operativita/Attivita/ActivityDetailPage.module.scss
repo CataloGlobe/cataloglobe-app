@@ -48,11 +48,19 @@
 
   .titleSection {
     h1 {
-      margin: 0.5rem 0 0;
+      margin: 0;
       font-size: 1.75rem;
       font-weight: 700;
       color: v.$text-color;
     }
+  }
+
+  .titleRow {
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
   }
 }
 

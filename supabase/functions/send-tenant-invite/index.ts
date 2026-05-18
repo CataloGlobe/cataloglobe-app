@@ -1,8 +1,9 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { Resend } from "npm:resend@4";
+import { COMPANY, getEmailFooterHtml, getEmailFooterText } from "../_shared/company-config.ts";
 
-const APP_URL = Deno.env.get("APP_URL") ?? "https://cataloglobe.com";
+const APP_URL = Deno.env.get("APP_URL");
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 
@@ -27,6 +28,12 @@ interface InvitePayload {
 serve(async (req: Request) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
+
+    // Fail-fast: APP_URL deve essere configurato per ambiente (staging/prod).
+    if (!APP_URL) {
+        console.error("[send-tenant-invite] APP_URL env var is required");
+        return json(500, { error: "server_misconfigured" });
+    }
 
     // Verify the caller is the Supabase backend (internal shared secret)
     const internalSecret = req.headers.get("X-Internal-Secret");
@@ -53,7 +60,8 @@ serve(async (req: Request) => {
 
     try {
         await resend.emails.send({
-            from: "CataloGlobe <noreply@cataloglobe.com>",
+            from: COMPANY.email.sender,
+            reply_to: COMPANY.contact.support,
             to: email,
             subject: `Sei stato invitato a unirti a ${tenantName} su Cataloglobe`,
             html: `
@@ -84,9 +92,11 @@ serve(async (req: Request) => {
                 <p style="margin:0;font-size:12px;color:#9ca3af">
                     Oppure copia questo link: ${inviteUrl}
                 </p>
+                ${getEmailFooterHtml()}
             </div>
         </div>
-    `
+    `,
+            text: `Sei stato invitato su CataloGlobe.\n\n${inviterEmail} ti ha invitato a collaborare su ${tenantName}.\n\nAccetta l'invito: ${inviteUrl}\n\nSe non hai ancora un account, ti verrà chiesto di crearne uno.\n\n${getEmailFooterText()}`
         });
     } catch (err) {
         console.error("[send-tenant-invite] Resend error:", err);

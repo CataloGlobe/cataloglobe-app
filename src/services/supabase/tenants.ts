@@ -201,13 +201,23 @@ export async function purgeTenantNow(tenantId: string): Promise<void> {
 
 /**
  * Updates the name of a tenant. Only fields explicitly passed are updated.
+ *
+ * Postgres UPDATE non-zero affected-rows non solleva errore tramite supabase-js:
+ * la RLS UPDATE policy filtra le righe target, quindi un caller senza permessi
+ * (es. admin/member: la policy ammette solo owner_user_id = auth.uid()) riceve
+ * un update da 0 righe senza errore. Per evitare il silent success usiamo
+ * `.select("id")` come probe del row count e lanciamo se vuoto.
  */
 export async function updateTenantName(tenantId: string, name: string): Promise<void> {
-    const { error } = await supabase
+    const { data, error } = await supabase
         .from("tenants")
         .update({ name })
-        .eq("id", tenantId);
+        .eq("id", tenantId)
+        .select("id");
     if (error) throw error;
+    if (!data || data.length === 0) {
+        throw new Error("Aggiornamento non riuscito: permessi insufficienti o tenant non trovato.");
+    }
 }
 
 /**

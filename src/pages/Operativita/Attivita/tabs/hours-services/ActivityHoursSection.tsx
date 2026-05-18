@@ -1,7 +1,7 @@
 import React from "react";
-import { IconEdit } from "@tabler/icons-react";
+import { Clock, Pencil, Plus } from "lucide-react";
 import { Card, Button } from "@/components/ui";
-import Text from "@/components/ui/Text/Text";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import type { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
 import pageStyles from "../../ActivityDetailPage.module.scss";
@@ -58,17 +58,32 @@ export const ActivityHoursSection: React.FC<ActivityHoursSectionProps> = ({
                 <Button
                     variant="ghost"
                     size="sm"
-                    leftIcon={<IconEdit size={16} />}
+                    leftIcon={
+                        hasHours ? <Pencil size={16} /> : <Plus size={16} />
+                    }
                     onClick={onEditRequest}
                 >
-                    Modifica
+                    {hasHours ? "Modifica" : "Imposta orari"}
                 </Button>
             </div>
             <div className={pageStyles.cardContent}>
                 {!hasHours ? (
-                    <Text variant="body-sm" colorVariant="muted">
-                        Nessun orario configurato. Clicca "Modifica" per impostare gli orari.
-                    </Text>
+                    <EmptyState
+                        compact
+                        icon={<Clock size={28} />}
+                        title="Nessun orario configurato"
+                        description="Imposta gli orari di apertura per mostrarli nella pagina pubblica."
+                        action={
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                leftIcon={<Plus size={14} />}
+                                onClick={onEditRequest}
+                            >
+                                Imposta orari
+                            </Button>
+                        }
+                    />
                 ) : (
                     <table className={styles.hoursTable}>
                         <thead>

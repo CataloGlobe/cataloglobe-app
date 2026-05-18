@@ -31,6 +31,7 @@ export type RenderableProduct = {
 export type RenderableCatalog = {
     catalogId: string | null;
     catalogName: string | null;
+    activeSchedule: { id: string; name: string } | null;
     products: RenderableProduct[];
 };
 
@@ -112,10 +113,10 @@ export async function getRenderableCatalogForActivity(
     tenantId: string
 ): Promise<RenderableCatalog> {
     const now = getNowInRome();
-    const { catalogId } = await findLayoutCatalogId(activityId, now, tenantId);
+    const { catalogId, scheduleId } = await findLayoutCatalogId(activityId, now, tenantId);
 
     if (!catalogId) {
-        return { catalogId: null, catalogName: null, products: [] };
+        return { catalogId: null, catalogName: null, activeSchedule: null, products: [] };
     }
 
     const [catalog, overrides] = await Promise.all([
@@ -124,7 +125,20 @@ export async function getRenderableCatalogForActivity(
     ]);
 
     if (!catalog) {
-        return { catalogId: null, catalogName: null, products: [] };
+        return { catalogId: null, catalogName: null, activeSchedule: null, products: [] };
+    }
+
+    let activeSchedule: { id: string; name: string } | null = null;
+    if (scheduleId) {
+        const { data: scheduleRow } = await supabase
+            .from("schedules")
+            .select("id, name")
+            .eq("id", scheduleId)
+            .maybeSingle();
+        if (scheduleRow) {
+            const row = scheduleRow as { id: string; name: string };
+            activeSchedule = { id: row.id, name: row.name };
+        }
     }
 
     const products: RenderableProduct[] = [];
@@ -145,6 +159,7 @@ export async function getRenderableCatalogForActivity(
     return {
         catalogId: catalog.id,
         catalogName: catalog.name ?? "Catalogo senza nome",
+        activeSchedule,
         products
     };
 }

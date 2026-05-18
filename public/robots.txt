@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /workspace
+Disallow: /onboarding
+Disallow: /business/
+Disallow: /invite/
+Disallow: /verify-otp
+Disallow: /reset-password
+
+Sitemap: https://cataloglobe.com/sitemap.xml

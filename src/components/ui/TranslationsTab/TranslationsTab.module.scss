@@ -1,0 +1,139 @@
+// Layout 1 colonna, coerente con SchedaTab e PrezziOpzioniTab.
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+// Card pattern duplicato da SchedaTab.module.scss — convenzione progetto.
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cardLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted, #94a3b8);
+}
+
+.cardHelp {
+  font-size: 13px;
+  color: var(--text-muted, #64748b);
+  margin-top: -8px;
+}
+
+// ── Reference (source IT) box light senza border ───────────────────
+.referenceCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+.langHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.flag {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.langName {
+  font-weight: 600;
+}
+
+.referenceText {
+  color: var(--color-gray-800);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+// ── Lista lingue separata da source via border-top + divisori ──────
+.languageList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+// ── Lingua block: divisori orizzontali invece di card individuali ─
+.langBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 0 0 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.langBlock:first-child {
+  padding-top: 0;
+}
+
+.langBlock:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.langActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+// ── Textarea ghost: invisibile in default, attivata in focus ───────
+// Applicato via prop textareaClassName del componente shared Textarea.
+// Override del border default solo per questo contesto.
+.langTextarea {
+  background: var(--bg);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  font-family: inherit;
+  color: var(--text);
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 40px;
+  transition: all 0.15s;
+}
+
+.langTextarea:focus,
+.langTextarea:focus-visible {
+  outline: none;
+  background: var(--card-bg, #fff);
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+// ── Loading ─────────────────────────────────────────────────────────
+.loading {
+  padding: 24px;
+  text-align: center;
+}

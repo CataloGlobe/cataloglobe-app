@@ -1324,16 +1324,6 @@ serve(async req => {
             if (si < sections.length - 1) y -= 20;
         }
 
-        // ── BRANDING (last page only) ─────────────────────────────────────────
-        const totalPages = pdfDoc.getPageCount();
-        const lastPg     = pdfDoc.getPage(totalPages - 1);
-        const brandLineY = MARGIN + 16;
-        const brandTextY = MARGIN + 4;
-        lastPg.drawLine({ start: { x: MARGIN, y: brandLineY }, end: { x: PAGE_W - MARGIN, y: brandLineY }, thickness: 0.5, color: C_LINE_LT });
-        const brandText  = "Generato con CataloGlobe";
-        const brandTextW = safeWidth(fontRegular, brandText, 8);
-        safeDrawText(lastPg, brandText, { x: (PAGE_W - brandTextW) / 2, y: brandTextY, size: 8, font: fontRegular, color: C_TERTIARY });
-
         const pdfBytes = await pdfDoc.save();
 
         const safeName = businessRow.name.replace(/[^a-zA-Z0-9-_]+/g, "_");

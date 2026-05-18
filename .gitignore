@@ -42,6 +42,7 @@ tsconfig.tsbuildinfo
 # Agent
 .agent/
 .agents/
+.claude/
 skills-lock.json
 
 # Tool artifacts
@@ -58,3 +59,4 @@ CSS_REFINEMENTS_AUDIT.md
 
 # Node compile cache (cache binaria di Node v8, rigenerabile, non versionato)
 node-compile-cache/
+.vercel

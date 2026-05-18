@@ -5,13 +5,9 @@ import { MoreVertical, Building2 } from "lucide-react";
 import type { BusinessCardProps } from "@/types/Businesses";
 import styles from "./BusinessCard.module.scss";
 import { Button } from "@/components/ui";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { formatInactiveReason } from "@/utils/activityStatus";
 import { useNavigate, useParams } from "react-router-dom";
-
-const inactiveReasonLabel: Record<"maintenance" | "closed" | "unavailable", string> = {
-    maintenance: "In manutenzione",
-    closed: "Chiuso temporaneamente",
-    unavailable: "Non disponibile"
-};
 
 export const BusinessCard: React.FC<BusinessCardProps> = ({
     business,
@@ -61,7 +57,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                     <div className={styles.imageOverlay}>
                         {business.inactive_reason && (
                             <span className={styles.overlayPill}>
-                                {inactiveReasonLabel[business.inactive_reason]}
+                                {formatInactiveReason(business.inactive_reason)}
                             </span>
                         )}
                     </div>
@@ -74,15 +70,9 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                         <Text as="h3" variant="title-sm" weight={700} className={styles.entityName}>
                             {business.name}
                         </Text>
-                        <span
-                            className={
-                                business.status === "active"
-                                    ? styles.badgeActive
-                                    : styles.badgeInactive
-                            }
-                        >
-                            {business.status === "active" ? "Attiva" : "Inattiva"}
-                        </span>
+                        {business.status === "inactive" && (
+                            <StatusBadge variant="neutral" label="Sospesa" />
+                        )}
                         <DropdownMenu.Root>
                             <DropdownMenu.Trigger asChild>
                                 <button

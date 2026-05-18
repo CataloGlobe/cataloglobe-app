@@ -1530,22 +1530,14 @@ $text-muted: #9895a8;
     margin: 32px auto 0;
     padding: 20px clamp(20px, 5vw, 64px) 0;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
-    display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
+    text-align: center;
 }
 
-.footerCopy {
+.copyright {
     font-size: 11.5px;
-    color: rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.3);
     margin: 0;
-}
-
-.footerCity {
-    font-size: 11.5px;
-    color: rgba(255, 255, 255, 0.2);
-    margin: 0;
+    font-weight: 400;
 }
 
 // ─── Section common titles ─────────────────────────────

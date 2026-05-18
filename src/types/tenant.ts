@@ -19,4 +19,22 @@ export interface V2Tenant {
     stripe_customer_id: string | null;
     stripe_subscription_id: string | null;
     paid_seats: number;
+
+    // --- Campi legali/fiscali (migration 20260518095654_add_legal_fields_to_tenants) ---
+    legal_name?: string | null;
+    vat_number?: string | null;
+    fiscal_code?: string | null;
+    ateco?: string | null;
+    rea_code?: string | null;
+
+    // Indirizzo sede legale (pattern activities)
+    address?: string | null;
+    street_number?: string | null;
+    postal_code?: string | null;
+    city?: string | null;
+    province?: string | null;
+    country?: string | null;
+
+    // Contatti legali
+    pec?: string | null;
 }

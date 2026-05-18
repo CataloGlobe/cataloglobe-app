@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ModalLayout, {
     ModalLayoutContent,
     ModalLayoutFooter,
@@ -7,9 +7,7 @@ import ModalLayout, {
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { RadioGroup } from "@/components/ui/RadioGroup/RadioGroup";
-import type { V2Activity } from "@/types/activity";
-
-type InactiveReason = NonNullable<V2Activity["inactive_reason"]>;
+import type { InactiveReason } from "@/utils/activityStatus";
 
 const REASON_OPTIONS: { value: InactiveReason; label: string; description: string }[] = [
     {
@@ -29,15 +27,33 @@ const REASON_OPTIONS: { value: InactiveReason; label: string; description: strin
     }
 ];
 
+type DialogMode = "suspend" | "edit-reason";
+
 interface SuspendActivityDialogProps {
     isOpen: boolean;
     onClose: () => void;
     onConfirm: (reason: InactiveReason) => Promise<boolean>;
+    mode?: DialogMode;
+    initialReason?: InactiveReason | null;
 }
 
-export function SuspendActivityDialog({ isOpen, onClose, onConfirm }: SuspendActivityDialogProps) {
-    const [reason, setReason] = useState<InactiveReason>("maintenance");
+export function SuspendActivityDialog({
+    isOpen,
+    onClose,
+    onConfirm,
+    mode = "suspend",
+    initialReason
+}: SuspendActivityDialogProps) {
+    const [reason, setReason] = useState<InactiveReason>(
+        initialReason ?? "maintenance"
+    );
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            setReason(initialReason ?? "maintenance");
+        }
+    }, [isOpen, initialReason]);
 
     const handleConfirm = async () => {
         setLoading(true);
@@ -46,18 +62,25 @@ export function SuspendActivityDialog({ isOpen, onClose, onConfirm }: SuspendAct
         if (ok) onClose();
     };
 
+    const isEditMode = mode === "edit-reason";
+    const title = isEditMode ? "Modifica motivo sospensione" : "Sospendi attività";
+    const description = isEditMode
+        ? "Aggiorna il motivo della sospensione. Verrà mostrato ai visitatori della pagina pubblica."
+        : "Seleziona il motivo della sospensione. Verrà mostrato ai visitatori della pagina pubblica.";
+    const ctaLabel = isEditMode ? "Aggiorna" : "Sospendi";
+    const ctaVariant: "primary" | "danger" = isEditMode ? "primary" : "danger";
+
     return (
         <ModalLayout isOpen={isOpen} onClose={onClose} width="sm" height="fit">
             <ModalLayoutHeader>
                 <Text variant="title-sm" weight={600}>
-                    Sospendi attività
+                    {title}
                 </Text>
             </ModalLayoutHeader>
 
             <ModalLayoutContent>
                 <Text variant="body-sm" colorVariant="muted" style={{ marginBottom: 16 }}>
-                    Seleziona il motivo della sospensione. Verrà mostrato ai visitatori della pagina
-                    pubblica.
+                    {description}
                 </Text>
                 <RadioGroup
                     value={reason}
@@ -70,8 +93,8 @@ export function SuspendActivityDialog({ isOpen, onClose, onConfirm }: SuspendAct
                 <Button variant="secondary" size="sm" onClick={onClose} disabled={loading}>
                     Annulla
                 </Button>
-                <Button variant="danger" size="sm" onClick={handleConfirm} loading={loading}>
-                    Sospendi
+                <Button variant={ctaVariant} size="sm" onClick={handleConfirm} loading={loading}>
+                    {ctaLabel}
                 </Button>
             </ModalLayoutFooter>
         </ModalLayout>

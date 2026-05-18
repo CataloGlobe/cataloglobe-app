@@ -16,18 +16,13 @@ import {
 } from "@/hooks/useFilteredProductTabs";
 import { getProduct, V2Product } from "@/services/supabase/products";
 import { getProductOptions, GroupWithValues } from "@/services/supabase/productOptions";
-import { getVariantMatrixConfig, VariantMatrixConfig } from "@/services/supabase/productVariants";
 import { getProductUsage, ProductUsageData } from "@/services/supabase/productUsage";
-import { GeneralTab } from "./GeneralTab";
-import { PricingTab } from "./PricingTab";
-import { ConfigTab } from "./ConfigTab";
+import SchedaTab from "./SchedaTab";
+import PrezziOpzioniTab from "./PrezziOpzioniTab";
 import { UsageTab } from "./UsageTab";
-import { VariantsTab } from "./VariantsTab";
 import { AttributesTab } from "./AttributesTab";
-import CharacteristicsAndNotesTab from "./CharacteristicsAndNotesTab";
-import { TranslationsTab } from "./TranslationsTab";
+import { TranslationsTab } from "@/components/ui/TranslationsTab/TranslationsTab";
 import { ProductCreateEditDrawer } from "./ProductCreateEditDrawer";
-import { MatrixConfigDrawer } from "./MatrixConfigDrawer";
 import styles from "./ProductPage.module.scss";
 
 export default function ProductPage() {
@@ -42,40 +37,15 @@ export default function ProductPage() {
     const [error, setError] = useState<string | null>(null);
 
     type ProductPageTab =
-        | "general"
-        | "characteristics"
-        | "pricing"
-        | "config"
+        | "scheda"
+        | "prezzi-opzioni"
         | "attributes"
         | "translations"
         | "usage";
-    // While the product hasn't loaded yet (initial mount), keep the
-    // characteristics tab permissively visible so deep links like
-    // `?tab=characteristics` are not stripped by useFilteredProductTabs
-    // before we know whether the product is a parent. Once loaded, the
-    // gating tightens: variants drop the tab (parent-only persistence in
-    // Phase 4b; variants inherit visually in Phase 5).
-    const characteristicsAllowedForProduct =
-        product === null || product.parent_product_id === null;
     const allTabs = useMemo<ProductTabDef<ProductPageTab>[]>(
         () => [
-            { value: "general", label: "Generale" },
-            {
-                value: "characteristics",
-                label: verticalConfig.copy.productSections.characteristics,
-                // Tab is visible when EITHER section is enabled. Generic
-                // vertical (characteristics off, notes on) shows the tab
-                // with an empty-state characteristics block + a working
-                // notes editor.
-                gated: c =>
-                    (c.productSections.characteristics || c.productSections.notes) &&
-                    characteristicsAllowedForProduct
-            },
-            {
-                value: "pricing",
-                label: product?.parent_product_id ? "Prezzi" : "Prezzi & Varianti"
-            },
-            { value: "config", label: "Opzioni" },
+            { value: "scheda", label: "Scheda" },
+            { value: "prezzi-opzioni", label: "Prezzi & Opzioni" },
             {
                 value: "attributes",
                 label: verticalConfig.copy.productSections.customAttributes,
@@ -90,13 +60,24 @@ export default function ProductPage() {
             },
             { value: "usage", label: "Utilizzo" }
         ],
-        [product, verticalConfig, characteristicsAllowedForProduct]
+        [product, verticalConfig]
     );
     const { visibleTabs, initialTab } = useFilteredProductTabs<ProductPageTab>(
         allTabs,
-        "general",
-        // Legacy: ?tab=variants used to be a separate tab; merged into pricing
-        { variants: "pricing" }
+        "scheda",
+        // Legacy redirects:
+        // - ?tab=general / ?tab=characteristics merged into details (Task 1.1)
+        // - ?tab=details renamed to ?tab=scheda (Task 1.5)
+        // - ?tab=pricing / ?tab=config / ?tab=variants merged into
+        //   prezzi-opzioni (Task 2.1)
+        {
+            general: "scheda",
+            characteristics: "scheda",
+            details: "scheda",
+            pricing: "prezzi-opzioni",
+            config: "prezzi-opzioni",
+            variants: "prezzi-opzioni"
+        }
     );
     const [activeTab, setActiveTab] = useState<ProductPageTab>(initialTab);
 
@@ -105,10 +86,6 @@ export default function ProductPage() {
     const [addonGroups, setAddonGroups] = useState<GroupWithValues[]>([]);
 
     const [isVariantDrawerOpen, setIsVariantDrawerOpen] = useState(false);
-
-    const [matrixConfig, setMatrixConfig] = useState<VariantMatrixConfig | null>(null);
-    const [matrixLoading, setMatrixLoading] = useState(false);
-    const [isMatrixDrawerOpen, setIsMatrixDrawerOpen] = useState(false);
 
     const [usageLoading, setUsageLoading] = useState(true);
     const [usageData, setUsageData] = useState<ProductUsageData | null>(null);
@@ -142,19 +119,6 @@ export default function ProductPage() {
         }
     }, [productId, tenantId]);
 
-    const loadMatrixConfig = useCallback(async (pid: string, tid: string, isBaseProduct: boolean) => {
-        if (!isBaseProduct) return;
-        try {
-            setMatrixLoading(true);
-            const config = await getVariantMatrixConfig(pid, tid);
-            setMatrixConfig(config);
-        } catch {
-            setMatrixConfig(null);
-        } finally {
-            setMatrixLoading(false);
-        }
-    }, []);
-
     const loadProduct = useCallback(async () => {
         if (!productId || !tenantId) return;
         try {
@@ -162,17 +126,13 @@ export default function ProductPage() {
             setError(null);
             const data = await getProduct(productId, tenantId);
             setProduct(data);
-            await Promise.all([
-                loadOptions(),
-                loadUsage(),
-                loadMatrixConfig(productId, tenantId, data.parent_product_id === null)
-            ]);
+            await Promise.all([loadOptions(), loadUsage()]);
         } catch {
             setError("Prodotto non trovato");
         } finally {
             setLoading(false);
         }
-    }, [productId, tenantId, loadOptions, loadUsage, loadMatrixConfig]);
+    }, [productId, tenantId, loadOptions, loadUsage]);
 
     useEffect(() => {
         loadProduct();
@@ -211,8 +171,6 @@ export default function ProductPage() {
         );
     }
 
-    const isChildVariant = product.parent_product_id !== null;
-
     return (
         <div className={styles.container}>
             <Breadcrumb items={breadcrumbItems} />
@@ -229,61 +187,34 @@ export default function ProductPage() {
                 </Tabs.List>
 
                 <div className={styles.tabContent}>
-                    <Tabs.Panel value="general">
+                    <Tabs.Panel value="scheda">
                         <Card>
-                            <GeneralTab
+                            <SchedaTab
                                 product={product}
-                                tenantId={tenantId!}
-                                onProductUpdated={updated => setProduct(updated)}
-                            />
-                        </Card>
-                    </Tabs.Panel>
-
-                    {(verticalConfig.productSections.characteristics ||
-                        verticalConfig.productSections.notes) &&
-                        product.parent_product_id === null && (
-                            <Tabs.Panel value="characteristics">
-                                <CharacteristicsAndNotesTab
-                                    productId={productId!}
-                                    tenantId={tenantId!}
-                                    vertical={selectedTenant?.vertical_type}
-                                    initialNotes={product.notes}
-                                    onProductUpdated={updated => setProduct(updated)}
-                                />
-                            </Tabs.Panel>
-                        )}
-
-                    <Tabs.Panel value="pricing">
-                        <Card>
-                            <PricingTab
-                                product={product}
-                                tenantId={tenantId!}
-                                primaryPriceGroup={primaryPriceGroup}
-                                optionsLoading={optionsLoading}
-                                onRefreshOptions={loadOptions}
-                                onProductUpdated={updated => setProduct(updated)}
-                            />
-                        </Card>
-                        {!isChildVariant && (
-                            <div className={styles.tabSectionGap}>
-                                <VariantsTab
-                                    product={product}
-                                    tenantId={tenantId!}
-                                    onOpenVariantDrawer={() => setIsVariantDrawerOpen(true)}
-                                    onVariantUpdated={loadProduct}
-                                />
-                            </div>
-                        )}
-                    </Tabs.Panel>
-
-                    <Tabs.Panel value="config">
-                        <Card>
-                            <ConfigTab
                                 productId={productId!}
                                 tenantId={tenantId!}
+                                vertical={selectedTenant?.vertical_type}
+                                onProductUpdated={updated => setProduct(updated)}
+                                onNavigateToTab={tab =>
+                                    setActiveTab(tab as ProductPageTab)
+                                }
+                            />
+                        </Card>
+                    </Tabs.Panel>
+
+                    <Tabs.Panel value="prezzi-opzioni">
+                        <Card>
+                            <PrezziOpzioniTab
+                                product={product}
+                                productId={productId!}
+                                tenantId={tenantId!}
+                                primaryPriceGroup={primaryPriceGroup}
                                 addonGroups={addonGroups}
                                 optionsLoading={optionsLoading}
                                 onRefreshOptions={loadOptions}
+                                onProductUpdated={updated => setProduct(updated)}
+                                onOpenVariantDrawer={() => setIsVariantDrawerOpen(true)}
+                                onVariantUpdated={loadProduct}
                             />
                         </Card>
                     </Tabs.Panel>
@@ -303,11 +234,29 @@ export default function ProductPage() {
                     {product.parent_product_id === null && (
                         <Tabs.Panel value="translations">
                             <Card>
-                                <TranslationsTab
-                                    productId={productId!}
-                                    tenantId={tenantId!}
-                                    product={product}
-                                />
+                                <div className={styles.translationsStack}>
+                                    <TranslationsTab
+                                        entityType="product"
+                                        entityId={productId!}
+                                        tenantId={tenantId!}
+                                        sourceText={product.description ?? ""}
+                                        fieldKey="description"
+                                        sectionLabel="Traduzioni descrizione"
+                                        sectionDescription="Modifica manualmente le traduzioni della descrizione. Le modifiche manuali non vengono sovrascritte dalla traduzione automatica."
+                                    />
+                                    <section className={styles.notesCard}>
+                                        <header className={styles.notesCardHeader}>
+                                            <span className={styles.notesCardLabel}>
+                                                Note prodotto
+                                            </span>
+                                        </header>
+                                        <div className={styles.notesCardBody}>
+                                            Le note del prodotto vengono tradotte automaticamente.
+                                            La modifica manuale delle traduzioni delle note non è
+                                            ancora disponibile.
+                                        </div>
+                                    </section>
+                                </div>
                             </Card>
                         </Tabs.Panel>
                     )}
@@ -316,6 +265,7 @@ export default function ProductPage() {
                         <Card>
                             <UsageTab
                                 productId={productId!}
+                                tenantId={tenantId!}
                                 usageData={usageData}
                                 usageLoading={usageLoading}
                             />
@@ -336,19 +286,6 @@ export default function ProductPage() {
                     loadProduct();
                 }}
             />
-
-            {product.parent_product_id === null && tenantId && (
-                <MatrixConfigDrawer
-                    open={isMatrixDrawerOpen}
-                    onClose={() => setIsMatrixDrawerOpen(false)}
-                    productId={product.id}
-                    tenantId={tenantId}
-                    parentBasePrice={product.base_price}
-                    matrixConfig={matrixConfig}
-                    onSaveSuccess={() => loadMatrixConfig(product.id, tenantId, true)}
-                    onGenerateSuccess={() => loadProduct()}
-                />
-            )}
         </div>
     );
 }

@@ -27,7 +27,7 @@ import {
     useSortable
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { IconGripVertical, IconPhoto, IconChevronDown, IconChevronRight, IconArrowLeft, IconDotsVertical } from "@tabler/icons-react";
+import { IconGripVertical, IconPhoto, IconChevronDown, IconChevronRight, IconArrowLeft, IconDotsVertical, IconSettings } from "@tabler/icons-react";
 import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
 import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
@@ -58,6 +58,7 @@ import { CatalogTree } from "./components/CatalogTree";
 import { CatalogTreeNodeData } from "./components/CatalogTree.types";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { SplitButton } from "@/components/ui/Button/SplitButton";
+import { TranslationsTab } from "@/components/ui/TranslationsTab/TranslationsTab";
 import { ProductForm } from "@/pages/Dashboard/Products/components/ProductForm";
 import styles from "./CatalogEngine.module.scss";
 
@@ -328,6 +329,7 @@ export default function CatalogEngine() {
     const [isSavingChanges, setIsSavingChanges] = useState(false);
 
     const [productSearch, setProductSearch] = useState("");
+    const [rightPaneTab, setRightPaneTab] = useState<"products" | "translations">("products");
 
     const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<V2CatalogCategory | null>(null);
@@ -731,6 +733,7 @@ export default function CatalogEngine() {
         setExpandedProductGroupIds(new Set());
         setAssignGroupId(null);
         setAssignProductSearch("");
+        setRightPaneTab("products");
     }, [selectedCategoryId]);
 
     // Initialize selection snapshot when the "Esistente" tab drawer opens
@@ -1821,83 +1824,125 @@ export default function CatalogEngine() {
             <div className={styles.productsPanel}>
                 <div className={styles.productsHeader}>
                     <div className={styles.productsTitleRow}>
-                        <div>
-                            <Text variant="title-lg" weight={700}>
-                                {selectedCategory.name}
-                            </Text>
+                        <div className={styles.productsTitleBlock}>
+                            <div className={styles.productsTitleHeading}>
+                                <Text variant="title-lg" weight={700}>
+                                    {selectedCategory.name}
+                                </Text>
+                                <button
+                                    type="button"
+                                    className={styles.categorySettingsButton}
+                                    onClick={() => openEditCategoryDrawer(selectedCategory.id)}
+                                    aria-label="Modifica categoria"
+                                    title="Modifica categoria"
+                                >
+                                    <IconSettings size={18} stroke={1.8} />
+                                </button>
+                            </div>
                             <Text variant="body-sm" colorVariant="muted">
                                 {selectedCategoryLinks.length} prodotti
                             </Text>
                         </div>
                         <div style={{ display: "flex", gap: "8px" }}>
-                            <Button
-                                variant="primary"
-                                onClick={() => {
-                                    const saved = localStorage.getItem(
-                                        `cg_product_drawer_last_tab_${currentTenantId}`
-                                    );
-                                    setAddProductMode(
-                                        saved === "existing" || saved === "new" ? saved : "new"
-                                    );
-                                    setIsUnifiedAddProductDrawerOpen(true);
-                                }}
-                            >
-                                + Aggiungi prodotto
-                            </Button>
+                            {rightPaneTab === "products" && (
+                                <Button
+                                    variant="primary"
+                                    onClick={() => {
+                                        const saved = localStorage.getItem(
+                                            `cg_product_drawer_last_tab_${currentTenantId}`
+                                        );
+                                        setAddProductMode(
+                                            saved === "existing" || saved === "new"
+                                                ? saved
+                                                : "new"
+                                        );
+                                        setIsUnifiedAddProductDrawerOpen(true);
+                                    }}
+                                >
+                                    + Aggiungi prodotto
+                                </Button>
+                            )}
                         </div>
                     </div>
 
-                    <div className={styles.productsTools}>
-                        <div className={styles.quickSearchWrap}>
-                            <SearchInput
-                                value={productSearch}
-                                onChange={event => setProductSearch(event.target.value)}
-                                onClear={() => setProductSearch("")}
-                                placeholder="Cerca prodotto..."
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <div ref={productListRef} className={styles.tableCard}>
-                    <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={handleReorderProducts}
+                    <Tabs
+                        value={rightPaneTab}
+                        onChange={v => setRightPaneTab(v as "products" | "translations")}
                     >
-                        <SortableContext
-                            items={visibleRows.map(r => r.id)}
-                            strategy={verticalListSortingStrategy}
-                        >
-                            <DataTable<ProductRow>
-                                data={visibleRows}
-                                columns={columns}
-                                rowsPerPage={20}
-                                selectable
-                                onBulkDelete={handleBulkRemoveSelected}
-                                emptyState={
-                                    <div style={{ padding: "24px" }}>
-                                        <Text variant="body-sm" colorVariant="muted">
-                                            {productSearch.trim()
-                                                ? "Nessun prodotto corrisponde al filtro."
-                                                : "Nessun prodotto associato a questa categoria."}
-                                        </Text>
-                                    </div>
-                                }
-                                rowClassName={row =>
-                                    row.productId === newlyAddedProductId
-                                        ? styles.rowNewlyAdded
-                                        : undefined
-                                }
-                                rowWrapper={(row, rowData) => (
-                                    <SortableProductRow key={rowData.id} id={rowData.id}>
-                                        {row}
-                                    </SortableProductRow>
-                                )}
-                            />
-                        </SortableContext>
-                    </DndContext>
+                        <Tabs.List>
+                            <Tabs.Tab value="products">Prodotti</Tabs.Tab>
+                            <Tabs.Tab value="translations">Traduzioni</Tabs.Tab>
+                        </Tabs.List>
+                    </Tabs>
+
+                    {rightPaneTab === "products" && (
+                        <div className={styles.productsTools}>
+                            <div className={styles.quickSearchWrap}>
+                                <SearchInput
+                                    value={productSearch}
+                                    onChange={event => setProductSearch(event.target.value)}
+                                    onClear={() => setProductSearch("")}
+                                    placeholder="Cerca prodotto..."
+                                />
+                            </div>
+                        </div>
+                    )}
                 </div>
+
+                {rightPaneTab === "products" ? (
+                    <div ref={productListRef} className={styles.tableCard}>
+                        <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            onDragEnd={handleReorderProducts}
+                        >
+                            <SortableContext
+                                items={visibleRows.map(r => r.id)}
+                                strategy={verticalListSortingStrategy}
+                            >
+                                <DataTable<ProductRow>
+                                    data={visibleRows}
+                                    columns={columns}
+                                    rowsPerPage={20}
+                                    selectable
+                                    onBulkDelete={handleBulkRemoveSelected}
+                                    emptyState={
+                                        <div style={{ padding: "24px" }}>
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                {productSearch.trim()
+                                                    ? "Nessun prodotto corrisponde al filtro."
+                                                    : "Nessun prodotto associato a questa categoria."}
+                                            </Text>
+                                        </div>
+                                    }
+                                    rowClassName={row =>
+                                        row.productId === newlyAddedProductId
+                                            ? styles.rowNewlyAdded
+                                            : undefined
+                                    }
+                                    rowWrapper={(row, rowData) => (
+                                        <SortableProductRow key={rowData.id} id={rowData.id}>
+                                            {row}
+                                        </SortableProductRow>
+                                    )}
+                                />
+                            </SortableContext>
+                        </DndContext>
+                    </div>
+                ) : (
+                    <div className={styles.translationsWrap}>
+                        <TranslationsTab
+                            entityType="category"
+                            entityId={selectedCategory.id}
+                            tenantId={currentTenantId ?? ""}
+                            sourceText={selectedCategory.name}
+                            fieldKey="name"
+                            sectionLabel="Traduzioni nome categoria"
+                            sectionDescription="Modifica manualmente le traduzioni del nome categoria. Le modifiche manuali non vengono sovrascritte dalla traduzione automatica."
+                            placeholderItalian="Nome categoria in italiano"
+                        />
+                    </div>
+                )}
             </div>
         );
     };
