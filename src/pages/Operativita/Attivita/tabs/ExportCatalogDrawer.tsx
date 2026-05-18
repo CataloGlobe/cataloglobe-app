@@ -8,6 +8,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { listCatalogs, type V2Catalog } from "@/services/supabase/catalogs";
 import { downloadMenuPdf, DownloadMenuPdfError } from "@/services/pdf/downloadMenuPdf";
 import { useToast } from "@/context/Toast/ToastContext";
+import styles from "./ExportCatalogDrawer.module.scss";
 
 type ExportCatalogDrawerProps = {
     open: boolean;
@@ -113,28 +114,30 @@ export function ExportCatalogDrawer({
                     </>
                 }
             >
-                <Select
-                    label="Catalogo"
-                    options={catalogOptions}
-                    value={selectedCatalogId}
-                    onChange={handleCatalogChange}
-                    disabled={isLoadingCatalogs || isDownloading}
-                    helperText={
-                        isLoadingCatalogs
-                            ? "Caricamento cataloghi…"
-                            : catalogs.length === 0 && !isLoadingCatalogs
-                              ? "Nessun catalogo disponibile."
-                              : undefined
-                    }
-                />
-                <TextInput
-                    label="Nome file"
-                    value={fileName}
-                    onChange={e => setFileName(e.target.value)}
-                    placeholder="Es. Catalogo Completo - McDonald's Viale Certosa"
-                    disabled={isDownloading}
-                    helperText="Senza estensione .pdf"
-                />
+                <div className={styles.fieldStack}>
+                    <Select
+                        label="Catalogo"
+                        options={catalogOptions}
+                        value={selectedCatalogId}
+                        onChange={handleCatalogChange}
+                        disabled={isLoadingCatalogs || isDownloading}
+                        helperText={
+                            isLoadingCatalogs
+                                ? "Caricamento cataloghi…"
+                                : catalogs.length === 0 && !isLoadingCatalogs
+                                  ? "Nessun catalogo disponibile."
+                                  : undefined
+                        }
+                    />
+                    <TextInput
+                        label="Nome file"
+                        value={fileName}
+                        onChange={e => setFileName(e.target.value)}
+                        placeholder="Es. Catalogo Completo - McDonald's Viale Certosa"
+                        disabled={isDownloading}
+                        helperText="Senza estensione .pdf"
+                    />
+                </div>
             </DrawerLayout>
         </SystemDrawer>
     );
