@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
-import { usePageTitle } from '@/hooks/usePageTitle';
-import { motion, useInView } from 'framer-motion';
-import { COMPANY } from '@/config/company';
-import s from './LandingPage.module.scss';
+import { useState, useEffect, useRef, useCallback } from "react";
+import { QRCodeSVG } from "qrcode.react";
+import { usePageTitle } from "@/hooks/usePageTitle";
+import { motion, useInView } from "framer-motion";
+import { COMPANY } from "@/config/company";
+import s from "./LandingPage.module.scss";
 import {
     SCHEDULE_RULES,
     PAIN_ROWS,
@@ -12,9 +12,9 @@ import {
     PRICING_TIERS,
     INCLUDED_FEATURES,
     FAQ_ITEMS,
-    type Demo,
-} from './landingData';
-import WaitlistForm from './sections/WaitlistForm';
+    type Demo
+} from "./landingData";
+import WaitlistForm from "./sections/WaitlistForm";
 
 // ─── Feature icon constants (defined once, not re-created on render) ──────────
 const ICON_SCHEDULING = (
@@ -34,7 +34,12 @@ const ICON_MULTISEDE = (
         <circle cx="6" cy="21" r="3" stroke="#6366F1" strokeWidth="1.8" opacity="0.4" />
         <circle cx="14" cy="21" r="3" stroke="#6366F1" strokeWidth="1.8" />
         <circle cx="22" cy="21" r="3" stroke="#6366F1" strokeWidth="1.8" opacity="0.4" />
-        <path d="M14 12v6M9.5 18.5L12 13M18.5 18.5L16 13" stroke="#6366F1" strokeWidth="1.4" opacity="0.5" />
+        <path
+            d="M14 12v6M9.5 18.5L12 13M18.5 18.5L16 13"
+            stroke="#6366F1"
+            strokeWidth="1.4"
+            opacity="0.5"
+        />
     </svg>
 );
 
@@ -53,38 +58,54 @@ const ICON_REVIEW = (
 const ICON_HUB = (
     <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
         <rect x="6" y="3" width="16" height="22" rx="3" stroke="#6366F1" strokeWidth="1.8" />
-        <rect x="10" y="8" width="8" height="5" rx="1.5" fill="#6366F1" opacity="0.15" stroke="#6366F1" strokeWidth="1.2" />
-        <path d="M10 17h8M10 20h5" stroke="#6366F1" strokeWidth="1.4" strokeLinecap="round" opacity="0.4" />
+        <rect
+            x="10"
+            y="8"
+            width="8"
+            height="5"
+            rx="1.5"
+            fill="#6366F1"
+            opacity="0.15"
+            stroke="#6366F1"
+            strokeWidth="1.2"
+        />
+        <path
+            d="M10 17h8M10 20h5"
+            stroke="#6366F1"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            opacity="0.4"
+        />
     </svg>
 );
 
 const FEATURE_ITEMS = [
     {
-        title: 'Scheduling intelligente',
-        desc: 'Menu pranzo, aperitivo, cena — si alternano da soli. Promozioni che compaiono e scompaiono in automatico, su qualsiasi scala.',
-        icon: ICON_SCHEDULING,
+        title: "Scheduling intelligente",
+        desc: "Menu pranzo, aperitivo, cena — si alternano da soli. Promozioni che compaiono e scompaiono in automatico, su qualsiasi scala.",
+        icon: ICON_SCHEDULING
     },
     {
-        title: 'Multi-sede, un pannello',
-        desc: 'Aggiorna un prezzo e si propaga ovunque. Oppure personalizza sede per sede. Tu scegli il livello di controllo.',
-        icon: ICON_MULTISEDE,
+        title: "Multi-sede, un pannello",
+        desc: "Aggiorna un prezzo e si propaga ovunque. Oppure personalizza sede per sede. Tu scegli il livello di controllo.",
+        icon: ICON_MULTISEDE
     },
     {
-        title: 'Review Guard',
-        desc: 'Intercetta le recensioni negative prima che arrivino su Google. Raccogli feedback strutturato per migliorare davvero il servizio.',
-        icon: ICON_REVIEW,
+        title: "Review Guard",
+        desc: "Intercetta le recensioni negative prima che arrivino su Google. Raccogli feedback strutturato per migliorare davvero il servizio.",
+        icon: ICON_REVIEW
     },
     {
-        title: 'Hub digitale per ogni sede',
+        title: "Hub digitale per ogni sede",
         desc: "Il QR non porta solo al menu — apre un hub con menu, recensioni e promozioni. Ogni scansione è un'opportunità.",
-        icon: ICON_HUB,
-    },
+        icon: ICON_HUB
+    }
 ] as const;
 
 // ─── Scroll-reveal wrapper (Framer Motion) ───────────
 function Animate({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
     const ref = useRef(null);
-    const isInView = useInView(ref, { once: true, margin: '0px 0px -50px 0px' });
+    const isInView = useInView(ref, { once: true, margin: "0px 0px -50px 0px" });
 
     return (
         <motion.div
@@ -104,12 +125,12 @@ function Navbar() {
 
     useEffect(() => {
         const handler = () => setScrolled(window.scrollY > 50);
-        window.addEventListener('scroll', handler, { passive: true });
-        return () => window.removeEventListener('scroll', handler);
+        window.addEventListener("scroll", handler, { passive: true });
+        return () => window.removeEventListener("scroll", handler);
     }, []);
 
     return (
-        <nav className={`${s.navbar} ${scrolled ? s.navbarScrolled : ''}`}>
+        <nav className={`${s.navbar} ${scrolled ? s.navbarScrolled : ""}`}>
             <div className={s.navBrand}>
                 <a href="/" className={s.navLogo}>
                     Catalo<span className={s.navGlobe}>Globe</span>
@@ -118,17 +139,19 @@ function Navbar() {
             </div>
             <div className={s.navLinks}>
                 {[
-                    { label: 'Funzionalità', id: 'funzionalità' },
-                    { label: 'Come funziona', id: 'come-funziona' },
-                    { label: 'Prezzi', id: 'prezzi' },
+                    { label: "Funzionalità", id: "funzionalità" },
+                    { label: "Come funziona", id: "come-funziona" },
+                    { label: "Prezzi", id: "prezzi" }
                 ].map(({ label, id }) => (
                     <a
                         key={id}
                         href={`#${id}`}
                         className={s.navLink}
-                        onClick={(e) => {
+                        onClick={e => {
                             e.preventDefault();
-                            document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            document
+                                .getElementById(id)
+                                ?.scrollIntoView({ behavior: "smooth", block: "start" });
                         }}
                     >
                         {label}
@@ -139,9 +162,9 @@ function Navbar() {
                 <a
                     href="#waitlist"
                     className={s.navCta}
-                    onClick={(e) => {
+                    onClick={e => {
                         e.preventDefault();
-                        document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+                        document.getElementById("waitlist")?.scrollIntoView({ behavior: "smooth" });
                     }}
                 >
                     Prova gratis
@@ -165,21 +188,25 @@ function Hero() {
                     </div>
 
                     <h1 className={s.heroH1}>
-                        I tuoi menu si<br />aggiornano da soli.
+                        I tuoi menu si
+                        <br />
+                        aggiornano da soli.
                     </h1>
 
                     <p className={s.heroSub}>
-                        Un unico punto di controllo per prodotti, prezzi, promozioni e sedi.
-                        Tu definisci le regole, CataloGlobe fa il resto.
+                        Un unico punto di controllo per prodotti, prezzi, promozioni e sedi. Tu
+                        definisci le regole, CataloGlobe fa il resto.
                     </p>
 
                     <div className={s.heroCtas}>
                         <a
                             href="#waitlist"
                             className={s.ctaPrimary}
-                            onClick={(e) => {
+                            onClick={e => {
                                 e.preventDefault();
-                                document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+                                document
+                                    .getElementById("waitlist")
+                                    ?.scrollIntoView({ behavior: "smooth" });
                             }}
                         >
                             Inizia gratis
@@ -222,7 +249,7 @@ function Hero() {
                                         className={s.scheduleBadge}
                                         style={{
                                             color: rule.statusColor,
-                                            background: `${rule.statusColor}14`,
+                                            background: `${rule.statusColor}14`
                                         }}
                                     >
                                         {rule.status}
@@ -254,7 +281,13 @@ function PainBridge() {
                         <div className={s.painRow}>
                             <span className={s.painBefore}>{row.before}</span>
                             <span className={s.painArrow} aria-hidden="true">
-                                <svg width="20" height="12" viewBox="0 0 20 12" fill="none" aria-hidden="true">
+                                <svg
+                                    width="20"
+                                    height="12"
+                                    viewBox="0 0 20 12"
+                                    fill="none"
+                                    aria-hidden="true"
+                                >
                                     <path
                                         d="M0 6h16M13 1l5 5-5 5"
                                         stroke="#6366F1"
@@ -283,7 +316,9 @@ function HowItWorks() {
                 </Animate>
                 <Animate delay={0.04}>
                     <h2 className={s.sectionH2}>
-                        Tre passi.<br />Zero manutenzione.
+                        Tre passi.
+                        <br />
+                        Zero manutenzione.
                     </h2>
                 </Animate>
                 <div className={s.stepsGrid}>
@@ -313,12 +348,15 @@ function Features() {
                 </Animate>
                 <Animate delay={0.04}>
                     <h2 className={s.featuresH2}>
-                        Non un menu builder.<br />Un motore di distribuzione.
+                        Non un menu builder.
+                        <br />
+                        Un motore di distribuzione.
                     </h2>
                 </Animate>
                 <Animate delay={0.08}>
                     <p className={s.featuresSub}>
-                        Il contenuto è separato dalla distribuzione. Tu crei una volta, il sistema mostra ovunque.
+                        Il contenuto è separato dalla distribuzione. Tu crei una volta, il sistema
+                        mostra ovunque.
                     </p>
                 </Animate>
                 <div className={s.featuresGrid}>
@@ -358,18 +396,14 @@ function DemoCard({ demo, offset }: CardProps) {
             style={{
                 transform: `translateX(-50%) translateX(${tx}px) translateZ(${z}px) rotateY(${ry}deg) scale(${sc})`,
                 opacity: op,
-                transition: 'all 0.55s cubic-bezier(.4,0,.2,1)',
+                transition: "all 0.55s cubic-bezier(.4,0,.2,1)",
                 zIndex: 10 - abs,
-                pointerEvents: isCenter ? 'auto' : 'none',
-                filter: isCenter ? 'none' : `blur(${abs * 0.8}px) brightness(0.75)`,
+                pointerEvents: isCenter ? "auto" : "none",
+                filter: isCenter ? "none" : `blur(${abs * 0.8}px) brightness(0.75)`
             }}
         >
             <div className={s.cardShell}>
-                <img
-                    src={demo.screenshot}
-                    alt={`Menu ${demo.name}`}
-                    className={s.demoCardImage}
-                />
+                <img src={demo.screenshot} alt={`Menu ${demo.name}`} className={s.demoCardImage} />
             </div>
         </div>
     );
@@ -392,9 +426,11 @@ function DemoCarousel() {
 
     useEffect(() => {
         if (!showQROverlay) return;
-        const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowQROverlay(false); };
-        window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
+        const handler = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setShowQROverlay(false);
+        };
+        window.addEventListener("keydown", handler);
+        return () => window.removeEventListener("keydown", handler);
     }, [showQROverlay]);
 
     return (
@@ -437,7 +473,13 @@ function DemoCarousel() {
                     aria-label="Precedente"
                 >
                     <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                        <path d="M11 4L6 9l5 5" stroke="#55536a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <path
+                            d="M11 4L6 9l5 5"
+                            stroke="#55536a"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
                     </svg>
                 </button>
                 <button
@@ -446,7 +488,13 @@ function DemoCarousel() {
                     aria-label="Successivo"
                 >
                     <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                        <path d="M7 4l5 5-5 5" stroke="#55536a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <path
+                            d="M7 4l5 5-5 5"
+                            stroke="#55536a"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
                     </svg>
                 </button>
             </div>
@@ -476,8 +524,20 @@ function DemoCarousel() {
                         onClick={() => go(-1)}
                         aria-label="Precedente"
                     >
-                        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                            <path d="M11 4L6 9l5 5" stroke="#55536a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 18 18"
+                            fill="none"
+                            aria-hidden="true"
+                        >
+                            <path
+                                d="M11 4L6 9l5 5"
+                                stroke="#55536a"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
                         </svg>
                     </button>
 
@@ -485,7 +545,7 @@ function DemoCarousel() {
                         {DEMOS.map((_, i) => (
                             <button
                                 key={i}
-                                className={`${s.dot} ${i === active ? s.dotActive : ''}`}
+                                className={`${s.dot} ${i === active ? s.dotActive : ""}`}
                                 onClick={() => setActive(i)}
                                 aria-label={`Demo ${i + 1}`}
                             />
@@ -498,8 +558,20 @@ function DemoCarousel() {
                         onClick={() => go(1)}
                         aria-label="Successivo"
                     >
-                        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                            <path d="M7 4l5 5-5 5" stroke="#55536a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 18 18"
+                            fill="none"
+                            aria-hidden="true"
+                        >
+                            <path
+                                d="M7 4l5 5-5 5"
+                                stroke="#55536a"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
                         </svg>
                     </button>
                 </div>
@@ -512,10 +584,7 @@ function DemoCarousel() {
                     aria-modal="true"
                     aria-label="QR code"
                 >
-                    <div
-                        className={s.qrOverlayContent}
-                        onClick={(e) => e.stopPropagation()}
-                    >
+                    <div className={s.qrOverlayContent} onClick={e => e.stopPropagation()}>
                         <QRCodeSVG
                             value={`${COMPANY.web.homepage}/${DEMOS[active].slug}`}
                             size={250}
@@ -552,7 +621,8 @@ function Pricing() {
                 </Animate>
                 <Animate delay={0.08}>
                     <p className={s.pricingSub}>
-                        Configura tutto gratis — paghi solo quando attivi una sede. Prezzi graduali: ogni fascia paga il suo prezzo.
+                        Configura tutto gratis — paghi solo quando attivi una sede. Prezzi graduali:
+                        ogni fascia paga il suo prezzo.
                     </p>
                 </Animate>
 
@@ -561,13 +631,11 @@ function Pricing() {
                         {PRICING_TIERS.map((tier, i) => (
                             <div
                                 key={i}
-                                className={`${s.tierCard} ${tier.popular ? s.tierCardPopular : ''}`}
+                                className={`${s.tierCard} ${tier.popular ? s.tierCardPopular : ""}`}
                             >
-                                {tier.popular && (
-                                    <div className={s.popularBadge}>Più scelto</div>
-                                )}
+                                {tier.popular && <div className={s.popularBadge}>Più scelto</div>}
                                 <div>
-                                    <span className={s.tierRange}>{tier.range}</span>{' '}
+                                    <span className={s.tierRange}>{tier.range}</span>{" "}
                                     <span className={s.tierLabel}>{tier.label}</span>
                                 </div>
                                 {tier.price ? (
@@ -589,8 +657,7 @@ function Pricing() {
                 <Animate delay={0.16}>
                     <div className={s.calcCard}>
                         <span>
-                            <span className={s.calcBold}>Esempio:</span>
-                            {' '}7 sedi → 3×€39 + 4×€29 ={' '}
+                            <span className={s.calcBold}>Esempio:</span> 7 sedi → 3×€39 + 4×€29 ={" "}
                             <span className={s.calcAccent}>€233/mese</span>
                         </span>
                         <span className={s.calcNote}>· IVA inclusa</span>
@@ -621,9 +688,11 @@ function Pricing() {
                         <a
                             href="#waitlist"
                             className={s.pricingCta}
-                            onClick={(e) => {
+                            onClick={e => {
                                 e.preventDefault();
-                                document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+                                document
+                                    .getElementById("waitlist")
+                                    ?.scrollIntoView({ behavior: "smooth" });
                             }}
                         >
                             Inizia gratis — 3 mesi inclusi
@@ -663,7 +732,7 @@ function FAQ() {
                             >
                                 <span className={s.faqQuestionText}>{item.q}</span>
                                 <span
-                                    className={`${s.faqIcon} ${open === i ? s.faqIconOpen : ''}`}
+                                    className={`${s.faqIcon} ${open === i ? s.faqIconOpen : ""}`}
                                     aria-hidden="true"
                                 >
                                     +
@@ -671,7 +740,7 @@ function FAQ() {
                             </button>
                             <div
                                 className={s.faqAnswer}
-                                style={{ maxHeight: open === i ? '160px' : '0' }}
+                                style={{ maxHeight: open === i ? "160px" : "0" }}
                             >
                                 <p className={s.faqAnswerText}>{item.a}</p>
                             </div>
@@ -690,12 +759,13 @@ function FinalCTA() {
             <div className={s.finalGlow} aria-hidden="true" />
             <div className={s.finalWrap}>
                 <Animate>
-                    <h2 className={s.finalH2}>
-                        Siamo in fase di lancio — entra tra i primi.
-                    </h2>
+                    <h2 className={s.finalH2}>Siamo in fase di lancio — entra tra i primi.</h2>
                 </Animate>
                 <Animate delay={0.06}>
-                    <p className={s.finalSub}>Accesso anticipato gratuito per i primi clienti. Configura tutto, attiva quando sei pronto.</p>
+                    <p className={s.finalSub}>
+                        Accesso anticipato gratuito per i primi clienti. Configura tutto, attiva
+                        quando sei pronto.
+                    </p>
                 </Animate>
                 <Animate delay={0.12}>
                     <WaitlistForm />
@@ -719,28 +789,27 @@ interface FooterCol {
 function Footer() {
     const cols: FooterCol[] = [
         {
-            title: 'Prodotto',
+            title: "Prodotto",
             links: [
-                { label: 'Funzionalità', href: '#funzionalità' },
-                { label: 'Prezzi', href: '#prezzi' },
-                { label: 'FAQ', href: '#faq' },
-                { label: 'Changelog', href: '#' },
-            ],
+                { label: "Funzionalità", href: "#funzionalità" },
+                { label: "Prezzi", href: "#prezzi" },
+                { label: "FAQ", href: "#faq" }
+            ]
         },
         {
-            title: 'Legale',
+            title: "Legale",
             links: [
-                { label: 'Privacy Policy', href: '/legal/privacy' },
-                { label: 'Termini di Servizio', href: '/legal/termini' },
-            ],
+                { label: "Privacy Policy", href: "/legal/privacy" },
+                { label: "Termini di Servizio", href: "/legal/termini" }
+            ]
         },
         {
-            title: 'Contatti',
+            title: "Contatti",
             links: [
-                { label: 'Informazioni', href: `mailto:${COMPANY.contact.info}` },
-                { label: 'Supporto', href: `mailto:${COMPANY.contact.support}` },
-            ],
-        },
+                { label: "Informazioni", href: `mailto:${COMPANY.contact.info}` },
+                { label: "Supporto", href: `mailto:${COMPANY.contact.support}` }
+            ]
+        }
     ];
 
     return (
@@ -755,11 +824,13 @@ function Footer() {
                     </p>
                 </div>
                 <div className={s.footerCols}>
-                    {cols.map((col) => (
+                    {cols.map(col => (
                         <div key={col.title}>
                             <p className={s.footerColTitle}>{col.title}</p>
-                            {col.links.map((link) => (
-                                <a key={link.label} href={link.href} className={s.footerLink}>{link.label}</a>
+                            {col.links.map(link => (
+                                <a key={link.label} href={link.href} className={s.footerLink}>
+                                    {link.label}
+                                </a>
                             ))}
                         </div>
                     ))}
@@ -767,7 +838,8 @@ function Footer() {
             </div>
             <div className={s.footerBottom}>
                 <p className={s.copyright}>
-                    © {new Date().getFullYear()} {COMPANY.legalName} · P.IVA {COMPANY.vatNumber} · {COMPANY.legalAddress.city} ({COMPANY.legalAddress.province})
+                    © {new Date().getFullYear()} {COMPANY.businessName} ·{" "}
+                    {COMPANY.legalAddress.city} ({COMPANY.legalAddress.province})
                 </p>
             </div>
         </footer>

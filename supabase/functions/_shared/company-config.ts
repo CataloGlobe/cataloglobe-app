@@ -51,7 +51,7 @@ export function getEmailFooterText(): string {
   const addr = `${c.legalAddress.street}, ${c.legalAddress.streetNumber}, ${c.legalAddress.postalCode} ${c.legalAddress.city} (${c.legalAddress.province})`;
   return `
 ---
-${c.legalName}
+${c.businessName}
 ${addr}
 P.IVA: ${c.vatNumber}
 Email: ${c.contact.support}
@@ -59,6 +59,8 @@ Privacy: ${c.web.privacyUrl}
 
 Hai ricevuto questa email perché sei registrato su ${c.businessName}.
 Per richieste relative ai tuoi dati personali: ${c.contact.privacy}
+
+${c.businessName} è il nome commerciale di ${c.legalName}, ditta individuale.
 `.trim();
 }
 
@@ -70,7 +72,7 @@ export function getEmailFooterHtml(): string {
   const addr = `${c.legalAddress.street}, ${c.legalAddress.streetNumber}, ${c.legalAddress.postalCode} ${c.legalAddress.city} (${c.legalAddress.province})`;
   return `
 <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; line-height: 1.5;">
-  <div style="margin-bottom: 8px;"><strong>${c.legalName}</strong></div>
+  <div style="margin-bottom: 8px;"><strong>${c.businessName}</strong></div>
   <div>${addr}</div>
   <div>P.IVA: ${c.vatNumber}</div>
   <div style="margin-top: 8px;">
@@ -80,6 +82,9 @@ export function getEmailFooterHtml(): string {
   <div style="margin-top: 12px; font-size: 11px;">
     Hai ricevuto questa email perché sei registrato su ${c.businessName}.<br>
     Per richieste relative ai tuoi dati personali: <a href="mailto:${c.contact.privacy}" style="color: #6b7280;">${c.contact.privacy}</a>
+  </div>
+  <div style="margin-top: 12px; font-size: 10px; color: #9ca3af;">
+    ${c.businessName} è il nome commerciale di ${c.legalName}, ditta individuale.
   </div>
 </div>
 `.trim();
