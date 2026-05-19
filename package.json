@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:vercel": "bash -c 'set -a; source .env.local; set +a; vercel dev --listen 3001'",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run --config vitest.config.ts",

@@ -37,6 +37,58 @@ type Snapshot = {
 
 const LANG_REGEX = /^[a-z]{2}(-[a-z]{2,4})?$/i;
 
+/**
+ * Contratto di errore normalizzato emesso dall'endpoint /api/public-catalog.
+ *
+ * Shape stabile esposta al frontend:
+ *   {
+ *     "error": {
+ *       "code": "<semantic>",       // routing client-side
+ *       "messageKey": "<i18n key>", // chiave i18n public.json (es. "page.loading_error")
+ *       "message": "<original>"     // opzionale, body originale upstream
+ *     }
+ *   }
+ *
+ * Codici:
+ *   - method_not_allowed   (405)
+ *   - missing_slug         (400) — slug query param assente
+ *   - invalid_lang         (400) — lang query param mal formato
+ *   - invalid_link         (400) — upstream ha risposto 400 (es. "Missing slug")
+ *   - not_found            (404) — upstream "Sede non trovata"
+ *   - domain_error         (4xx altri) — upstream errore non mappato
+ *   - service_unavailable  (503) — upstream giù + nessuno snapshot in cache
+ */
+type NormalizedErrorBody = {
+    error: {
+        code: string;
+        messageKey: string;
+        message?: string;
+    };
+};
+
+function normalizedError(code: string, messageKey: string, message?: string): NormalizedErrorBody {
+    return { error: { code, messageKey, ...(message ? { message } : {}) } };
+}
+
+/**
+ * Mappa una risposta di errore upstream (status + body) nella shape
+ * normalizzata. Body upstream esempio: `{ "error": "Sede non trovata" }`.
+ */
+function mapUpstreamDomainError(status: number, body: unknown): NormalizedErrorBody {
+    const rawMessage =
+        body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string"
+            ? ((body as { error: string }).error)
+            : undefined;
+
+    if (status === 404) {
+        return normalizedError("not_found", "page.error.not_found", rawMessage);
+    }
+    if (status === 400) {
+        return normalizedError("invalid_link", "page.error.invalid_link", rawMessage);
+    }
+    return normalizedError("domain_error", "page.loading_error", rawMessage);
+}
+
 type LogRecord = {
     event: "public_catalog_fetch";
     slug: string;
@@ -69,7 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
             status: 405,
             env
         });
-        res.status(405).json({ error: "method_not_allowed" });
+        res.status(405).json(normalizedError("method_not_allowed", "page.error.invalid_link"));
         return;
     }
 
@@ -88,7 +140,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
             status: 400,
             env
         });
-        res.status(400).json({ error: "missing_slug" });
+        res.status(400).json(normalizedError("missing_slug", "page.error.invalid_link"));
         return;
     }
 
@@ -104,7 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
             status: 400,
             env
         });
-        res.status(400).json({ error: "invalid_lang" });
+        res.status(400).json(normalizedError("invalid_lang", "page.error.invalid_lang"));
         return;
     }
 
@@ -165,9 +217,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
             status: edgeResult.status,
             env
         });
-        // Propaga il body originale dell'edge function (può contenere `error`
-        // come stringa italiana). Il frontend già parsa quel formato.
-        res.status(edgeResult.status).json(edgeResult.body ?? { error: "domain_error" });
+        res.status(edgeResult.status).json(mapUpstreamDomainError(edgeResult.status, edgeResult.body));
         return;
     }
 
@@ -233,8 +283,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         status: 503,
         env
     });
-    res.status(503).json({
-        error: "service_unavailable",
-        message: "Resolver upstream unavailable and no cached snapshot found"
-    });
+    res.status(503).json(
+        normalizedError(
+            "service_unavailable",
+            "page.loading_error",
+            "Resolver upstream unavailable and no cached snapshot found"
+        )
+    );
 }
