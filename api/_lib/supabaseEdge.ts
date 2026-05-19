@@ -5,7 +5,7 @@ import {
     sleep,
     TimeoutError,
     withTimeout
-} from "./retry";
+} from "./retry.js";
 
 /**
  * Wrapper server-side per chiamare la Supabase Edge Function

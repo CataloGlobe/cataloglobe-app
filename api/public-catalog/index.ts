@@ -6,12 +6,12 @@ import {
     makeSnapshotKey,
     SNAPSHOT_SCHEMA_VERSION,
     SNAPSHOT_TTL_SECONDS
-} from "../_lib/redis";
+} from "../_lib/redis.js";
 import {
     callResolvePublicCatalog,
     isHealthyPayload,
     type PublicCatalogPayload
-} from "../_lib/supabaseEdge";
+} from "../_lib/supabaseEdge.js";
 
 /**
  * GET /api/public-catalog?slug=<slug>&lang=<lang>?
