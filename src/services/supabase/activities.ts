@@ -1,5 +1,6 @@
 import { supabase } from "@/services/supabase/client";
 import { appendCacheBuster } from "@/services/supabase/upload";
+import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 import type { V2Activity } from "@/types/activity";
 
 const BUSINESS_COVERS_BUCKET = "business-covers";
@@ -258,6 +259,9 @@ export async function createActivity(
         }
         throw error;
     }
+
+    void revalidatePublicCatalogForTenant(tenantId);
+
     return data;
 }
 
@@ -280,6 +284,9 @@ export async function updateActivity(
         }
         throw error;
     }
+
+    void revalidatePublicCatalogForTenant(tenantId);
+
     return data;
 }
 
@@ -293,6 +300,8 @@ export async function deleteActivity(id: string, tenantId: string) {
         .eq("tenant_id", tenantId);
 
     if (error) throw error;
+
+    void revalidatePublicCatalogForTenant(tenantId);
 }
 
 /**
@@ -370,6 +379,8 @@ export async function updateActivityHoursPublic(
         .eq("tenant_id", tenantId);
 
     if (error) throw error;
+
+    void revalidatePublicCatalogForTenant(tenantId);
 }
 
 /* =====================================================

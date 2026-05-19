@@ -1,4 +1,5 @@
 import { supabase } from "@/services/supabase/client";
+import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 
 
 export type V2StyleVersion = {
@@ -186,6 +187,8 @@ export async function createStyle(tenant_id: string, name: string, config: Recor
 
     if (updateError) throw updateError;
 
+    void revalidatePublicCatalogForTenant(tenant_id);
+
     return {
         ...updatedStyle,
         current_version: versionData
@@ -254,6 +257,8 @@ export async function updateStyle(
         ? updatedStyle.current_version[0]
         : updatedStyle.current_version;
 
+    void revalidatePublicCatalogForTenant(tenant_id);
+
     return {
         ...updatedStyle,
         current_version
@@ -315,4 +320,6 @@ export async function deleteStyle(styleId: string, tenantId: string, replaceWith
         .eq("tenant_id", tenantId);
 
     if (deleteError) throw deleteError;
+
+    void revalidatePublicCatalogForTenant(tenantId);
 }

@@ -2,6 +2,7 @@ import { supabase } from "@/services/supabase/client";
 import { computeFieldHash } from "@/services/translation/hashUtils";
 import { enqueueWithSilentError } from "./translationJobs";
 import { deleteTranslationsForEntity } from "./translations";
+import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 
 // ==========================================
 // TYPES
@@ -62,6 +63,7 @@ export async function createCatalog(tenantId: string, name: string): Promise<V2C
         .single();
 
     if (error) throw error;
+    void revalidatePublicCatalogForTenant(tenantId);
     return data;
 }
 
@@ -79,6 +81,7 @@ export async function updateCatalog(
         .single();
 
     if (error) throw error;
+    void revalidatePublicCatalogForTenant(tenantId);
     return data;
 }
 
@@ -90,6 +93,7 @@ export async function deleteCatalog(catalogId: string, tenantId: string): Promis
         .eq("tenant_id", tenantId);
 
     if (error) throw error;
+    void revalidatePublicCatalogForTenant(tenantId);
 }
 
 export async function getCatalogStatsMap(
@@ -189,6 +193,8 @@ export async function createCategory(
         });
     }
 
+    void revalidatePublicCatalogForTenant(tenantId);
+
     return data;
 }
 
@@ -232,6 +238,8 @@ export async function updateCategory(
         });
     }
 
+    void revalidatePublicCatalogForTenant(tenantId);
+
     return data;
 }
 
@@ -249,6 +257,8 @@ export async function deleteCategory(categoryId: string, tenantId: string): Prom
     } catch (err) {
         console.error("[translations] cleanup on deleteCategory failed:", err);
     }
+
+    void revalidatePublicCatalogForTenant(tenantId);
 }
 
 // ==========================================
@@ -375,6 +385,8 @@ export async function addProductToCategory(
         throw error;
     }
 
+    void revalidatePublicCatalogForTenant(tenantId);
+
     return data;
 }
 
@@ -386,6 +398,7 @@ export async function removeProductFromCategory(tenantId: string, linkId: string
         .eq("tenant_id", tenantId);
 
     if (error) throw error;
+    void revalidatePublicCatalogForTenant(tenantId);
 }
 
 // ==========================================
@@ -455,5 +468,6 @@ export async function updateProductSortOrder(
         .single();
 
     if (error) throw error;
+    void revalidatePublicCatalogForTenant(tenantId);
     return data;
 }

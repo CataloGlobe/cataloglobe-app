@@ -192,7 +192,7 @@ loading → error → inactive → subscription_inactive → empty → ready
 - **is_visible / published flag:** quale field governa visibilità prodotto/catalogo nel resolver? (assunto `is_visible` on catalog_category_products ma schema product non letto)
 - **Caratteristiche null handling:** se product.characteristics è null, cosa passa al frontend? (codice defensivo `.filter(p => p.is_visible)` present, ma null check?)
 - **Translation RPC performance:** con molti prodotti (500+), batch RPC size? Risk di timeout?
-- **Cache invalidation:** come viene invalidato cache Vercel quando ristoratore modifica catalogo? Webhook → purge, oppure TTL attendere?
+- **Cache invalidation:** ~~come viene invalidato cache Vercel quando ristoratore modifica catalogo? Webhook → purge, oppure TTL attendere?~~ → **Risolto in Tappa 2.3.** Endpoint `POST /api/public-catalog/revalidate` autenticato via header `Authorization: Bearer <REVALIDATE_SECRET>`. Cancella tutte le chiavi Redis matching pattern `cataloglobe:{env}:public-catalog:v1:<slug>:*` (tutte le lingue) e ripopola lo snapshot base. Service layer chiama `revalidatePublicCatalogForTenant(tenantId)` (fire-and-forget) dopo ogni write rilevante. Token client esposto via `VITE_REVALIDATE_SECRET` (trade-off documentato in `src/services/publicCatalog/revalidatePublicCatalog.ts`: il danno massimo di abuso è "carico extra", non leak dati).
 - **Activity cover_image external URL:** dove hosted? Supabase Storage bucket o AWS S3? No read policy check nel codice.
 - **Vertical type fallback:** `vertical_type ?? null` (riga 433 edge fn) — cosa succede se undefined? VERTICAL_CONFIG lookup fail?
 - **Alias slug cost:** redirect sul canonico è client-side (navigate()) o server-side? Impact su UX/crawlability?

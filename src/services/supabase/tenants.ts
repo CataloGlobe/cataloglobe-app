@@ -1,5 +1,6 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
+import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 import type { VerticalType } from "@/constants/verticalTypes";
 
 /**
@@ -40,6 +41,7 @@ export async function updateTenantLogoUrl(tenantId: string, logoPath: string | n
         p_logo_url: logoPath
     });
     if (error) throw error;
+    void revalidatePublicCatalogForTenant(tenantId);
 }
 
 /**
@@ -218,6 +220,7 @@ export async function updateTenantName(tenantId: string, name: string): Promise<
     if (!data || data.length === 0) {
         throw new Error("Aggiornamento non riuscito: permessi insufficienti o tenant non trovato.");
     }
+    void revalidatePublicCatalogForTenant(tenantId);
 }
 
 /**

@@ -1,4 +1,5 @@
 import { supabase } from "@/services/supabase/client";
+import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -222,6 +223,7 @@ export async function createFeaturedRuleDraft(input: {
         .single();
 
     if (scheduleError) throw scheduleError;
+    void revalidatePublicCatalogForTenant(input.tenantId);
     return schedule.id;
 }
 
@@ -340,6 +342,8 @@ export async function updateFeaturedRule(input: {
 
         if (insertFcError) throw insertFcError;
     }
+
+    void revalidatePublicCatalogForTenant(input.tenantId);
 }
 
 // ---------------------------------------------------------------------------
@@ -357,6 +361,8 @@ export async function deleteFeaturedRule(
         .eq("tenant_id", tenantId);
 
     if (error) throw error;
+
+    void revalidatePublicCatalogForTenant(tenantId);
 }
 
 // ---------------------------------------------------------------------------
@@ -378,4 +384,6 @@ export async function reorderFeaturedRules(
 
         if (error) throw error;
     }
+
+    void revalidatePublicCatalogForTenant(tenantId);
 }

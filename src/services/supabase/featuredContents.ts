@@ -3,6 +3,7 @@ import { computeFieldHash } from "@/services/translation/hashUtils";
 import { enqueueWithSilentError, deleteTranslationJobsForEntity } from "./translationJobs";
 import { deleteTranslationsForEntity } from "./translations";
 import { deleteFeaturedContentImageBestEffort } from "./upload";
+import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 
 // Field di featured_contents tradotti via pipeline (Prompt 9 hook).
 const FEATURED_TRANSLATABLE_FIELDS = ["title", "subtitle", "description", "cta_text"] as const;
@@ -221,6 +222,8 @@ export async function createFeaturedContent(
         });
     }
 
+    void revalidatePublicCatalogForTenant(tenantId);
+
     return content;
 }
 
@@ -275,6 +278,8 @@ export async function updateFeaturedContent(
             newSourceHash: hash
         });
     }
+
+    void revalidatePublicCatalogForTenant(tenantId);
 
     return content as FeaturedContent;
 }
@@ -443,6 +448,8 @@ export async function deleteFeaturedContent(
         }
     }
 
+    void revalidatePublicCatalogForTenant(tenantId);
+
     return { schedules_disabled: schedulesDisabled };
 }
 
@@ -485,6 +492,8 @@ export async function deleteFeaturedContentProduct(id: string, tenantId: string)
     } catch (err) {
         console.error("[translations] cleanup on deleteFeaturedContentProduct failed:", err);
     }
+
+    void revalidatePublicCatalogForTenant(tenantId);
 }
 
 export async function updateFeaturedContentProductNote(
@@ -510,6 +519,8 @@ export async function updateFeaturedContentProductNote(
         newSourceText: note,
         newSourceHash: noteHash
     });
+
+    void revalidatePublicCatalogForTenant(tenantId);
 }
 
 export async function updateFeaturedContentProductsSortOrder(
@@ -527,6 +538,7 @@ export async function updateFeaturedContentProductsSortOrder(
     );
     const failed = results.find(r => r.error);
     if (failed?.error) throw failed.error;
+    void revalidatePublicCatalogForTenant(tenantId);
 }
 
 export async function syncFeaturedContentProducts(
@@ -588,4 +600,6 @@ export async function syncFeaturedContentProducts(
             }
         }
     }
+
+    void revalidatePublicCatalogForTenant(tenantId);
 }
