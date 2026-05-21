@@ -1,8 +1,4 @@
 {
-  "crons": [
-    { "path": "/api/_cron/status-check", "schedule": "*/2 * * * *" },
-    { "path": "/api/_cron/status-prune", "schedule": "0 3 * * *" }
-  ],
   "rewrites": [
     {
       "source": "/(.*)",
