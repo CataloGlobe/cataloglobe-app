@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/Routes/ProtectedRoute";
 import { GuestRoute } from "./components/Routes/GuestRoute";
 import { OtpRoute } from "./components/Routes/OtpRoute";
 import { RecoveryRoute } from "./components/Routes/RecoveryRoute";
+import { AdminRoute } from "./components/Routes/AdminRoute";
 import { TenantProvider } from "@context/TenantProvider";
 import { DashboardRedirect } from "./components/Routes/DashboardRedirect";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
@@ -29,6 +30,12 @@ import NotFound from "./pages/NotFound/NotFound";
 import InvitePage from "./pages/Invite/InvitePage";
 import PrivacyPolicyPage from "./pages/Legal/PrivacyPolicyPage";
 import TermsPage from "./pages/Legal/TermsPage";
+import StatusPage from "./pages/Status/StatusPage";
+
+// Admin (lazy: solo Lorenzo lo carica)
+const StatusIncidentsAdminPage = lazy(
+    () => import("./pages/Admin/StatusIncidents/StatusIncidentsPage")
+);
 
 // Workspace — lazy (solo utenti autenticati)
 const WorkspacePage = lazy(() => import("./pages/Workspace/WorkspacePage"));
@@ -235,6 +242,19 @@ export default function App() {
             {/* Legal pages */}
             <Route path="/legal/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/legal/termini" element={<TermsPage />} />
+
+            {/* Status page pubblica — DEVE stare prima del catch-all /:slug */}
+            <Route path="/status" element={<StatusPage />} />
+
+            {/* Admin (cross-tenant) — gate via VITE_ADMIN_EMAIL */}
+            <Route
+                path="/admin/status-incidents"
+                element={
+                    <AdminRoute>
+                        <StatusIncidentsAdminPage />
+                    </AdminRoute>
+                }
+            />
 
             {/* PUBLIC BUSINESS */}
             <Route
