@@ -1,0 +1,42 @@
+import { LogOut } from "lucide-react";
+import { useAuth } from "@/context/useAuth";
+import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
+import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
+import { Avatar } from "@/components/ui/Avatar";
+import styles from "./AppHeader.module.scss";
+
+function readMetaString(meta: unknown, key: string): string | undefined {
+    if (!meta || typeof meta !== "object") return undefined;
+    const val = (meta as Record<string, unknown>)[key];
+    return typeof val === "string" && val.length > 0 ? val : undefined;
+}
+
+export function HeaderUserMenu() {
+    const { user, signOut } = useAuth();
+
+    const fullName = readMetaString(user?.user_metadata, "full_name");
+    const avatarUrl = readMetaString(user?.user_metadata, "avatar_url");
+    const email = user?.email ?? "";
+    const displayName = fullName ?? "Account";
+    const avatarName = fullName ?? email;
+
+    const trigger = (
+        <button type="button" className={styles.userButton} aria-label="Profilo utente">
+            <Avatar name={avatarName} imageUrl={avatarUrl} size="sm" />
+        </button>
+    );
+
+    return (
+        <DropdownMenu trigger={trigger} placement="bottom-end">
+            <div className={styles.userInfo}>
+                <div className={styles.userName}>{displayName}</div>
+                <div className={styles.userEmail}>{email}</div>
+            </div>
+            {/* TODO: aggiungere route /account quando creata */}
+            <DropdownItem danger onClick={() => void signOut()}>
+                <LogOut size={14} />
+                <span>Esci</span>
+            </DropdownItem>
+        </DropdownMenu>
+    );
+}

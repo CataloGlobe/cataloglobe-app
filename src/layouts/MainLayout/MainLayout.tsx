@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useParams } from "react-router-dom";
 import Sidebar from "@components/layout/Sidebar/Sidebar";
+import { AppHeader } from "@components/layout/AppHeader/AppHeader";
 import { Menu } from "lucide-react";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { DrawerProvider } from "@/context/Drawer/DrawerProvider";
@@ -107,7 +108,9 @@ export default function MainLayout() {
     return (
         <div className={styles.appLayout}>
             <DrawerProvider>
-                <header className={styles.globalHeader} />
+                <header className={styles.globalHeader}>
+                    <AppHeader />
+                </header>
 
                 <div className={styles.body}>
                     <Sidebar
