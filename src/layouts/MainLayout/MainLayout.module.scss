@@ -1,3 +1,5 @@
+$global-header-height: 56px;
+
 .appLayout {
   height: 100dvh;
   display: flex;
@@ -5,13 +7,15 @@
   overflow: hidden;
 }
 
-/* NAVBAR */
-.appLayout > header {
-  height: 64px; /* o quello che usi */
+.globalHeader {
+  height: $global-header-height;
   flex-shrink: 0;
+  background: #fff;
+  border-bottom: 1px solid #E5E7EB;
+  position: relative;
+  z-index: 30;
 }
 
-/* CORPO SOTTO LA NAVBAR */
 .body {
   flex: 1;
   display: flex;
@@ -59,7 +63,7 @@
     padding: 16px;
   }
 
-  .appLayout > header {
-    display: none; /* Hide top navbar on mobile if it exists, or user wants cleaner look */
+  .globalHeader {
+    display: none;
   }
 }

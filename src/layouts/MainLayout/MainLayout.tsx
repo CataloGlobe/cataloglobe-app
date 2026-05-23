@@ -106,8 +106,10 @@ export default function MainLayout() {
 
     return (
         <div className={styles.appLayout}>
-            <div className={styles.body}>
-                <DrawerProvider>
+            <DrawerProvider>
+                <header className={styles.globalHeader} />
+
+                <div className={styles.body}>
                     <Sidebar
                         isMobile={isMobile}
                         mobileOpen={mobileSidebarOpen}
@@ -132,8 +134,8 @@ export default function MainLayout() {
                             <Outlet />
                         </div>
                     </main>
-                </DrawerProvider>
-            </div>
+                </div>
+            </DrawerProvider>
         </div>
     );
 }
