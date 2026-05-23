@@ -2,8 +2,8 @@
  * Service-role Supabase client per le rotte API serverless di status.
  *
  * Usato da:
- *   - api/_cron/status-check.ts  → INSERT in status_checks + UPSERT in status_service_state
- *   - api/_cron/status-prune.ts  → DELETE su status_checks scaduti
+ *   - api/cron/status-check.ts  → INSERT in status_checks + UPSERT in status_service_state
+ *   - api/cron/status-prune.ts  → DELETE su status_checks scaduti
  *   - api/admin/status-incidents.ts → CRUD su status_incidents
  *
  * `service_role` bypassa RLS quindi è MAI esposto al browser. Vive solo
