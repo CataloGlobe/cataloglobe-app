@@ -9,8 +9,11 @@ import { SubscriptionBanner } from "@/components/Subscription/SubscriptionBanner
 import { ActivationRequired } from "@/components/Subscription/ActivationRequired";
 import { useTenant } from "@/context/useTenant";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 import styles from "./MainLayout.module.scss";
+
+const SIDEBAR_COLLAPSED_KEY = "cg:sidebar-collapsed";
 
 const PAGE_TITLES: Record<string, string> = {
     overview: 'Panoramica',
@@ -47,30 +50,6 @@ function resolvePageTitle(businessId: string, pathname: string): string | undefi
     return PAGE_TITLES[first];
 }
 
-function useMediaQuery(query: string) {
-    const [matches, setMatches] = useState(() => {
-        if (typeof window === "undefined") return false;
-        return window.matchMedia(query).matches;
-    });
-
-    useEffect(() => {
-        const mql = window.matchMedia(query);
-
-        const handler = (e: MediaQueryListEvent) => {
-            setMatches(e.matches);
-        };
-
-        mql.addEventListener("change", handler);
-        setMatches(mql.matches);
-
-        return () => {
-            mql.removeEventListener("change", handler);
-        };
-    }, [query]);
-
-    return matches;
-}
-
 export default function MainLayout() {
     const isMobile = useMediaQuery("(max-width: 1023px)");
     const { selectedTenant, loading } = useTenant();
@@ -82,7 +61,23 @@ export default function MainLayout() {
     usePageTitle(pageName && tenantName ? `${pageName} — ${tenantName}` : pageName);
 
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+        if (typeof window === "undefined") return false;
+        try {
+            return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+        } catch {
+            return false;
+        }
+    });
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        try {
+            window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
+        } catch {
+            // localStorage può fallire in modalità privata o quota piena, ignorare
+        }
+    }, [sidebarCollapsed]);
 
     useEffect(() => {
         if (isMobile) setMobileSidebarOpen(false);

@@ -1,27 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Menu } from "lucide-react";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import WorkspaceSidebar from "./WorkspaceSidebar";
 import styles from "./WorkspaceLayout.module.scss";
-
-function useMediaQuery(query: string) {
-    const [matches, setMatches] = useState(() => {
-        if (typeof window === "undefined") return false;
-        return window.matchMedia(query).matches;
-    });
-
-    useEffect(() => {
-        const mql = window.matchMedia(query);
-        const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
-        mql.addEventListener("change", handler);
-        setMatches(mql.matches);
-        return () => mql.removeEventListener("change", handler);
-    }, [query]);
-
-    return matches;
-}
 
 export default function WorkspaceLayout() {
     usePageTitle('Workspace');
