@@ -337,6 +337,8 @@ Due tipi di regola sullo stesso modello `schedules`:
 - Schema attuale + fact critici (slug uniqueness, tabelle Stripe-on-tenants, schedule_targets RLS, ecc.) → `docs/database-reference.md`.
 - Dati legali aziendali: `src/config/company.ts` ↔ `supabase/functions/_shared/company-config.ts` sono **duplicazione sincronizzata** (header `// ⚠️ SYNC`). Modifica sempre entrambi nello stesso commit. Stesso pattern di `scheduleResolver.ts`.
 
+- **Migration con `CREATE FUNCTION` + REVOKE/GRANT — workaround `db push`**: `supabase db push` fallisce con `cannot insert multiple commands into a prepared statement (SQLSTATE 42601)` quando un singolo file combina `CREATE OR REPLACE FUNCTION` (body PL/pgSQL multi-statement) con uno o più REVOKE/GRANT. Il CLI usa prepared statement che non accetta multi-command. Due workaround validi: (1) applicare via Supabase Studio SQL Editor (bypassa il prepared statement layer del CLI), (2) splittare in 2 file con timestamp consecutivi — `YYYYMMDDHHMMSS_create_x.sql` (solo CREATE) + `YYYYMMDDHHMMSS+1_grant_x.sql` (solo REVOKE/GRANT). Dopo apply via Studio, registrare la migration history manualmente: `INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('YYYYMMDDHHMMSS', 'nome_descrittivo') ON CONFLICT (version) DO NOTHING;`. Lezione appresa task 2.5a (`submit_order_atomic`, split a 2 file) e 2.11a (`rectify_order_atomic`, applicata via Studio).
+
 ---
 
 ## Pattern obbligatori
@@ -365,6 +367,34 @@ Senza una di queste 3, upsert fallisce con HTTP 400 + messaggio fuorviante `"new
 - `REVOKE EXECUTE ... FROM PUBLIC` dopo `CREATE FUNCTION` (Postgres concede grant PUBLIC di default).
 - `GRANT EXECUTE` solo a ruoli specifici (`anon`/`authenticated`/`service_role`) in base al caso d'uso.
 
+#### SECURITY DEFINER service-role-only
+
+Per ogni function `SECURITY DEFINER` in `public` NON destinata a `anon`/`authenticated`, `REVOKE FROM PUBLIC` da solo NON basta: Supabase pre-configura al bootstrap `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role`, e i grant ai ruoli nominati sopravvivono al `REVOKE FROM PUBLIC`. Combinato con `SECURITY DEFINER` (esecuzione con identità owner = bypass RLS), un client `anon` può scrivere su tabelle protette tramite la function.
+
+Pattern obbligatorio nella migration:
+
+```sql
+REVOKE EXECUTE ON FUNCTION public.<nome>(<args>) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.<nome>(<args>) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.<nome>(<args>) FROM authenticated;
+GRANT  EXECUTE ON FUNCTION public.<nome>(<args>) TO service_role;
+```
+
+Verifica empirica post-deploy (atteso `{postgres, service_role}` SOLO; presenza di `anon` o `authenticated` = REVOKE espliciti mancanti):
+
+```sql
+SELECT array_agg(DISTINCT r.rolname) FILTER (
+  WHERE has_function_privilege(r.oid, p.oid, 'EXECUTE')
+) AS roles_with_execute
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+LEFT JOIN pg_roles r ON r.rolname IN ('anon', 'authenticated', 'service_role', 'postgres')
+WHERE n.nspname = 'public' AND p.proname = '<nome>'
+GROUP BY p.oid;
+```
+
+Eccezione: function pubblicamente callable by-design (es. `resolve_table_by_token` per scansione QR anon) mantengono `GRANT TO anon, authenticated` e NON applicano questo pattern.
+
 ### Stripe lifecycle
 
 Usare sempre `_shared/stripe-helpers.ts` per chiamate Stripe nelle Edge Functions.
@@ -386,6 +416,10 @@ Catalogo completo + note operative (`purge-tenant-now` vs `purge-tenants`, trigg
 - **`purgeTenantData` ordine DELETE (critico per FK)**: `schedule_targets` + `schedule_layout` devono essere eliminate PRIMA di `catalogs` e `styles` (FK RESTRICT su `schedule_layout.catalog_id` e `schedule_layout.style_id`). Ordine corretto in `_shared/tenant-purge.ts`: junctions/product-children → `schedule_targets` (filtrato by `schedule_id`) → `schedule_layout` → `catalog_categories` → `catalogs` → `product_*` → `featured_contents` → `styles` (con `current_version_id=NULL` prima di `style_versions`) → `schedules` → `activities` → `products` → `tenant_memberships` → `tenants`. Bug fixato 11/05/2026 dopo test runtime: ordine sbagliato bloccava il purge con `23503` su tenant con regole Programmazione layout (= praticamente tutti i tenant attivi).
 
 - **`purgeActivityFolder` deve essere ricorsivo e non-throwing**: il bucket `business-covers` ha sotto-path tipo `{tenantId}/{slug}__{activityId}/gallery/` (gallery delle sedi). La cancellazione storage deve scendere ricorsivamente nei subfolder, e gli errori `storage.remove()` devono essere `console.warn` (non `throw`) per evitare di bloccare il cleanup degli altri bucket. Pattern allineato a `purgeTenantFolder` (gli altri 4 bucket tenant-scoped: `product-images`, `featured-contents`, `tenant-assets`, `style-backgrounds`). Bug fixato 11/05/2026: senza ricorsione, gallery images sopravvivevano al purge → file orfani indefinitamente in storage → violazione GDPR.
+
+- **`supabase/config.toml` entry obbligatoria per ogni nuova Edge Function**: senza entry esplicita il gateway Supabase applica `verify_jwt = true` di default e respinge JWT non-Supabase (customer JWT custom firmato con `CUSTOMER_JWT_SECRET`, oppure anon key per endpoint public-facing) con `UNAUTHORIZED_LEGACY_JWT` o `UNAUTHORIZED_INVALID_JWT_FORMAT` PRIMA di entrare nel codice della function. Pattern obbligatorio: `[functions.<nome>]` + `enabled = true` + `verify_jwt = false` + `import_map = "./functions/import_map.json"` + `entrypoint = "./functions/<nome>/index.ts"`. Lezione appresa task 2.4 (`resolve-table`), 2.5b (`submit-order`), tutti gli admin endpoint Fase 2.
+
+- **Slash `/` nei commenti TypeScript Deno**: il parser TS del bundler Deno (deploy Edge Function) può interpretare `/` dentro `//` o `/* */` come inizio di regex literal in certi contesti, causando deploy fail con `Failed to bundle the function (reason: The module's source code could not be parsed: Unterminated regexp literal)`. Bug noto del lexer. Workaround: sostituire `/` con `vs`, `or`, `|` nei commenti. Esempio: `// pattern: cancel-order-admin / acknowledge-order` → `// pattern: cancel-order-admin vs acknowledge-order`. Lezione appresa task 2.12 (`close-table`).
 
 ---
 
