@@ -68,6 +68,11 @@ function readCanarySlug(): string {
     return process.env.STATUS_CANARY_SLUG ?? "san-pietro-porta-venezia";
 }
 
+function vercelBypassHeader(): Record<string, string> {
+    const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+    return secret ? { "x-vercel-protection-bypass": secret } : {};
+}
+
 function classifyByTiming(ms: number, hardFail: boolean, softFail: boolean): CheckStatus {
     if (hardFail) return "down";
     if (softFail) return "degraded";
@@ -104,7 +109,7 @@ async function checkPublicMenu(): Promise<CheckResult> {
     try {
         const res = await fetchWithTimeout(url, {
             method: "GET",
-            headers: { Accept: "application/json" }
+            headers: { Accept: "application/json", ...vercelBypassHeader() }
         });
         const ms = Date.now() - start;
         if (!res.ok) {
@@ -170,7 +175,7 @@ async function checkDashboard(): Promise<CheckResult> {
     try {
         const res = await fetchWithTimeout(url, {
             method: "GET",
-            headers: { Accept: "text/html" }
+            headers: { Accept: "text/html", ...vercelBypassHeader() }
         });
         const ms = Date.now() - start;
         if (!res.ok) {
