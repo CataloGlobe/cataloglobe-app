@@ -202,22 +202,7 @@ export default function Sidebar({
                                                         <span className={styles.icon}>{link.icon}</span>
                                                     )}
 
-                                                    <motion.span
-                                                        className={styles.label}
-                                                        initial={false}
-                                                        animate={{
-                                                            opacity: collapsed ? 0 : 1,
-                                                            x: collapsed ? -8 : 0,
-                                                            width: collapsed ? 0 : "auto"
-                                                        }}
-                                                        transition={{
-                                                            type: "spring",
-                                                            stiffness: 300,
-                                                            damping: 30
-                                                        }}
-                                                    >
-                                                        {link.label}
-                                                    </motion.span>
+                                                    <span className={styles.label}>{link.label}</span>
                                                 </NavLink>
                                             </li>
                                         ))}

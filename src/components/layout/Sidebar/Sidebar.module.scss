@@ -1,10 +1,20 @@
+/* ===== Spacing scale ===== */
+$scroll-padding-x: 12px;
+$nav-padding-x: 8px;
+$item-padding-x-expanded: 16px;
+$item-padding-x-collapsed: 15px;
+// Footer expanded: aligned to chip left edge = sum of all outer paddings
+$footer-padding-x-expanded: $scroll-padding-x + $nav-padding-x + $item-padding-x-expanded;
+// Footer collapsed: centers the 32px toggle inside the 90px sidebar
+$footer-padding-x-collapsed: 29px;
+
 .sidebar {
   position: relative;
-  background: #f8fafc;
+  background: #FFFFFF;
   border-right: 1px solid var(--border, #e2e8f0);
   display: flex;
   flex-direction: column;
-  overflow: visible; /* IMPORTANTISSIMO */
+  overflow: hidden;
 }
 
 .desktop {
@@ -74,7 +84,8 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 12px;
+  overflow-x: hidden;
+  padding: $scroll-padding-x;
 }
 
 /* ===== Nav (gaps come from dividers, not from nav gap) ===== */
@@ -82,6 +93,7 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  padding: 0 $nav-padding-x;
 }
 
 .group {
@@ -91,11 +103,7 @@
 .groupDivider {
   height: 1px;
   background: #E5E7EB;
-  margin: 10px 8px;
-}
-
-.sidebar[data-collapsed="true"] .groupDivider {
-  margin: 10px 4px;
+  margin: 10px 0;
 }
 
 .list {
@@ -111,14 +119,16 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 0 10px;
+  gap: 10px;
+  padding: 0 $item-padding-x-expanded;
   height: 34px;
   box-sizing: border-box;
   border-radius: 8px;
   color: #64748b;
   font-weight: 500;
   font-size: 14px;
-  transition: background 0.15s, color 0.15s;
+  overflow: hidden;
+  transition: padding 0.22s ease, background 0.15s, color 0.15s;
 
   &:hover {
     text-decoration: none;
@@ -128,26 +138,29 @@
 }
 
 .sidebar[data-collapsed="true"] .link {
-  justify-content: center;
-  padding: 0;
-}
-
-.sidebar[data-collapsed="true"] .nav {
-  padding: 0 4px;
+  padding: 0 $item-padding-x-collapsed;
 }
 
 .icon {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 20px;
+  flex-shrink: 0;
 }
 
 .label {
-  margin-left: 10px;
   white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.16s ease 0.06s, max-width 0.22s ease;
 }
 
 .sidebar[data-collapsed="true"] .label {
-  display: none;
+  opacity: 0;
+  max-width: 0;
+  transition: opacity 0.08s ease, max-width 0.22s ease;
 }
 
 /* ===== Active item: light bg + left vertical rail ===== */
@@ -176,15 +189,15 @@
 /* ===== Collapse footer ===== */
 .collapseFooter {
   border-top: 1px solid #F1F2F4;
-  padding: 8px;
+  padding: 8px $footer-padding-x-expanded;
   display: flex;
   justify-content: flex-start;
   flex-shrink: 0;
+  transition: padding 0.22s ease;
 }
 
 .sidebar[data-collapsed="true"] .collapseFooter {
-  justify-content: center;
-  padding: 8px 0;
+  padding: 8px $footer-padding-x-collapsed;
 }
 
 .collapseToggle {
