@@ -40,6 +40,9 @@ import type { ActivityFee } from "@/types/activity";
 import type { Allergen } from "@/services/supabase/allergens";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
+import { submitOrder } from "@/services/supabase/orders";
+import { useOptionalCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
+import type { OrderItemRequest } from "@/types/orders";
 
 // ─── Selection helpers ────────────────────────────────────────────────────────
 
@@ -613,7 +616,8 @@ export default function CollectionView({
     activityServices,
     fees,
     allergens,
-    catalogCharacteristics
+    catalogCharacteristics,
+    orderingActive = false
 }: Props) {
     const { t } = useTranslation("public");
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
@@ -801,6 +805,89 @@ export default function CollectionView({
     }, [mode, activityId]);
 
     const clearSelection = useCallback(() => setSelection([]), []);
+
+    // ── Customer session + submit order ─────────────────────────────────────
+    const customerSession = useOptionalCustomerSession();
+    const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+    const [submitFeedback, setSubmitFeedback] = useState<
+        | { type: "success"; orderId: string }
+        | { type: "error"; message: string }
+        | null
+    >(null);
+
+    useEffect(() => {
+        if (!submitFeedback) return;
+        const tm = setTimeout(() => setSubmitFeedback(null), 5000);
+        return () => clearTimeout(tm);
+    }, [submitFeedback]);
+
+    const handleSubmitOrder = useCallback(async () => {
+        if (!customerSession?.session) {
+            setSubmitFeedback({
+                type: "error",
+                message: "Sessione non disponibile. Scansiona di nuovo il QR."
+            });
+            return;
+        }
+        if (selection.length === 0) return;
+
+        setIsSubmittingOrder(true);
+        setSubmitFeedback(null);
+
+        try {
+            const items: OrderItemRequest[] = selection.flatMap(it => {
+                const baseQty = it.qty;
+                if (baseQty <= 0) return [];
+                const entry: OrderItemRequest = {
+                    product_id: it.id,
+                    quantity: baseQty,
+                    ...(it.selectedFormat?.id
+                        ? { primary_option_value_id: it.selectedFormat.id }
+                        : {}),
+                    ...(it.selectedAddons && it.selectedAddons.length > 0
+                        ? { addon_value_ids: it.selectedAddons.map(a => a.id) }
+                        : {})
+                };
+                return [entry];
+            });
+
+            const result = await submitOrder(customerSession.session.jwt, items);
+
+            clearSelection();
+            setIsSelectionOpen(false);
+            setSubmitFeedback({ type: "success", orderId: result.order_id });
+        } catch (err) {
+            if (err instanceof Error) {
+                const msg = err.message;
+                if (msg.toLowerCase().includes("scaduta") || msg === "SESSION_EXPIRED") {
+                    customerSession.clear();
+                    setSubmitFeedback({
+                        type: "error",
+                        message: "La sessione è scaduta. Scansiona di nuovo il QR del tavolo."
+                    });
+                } else if (msg === "INVALID_ITEMS") {
+                    setSubmitFeedback({
+                        type: "error",
+                        message: "Alcuni prodotti non sono più disponibili. Ricontrolla la selezione."
+                    });
+                } else if (msg === "EMPTY_CART") {
+                    setSubmitFeedback({
+                        type: "error",
+                        message: "Aggiungi almeno un prodotto prima di inviare l'ordine."
+                    });
+                } else {
+                    setSubmitFeedback({ type: "error", message: msg });
+                }
+            } else {
+                setSubmitFeedback({
+                    type: "error",
+                    message: "Errore durante l'invio dell'ordine. Riprova."
+                });
+            }
+        } finally {
+            setIsSubmittingOrder(false);
+        }
+    }, [customerSession, selection, clearSelection]);
 
     const findProductById = useCallback((productId: string): CollectionViewSectionItem | null => {
         for (const group of sectionGroups) {
@@ -1853,6 +1940,9 @@ export default function CollectionView({
                                                 ? handleEditSelectionItem
                                                 : undefined
                                             }
+                                            orderingActive={orderingActive}
+                                            onSubmitOrder={orderingActive ? handleSubmitOrder : undefined}
+                                            isSubmitting={isSubmittingOrder}
                                         />
                                     </Suspense>
                                 )}
@@ -1947,6 +2037,22 @@ export default function CollectionView({
                 >
                     <MessageSquareHeart size={20} /><span className={styles.valutaFabText}>{t("fab.review_label")}</span>
                 </button>
+            )}
+
+            {submitFeedback && (
+                <div
+                    className={
+                        submitFeedback.type === "success"
+                            ? styles.submitFeedbackSuccess
+                            : styles.submitFeedbackError
+                    }
+                    role="status"
+                    aria-live="polite"
+                >
+                    {submitFeedback.type === "success"
+                        ? "Ordine inviato! Lo staff lo prenderà in carico."
+                        : submitFeedback.message}
+                </div>
             )}
         </main>
     );

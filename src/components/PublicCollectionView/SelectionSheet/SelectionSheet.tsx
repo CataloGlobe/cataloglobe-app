@@ -36,6 +36,19 @@ type Props = {
     onRemove: (index: number) => void;
     onClear: () => void;
     onEditItem?: (index: number, item: SelectionItem) => void;
+    /**
+     * True quando sessione customer attiva. Mostra CTA "Invia ordine"
+     * nel footer accanto al totale.
+     */
+    orderingActive?: boolean;
+    /**
+     * Callback al click "Invia ordine". Solo se orderingActive=true.
+     * Padre gestisce mapping a OrderItemRequest, chiamata service,
+     * clear selection, feedback success/error.
+     */
+    onSubmitOrder?: () => void;
+    /** True durante chiamata submitOrder in-flight. Disabilita CTA. */
+    isSubmitting?: boolean;
 };
 
 function formatPrice(n: number): string {
@@ -53,7 +66,10 @@ export default function SelectionSheet({
     onUpdateQty,
     onRemove,
     onClear,
-    onEditItem
+    onEditItem,
+    orderingActive = false,
+    onSubmitOrder,
+    isSubmitting = false
 }: Props) {
     const { t } = useTranslation("public");
     const totalCount = items.reduce((s, i) => s + i.qty, 0);
@@ -177,8 +193,22 @@ export default function SelectionSheet({
             {/* Footer fisso — solo quando non vuoto */}
             {!isEmpty && (
                 <div className={styles.footer}>
-                    <span className={styles.footerLabel}>{t("selection.estimated_total")}</span>
-                    <span className={styles.footerTotal}>{formatPrice(totalPrice)}</span>
+                    <div className={styles.footerTotalRow}>
+                        <span className={styles.footerLabel}>{t("selection.estimated_total")}</span>
+                        <span className={styles.footerTotal}>{formatPrice(totalPrice)}</span>
+                    </div>
+                    {orderingActive && onSubmitOrder && (
+                        <button
+                            type="button"
+                            className={styles.submitCta}
+                            onClick={onSubmitOrder}
+                            disabled={isSubmitting || items.length === 0}
+                        >
+                            {isSubmitting
+                                ? "Invio in corso..."
+                                : `Invia ordine • ${formatPrice(totalPrice)}`}
+                        </button>
+                    )}
                 </div>
             )}
         </PublicSheet>
