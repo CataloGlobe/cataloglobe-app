@@ -3,7 +3,7 @@ import { Lock } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import Text from "@/components/ui/Text/Text";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Button } from "@/components/ui/Button/Button";
 import { FileInput } from "@/components/ui/Input/FileInput";
@@ -32,6 +32,12 @@ export default function BusinessSettingsPage() {
             setName(selectedTenant.name);
         }
     }, [selectedTenant?.id]);
+
+    usePageHeader({
+        title: "Impostazioni attività",
+        subtitle: "Gestisci le informazioni e le preferenze di questa attività.",
+        sticky: true,
+    });
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -107,10 +113,6 @@ export default function BusinessSettingsPage() {
     if (userRole !== "owner") {
         return (
             <div className={styles.page}>
-                <PageHeader
-                    title="Impostazioni attività"
-                    subtitle="Gestisci le informazioni e le preferenze di questa attività."
-                />
                 <div className={styles.emptyWrap}>
                     <EmptyState
                         icon={<Lock size={40} strokeWidth={1.5} />}
@@ -124,11 +126,6 @@ export default function BusinessSettingsPage() {
 
     return (
         <div className={styles.page}>
-            <PageHeader
-                title="Impostazioni attività"
-                subtitle="Gestisci le informazioni e le preferenze di questa attività."
-            />
-
             {/* Section 1 — Business info (owner only) */}
             {userRole === "owner" && (
                 <div className={styles.section}>

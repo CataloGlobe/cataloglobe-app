@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/services/supabase/client";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import { Card } from "@/components/ui/Card/Card";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -43,6 +43,12 @@ export default function TeamPage() {
     const [roleFilter, setRoleFilter] = useState("");
 
     const isAdmin = userRole === "owner" || userRole === "admin";
+
+    usePageHeader({
+        title: "Team",
+        subtitle: "Gestisci i membri del team per questo business.",
+        sticky: true,
+    });
 
     const filteredActiveMembers = useMemo(() => {
         let result = members.filter(m => m.status === "active");
@@ -324,11 +330,6 @@ export default function TeamPage() {
     return (
         <>
             <div className={styles.page}>
-                <PageHeader
-                    title="Team"
-                    subtitle="Gestisci i membri del team per questo business."
-                />
-
                 {!selectedTenantId ? (
                     <Card className={styles.card}>
                         <div className={styles.emptyState}>

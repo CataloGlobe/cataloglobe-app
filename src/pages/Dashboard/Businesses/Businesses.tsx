@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -20,7 +20,7 @@ import type {
 import Text from "@components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
 import { ActivityVisibilityDrawer } from "@/pages/Operativita/Attivita/components/ActivityVisibilityDrawer/ActivityVisibilityDrawer";
@@ -148,6 +148,44 @@ export default function Businesses() {
     // ======================================
     const [createSlugState, setCreateSlugState] = useState<SlugInlineState>({ type: "idle" });
     const [editSlugState, setEditSlugState] = useState<SlugInlineState>({ type: "idle" });
+
+    const headerActions = useMemo(() => (
+        activeTab === "activities" ? (
+            <Button
+                variant="primary"
+                disabled={!canEdit}
+                onClick={() => {
+                    if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
+                    if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
+                        setSeatLimitDialogOpen(true);
+                        return;
+                    }
+                    setIsCreateOpen(true);
+                    setCreateSlugState({ type: "idle" });
+                }}
+            >
+                Aggiungi sede
+            </Button>
+        ) : (
+            <Button
+                variant="primary"
+                disabled={!canEdit}
+                onClick={() => {
+                    if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
+                    window.dispatchEvent(new CustomEvent("open-group-drawer"));
+                }}
+            >
+                Nuovo gruppo
+            </Button>
+        )
+    ), [activeTab, canEdit, selectedTenant, businesses.length, showToast, subscriptionInactiveMessage]);
+
+    usePageHeader({
+        title: "Le tue Sedi",
+        subtitle: "Gestisci le tue sedi e genera il QR del sito pubblico.",
+        actions: headerActions,
+        sticky: true,
+    });
 
     // ======================================
     // STATE: Filtri e Vista (MOCK)
@@ -756,41 +794,6 @@ export default function Businesses() {
 
     return (
         <section className={styles.businesses} aria-labelledby="businesses-title">
-            <PageHeader
-                title="Le tue Sedi"
-                subtitle="Gestisci le tue sedi e genera il QR del sito pubblico."
-                actions={
-                    activeTab === "activities" ? (
-                        <Button
-                            variant="primary"
-                            disabled={!canEdit}
-                            onClick={() => {
-                                if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
-                                if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
-                                    setSeatLimitDialogOpen(true);
-                                    return;
-                                }
-                                setIsCreateOpen(true);
-                                setCreateSlugState({ type: "idle" });
-                            }}
-                        >
-                            Aggiungi sede
-                        </Button>
-                    ) : (
-                        <Button
-                            variant="primary"
-                            disabled={!canEdit}
-                            onClick={() => {
-                                if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
-                                window.dispatchEvent(new CustomEvent("open-group-drawer"));
-                            }}
-                        >
-                            Nuovo gruppo
-                        </Button>
-                    )
-                }
-            />
-
             {businesses.length > 1 && (
                 <div className={styles.tabsContainer} style={{ marginBottom: "1rem" }}>
                     <Tabs value={activeTab} onChange={setActiveTab}>

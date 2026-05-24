@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ClipboardList, RefreshCw } from "lucide-react";
 
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -161,6 +161,34 @@ export default function Orders() {
     useEffect(() => {
         localStorage.setItem(AUTO_REFRESH_STORAGE_KEY, String(autoRefreshEnabled));
     }, [autoRefreshEnabled]);
+
+    const headerActions = useMemo(() => (
+        <div className={styles.headerActions}>
+            <Button
+                variant="secondary"
+                leftIcon={<RefreshCw size={16} />}
+                onClick={loadOrders}
+                disabled={!selectedActivityId || isLoading}
+            >
+                Aggiorna
+            </Button>
+            <label className={styles.autoRefreshToggle}>
+                <input
+                    type="checkbox"
+                    checked={autoRefreshEnabled}
+                    onChange={e => setAutoRefreshEnabled(e.target.checked)}
+                />
+                <Text variant="body-sm">Auto-aggiorna (30s)</Text>
+            </label>
+        </div>
+    ), [loadOrders, selectedActivityId, isLoading, autoRefreshEnabled]);
+
+    usePageHeader({
+        title: "Ordini",
+        subtitle: "Dashboard live degli ordini in corso.",
+        actions: headerActions,
+        sticky: true,
+    });
 
     // ── Filtering (client-side: search + customer_name) ──
     const filteredOrders = useMemo(() => {
@@ -362,30 +390,6 @@ export default function Orders() {
 
     return (
         <section className={styles.container}>
-            <PageHeader
-                title="Ordini"
-                subtitle="Dashboard live degli ordini in corso."
-                actions={
-                    <div className={styles.headerActions}>
-                        <Button
-                            variant="secondary"
-                            leftIcon={<RefreshCw size={16} />}
-                            onClick={loadOrders}
-                            disabled={!selectedActivityId || isLoading}
-                        >
-                            Aggiorna
-                        </Button>
-                        <label className={styles.autoRefreshToggle}>
-                            <input
-                                type="checkbox"
-                                checked={autoRefreshEnabled}
-                                onChange={e => setAutoRefreshEnabled(e.target.checked)}
-                            />
-                            <Text variant="body-sm">Auto-aggiorna (30s)</Text>
-                        </label>
-                    </div>
-                }
-            />
 
             {activities.length > 1 && (
                 <div className={styles.activitySelector}>

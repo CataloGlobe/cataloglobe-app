@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { CheckCircle2, AlertCircle, Plus, ChevronRight } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import { supabase } from "@/services/supabase/client";
 import Text from "@/components/ui/Text/Text";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
@@ -40,6 +40,8 @@ export default function OverviewPage() {
 
     const [stats, setStats] = useState<Stats | null>(null);
     const [loadingStats, setLoadingStats] = useState(true);
+
+    usePageHeader({ title: "Panoramica", sticky: true });
 
     useEffect(() => {
         if (!tenantId) return;
@@ -119,8 +121,6 @@ export default function OverviewPage() {
 
     return (
         <div className={styles.page}>
-            <PageHeader title="Panoramica" />
-
             {/* ===== Section 1 — Business Header ===== */}
             <div className={styles.section}>
                 <div className={styles.businessHeader}>

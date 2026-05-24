@@ -13,7 +13,7 @@ import ModalLayout, {
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { BulkBar } from "@/components/ui/BulkBar/BulkBar";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
 import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -986,84 +986,88 @@ export default function Programming() {
         }
     }, [currentTenantId, ruleTypeFilter, navigate, showToast]);
 
+    const headerActions = useMemo(() => (
+        <div className={styles.headerActions}>
+            <div className={styles.viewToggle}>
+                <Tooltip content="Vista lista" side="bottom">
+                    <button
+                        type="button"
+                        className={`${styles.viewToggleBtn} ${viewMode === "list" ? styles.viewToggleBtnActive : ""}`}
+                        onClick={() => setViewMode("list")}
+                        aria-label="Vista lista"
+                    >
+                        <List size={16} />
+                    </button>
+                </Tooltip>
+                <Tooltip content="Vista calendario" side="bottom">
+                    <button
+                        type="button"
+                        className={`${styles.viewToggleBtn} ${viewMode === "calendar" ? styles.viewToggleBtnActive : ""}`}
+                        onClick={() => setViewMode("calendar")}
+                        aria-label="Vista calendario"
+                    >
+                        <CalendarDays size={16} />
+                    </button>
+                </Tooltip>
+            </div>
+            <Button
+                variant="secondary"
+                onClick={() => setIsSimulatorDrawerOpen(true)}
+                disabled={!currentTenantId}
+            >
+                Simula regole
+            </Button>
+            {ruleTypeFilter === "all" ? (
+                <div className={styles.newRuleDropdown}>
+                    <DropdownMenu
+                        trigger={
+                            <Button
+                                variant="primary"
+                                disabled={!currentTenantId || isCreating}
+                                loading={isCreating}
+                            >
+                                {isCreating ? "Creazione..." : "Nuova regola"}
+                            </Button>
+                        }
+                        placement="bottom-end"
+                    >
+                        <DropdownItem onClick={() => void handleCreateRule("layout")}>
+                            Layout
+                        </DropdownItem>
+                        <DropdownItem onClick={() => void handleCreateRule("featured")}>
+                            In evidenza
+                        </DropdownItem>
+                        <DropdownItem onClick={() => void handleCreateRule("price")}>
+                            Prezzi
+                        </DropdownItem>
+                        <DropdownItem onClick={() => void handleCreateRule("visibility")}>
+                            Visibilità
+                        </DropdownItem>
+                    </DropdownMenu>
+                </div>
+            ) : (
+                <Button
+                    variant="primary"
+                    onClick={() => void handleCreateRule()}
+                    disabled={!currentTenantId || isCreating}
+                    loading={isCreating}
+                >
+                    {isCreating ? "Creazione..." : "Nuova regola"}
+                </Button>
+            )}
+        </div>
+    ), [viewMode, ruleTypeFilter, currentTenantId, isCreating, handleCreateRule]);
+
+    usePageHeader({
+        title: "Programmazione",
+        subtitle: "Gestisci le regole del Rule Engine.",
+        actions: headerActions,
+        sticky: true,
+    });
+
     return (
         <section className={styles.programming}>
             <div className={styles.topArea}>
-                <PageHeader
-                    title="Programmazione"
-                    subtitle="Gestisci le regole del Rule Engine."
-                    actions={
-                        <div className={styles.headerActions}>
-                            <div className={styles.viewToggle}>
-                                <Tooltip content="Vista lista" side="bottom">
-                                    <button
-                                        type="button"
-                                        className={`${styles.viewToggleBtn} ${viewMode === "list" ? styles.viewToggleBtnActive : ""}`}
-                                        onClick={() => setViewMode("list")}
-                                        aria-label="Vista lista"
-                                    >
-                                        <List size={16} />
-                                    </button>
-                                </Tooltip>
-                                <Tooltip content="Vista calendario" side="bottom">
-                                    <button
-                                        type="button"
-                                        className={`${styles.viewToggleBtn} ${viewMode === "calendar" ? styles.viewToggleBtnActive : ""}`}
-                                        onClick={() => setViewMode("calendar")}
-                                        aria-label="Vista calendario"
-                                    >
-                                        <CalendarDays size={16} />
-                                    </button>
-                                </Tooltip>
-                            </div>
-                            <Button
-                                variant="secondary"
-                                onClick={() => setIsSimulatorDrawerOpen(true)}
-                                disabled={!currentTenantId}
-                            >
-                                Simula regole
-                            </Button>
-                            {ruleTypeFilter === "all" ? (
-                                <div className={styles.newRuleDropdown}>
-                                    <DropdownMenu
-                                        trigger={
-                                            <Button
-                                                variant="primary"
-                                                disabled={!currentTenantId || isCreating}
-                                                loading={isCreating}
-                                            >
-                                                {isCreating ? "Creazione..." : "Nuova regola"}
-                                            </Button>
-                                        }
-                                        placement="bottom-end"
-                                    >
-                                        <DropdownItem onClick={() => void handleCreateRule("layout")}>
-                                            Layout
-                                        </DropdownItem>
-                                        <DropdownItem onClick={() => void handleCreateRule("featured")}>
-                                            In evidenza
-                                        </DropdownItem>
-                                        <DropdownItem onClick={() => void handleCreateRule("price")}>
-                                            Prezzi
-                                        </DropdownItem>
-                                        <DropdownItem onClick={() => void handleCreateRule("visibility")}>
-                                            Visibilità
-                                        </DropdownItem>
-                                    </DropdownMenu>
-                                </div>
-                            ) : (
-                                <Button
-                                    variant="primary"
-                                    onClick={() => void handleCreateRule()}
-                                    disabled={!currentTenantId || isCreating}
-                                    loading={isCreating}
-                                >
-                                    {isCreating ? "Creazione..." : "Nuova regola"}
-                                </Button>
-                            )}
-                        </div>
-                    }
-                />
             </div>
 
             {viewMode === "list" ? (

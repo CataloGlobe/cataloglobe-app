@@ -7,7 +7,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { createCheckoutSession, createPortalSession, updateSeats } from "@/services/supabase/billing";
 import { getActivityCount } from "@/services/supabase/activities";
 import { calculatePrice, formatPrice, MAX_SEATS } from "@/utils/pricing";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
@@ -51,12 +51,19 @@ export default function SubscriptionPage() {
 
     useEffect(() => { loadActivityCount(); }, [loadActivityCount]);
 
+    usePageHeader({
+        title: "Abbonamento",
+        subtitle: userRole === "member"
+            ? undefined
+            : "Gestisci il piano e il metodo di pagamento della tua attività.",
+        sticky: true,
+    });
+
     if (loading || !selectedTenant) return null;
 
     if (userRole === "member") {
         return (
             <div className={styles.page}>
-                <PageHeader title="Abbonamento" />
                 <div className={styles.restrictedCard}>
                     <Lock size={32} className={styles.restrictedIcon} />
                     <Text variant="title-sm" weight={700}>
@@ -161,11 +168,6 @@ export default function SubscriptionPage() {
 
     return (
         <div className={styles.page}>
-            <PageHeader
-                title="Abbonamento"
-                subtitle="Gestisci il piano e il metodo di pagamento della tua attività."
-            />
-
             {userRole === "admin" && (
                 <div
                     style={{

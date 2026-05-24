@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -91,12 +91,38 @@ export default function Catalogs() {
         loadData();
     }, [loadData]);
 
-    const handleOpenCreate = () => {
+    const handleOpenCreate = useCallback(() => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setEditingCatalog(null);
         setName("");
         setIsDrawerOpen(true);
-    };
+    }, [canEdit, showToast]);
+
+    const headerActions = useMemo(() => (
+        <div style={{ display: "flex", gap: 8 }}>
+            <Button
+                variant="outline"
+                onClick={() => {
+                    if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+                    setIsAiImportOpen(true);
+                }}
+                disabled={!canEdit}
+                leftIcon={<Sparkles size={16} />}
+            >
+                Importa con AI
+            </Button>
+            <Button variant="primary" onClick={handleOpenCreate} disabled={!canEdit}>
+                {`Crea ${catalogLower}`}
+            </Button>
+        </div>
+    ), [canEdit, showToast, handleOpenCreate, catalogLower]);
+
+    usePageHeader({
+        title: verticalConfig.catalogLabel,
+        subtitle: `Gestisci l'albero delle categorie e i gruppi del tuo ${catalogLower}.`,
+        actions: headerActions,
+        sticky: true,
+    });
 
     const handleOpenEdit = (catalog: V2Catalog) => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
@@ -277,29 +303,6 @@ export default function Catalogs() {
 
     return (
         <section className={styles.container}>
-            <PageHeader
-                title={verticalConfig.catalogLabel}
-                subtitle={`Gestisci l'albero delle categorie e i gruppi del tuo ${catalogLower}.`}
-                actions={
-                    <div style={{ display: "flex", gap: 8 }}>
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
-                                setIsAiImportOpen(true);
-                            }}
-                            disabled={!canEdit}
-                            leftIcon={<Sparkles size={16} />}
-                        >
-                            Importa con AI
-                        </Button>
-                        <Button variant="primary" onClick={handleOpenCreate} disabled={!canEdit}>
-                            {`Crea ${catalogLower}`}
-                        </Button>
-                    </div>
-                }
-            />
-
             <div className={styles.content}>
                 <FilterBar
                     search={{

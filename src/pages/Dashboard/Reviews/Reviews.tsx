@@ -8,7 +8,7 @@ import { getBusinessReviews, deleteReview } from "@/services/supabase/reviews";
 import type { Review } from "@/types/database";
 import { Trash2, MessageSquare } from "lucide-react";
 
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import { Select } from "@/components/ui/Select/Select";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
 import { DateInput } from "@/components/ui/Input/DateInput";
@@ -300,6 +300,24 @@ export default function Reviews() {
         return result;
     }, [periodFilteredReviews, filterRating, searchQuery, sortBy]);
 
+    const headerActions = useMemo(() => (
+        <Select
+            value={selectedActivity}
+            disabled={loading}
+            onChange={(e) => void handleActivityChange(e.target.value)}
+            options={activityOptions}
+            containerClassName={styles.activitySelectContainer}
+        />
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    ), [selectedActivity, loading, activityOptions]);
+
+    usePageHeader({
+        title: "Recensioni",
+        subtitle: "Monitora il feedback ricevuto dai tuoi clienti.",
+        actions: headerActions,
+        sticky: true,
+    });
+
     /* ── Handlers ───────────────────────────────────── */
     async function handleActivityChange(activityId: string) {
         setSelectedActivity(activityId);
@@ -336,21 +354,6 @@ export default function Reviews() {
     /* ── Render ──────────────────────────────────────── */
     return (
         <div className={styles.page}>
-            {/* ── Header ──────────────────────────────── */}
-            <PageHeader
-                title="Recensioni"
-                subtitle="Monitora il feedback ricevuto dai tuoi clienti."
-                actions={
-                    <Select
-                        value={selectedActivity}
-                        disabled={loading}
-                        onChange={(e) => void handleActivityChange(e.target.value)}
-                        options={activityOptions}
-                        containerClassName={styles.activitySelectContainer}
-                    />
-                }
-            />
-
             {/* ── Stats block ─────────────────────────── */}
             <div className={styles.statsBlock}>
                 {/* Media */}

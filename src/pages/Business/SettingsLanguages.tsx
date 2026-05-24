@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import Text from "@/components/ui/Text/Text";
 import { LanguageRow } from "@/components/SettingsLanguages/LanguageRow";
@@ -30,6 +30,12 @@ export default function SettingsLanguages() {
     const [refreshKey, setRefreshKey] = useState(0);
 
     const progress = useTranslationProgress(tenantId, refreshKey);
+
+    usePageHeader({
+        title: t("languages.title"),
+        subtitle: t("languages.description"),
+        sticky: true,
+    });
 
     const loadData = useCallback(async () => {
         if (!tenantId) return;
@@ -129,11 +135,6 @@ export default function SettingsLanguages() {
     return (
         <>
             <div className={styles.page}>
-                <PageHeader
-                    title={t("languages.title")}
-                    subtitle={t("languages.description")}
-                />
-
                 {loading ? (
                     <div className={styles.loading}>
                         <Text variant="body" colorVariant="muted">

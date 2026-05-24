@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Grid2X2, RefreshCw, QrCode, RotateCw, Lock } from "lucide-react";
 
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
@@ -475,42 +475,46 @@ export default function Tables() {
 
     const hasFiltersActive = searchQuery.trim().length > 0 || statusFilter !== "all";
 
+    const headerActions = useMemo(() => (
+        <div className={styles.headerActions}>
+            <Button
+                variant="secondary"
+                leftIcon={<RefreshCw size={16} />}
+                onClick={loadData}
+                disabled={!selectedActivityId || isLoading}
+            >
+                Aggiorna
+            </Button>
+            <Button
+                variant="secondary"
+                leftIcon={<QrCode size={16} />}
+                onClick={handleGenerateQrAll}
+                loading={isGeneratingQrAll}
+                disabled={!selectedActivityId || items.length === 0}
+            >
+                Genera QR
+            </Button>
+            <Button
+                variant="primary"
+                leftIcon={<Plus size={16} />}
+                onClick={openCreate}
+                disabled={!selectedActivityId}
+            >
+                Nuovo tavolo
+            </Button>
+        </div>
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    ), [loadData, selectedActivityId, isLoading, isGeneratingQrAll, items.length]);
+
+    usePageHeader({
+        title: "Tavoli",
+        subtitle: "Gestisci i tavoli delle tue sedi e monitora lo stato live.",
+        actions: headerActions,
+        sticky: true,
+    });
+
     return (
         <section className={styles.container}>
-            <PageHeader sticky
-                title="Tavoli"
-                subtitle="Gestisci i tavoli delle tue sedi e monitora lo stato live."
-                actions={
-                    <div className={styles.headerActions}>
-                        <Button
-                            variant="secondary"
-                            leftIcon={<RefreshCw size={16} />}
-                            onClick={loadData}
-                            disabled={!selectedActivityId || isLoading}
-                        >
-                            Aggiorna
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            leftIcon={<QrCode size={16} />}
-                            onClick={handleGenerateQrAll}
-                            loading={isGeneratingQrAll}
-                            disabled={!selectedActivityId || items.length === 0}
-                        >
-                            Genera QR
-                        </Button>
-                        <Button
-                            variant="primary"
-                            leftIcon={<Plus size={16} />}
-                            onClick={openCreate}
-                            disabled={!selectedActivityId}
-                        >
-                            Nuovo tavolo
-                        </Button>
-                    </div>
-                }
-            />
-
             {activities.length > 1 && (
                 <div className={styles.activitySelector}>
                     <label htmlFor="activity-select" className={styles.activitySelectorLabel}>

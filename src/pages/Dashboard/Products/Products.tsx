@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
@@ -190,13 +190,40 @@ export default function Products() {
     }, [filteredProducts, expandedRows]);
 
     // Handlers
-    const handleCreateBase = () => {
+    const handleCreateBase = useCallback(() => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setCreateEditMode("create_base");
         setProductToEdit(null);
         setParentForVariant(null);
         setIsCreateEditOpen(true);
-    };
+    }, [canEdit, showToast]);
+
+    const headerActions = useMemo(() => (
+        activeTab === "products" ? (
+            <Button variant="primary" onClick={handleCreateBase} disabled={!canEdit}>
+                {`Crea ${verticalConfig.productLabel.toLowerCase()}`}
+            </Button>
+        ) : activeTab === "groups" ? (
+            <Button variant="primary" onClick={() => setCreateGroupOpen(true)} disabled={!canEdit}>
+                Crea gruppo
+            </Button>
+        ) : activeTab === "attributes" ? (
+            <Button variant="primary" onClick={() => setAttrCreateSeq(s => s + 1)} disabled={!canEdit}>
+                Nuovo attributo
+            </Button>
+        ) : activeTab === "ingredients" && verticalConfig.productSections.ingredients ? (
+            <Button variant="primary" onClick={() => setIngredientCreateSeq(s => s + 1)} disabled={!canEdit}>
+                Crea ingrediente
+            </Button>
+        ) : null
+    ), [activeTab, canEdit, handleCreateBase, verticalConfig]);
+
+    usePageHeader({
+        title: verticalConfig.productLabelPlural,
+        subtitle: `Gestisci il tuo catalogo ${verticalConfig.productLabelPlural.toLowerCase()}, prezzi, varianti e raggruppamenti.`,
+        actions: headerActions,
+        sticky: true,
+    });
 
     const handleCreateVariant = (baseProduct: V2Product) => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
@@ -418,30 +445,6 @@ export default function Products() {
 
     return (
         <section className={styles.container}>
-            <PageHeader
-                title={verticalConfig.productLabelPlural}
-                subtitle={`Gestisci il tuo catalogo ${verticalConfig.productLabelPlural.toLowerCase()}, prezzi, varianti e raggruppamenti.`}
-                actions={
-                    activeTab === "products" ? (
-                        <Button variant="primary" onClick={handleCreateBase} disabled={!canEdit}>
-                            {`Crea ${verticalConfig.productLabel.toLowerCase()}`}
-                        </Button>
-                    ) : activeTab === "groups" ? (
-                        <Button variant="primary" onClick={() => setCreateGroupOpen(true)} disabled={!canEdit}>
-                            Crea gruppo
-                        </Button>
-                    ) : activeTab === "attributes" ? (
-                        <Button variant="primary" onClick={() => setAttrCreateSeq(s => s + 1)} disabled={!canEdit}>
-                            Nuovo attributo
-                        </Button>
-                    ) : activeTab === "ingredients" && verticalConfig.productSections.ingredients ? (
-                        <Button variant="primary" onClick={() => setIngredientCreateSeq(s => s + 1)} disabled={!canEdit}>
-                            Crea ingrediente
-                        </Button>
-                    ) : null
-                }
-            />
-
             <Tabs value={activeTab} onChange={val => setActiveTab(val as ProductsTab)}>
                 <Tabs.List>
                     {visibleTabs.map(tab => (
