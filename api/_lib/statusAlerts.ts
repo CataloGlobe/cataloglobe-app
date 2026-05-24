@@ -48,14 +48,23 @@ export function decideAlert(
     state: ServiceStateRow | null
 ): AlertDecision {
     const previous = (state?.last_notified_status ?? null) as CheckStatus | null;
-    const isInitial = previous === null;
-    const isUpInitial = isInitial && current.status === "up";
 
-    // Politica:
-    //   - bootstrap (mai notificato prima) + up    → no email (rumore)
-    //   - bootstrap + degraded/down                → email (è la prima volta che si segnala)
-    //   - già notificato in passato → email solo se transizione
-    const shouldNotify = !isUpInitial && previous !== current.status;
+    // Politica anti-spam: email solo per transizioni che coinvolgono `down`.
+    //   - nessun cambio → no
+    //   - currentStatus === down → email (è andato giù, o primo check già down)
+    //   - previousStatus === down → email (recovery da down)
+    //   - up ↔ degraded (entrambe direzioni) → no (rumore cold start)
+    //   - bootstrap up | degraded → no (solo down al primo check notifica)
+    let shouldNotify: boolean;
+    if (previous === current.status) {
+        shouldNotify = false;
+    } else if (current.status === "down") {
+        shouldNotify = true;
+    } else if (previous === "down") {
+        shouldNotify = true;
+    } else {
+        shouldNotify = false;
+    }
     return {
         serviceKey: current.serviceKey,
         shouldNotify,
