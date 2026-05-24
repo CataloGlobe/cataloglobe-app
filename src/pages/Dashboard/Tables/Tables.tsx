@@ -265,7 +265,7 @@ export default function Tables() {
             },
             cell: (_v, row) => {
                 if (row.maintenance_mode) {
-                    return <StatusBadge variant="neutral" label="Manutenzione" />;
+                    return <StatusBadge variant="warning" label="Manutenzione" />;
                 }
                 if (row.active_sessions_count > 0) {
                     return <StatusBadge variant="success" label="Occupato" />;
