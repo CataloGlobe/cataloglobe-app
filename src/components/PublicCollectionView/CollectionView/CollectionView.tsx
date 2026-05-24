@@ -575,6 +575,15 @@ type Props = {
      * legenda "Caratteristiche". Lista vuota → bottone footer nascosto.
      */
     catalogCharacteristics?: ResolvedCharacteristic[];
+    /**
+     * True quando una sessione customer è attiva (scan QR completato).
+     * Per ora SOLO accettata nella signature; non consumata internamente.
+     * Verrà utilizzata nei prompt successivi per:
+     * - mostrare CTA "Invia ordine" nel SelectionSheet
+     * - mostrare tab "I miei ordini" nell'hub
+     * - mostrare badge tavolo nell'header
+     */
+    orderingActive?: boolean;
 };
 
 export default function CollectionView({

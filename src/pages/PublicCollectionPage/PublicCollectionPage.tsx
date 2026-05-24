@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 import { usePageHead } from "@/hooks/usePageHead";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -38,6 +38,10 @@ import { loadPublicFonts } from "@utils/loadPublicFonts";
 import { isValidLangFormat } from "@/utils/lang";
 import { LanguageProvider } from "@context/Language/LanguageProvider";
 import type { AvailableLanguage } from "@context/Language/LanguageContext";
+import {
+    CustomerSessionProvider,
+    useCustomerSession
+} from "@/context/CustomerSession/CustomerSessionContext";
 import pageStyles from "./PublicCollectionPage.module.scss";
 // reviews_summary and recent_reviews still returned by edge function — unused in frontend for now
 
@@ -289,6 +293,18 @@ type ResolvedPayloadShape = {
     upcoming_closures?: UpcomingClosure[];
     vertical_type?: VerticalType | null;
 };
+
+/**
+ * Wrapper interno: vive DENTRO CustomerSessionProvider e legge isActive
+ * dal context per propagarlo come prop a CollectionView. Tiene CollectionView
+ * "dumb" (prop-driven) senza farle conoscere il context customer.
+ */
+function CollectionViewWithCustomerSession(
+    props: Omit<ComponentProps<typeof CollectionView>, "orderingActive">
+) {
+    const { isActive } = useCustomerSession();
+    return <CollectionView {...props} orderingActive={isActive} />;
+}
 
 export default function PublicCollectionPage() {
     const { slug, lang: langFromUrl } = useParams<{ slug: string; lang?: string }>();
@@ -705,6 +721,7 @@ export default function PublicCollectionPage() {
     const toastTargetLang = langFromUrl ?? (state.status === "ready" ? state.baseLanguage : "it");
 
     return (
+        <CustomerSessionProvider activityId={business.id}>
         <LanguageProvider
             slug={slug!}
             currentLang={effectiveLanguage}
@@ -743,7 +760,7 @@ export default function PublicCollectionPage() {
                     </span>
                 </div>
             )}
-            <CollectionView
+            <CollectionViewWithCustomerSession
                 businessName={business.name}
                 businessImage={business.cover_image}
                 collectionTitle={resolved.catalog?.name ?? ""}
@@ -830,5 +847,6 @@ export default function PublicCollectionPage() {
             </div>
         </PublicThemeScope>
         </LanguageProvider>
+        </CustomerSessionProvider>
     );
 }
