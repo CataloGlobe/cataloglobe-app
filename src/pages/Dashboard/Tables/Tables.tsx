@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Grid2X2, RefreshCw } from "lucide-react";
+import { Plus, Grid2X2, RefreshCw, QrCode, RotateCw } from "lucide-react";
 
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
@@ -20,7 +20,9 @@ import {
     listTablesWithState,
     createTable,
     updateTable,
-    deleteTable
+    deleteTable,
+    generateTableQrsPdf,
+    regenerateTableQrToken
 } from "@/services/supabase/tables";
 import type { V2Table, V2TableWithState } from "@/types/orders";
 
@@ -28,6 +30,7 @@ import { getActivities } from "@/services/supabase/activities";
 import type { V2Activity } from "@/types/activity";
 
 import TableDeleteDrawer from "./TableDeleteDrawer";
+import TableRegenerateTokenDrawer from "./TableRegenerateTokenDrawer";
 import styles from "./Tables.module.scss";
 
 type StatusFilter = "all" | "free" | "occupied" | "maintenance";
@@ -65,6 +68,14 @@ export default function Tables() {
     // Delete
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<V2Table | null>(null);
+
+    // Regenerate token drawer
+    const [isRegenOpen, setIsRegenOpen] = useState(false);
+    const [itemToRegen, setItemToRegen] = useState<V2Table | null>(null);
+
+    // QR generation flags (per disabilitazione bottoni durante async)
+    const [isGeneratingQrAll, setIsGeneratingQrAll] = useState(false);
+    const [generatingQrTableId, setGeneratingQrTableId] = useState<string | null>(null);
 
     // ── Activities load (once on mount per tenant) ──
     const loadActivities = useCallback(async () => {
@@ -223,6 +234,81 @@ export default function Tables() {
         }
     }
 
+    // Trigger download del blob PDF lato browser.
+    function downloadPdfBlob(blob: Blob, filename: string) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    async function handleGenerateQrAll() {
+        if (!selectedActivityId || isGeneratingQrAll) return;
+        setIsGeneratingQrAll(true);
+        try {
+            const blob = await generateTableQrsPdf(selectedActivityId);
+            const activity = activities.find(a => a.id === selectedActivityId);
+            const filename = `qr-codes-${activity?.slug ?? selectedActivityId}.pdf`;
+            downloadPdfBlob(blob, filename);
+            showToast({ message: "PDF QR generato", type: "success" });
+        } catch (err) {
+            const msg =
+                err instanceof Error
+                    ? err.message
+                    : "Errore nella generazione del PDF";
+            showToast({ message: msg, type: "error" });
+        } finally {
+            setIsGeneratingQrAll(false);
+        }
+    }
+
+    async function handleGenerateQrSingle(table: V2Table) {
+        if (!selectedActivityId || generatingQrTableId !== null) return;
+        setGeneratingQrTableId(table.id);
+        try {
+            const blob = await generateTableQrsPdf(selectedActivityId, [table.id]);
+            const filename = `qr-${table.label}.pdf`;
+            downloadPdfBlob(blob, filename);
+            showToast({ message: "PDF QR generato", type: "success" });
+        } catch (err) {
+            const msg =
+                err instanceof Error
+                    ? err.message
+                    : "Errore nella generazione del PDF";
+            showToast({ message: msg, type: "error" });
+        } finally {
+            setGeneratingQrTableId(null);
+        }
+    }
+
+    function openRegen(item: V2Table) {
+        setItemToRegen(item);
+        setIsRegenOpen(true);
+    }
+
+    async function handleRegenerate() {
+        if (!itemToRegen || !tenantId) return;
+        try {
+            await regenerateTableQrToken(itemToRegen.id, tenantId);
+            showToast({
+                message: "Token rigenerato. Stampa il nuovo QR.",
+                type: "success"
+            });
+            setIsRegenOpen(false);
+            setItemToRegen(null);
+            await loadData();
+        } catch {
+            showToast({
+                message: "Errore durante la rigenerazione del token",
+                type: "error"
+            });
+        }
+    }
+
     // ── Columns ──
     const columns: ColumnDefinition<V2TableWithState>[] = [
         {
@@ -315,6 +401,19 @@ export default function Tables() {
                     actions={[
                         { label: "Modifica", onClick: () => openEdit(row) },
                         {
+                            label:
+                                generatingQrTableId === row.id
+                                    ? "Generazione..."
+                                    : "Genera QR",
+                            icon: QrCode,
+                            onClick: () => handleGenerateQrSingle(row)
+                        },
+                        {
+                            label: "Rigenera token QR",
+                            icon: RotateCw,
+                            onClick: () => openRegen(row)
+                        },
+                        {
                             label: "Elimina",
                             variant: "destructive",
                             onClick: () => openDelete(row),
@@ -342,6 +441,15 @@ export default function Tables() {
                             disabled={!selectedActivityId || isLoading}
                         >
                             Aggiorna
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            leftIcon={<QrCode size={16} />}
+                            onClick={handleGenerateQrAll}
+                            loading={isGeneratingQrAll}
+                            disabled={!selectedActivityId || items.length === 0}
+                        >
+                            Genera QR
                         </Button>
                         <Button
                             variant="primary"
@@ -523,6 +631,16 @@ export default function Tables() {
                     setItemToDelete(null);
                 }}
                 onConfirm={handleDelete}
+            />
+
+            <TableRegenerateTokenDrawer
+                open={isRegenOpen}
+                table={itemToRegen}
+                onClose={() => {
+                    setIsRegenOpen(false);
+                    setItemToRegen(null);
+                }}
+                onConfirm={handleRegenerate}
             />
         </section>
     );
