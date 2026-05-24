@@ -5,6 +5,7 @@ import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import {
     LayoutDashboard,
     Store,
+    Grid2X2,
     Settings,
     Calendar,
     BookOpen,
@@ -62,6 +63,7 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
             icon: <Briefcase size={12} />,
             items: [
                 { to: `${b}/locations`, label: "Sedi", icon: <Store size={18} /> },
+                { to: `${b}/tables`, label: "Tavoli", icon: <Grid2X2 size={18} /> },
                 { to: `${b}/scheduling`, label: "Programmazione", icon: <Calendar size={18} /> }
             ]
         },

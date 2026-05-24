@@ -49,6 +49,7 @@ const ActivateTrial = lazy(() => import("./pages/Onboarding/ActivateTrial"));
 // Business pages — lazy (solo utenti autenticati con tenant selezionato)
 const Overview = lazy(() => import("@/pages/Business/OverviewPage"));
 const Businesses = lazy(() => import("./pages/Dashboard/Businesses/Businesses"));
+const Tables = lazy(() => import("./pages/Dashboard/Tables/Tables"));
 const Catalogs = lazy(() => import("./pages/Dashboard/Catalogs/Catalogs"));
 const CatalogEngine = lazy(() => import("./pages/Dashboard/Catalogs/CatalogEngine"));
 const Reviews = lazy(() => import("@pages/Dashboard/Reviews/Reviews"));
@@ -197,6 +198,8 @@ export default function App() {
 
                 <Route path="locations" element={<Businesses />} />
                 <Route path="locations/:activityId" element={<ActivityDetailPage />} />
+
+                <Route path="tables" element={<Tables />} />
 
                 <Route path="scheduling" element={<Programming />} />
                 <Route path="scheduling/:ruleId" element={<ProgrammingRuleDetail />} />
