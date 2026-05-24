@@ -1,0 +1,575 @@
+/**
+ * Orders service.
+ *
+ * Gestisce ordini, transizioni di stato e rettifiche. Dual-auth:
+ *
+ * CUSTOMER-SIDE (pagina pubblica ordering):
+ *   - submitOrder: invio nuovo ordine
+ *   - getOrdersForSession: lettura ordini propri della sessione
+ *   - cancelOrderCustomer: cancellazione propria (solo status=submitted)
+ *
+ * ADMIN-SIDE (backoffice tenant):
+ *   - listOrdersForActivity: dashboard live + storico
+ *   - acknowledgeOrder, deliverOrder: transizioni di stato (optimistic locking)
+ *   - cancelOrderAdmin: cancellazione admin con motivazione
+ *   - rectifyOrder: rettifica parziale (storno per item con quantità)
+ *
+ * Optimistic locking (admin-side): le transizioni richiedono expected_version.
+ * In caso di conflitto (qualcuno ha modificato l'ordine concorrentemente),
+ * il service throw "OPTIMISTIC_LOCK_CONFLICT". Mismatch di stato (es. deliver
+ * su un ordine già cancelled) → throw "INVALID_STATE_TRANSITION" con
+ * extension property `currentStatus`.
+ *
+ * Auth customer: header `Authorization: Bearer <customerJwt>` su invoke.
+ * Auth admin: default Supabase user JWT (no override).
+ */
+
+import { FunctionsHttpError } from "@supabase/supabase-js";
+import { supabase } from "@/services/supabase/client";
+import type {
+    OrderItemRequest,
+    SubmitOrderResult,
+    GetOrdersForSessionResult,
+    CancelOrderCustomerResult,
+    AcknowledgeOrderResult,
+    DeliverOrderResult,
+    CancelOrderAdminResult,
+    RectifyOrderResult,
+    RectifyOrderItem,
+    V2OrderWithItems,
+    V2OrderItem,
+    ListOrdersOptions
+} from "@/types/orders";
+
+// ─── Error detail shapes ───────────────────────────────────────────────────
+// Esportati per consentire al consumer UI di tipizzare correttamente
+// `(err as Error & { details?: ... }).details` invece di usare `any`.
+
+/**
+ * Shape dei details su Error.message === "INVALID_ITEMS" da submitOrder.
+ * I codici provengono dal validator server-side (validateOrderItems.ts).
+ */
+export interface InvalidItemsErrorDetails {
+    reason?:
+        | "EMPTY_CART"
+        | "INVALID_QUANTITY"
+        | "UNAVAILABLE_PRODUCTS"
+        | "PRODUCT_NOT_IN_CATALOG"
+        | "INVALID_OPTIONS"
+        | "PRICE_MISMATCH";
+    invalid_items?: Array<{ product_id?: string; reason?: string }>;
+    [key: string]: unknown;
+}
+
+/**
+ * Shape dei details su Error.message === "INVALID_STATE_TRANSITION".
+ * `currentStatus` è il valore attuale dell'ordine quando la transition è
+ * stata rifiutata.
+ * `reason: "OPTIMISTIC_LOCK_CONFLICT"` discrimina lock conflict da
+ * mismatch di stato puro.
+ */
+export interface InvalidStateTransitionErrorDetails {
+    current_status?: string;
+    reason?: "OPTIMISTIC_LOCK_CONFLICT";
+    [key: string]: unknown;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CUSTOMER-SIDE (custom JWT via Authorization header)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Invia un nuovo ordine. Items vengono validati e arricchiti server-side
+ * (snapshot prezzi, opzioni, totali).
+ *
+ * @param customerJwt JWT firmato da resolve-table (NON Supabase auth)
+ * @param items minimo 1 item con product_id + quantity > 0
+ * @param notes opzionale, free-text dell'ordine
+ * @param targetGroupId opzionale: per unirsi a un order_group esistente
+ *
+ * Throws (validation client):
+ *   "EMPTY_CART" se items.length === 0
+ *
+ * Throws (Edge errors → italiano):
+ *   400 INVALID_REQUEST     → "Richiesta non valida"
+ *   401                     → "Sessione scaduta, scansiona di nuovo il QR"
+ *   404 SESSION_NOT_FOUND   → "Sessione non trovata"
+ *   409 SESSION_EXPIRED     → "Sessione scaduta, scansiona di nuovo il QR"
+ *   409 GROUP_CONFLICT      → "Conflitto sul gruppo ordine, riprova"
+ *   422 INVALID_ITEMS       → "INVALID_ITEMS" (raw + extension `details`)
+ *   429                     → "Troppe richieste, riprova tra un momento"
+ *   500                     → "Errore del server"
+ */
+export async function submitOrder(
+    customerJwt: string,
+    items: OrderItemRequest[],
+    notes?: string,
+    targetGroupId?: string | null
+): Promise<SubmitOrderResult> {
+    if (items.length === 0) {
+        throw new Error("EMPTY_CART");
+    }
+
+    const body: Record<string, unknown> = { items };
+    if (notes !== undefined) body.notes = notes;
+    if (targetGroupId !== undefined) body.target_group_id = targetGroupId;
+
+    const { data, error } = await supabase.functions.invoke<SubmitOrderResult>(
+        "submit-order",
+        {
+            body,
+            headers: { Authorization: `Bearer ${customerJwt}` }
+        }
+    );
+
+    if (error) {
+        const { status, code, details } = await parseInvokeError(error);
+
+        if (status === 400) throw new Error("Richiesta non valida");
+        if (status === 401) {
+            throw new Error("Sessione scaduta, scansiona di nuovo il QR");
+        }
+        if (status === 404 && code === "SESSION_NOT_FOUND") {
+            throw new Error("Sessione non trovata");
+        }
+        if (status === 409 && code === "SESSION_EXPIRED") {
+            throw new Error("Sessione scaduta, scansiona di nuovo il QR");
+        }
+        if (status === 409 && code === "GROUP_CONFLICT") {
+            throw new Error("Conflitto sul gruppo ordine, riprova");
+        }
+        if (status === 422 && code === "INVALID_ITEMS") {
+            const err = new Error("INVALID_ITEMS");
+            (err as Error & { details?: unknown }).details = details;
+            throw err;
+        }
+        if (status === 429) {
+            throw new Error("Troppe richieste, riprova tra un momento");
+        }
+        throw new Error("Errore del server");
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Recupera tutti gli ordini della sessione corrente del customer.
+ * Include items embedded e info tavolo.
+ *
+ * Throws:
+ *   401, 404 SESSION_NOT_FOUND, 409 SESSION_EXPIRED, 429, 500 → italiano
+ */
+export async function getOrdersForSession(
+    customerJwt: string
+): Promise<GetOrdersForSessionResult> {
+    const { data, error } = await supabase.functions.invoke<GetOrdersForSessionResult>(
+        "get-orders-for-session",
+        {
+            body: {},
+            headers: { Authorization: `Bearer ${customerJwt}` }
+        }
+    );
+
+    if (error) {
+        const { status, code } = await parseInvokeError(error);
+
+        if (status === 401) {
+            throw new Error("Sessione scaduta, scansiona di nuovo il QR");
+        }
+        if (status === 404 && code === "SESSION_NOT_FOUND") {
+            throw new Error("Sessione non trovata");
+        }
+        if (status === 409 && code === "SESSION_EXPIRED") {
+            throw new Error("Sessione scaduta, scansiona di nuovo il QR");
+        }
+        if (status === 429) {
+            throw new Error("Troppe richieste, riprova tra un momento");
+        }
+        throw new Error("Errore del server");
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Cancella un ordine proprio (solo se ancora in status `submitted`).
+ *
+ * Throws:
+ *   400, 401, 403 FORBIDDEN, 404 ORDER_NOT_FOUND, 404 SESSION_NOT_FOUND,
+ *   409 SESSION_EXPIRED → italiano
+ *   409 INVALID_STATE_TRANSITION → "INVALID_STATE_TRANSITION" (raw + details)
+ *   429, 500 → italiano
+ */
+export async function cancelOrderCustomer(
+    customerJwt: string,
+    orderId: string
+): Promise<CancelOrderCustomerResult> {
+    const { data, error } = await supabase.functions.invoke<CancelOrderCustomerResult>(
+        "cancel-order",
+        {
+            body: { order_id: orderId },
+            headers: { Authorization: `Bearer ${customerJwt}` }
+        }
+    );
+
+    if (error) {
+        const { status, code, details } = await parseInvokeError(error);
+
+        if (status === 400) throw new Error("Richiesta non valida");
+        if (status === 401) {
+            throw new Error("Sessione scaduta, scansiona di nuovo il QR");
+        }
+        if (status === 403 && code === "FORBIDDEN") {
+            throw new Error("Non puoi cancellare questo ordine");
+        }
+        if (status === 404 && code === "ORDER_NOT_FOUND") {
+            throw new Error("Ordine non trovato");
+        }
+        if (status === 404 && code === "SESSION_NOT_FOUND") {
+            throw new Error("Sessione non trovata");
+        }
+        if (status === 409 && code === "SESSION_EXPIRED") {
+            throw new Error("Sessione scaduta, scansiona di nuovo il QR");
+        }
+        if (status === 409 && code === "INVALID_STATE_TRANSITION") {
+            const err = new Error("INVALID_STATE_TRANSITION");
+            (err as Error & { details?: unknown }).details = details;
+            throw err;
+        }
+        if (status === 429) {
+            throw new Error("Troppe richieste, riprova tra un momento");
+        }
+        throw new Error("Errore del server");
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN-SIDE (Supabase user JWT)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Lista ordini di una sede. SELECT diretto via RLS authenticated.
+ *
+ * Filtri opzionali via `options`. Default: tutti gli ordini, items embedded,
+ * limit 100, ordinati per submitted_at DESC.
+ *
+ * Normalizza total_amount e items[*].(unit_price_snapshot|line_total) da
+ * string (numeric Postgres) a number.
+ */
+export async function listOrdersForActivity(
+    tenantId: string,
+    activityId: string,
+    options?: ListOrdersOptions
+): Promise<V2OrderWithItems[]> {
+    const includeItems = options?.includeItems !== false;
+    const limit = options?.limit ?? 100;
+    const select = includeItems ? "*, items:order_items(*)" : "*";
+
+    let query = supabase
+        .from("orders")
+        .select(select)
+        .eq("tenant_id", tenantId)
+        .eq("activity_id", activityId)
+        .order("submitted_at", { ascending: false })
+        .limit(limit);
+
+    if (options?.status) {
+        if (Array.isArray(options.status)) {
+            query = query.in("status", options.status);
+        } else {
+            query = query.eq("status", options.status);
+        }
+    }
+    if (options?.tableId) query = query.eq("table_id", options.tableId);
+    if (options?.dateFrom) query = query.gte("submitted_at", options.dateFrom);
+    if (options?.dateTo) query = query.lte("submitted_at", options.dateTo);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(row => {
+        const normalized: Record<string, unknown> = {
+            ...row,
+            total_amount: Number(row.total_amount)
+        };
+        if (includeItems) {
+            const rawItems = row.items as V2OrderItem[] | undefined;
+            normalized.items = (rawItems ?? []).map(item => ({
+                ...item,
+                unit_price_snapshot: Number(item.unit_price_snapshot),
+                line_total: Number(item.line_total)
+            }));
+        }
+        return normalized as unknown as V2OrderWithItems;
+    });
+}
+
+/**
+ * Transizione submitted → acknowledged. Optimistic locking via expected_version.
+ *
+ * Throws:
+ *   400/401/403/404 ORDER_NOT_FOUND/429/500 → italiano
+ *   409 INVALID_STATE_TRANSITION:
+ *     - details.reason === "OPTIMISTIC_LOCK_CONFLICT" →
+ *       throw Error("OPTIMISTIC_LOCK_CONFLICT")
+ *     - altrimenti → throw Error("INVALID_STATE_TRANSITION") con
+ *       extension .details (InvalidStateTransitionErrorDetails)
+ */
+export async function acknowledgeOrder(
+    orderId: string,
+    expectedVersion: number
+): Promise<AcknowledgeOrderResult> {
+    const { data, error } = await supabase.functions.invoke<AcknowledgeOrderResult>(
+        "acknowledge-order",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione acknowledged → delivered. Optimistic locking via expected_version.
+ * Stesso mapping errori di acknowledgeOrder.
+ */
+export async function deliverOrder(
+    orderId: string,
+    expectedVersion: number
+): Promise<DeliverOrderResult> {
+    const { data, error } = await supabase.functions.invoke<DeliverOrderResult>(
+        "deliver-order",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione admin → cancelled (da submitted o acknowledged). Optimistic locking.
+ * Reason opzionale, trim, max 500 char.
+ *
+ * Throws (validation client):
+ *   "REASON_TOO_LONG" se reason > 500 char dopo trim
+ *
+ * Throws (Edge):
+ *   stesso pattern di acknowledgeOrder.
+ */
+export async function cancelOrderAdmin(
+    orderId: string,
+    expectedVersion: number,
+    reason?: string
+): Promise<CancelOrderAdminResult> {
+    let normalizedReason: string | null = null;
+    if (reason !== undefined) {
+        const trimmed = reason.trim();
+        if (trimmed.length > 500) throw new Error("REASON_TOO_LONG");
+        if (trimmed.length > 0) normalizedReason = trimmed;
+    }
+
+    const body: Record<string, unknown> = {
+        order_id: orderId,
+        expected_version: expectedVersion
+    };
+    if (normalizedReason !== null) body.reason = normalizedReason;
+
+    const { data, error } = await supabase.functions.invoke<CancelOrderAdminResult>(
+        "cancel-order-admin",
+        { body }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Rettifica parziale di un ordine: crea un nuovo ordine "storno" che
+ * sottrae quantità da items specifici dell'ordine parent.
+ *
+ * Constraint server-side:
+ *   - parent must be in status acknowledged | delivered
+ *   - parent must NOT be a rectification itself
+ *   - storno quantity <= original quantity per ogni item
+ *
+ * Throws (validation client):
+ *   "EMPTY_RECTIFICATION"           se items.length === 0
+ *   "INVALID_RECTIFICATION_QUANTITY" se item.quantity non int positivo
+ *   "REASON_TOO_LONG"               se reason > 500 char dopo trim
+ *
+ * Throws (Edge):
+ *   400/401/403/404 PARENT_ORDER_NOT_FOUND/429/500 → italiano
+ *   422 INVALID_PARENT          → "INVALID_PARENT" (parent è già rettifica)
+ *   422 INVALID_PARENT_STATE    → "INVALID_PARENT_STATE" + .details.current_status
+ *   422 INVALID_ITEMS           → "INVALID_RECTIFICATION_ITEMS" + .details
+ *                                 (reason: INVALID_STORNO_ITEM |
+ *                                 ORDER_ITEM_NOT_FOUND |
+ *                                 STORNO_QTY_EXCEEDS_ORIGINAL)
+ */
+export async function rectifyOrder(
+    parentOrderId: string,
+    items: RectifyOrderItem[],
+    reason?: string
+): Promise<RectifyOrderResult> {
+    if (items.length === 0) throw new Error("EMPTY_RECTIFICATION");
+    for (const item of items) {
+        if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+            throw new Error("INVALID_RECTIFICATION_QUANTITY");
+        }
+    }
+    let normalizedReason: string | null = null;
+    if (reason !== undefined) {
+        const trimmed = reason.trim();
+        if (trimmed.length > 500) throw new Error("REASON_TOO_LONG");
+        if (trimmed.length > 0) normalizedReason = trimmed;
+    }
+
+    const body: Record<string, unknown> = {
+        parent_order_id: parentOrderId,
+        items_to_storno: items
+    };
+    if (normalizedReason !== null) body.reason = normalizedReason;
+
+    const { data, error } = await supabase.functions.invoke<RectifyOrderResult>(
+        "rectify-order",
+        { body }
+    );
+
+    if (error) {
+        const { status, code, details } = await parseInvokeError(error);
+        switch (status) {
+            case 400:
+                throw new Error("Richiesta non valida");
+            case 401:
+                throw new Error("Sessione scaduta, accedi di nuovo");
+            case 403:
+                throw new Error("Non hai i permessi per questa operazione");
+            case 404:
+                if (code === "PARENT_ORDER_NOT_FOUND") throw new Error("Ordine non trovato");
+                throw new Error("Risorsa non trovata");
+            case 422: {
+                if (code === "INVALID_PARENT") throw new Error("INVALID_PARENT");
+                if (code === "INVALID_PARENT_STATE") {
+                    const err = new Error("INVALID_PARENT_STATE");
+                    (err as Error & { details?: unknown }).details = details;
+                    throw err;
+                }
+                if (code === "INVALID_ITEMS") {
+                    const err = new Error("INVALID_RECTIFICATION_ITEMS");
+                    (err as Error & { details?: unknown }).details = details;
+                    throw err;
+                }
+                throw new Error("Richiesta non valida");
+            }
+            case 429:
+                throw new Error("Troppe richieste, riprova tra un momento");
+            default:
+                throw new Error("Errore del server");
+        }
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INTERNAL HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+interface ParsedInvokeError {
+    status: number | null;
+    code: string | undefined;
+    details: unknown;
+    rawMessage: string | undefined;
+}
+
+/**
+ * Estrae status, code, details da un errore di supabase.functions.invoke.
+ * Idempotente sul body stream: legge .json() una sola volta.
+ *
+ * Comportamento:
+ *   - Se error è FunctionsHttpError con context Response: tenta parsing JSON.
+ *   - Se parsing fallisce o error non è FunctionsHttpError: ritorna default
+ *     (status null, code undefined).
+ *
+ * Il consumer fa branching su status + code per costruire l'Error finale.
+ */
+async function parseInvokeError(error: unknown): Promise<ParsedInvokeError> {
+    if (!(error instanceof FunctionsHttpError)) {
+        return {
+            status: null,
+            code: undefined,
+            details: undefined,
+            rawMessage: undefined
+        };
+    }
+    const status = error.context?.status ?? null;
+    try {
+        const body = (await error.context.json()) as {
+            code?: unknown;
+            details?: unknown;
+            message?: unknown;
+        };
+        return {
+            status,
+            code: typeof body?.code === "string" ? body.code : undefined,
+            details: body?.details,
+            rawMessage: typeof body?.message === "string" ? body.message : undefined
+        };
+    } catch {
+        return {
+            status,
+            code: undefined,
+            details: undefined,
+            rawMessage: undefined
+        };
+    }
+}
+
+/**
+ * Mapping comune per le 3 transizioni admin (acknowledge/deliver/cancel-admin).
+ * Throws sempre — non ritorna mai. Marked `never` for control-flow narrowing.
+ */
+function throwMappedTransitionError(parsed: ParsedInvokeError): never {
+    const { status, code, details } = parsed;
+    switch (status) {
+        case 400:
+            throw new Error("Richiesta non valida");
+        case 401:
+            throw new Error("Sessione scaduta, accedi di nuovo");
+        case 403:
+            throw new Error("Non hai i permessi per questa operazione");
+        case 404:
+            if (code === "ORDER_NOT_FOUND") throw new Error("Ordine non trovato");
+            throw new Error("Risorsa non trovata");
+        case 409: {
+            const d = details as { reason?: string } | undefined;
+            if (d?.reason === "OPTIMISTIC_LOCK_CONFLICT") {
+                throw new Error("OPTIMISTIC_LOCK_CONFLICT");
+            }
+            const err = new Error("INVALID_STATE_TRANSITION");
+            (err as Error & { details?: unknown }).details = details;
+            throw err;
+        }
+        case 429:
+            throw new Error("Troppe richieste, riprova tra un momento");
+        default:
+            throw new Error("Errore del server");
+    }
+}
