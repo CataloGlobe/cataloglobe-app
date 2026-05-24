@@ -7,8 +7,8 @@
  *   - error: messaggio (solo per degraded/down)
  *
  * Regole di classificazione (uniformi per tutti i servizi):
- *   - up        → risposta < 2000ms e payload corretto
- *   - degraded  → risposta 2000–10000ms OPPURE soft-error semantico
+ *   - up        → risposta < 5000ms e payload corretto
+ *   - degraded  → risposta 5000–10000ms OPPURE soft-error semantico
  *                 (es. payload presente ma con campo `error`)
  *   - down      → no risposta entro 10s OPPURE errore esplicito (HTTP 5xx,
  *                 fetch fail, ping fail, JSON parse fail su endpoint atteso)
@@ -28,7 +28,7 @@ import { probeDatabase } from "./statusSupabase.js";
 import { Redis } from "@upstash/redis";
 
 const CHECK_TIMEOUT_MS = 10_000;
-const DEGRADED_THRESHOLD_MS = 2_000;
+const DEGRADED_THRESHOLD_MS = 5_000;
 
 export type ServiceKey = "public-menu" | "dashboard" | "database" | "cache";
 export type CheckStatus = "up" | "degraded" | "down";

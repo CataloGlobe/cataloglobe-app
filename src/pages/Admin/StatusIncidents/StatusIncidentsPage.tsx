@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import logoHorizontal from "@/assets/brand/logo-horizontal.png";
+import logoMark from "@/assets/brand/logo-mark.png";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
     addIncidentUpdate,
     deleteIncident,
+    formatIncidentStatus,
     listAllIncidents,
     resolveIncident,
     SERVICE_LABELS,
@@ -31,13 +33,6 @@ const SEVERITY_LABEL: Record<StatusIncident["severity"], string> = {
     critical: "Critico"
 };
 
-const STATUS_LABEL: Record<IncidentStatus, string> = {
-    investigating: "In analisi",
-    identified: "Identificato",
-    monitoring: "Monitoraggio",
-    resolved: "Risolto"
-};
-
 function StatusBadge({ status }: { status: IncidentStatus }) {
     const cls =
         status === "investigating"
@@ -47,7 +42,7 @@ function StatusBadge({ status }: { status: IncidentStatus }) {
               : status === "monitoring"
                 ? styles.badge_status_monitoring
                 : styles.badge_status_resolved;
-    return <span className={`${styles.badge} ${cls}`}>{STATUS_LABEL[status]}</span>;
+    return <span className={`${styles.badge} ${cls}`}>{formatIncidentStatus(status)}</span>;
 }
 
 function SeverityBadge({ severity }: { severity: StatusIncident["severity"] }) {
@@ -134,7 +129,7 @@ function AddUpdateBlock({
 }
 
 export default function StatusIncidentsPage() {
-    usePageTitle("Status incidents (admin)");
+    usePageTitle("Status incidents");
 
     const [incidents, setIncidents] = useState<StatusIncident[]>([]);
     const [loading, setLoading] = useState(true);
@@ -143,6 +138,9 @@ export default function StatusIncidentsPage() {
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
     const [drawerIncident, setDrawerIncident] = useState<StatusIncident | null>(null);
+
+    const [pendingResolveId, setPendingResolveId] = useState<string | null>(null);
+    const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         try {
@@ -161,25 +159,27 @@ export default function StatusIncidentsPage() {
         void load();
     }, [load]);
 
-    async function handleResolve(id: string) {
-        const ok = window.confirm("Marcare questo incident come risolto?");
-        if (!ok) return;
+    async function confirmResolve(): Promise<boolean> {
+        if (!pendingResolveId) return false;
         try {
-            await resolveIncident(id);
+            await resolveIncident(pendingResolveId);
             await load();
+            return true;
         } catch (err) {
             window.alert(`Errore: ${err instanceof Error ? err.message : String(err)}`);
+            return false;
         }
     }
 
-    async function handleDelete(id: string) {
-        const ok = window.confirm("Eliminare definitivamente questo incident?");
-        if (!ok) return;
+    async function confirmDelete(): Promise<boolean> {
+        if (!pendingDeleteId) return false;
         try {
-            await deleteIncident(id);
+            await deleteIncident(pendingDeleteId);
             await load();
+            return true;
         } catch (err) {
             window.alert(`Errore: ${err instanceof Error ? err.message : String(err)}`);
+            return false;
         }
     }
 
@@ -198,13 +198,34 @@ export default function StatusIncidentsPage() {
     return (
         <div className={styles.page}>
             <header className={styles.header}>
-                <Link to="/" className={styles.brandLeft} style={{ textDecoration: "none", color: "inherit" }}>
-                    <img src={logoHorizontal} alt="CataloGlobe" className={styles.logoImg} />
-                    <span className={styles.title}>Status incidents (admin)</span>
-                </Link>
-                <Link to="/status" className={styles.btn} style={{ textDecoration: "none" }}>
-                    Vedi /status
-                </Link>
+                <div className={styles.headerLeft}>
+                    <Link
+                        to="/"
+                        className={styles.logoLink}
+                        title="CataloGlobe — Home"
+                        aria-label="CataloGlobe — Home"
+                    >
+                        <img src={logoMark} alt="" height={24} className={styles.logoImage} />
+                    </Link>
+                    <span className={styles.separator} aria-hidden="true">
+                        /
+                    </span>
+                    <span className={styles.contextLabel}>Status incidents (admin)</span>
+                </div>
+                <div className={styles.headerRight}>
+                    <Link to="/dashboard" className={styles.btn} style={{ textDecoration: "none" }}>
+                        ← Torna alla dashboard
+                    </Link>
+                    <a
+                        href="/status"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.btn}
+                        style={{ textDecoration: "none" }}
+                    >
+                        Vedi /status
+                    </a>
+                </div>
             </header>
 
             <main className={styles.main}>
@@ -273,7 +294,7 @@ export default function StatusIncidentsPage() {
                                     <button
                                         type="button"
                                         className={styles.btn}
-                                        onClick={() => handleResolve(inc.id)}
+                                        onClick={() => setPendingResolveId(inc.id)}
                                     >
                                         Risolvi
                                     </button>
@@ -281,7 +302,7 @@ export default function StatusIncidentsPage() {
                                 <button
                                     type="button"
                                     className={`${styles.btn} ${styles.btn_danger}`}
-                                    onClick={() => handleDelete(inc.id)}
+                                    onClick={() => setPendingDeleteId(inc.id)}
                                 >
                                     Elimina
                                 </button>
@@ -292,7 +313,7 @@ export default function StatusIncidentsPage() {
                                         <div key={i} className={styles.updateItem}>
                                             <span className={styles.updateTime}>
                                                 {formatAbsolute(u.timestamp)}
-                                                {u.status ? ` · ${STATUS_LABEL[u.status]}` : ""}
+                                                {u.status ? ` · ${formatIncidentStatus(u.status)}` : ""}
                                             </span>
                                             {u.message}
                                         </div>
@@ -313,6 +334,26 @@ export default function StatusIncidentsPage() {
                 incident={drawerIncident}
                 onClose={() => setDrawerOpen(false)}
                 onSaved={() => void load()}
+            />
+
+            <ConfirmDialog
+                isOpen={pendingResolveId !== null}
+                onClose={() => setPendingResolveId(null)}
+                onConfirm={confirmResolve}
+                title="Marcare come risolto"
+                message="Confermi di marcare questo incident come risolto?"
+                confirmLabel="Risolvi"
+                confirmVariant="primary"
+            />
+
+            <ConfirmDialog
+                isOpen={pendingDeleteId !== null}
+                onClose={() => setPendingDeleteId(null)}
+                onConfirm={confirmDelete}
+                title="Elimina incident"
+                message="Eliminare definitivamente questo incident? L'azione non può essere annullata."
+                confirmLabel="Elimina"
+                confirmVariant="danger"
             />
         </div>
     );

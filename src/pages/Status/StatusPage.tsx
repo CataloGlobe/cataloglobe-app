@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import logoHorizontal from "@/assets/brand/logo-horizontal.png";
+import logoMark from "@/assets/brand/logo-mark.png";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
     deriveOverallStatus,
+    formatIncidentStatus,
     listActiveIncidents,
     listDailyUptime,
     listLatestChecks,
@@ -56,15 +57,13 @@ const STATUS_PILL_LABEL: Record<CheckStatus | "unknown", string> = {
     unknown: "Sconosciuto"
 };
 
-function formatRelative(iso: string | null | undefined): string {
-    if (!iso) return "—";
-    const then = new Date(iso).getTime();
-    const now = Date.now();
-    const sec = Math.max(0, Math.floor((now - then) / 1000));
+function formatRelativeFromMs(thenMs: number | null, nowMs: number): string {
+    if (thenMs === null) return "—";
+    const sec = Math.max(0, Math.floor((nowMs - thenMs) / 1000));
     if (sec < 60) return `${sec}s fa`;
-    if (sec < 3600) return `${Math.floor(sec / 60)} min fa`;
-    if (sec < 86400) return `${Math.floor(sec / 3600)} h fa`;
-    return `${Math.floor(sec / 86400)} g fa`;
+    if (sec < 3600) return `${Math.floor(sec / 60)}m fa`;
+    if (sec < 86400) return `${Math.floor(sec / 3600)}h fa`;
+    return `${Math.floor(sec / 86400)}g fa`;
 }
 
 function formatAbsolute(iso: string | null | undefined): string {
@@ -92,13 +91,7 @@ function SeverityBadge({ severity }: { severity: StatusIncident["severity"] }) {
 }
 
 function IncidentStatusLabel({ status }: { status: StatusIncident["status"] }) {
-    const map: Record<StatusIncident["status"], string> = {
-        investigating: "In analisi",
-        identified: "Identificato",
-        monitoring: "Monitoraggio",
-        resolved: "Risolto"
-    };
-    return <span>{map[status]}</span>;
+    return <span>{formatIncidentStatus(status)}</span>;
 }
 
 function IncidentBlock({ incident }: { incident: StatusIncident }) {
@@ -123,7 +116,7 @@ function IncidentBlock({ incident }: { incident: StatusIncident }) {
                         <div key={i} className={styles.incidentUpdate}>
                             <span className={styles.incidentUpdateTime}>
                                 {formatAbsolute(u.timestamp)}
-                                {u.status ? ` · ${u.status}` : ""}
+                                {u.status ? ` · ${formatIncidentStatus(u.status)}` : ""}
                             </span>
                             {u.message}
                         </div>
@@ -206,10 +199,12 @@ function ServiceRow({
     );
 }
 
+const STALE_THRESHOLD_MS = 10 * 60 * 1000;
+
 export default function StatusPage() {
     usePageTitle("Stato sistema");
     const [view, setView] = useState<ViewState>({ phase: "loading" });
-    const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
+    const [nowTick, setNowTick] = useState<number>(() => Date.now());
 
     useEffect(() => {
         let cancelled = false;
@@ -233,7 +228,6 @@ export default function StatusPage() {
                     activeIncidents: active,
                     recentIncidents: recent
                 });
-                setLastFetchedAt(new Date().toISOString());
             } catch (err) {
                 if (cancelled) return;
                 setView({
@@ -250,6 +244,26 @@ export default function StatusPage() {
             window.clearInterval(id);
         };
     }, []);
+
+    useEffect(() => {
+        const id = window.setInterval(() => setNowTick(Date.now()), 10_000);
+        return () => window.clearInterval(id);
+    }, []);
+
+    const lastCheckAtMs: number | null = useMemo(() => {
+        if (view.phase !== "ready") return null;
+        let max = 0;
+        for (const key of SERVICE_KEYS) {
+            const row = view.latest[key];
+            if (!row?.checked_at) continue;
+            const t = new Date(row.checked_at).getTime();
+            if (Number.isFinite(t) && t > max) max = t;
+        }
+        return max > 0 ? max : null;
+    }, [view]);
+
+    const isStale =
+        lastCheckAtMs !== null && nowTick - lastCheckAtMs > STALE_THRESHOLD_MS;
 
     const overall: OverallStatus = useMemo(() => {
         if (view.phase !== "ready") return "unknown";
@@ -268,14 +282,31 @@ export default function StatusPage() {
     return (
         <div className={styles.page}>
             <header className={styles.header}>
-                <Link to="/" className={styles.brand}>
-                    <img src={logoHorizontal} alt="CataloGlobe" className={styles.logoImg} />
-                    <span className={styles.brandLabel}>Stato sistema</span>
-                </Link>
-                <span className={styles.headerMeta}>
-                    {lastFetchedAt
-                        ? `Ultimo aggiornamento ${formatRelative(lastFetchedAt)}`
-                        : "Caricamento…"}
+                <div className={styles.headerLeft}>
+                    <Link
+                        to="/"
+                        className={styles.logoLink}
+                        title="CataloGlobe — Home"
+                        aria-label="CataloGlobe — Home"
+                    >
+                        <img src={logoMark} alt="" height={24} className={styles.logoImage} />
+                    </Link>
+                    <span className={styles.separator} aria-hidden="true">
+                        /
+                    </span>
+                    <span className={styles.contextLabel}>Stato sistema</span>
+                </div>
+                <span
+                    className={`${styles.headerMeta} ${isStale ? styles.headerMetaStale : ""}`}
+                    title={
+                        isStale
+                            ? "Il monitoring potrebbe essere fermo: ultimo check oltre 10 minuti fa."
+                            : undefined
+                    }
+                >
+                    {view.phase === "loading"
+                        ? "Caricamento…"
+                        : `Ultimo aggiornamento ${formatRelativeFromMs(lastCheckAtMs, nowTick)}`}
                 </span>
             </header>
 

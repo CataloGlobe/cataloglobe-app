@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
+import { Button } from "@/components/ui/Button/Button";
+import Text from "@/components/ui/Text/Text";
+import { TextInput } from "@/components/ui/Input/TextInput";
+import { Textarea } from "@/components/ui/Textarea/Textarea";
+import { Select } from "@/components/ui/Select/Select";
 import {
     createIncident,
     updateIncident,
@@ -13,16 +18,16 @@ import {
 } from "@/services/supabase/statusPage";
 import styles from "./StatusIncidentsPage.module.scss";
 
-const SEVERITIES: { value: IncidentSeverity; label: string }[] = [
+const SEVERITY_OPTIONS = [
     { value: "minor", label: "Minore" },
     { value: "major", label: "Importante" },
     { value: "critical", label: "Critico" }
 ];
 
-const STATUSES: { value: IncidentStatus; label: string }[] = [
+const STATUS_OPTIONS = [
     { value: "investigating", label: "In analisi" },
     { value: "identified", label: "Identificato" },
-    { value: "monitoring", label: "Monitoraggio" },
+    { value: "monitoring", label: "In monitoraggio" },
     { value: "resolved", label: "Risolto" }
 ];
 
@@ -114,101 +119,64 @@ export function IncidentDrawer({ open, mode, incident, onClose, onSaved }: Incid
         <SystemDrawer open={open} onClose={onClose} width={560}>
             <DrawerLayout
                 header={
-                    <div className={styles.drawerHeader}>
-                        <span className={styles.drawerHeaderTitle}>
-                            {mode === "create" ? "Nuovo incident" : "Modifica incident"}
-                        </span>
-                    </div>
+                    <Text variant="title-sm" weight={600}>
+                        {mode === "create" ? "Nuovo incident" : "Modifica incident"}
+                    </Text>
                 }
                 footer={
-                    <div className={styles.drawerFooter}>
-                        <button
-                            type="button"
-                            className={styles.btn}
+                    <>
+                        <Button
+                            variant="secondary"
                             onClick={onClose}
                             disabled={submitting}
                         >
                             Annulla
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                            variant="primary"
                             type="submit"
                             form="incident-form"
-                            className={`${styles.btn} ${styles.btn_primary}`}
-                            disabled={submitting}
+                            loading={submitting}
                         >
-                            {submitting ? "Salvataggio…" : mode === "create" ? "Crea" : "Salva"}
-                        </button>
-                    </div>
+                            {mode === "create" ? "Crea incident" : "Salva Modifiche"}
+                        </Button>
+                    </>
                 }
             >
                 <form id="incident-form" className={styles.drawerForm} onSubmit={handleSubmit}>
-                    <div className={styles.field}>
-                        <label className={styles.fieldLabel} htmlFor="incident-title">
-                            Titolo
-                        </label>
-                        <input
-                            id="incident-title"
-                            className={styles.input}
-                            type="text"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            placeholder="Es. Menu pubblico non risponde"
-                            required
-                            disabled={submitting}
-                        />
-                    </div>
+                    <TextInput
+                        label="Titolo"
+                        required
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="Es. Menu pubblico non risponde"
+                        disabled={submitting}
+                    />
 
-                    <div className={styles.field}>
-                        <label className={styles.fieldLabel} htmlFor="incident-desc">
-                            Descrizione
-                        </label>
-                        <textarea
-                            id="incident-desc"
-                            className={styles.textarea}
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Cosa sta succedendo e cosa stiamo facendo."
-                            disabled={submitting}
-                        />
-                    </div>
+                    <Textarea
+                        label="Descrizione"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Cosa sta succedendo e cosa stiamo facendo."
+                        disabled={submitting}
+                        rows={4}
+                    />
 
-                    <div className={styles.field}>
-                        <label className={styles.fieldLabel} htmlFor="incident-status">
-                            Stato
-                        </label>
-                        <select
-                            id="incident-status"
-                            className={styles.select}
-                            value={status}
-                            onChange={(e) => setStatus(e.target.value as IncidentStatus)}
-                            disabled={submitting}
-                        >
-                            {STATUSES.map((s) => (
-                                <option key={s.value} value={s.value}>
-                                    {s.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    <Select
+                        label="Stato"
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value as IncidentStatus)}
+                        disabled={submitting}
+                        options={STATUS_OPTIONS}
+                    />
 
-                    <div className={styles.field}>
-                        <label className={styles.fieldLabel} htmlFor="incident-sev">
-                            Severità
-                        </label>
-                        <select
-                            id="incident-sev"
-                            className={styles.select}
-                            value={severity}
-                            onChange={(e) => setSeverity(e.target.value as IncidentSeverity)}
-                            disabled={submitting}
-                        >
-                            {SEVERITIES.map((s) => (
-                                <option key={s.value} value={s.value}>
-                                    {s.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    <Select
+                        label="Severità"
+                        value={severity}
+                        onChange={(e) => setSeverity(e.target.value as IncidentSeverity)}
+                        disabled={submitting}
+                        options={SEVERITY_OPTIONS}
+                    />
 
                     <div className={styles.field}>
                         <span className={styles.fieldLabel}>Servizi impattati</span>

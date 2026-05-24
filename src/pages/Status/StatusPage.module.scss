@@ -22,30 +22,69 @@
     }
 }
 
-.brand {
+.headerLeft {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.logoLink {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    color: inherit;
+    justify-content: center;
+    padding: 6px 0 6px 6px;
+    border-radius: 8px;
+    cursor: pointer;
     text-decoration: none;
+    color: inherit;
+    transition: background 0.1s;
+
+    &:hover {
+        background: #f8fafc;
+    }
+
+    &:focus-visible {
+        outline: 2px solid #a5b4fc;
+        outline-offset: 2px;
+    }
 }
 
-.logoImg {
-    height: 26px;
+.logoImage {
+    height: 24px;
     width: auto;
-    object-fit: contain;
+    display: block;
+    flex-shrink: 0;
 }
 
-.brandLabel {
+.separator {
+    font-size: 18px;
+    color: #e5e7eb;
+    font-weight: 300;
+    user-select: none;
+    margin: 0 -2px;
+}
+
+.contextLabel {
+    font-size: 13px;
     font-weight: 600;
-    font-size: 0.95rem;
-    letter-spacing: 0.01em;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .headerMeta {
     font-size: 0.75rem;
     color: var(--text);
     opacity: 0.55;
+}
+
+.headerMetaStale {
+    color: #b45309;
+    opacity: 1;
+    font-weight: 500;
+    cursor: help;
 }
 
 .main {

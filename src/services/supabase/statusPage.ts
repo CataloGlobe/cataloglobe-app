@@ -62,6 +62,17 @@ export const SERVICE_LABELS: Record<ServiceKey, string> = {
     "cache": "Cache"
 };
 
+export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = {
+    investigating: "In analisi",
+    identified: "Identificato",
+    monitoring: "In monitoraggio",
+    resolved: "Risolto"
+};
+
+export function formatIncidentStatus(status: IncidentStatus): string {
+    return INCIDENT_STATUS_LABEL[status];
+}
+
 /**
  * Latest check row per service. Una query unica con ordinamento + DISTINCT ON
  * sarebbe più efficiente ma richiederebbe una RPC. Per 4 servizi, 4 query
