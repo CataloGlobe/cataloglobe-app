@@ -310,7 +310,6 @@ export default function AnalyticsPage() {
         <main className={styles.analytics}>
             <PageHeader
                 title="Analitiche"
-                businessName={selectedTenant?.name}
                 subtitle="Monitora le performance delle tue sedi."
                 actions={
                     <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>

@@ -339,7 +339,6 @@ export default function Reviews() {
             {/* ── Header ──────────────────────────────── */}
             <PageHeader
                 title="Recensioni"
-                businessName={selectedTenant?.name}
                 subtitle="Monitora il feedback ricevuto dai tuoi clienti."
                 actions={
                     <Select

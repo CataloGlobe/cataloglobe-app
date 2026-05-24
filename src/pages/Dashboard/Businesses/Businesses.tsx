@@ -758,7 +758,6 @@ export default function Businesses() {
         <section className={styles.businesses} aria-labelledby="businesses-title">
             <PageHeader
                 title="Le tue Sedi"
-                businessName={selectedTenant?.name}
                 subtitle="Gestisci le tue sedi e genera il QR del sito pubblico."
                 actions={
                     activeTab === "activities" ? (

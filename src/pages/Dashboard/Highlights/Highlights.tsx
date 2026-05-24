@@ -208,7 +208,6 @@ export default function Highlights() {
             <div className={styles.wrapper}>
                 <PageHeader
                     title="Contenuti in evidenza"
-                    businessName={selectedTenant?.name}
                     subtitle="Gestisci i contenuti editoriali e aggregatori di prodotti."
                     actions={
                         <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>

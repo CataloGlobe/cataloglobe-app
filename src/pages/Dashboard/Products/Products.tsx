@@ -420,7 +420,6 @@ export default function Products() {
         <section className={styles.container}>
             <PageHeader
                 title={verticalConfig.productLabelPlural}
-                businessName={selectedTenant?.name}
                 subtitle={`Gestisci il tuo catalogo ${verticalConfig.productLabelPlural.toLowerCase()}, prezzi, varianti e raggruppamenti.`}
                 actions={
                     activeTab === "products" ? (

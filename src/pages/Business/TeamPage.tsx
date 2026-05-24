@@ -327,7 +327,6 @@ export default function TeamPage() {
                 <PageHeader
                     title="Team"
                     subtitle="Gestisci i membri del team per questo business."
-                    businessName={selectedTenant?.name}
                 />
 
                 {!selectedTenantId ? (

@@ -3,6 +3,7 @@ import { Outlet, useLocation, useParams } from "react-router-dom";
 import Sidebar from "@components/layout/Sidebar/Sidebar";
 import { AppHeader } from "@components/layout/AppHeader/AppHeader";
 import { DrawerProvider } from "@/context/Drawer/DrawerProvider";
+import { BreadcrumbProvider } from "@/context/BreadcrumbProvider";
 import { SubscriptionBanner } from "@/components/Subscription/SubscriptionBanner";
 import { ActivationRequired } from "@/components/Subscription/ActivationRequired";
 import { useTenant } from "@/context/useTenant";
@@ -101,11 +102,12 @@ export default function MainLayout() {
     return (
         <div className={styles.appLayout}>
             <DrawerProvider>
-                <header className={styles.globalHeader}>
-                    <AppHeader onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
-                </header>
+                <BreadcrumbProvider>
+                    <header className={styles.globalHeader}>
+                        <AppHeader onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
+                    </header>
 
-                <div className={styles.body}>
+                    <div className={styles.body}>
                     <Sidebar
                         isMobile={isMobile}
                         mobileOpen={mobileSidebarOpen}
@@ -121,6 +123,7 @@ export default function MainLayout() {
                         </div>
                     </main>
                 </div>
+                </BreadcrumbProvider>
             </DrawerProvider>
         </div>
     );

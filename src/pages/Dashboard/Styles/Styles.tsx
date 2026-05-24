@@ -308,7 +308,6 @@ export default function Styles() {
         <section className={styles.container}>
             <PageHeader
                 title="Stili"
-                businessName={selectedTenant?.name}
                 subtitle="Personalizza l'aspetto visivo e i colori del tuo catalogo."
                 actions={
                     <Button variant="primary" onClick={handleCreateClick} disabled={!canEdit}>

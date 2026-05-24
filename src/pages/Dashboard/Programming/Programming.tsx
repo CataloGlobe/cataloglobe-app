@@ -991,7 +991,6 @@ export default function Programming() {
             <div className={styles.topArea}>
                 <PageHeader
                     title="Programmazione"
-                    businessName={selectedTenant?.name}
                     subtitle="Gestisci le regole del Rule Engine."
                     actions={
                         <div className={styles.headerActions}>

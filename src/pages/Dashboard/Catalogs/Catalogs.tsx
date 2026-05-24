@@ -279,7 +279,6 @@ export default function Catalogs() {
         <section className={styles.container}>
             <PageHeader
                 title={verticalConfig.catalogLabel}
-                businessName={selectedTenant?.name}
                 subtitle={`Gestisci l'albero delle categorie e i gruppi del tuo ${catalogLower}.`}
                 actions={
                     <div style={{ display: "flex", gap: 8 }}>

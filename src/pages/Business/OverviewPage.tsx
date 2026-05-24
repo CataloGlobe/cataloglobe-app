@@ -119,7 +119,7 @@ export default function OverviewPage() {
 
     return (
         <div className={styles.page}>
-            <PageHeader title="Panoramica" businessName={selectedTenant.name} />
+            <PageHeader title="Panoramica" />
 
             {/* ===== Section 1 — Business Header ===== */}
             <div className={styles.section}>

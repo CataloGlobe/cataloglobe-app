@@ -23,9 +23,11 @@
   gap: 0.5rem;
 }
 
-.businessName {
-  opacity: 0.65;
-  letter-spacing: 0.01em;
+.subtitle {
+  overflow: hidden;
+  max-height: 120px;
+  opacity: 1;
+  transition: max-height 0.2s ease, opacity 0.15s ease;
 }
 
 .actions {
@@ -33,8 +35,28 @@
   align-items: center;
   gap: 0.5rem;
 
-  // Mobile: full width actions if needed, or just auto
   @media (min-width: 768px) {
     flex-shrink: 0;
   }
+}
+
+/* ===== Sticky mode (opt-in via prop) ===== */
+.sticky {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #FFFFFF;
+  border-bottom: 1px solid #E5E7EB;
+  padding: 16px 0;
+  transition: padding 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sticky.shrunk {
+  padding: 10px 0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.sticky.shrunk .subtitle {
+  max-height: 0;
+  opacity: 0;
 }

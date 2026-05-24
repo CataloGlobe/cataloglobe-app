@@ -197,7 +197,7 @@ export default function Analytics() {
 
     return (
         <main className={styles.analytics} aria-label="Sezione analytics recensioni">
-            <PageHeader title="Analitiche" businessName={selectedTenant?.name} subtitle="Monitora le performance delle tue attività." />
+            <PageHeader title="Analitiche" subtitle="Monitora le performance delle tue attività." />
             <div className={styles.filtersRow}>
                 <div className={styles.businessSelector}>
                     <Select

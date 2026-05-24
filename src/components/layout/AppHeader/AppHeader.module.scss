@@ -6,7 +6,8 @@
   gap: 10px;
 }
 
-.left, .right {
+.left,
+.right {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -56,20 +57,41 @@
   }
 }
 
+/* ===== Breadcrumb slot (after tenant switcher) ===== */
+.headerBreadcrumb {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+@media (max-width: 767px) {
+  .headerBreadcrumb {
+    display: none;
+  }
+}
+
 /* ===== Logo ===== */
 .logoLink {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px;
+  padding: 6px 0 6px 6px;
   border-radius: 8px;
   cursor: pointer;
   text-decoration: none;
   color: inherit;
   transition: background 0.1s;
 
-  &:hover { background: #F8FAFC; }
-  &:focus-visible { outline: 2px solid #A5B4FC; outline-offset: 2px; }
+  &:hover {
+    background: #F8FAFC;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #A5B4FC;
+    outline-offset: 2px;
+  }
 }
 
 .logoImage {
@@ -97,8 +119,15 @@
   transition: background 0.1s, border-color 0.1s;
   min-width: 0;
 
-  &:hover { background: #F8FAFC; border-color: #D1D5DB; }
-  &:focus-visible { outline: 2px solid #A5B4FC; outline-offset: 2px; }
+  &:hover {
+    background: #F8FAFC;
+    border-color: #D1D5DB;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #A5B4FC;
+    outline-offset: 2px;
+  }
 }
 
 .tenantName {
@@ -207,8 +236,15 @@
   justify-content: center;
   transition: background 0.1s, color 0.1s;
 
-  &:hover { background: #F8FAFC; color: #0F172A; }
-  &:focus-visible { outline: 2px solid #A5B4FC; outline-offset: 2px; }
+  &:hover {
+    background: #F8FAFC;
+    color: #0F172A;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #A5B4FC;
+    outline-offset: 2px;
+  }
 }
 
 .notifDot {
@@ -262,8 +298,14 @@
   justify-content: center;
   transition: background 0.1s;
 
-  &:hover { background: #F8FAFC; }
-  &:focus-visible { outline: 2px solid #A5B4FC; outline-offset: 2px; }
+  &:hover {
+    background: #F8FAFC;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #A5B4FC;
+    outline-offset: 2px;
+  }
 }
 
 .userInfo {
