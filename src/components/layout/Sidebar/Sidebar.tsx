@@ -6,7 +6,6 @@ import {
     LayoutDashboard,
     Store,
     Settings,
-    X,
     Calendar,
     BookOpen,
     Layers,
@@ -25,7 +24,6 @@ import {
     PanelLeftOpen
 } from "lucide-react";
 import styles from "./Sidebar.module.scss";
-import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { useTenant } from "@/context/useTenant";
 
@@ -155,17 +153,6 @@ export default function Sidebar({
                 }}
                 aria-hidden={isMobile && !mobileOpen}
             >
-                {isMobile && (
-                    <div className={styles.mobileHeader}>
-                        <IconButton
-                            variant="ghost"
-                            icon={<X size={22} />}
-                            aria-label="Chiudi menu"
-                            onClick={onRequestClose}
-                        />
-                    </div>
-                )}
-
                 <div className={styles.sidebarScroll}>
                     <nav className={styles.nav}>
                         {groups.map((group, i) => (

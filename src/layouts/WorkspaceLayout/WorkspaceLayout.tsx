@@ -12,7 +12,7 @@ export default function WorkspaceLayout() {
     const mainRef = useRef<HTMLElement>(null);
     const { pathname } = useLocation();
 
-    const isMobile = useMediaQuery("(max-width: 1023px)");
+    const isMobile = useMediaQuery("(max-width: 767px)");
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 

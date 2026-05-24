@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import { Outlet, useLocation, useParams } from "react-router-dom";
 import Sidebar from "@components/layout/Sidebar/Sidebar";
 import { AppHeader } from "@components/layout/AppHeader/AppHeader";
-import { Menu } from "lucide-react";
-import { IconButton } from "@/components/ui/Button/IconButton";
 import { DrawerProvider } from "@/context/Drawer/DrawerProvider";
 import { SubscriptionBanner } from "@/components/Subscription/SubscriptionBanner";
 import { ActivationRequired } from "@/components/Subscription/ActivationRequired";
@@ -51,7 +49,7 @@ function resolvePageTitle(businessId: string, pathname: string): string | undefi
 }
 
 export default function MainLayout() {
-    const isMobile = useMediaQuery("(max-width: 1023px)");
+    const isMobile = useMediaQuery("(max-width: 767px)");
     const { selectedTenant, loading } = useTenant();
     const { businessId } = useParams<{ businessId: string }>();
     const { pathname } = useLocation();
@@ -104,7 +102,7 @@ export default function MainLayout() {
         <div className={styles.appLayout}>
             <DrawerProvider>
                 <header className={styles.globalHeader}>
-                    <AppHeader />
+                    <AppHeader onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
                 </header>
 
                 <div className={styles.body}>
@@ -117,16 +115,6 @@ export default function MainLayout() {
                     />
 
                     <main className={styles.main}>
-                        {isMobile && (
-                            <div className={styles.mobileHeader}>
-                                <IconButton
-                                    variant="ghost"
-                                    icon={<Menu size={24} />}
-                                    onClick={() => setMobileSidebarOpen(true)}
-                                    aria-label="Apri menu"
-                                />
-                            </div>
-                        )}
                         <div className={styles.content}>
                             <SubscriptionBanner />
                             <Outlet />

@@ -38,15 +38,6 @@ $footer-padding-x-collapsed: 29px;
   border: 0;
 }
 
-/* ===== Mobile internal header (close button) ===== */
-.mobileHeader {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 8px;
-  flex-shrink: 0;
-}
-
 /* ===== Avatar (kept for Phase 2 extraction into Avatar UI component) ===== */
 .avatar {
   width: 36px;
