@@ -14,7 +14,8 @@ import { useToast } from "@/context/Toast/ToastContext";
 import {
     listOrdersForActivity,
     acknowledgeOrder,
-    deliverOrder
+    deliverOrder,
+    cancelOrderAdmin
 } from "@/services/supabase/orders";
 import type { V2OrderWithItems, ListOrdersOptions } from "@/types/orders";
 
@@ -25,6 +26,8 @@ import { getActivities } from "@/services/supabase/activities";
 import type { V2Activity } from "@/types/activity";
 
 import OrderCard from "./OrderCard";
+import OrderDetailDrawer from "./OrderDetailDrawer";
+import OrderCancelDrawer from "./OrderCancelDrawer";
 import styles from "./Orders.module.scss";
 
 type OrderStatusFilter =
@@ -59,6 +62,14 @@ export default function Orders() {
     const [autoRefreshEnabled, setAutoRefreshEnabled] = useState<boolean>(
         () => localStorage.getItem(AUTO_REFRESH_STORAGE_KEY) === "true"
     );
+
+    // Detail drawer
+    const [isDetailOpen, setIsDetailOpen] = useState(false);
+    const [orderInDetail, setOrderInDetail] = useState<V2OrderWithItems | null>(null);
+
+    // Cancel drawer
+    const [isCancelOpen, setIsCancelOpen] = useState(false);
+    const [orderToCancel, setOrderToCancel] = useState<V2OrderWithItems | null>(null);
 
     // ── Activities load ──
     const loadActivities = useCallback(async () => {
@@ -215,15 +226,49 @@ export default function Orders() {
         }
     }
 
-    // ── Placeholder handlers (drawer cancel/rectify/detail in prompt #2 e #3) ──
-    function handleCancelOpen(_order: V2OrderWithItems) {
-        showToast({ message: "Cancellazione disponibile a breve", type: "info" });
+    function handleViewDetail(order: V2OrderWithItems) {
+        setOrderInDetail(order);
+        setIsDetailOpen(true);
     }
+
+    function handleCancelOpen(order: V2OrderWithItems) {
+        setOrderToCancel(order);
+        setIsCancelOpen(true);
+    }
+
+    async function handleCancelConfirm(reason: string) {
+        if (!orderToCancel) return;
+        const trimmed = reason.trim();
+        try {
+            await cancelOrderAdmin(
+                orderToCancel.id,
+                orderToCancel.version,
+                trimmed.length > 0 ? trimmed : undefined
+            );
+            showToast({
+                message: `Ordine ${labelFor(orderToCancel)} cancellato`,
+                type: "success"
+            });
+            setIsCancelOpen(false);
+            setOrderToCancel(null);
+            await loadOrders();
+        } catch (err) {
+            if (err instanceof Error && err.message === "REASON_TOO_LONG") {
+                showToast({
+                    message: "Il motivo è troppo lungo (max 500 caratteri)",
+                    type: "error"
+                });
+                return;
+            }
+            handleTransitionError(err, orderToCancel, "la cancellazione");
+            setIsCancelOpen(false);
+            setOrderToCancel(null);
+        }
+    }
+
+    // Placeholder rettifica (Prompt 3/3)
     function handleRectifyOpen(_order: V2OrderWithItems) {
         showToast({ message: "Rettifica disponibile a breve", type: "info" });
-    }
-    function handleViewDetail(_order: V2OrderWithItems) {
-        showToast({ message: "Dettaglio disponibile a breve", type: "info" });
     }
 
     return (
@@ -340,6 +385,34 @@ export default function Orders() {
                     })}
                 </div>
             )}
+
+            <OrderDetailDrawer
+                open={isDetailOpen}
+                order={orderInDetail}
+                tableLabel={
+                    tables.find(t => t.id === orderInDetail?.table_id)?.label ?? "?"
+                }
+                tableZone={
+                    tables.find(t => t.id === orderInDetail?.table_id)?.zone ?? null
+                }
+                onClose={() => {
+                    setIsDetailOpen(false);
+                    setOrderInDetail(null);
+                }}
+            />
+
+            <OrderCancelDrawer
+                open={isCancelOpen}
+                order={orderToCancel}
+                tableLabel={
+                    tables.find(t => t.id === orderToCancel?.table_id)?.label
+                }
+                onClose={() => {
+                    setIsCancelOpen(false);
+                    setOrderToCancel(null);
+                }}
+                onConfirm={handleCancelConfirm}
+            />
         </section>
     );
 }
