@@ -8,6 +8,7 @@ Regole vincolanti. In caso di dubbio: seguire il pattern esistente nel codice.
 - Route: `docs/routes.md`
 - Schema DB e fact critici: `docs/database-reference.md`
 - Edge Functions: `docs/edge-functions.md`
+- Epic "Ordinazioni dal tavolo": `docs/orders-architecture.md` (v1.2) — state machine ordini, RPC signatures, optimistic locking, error code mapping, roadmap 6 fasi
 - Security Advisor stato: `docs/security-advisor-status.md`
 - Roadmap / aree in sviluppo: `docs/roadmap.md`
 
@@ -328,6 +329,76 @@ Due tipi di regola sullo stesso modello `schedules`:
 
 ---
 
+## Epic Ordinazioni dal tavolo
+
+Sistema QR-table-ordering integrato nei cataloghi. Cliente scansiona QR → hub
+pubblico → ordina dal tavolo → admin riceve in dashboard live → transition
+state (acknowledged → delivered) o cancel/rettifica.
+
+Spec autoritativa: `docs/orders-architecture.md` v1.2.
+
+**Stato attuale**:
+- **Fase 1** (DB foundations): completata e applicata staging + prod. 10 tabelle, RPC, view, cron setup.
+- **Fase 2** (Edge Functions): 11 funzioni deployate, smoke testing OK.
+- **Fase 3** (service layer): completata, tsc clean. 4 file service + tipi.
+- **Fase 4** (UI admin): da iniziare. Pagina "Tavoli", dashboard ordini live, drawer chiudi tavolo, drawer rettifica, drawer disabilita prodotto, generazione QR PDF.
+- **Fase 5** (UI cliente): da iniziare. Pagina pubblica `/t/:qrToken` → menu → cart → submit + lista ordini sessione.
+- **Fase 6** (QA + iterazione).
+
+**Dual-auth — pattern fondamentale**
+
+L'epic gestisce DUE contesti di autenticazione paralleli:
+
+- **Customer-side** (pagina pubblica ordering): il cliente NON è un Supabase auth user. Riceve un JWT custom firmato HMAC-SHA256 con env `CUSTOMER_JWT_SECRET` (NON `SUPABASE_JWT_SECRET` — prefisso riservato). Il JWT è generato dall'Edge Function `resolve-table` quando il cliente scansiona il QR. Payload contiene `customer_session_id`, `exp` (default 12h).
+- **Admin-side** (backoffice tenant): membri del team usano Supabase auth user standard. Auth flow via `supabase.auth`.
+
+Pattern di propagazione del customer JWT al backend:
+- **Edge Function customer-side**: `supabase.functions.invoke(name, { body, headers: { Authorization: ` + "`Bearer ${customerJwt}`" + ` } })`. L'Edge ha `verify_jwt = false` in `config.toml`, validation custom via `_shared/customerJwt.ts:verifyCustomerJwt()`.
+- **SELECT diretto DB customer-side** (es. `getCurrentCustomerSession`): client transient via `createClient(URL, ANON_KEY, { global: { headers: { Authorization: 'Bearer ' + customerJwt } } })`. RLS anon policies usano `get_jwt_customer_session_id()` helper SQL per filtrare per claim.
+
+**Optimistic locking — transition admin**
+
+Le transition state lato admin (`acknowledge-order`, `deliver-order`, `cancel-order-admin`) richiedono `expected_version` nel body. Pattern UPDATE con guard `WHERE id = ? AND version = ? AND status IN (...)` + `version = version + 1`. Se 0 rows aggiornate → 409 `INVALID_STATE_TRANSITION` con `details.reason: "OPTIMISTIC_LOCK_CONFLICT"`.
+
+`orders.version` NON ha trigger DB. Va incrementata esplicitamente nell'UPDATE.
+
+**Error code naming convention**
+
+Distinguibili lato UI senza guess:
+- `OPTIMISTIC_LOCK_CONFLICT` — race su transition, UI fa toast + re-fetch
+- `INVALID_STATE_TRANSITION` — mismatch stato puro (es. deliver su cancelled), UI mostra toast informativo (current_status su `(err as Error & { details }).details`)
+- `INVALID_ITEMS` (submitOrder) vs `INVALID_RECTIFICATION_ITEMS` (rectifyOrder) — naming distinto per UI branching
+- `TABLE_LABEL_CONFLICT`, `CUSTOMER_NAME_TOO_LONG`, `REASON_TOO_LONG`, `EMPTY_CART`, `EMPTY_RECTIFICATION`, `INVALID_RECTIFICATION_QUANTITY`, `SCOPE_REQUIRED` — validation client-side, fail-fast prima del network
+
+Pattern Error: `throw new Error("CODE")` raw + extension property `(err as Error & { details? }).details = ...` per casi con info aggiuntiva. Tipi `InvalidItemsErrorDetails` e `InvalidStateTransitionErrorDetails` esportati da `orders.ts` per type-safety lato consumer.
+
+**Service layer (src/services/supabase/)**
+
+- `tables.ts` — 8 funzioni (CRUD soft-delete + regenerate qr_token + generate QR PDF via Edge)
+- `customerSessions.ts` — 6 funzioni dual-auth (3 customer + 2 admin + helper privato `buildCustomerClient`)
+- `productAvailability.ts` — 3 funzioni (list, count, toggle via Edge)
+- `orders.ts` — 8 funzioni dual-auth + helper privati `parseInvokeError`, `throwMappedTransitionError`
+
+Tutti i tipi in `src/types/orders.ts` (single file per coesione dominio ordering).
+
+**Schema facts critici epic ordering**
+
+- `tables.qr_token` UUID, DEFAULT `gen_random_uuid()` DB-side. Non fornito dal client su create.
+- `tables` soft-delete via `deleted_at timestamptz`. Unique partial `(activity_id, label) WHERE deleted_at IS NULL` (label riusabile dopo soft-delete).
+- `tables.maintenance_mode boolean DEFAULT false` (NON `is_active`). Logica invertita: `true` = bloccato per manutenzione.
+- `customer_sessions` lifecycle via `expires_at` + cron TTL sweep. NO `deleted_at`, NO trigger expire.
+- `customer_sessions` RLS anon: SELECT `id = get_jwt_customer_session_id()`, UPDATE solo su colonna `customer_name` (column-level GRANT).
+- `product_availability_overrides` UNIQUE `(activity_id, product_id)` — un override per coppia. NO `variant_product_id`.
+- `product_availability_overrides` UPSERT lato Edge, righe leftover con `available=true` post auto-reset cron (funzionalmente equivalenti a "nessuna riga").
+- `orders.version int NOT NULL DEFAULT 1` per optimistic locking. Increment applicativo, no trigger.
+- `orders.status` CHECK constraint (`submitted` | `acknowledged` | `delivered` | `cancelled`), NON enum DB.
+- `order_items.options_snapshot jsonb` shape: `{ primary_option: { group_id, group_name, value_id, value_name } | null, addons: Array<{ ..., price_delta: number }> }`.
+- `order_items` immutable (NO `updated_at`, NO trigger). Edge Function `submit-order` è SOLE writer (rettifiche creano nuovo `orders` row).
+- `numeric` Postgres serializzato come `string` da supabase-js per SELECT diretti → normalizzazione `Number(x)` nei service `list*WithItems` / `listOrdersForActivity` / `listTablesWithState`. Edge responses sono già JSON con number nativo.
+- View `v_tables_with_state` espone: `tables.* + active_sessions_count + pending_orders_count + open_groups_count + current_total` (admin only).
+
+---
+
 ## Database
 
 - Schema changes: SEMPRE nuova migration (`supabase/migrations/YYYYMMDDHHMMSS_*.sql`). MAI modificare esistenti.
@@ -420,6 +491,8 @@ Catalogo completo + note operative (`purge-tenant-now` vs `purge-tenants`, trigg
 - **`supabase/config.toml` entry obbligatoria per ogni nuova Edge Function**: senza entry esplicita il gateway Supabase applica `verify_jwt = true` di default e respinge JWT non-Supabase (customer JWT custom firmato con `CUSTOMER_JWT_SECRET`, oppure anon key per endpoint public-facing) con `UNAUTHORIZED_LEGACY_JWT` o `UNAUTHORIZED_INVALID_JWT_FORMAT` PRIMA di entrare nel codice della function. Pattern obbligatorio: `[functions.<nome>]` + `enabled = true` + `verify_jwt = false` + `import_map = "./functions/import_map.json"` + `entrypoint = "./functions/<nome>/index.ts"`. Lezione appresa task 2.4 (`resolve-table`), 2.5b (`submit-order`), tutti gli admin endpoint Fase 2.
 
 - **Slash `/` nei commenti TypeScript Deno**: il parser TS del bundler Deno (deploy Edge Function) può interpretare `/` dentro `//` o `/* */` come inizio di regex literal in certi contesti, causando deploy fail con `Failed to bundle the function (reason: The module's source code could not be parsed: Unterminated regexp literal)`. Bug noto del lexer. Workaround: sostituire `/` con `vs`, `or`, `|` nei commenti. Esempio: `// pattern: cancel-order-admin / acknowledge-order` → `// pattern: cancel-order-admin vs acknowledge-order`. Lezione appresa task 2.12 (`close-table`).
+
+- **Epic Ordinazioni dal tavolo (11 Edge Functions)**: `resolve-table`, `submit-order`, `get-orders-for-session`, `cancel-order`, `acknowledge-order`, `deliver-order`, `cancel-order-admin`, `rectify-order`, `close-table`, `toggle-product-availability`, `generate-table-qrs`. Dettaglio dual-auth e optimistic locking nella sezione `## Epic Ordinazioni dal tavolo`. Catalogo completo in `docs/edge-functions.md`.
 
 ---
 
@@ -546,11 +619,11 @@ NON modificare automaticamente:
 
 **Sicurezza**: modificare migration esistenti | rimuovere RLS | `service_role` nel frontend | bypassare tenant validation | referenziare `v2_activity_schedules` (ELIMINATA)
 
-**Architettura**: Supabase diretto da componenti | `tenant_id` da `auth.user.id` | nuovi provider context | modali centrate per CRUD | router fuori da App.tsx | top navbar | `any` in TypeScript
+**Architettura**: Supabase diretto da componenti | `tenant_id` da `auth.user.id` | nuovi provider context | modali centrate per CRUD | router fuori da App.tsx | top navbar | `any` in TypeScript | `customer_session_id` decodificato dal JWT lato frontend (solo da response Edge Function `resolve-table` o re-read via `getCurrentCustomerSession`)
 
-**Database**: prefisso `v2_` nelle query service | tabelle senza `tenant_id` | `CASCADE` cross-dominio senza richiesta | modificare `get_my_tenant_ids()` | `DROP POLICY` senza `IF EXISTS` (rompe idempotenza cross-env, fallisce silenziosamente in caso di drift naming)
+**Database**: prefisso `v2_` nelle query service | tabelle senza `tenant_id` | `CASCADE` cross-dominio senza richiesta | modificare `get_my_tenant_ids()` | `DROP POLICY` senza `IF EXISTS` (rompe idempotenza cross-env, fallisce silenziosamente in caso di drift naming) | bypassare optimistic locking nelle transition admin (`acknowledge` / `deliver` / `cancel-admin`) — `expected_version` sempre richiesto, 409 `OPTIMISTIC_LOCK_CONFLICT` da rispettare
 
-**Frontend**: CSS inline | testi in inglese | esporre `owner_user_id` | librerie npm non richieste | submit button dentro `<form>` nei drawer | SystemDrawer/DrawerLayout nella pagina pubblica (usare PublicSheet) | usare "Attiva"/"Inattiva" come label UI per stato sede (usa sempre "Pubblicata"/"Sospesa" via `StatusBadge`) | rimuovere `position: relative` su `.wrapper` o `top: 0; left: 0` su `.input` in `Switch.module.scss` (input absolute senza coordinate sforava `<html>.scrollHeight` di 241px — bug fixato bceb822) | bypassare `formatInactiveReason` definendo label inline per motivi di sospensione | reintrodurre debounce manuale (`useRef<setTimeout>`) per save di multi-select rapidi (usare draft + `UnsavedChangesBar`)
+**Frontend**: CSS inline | testi in inglese | esporre `owner_user_id` | librerie npm non richieste | submit button dentro `<form>` nei drawer | SystemDrawer/DrawerLayout nella pagina pubblica (usare PublicSheet) | usare "Attiva"/"Inattiva" come label UI per stato sede (usa sempre "Pubblicata"/"Sospesa" via `StatusBadge`) | rimuovere `position: relative` su `.wrapper` o `top: 0; left: 0` su `.input` in `Switch.module.scss` (input absolute senza coordinate sforava `<html>.scrollHeight` di 241px — bug fixato bceb822) | bypassare `formatInactiveReason` definendo label inline per motivi di sospensione | reintrodurre debounce manuale (`useRef<setTimeout>`) per save di multi-select rapidi (usare draft + `UnsavedChangesBar`) | chiamare Edge Functions customer-only da contesto admin (`submit-order`, `cancel-order`, `get-orders-for-session` richiedono customer JWT custom, NON Supabase user JWT)
 
 **Scheduling**: salvare `end_at` come mezzanotte UTC (usare `T23:59:59` locale) | disabilitare i giorni della settimana quando un periodo è attivo (sono combinabili) | slot `hero` nei featured (rimosso, solo `before_catalog`/`after_catalog`)
 
