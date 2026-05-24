@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, useParams } from "react-router-dom";
 import Sidebar from "@components/layout/Sidebar/Sidebar";
 import { AppHeader } from "@components/layout/AppHeader/AppHeader";
+import { PageHeaderSlot } from "@components/layout/PageHeaderSlot";
 import { DrawerProvider } from "@/context/Drawer/DrawerProvider";
 import { BreadcrumbProvider } from "@/context/BreadcrumbProvider";
+import { PageHeaderProvider } from "@/context/PageHeaderProvider";
 import { SubscriptionBanner } from "@/components/Subscription/SubscriptionBanner";
 import { ActivationRequired } from "@/components/Subscription/ActivationRequired";
 import { useTenant } from "@/context/useTenant";
@@ -59,6 +61,7 @@ export default function MainLayout() {
     const tenantName = selectedTenant?.name;
     usePageTitle(pageName && tenantName ? `${pageName} — ${tenantName}` : pageName);
 
+    const contentRef = useRef<HTMLDivElement>(null);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
         if (typeof window === "undefined") return false;
@@ -103,26 +106,29 @@ export default function MainLayout() {
         <div className={styles.appLayout}>
             <DrawerProvider>
                 <BreadcrumbProvider>
-                    <header className={styles.globalHeader}>
-                        <AppHeader onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
-                    </header>
+                    <PageHeaderProvider>
+                        <header className={styles.globalHeader}>
+                            <AppHeader onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
+                        </header>
 
-                    <div className={styles.body}>
-                    <Sidebar
-                        isMobile={isMobile}
-                        mobileOpen={mobileSidebarOpen}
-                        collapsed={!isMobile && sidebarCollapsed}
-                        onRequestClose={() => setMobileSidebarOpen(false)}
-                        onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-                    />
+                        <div className={styles.body}>
+                            <Sidebar
+                                isMobile={isMobile}
+                                mobileOpen={mobileSidebarOpen}
+                                collapsed={!isMobile && sidebarCollapsed}
+                                onRequestClose={() => setMobileSidebarOpen(false)}
+                                onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                            />
 
-                    <main className={styles.main}>
-                        <div className={styles.content}>
-                            <SubscriptionBanner />
-                            <Outlet />
+                            <main className={styles.main}>
+                                <PageHeaderSlot scrollContainerRef={contentRef} />
+                                <div ref={contentRef} className={styles.content}>
+                                    <SubscriptionBanner />
+                                    <Outlet />
+                                </div>
+                            </main>
                         </div>
-                    </main>
-                </div>
+                    </PageHeaderProvider>
                 </BreadcrumbProvider>
             </DrawerProvider>
         </div>
