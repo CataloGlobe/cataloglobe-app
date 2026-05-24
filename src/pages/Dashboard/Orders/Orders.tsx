@@ -15,9 +15,14 @@ import {
     listOrdersForActivity,
     acknowledgeOrder,
     deliverOrder,
-    cancelOrderAdmin
+    cancelOrderAdmin,
+    rectifyOrder
 } from "@/services/supabase/orders";
-import type { V2OrderWithItems, ListOrdersOptions } from "@/types/orders";
+import type {
+    V2OrderWithItems,
+    ListOrdersOptions,
+    RectifyOrderItem
+} from "@/types/orders";
 
 import { listTables } from "@/services/supabase/tables";
 import type { V2Table } from "@/types/orders";
@@ -28,6 +33,7 @@ import type { V2Activity } from "@/types/activity";
 import OrderCard from "./OrderCard";
 import OrderDetailDrawer from "./OrderDetailDrawer";
 import OrderCancelDrawer from "./OrderCancelDrawer";
+import OrderRectifyDrawer from "./OrderRectifyDrawer";
 import styles from "./Orders.module.scss";
 
 type OrderStatusFilter =
@@ -70,6 +76,10 @@ export default function Orders() {
     // Cancel drawer
     const [isCancelOpen, setIsCancelOpen] = useState(false);
     const [orderToCancel, setOrderToCancel] = useState<V2OrderWithItems | null>(null);
+
+    // Rectify drawer
+    const [isRectifyOpen, setIsRectifyOpen] = useState(false);
+    const [orderToRectify, setOrderToRectify] = useState<V2OrderWithItems | null>(null);
 
     // ── Activities load ──
     const loadActivities = useCallback(async () => {
@@ -266,9 +276,88 @@ export default function Orders() {
         }
     }
 
-    // Placeholder rettifica (Prompt 3/3)
-    function handleRectifyOpen(_order: V2OrderWithItems) {
-        showToast({ message: "Rettifica disponibile a breve", type: "info" });
+    function handleRectifyOpen(order: V2OrderWithItems) {
+        setOrderToRectify(order);
+        setIsRectifyOpen(true);
+    }
+
+    async function handleRectifyConfirm(
+        items: RectifyOrderItem[],
+        reason: string
+    ) {
+        if (!orderToRectify) return;
+        try {
+            await rectifyOrder(
+                orderToRectify.id,
+                items,
+                reason.length > 0 ? reason : undefined
+            );
+            showToast({ message: "Rettifica registrata", type: "success" });
+            setIsRectifyOpen(false);
+            setOrderToRectify(null);
+            await loadOrders();
+        } catch (err) {
+            if (err instanceof Error) {
+                switch (err.message) {
+                    case "EMPTY_RECTIFICATION":
+                        showToast({
+                            message: "Seleziona almeno un articolo da stornare",
+                            type: "error"
+                        });
+                        return;
+                    case "INVALID_RECTIFICATION_QUANTITY":
+                        showToast({
+                            message: "Quantità di storno non valida",
+                            type: "error"
+                        });
+                        return;
+                    case "REASON_TOO_LONG":
+                        showToast({
+                            message: "Il motivo è troppo lungo (max 500 caratteri)",
+                            type: "error"
+                        });
+                        return;
+                    case "INVALID_PARENT":
+                        showToast({
+                            message: "Non puoi rettificare una rettifica esistente",
+                            type: "error"
+                        });
+                        setIsRectifyOpen(false);
+                        setOrderToRectify(null);
+                        void loadOrders();
+                        return;
+                    case "INVALID_PARENT_STATE": {
+                        const details = (err as Error & {
+                            details?: { current_status?: string };
+                        }).details;
+                        showToast({
+                            message: `Impossibile rettificare: stato corrente ${details?.current_status ?? "non valido"}`,
+                            type: "error"
+                        });
+                        setIsRectifyOpen(false);
+                        setOrderToRectify(null);
+                        void loadOrders();
+                        return;
+                    }
+                    case "INVALID_RECTIFICATION_ITEMS": {
+                        const details = (err as Error & {
+                            details?: { reason?: string };
+                        }).details;
+                        const subReason = details?.reason;
+                        let msg = "Rettifica non valida";
+                        if (subReason === "STORNO_QTY_EXCEEDS_ORIGINAL")
+                            msg = "Quantità di storno superiore all'originale";
+                        else if (subReason === "ORDER_ITEM_NOT_FOUND")
+                            msg = "Articolo non trovato nell'ordine";
+                        else if (subReason === "INVALID_STORNO_ITEM")
+                            msg = "Articolo non rettificabile";
+                        showToast({ message: msg, type: "error" });
+                        return;
+                    }
+                }
+            }
+            showToast({ message: "Errore durante la rettifica", type: "error" });
+        }
     }
 
     return (
@@ -412,6 +501,22 @@ export default function Orders() {
                     setOrderToCancel(null);
                 }}
                 onConfirm={handleCancelConfirm}
+            />
+
+            <OrderRectifyDrawer
+                open={isRectifyOpen}
+                order={orderToRectify}
+                tableLabel={
+                    tables.find(t => t.id === orderToRectify?.table_id)?.label ?? "?"
+                }
+                tableZone={
+                    tables.find(t => t.id === orderToRectify?.table_id)?.zone ?? null
+                }
+                onClose={() => {
+                    setIsRectifyOpen(false);
+                    setOrderToRectify(null);
+                }}
+                onConfirm={handleRectifyConfirm}
             />
         </section>
     );
