@@ -1,0 +1,70 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 24px;
+}
+
+.headerActions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.autoRefreshToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+
+    input[type="checkbox"] {
+        cursor: pointer;
+    }
+}
+
+.activitySelector {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.activitySelectorLabel {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted, #6b6f76);
+}
+
+.activitySelect,
+.tableFilter {
+    padding: 8px 12px;
+    border: 1px solid var(--border-default, #e1e3e8);
+    border-radius: 6px;
+    font-size: 14px;
+    background: var(--surface-elevated, #fff);
+    color: var(--text-primary, #1a1d21);
+    cursor: pointer;
+
+    &:focus {
+        outline: none;
+        border-color: var(--accent-default, #2563eb);
+        box-shadow: 0 0 0 3px var(--accent-soft, rgba(37, 99, 235, 0.12));
+    }
+}
+
+.filtersRow {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.cardsList {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 1fr;
+
+    @media (min-width: 1200px) {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

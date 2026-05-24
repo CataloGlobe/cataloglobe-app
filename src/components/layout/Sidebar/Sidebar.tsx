@@ -6,6 +6,7 @@ import {
     LayoutDashboard,
     Store,
     Grid2X2,
+    ClipboardList,
     Settings,
     Calendar,
     BookOpen,
@@ -64,6 +65,7 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
             items: [
                 { to: `${b}/locations`, label: "Sedi", icon: <Store size={18} /> },
                 { to: `${b}/tables`, label: "Tavoli", icon: <Grid2X2 size={18} /> },
+                { to: `${b}/orders`, label: "Ordini", icon: <ClipboardList size={18} /> },
                 { to: `${b}/scheduling`, label: "Programmazione", icon: <Calendar size={18} /> }
             ]
         },

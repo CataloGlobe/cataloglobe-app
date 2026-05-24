@@ -50,6 +50,7 @@ const ActivateTrial = lazy(() => import("./pages/Onboarding/ActivateTrial"));
 const Overview = lazy(() => import("@/pages/Business/OverviewPage"));
 const Businesses = lazy(() => import("./pages/Dashboard/Businesses/Businesses"));
 const Tables = lazy(() => import("./pages/Dashboard/Tables/Tables"));
+const Orders = lazy(() => import("./pages/Dashboard/Orders/Orders"));
 const Catalogs = lazy(() => import("./pages/Dashboard/Catalogs/Catalogs"));
 const CatalogEngine = lazy(() => import("./pages/Dashboard/Catalogs/CatalogEngine"));
 const Reviews = lazy(() => import("@pages/Dashboard/Reviews/Reviews"));
@@ -200,6 +201,8 @@ export default function App() {
                 <Route path="locations/:activityId" element={<ActivityDetailPage />} />
 
                 <Route path="tables" element={<Tables />} />
+
+                <Route path="orders" element={<Orders />} />
 
                 <Route path="scheduling" element={<Programming />} />
                 <Route path="scheduling/:ruleId" element={<ProgrammingRuleDetail />} />
