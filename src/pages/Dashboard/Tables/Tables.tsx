@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Grid2X2, RefreshCw, QrCode, RotateCw } from "lucide-react";
+import { Plus, Grid2X2, RefreshCw, QrCode, RotateCw, Lock } from "lucide-react";
 
 import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
@@ -29,8 +29,11 @@ import type { V2Table, V2TableWithState } from "@/types/orders";
 import { getActivities } from "@/services/supabase/activities";
 import type { V2Activity } from "@/types/activity";
 
+import { closeTable } from "@/services/supabase/customerSessions";
+
 import TableDeleteDrawer from "./TableDeleteDrawer";
 import TableRegenerateTokenDrawer from "./TableRegenerateTokenDrawer";
+import TableCloseDrawer from "./TableCloseDrawer";
 import styles from "./Tables.module.scss";
 
 type StatusFilter = "all" | "free" | "occupied" | "maintenance";
@@ -72,6 +75,10 @@ export default function Tables() {
     // Regenerate token drawer
     const [isRegenOpen, setIsRegenOpen] = useState(false);
     const [itemToRegen, setItemToRegen] = useState<V2Table | null>(null);
+
+    // Close table drawer
+    const [isCloseOpen, setIsCloseOpen] = useState(false);
+    const [tableToClose, setTableToClose] = useState<V2TableWithState | null>(null);
 
     // QR generation flags (per disabilitazione bottoni durante async)
     const [isGeneratingQrAll, setIsGeneratingQrAll] = useState(false);
@@ -309,6 +316,42 @@ export default function Tables() {
         }
     }
 
+    function openClose(item: V2TableWithState) {
+        setTableToClose(item);
+        setIsCloseOpen(true);
+    }
+
+    async function handleCloseConfirm() {
+        if (!tableToClose) return;
+        try {
+            const result = await closeTable(tableToClose.id);
+            const msg =
+                result.closed_groups_count === 0
+                    ? "Nessun conto aperto da chiudere"
+                    : `Tavolo chiuso (${result.closed_groups_count} ${result.closed_groups_count === 1 ? "conto" : "conti"}, ${result.closed_orders_count} ${result.closed_orders_count === 1 ? "ordine" : "ordini"})`;
+            showToast({ message: msg, type: "success" });
+            setIsCloseOpen(false);
+            setTableToClose(null);
+            await loadData();
+        } catch (err) {
+            if (err instanceof Error && err.message === "TABLE_HAS_OPEN_ORDERS") {
+                showToast({
+                    message:
+                        "Il tavolo ha ordini non ancora consegnati. Completa o cancella quegli ordini prima di chiudere il tavolo.",
+                    type: "error"
+                });
+                setIsCloseOpen(false);
+                setTableToClose(null);
+                await loadData();
+                return;
+            }
+            showToast({
+                message: "Errore durante la chiusura del tavolo",
+                type: "error"
+            });
+        }
+    }
+
     // ── Columns ──
     const columns: ColumnDefinition<V2TableWithState>[] = [
         {
@@ -414,6 +457,11 @@ export default function Tables() {
                             onClick: () => openRegen(row)
                         },
                         {
+                            label: "Chiudi tavolo",
+                            icon: Lock,
+                            onClick: () => openClose(row)
+                        },
+                        {
                             label: "Elimina",
                             variant: "destructive",
                             onClick: () => openDelete(row),
@@ -429,7 +477,7 @@ export default function Tables() {
 
     return (
         <section className={styles.container}>
-            <PageHeader
+            <PageHeader sticky
                 title="Tavoli"
                 subtitle="Gestisci i tavoli delle tue sedi e monitora lo stato live."
                 actions={
@@ -641,6 +689,16 @@ export default function Tables() {
                     setItemToRegen(null);
                 }}
                 onConfirm={handleRegenerate}
+            />
+
+            <TableCloseDrawer
+                open={isCloseOpen}
+                table={tableToClose}
+                onClose={() => {
+                    setIsCloseOpen(false);
+                    setTableToClose(null);
+                }}
+                onConfirm={handleCloseConfirm}
             />
         </section>
     );
