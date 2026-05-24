@@ -25,6 +25,7 @@ import ResetPassword from "./pages/Auth/ResetPassword";
 // Public pages — eager (entry point visitatori anonimi, evita round-trip extra del lazy chunk)
 import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
 import PublicErrorBoundary from "./components/PublicErrorBoundary/PublicErrorBoundary";
+import TableEntryPage from "./pages/TableEntryPage/TableEntryPage";
 import Home from "./pages/Home/Home";
 import NotFound from "./pages/NotFound/NotFound";
 import InvitePage from "./pages/Invite/InvitePage";
@@ -261,6 +262,9 @@ export default function App() {
                     </AdminRoute>
                 }
             />
+
+            {/* CUSTOMER ORDERING — QR bootstrap (DEVE precedere /:slug catch-all) */}
+            <Route path="/t/:qrToken" element={<TableEntryPage />} />
 
             {/* PUBLIC BUSINESS */}
             <Route
