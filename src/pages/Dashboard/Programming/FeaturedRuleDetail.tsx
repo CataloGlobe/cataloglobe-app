@@ -379,7 +379,7 @@ export default function FeaturedRuleDetail() {
     });
 
     if (isLoading || !form || !rule) {
-        return <section className={styles.page} />;
+        return null;
     }
 
     return (

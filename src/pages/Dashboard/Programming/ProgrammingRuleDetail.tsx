@@ -641,7 +641,7 @@ export default function ProgrammingRuleDetail() {
     });
 
     if (isLoading || !form || !rule) {
-        return <section className={styles.page} />;
+        return null;
     }
 
     return (

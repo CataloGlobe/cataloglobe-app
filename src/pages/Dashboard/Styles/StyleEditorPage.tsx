@@ -275,7 +275,7 @@ export default function StyleEditorPage() {
                     <div className={styles.propertiesPanel}>
 
                         {/* Close button row (breadcrumb now in global AppHeader) */}
-                        <div className={styles.panelBreadcrumb}>
+                        <div className={styles.panelCloseRow}>
                             <button
                                 type="button"
                                 className={styles.panelCloseBtn}

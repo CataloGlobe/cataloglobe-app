@@ -154,7 +154,7 @@ export default function ProductPage() {
     });
 
     if (loading) {
-        return <div className={styles.container} />;
+        return null;
     }
 
     if (error || !product) {

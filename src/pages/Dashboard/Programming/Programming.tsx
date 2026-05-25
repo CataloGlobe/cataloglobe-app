@@ -1067,9 +1067,6 @@ export default function Programming() {
 
     return (
         <section className={styles.programming}>
-            <div className={styles.topArea}>
-            </div>
-
             {viewMode === "list" ? (
                 <>
                     <Tabs<RuleTypeFilter>
