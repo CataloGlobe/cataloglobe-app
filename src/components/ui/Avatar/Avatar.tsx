@@ -8,6 +8,7 @@ export interface AvatarProps {
     imageUrl?: string;
     size?: AvatarSize;
     gradient?: string;
+    rounded?: boolean;
     className?: string;
 }
 
@@ -27,9 +28,14 @@ function deriveInitials(name?: string): string {
     return (first + last).toUpperCase();
 }
 
-export function Avatar({ name, imageUrl, size = "md", gradient, className }: AvatarProps) {
+export function Avatar({ name, imageUrl, size = "md", gradient, rounded, className }: AvatarProps) {
     const initials = deriveInitials(name);
-    const classes = [styles.avatar, styles[size], className].filter(Boolean).join(" ");
+    const classes = [
+        styles.avatar,
+        styles[size],
+        rounded ? styles.rounded : null,
+        className
+    ].filter(Boolean).join(" ");
     const style: CSSProperties | undefined = gradient ? { background: gradient } : undefined;
 
     if (imageUrl) {
