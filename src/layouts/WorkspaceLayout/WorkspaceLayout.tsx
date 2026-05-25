@@ -2,14 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
-import { Menu } from "lucide-react";
-import { IconButton } from "@/components/ui/Button/IconButton";
+import { BreadcrumbProvider } from "@/context/BreadcrumbProvider";
+import { PageHeaderProvider } from "@/context/PageHeaderProvider";
+import { AppHeaderWorkspace } from "@/components/layout/AppHeader/AppHeaderWorkspace";
+import { PageHeaderSlot } from "@/components/layout/PageHeaderSlot";
 import WorkspaceSidebar from "./WorkspaceSidebar";
 import styles from "./WorkspaceLayout.module.scss";
 
 export default function WorkspaceLayout() {
     usePageTitle('Workspace');
-    const mainRef = useRef<HTMLElement>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
     const { pathname } = useLocation();
 
     const isMobile = useMediaQuery("(max-width: 767px)");
@@ -17,7 +19,7 @@ export default function WorkspaceLayout() {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     useEffect(() => {
-        mainRef.current?.scrollTo(0, 0);
+        contentRef.current?.scrollTo(0, 0);
     }, [pathname]);
 
     useEffect(() => {
@@ -36,27 +38,31 @@ export default function WorkspaceLayout() {
     }, [mobileSidebarOpen]);
 
     return (
-        <div className={styles.layout}>
-            <WorkspaceSidebar
-                isMobile={isMobile}
-                mobileOpen={mobileSidebarOpen}
-                collapsed={!isMobile && sidebarCollapsed}
-                onRequestClose={() => setMobileSidebarOpen(false)}
-                onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-            />
-            <main className={styles.main} ref={mainRef}>
-                {isMobile && (
-                    <div className={styles.mobileHeader}>
-                        <IconButton
-                            variant="ghost"
-                            icon={<Menu size={24} />}
-                            onClick={() => setMobileSidebarOpen(true)}
-                            aria-label="Apri menu"
+        <div className={styles.appLayout}>
+            <BreadcrumbProvider>
+                <PageHeaderProvider>
+                    <header className={styles.globalHeader}>
+                        <AppHeaderWorkspace
+                            onOpenMobileSidebar={isMobile ? () => setMobileSidebarOpen(true) : undefined}
                         />
+                    </header>
+                    <div className={styles.body}>
+                        <WorkspaceSidebar
+                            isMobile={isMobile}
+                            mobileOpen={mobileSidebarOpen}
+                            collapsed={!isMobile && sidebarCollapsed}
+                            onRequestClose={() => setMobileSidebarOpen(false)}
+                            onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                        />
+                        <main className={styles.main}>
+                            <PageHeaderSlot scrollContainerRef={contentRef} />
+                            <div ref={contentRef} className={styles.content}>
+                                <Outlet />
+                            </div>
+                        </main>
                     </div>
-                )}
-                <Outlet />
-            </main>
+                </PageHeaderProvider>
+            </BreadcrumbProvider>
         </div>
     );
 }

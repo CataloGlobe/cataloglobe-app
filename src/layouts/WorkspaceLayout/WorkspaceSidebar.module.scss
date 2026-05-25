@@ -4,13 +4,12 @@
   border-right: 1px solid var(--border, #e2e8f0);
   display: flex;
   flex-direction: column;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .desktop {
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  position: relative;
+  height: 100%;
 }
 
 .mobile {
@@ -29,39 +28,7 @@
   cursor: default;
 }
 
-/* ===== Logo ===== */
-.logoWrap {
-  padding: 24px 22px 12px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-}
-
-.logoWrapCollapsed {
-  padding: 20px 0;
-  justify-content: center;
-}
-
-.logoLink {
-  display: inline-flex;
-  align-items: center;
-  text-decoration: none;
-  line-height: 0;
-}
-
-.logoHorizontal {
-  height: 32px;
-  width: auto;
-  object-fit: contain;
-}
-
-.logoMark {
-  height: 32px;
-  width: auto;
-  object-fit: contain;
-}
-
-/* ===== Mobile header ===== */
+/* ===== Mobile header (close button) ===== */
 .mobileHeader {
   padding: 12px;
   display: flex;
@@ -179,102 +146,40 @@
   display: none;
 }
 
-/* ===== Divider ===== */
-.divider {
-  height: 1px;
-  margin: 0 12px 8px;
-  background: var(--border, #e2e8f0);
-}
-
-/* ===== Notification bell section ===== */
-.bellSection {
-  padding: 0 12px 4px;
-}
-
-/* ===== Footer (user bar + collapse toggle) ===== */
-.sidebarFooter {
-  position: relative;
-  flex-shrink: 0;
-}
-
-/* ===== User bar ===== */
-.userBar {
-  padding: 4px 20px 8px 12px;
-}
-
-.userTrigger {
-  width: 100%;
+/* ===== Collapse footer ===== */
+.collapseFooter {
+  border-top: 1px solid #F1F2F4;
+  padding: 8px 36px;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border, #e2e8f0);
-  background: #fff;
-  box-sizing: border-box;
-}
-
-.userTriggerCollapsed {
-  width: 42px;
-  height: 42px;
-  padding: 0;
-  justify-content: center;
-  margin: 0 auto;
-}
-
-.userAvatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #6366f1;
-  display: grid;
-  place-items: center;
+  justify-content: flex-start;
   flex-shrink: 0;
-  overflow: hidden;
+  transition: padding 0.22s ease;
 }
 
-.userAvatarHasImage {
-  background: #fff;
-}
-
-.userAvatarImg {
-  width: 26px;
-  height: 26px;
-  object-fit: cover;
-  border-radius: 50%;
-}
-
-.userInitial {
-  color: #fff;
-  font-weight: 700;
-  font-size: 9px;
-  line-height: 1;
-  letter-spacing: 0.02em;
-}
-
-.userName {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: #0f172a;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.sidebar[data-collapsed="true"] .collapseFooter {
+  padding: 8px 29px;
 }
 
 .collapseToggle {
-  position: absolute;
-  top: 50%;
-  right: -12px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #fff;
-  border: 1px solid var(--border, #e2e8f0);
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: #94A3B8;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  z-index: 2;
+  transition: background 0.1s, color 0.1s;
+
+  &:hover {
+    background: #F8FAFC;
+    color: #475569;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #A5B4FC;
+    outline-offset: 2px;
+  }
 }
