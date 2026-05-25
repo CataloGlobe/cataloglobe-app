@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Facebook, Globe, Instagram, ListChecks, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus, Search } from "lucide-react";
+import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus, Search } from "lucide-react";
 import type {
     ResolvedAllergen,
     ResolvedCharacteristic,
@@ -25,13 +25,13 @@ import type { CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
 import { useFabCollapse } from "../hooks/useFabCollapse";
 import EventsView from "../EventsView/EventsView";
-import type { SelectionItem, SelectedFormat, SelectedAddon } from "../SelectionSheet/SelectionSheet";
+import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
 import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
 
 // Lazy-loaded: si aprono solo su interazione utente
 const SearchOverlay = lazy(() => import("../SearchOverlay/SearchOverlay"));
 const ItemDetail = lazy(() => import("../ItemDetail/ItemDetail"));
-const SelectionSheet = lazy(() => import("../SelectionSheet/SelectionSheet"));
+const OrderingSheet = lazy(() => import("../OrderingSheet/OrderingSheet"));
 const ReviewsView = lazy(() => import("../ReviewsView/ReviewsView"));
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
@@ -45,7 +45,6 @@ import { useOptionalCustomerSession } from "@/context/CustomerSession/CustomerSe
 import type { OrderItemRequest, SubmitOrderResult } from "@/types/orders";
 import { ClipboardList } from "lucide-react";
 const OrderConfirmationSheet = lazy(() => import("../OrderConfirmationSheet/OrderConfirmationSheet"));
-const MyOrdersSheet = lazy(() => import("../MyOrdersSheet/MyOrdersSheet"));
 
 // ─── Selection helpers ────────────────────────────────────────────────────────
 
@@ -690,7 +689,9 @@ export default function CollectionView({
             return [];
         }
     });
-    const [isSelectionOpen, setIsSelectionOpen] = useState(false);
+    const [isOrderingOpen, setIsOrderingOpen] = useState(false);
+    const [activeOrderingTab, setActiveOrderingTab] = useState<"cart" | "orders">("cart");
+    const [ordersRefreshKey, setOrdersRefreshKey] = useState(0);
     const [editingSelectionIndex, setEditingSelectionIndex] = useState<number | null>(null);
 
     useEffect(() => {
@@ -818,8 +819,20 @@ export default function CollectionView({
         | null
     >(null);
     const [confirmedOrder, setConfirmedOrder] = useState<SubmitOrderResult | null>(null);
-    const [isMyOrdersOpen, setIsMyOrdersOpen] = useState(false);
     const [hasOrdersInSession, setHasOrdersInSession] = useState(false);
+
+    const handleSessionExpired = useCallback(() => {
+        setIsOrderingOpen(false);
+        setSubmitFeedback({
+            type: "error",
+            message: "La sessione è scaduta. Scansiona di nuovo il QR.",
+        });
+    }, []);
+
+    const openOrdering = useCallback(() => {
+        setActiveOrderingTab(selectionCount > 0 ? "cart" : "orders");
+        setIsOrderingOpen(true);
+    }, [selectionCount]);
 
     // Check session orders presenza al mount / cambio session
     useEffect(() => {
@@ -881,7 +894,9 @@ export default function CollectionView({
             const result = await submitOrder(customerSession.session.jwt, items);
 
             clearSelection();
-            setIsSelectionOpen(false);
+            setIsOrderingOpen(false);
+            setActiveOrderingTab("orders");
+            setOrdersRefreshKey(k => k + 1);
             setConfirmedOrder(result);
             setHasOrdersInSession(true);
         } catch (err) {
@@ -975,7 +990,7 @@ export default function CollectionView({
         if (!product) return;
         setEditingSelectionIndex(index);
         setSelectedItem(product);
-        setIsSelectionOpen(false);
+        setIsOrderingOpen(false);
     }, [findProductById]);
 
     // Prodotto con optionGroups → apre il dettaglio per configurare prima di aggiungere.
@@ -1955,25 +1970,6 @@ export default function CollectionView({
                                     </Suspense>
                                 )}
 
-                                {isSelectionOpen && (
-                                    <Suspense fallback={null}>
-                                        <SelectionSheet
-                                            isOpen={isSelectionOpen}
-                                            onClose={() => setIsSelectionOpen(false)}
-                                            items={selection}
-                                            onUpdateQty={updateSelectionQty}
-                                            onRemove={removeFromSelection}
-                                            onClear={clearSelection}
-                                            onEditItem={mode === "public" && activeTab === "menu"
-                                                ? handleEditSelectionItem
-                                                : undefined
-                                            }
-                                            orderingActive={orderingActive}
-                                            onSubmitOrder={orderingActive ? handleSubmitOrder : undefined}
-                                            isSubmitting={isSubmittingOrder}
-                                        />
-                                    </Suspense>
-                                )}
 
                             </>
                         )}
@@ -2020,30 +2016,16 @@ export default function CollectionView({
                 </Suspense>
             )}
 
-            {/* ── FAB "I miei ordini" — solo customer ordering, solo tab menu, se almeno 1 ordine ── */}
-            {mode === "public" && activeTab === "menu" && orderingActive && hasOrdersInSession && (
+            {/* ── ORDERING FAB — unico, context-aware (cart o ordini) ── */}
+            {mode === "public" && activeTab === "menu" && (selectionCount > 0 || (orderingActive && hasOrdersInSession)) && (
                 <button
                     type="button"
-                    className={styles.myOrdersFab}
-                    style={{ bottom: `calc(76px + env(safe-area-inset-bottom, 0px))` }}
-                    onClick={() => setIsMyOrdersOpen(true)}
-                    aria-label="Apri i miei ordini"
-                >
-                    <ClipboardList size={18} />
-                    <span>I miei ordini</span>
-                </button>
-            )}
-
-            {/* ── FAB SELEZIONE — solo public, solo tab menu, quando c'è almeno 1 elemento ── */}
-            {mode === "public" && activeTab === "menu" && selectionCount > 0 && (
-                <button
-                    type="button"
-                    className={styles.selectionFab}
+                    className={styles.orderingFab}
                     style={{ bottom: `calc(20px + env(safe-area-inset-bottom, 0px))` }}
                     data-collapsed={isSelectionCollapsed}
                     onClick={() => {
-                        setIsSelectionOpen(true);
-                        if (activityId) {
+                        openOrdering();
+                        if (activityId && selectionCount > 0) {
                             const totalPrice = selection.reduce((s, i) => s + i.unitPrice * i.qty, 0);
                             trackEvent(activityId, "selection_sheet_open", {
                                 item_count: selectionCount,
@@ -2051,11 +2033,13 @@ export default function CollectionView({
                             });
                         }
                     }}
-                    aria-label={t("selection.fab_aria", { count: selectionCount })}
+                    aria-label="Il tuo ordine"
                 >
-                    <ListChecks className={styles.selectionFabIcon} size={20} />
-                    <span className={styles.selectionFabLabel}>{t("selection.fab_label")}</span>
-                    <span className={styles.selectionFabBadge}>{selectionCount}</span>
+                    <ClipboardList className={styles.orderingFabIcon} size={20} />
+                    <span className={styles.orderingFabLabel}>Il tuo ordine</span>
+                    {selectionCount > 0 && (
+                        <span className={styles.orderingFabBadge}>{selectionCount}</span>
+                    )}
                 </button>
             )}
 
@@ -2105,17 +2089,33 @@ export default function CollectionView({
                         onClose={() => setConfirmedOrder(null)}
                         onViewMyOrders={() => {
                             setConfirmedOrder(null);
-                            setIsMyOrdersOpen(true);
+                            setActiveOrderingTab("orders");
+                            setIsOrderingOpen(true);
                         }}
                     />
                 </Suspense>
             )}
 
-            {isMyOrdersOpen && orderingActive && (
+            {isOrderingOpen && (
                 <Suspense fallback={null}>
-                    <MyOrdersSheet
-                        isOpen={isMyOrdersOpen}
-                        onClose={() => setIsMyOrdersOpen(false)}
+                    <OrderingSheet
+                        isOpen={isOrderingOpen}
+                        onClose={() => setIsOrderingOpen(false)}
+                        activeTab={activeOrderingTab}
+                        onTabChange={setActiveOrderingTab}
+                        items={selection}
+                        onUpdateQty={updateSelectionQty}
+                        onRemove={removeFromSelection}
+                        onClear={clearSelection}
+                        onEditItem={mode === "public" && activeTab === "menu"
+                            ? handleEditSelectionItem
+                            : undefined
+                        }
+                        orderingActive={orderingActive}
+                        onSubmitOrder={orderingActive ? handleSubmitOrder : undefined}
+                        isSubmitting={isSubmittingOrder}
+                        onSessionExpired={handleSessionExpired}
+                        ordersRefreshKey={ordersRefreshKey}
                     />
                 </Suspense>
             )}

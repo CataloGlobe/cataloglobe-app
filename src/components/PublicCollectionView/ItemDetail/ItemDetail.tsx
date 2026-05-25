@@ -7,7 +7,7 @@ import CharacteristicIcon from "@/components/ui/CharacteristicIcon/Characteristi
 import PublicSheet from "../PublicSheet/PublicSheet";
 import styles from "./ItemDetail.module.scss";
 import type { CollectionViewSectionItem } from "../CollectionView/CollectionView";
-import type { SelectedAddon, SelectedFormat } from "../SelectionSheet/SelectionSheet";
+import type { SelectedAddon, SelectedFormat } from "../OrderingSheet/OrderingSheet";
 
 type Props = {
     item: CollectionViewSectionItem | null;
