@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
+import { usePageHeader } from "@/context/usePageHeader";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
@@ -139,24 +139,27 @@ export default function ProductPage() {
     }, [loadProduct]);
 
 
-    const breadcrumbItems = [
+    const breadcrumbItems = useMemo(() => [
         { label: "Prodotti", to: `/business/${tenantId}/products` },
         { label: loading ? "Caricamento..." : product?.name || "Prodotto non trovato" }
-    ];
+    ], [tenantId, loading, product?.name]);
+
+    useBreadcrumbItems(breadcrumbItems);
+
+    usePageHeader({
+        title: loading
+            ? "Caricamento prodotto..."
+            : (product?.name ?? "Prodotto non trovato"),
+        sticky: true,
+    });
 
     if (loading) {
-        return (
-            <div className={styles.container}>
-                <Breadcrumb items={breadcrumbItems} />
-                <PageHeader title="Caricamento prodotto..." />
-            </div>
-        );
+        return <div className={styles.container} />;
     }
 
     if (error || !product) {
         return (
             <div className={styles.container}>
-                <Breadcrumb items={breadcrumbItems} />
                 <div className={styles.errorBlock}>
                     <Text variant="title-sm" colorVariant="error">
                         {error || "Prodotto non trovato"}
@@ -173,10 +176,6 @@ export default function ProductPage() {
 
     return (
         <div className={styles.container}>
-            <Breadcrumb items={breadcrumbItems} />
-
-            <PageHeader title={product.name} />
-
             <Tabs value={activeTab} onChange={val => setActiveTab(val as ProductPageTab)}>
                 <Tabs.List>
                     {visibleTabs.map(tab => (
