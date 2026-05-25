@@ -40,9 +40,12 @@ import type { ActivityFee } from "@/types/activity";
 import type { Allergen } from "@/services/supabase/allergens";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
-import { submitOrder } from "@/services/supabase/orders";
+import { submitOrder, getOrdersForSession } from "@/services/supabase/orders";
 import { useOptionalCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
-import type { OrderItemRequest } from "@/types/orders";
+import type { OrderItemRequest, SubmitOrderResult } from "@/types/orders";
+import { ClipboardList } from "lucide-react";
+const OrderConfirmationSheet = lazy(() => import("../OrderConfirmationSheet/OrderConfirmationSheet"));
+const MyOrdersSheet = lazy(() => import("../MyOrdersSheet/MyOrdersSheet"));
 
 // ─── Selection helpers ────────────────────────────────────────────────────────
 
@@ -814,6 +817,30 @@ export default function CollectionView({
         | { type: "error"; message: string }
         | null
     >(null);
+    const [confirmedOrder, setConfirmedOrder] = useState<SubmitOrderResult | null>(null);
+    const [isMyOrdersOpen, setIsMyOrdersOpen] = useState(false);
+    const [hasOrdersInSession, setHasOrdersInSession] = useState(false);
+
+    // Check session orders presenza al mount / cambio session
+    useEffect(() => {
+        const jwt = customerSession?.session?.jwt;
+        if (!orderingActive || !jwt) {
+            setHasOrdersInSession(false);
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const result = await getOrdersForSession(jwt);
+                if (!cancelled) setHasOrdersInSession(result.orders.length > 0);
+            } catch {
+                if (!cancelled) setHasOrdersInSession(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [orderingActive, customerSession?.session?.jwt]);
 
     useEffect(() => {
         if (!submitFeedback) return;
@@ -855,7 +882,8 @@ export default function CollectionView({
 
             clearSelection();
             setIsSelectionOpen(false);
-            setSubmitFeedback({ type: "success", orderId: result.order_id });
+            setConfirmedOrder(result);
+            setHasOrdersInSession(true);
         } catch (err) {
             if (err instanceof Error) {
                 const msg = err.message;
@@ -1992,6 +2020,20 @@ export default function CollectionView({
                 </Suspense>
             )}
 
+            {/* ── FAB "I miei ordini" — solo customer ordering, solo tab menu, se almeno 1 ordine ── */}
+            {mode === "public" && activeTab === "menu" && orderingActive && hasOrdersInSession && (
+                <button
+                    type="button"
+                    className={styles.myOrdersFab}
+                    style={{ bottom: `calc(76px + env(safe-area-inset-bottom, 0px))` }}
+                    onClick={() => setIsMyOrdersOpen(true)}
+                    aria-label="Apri i miei ordini"
+                >
+                    <ClipboardList size={18} />
+                    <span>I miei ordini</span>
+                </button>
+            )}
+
             {/* ── FAB SELEZIONE — solo public, solo tab menu, quando c'è almeno 1 elemento ── */}
             {mode === "public" && activeTab === "menu" && selectionCount > 0 && (
                 <button
@@ -2053,6 +2095,29 @@ export default function CollectionView({
                         ? "Ordine inviato! Lo staff lo prenderà in carico."
                         : submitFeedback.message}
                 </div>
+            )}
+
+            {confirmedOrder !== null && (
+                <Suspense fallback={null}>
+                    <OrderConfirmationSheet
+                        isOpen={confirmedOrder !== null}
+                        order={confirmedOrder}
+                        onClose={() => setConfirmedOrder(null)}
+                        onViewMyOrders={() => {
+                            setConfirmedOrder(null);
+                            setIsMyOrdersOpen(true);
+                        }}
+                    />
+                </Suspense>
+            )}
+
+            {isMyOrdersOpen && orderingActive && (
+                <Suspense fallback={null}>
+                    <MyOrdersSheet
+                        isOpen={isMyOrdersOpen}
+                        onClose={() => setIsMyOrdersOpen(false)}
+                    />
+                </Suspense>
             )}
         </main>
     );

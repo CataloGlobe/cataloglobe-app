@@ -1,0 +1,185 @@
+/* ─────────────────────────────────────────────────────────
+   OrderConfirmationSheet
+   Coerente con design system pubblico token-driven.
+──────────────────────────────────────────────────────────── */
+
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 24px 20px;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+    font-family: var(--pub-font-family, sans-serif);
+    color: var(--pub-text);
+}
+
+/* ── ICONA SUCCESS ───────────────────────────────────────── */
+
+.iconWrap {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #10b981;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: scaleIn 0.3s ease-out;
+}
+
+@keyframes scaleIn {
+    from { transform: scale(0); }
+    to   { transform: scale(1); }
+}
+
+/* ── TITOLI ───────────────────────────────────────────────── */
+
+.title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--pub-text);
+    text-align: center;
+    line-height: 1.2;
+}
+
+.subtitle {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.45;
+    color: var(--pub-text-muted, color-mix(in srgb, var(--pub-text) 60%, var(--pub-surface)));
+    text-align: center;
+    max-width: 36ch;
+    margin-inline: auto;
+}
+
+/* ── BLOCCO RIEPILOGO ─────────────────────────────────────── */
+
+.itemsBlock {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+    padding: 16px;
+    background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
+    border-radius: var(--pub-radius, 12px);
+    text-align: left;
+}
+
+.itemsTitle {
+    margin: 0 0 4px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--pub-text-muted, color-mix(in srgb, var(--pub-text) 60%, var(--pub-surface)));
+}
+
+.itemsList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.itemRow {
+    display: grid;
+    grid-template-columns: 32px 1fr auto;
+    gap: 8px;
+    align-items: baseline;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.itemQty {
+    font-weight: 600;
+    color: var(--pub-text-muted, color-mix(in srgb, var(--pub-text) 60%, var(--pub-surface)));
+}
+
+.itemName {
+    color: var(--pub-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.itemPrice {
+    color: var(--pub-text);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.totalRow {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-top: 10px;
+    margin-top: 4px;
+    border-top: 1px solid color-mix(in srgb, var(--pub-text) 12%, var(--pub-surface));
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--pub-text);
+
+    span:last-child {
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+/* ── AZIONI ───────────────────────────────────────────────── */
+
+.actions {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.btnPrimary,
+.btnSecondary {
+    width: 100%;
+    min-height: 48px;
+    padding: 14px 18px;
+    border-radius: var(--pub-btn-radius, 12px);
+    font-family: var(--pub-font-family, sans-serif);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s ease, background 0.15s ease, transform 0.05s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.btnPrimary {
+    background: var(--pub-primary);
+    color: var(--pub-on-primary, #ffffff);
+    border: none;
+
+    &:hover:not(:disabled) {
+        opacity: 0.92;
+    }
+
+    &:active {
+        transform: scale(0.995);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pub-primary);
+        outline-offset: 2px;
+    }
+}
+
+.btnSecondary {
+    background: transparent;
+    color: var(--pub-text);
+    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 14%, var(--pub-surface)));
+
+    &:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
+    }
+
+    &:active {
+        transform: scale(0.995);
+    }
+}
