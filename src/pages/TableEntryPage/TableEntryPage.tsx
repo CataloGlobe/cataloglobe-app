@@ -33,6 +33,7 @@ export default function TableEntryPage() {
                     sessionId: result.session_id,
                     tableId: result.table.id,
                     tableLabel: result.table.label,
+                    tableZone: result.table.zone ?? null,
                     activityId: result.activity.id,
                     tenantId: result.tenant_id,
                     customerName: null,

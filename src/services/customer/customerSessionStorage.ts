@@ -17,6 +17,7 @@ export interface CustomerSessionBlob {
     sessionId: string;
     tableId: string;
     tableLabel: string;
+    tableZone?: string | null;
     activityId: string;
     tenantId: string;
     customerName?: string | null;
