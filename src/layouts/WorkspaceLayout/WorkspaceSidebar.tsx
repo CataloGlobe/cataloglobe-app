@@ -1,6 +1,7 @@
+import { Fragment } from "react";
 import { NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Building2, CreditCard, Settings, PanelLeftClose, PanelLeftOpen, X, UserCircle } from "lucide-react";
+import { Building2, CreditCard, Settings, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import styles from "./WorkspaceSidebar.module.scss";
@@ -16,21 +17,16 @@ interface NavItem {
 }
 
 interface NavGroup {
-    title: string | null;
-    icon?: React.ReactNode;
     items: NavItem[];
 }
 
 const GROUPS: NavGroup[] = [
     {
-        title: null,
         items: [
             { to: "/workspace", label: "Attività", icon: <Building2 size={18} />, end: true }
         ]
     },
     {
-        title: "Account",
-        icon: <UserCircle size={12} />,
         items: [
             { to: "/workspace/billing", label: "Abbonamento", icon: <CreditCard size={18} /> },
             { to: "/workspace/settings", label: "Impostazioni", icon: <Settings size={18} /> }
@@ -93,12 +89,8 @@ export default function WorkspaceSidebar({
                 <div className={styles.sidebarScroll}>
                     <nav className={styles.nav}>
                         {GROUPS.map((group, i) => (
-                            <div key={i} className={styles.groupCard}>
-                                {group.title && (
-                                    <div className={styles.groupTitle}>
-                                        {collapsed && group.icon ? group.icon : group.title}
-                                    </div>
-                                )}
+                            <Fragment key={i}>
+                                {i > 0 && <div className={styles.groupDivider} role="separator" />}
                                 <ul className={styles.list}>
                                     {group.items.map(link => (
                                         <li key={link.to}>
@@ -145,7 +137,7 @@ export default function WorkspaceSidebar({
                                         </li>
                                     ))}
                                 </ul>
-                            </div>
+                            </Fragment>
                         ))}
                     </nav>
                 </div>

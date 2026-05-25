@@ -1,6 +1,6 @@
 .sidebar {
   position: relative;
-  background: #f8fafc;
+  background: #FFFFFF;
   border-right: 1px solid var(--border, #e2e8f0);
   display: flex;
   flex-direction: column;
@@ -43,19 +43,17 @@
   padding: 12px;
 }
 
-/* ===== Nav ===== */
+/* ===== Nav (gaps come from dividers, not from nav gap) ===== */
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 0;
 }
 
-.groupCard {
-  background: #fff;
-  border: 1px solid #f1f5f9;
-  border-radius: 12px;
-  padding: 8px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+.groupDivider {
+  height: 1px;
+  background: #E5E7EB;
+  margin: 10px 0;
 }
 
 .list {
@@ -66,20 +64,8 @@
   gap: 2px;
 }
 
-.groupTitle {
-  padding: 0 12px;
-  margin: 8px 0;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #6366f1;
-}
-
 .link {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -120,26 +106,25 @@
   }
 }
 
-/* ===== Collapsed state ===== */
-.sidebar[data-collapsed="true"] .groupCard {
-  overflow: hidden;
-  width: 100%;
-  box-sizing: border-box;
+.link.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: #6366F1;
+  border-radius: 0 2px 2px 0;
 }
 
+/* ===== Collapsed state ===== */
 .sidebar[data-collapsed="true"] .link {
   justify-content: center;
   padding: 0;
 }
 
 .sidebar[data-collapsed="true"] .nav {
-  gap: 16px;
   padding: 0 4px;
-}
-
-.sidebar[data-collapsed="true"] .groupTitle {
-  justify-content: center;
-  padding: 0;
 }
 
 .sidebar[data-collapsed="true"] .label {
