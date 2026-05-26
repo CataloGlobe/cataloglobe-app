@@ -19,7 +19,6 @@ Snapshot al 06/05/2026. Aggiornare quando un'area viene completata o abbandonata
 
 ## Refactor candidati
 
-- **`CONTENT_MAX_WIDTH` in token condiviso** — il valore max content width desktop (1280px) vive in 2 file SCSS + 1 costante TS in `PublicCollectionHeader.tsx` senza single source of truth. Causa documentata di edit incompleti. Da estrarre in `--pub-frame-max-desktop` letto sia da SCSS che via `getComputedStyle()` da TS.
 - **Consolidare tabelle audit `audit_logs` + `audit_events`** — schema diverso, scope sovrapposto (vedi `docs/database-reference.md`). Candidate per merge in singola tabella. Bassa priorità.
 
 ## Operativo

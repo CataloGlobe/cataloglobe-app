@@ -296,7 +296,7 @@ Tabella delle stringhe customer-facing. Source: lettura dei file dei componenti 
 | Page state `subscription_inactive` (NotFound) | testi | `NotFound variant="subscription-inactive"` | quando tenant suspended/canceled | DA VERIFICARE |
 | Page state `empty` (NotFound) | testi | `NotFound variant="business-empty"` | quando no catalog & no featured | DA VERIFICARE |
 
-**Componenti dichiarati nello scope ma NON ispezionati riga-per-riga** (campionati): `PublicCatalogTree`, `CollectionSectionNav`, `FeaturedCard`, `PublicProductCard` (segnalato come dead code in CLAUDE.md), `PublicBrandHeader`, `CollectionHero` (rimossi/sostituiti da PublicCollectionHeader). Per completezza, andranno ispezionati nel grep finale di sezione 5.
+**Componenti dichiarati nello scope ma NON ispezionati riga-per-riga** (campionati): `PublicCatalogTree`, `CollectionSectionNav`, `FeaturedCard`, `PublicBrandHeader`, `CollectionHero` (rimossi/sostituiti da PublicCollectionHeader). Per completezza, andranno ispezionati nel grep finale di sezione 5.
 
 ---
 
