@@ -32,6 +32,10 @@
   // Shape
   --pub-radius: 20px;
 
+  // Layout — max content width (desktop). Shared between SCSS .frame/.inner
+  // and TS PublicCollectionHeader via getComputedStyle for the rail margin calc.
+  --pub-frame-max-desktop: 1280px;
+
   --pub-font-family: "Inter", sans-serif;
 
   // Card shadows
