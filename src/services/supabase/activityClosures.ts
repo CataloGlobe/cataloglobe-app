@@ -3,6 +3,7 @@ import type { V2ActivityClosure, ClosureSlot } from "@/types/activity-closures";
 import { computeFieldHash } from "@/services/translation/hashUtils";
 import { enqueueWithSilentError } from "./translationJobs";
 import { deleteTranslationsForEntity } from "./translations";
+import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 
 export async function listActivityClosures(
     activityId: string,
@@ -70,6 +71,8 @@ export async function createActivityClosure(
         });
     }
 
+    void revalidatePublicCatalogForTenant(tenantId);
+
     return data;
 }
 
@@ -112,6 +115,8 @@ export async function updateActivityClosure(
         newSourceHash: labelHash
     });
 
+    void revalidatePublicCatalogForTenant(tenantId);
+
     return data;
 }
 
@@ -131,4 +136,6 @@ export async function deleteActivityClosure(
     } catch (err) {
         console.error("[translations] cleanup on deleteActivityClosure failed:", err);
     }
+
+    void revalidatePublicCatalogForTenant(tenantId);
 }

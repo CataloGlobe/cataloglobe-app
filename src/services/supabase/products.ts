@@ -10,6 +10,7 @@ import {
 } from "./translationJobs";
 import { deleteTranslationsForEntity } from "./translations";
 import { deleteProductImageBestEffort } from "./upload";
+import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 
 export type ProductType = "simple" | "formats" | "configurable";
 
@@ -385,6 +386,8 @@ export async function createProduct(
         });
     }
 
+    void revalidatePublicCatalogForTenant(tenantId);
+
     return newProduct;
 }
 
@@ -494,6 +497,8 @@ export async function updateProduct(
             newSourceHash: notesHash
         });
     }
+
+    void revalidatePublicCatalogForTenant(tenantId);
 
     return updatedProduct;
 }
@@ -617,6 +622,8 @@ export async function deleteProduct(id: string, tenantId: string): Promise<void>
     } catch (err) {
         console.warn("[storage] product image cleanup failed:", err);
     }
+
+    void revalidatePublicCatalogForTenant(tenantId);
 }
 
 import {

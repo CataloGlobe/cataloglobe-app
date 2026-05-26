@@ -35,3 +35,12 @@
         background-color: #9CA3AF;
     }
 }
+
+.warning {
+    background-color: var(--color-warning-100, #fef3c7);
+    color: var(--color-warning-700, #b45309);
+
+    .dot {
+        background-color: var(--color-warning-500, #f59e0b);
+    }
+}

@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Facebook, Globe, Instagram, ListChecks, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus, Search } from "lucide-react";
+import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus, Search } from "lucide-react";
 import type {
     ResolvedAllergen,
     ResolvedCharacteristic,
@@ -25,13 +25,13 @@ import type { CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
 import { useFabCollapse } from "../hooks/useFabCollapse";
 import EventsView from "../EventsView/EventsView";
-import type { SelectionItem, SelectedFormat, SelectedAddon } from "../SelectionSheet/SelectionSheet";
+import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
 import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
 
 // Lazy-loaded: si aprono solo su interazione utente
 const SearchOverlay = lazy(() => import("../SearchOverlay/SearchOverlay"));
 const ItemDetail = lazy(() => import("../ItemDetail/ItemDetail"));
-const SelectionSheet = lazy(() => import("../SelectionSheet/SelectionSheet"));
+const OrderingSheet = lazy(() => import("../OrderingSheet/OrderingSheet"));
 const ReviewsView = lazy(() => import("../ReviewsView/ReviewsView"));
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
@@ -40,6 +40,11 @@ import type { ActivityFee } from "@/types/activity";
 import type { Allergen } from "@/services/supabase/allergens";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
+import { submitOrder, getOrdersForSession } from "@/services/supabase/orders";
+import { useOptionalCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
+import type { OrderItemRequest, SubmitOrderResult } from "@/types/orders";
+import { ClipboardList } from "lucide-react";
+const OrderConfirmationSheet = lazy(() => import("../OrderConfirmationSheet/OrderConfirmationSheet"));
 
 // ─── Selection helpers ────────────────────────────────────────────────────────
 
@@ -575,6 +580,15 @@ type Props = {
      * legenda "Caratteristiche". Lista vuota → bottone footer nascosto.
      */
     catalogCharacteristics?: ResolvedCharacteristic[];
+    /**
+     * True quando una sessione customer è attiva (scan QR completato).
+     * Per ora SOLO accettata nella signature; non consumata internamente.
+     * Verrà utilizzata nei prompt successivi per:
+     * - mostrare CTA "Invia ordine" nel SelectionSheet
+     * - mostrare tab "I miei ordini" nell'hub
+     * - mostrare badge tavolo nell'header
+     */
+    orderingActive?: boolean;
 };
 
 export default function CollectionView({
@@ -604,7 +618,8 @@ export default function CollectionView({
     activityServices,
     fees,
     allergens,
-    catalogCharacteristics
+    catalogCharacteristics,
+    orderingActive = false
 }: Props) {
     const { t } = useTranslation("public");
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
@@ -674,7 +689,9 @@ export default function CollectionView({
             return [];
         }
     });
-    const [isSelectionOpen, setIsSelectionOpen] = useState(false);
+    const [isOrderingOpen, setIsOrderingOpen] = useState(false);
+    const [activeOrderingTab, setActiveOrderingTab] = useState<"cart" | "orders">("cart");
+    const [ordersRefreshKey, setOrdersRefreshKey] = useState(0);
     const [editingSelectionIndex, setEditingSelectionIndex] = useState<number | null>(null);
 
     useEffect(() => {
@@ -793,6 +810,128 @@ export default function CollectionView({
 
     const clearSelection = useCallback(() => setSelection([]), []);
 
+    // ── Customer session + submit order ─────────────────────────────────────
+    const customerSession = useOptionalCustomerSession();
+    const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+    const [submitFeedback, setSubmitFeedback] = useState<
+        | { type: "success"; orderId: string }
+        | { type: "error"; message: string }
+        | null
+    >(null);
+    const [confirmedOrder, setConfirmedOrder] = useState<SubmitOrderResult | null>(null);
+    const [hasOrdersInSession, setHasOrdersInSession] = useState(false);
+
+    const handleSessionExpired = useCallback(() => {
+        setIsOrderingOpen(false);
+        setSubmitFeedback({
+            type: "error",
+            message: "La sessione è scaduta. Scansiona di nuovo il QR.",
+        });
+    }, []);
+
+    const openOrdering = useCallback(() => {
+        setActiveOrderingTab(selectionCount > 0 ? "cart" : "orders");
+        setIsOrderingOpen(true);
+    }, [selectionCount]);
+
+    // Check session orders presenza al mount / cambio session
+    useEffect(() => {
+        const jwt = customerSession?.session?.jwt;
+        if (!orderingActive || !jwt) {
+            setHasOrdersInSession(false);
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const result = await getOrdersForSession(jwt);
+                if (!cancelled) setHasOrdersInSession(result.orders.length > 0);
+            } catch {
+                if (!cancelled) setHasOrdersInSession(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [orderingActive, customerSession?.session?.jwt]);
+
+    useEffect(() => {
+        if (!submitFeedback) return;
+        const tm = setTimeout(() => setSubmitFeedback(null), 5000);
+        return () => clearTimeout(tm);
+    }, [submitFeedback]);
+
+    const handleSubmitOrder = useCallback(async () => {
+        if (!customerSession?.session) {
+            setSubmitFeedback({
+                type: "error",
+                message: "Sessione non disponibile. Scansiona di nuovo il QR."
+            });
+            return;
+        }
+        if (selection.length === 0) return;
+
+        setIsSubmittingOrder(true);
+        setSubmitFeedback(null);
+
+        try {
+            const items: OrderItemRequest[] = selection.flatMap(it => {
+                const baseQty = it.qty;
+                if (baseQty <= 0) return [];
+                const entry: OrderItemRequest = {
+                    product_id: it.id,
+                    quantity: baseQty,
+                    ...(it.selectedFormat?.id
+                        ? { primary_option_value_id: it.selectedFormat.id }
+                        : {}),
+                    ...(it.selectedAddons && it.selectedAddons.length > 0
+                        ? { addon_value_ids: it.selectedAddons.map(a => a.id) }
+                        : {})
+                };
+                return [entry];
+            });
+
+            const result = await submitOrder(customerSession.session.jwt, items);
+
+            clearSelection();
+            setIsOrderingOpen(false);
+            setActiveOrderingTab("orders");
+            setOrdersRefreshKey(k => k + 1);
+            setConfirmedOrder(result);
+            setHasOrdersInSession(true);
+        } catch (err) {
+            if (err instanceof Error) {
+                const msg = err.message;
+                if (msg.toLowerCase().includes("scaduta") || msg === "SESSION_EXPIRED") {
+                    customerSession.clear();
+                    setSubmitFeedback({
+                        type: "error",
+                        message: "La sessione è scaduta. Scansiona di nuovo il QR del tavolo."
+                    });
+                } else if (msg === "INVALID_ITEMS") {
+                    setSubmitFeedback({
+                        type: "error",
+                        message: "Alcuni prodotti non sono più disponibili. Ricontrolla la selezione."
+                    });
+                } else if (msg === "EMPTY_CART") {
+                    setSubmitFeedback({
+                        type: "error",
+                        message: "Aggiungi almeno un prodotto prima di inviare l'ordine."
+                    });
+                } else {
+                    setSubmitFeedback({ type: "error", message: msg });
+                }
+            } else {
+                setSubmitFeedback({
+                    type: "error",
+                    message: "Errore durante l'invio dell'ordine. Riprova."
+                });
+            }
+        } finally {
+            setIsSubmittingOrder(false);
+        }
+    }, [customerSession, selection, clearSelection]);
+
     const findProductById = useCallback((productId: string): CollectionViewSectionItem | null => {
         for (const group of sectionGroups) {
             for (const section of [group.root, ...group.children]) {
@@ -851,7 +990,7 @@ export default function CollectionView({
         if (!product) return;
         setEditingSelectionIndex(index);
         setSelectedItem(product);
-        setIsSelectionOpen(false);
+        setIsOrderingOpen(false);
     }, [findProductById]);
 
     // Prodotto con optionGroups → apre il dettaglio per configurare prima di aggiungere.
@@ -1831,22 +1970,6 @@ export default function CollectionView({
                                     </Suspense>
                                 )}
 
-                                {isSelectionOpen && (
-                                    <Suspense fallback={null}>
-                                        <SelectionSheet
-                                            isOpen={isSelectionOpen}
-                                            onClose={() => setIsSelectionOpen(false)}
-                                            items={selection}
-                                            onUpdateQty={updateSelectionQty}
-                                            onRemove={removeFromSelection}
-                                            onClear={clearSelection}
-                                            onEditItem={mode === "public" && activeTab === "menu"
-                                                ? handleEditSelectionItem
-                                                : undefined
-                                            }
-                                        />
-                                    </Suspense>
-                                )}
 
                             </>
                         )}
@@ -1893,16 +2016,16 @@ export default function CollectionView({
                 </Suspense>
             )}
 
-            {/* ── FAB SELEZIONE — solo public, solo tab menu, quando c'è almeno 1 elemento ── */}
-            {mode === "public" && activeTab === "menu" && selectionCount > 0 && (
+            {/* ── ORDERING FAB — unico, context-aware (cart o ordini) ── */}
+            {mode === "public" && activeTab === "menu" && (selectionCount > 0 || (orderingActive && hasOrdersInSession)) && (
                 <button
                     type="button"
-                    className={styles.selectionFab}
+                    className={styles.orderingFab}
                     style={{ bottom: `calc(20px + env(safe-area-inset-bottom, 0px))` }}
                     data-collapsed={isSelectionCollapsed}
                     onClick={() => {
-                        setIsSelectionOpen(true);
-                        if (activityId) {
+                        openOrdering();
+                        if (activityId && selectionCount > 0) {
                             const totalPrice = selection.reduce((s, i) => s + i.unitPrice * i.qty, 0);
                             trackEvent(activityId, "selection_sheet_open", {
                                 item_count: selectionCount,
@@ -1910,11 +2033,13 @@ export default function CollectionView({
                             });
                         }
                     }}
-                    aria-label={t("selection.fab_aria", { count: selectionCount })}
+                    aria-label="Il tuo ordine"
                 >
-                    <ListChecks className={styles.selectionFabIcon} size={20} />
-                    <span className={styles.selectionFabLabel}>{t("selection.fab_label")}</span>
-                    <span className={styles.selectionFabBadge}>{selectionCount}</span>
+                    <ClipboardList className={styles.orderingFabIcon} size={20} />
+                    <span className={styles.orderingFabLabel}>Il tuo ordine</span>
+                    {selectionCount > 0 && (
+                        <span className={styles.orderingFabBadge}>{selectionCount}</span>
+                    )}
                 </button>
             )}
 
@@ -1938,6 +2063,61 @@ export default function CollectionView({
                 >
                     <MessageSquareHeart size={20} /><span className={styles.valutaFabText}>{t("fab.review_label")}</span>
                 </button>
+            )}
+
+            {submitFeedback && (
+                <div
+                    className={
+                        submitFeedback.type === "success"
+                            ? styles.submitFeedbackSuccess
+                            : styles.submitFeedbackError
+                    }
+                    role="status"
+                    aria-live="polite"
+                >
+                    {submitFeedback.type === "success"
+                        ? "Ordine inviato! Lo staff lo prenderà in carico."
+                        : submitFeedback.message}
+                </div>
+            )}
+
+            {confirmedOrder !== null && (
+                <Suspense fallback={null}>
+                    <OrderConfirmationSheet
+                        isOpen={confirmedOrder !== null}
+                        order={confirmedOrder}
+                        onClose={() => setConfirmedOrder(null)}
+                        onViewMyOrders={() => {
+                            setConfirmedOrder(null);
+                            setActiveOrderingTab("orders");
+                            setIsOrderingOpen(true);
+                        }}
+                    />
+                </Suspense>
+            )}
+
+            {isOrderingOpen && (
+                <Suspense fallback={null}>
+                    <OrderingSheet
+                        isOpen={isOrderingOpen}
+                        onClose={() => setIsOrderingOpen(false)}
+                        activeTab={activeOrderingTab}
+                        onTabChange={setActiveOrderingTab}
+                        items={selection}
+                        onUpdateQty={updateSelectionQty}
+                        onRemove={removeFromSelection}
+                        onClear={clearSelection}
+                        onEditItem={mode === "public" && activeTab === "menu"
+                            ? handleEditSelectionItem
+                            : undefined
+                        }
+                        orderingActive={orderingActive}
+                        onSubmitOrder={orderingActive ? handleSubmitOrder : undefined}
+                        isSubmitting={isSubmittingOrder}
+                        onSessionExpired={handleSessionExpired}
+                        ordersRefreshKey={ordersRefreshKey}
+                    />
+                </Suspense>
             )}
         </main>
     );

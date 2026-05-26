@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useTenant } from "@/context/useTenant";
+import { isOwner } from "@/lib/permissions";
 import { createPortalSession } from "@/services/supabase/billing";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./SubscriptionBanner.module.scss";
@@ -53,7 +54,7 @@ export function SubscriptionBanner() {
                         }
                     </Text>
                 </div>
-                {userRole === "owner" && (
+                {isOwner(userRole) && (
                     <button className={styles.link} onClick={goToSubscription}>
                         Gestisci abbonamento
                     </button>
@@ -71,7 +72,7 @@ export function SubscriptionBanner() {
                         Problema con il pagamento. Aggiorna il metodo di pagamento per evitare interruzioni.
                     </Text>
                 </div>
-                {userRole === "owner" && (
+                {isOwner(userRole) && (
                     <Button
                         variant="secondary"
                         size="sm"
@@ -97,7 +98,7 @@ export function SubscriptionBanner() {
                             : "Il tuo abbonamento è sospeso. Contatta l'assistenza per ripristinare l'accesso."}
                     </Text>
                 </div>
-                {userRole === "owner" && status === "canceled" && (
+                {isOwner(userRole) && status === "canceled" && (
                     <Button
                         variant="primary"
                         size="sm"

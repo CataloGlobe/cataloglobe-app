@@ -1,13 +1,13 @@
+import { Fragment } from "react";
 import { NavLink, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import {
     LayoutDashboard,
     Store,
+    Grid2X2,
+    ClipboardList,
     Settings,
-    ChevronLeft,
-    X,
-    Globe,
     Calendar,
     BookOpen,
     Layers,
@@ -21,14 +21,12 @@ import {
     Cpu,
     Archive,
     CreditCard,
-    Languages
+    Languages,
+    PanelLeftClose,
+    PanelLeftOpen
 } from "lucide-react";
-import logoHorizontal from "@/assets/brand/logo-horizontal.png";
-import logoMark from "@/assets/brand/logo-mark.png";
 import styles from "./Sidebar.module.scss";
-import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
-import BusinessSwitcher from "@/components/Businesses/BusinessSwitcher/BusinessSwitcher";
 import { useTenant } from "@/context/useTenant";
 
 const SIDEBAR_EXPANDED = 260;
@@ -66,6 +64,8 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
             icon: <Briefcase size={12} />,
             items: [
                 { to: `${b}/locations`, label: "Sedi", icon: <Store size={18} /> },
+                { to: `${b}/tables`, label: "Tavoli", icon: <Grid2X2 size={18} /> },
+                { to: `${b}/orders`, label: "Ordini", icon: <ClipboardList size={18} /> },
                 { to: `${b}/scheduling`, label: "Programmazione", icon: <Calendar size={18} /> }
             ]
         },
@@ -130,6 +130,7 @@ export default function Sidebar({
             return true;
         })
     }));
+
     return (
         <>
             {isMobile && mobileOpen && (
@@ -156,129 +157,66 @@ export default function Sidebar({
                 }}
                 aria-hidden={isMobile && !mobileOpen}
             >
-                {/* ===== Mobile header ===== */}
-                {isMobile && (
-                    <div className={styles.mobileHeader}>
-                        <IconButton
-                            variant="ghost"
-                            icon={<X size={22} />}
-                            aria-label="Chiudi menu"
-                            onClick={onRequestClose}
-                        />
-                    </div>
-                )}
-
-                {/* ===== Logo ===== */}
-                {!isMobile && (
-                    <div
-                        className={[
-                            styles.logoWrap,
-                            collapsed ? styles.logoWrapCollapsed : ""
-                        ].join(" ")}
-                    >
-                        <a
-                            href="/"
-                            aria-label="CataloGlobe home"
-                            className={styles.logoLink}
-                        >
-                            <img
-                                src={collapsed ? logoMark : logoHorizontal}
-                                alt="CataloGlobe"
-                                className={
-                                    collapsed ? styles.logoMark : styles.logoHorizontal
-                                }
-                            />
-                        </a>
-                    </div>
-                )}
-
-                {/* ===== Scroll area ===== */}
                 <div className={styles.sidebarScroll}>
                     <nav className={styles.nav}>
                         {groups.map((group, i) => (
-                            <div key={i} className={styles.groupCard}>
-                                {group.title && (
-                                    <div className={styles.groupTitle}>
-                                        {collapsed && group.icon ? group.icon : group.title}
-                                    </div>
-                                )}
-                                <ul className={styles.list}>
-                                    {group.items.map(link => (
-                                        <li key={link.to}>
-                                            <NavLink
-                                                to={link.to}
-                                                end={link.end}
-                                                className={({ isActive }) =>
-                                                    [
-                                                        styles.link,
-                                                        isActive ? styles.active : ""
-                                                    ].join(" ")
-                                                }
-                                                onClick={() => {
-                                                    if (isMobile) onRequestClose();
-                                                }}
-                                            >
-                                                {!isMobile && collapsed ? (
-                                                    <Tooltip content={link.label} side="right">
-                                                        <span className={styles.icon}>
-                                                            {link.icon}
-                                                        </span>
-                                                    </Tooltip>
-                                                ) : (
-                                                    <span className={styles.icon}>{link.icon}</span>
-                                                )}
-
-                                                <motion.span
-                                                    className={styles.label}
-                                                    initial={false}
-                                                    animate={{
-                                                        opacity: collapsed ? 0 : 1,
-                                                        x: collapsed ? -8 : 0,
-                                                        width: collapsed ? 0 : "auto"
-                                                    }}
-                                                    transition={{
-                                                        type: "spring",
-                                                        stiffness: 300,
-                                                        damping: 30
+                            <Fragment key={i}>
+                                {i > 0 && <div className={styles.groupDivider} role="separator" />}
+                                <div
+                                    className={styles.group}
+                                    role="group"
+                                    aria-label={group.title ?? undefined}
+                                >
+                                    <ul className={styles.list}>
+                                        {group.items.map(link => (
+                                            <li key={link.to}>
+                                                <NavLink
+                                                    to={link.to}
+                                                    end={link.end}
+                                                    className={({ isActive }) =>
+                                                        [
+                                                            styles.link,
+                                                            isActive ? styles.active : ""
+                                                        ].join(" ")
+                                                    }
+                                                    onClick={() => {
+                                                        if (isMobile) onRequestClose();
                                                     }}
                                                 >
-                                                    {link.label}
-                                                </motion.span>
-                                            </NavLink>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
+                                                    {!isMobile && collapsed ? (
+                                                        <Tooltip content={link.label} side="right">
+                                                            <span className={styles.icon}>
+                                                                {link.icon}
+                                                            </span>
+                                                        </Tooltip>
+                                                    ) : (
+                                                        <span className={styles.icon}>{link.icon}</span>
+                                                    )}
+
+                                                    <span className={styles.label}>{link.label}</span>
+                                                </NavLink>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </Fragment>
                         ))}
                     </nav>
                 </div>
 
-                <div className={styles.divider} />
-
-                {/* ===== Business switcher + collapse toggle ===== */}
-                <div className={styles.sidebarHeader}>
-                    <BusinessSwitcher collapsed={collapsed} />
-
-                    {!isMobile && (
-                        <motion.button
+                {!isMobile && (
+                    <div className={styles.collapseFooter}>
+                        <button
+                            type="button"
                             className={styles.collapseToggle}
                             onClick={onToggleCollapse}
-                            initial={false}
-                            animate={{
-                                rotate: collapsed ? 180 : 0,
-                                y: "-50%"
-                            }}
-                            transition={{
-                                type: "spring",
-                                stiffness: 300,
-                                damping: 30
-                            }}
-                            aria-label={collapsed ? "Espandi sidebar" : "Comprimi sidebar"}
+                            aria-label={collapsed ? "Espandi menù laterale" : "Comprimi menù laterale"}
+                            title={collapsed ? "Espandi" : "Comprimi"}
                         >
-                            <ChevronLeft size={16} />
-                        </motion.button>
-                    )}
-                </div>
+                            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+                        </button>
+                    </div>
+                )}
             </motion.aside>
         </>
     );

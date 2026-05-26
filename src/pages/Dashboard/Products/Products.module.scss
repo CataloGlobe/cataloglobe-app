@@ -1,7 +1,6 @@
 @use "@/styles/mixins.scss" as *;
 
 .container {
-  overflow-y: auto;
   background-color: var(--color-gray-50);
 
   > div {

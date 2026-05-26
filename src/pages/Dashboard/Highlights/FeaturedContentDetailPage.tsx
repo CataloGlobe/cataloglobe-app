@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
+import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Card } from "@/components/ui/Card/Card";
 import { Button } from "@/components/ui/Button/Button";
 import { useToast } from "@/context/Toast/ToastContext";
-import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
@@ -137,15 +137,23 @@ export default function FeaturedContentDetailPage() {
         }
     };
 
-    const breadcrumbItems = [
+    const breadcrumbItems = useMemo(() => [
         { label: "Contenuti in evidenza", to: `/business/${tenantId}/featured` },
         { label: loading ? "Caricamento..." : content?.title || "Dettaglio" }
-    ];
+    ], [tenantId, loading, content?.title]);
+
+    useBreadcrumbItems(breadcrumbItems);
+
+    usePageHeader({
+        title: loading
+            ? "Caricamento..."
+            : (content?.internal_name || "Senza nome interno"),
+        sticky: true,
+    });
 
     if (pageError) {
         return (
             <div className={styles.wrapper}>
-                <Breadcrumb items={breadcrumbItems} />
                 <Text variant="title-sm" colorVariant="error">
                     {pageError}
                 </Text>
@@ -324,13 +332,6 @@ export default function FeaturedContentDetailPage() {
 
     return (
         <div className={styles.wrapper}>
-            <Breadcrumb items={breadcrumbItems} />
-
-            <PageHeader
-                title={loading ? "Caricamento..." : content?.internal_name || "Senza nome interno"}
-                subtitle={loading ? "" : (content?.title !== content?.internal_name ? content?.title || "" : "")}
-            />
-
             <Tabs
                 value={activeTab}
                 onChange={(v: "info" | "products") => setActiveTab(v)}

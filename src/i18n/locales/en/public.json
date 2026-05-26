@@ -5,7 +5,12 @@
         "loading_error": "Loading error.",
         "simulation_banner": "Simulation preview",
         "empty_catalog": "No products available at the moment",
-        "menu_label": "Menu"
+        "menu_label": "Menu",
+        "error": {
+            "not_found": "Venue not found.",
+            "invalid_link": "Invalid link.",
+            "invalid_lang": "Unsupported language."
+        }
     },
     "skip_to_content": "Skip to content",
     "hub": {

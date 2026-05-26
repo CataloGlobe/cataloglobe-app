@@ -1,4 +1,5 @@
 import { supabase } from "@/services/supabase/client";
+import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 import type { V2ActivityHours } from "@/types/activity-hours";
 
 export async function listActivityHours(
@@ -70,5 +71,8 @@ export async function upsertActivityHours(
         .select();
 
     if (error) throw error;
+
+    void revalidatePublicCatalogForTenant(tenantId);
+
     return data ?? [];
 }

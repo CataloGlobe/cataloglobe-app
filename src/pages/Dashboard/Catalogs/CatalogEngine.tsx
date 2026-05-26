@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
-import Breadcrumb, { type BreadcrumbItem } from "@/components/ui/Breadcrumb/Breadcrumb";
+import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
+import { usePageHeader } from "@/context/usePageHeader";
+import { type BreadcrumbItem } from "@/components/ui/Breadcrumb/Breadcrumb";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
@@ -392,6 +393,13 @@ export default function CatalogEngine() {
         ],
         [catalog?.name, catalogLabel, currentTenantId]
     );
+
+    useBreadcrumbItems(breadcrumbItems);
+
+    usePageHeader({
+        title: catalog?.name || catalogLabel,
+        sticky: true,
+    });
 
     const categoriesById = useMemo(
         () => new Map(categories.map(category => [category.id, category])),
@@ -1949,14 +1957,6 @@ export default function CatalogEngine() {
 
     return (
         <section className={styles.engineContainer}>
-            <div className={styles.engineHeader}>
-                <Breadcrumb items={breadcrumbItems} />
-                <PageHeader
-                    title={catalog?.name || catalogLabel}
-                    subtitle="Gestisci categorie e prodotti con navigazione ad albero."
-                />
-            </div>
-
             {isDirty && (
                 <div className={styles.saveBar}>
                     <Text variant="body-sm" weight={600} className={styles.saveBarMessage}>

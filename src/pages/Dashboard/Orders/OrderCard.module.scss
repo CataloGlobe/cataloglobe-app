@@ -1,0 +1,118 @@
+.card {
+    background: var(--surface-elevated, #ffffff);
+    border: 1px solid var(--border-default, #e1e3e8);
+    border-left: 4px solid var(--border-default, #e1e3e8);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    &[data-status="submitted"] {
+        border-left-color: var(--color-warning-500, #f59e0b);
+    }
+    &[data-status="acknowledged"] {
+        border-left-color: var(--color-success-500, #10b981);
+    }
+    &[data-status="cancelled"] {
+        opacity: 0.75;
+    }
+    &[data-status="delivered"] {
+        opacity: 0.9;
+    }
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.tableInfo {
+    flex: 1;
+    min-width: 0;
+    display: inline-flex;
+    align-items: baseline;
+}
+
+.timeStamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-muted, #6b6f76);
+}
+
+.customer {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+}
+
+.items {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 0;
+    border-top: 1px dashed var(--border-default, #e1e3e8);
+    border-bottom: 1px dashed var(--border-default, #e1e3e8);
+}
+
+.itemRow {
+    display: grid;
+    grid-template-columns: 32px 1fr auto;
+    gap: 8px;
+    align-items: baseline;
+}
+
+.itemQty {
+    font-weight: 600;
+    color: var(--text-muted, #6b6f76);
+    font-variant-numeric: tabular-nums;
+}
+
+.itemName {
+    color: var(--text-primary, #1a1d21);
+}
+
+.itemPrice {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary, #1a1d21);
+}
+
+.notes {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    background: var(--surface-muted, #f4f5f7);
+    border-radius: 8px;
+}
+
+.total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-default, #e1e3e8);
+    flex-wrap: wrap;
+}
+
+.actionsLeft {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}

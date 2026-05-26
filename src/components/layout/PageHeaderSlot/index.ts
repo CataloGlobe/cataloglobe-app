@@ -1,0 +1,1 @@
+export { PageHeaderSlot } from "./PageHeaderSlot";

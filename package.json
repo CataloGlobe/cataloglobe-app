@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "bash -c 'set -a; source .env.local; set +a; vercel dev --listen 3001'",
+    "dev:full": "concurrently -n vite,api -c cyan,magenta --kill-others-on-fail \"npm:dev\" \"npm:dev:api\"",
+    "dev:vercel": "bash -c 'set -a; source .env.local; set +a; vercel dev --listen 3001'",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run --config vitest.config.ts",
@@ -47,6 +50,7 @@
     "@vercel/node": "^5.8.2",
     "@vitejs/plugin-react": "^5.0.4",
     "baseline-browser-mapping": "^2.9.19",
+    "concurrently": "^9.2.1",
     "eslint": "^9.36.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.22",

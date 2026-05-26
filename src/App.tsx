@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/Routes/ProtectedRoute";
 import { GuestRoute } from "./components/Routes/GuestRoute";
 import { OtpRoute } from "./components/Routes/OtpRoute";
 import { RecoveryRoute } from "./components/Routes/RecoveryRoute";
+import { AdminRoute } from "./components/Routes/AdminRoute";
 import { TenantProvider } from "@context/TenantProvider";
 import { DashboardRedirect } from "./components/Routes/DashboardRedirect";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
@@ -24,11 +25,18 @@ import ResetPassword from "./pages/Auth/ResetPassword";
 // Public pages — eager (entry point visitatori anonimi, evita round-trip extra del lazy chunk)
 import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
 import PublicErrorBoundary from "./components/PublicErrorBoundary/PublicErrorBoundary";
+import TableEntryPage from "./pages/TableEntryPage/TableEntryPage";
 import Home from "./pages/Home/Home";
 import NotFound from "./pages/NotFound/NotFound";
 import InvitePage from "./pages/Invite/InvitePage";
 import PrivacyPolicyPage from "./pages/Legal/PrivacyPolicyPage";
 import TermsPage from "./pages/Legal/TermsPage";
+import StatusPage from "./pages/Status/StatusPage";
+
+// Admin (lazy: solo Lorenzo lo carica)
+const StatusIncidentsAdminPage = lazy(
+    () => import("./pages/Admin/StatusIncidents/StatusIncidentsPage")
+);
 
 // Workspace — lazy (solo utenti autenticati)
 const WorkspacePage = lazy(() => import("./pages/Workspace/WorkspacePage"));
@@ -42,6 +50,8 @@ const ActivateTrial = lazy(() => import("./pages/Onboarding/ActivateTrial"));
 // Business pages — lazy (solo utenti autenticati con tenant selezionato)
 const Overview = lazy(() => import("@/pages/Business/OverviewPage"));
 const Businesses = lazy(() => import("./pages/Dashboard/Businesses/Businesses"));
+const Tables = lazy(() => import("./pages/Dashboard/Tables/Tables"));
+const Orders = lazy(() => import("./pages/Dashboard/Orders/Orders"));
 const Catalogs = lazy(() => import("./pages/Dashboard/Catalogs/Catalogs"));
 const CatalogEngine = lazy(() => import("./pages/Dashboard/Catalogs/CatalogEngine"));
 const Reviews = lazy(() => import("@pages/Dashboard/Reviews/Reviews"));
@@ -191,6 +201,10 @@ export default function App() {
                 <Route path="locations" element={<Businesses />} />
                 <Route path="locations/:activityId" element={<ActivityDetailPage />} />
 
+                <Route path="tables" element={<Tables />} />
+
+                <Route path="orders" element={<Orders />} />
+
                 <Route path="scheduling" element={<Programming />} />
                 <Route path="scheduling/:ruleId" element={<ProgrammingRuleDetail />} />
                 <Route path="scheduling/featured/:ruleId" element={<FeaturedRuleDetail />} />
@@ -235,6 +249,22 @@ export default function App() {
             {/* Legal pages */}
             <Route path="/legal/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/legal/termini" element={<TermsPage />} />
+
+            {/* Status page pubblica — DEVE stare prima del catch-all /:slug */}
+            <Route path="/status" element={<StatusPage />} />
+
+            {/* Admin (cross-tenant) — gate via VITE_ADMIN_EMAIL */}
+            <Route
+                path="/admin/status-incidents"
+                element={
+                    <AdminRoute>
+                        <StatusIncidentsAdminPage />
+                    </AdminRoute>
+                }
+            />
+
+            {/* CUSTOMER ORDERING — QR bootstrap (DEVE precedere /:slug catch-all) */}
+            <Route path="/t/:qrToken" element={<TableEntryPage />} />
 
             {/* PUBLIC BUSINESS */}
             <Route

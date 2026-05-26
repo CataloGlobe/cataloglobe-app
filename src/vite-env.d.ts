@@ -3,6 +3,8 @@
 interface ImportMetaEnv {
     readonly VITE_SUPABASE_URL: string;
     readonly VITE_SUPABASE_ANON_KEY: string;
+    readonly VITE_REVALIDATE_SECRET?: string;
+    readonly VITE_PUBLIC_CATALOG_API_BASE?: string;
     // aggiungi qui eventuali altre variabili
 }
 

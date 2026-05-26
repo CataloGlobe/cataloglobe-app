@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FileDown } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
@@ -30,7 +30,7 @@ import {
     type DateRange
 } from "@/services/supabase/analytics";
 import type { V2Activity } from "@/types/activity";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { Select } from "@/components/ui/Select/Select";
@@ -306,47 +306,49 @@ export default function AnalyticsPage() {
         period
     ]);
 
+    const headerActions = useMemo(() => (
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+            <Select
+                value={selectedActivityId}
+                onChange={e => setSelectedActivityId(e.target.value)}
+                options={[
+                    { value: "all", label: "Tutte le sedi" },
+                    ...activities.map(a => ({ value: a.id, label: a.name }))
+                ]}
+                containerClassName={styles.activitySelectContainer}
+            />
+            <SegmentedControl
+                value={period}
+                onChange={setPeriod}
+                options={[
+                    { value: "today", label: "Oggi" },
+                    { value: "7d", label: "7 giorni" },
+                    { value: "30d", label: "30 giorni" },
+                    { value: "90d", label: "90 giorni" },
+                    { value: "all", label: "Tutto" }
+                ]}
+            />
+            <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<FileDown size={14} />}
+                disabled={isLoading || isEmpty}
+                onClick={handleExportXlsx}
+            >
+                Esporta Excel
+            </Button>
+        </div>
+    ), [selectedActivityId, activities, period, isLoading, isEmpty, handleExportXlsx]);
+
+    usePageHeader({
+        title: "Analitiche",
+        subtitle: "Monitora le performance delle tue sedi.",
+        actions: headerActions,
+        sticky: true,
+    });
+
     return (
         <main className={styles.analytics}>
-            <PageHeader
-                title="Analitiche"
-                businessName={selectedTenant?.name}
-                subtitle="Monitora le performance delle tue sedi."
-                actions={
-                    <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-                        <Select
-                            value={selectedActivityId}
-                            onChange={e => setSelectedActivityId(e.target.value)}
-                            options={[
-                                { value: "all", label: "Tutte le sedi" },
-                                ...activities.map(a => ({ value: a.id, label: a.name }))
-                            ]}
-                            containerClassName={styles.activitySelectContainer}
-                        />
-                        <SegmentedControl
-                            value={period}
-                            onChange={setPeriod}
-                            options={[
-                                { value: "today", label: "Oggi" },
-                                { value: "7d", label: "7 giorni" },
-                                { value: "30d", label: "30 giorni" },
-                                { value: "90d", label: "90 giorni" },
-                                { value: "all", label: "Tutto" }
-                            ]}
-                        />
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            leftIcon={<FileDown size={14} />}
-                            disabled={isLoading || isEmpty}
-                            onClick={handleExportXlsx}
-                        >
-                            Esporta Excel
-                        </Button>
-                    </div>
-                }
-            />
-
             {isEmpty ? (
                 <div className={styles.emptyState}>
                     <Text variant="title-sm" weight={600}>

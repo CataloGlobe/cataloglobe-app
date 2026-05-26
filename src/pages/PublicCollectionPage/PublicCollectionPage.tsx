@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 import { usePageHead } from "@/hooks/usePageHead";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -17,7 +17,7 @@ import { VERTICAL_CONFIG, type VerticalType } from "@/constants/verticalTypes";
 import { listAllAllergens, type Allergen } from "@/services/supabase/allergens";
 
 import { supabase } from "@/services/supabase/client";
-import { fetchPublicCatalog, type PublicCatalogPayload } from "@/services/publicCatalog/fetchPublicCatalog";
+import { fetchPublicCatalog, type CatalogSource, type PublicCatalogPayload } from "@/services/publicCatalog/fetchPublicCatalog";
 import { getCached, setCached } from "@/services/publicCatalog/publicCatalogCache";
 import StaleDataBanner from "@/components/StaleDataBanner/StaleDataBanner";
 import type {
@@ -38,6 +38,10 @@ import { loadPublicFonts } from "@utils/loadPublicFonts";
 import { isValidLangFormat } from "@/utils/lang";
 import { LanguageProvider } from "@context/Language/LanguageProvider";
 import type { AvailableLanguage } from "@context/Language/LanguageContext";
+import {
+    CustomerSessionProvider,
+    useCustomerSession
+} from "@/context/CustomerSession/CustomerSessionContext";
 import pageStyles from "./PublicCollectionPage.module.scss";
 // reviews_summary and recent_reviews still returned by edge function — unused in frontend for now
 
@@ -247,6 +251,7 @@ type PublicBusiness = {
 type PageState =
     | { status: "loading" }
     | { status: "error"; messageKey: string }
+    | { status: "domain_error"; code: string }
     | { status: "inactive"; inactiveReason: string | null }
     | { status: "subscription_inactive" }
     | {
@@ -261,8 +266,11 @@ type PageState =
           baseLanguage: string;
           availableLanguages: AvailableLanguage[];
           isRefetching?: boolean;
-          /** True quando il payload corrente proviene dalla cache locale
-              perché la rete ha fallito dopo tutti i retry. */
+          /** True quando il payload corrente è "stale":
+              - proviene dalla cache localStorage (fallback offline), OPPURE
+              - proviene da snapshot Redis lato server (header
+                `x-cataloglobe-source: stale`).
+              In entrambi i casi il banner ambra è mostrato. */
           isStale?: boolean;
       }
     | {
@@ -285,6 +293,18 @@ type ResolvedPayloadShape = {
     upcoming_closures?: UpcomingClosure[];
     vertical_type?: VerticalType | null;
 };
+
+/**
+ * Wrapper interno: vive DENTRO CustomerSessionProvider e legge isActive
+ * dal context per propagarlo come prop a CollectionView. Tiene CollectionView
+ * "dumb" (prop-driven) senza farle conoscere il context customer.
+ */
+function CollectionViewWithCustomerSession(
+    props: Omit<ComponentProps<typeof CollectionView>, "orderingActive">
+) {
+    const { isActive } = useCustomerSession();
+    return <CollectionView {...props} orderingActive={isActive} />;
+}
 
 export default function PublicCollectionPage() {
     const { slug, lang: langFromUrl } = useParams<{ slug: string; lang?: string }>();
@@ -350,7 +370,10 @@ export default function PublicCollectionPage() {
          * payload è fresco — su cache stale i redirect sono già stati risolti
          * al momento in cui il payload fu salvato.
          */
-        async function processPayload(payload: PublicCatalogPayload, opts: { fromCache: boolean; isSimulate: boolean }): Promise<void> {
+        async function processPayload(
+            payload: PublicCatalogPayload,
+            opts: { fromCache: boolean; isSimulate: boolean; source: CatalogSource }
+        ): Promise<void> {
             const {
                 business,
                 tenantLogoUrl,
@@ -423,6 +446,8 @@ export default function PublicCollectionPage() {
                 ? available_languages
                 : [{ code: baseLang, name_native: "Italiano", flag_emoji: null }];
 
+            const isStale = opts.fromCache || opts.source === "stale";
+
             setState({
                 status: "ready",
                 business,
@@ -435,13 +460,18 @@ export default function PublicCollectionPage() {
                 baseLanguage: baseLang,
                 availableLanguages: availLangs,
                 isRefetching: false,
-                isStale: opts.fromCache
+                isStale
             });
 
-            // Cache solo payload "healthy" (ready) provenienti dal network e
-            // NON simulate (i payload simulati sono time-shifted, non
-            // rappresentano lo stato reale).
-            if (!opts.fromCache && !opts.isSimulate) {
+            // Cache solo payload "healthy" provenienti da risposta LIVE (non stale).
+            // Skip per:
+            //   - opts.fromCache: il payload viene già dalla cache localStorage, riscriverlo
+            //     come "savedAt: now" falsa la freschezza dello snapshot.
+            //   - opts.isSimulate: i payload simulati sono time-shifted.
+            //   - opts.source === "stale": il server ha servito uno snapshot Redis
+            //     vecchio (Supabase down). Salvarlo in localStorage con savedAt=now
+            //     falsa la freschezza locale.
+            if (!opts.fromCache && !opts.isSimulate && opts.source !== "stale") {
                 setCached(slug!, validatedLang, payload);
             }
         }
@@ -479,13 +509,19 @@ export default function PublicCollectionPage() {
                 if (cancelled) return;
 
                 if (result.kind === "success") {
-                    await processPayload(result.payload, { fromCache: false, isSimulate: !!simulate });
+                    await processPayload(result.payload, {
+                        fromCache: false,
+                        isSimulate: !!simulate,
+                        source: result.source
+                    });
                     return;
                 }
 
                 if (result.kind === "domain_error") {
                     console.warn("[PublicCollectionPage] domain error:", result.code);
-                    setState({ status: "error", messageKey: "page.loading_error" });
+                    // Codici domain definitivi (link rotto, sede inesistente) →
+                    // NotFound. Nessun retry possibile.
+                    setState({ status: "domain_error", code: result.code });
                     return;
                 }
 
@@ -494,7 +530,11 @@ export default function PublicCollectionPage() {
                 const cached = simulate ? null : getCached(slug!, validatedLang);
                 if (cached) {
                     console.debug("[PublicCollectionPage] using cached snapshot from", cached.savedAt.toISOString());
-                    await processPayload(cached.payload, { fromCache: true, isSimulate: false });
+                    await processPayload(cached.payload, {
+                        fromCache: true,
+                        isSimulate: false,
+                        source: "unknown"
+                    });
                     return;
                 }
 
@@ -610,6 +650,13 @@ export default function PublicCollectionPage() {
         );
     }
 
+    if (state.status === "domain_error") {
+        // not_found / invalid_link / invalid_lang / missing_slug / domain_error
+        // → link rotto o sede inesistente. NotFound senza retry — il retry
+        // non risolverebbe il problema (deterministico server-side).
+        return <NotFound variant="business" />;
+    }
+
     if (state.status === "inactive") {
         return (
             <NotFound
@@ -674,6 +721,7 @@ export default function PublicCollectionPage() {
     const toastTargetLang = langFromUrl ?? (state.status === "ready" ? state.baseLanguage : "it");
 
     return (
+        <CustomerSessionProvider activityId={business.id}>
         <LanguageProvider
             slug={slug!}
             currentLang={effectiveLanguage}
@@ -712,7 +760,7 @@ export default function PublicCollectionPage() {
                     </span>
                 </div>
             )}
-            <CollectionView
+            <CollectionViewWithCustomerSession
                 businessName={business.name}
                 businessImage={business.cover_image}
                 collectionTitle={resolved.catalog?.name ?? ""}
@@ -799,5 +847,6 @@ export default function PublicCollectionPage() {
             </div>
         </PublicThemeScope>
         </LanguageProvider>
+        </CustomerSessionProvider>
     );
 }

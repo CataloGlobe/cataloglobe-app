@@ -16,6 +16,7 @@ import type {
     TranslationField,
     TenantLanguage
 } from "@/types/translations";
+import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 
 /**
  * Fetch tutte le translations di un'entità per un tenant.
@@ -135,6 +136,8 @@ export async function upsertManualTranslation(input: {
         }
         throw error;
     }
+
+    void revalidatePublicCatalogForTenant(input.tenantId);
 }
 
 /**
@@ -168,6 +171,8 @@ export async function revertManualTranslation(input: {
         }
         throw error;
     }
+
+    void revalidatePublicCatalogForTenant(input.tenantId);
 }
 
 /**

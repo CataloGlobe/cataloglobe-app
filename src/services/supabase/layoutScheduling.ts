@@ -1,6 +1,23 @@
 import { supabase } from "@/services/supabase/client";
 import { computePriority, levelFromPriority } from "@utils/priorityUtils";
 import type { PriorityLevel } from "@utils/priorityUtils";
+import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
+
+async function revalidateAfterScheduleMutation(scheduleId: string): Promise<void> {
+    try {
+        const { data } = await supabase
+            .from("schedules")
+            .select("tenant_id")
+            .eq("id", scheduleId)
+            .maybeSingle();
+        const tenantId = (data as { tenant_id?: string } | null)?.tenant_id;
+        if (tenantId) {
+            void revalidatePublicCatalogForTenant(tenantId);
+        }
+    } catch {
+        // best-effort
+    }
+}
 
 export type LayoutTimeMode = "always" | "window";
 export type RuleType = "layout" | "price" | "visibility" | "featured";
@@ -931,6 +948,7 @@ export async function createLayoutRule(input: {
         throw layoutError;
     }
 
+    void revalidatePublicCatalogForTenant(input.tenantId);
 }
 
 export async function createPriceRule(input: {
@@ -985,7 +1003,10 @@ export async function createPriceRule(input: {
         }))
     );
 
-    if (!overridesError) return;
+    if (!overridesError) {
+        void revalidatePublicCatalogForTenant(input.tenantId);
+        return;
+    }
 
     await supabase.from("schedules").delete().eq("id", scheduleId);
     throw overridesError;
@@ -1042,6 +1063,7 @@ export async function createVisibilityRule(input: {
                 mode: product.mode
             }))
         );
+        void revalidatePublicCatalogForTenant(input.tenantId);
         return;
     } catch (error) {
         await supabase.from("schedules").delete().eq("id", scheduleId);
@@ -1126,6 +1148,7 @@ export async function updateLayoutRule(input: {
         if (layoutInsertError) throw layoutInsertError;
     }
 
+    void revalidatePublicCatalogForTenant(input.tenantId);
 }
 
 export async function getLayoutRuleById(ruleId: string, tenantId: string): Promise<LayoutRule | null> {
@@ -1181,6 +1204,8 @@ export async function createRuleDraft(input: {
     if (input.ruleType === "visibility") {
         await updateScheduleVisibilityModeFallback(schedule.id, "hide");
     }
+
+    void revalidatePublicCatalogForTenant(input.tenantId);
 
     return schedule.id;
 }
@@ -1389,18 +1414,35 @@ export async function updateRule(input: {
             }))
         );
     }
+
+    void revalidatePublicCatalogForTenant(input.tenantId);
 }
 
 export async function deleteLayoutRule(scheduleId: string): Promise<void> {
+    // Capture tenant_id BEFORE delete; after the row is gone we'd have no way to
+    // find which slugs to revalidate.
+    const { data: existing } = await supabase
+        .from("schedules")
+        .select("tenant_id")
+        .eq("id", scheduleId)
+        .maybeSingle();
+    const tenantId = (existing as { tenant_id?: string } | null)?.tenant_id ?? null;
+
     const { error } = await supabase.from("schedules").delete().eq("id", scheduleId);
 
     if (error) throw error;
+
+    if (tenantId) {
+        void revalidatePublicCatalogForTenant(tenantId);
+    }
 }
 
 export async function updateScheduleEnabled(scheduleId: string, enabled: boolean): Promise<void> {
     const { error } = await supabase.from("schedules").update({ enabled }).eq("id", scheduleId);
 
     if (error) throw error;
+
+    await revalidateAfterScheduleMutation(scheduleId);
 }
 
 export async function reorderSchedulesInLevel(
@@ -1421,6 +1463,8 @@ export async function reorderSchedulesInLevel(
 
         if (error) throw error;
     }
+
+    void revalidatePublicCatalogForTenant(tenantId);
 }
 
 // ---------------------------------------------------------------------------
@@ -1681,6 +1725,8 @@ export async function duplicateRule(ruleId: string, tenantId: string): Promise<s
             }))
         );
     }
+
+    void revalidatePublicCatalogForTenant(tenantId);
 
     return newId;
 }

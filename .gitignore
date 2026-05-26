@@ -60,3 +60,6 @@ CSS_REFINEMENTS_AUDIT.md
 # Node compile cache (cache binaria di Node v8, rigenerabile, non versionato)
 node-compile-cache/
 .vercel
+
+# Backup .md curati manualmente (CLAUDE.md, MEMORY.md) — tenuti locali per rollback
+*.original.md

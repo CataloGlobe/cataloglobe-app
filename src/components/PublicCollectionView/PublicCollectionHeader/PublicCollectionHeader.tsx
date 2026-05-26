@@ -15,8 +15,17 @@ const HUB_TABS: { id: HubTab; icon: ReactNode; labelKey: string }[] = [
 const TRANSITION_END = 140;
 const BASE_MARGIN_MOBILE = 10;
 const BASE_MARGIN_DESKTOP = 16;
-const CONTENT_MAX_WIDTH = 1280; // allineato a .frame / .inner
+const CONTENT_MAX_WIDTH_FALLBACK = 1280; // mirrored in --pub-frame-max-desktop
 const TOP_OFFSET = 8;
+
+/** Reads --pub-frame-max-desktop from the given scope (or :root). */
+function readContentMaxWidth(el?: HTMLElement | null): number {
+    if (typeof document === "undefined") return CONTENT_MAX_WIDTH_FALLBACK;
+    const target = el ?? document.documentElement;
+    const value = getComputedStyle(target).getPropertyValue("--pub-frame-max-desktop").trim();
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : CONTENT_MAX_WIDTH_FALLBACK;
+}
 
 export const HEADER_HEIGHT_MOBILE = 108;
 export const HEADER_HEIGHT_DESKTOP = 116;
@@ -167,7 +176,7 @@ export default function PublicCollectionHeader({
 
     const initialMargin = isMobile
         ? BASE_MARGIN_MOBILE
-        : Math.max((viewportWidth - CONTENT_MAX_WIDTH) / 2 + BASE_MARGIN_DESKTOP, BASE_MARGIN_DESKTOP);
+        : Math.max((viewportWidth - readContentMaxWidth(viewportWidthEl)) / 2 + BASE_MARGIN_DESKTOP, BASE_MARGIN_DESKTOP);
     const initialRadius = headerRadius ?? (isMobile ? 16 : 20);
     const headerHeight = isMobile ? HEADER_HEIGHT_MOBILE : HEADER_HEIGHT_DESKTOP;
 

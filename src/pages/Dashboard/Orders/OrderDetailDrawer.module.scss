@@ -1,0 +1,142 @@
+.empty {
+    padding: 24px;
+    text-align: center;
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+}
+
+.headerInfo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.metaRow {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+}
+
+.rectificationBanner {
+    background: var(--color-warning-100, #fef3c7);
+    color: var(--color-warning-700, #b45309);
+    padding: 10px 12px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.items {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.itemBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--border-default, #e1e3e8);
+
+    &:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+}
+
+.itemHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.itemQty {
+    font-weight: 600;
+    color: var(--text-muted, #6b6f76);
+    margin-right: 4px;
+    font-variant-numeric: tabular-nums;
+}
+
+.addons {
+    padding-left: 12px;
+
+    ul {
+        margin: 0;
+        padding-left: 18px;
+    }
+}
+
+.priceDelta {
+    color: var(--text-muted, #6b6f76);
+}
+
+.itemNotes {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+    background: var(--surface-muted, #f4f5f7);
+    border-radius: 4px;
+}
+
+.totalRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-top: 1px solid var(--border-default, #e1e3e8);
+    border-bottom: 1px solid var(--border-default, #e1e3e8);
+}
+
+.notesBox {
+    padding: 10px 12px;
+    background: var(--surface-muted, #f4f5f7);
+    border-radius: 6px;
+}
+
+.timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    li {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+}
+
+.timelineCheck {
+    color: var(--color-success-500, #10b981);
+    font-weight: 700;
+    margin-right: 6px;
+}
+
+.timelineCancel {
+    color: var(--color-error-500, #ef4444);
+    font-weight: 700;
+    margin-right: 6px;
+}
+
+.timelineTime {
+    color: var(--text-muted, #6b6f76);
+}
+
+.timelineMeta {
+    color: var(--text-muted, #6b6f76);
+}

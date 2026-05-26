@@ -1,15 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, useParams } from "react-router-dom";
 import Sidebar from "@components/layout/Sidebar/Sidebar";
-import { Menu } from "lucide-react";
-import { IconButton } from "@/components/ui/Button/IconButton";
+import { AppHeader } from "@components/layout/AppHeader/AppHeader";
+import { PageHeaderSlot } from "@components/layout/PageHeaderSlot";
 import { DrawerProvider } from "@/context/Drawer/DrawerProvider";
+import { BreadcrumbProvider } from "@/context/BreadcrumbProvider";
+import { PageHeaderProvider } from "@/context/PageHeaderProvider";
 import { SubscriptionBanner } from "@/components/Subscription/SubscriptionBanner";
 import { ActivationRequired } from "@/components/Subscription/ActivationRequired";
 import { useTenant } from "@/context/useTenant";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 import styles from "./MainLayout.module.scss";
+
+const SIDEBAR_COLLAPSED_KEY = "cg:sidebar-collapsed";
 
 const PAGE_TITLES: Record<string, string> = {
     overview: 'Panoramica',
@@ -46,32 +51,8 @@ function resolvePageTitle(businessId: string, pathname: string): string | undefi
     return PAGE_TITLES[first];
 }
 
-function useMediaQuery(query: string) {
-    const [matches, setMatches] = useState(() => {
-        if (typeof window === "undefined") return false;
-        return window.matchMedia(query).matches;
-    });
-
-    useEffect(() => {
-        const mql = window.matchMedia(query);
-
-        const handler = (e: MediaQueryListEvent) => {
-            setMatches(e.matches);
-        };
-
-        mql.addEventListener("change", handler);
-        setMatches(mql.matches);
-
-        return () => {
-            mql.removeEventListener("change", handler);
-        };
-    }, [query]);
-
-    return matches;
-}
-
 export default function MainLayout() {
-    const isMobile = useMediaQuery("(max-width: 1023px)");
+    const isMobile = useMediaQuery("(max-width: 767px)");
     const { selectedTenant, loading } = useTenant();
     const { businessId } = useParams<{ businessId: string }>();
     const { pathname } = useLocation();
@@ -80,8 +61,25 @@ export default function MainLayout() {
     const tenantName = selectedTenant?.name;
     usePageTitle(pageName && tenantName ? `${pageName} — ${tenantName}` : pageName);
 
+    const contentRef = useRef<HTMLDivElement>(null);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+        if (typeof window === "undefined") return false;
+        try {
+            return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+        } catch {
+            return false;
+        }
+    });
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        try {
+            window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
+        } catch {
+            // localStorage può fallire in modalità privata o quota piena, ignorare
+        }
+    }, [sidebarCollapsed]);
 
     useEffect(() => {
         if (isMobile) setMobileSidebarOpen(false);
@@ -106,34 +104,33 @@ export default function MainLayout() {
 
     return (
         <div className={styles.appLayout}>
-            <div className={styles.body}>
-                <DrawerProvider>
-                    <Sidebar
-                        isMobile={isMobile}
-                        mobileOpen={mobileSidebarOpen}
-                        collapsed={!isMobile && sidebarCollapsed}
-                        onRequestClose={() => setMobileSidebarOpen(false)}
-                        onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-                    />
+            <DrawerProvider>
+                <BreadcrumbProvider>
+                    <PageHeaderProvider>
+                        <header className={styles.globalHeader}>
+                            <AppHeader onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
+                        </header>
 
-                    <main className={styles.main}>
-                        {isMobile && (
-                            <div className={styles.mobileHeader}>
-                                <IconButton
-                                    variant="ghost"
-                                    icon={<Menu size={24} />}
-                                    onClick={() => setMobileSidebarOpen(true)}
-                                    aria-label="Apri menu"
-                                />
-                            </div>
-                        )}
-                        <div className={styles.content}>
-                            <SubscriptionBanner />
-                            <Outlet />
+                        <div className={styles.body}>
+                            <Sidebar
+                                isMobile={isMobile}
+                                mobileOpen={mobileSidebarOpen}
+                                collapsed={!isMobile && sidebarCollapsed}
+                                onRequestClose={() => setMobileSidebarOpen(false)}
+                                onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                            />
+
+                            <main className={styles.main}>
+                                <PageHeaderSlot scrollContainerRef={contentRef} />
+                                <div ref={contentRef} className={styles.content}>
+                                    <SubscriptionBanner />
+                                    <Outlet />
+                                </div>
+                            </main>
                         </div>
-                    </main>
-                </DrawerProvider>
-            </div>
+                    </PageHeaderProvider>
+                </BreadcrumbProvider>
+            </DrawerProvider>
         </div>
     );
 }

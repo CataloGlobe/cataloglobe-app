@@ -1,4 +1,5 @@
 import { supabase } from "@/services/supabase/client";
+import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 
 export type V2SystemAllergen = {
     id: number;
@@ -113,4 +114,6 @@ export async function setProductAllergens(
         }
         throw error;
     }
+
+    void revalidatePublicCatalogForTenant(tenantId);
 }

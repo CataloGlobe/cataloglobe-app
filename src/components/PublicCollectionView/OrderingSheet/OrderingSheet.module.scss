@@ -1,0 +1,581 @@
+/* ─────────────────────────────────────────────────────────
+   OrderingSheet · merge SelectionSheet + MyOrdersSheet
+   Token-driven coerente con design system pubblico.
+──────────────────────────────────────────────────────────── */
+
+.container {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--pub-font-family, sans-serif);
+    color: var(--pub-text);
+}
+
+/* ── HEADER ─────────────────────────────────────────────── */
+
+.header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 16px 20px 12px 20px;
+    border-bottom: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface)));
+    background: var(--pub-surface, #ffffff);
+}
+
+.title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--pub-text);
+    line-height: 1.2;
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.clearBtn {
+    background: transparent;
+    border: none;
+    padding: 6px 8px;
+    color: var(--pub-primary);
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: var(--pub-btn-radius, 8px);
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s ease;
+
+    &:hover {
+        background: color-mix(in srgb, var(--pub-primary) 8%, transparent);
+    }
+}
+
+.refreshBtn {
+    background: transparent;
+    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 12%, var(--pub-surface)));
+    border-radius: var(--pub-btn-radius, 8px);
+    padding: 8px;
+    cursor: pointer;
+    color: var(--pub-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+
+    &:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.refreshBtnSpinning {
+    svg {
+        animation: spin 1s linear infinite;
+    }
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── TAB SWITCHER ───────────────────────────────────────── */
+
+.tabSwitcher {
+    flex-shrink: 0;
+    padding: 10px 20px 8px 20px;
+}
+
+.tabSwitcherInner {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background: color-mix(in srgb, var(--pub-text) 5%, var(--pub-surface));
+    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface)));
+    border-radius: var(--pub-radius, 12px);
+}
+
+.tabBtn {
+    flex: 1 1 0;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 12px;
+    background: transparent;
+    border: none;
+    border-radius: calc(var(--pub-radius, 12px) - 4px);
+    color: color-mix(in srgb, var(--pub-text) 65%, var(--pub-surface));
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.tabBtnActive {
+    background: var(--pub-primary);
+    color: var(--pub-on-primary, #ffffff);
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--pub-primary) 30%, transparent);
+}
+
+.tabBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    background: var(--pub-primary);
+    color: var(--pub-on-primary, #ffffff);
+}
+
+.tabBadgeActive {
+    background: color-mix(in srgb, var(--pub-on-primary, #ffffff) 25%, transparent);
+    color: var(--pub-on-primary, #ffffff);
+}
+
+/* ── SCROLL AREA ────────────────────────────────────────── */
+
+.scrollArea {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+}
+
+/* ── EMPTY / LOADING ────────────────────────────────────── */
+
+.empty,
+.loading {
+    padding: 48px 20px 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-align: center;
+    color: var(--pub-text-muted, color-mix(in srgb, var(--pub-text) 55%, var(--pub-surface)));
+
+    p {
+        margin: 0;
+    }
+}
+
+.emptyTitle {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--pub-text);
+    text-align: center;
+}
+
+.emptyHint {
+    margin-top: 6px;
+    font-size: 13px;
+    line-height: 1.4;
+    max-width: 32ch;
+    text-align: center;
+    color: color-mix(in srgb, var(--pub-text) 60%, transparent);
+}
+
+/* ── ERROR BANNER ───────────────────────────────────────── */
+
+.errorBanner {
+    margin: 12px 16px 0;
+    padding: 10px 14px;
+    background: rgba(239, 68, 68, 0.1);
+    color: #b91c1c;
+    border-radius: var(--pub-btn-radius, 8px);
+    font-size: 14px;
+}
+
+/* ─────────────────────────────────────────────────────────
+   CART TAB
+──────────────────────────────────────────────────────────── */
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.listItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface)));
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.itemInfo {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.itemName {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--pub-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.35;
+}
+
+.itemMeta {
+    font-size: 0.75rem;
+    color: var(--pub-text-muted, color-mix(in srgb, var(--pub-text) 55%, var(--pub-surface)));
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.itemPrice {
+    font-size: 0.78rem;
+    color: var(--pub-text-muted, color-mix(in srgb, var(--pub-text) 55%, var(--pub-surface)));
+    font-variant-numeric: tabular-nums;
+}
+
+.editLink {
+    display: inline;
+    border: none;
+    background: none;
+    padding: 0;
+    margin-left: 4px;
+    font-size: 0.73rem;
+    font-weight: 500;
+    font-family: inherit;
+    color: var(--pub-accent, var(--pub-primary));
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.itemControls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.qtyBtn {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--pub-btn-radius, 8px);
+    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 12%, var(--pub-surface)));
+    background: var(--pub-surface, #ffffff);
+    color: var(--pub-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+    -webkit-tap-highlight-color: transparent;
+
+    &:hover {
+        background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
+        border-color: color-mix(in srgb, var(--pub-text) 20%, var(--pub-surface));
+    }
+
+    &:active {
+        transform: scale(0.94);
+    }
+}
+
+.qtyValue {
+    min-width: 22px;
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--pub-text);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+/* ── CART FOOTER ────────────────────────────────────────── */
+
+.footer {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 20px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+    border-top: 2px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 12%, var(--pub-surface)));
+    background: var(--pub-surface, #ffffff);
+}
+
+.footerTotalRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.footerLabel {
+    font-size: 0.875rem;
+    color: var(--pub-text-muted, color-mix(in srgb, var(--pub-text) 55%, var(--pub-surface)));
+}
+
+.footerTotal {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--pub-text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+.submitCta {
+    width: 100%;
+    min-height: 48px;
+    padding: 14px 18px;
+    border-radius: var(--pub-btn-radius, 12px);
+    border: none;
+    background: var(--pub-primary);
+    color: var(--pub-on-primary, #ffffff);
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.05s ease;
+    -webkit-tap-highlight-color: transparent;
+
+    &:hover:not(:disabled) {
+        opacity: 0.92;
+    }
+
+    &:active:not(:disabled) {
+        transform: scale(0.99);
+    }
+
+    &:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────
+   ORDERS TAB
+──────────────────────────────────────────────────────────── */
+
+.ordersList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 20px;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+}
+
+.orderCard {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    background: var(--pub-surface, #ffffff);
+    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 12%, var(--pub-surface)));
+    border-radius: var(--pub-radius, 12px);
+
+    &[data-status="cancelled"] {
+        opacity: 0.6;
+    }
+}
+
+.orderHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.statusPill {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.statusSubmitted {
+    background: rgba(245, 158, 11, 0.12);
+    color: #b45309;
+}
+
+.statusAcknowledged {
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+}
+
+.statusDelivered {
+    background: rgba(107, 114, 128, 0.12);
+    color: #4b5563;
+}
+
+.statusCancelled {
+    background: rgba(107, 114, 128, 0.10);
+    color: #6b7280;
+}
+
+.orderTime {
+    font-size: 12px;
+    color: var(--pub-text-muted, color-mix(in srgb, var(--pub-text) 55%, var(--pub-surface)));
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.itemsList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.itemRow {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 8px;
+    font-size: 14px;
+    align-items: baseline;
+    color: var(--pub-text);
+}
+
+.itemQty {
+    font-weight: 600;
+    color: var(--pub-text-muted, color-mix(in srgb, var(--pub-text) 55%, var(--pub-surface)));
+}
+
+.orderTotalRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-top: 8px;
+    border-top: 1px dashed var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 14%, var(--pub-surface)));
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pub-text);
+
+    span:last-child {
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.cancelBtn {
+    align-self: flex-start;
+    background: transparent;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #dc2626;
+    padding: 8px 12px;
+    border-radius: var(--pub-btn-radius, 8px);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+
+    &:active:not(:disabled) {
+        background: rgba(239, 68, 68, 0.08);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.confirmRow {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    background: color-mix(in srgb, var(--pub-text) 5%, var(--pub-surface));
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: var(--pub-btn-radius, 8px);
+}
+
+.confirmLabel {
+    font-size: 14px;
+    color: var(--pub-text);
+    line-height: 1.35;
+}
+
+.confirmActions {
+    display: flex;
+    gap: 8px;
+}
+
+.confirmCancel,
+.confirmYes {
+    flex: 1;
+    min-height: 40px;
+    padding: 10px;
+    border-radius: var(--pub-btn-radius, 8px);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s ease;
+}
+
+.confirmCancel {
+    background: transparent;
+    color: var(--pub-text);
+    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 14%, var(--pub-surface)));
+
+    &:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
+    }
+}
+
+.confirmYes {
+    background: #dc2626;
+    color: #ffffff;
+    border: none;
+
+    &:hover:not(:disabled) {
+        background: #b91c1c;
+    }
+
+    &:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+}

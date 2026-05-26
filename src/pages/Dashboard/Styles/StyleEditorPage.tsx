@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
-import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
+import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
@@ -226,10 +226,12 @@ export default function StyleEditorPage() {
         }
     }, [styleData, currentTenantId, showToast, navigate]);
 
-    const breadcrumbItems = [
+    const breadcrumbItems = useMemo(() => [
         { label: "Stili", to: `/business/${currentTenantId}/styles` },
         { label: name || "Stile" }
-    ];
+    ], [currentTenantId, name]);
+
+    useBreadcrumbItems(breadcrumbItems);
 
     if (isLoading) {
         return (
@@ -272,9 +274,8 @@ export default function StyleEditorPage() {
                 {isPanelOpen && (
                     <div className={styles.propertiesPanel}>
 
-                        {/* Breadcrumb row */}
-                        <div className={styles.panelBreadcrumb}>
-                            <Breadcrumb items={breadcrumbItems} />
+                        {/* Close button row (breadcrumb now in global AppHeader) */}
+                        <div className={styles.panelCloseRow}>
                             <button
                                 type="button"
                                 className={styles.panelCloseBtn}

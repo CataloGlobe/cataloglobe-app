@@ -148,3 +148,69 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/process-translation-jobs/index.ts"
+
+[functions.resolve-table]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/resolve-table/index.ts"
+
+[functions.submit-order]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/submit-order/index.ts"
+
+[functions.get-orders-for-session]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/get-orders-for-session/index.ts"
+
+[functions.cancel-order]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/cancel-order/index.ts"
+
+[functions.acknowledge-order]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/acknowledge-order/index.ts"
+
+[functions.deliver-order]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/deliver-order/index.ts"
+
+[functions.cancel-order-admin]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/cancel-order-admin/index.ts"
+
+[functions.rectify-order]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/rectify-order/index.ts"
+
+[functions.close-table]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/close-table/index.ts"
+
+[functions.toggle-product-availability]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/toggle-product-availability/index.ts"
+
+[functions.generate-table-qrs]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/generate-table-qrs/index.ts"

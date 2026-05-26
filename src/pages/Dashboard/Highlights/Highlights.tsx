@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, useEffect } from "react";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
@@ -71,7 +71,7 @@ export default function Highlights() {
         loadData();
     }, [loadData]);
 
-    const handleCreate = () => {
+    const handleCreate = useCallback(() => {
         if (!canEdit) {
             showToast({
                 message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.",
@@ -80,7 +80,20 @@ export default function Highlights() {
             return;
         }
         setIsCreateOpen(true);
-    };
+    }, [canEdit, showToast]);
+
+    const headerActions = useMemo(() => (
+        <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
+            Crea contenuto
+        </Button>
+    ), [handleCreate, canEdit]);
+
+    usePageHeader({
+        title: "Contenuti in evidenza",
+        subtitle: "Gestisci i contenuti editoriali e aggregatori di prodotti.",
+        actions: headerActions,
+        sticky: true,
+    });
 
     const handleEdit = (item: FeaturedContentWithProducts) => {
         navigate(`/business/${tenantId}/featured/${item.id}`);
@@ -206,17 +219,6 @@ export default function Highlights() {
     return (
         <>
             <div className={styles.wrapper}>
-                <PageHeader
-                    title="Contenuti in evidenza"
-                    businessName={selectedTenant?.name}
-                    subtitle="Gestisci i contenuti editoriali e aggregatori di prodotti."
-                    actions={
-                        <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
-                            Crea contenuto
-                        </Button>
-                    }
-                />
-
                 <FilterBar
                     search={{
                         value: searchQuery,

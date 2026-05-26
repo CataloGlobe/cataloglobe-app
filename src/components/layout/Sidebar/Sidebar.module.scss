@@ -1,16 +1,26 @@
+/* ===== Spacing scale ===== */
+$scroll-padding-x: 12px;
+$nav-padding-x: 8px;
+$item-padding-x-expanded: 16px;
+$item-padding-x-collapsed: 15px;
+// Footer expanded: aligned to chip left edge = sum of all outer paddings
+$footer-padding-x-expanded: $scroll-padding-x + $nav-padding-x + $item-padding-x-expanded;
+// Footer collapsed: centers the 32px toggle inside the 90px sidebar
+$footer-padding-x-collapsed: 29px;
+
 .sidebar {
   position: relative;
-  background: #f8fafc;
+  background: #FFFFFF;
   border-right: 1px solid var(--border, #e2e8f0);
   display: flex;
   flex-direction: column;
-  overflow: visible; /* IMPORTANTISSIMO */
+  overflow: hidden;
 }
 
 .desktop {
   position: sticky;
   top: 0;
-  height: 100vh;
+  height: 100%;
 }
 
 .mobile {
@@ -28,55 +38,7 @@
   border: 0;
 }
 
-/* ===== Logo ===== */
-.logoWrap {
-  padding: 24px 22px 12px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-}
-
-.logoWrapCollapsed {
-  padding: 20px 0;
-  justify-content: center;
-}
-
-.logoLink {
-  display: inline-flex;
-  align-items: center;
-  text-decoration: none;
-  line-height: 0;
-}
-
-.logoHorizontal {
-  height: 32px;
-  width: auto;
-  object-fit: contain;
-}
-
-.logoMark {
-  height: 32px;
-  width: auto;
-  object-fit: contain;
-}
-
-/* ===== Header ===== */
-.sidebarHeader {
-  position: relative;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.userRow {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0px 10px;
-}
-
+/* ===== Avatar (kept for Phase 2 extraction into Avatar UI component) ===== */
 .avatar {
   width: 36px;
   height: 36px;
@@ -108,58 +70,31 @@
   animation: shimmer 1.4s ease infinite;
 }
 
-.userName {
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-/* ===== Toggle ===== */
-.collapseToggle {
-  position: absolute;
-  top: 50%;
-  right: -12px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 2;
-}
-
-/* ===== Divider ===== */
-.divider {
-  height: 1px;
-  margin: 0 12px 8px;
-  background: var(--border);
-}
-
-/* ===== Scroll ===== */
+/* ===== Scroll area ===== */
 .sidebarScroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 12px; /* Added padding for spacing around cards */
+  overflow-x: hidden;
+  padding: $scroll-padding-x;
 }
 
-/* ===== Nav ===== */
+/* ===== Nav (gaps come from dividers, not from nav gap) ===== */
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 16px; /* Space between groups */
+  gap: 0;
+  padding: 0 $nav-padding-x;
 }
 
-.groupCard {
-  background: #fff;
-  border: 1px solid #f1f5f9;
-  border-radius: 12px;
-  padding: 8px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+.group {
+  display: block;
+}
+
+.groupDivider {
+  height: 1px;
+  background: #E5E7EB;
+  margin: 10px 0;
 }
 
 .list {
@@ -171,17 +106,20 @@
 }
 
 .link {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 12px;
-  height: 35px; /* Enforce fixed height for consistency */
-  box-sizing: border-box; /* Ensure padding doesn't add to height */
+  gap: 10px;
+  padding: 0 $item-padding-x-expanded;
+  height: 34px;
+  box-sizing: border-box;
   border-radius: 8px;
   color: #64748b;
   font-weight: 500;
   font-size: 14px;
-  transition: all 0.2s;
+  overflow: hidden;
+  transition: padding 0.22s ease, background 0.15s, color 0.15s;
 
   &:hover {
     text-decoration: none;
@@ -190,70 +128,90 @@
   }
 }
 
-.sidebar[data-collapsed="true"] .groupCard {
-  background: #fff; /* Restore white background */
-  border: 1px solid #f1f5f9; /* Restore border */
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02); /* Restore shadow */
-  padding: 8px; /* Adjust padding for narrow width */
-  border-radius: 12px;
-  overflow: hidden; /* Prevent horizontal overflow */
-  width: 100%; /* Ensure it fills the collapsed sidebar */
-  box-sizing: border-box; /* Include padding in width */
-}
-
 .sidebar[data-collapsed="true"] .link {
-  justify-content: center;
-  padding: 0; /* Removing padding, relying on flex + fixed height */
-}
-
-.sidebar[data-collapsed="true"] .nav {
-  gap: 16px; /* Keep consistent gap with expanded state */
-  padding: 0 4px; /* Slight padding on nav container to prevent edge collision */
-}
-
-.groupTitle {
-  padding: 0 12px;
-  margin: 8px 0 8px; /* Adjusted margin inside card */
-  height: 20px; /* Fixed height to match text line-height usually */
-  display: flex;
-  align-items: center;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #6365f1; /* Brand color for titles as seen in image */
-}
-
-.sidebar[data-collapsed="true"] .groupTitle {
-  display: flex; /* Enable flex for centering */
-  justify-content: center; /* Center icon horizontally */
-  align-items: center; /* Center icon vertically */
-  padding: 0; /* Remove padding to center perfectly */
-  opacity: 1; /* Make visible */
-  pointer-events: auto; /* Re-enable pointer events if needed */
+  padding: 0 $item-padding-x-collapsed;
 }
 
 .icon {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 20px;
+  flex-shrink: 0;
 }
 
 .label {
-  margin-left: 10px;
   white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.16s ease 0.06s, max-width 0.22s ease;
 }
 
 .sidebar[data-collapsed="true"] .label {
-  display: none;
+  opacity: 0;
+  max-width: 0;
+  transition: opacity 0.08s ease, max-width 0.22s ease;
 }
 
+/* ===== Active item: light bg + left vertical rail ===== */
 .active {
-  background: rgba(99, 102, 241, 0.1); /* Light purple bg */
-  color: #6366f1; /* Brand purple text */
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  font-weight: 600;
 
   &:hover {
     background: rgba(99, 102, 241, 0.15);
     color: #6366f1;
+  }
+}
+
+.link.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: #6366F1;
+  border-radius: 0 2px 2px 0;
+}
+
+/* ===== Collapse footer ===== */
+.collapseFooter {
+  border-top: 1px solid #F1F2F4;
+  padding: 8px $footer-padding-x-expanded;
+  display: flex;
+  justify-content: flex-start;
+  flex-shrink: 0;
+  transition: padding 0.22s ease;
+}
+
+.sidebar[data-collapsed="true"] .collapseFooter {
+  padding: 8px $footer-padding-x-collapsed;
+}
+
+.collapseToggle {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: #94A3B8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+
+  &:hover {
+    background: #F8FAFC;
+    color: #475569;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #A5B4FC;
+    outline-offset: 2px;
   }
 }
 

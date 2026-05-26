@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -145,6 +145,19 @@ export default function Styles() {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setIsCreateOpen(true);
     }, [canEdit, showToast]);
+
+    const headerActions = useMemo(() => (
+        <Button variant="primary" onClick={handleCreateClick} disabled={!canEdit}>
+            Crea stile
+        </Button>
+    ), [handleCreateClick, canEdit]);
+
+    usePageHeader({
+        title: "Stili",
+        subtitle: "Personalizza l'aspetto visivo e i colori del tuo catalogo.",
+        actions: headerActions,
+        sticky: true,
+    });
 
     const handleEditClick = useCallback(
         (style: V2Style) => {
@@ -306,17 +319,6 @@ export default function Styles() {
 
     return (
         <section className={styles.container}>
-            <PageHeader
-                title="Stili"
-                businessName={selectedTenant?.name}
-                subtitle="Personalizza l'aspetto visivo e i colori del tuo catalogo."
-                actions={
-                    <Button variant="primary" onClick={handleCreateClick} disabled={!canEdit}>
-                        Crea stile
-                    </Button>
-                }
-            />
-
             <div className={styles.content}>
                 <div className={styles.filterBarRow}>
                     <FilterBar

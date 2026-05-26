@@ -3,7 +3,8 @@ import { Lock } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import Text from "@/components/ui/Text/Text";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
+import { isOwner } from "@/lib/permissions";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Button } from "@/components/ui/Button/Button";
 import { FileInput } from "@/components/ui/Input/FileInput";
@@ -32,6 +33,12 @@ export default function BusinessSettingsPage() {
             setName(selectedTenant.name);
         }
     }, [selectedTenant?.id]);
+
+    usePageHeader({
+        title: "Impostazioni attività",
+        subtitle: "Gestisci le informazioni e le preferenze di questa attività.",
+        sticky: true,
+    });
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -104,13 +111,9 @@ export default function BusinessSettingsPage() {
 
     if (loading || !selectedTenant) return null;
 
-    if (userRole !== "owner") {
+    if (!isOwner(userRole)) {
         return (
             <div className={styles.page}>
-                <PageHeader
-                    title="Impostazioni attività"
-                    subtitle="Gestisci le informazioni e le preferenze di questa attività."
-                />
                 <div className={styles.emptyWrap}>
                     <EmptyState
                         icon={<Lock size={40} strokeWidth={1.5} />}
@@ -124,13 +127,8 @@ export default function BusinessSettingsPage() {
 
     return (
         <div className={styles.page}>
-            <PageHeader
-                title="Impostazioni attività"
-                subtitle="Gestisci le informazioni e le preferenze di questa attività."
-            />
-
             {/* Section 1 — Business info (owner only) */}
-            {userRole === "owner" && (
+            {isOwner(userRole) && (
                 <div className={styles.section}>
                     <Text variant="title-sm" weight={600}>
                         Informazioni attività
@@ -169,7 +167,7 @@ export default function BusinessSettingsPage() {
             )}
 
             {/* Section 2 — Logo (owner only) */}
-            {userRole === "owner" && (
+            {isOwner(userRole) && (
                 <div className={styles.section}>
                     <Text variant="title-sm" weight={600}>
                         Identità visiva
@@ -215,7 +213,7 @@ export default function BusinessSettingsPage() {
             )}
 
             {/* Section 3 — Danger zone (owner only) */}
-            {userRole === "owner" && (
+            {isOwner(userRole) && (
                 <div className={`${styles.section} ${styles.dangerSection}`}>
                     <Text variant="title-sm" weight={600}>
                         Zona pericolosa

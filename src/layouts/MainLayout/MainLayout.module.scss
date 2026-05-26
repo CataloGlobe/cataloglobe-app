@@ -1,3 +1,5 @@
+$global-header-height: 56px;
+
 .appLayout {
   height: 100dvh;
   display: flex;
@@ -5,13 +7,15 @@
   overflow: hidden;
 }
 
-/* NAVBAR */
-.appLayout > header {
-  height: 64px; /* o quello che usi */
+.globalHeader {
+  height: $global-header-height;
   flex-shrink: 0;
+  background: #fff;
+  border-bottom: 1px solid #E5E7EB;
+  position: relative;
+  z-index: 30;
 }
 
-/* CORPO SOTTO LA NAVBAR */
 .body {
   flex: 1;
   display: flex;
@@ -28,15 +32,6 @@
   overflow: hidden;
 }
 
-.mobileHeader {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background: #fff;
-  border-bottom: 1px solid var(--border, #e2e8f0);
-}
-
 .content {
   flex: 1;
   min-height: 0;
@@ -46,20 +41,9 @@
   flex-direction: column;
 }
 
-/* DESKTOP */
-@media (min-width: 1024px) {
-  .content {
-    padding: 24px;
-  }
-}
-
 /* MOBILE */
-@media (max-width: 1023px) {
+@media (max-width: 767px) {
   .content {
     padding: 16px;
-  }
-
-  .appLayout > header {
-    display: none; /* Hide top navbar on mobile if it exists, or user wants cleaner look */
   }
 }

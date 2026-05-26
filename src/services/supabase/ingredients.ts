@@ -2,6 +2,7 @@ import { supabase } from "@/services/supabase/client";
 import { computeFieldHash } from "@/services/translation/hashUtils";
 import { enqueueWithSilentError } from "./translationJobs";
 import { deleteTranslationsForEntity } from "./translations";
+import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 
 export type V2Ingredient = {
     id: string;
@@ -157,4 +158,6 @@ export async function setProductIngredients(
         }
         throw error;
     }
+
+    void revalidatePublicCatalogForTenant(tenantId);
 }

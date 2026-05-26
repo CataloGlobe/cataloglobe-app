@@ -1,0 +1,347 @@
+.appHeader {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 10px;
+}
+
+.left,
+.right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.left {
+  flex: 1;
+  min-width: 0;
+}
+
+.separator {
+  font-size: 18px;
+  color: #E5E7EB;
+  font-weight: 300;
+  user-select: none;
+  margin: 0 -2px;
+}
+
+.greeting {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0F172A;
+  white-space: nowrap;
+
+  @media (max-width: 767px) {
+    display: none;
+  }
+}
+
+/* ===== Mobile hamburger trigger ===== */
+.mobileMenuToggle {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: #475569;
+  border-radius: 8px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s;
+  flex-shrink: 0;
+
+  &:hover {
+    background: #F8FAFC;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #A5B4FC;
+    outline-offset: 2px;
+  }
+}
+
+@media (max-width: 767px) {
+  .mobileMenuToggle {
+    display: flex;
+  }
+}
+
+/* ===== Breadcrumb slot (after tenant switcher) ===== */
+.headerBreadcrumb {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+@media (max-width: 767px) {
+  .headerBreadcrumb {
+    display: none;
+  }
+}
+
+/* ===== Logo ===== */
+.logoLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 0 6px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.1s;
+
+  &:hover {
+    background: #F8FAFC;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #A5B4FC;
+    outline-offset: 2px;
+  }
+}
+
+.logoImage {
+  height: 24px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
+}
+
+/* ===== Tenant switcher (inline dropdown, no portal) ===== */
+.tenantWrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.tenantButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 4px;
+  border-radius: 8px;
+  border: 1px solid #E5E7EB;
+  background: #FFFFFF;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  min-width: 0;
+
+  &:hover {
+    background: #F8FAFC;
+    border-color: #D1D5DB;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #A5B4FC;
+    outline-offset: 2px;
+  }
+}
+
+.tenantName {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0F172A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.tenantChevron {
+  color: #64748B;
+  flex-shrink: 0;
+}
+
+/* ===== Tenant dropdown (inline, custom) ===== */
+.tenantList {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 240px;
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  padding: 6px 0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  z-index: 50;
+}
+
+.tenantListHeader {
+  padding: 8px 14px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #94A3B8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tenantRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  color: #0F172A;
+  transition: background 0.1s;
+
+  &:hover {
+    background: #F8FAFC;
+  }
+
+  &:focus-visible {
+    outline: none;
+    background: #F1F5F9;
+  }
+}
+
+.checkSlot {
+  width: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6366F1;
+}
+
+.tenantRowName {
+  font-size: 13.5px;
+  font-weight: 400;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tenantRowName[data-active="true"] {
+  font-weight: 500;
+}
+
+.tenantListDivider {
+  height: 1px;
+  background: #F1F2F4;
+  margin: 6px 12px;
+}
+
+/* ===== Notifications bell ===== */
+.notifButton {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #64748B;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+
+  &:hover {
+    background: #F8FAFC;
+    color: #0F172A;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #A5B4FC;
+    outline-offset: 2px;
+  }
+}
+
+.notifDot {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #EF4444;
+  border: 2px solid #FFFFFF;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 28px 32px;
+  color: #64748B;
+  text-align: center;
+  min-width: 240px;
+}
+
+.emptyStateIcon {
+  color: #94A3B8;
+}
+
+.emptyStateText {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0F172A;
+}
+
+.emptyStateSub {
+  font-size: 12px;
+  color: #94A3B8;
+}
+
+/* ===== User menu trigger ===== */
+.userButton {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s;
+
+  &:hover {
+    background: #F8FAFC;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #A5B4FC;
+    outline-offset: 2px;
+  }
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px 10px;
+  min-width: 220px;
+  border-bottom: 1px solid #F1F2F4;
+  margin-bottom: 4px;
+}
+
+.userName {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0F172A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userEmail {
+  font-size: 12px;
+  color: #64748B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

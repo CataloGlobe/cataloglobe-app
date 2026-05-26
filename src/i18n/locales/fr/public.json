@@ -5,7 +5,12 @@
     "loading_error": "Erreur de chargement.",
     "simulation_banner": "Prévisualisation de la simulation",
     "empty_catalog": "Aucun produit disponible pour le moment",
-    "menu_label": "Menu"
+    "menu_label": "Menu",
+    "error": {
+      "not_found": "Établissement introuvable.",
+      "invalid_link": "Lien non valide.",
+      "invalid_lang": "Langue non prise en charge."
+    }
   },
   "skip_to_content": "Skip to content",
   "hub": {

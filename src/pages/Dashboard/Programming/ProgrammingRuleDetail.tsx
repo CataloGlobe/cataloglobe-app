@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
+import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
+import { usePageHeader } from "@/context/usePageHeader";
 import { Button } from "@/components/ui/Button/Button";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -592,54 +592,60 @@ export default function ProgrammingRuleDetail() {
         }
     };
 
-    if (isLoading || !form || !rule) {
-        return (
-            <section className={styles.page}>
-                <PageHeader title="Caricamento regola..." />
-            </section>
-        );
-    }
+    const backToList = `/business/${businessId}/scheduling?type=${fromType ?? form?.ruleType ?? "layout"}`;
 
-    const backToList = `/business/${businessId}/scheduling?type=${fromType ?? form.ruleType}`;
-    const breadcrumbItems = [
+    const breadcrumbItems = useMemo(() => [
         { label: "Programmazione", to: backToList },
-        { label: form.name || "Regola" }
-    ];
+        { label: form?.name || (isLoading ? "Caricamento..." : "Regola") }
+    ], [backToList, form?.name, isLoading]);
+
+    useBreadcrumbItems(breadcrumbItems);
+
+    const headerTitleAddon = useMemo(() => (
+        form ? (
+            <Badge color={getRuleTypeBadgeColor(form.ruleType)}>
+                {getRuleTypeLabel(form.ruleType)}
+            </Badge>
+        ) : null
+    ), [form]);
+
+    const headerActions = useMemo(() => (
+        form ? (
+            <div className={styles.topActions}>
+                <Button
+                    variant="secondary"
+                    onClick={handleReset}
+                    disabled={!isDirty || isSaving}
+                >
+                    Annulla modifiche
+                </Button>
+                <Button
+                    variant="primary"
+                    type="submit"
+                    form="rule-detail-form"
+                    loading={isSaving}
+                    disabled={!isDirty}
+                >
+                    Salva regola
+                </Button>
+            </div>
+        ) : null
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    ), [form, isDirty, isSaving]);
+
+    usePageHeader({
+        title: form?.name || (isLoading ? "Caricamento regola..." : "Regola"),
+        titleAddon: headerTitleAddon ?? undefined,
+        actions: headerActions ?? undefined,
+        sticky: true,
+    });
+
+    if (isLoading || !form || !rule) {
+        return null;
+    }
 
     return (
         <section className={styles.page}>
-            <div className={styles.topArea}>
-                <Breadcrumb items={breadcrumbItems} />
-                <PageHeader
-                    title={form.name || "Regola"}
-                    titleAddon={
-                        <Badge color={getRuleTypeBadgeColor(form.ruleType)}>
-                            {getRuleTypeLabel(form.ruleType)}
-                        </Badge>
-                    }
-                    actions={
-                        <div className={styles.topActions}>
-                            <Button
-                                variant="secondary"
-                                onClick={handleReset}
-                                disabled={!isDirty || isSaving}
-                            >
-                                Annulla modifiche
-                            </Button>
-                            <Button
-                                variant="primary"
-                                type="submit"
-                                form="rule-detail-form"
-                                loading={isSaving}
-                                disabled={!isDirty}
-                            >
-                                Salva regola
-                            </Button>
-                        </div>
-                    }
-                />
-            </div>
-
             <form id="rule-detail-form" className={styles.formLayout} onSubmit={handleSubmit}>
                 <div className={styles.formColumnLeft}>
                     <TargetSection

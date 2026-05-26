@@ -2,6 +2,7 @@ import { supabase } from "@/services/supabase/client";
 import { computeFieldHash } from "@/services/translation/hashUtils";
 import { enqueueWithSilentError } from "./translationJobs";
 import { deleteTranslationsForEntity } from "./translations";
+import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 
 export type OptionGroupKind = "PRIMARY_PRICE" | "ADDON";
 export type OptionPricingMode = "ABSOLUTE" | "DELTA";
@@ -149,6 +150,8 @@ export async function createProductOptionGroup(data: {
         });
     }
 
+    void revalidatePublicCatalogForTenant(data.tenant_id);
+
     return newGroup;
 }
 
@@ -194,6 +197,10 @@ export async function updateProductOptionGroup(
             newSourceText: data.name ?? null,
             newSourceHash: nameHash
         });
+    }
+
+    if (updatedGroup?.tenant_id) {
+        void revalidatePublicCatalogForTenant(updatedGroup.tenant_id);
     }
 
     return updatedGroup;
@@ -254,6 +261,7 @@ export async function deleteProductOptionGroup(id: string, tenantId?: string): P
         } catch (err) {
             console.error("[translations] cleanup on deleteProductOptionGroup failed:", err);
         }
+        void revalidatePublicCatalogForTenant(cleanupTenantId);
     }
 }
 
@@ -307,6 +315,8 @@ export async function createOptionValue(data: {
         });
     }
 
+    void revalidatePublicCatalogForTenant(data.tenant_id);
+
     return newValue;
 }
 
@@ -350,6 +360,10 @@ export async function updateOptionValue(
         });
     }
 
+    if (updatedValue?.tenant_id) {
+        void revalidatePublicCatalogForTenant(updatedValue.tenant_id);
+    }
+
     return updatedValue;
 }
 
@@ -372,6 +386,7 @@ export async function deleteOptionValue(id: string): Promise<void> {
         } catch (err) {
             console.error("[translations] cleanup on deleteOptionValue failed:", err);
         }
+        void revalidatePublicCatalogForTenant(valueTenantId);
     }
 }
 

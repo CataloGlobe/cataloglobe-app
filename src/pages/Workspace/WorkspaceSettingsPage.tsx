@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import { Card } from "@/components/ui/Card/Card";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
@@ -54,6 +54,12 @@ export default function WorkspaceSettingsPage() {
     const [passwordError, setPasswordError] = useState<string | null>(null);
     const [passwordSuccess, setPasswordSuccess] = useState(false);
     const [passwordLoading, setPasswordLoading] = useState(false);
+
+    usePageHeader({
+        title: "Impostazioni",
+        subtitle: "Gestisci il profilo e le preferenze del tuo workspace.",
+        sticky: true,
+    });
 
     useEffect(() => {
         if (!user) return;
@@ -267,11 +273,6 @@ export default function WorkspaceSettingsPage() {
     return (
         <div className={styles.page}>
             <div className={styles.container}>
-                <PageHeader
-                    title="Impostazioni"
-                    subtitle="Gestisci il profilo e le preferenze del tuo workspace."
-                />
-
                 <div className={styles.cards}>
                     <Card title="Profilo" className={styles.card}>
                         <div className={styles.profileRow}>

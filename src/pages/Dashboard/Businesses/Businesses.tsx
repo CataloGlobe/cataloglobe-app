@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -20,7 +20,8 @@ import type {
 import Text from "@components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
+import { isOwner, isAdmin } from "@/lib/permissions";
 
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
 import { ActivityVisibilityDrawer } from "@/pages/Operativita/Attivita/components/ActivityVisibilityDrawer/ActivityVisibilityDrawer";
@@ -76,9 +77,9 @@ export default function Businesses() {
 
     // Role-aware copy for inactive subscription toast.
     const subscriptionInactiveMessage = useCallback(() => {
-        if (userRole === "owner")
+        if (isOwner(userRole))
             return "L'abbonamento non è attivo. Vai alla pagina abbonamento per riattivarlo.";
-        if (userRole === "admin")
+        if (isAdmin(userRole))
             return "L'abbonamento non è attivo. Solo il proprietario può riattivarlo.";
         return "L'abbonamento non è attivo. Contatta il proprietario.";
     }, [userRole]);
@@ -148,6 +149,44 @@ export default function Businesses() {
     // ======================================
     const [createSlugState, setCreateSlugState] = useState<SlugInlineState>({ type: "idle" });
     const [editSlugState, setEditSlugState] = useState<SlugInlineState>({ type: "idle" });
+
+    const headerActions = useMemo(() => (
+        activeTab === "activities" ? (
+            <Button
+                variant="primary"
+                disabled={!canEdit}
+                onClick={() => {
+                    if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
+                    if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
+                        setSeatLimitDialogOpen(true);
+                        return;
+                    }
+                    setIsCreateOpen(true);
+                    setCreateSlugState({ type: "idle" });
+                }}
+            >
+                Aggiungi sede
+            </Button>
+        ) : (
+            <Button
+                variant="primary"
+                disabled={!canEdit}
+                onClick={() => {
+                    if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
+                    window.dispatchEvent(new CustomEvent("open-group-drawer"));
+                }}
+            >
+                Nuovo gruppo
+            </Button>
+        )
+    ), [activeTab, canEdit, selectedTenant, businesses.length, showToast, subscriptionInactiveMessage]);
+
+    usePageHeader({
+        title: "Le tue Sedi",
+        subtitle: "Gestisci le tue sedi e genera il QR del sito pubblico.",
+        actions: headerActions,
+        sticky: true,
+    });
 
     // ======================================
     // STATE: Filtri e Vista (MOCK)
@@ -342,14 +381,14 @@ export default function Businesses() {
             if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
                 const paidSeats = selectedTenant.paid_seats;
                 const seatsLabel = paidSeats === 1 ? "una sede" : `${paidSeats} sedi`;
-                if (userRole === "owner") {
+                if (isOwner(userRole)) {
                     showToast({
                         message: `Hai raggiunto il limite di sedi. Il tuo piano include ${seatsLabel}. Apri la pagina abbonamento per espandere.`,
                         type: "error",
                         duration: 4000
                     });
                     navigate(`/business/${businessId}/subscription`);
-                } else if (userRole === "admin") {
+                } else if (isAdmin(userRole)) {
                     showToast({
                         message: `Hai raggiunto il limite di sedi. Il piano include ${seatsLabel}. Solo il proprietario può espandere l'abbonamento.`,
                         type: "error",
@@ -756,42 +795,6 @@ export default function Businesses() {
 
     return (
         <section className={styles.businesses} aria-labelledby="businesses-title">
-            <PageHeader
-                title="Le tue Sedi"
-                businessName={selectedTenant?.name}
-                subtitle="Gestisci le tue sedi e genera il QR del sito pubblico."
-                actions={
-                    activeTab === "activities" ? (
-                        <Button
-                            variant="primary"
-                            disabled={!canEdit}
-                            onClick={() => {
-                                if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
-                                if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
-                                    setSeatLimitDialogOpen(true);
-                                    return;
-                                }
-                                setIsCreateOpen(true);
-                                setCreateSlugState({ type: "idle" });
-                            }}
-                        >
-                            Aggiungi sede
-                        </Button>
-                    ) : (
-                        <Button
-                            variant="primary"
-                            disabled={!canEdit}
-                            onClick={() => {
-                                if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
-                                window.dispatchEvent(new CustomEvent("open-group-drawer"));
-                            }}
-                        >
-                            Nuovo gruppo
-                        </Button>
-                    )
-                }
-            />
-
             {businesses.length > 1 && (
                 <div className={styles.tabsContainer} style={{ marginBottom: "1rem" }}>
                     <Tabs value={activeTab} onChange={setActiveTab}>
@@ -965,9 +968,9 @@ export default function Businesses() {
                         {(() => {
                             const paidSeats = selectedTenant?.paid_seats ?? 0;
                             const seatsLabel = paidSeats === 1 ? "una sede" : `${paidSeats} sedi`;
-                            if (userRole === "owner")
+                            if (isOwner(userRole))
                                 return `Il tuo piano include ${seatsLabel}. Per aggiungerne altre, espandi il piano dalla pagina abbonamento.`;
-                            if (userRole === "admin")
+                            if (isAdmin(userRole))
                                 return `Il piano include ${seatsLabel}. Solo il proprietario può espandere l'abbonamento.`;
                             return `Il piano include ${seatsLabel}. Contatta il proprietario per aggiungere altre sedi.`;
                         })()}
@@ -975,7 +978,7 @@ export default function Businesses() {
                 </ModalLayoutContent>
 
                 <ModalLayoutFooter>
-                    {userRole === "owner" ? (
+                    {isOwner(userRole) ? (
                         <>
                             <Button
                                 variant="secondary"
@@ -993,7 +996,7 @@ export default function Businesses() {
                                 Apri abbonamento
                             </Button>
                         </>
-                    ) : userRole === "admin" ? (
+                    ) : isAdmin(userRole) ? (
                         <>
                             <Button
                                 variant="secondary"
