@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Minus, Plus, Trash2, RefreshCw, X } from "lucide-react";
 import PublicSheet from "../PublicSheet/PublicSheet";
-import { getOrdersForSession, cancelOrderCustomer } from "@/services/supabase/orders";
+import { getOrdersForSession, cancelOrderCustomer, subscribeToSessionOrders } from "@/services/supabase/orders";
 import { useCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
 import type { SessionOrderSummary, OrderStatus } from "@/types/orders";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import styles from "./OrderingSheet.module.scss";
 
 // ─── Types — owned here, riusati da CollectionView + ItemDetail ──────────────
@@ -187,6 +188,57 @@ export default function OrderingSheet({
         }
         // ordersRefreshKey intentionally in deps to force refetch on bump
     }, [isOpen, activeTab, loadOrders, ordersRefreshKey]);
+
+    // Realtime subscribe quando tab orders attiva + JWT presente.
+    // RLS server-side filtra eventi alla sola sessione customer corrente.
+    useEffect(() => {
+        const jwt = session?.jwt;
+        if (!isOpen || activeTab !== "orders" || !jwt) {
+            return;
+        }
+
+        let channel: RealtimeChannel | null = null;
+
+        channel = subscribeToSessionOrders(jwt, {
+            onUpdate: updatedOrder => {
+                setOrders(prev =>
+                    prev.map(o =>
+                        o.id === updatedOrder.id
+                            ? {
+                                  ...o,
+                                  status: updatedOrder.status,
+                                  total_amount: updatedOrder.total_amount,
+                                  notes: updatedOrder.notes,
+                                  order_group_id: updatedOrder.order_group_id
+                              }
+                            : o
+                    )
+                );
+            },
+            onInsert: newOrder => {
+                // Edge case: ordine creato server-side (raro). Refetch defensive
+                // per popolare items che NON arrivano via Realtime su orders.
+                setOrders(prev => {
+                    if (prev.find(o => o.id === newOrder.id)) return prev;
+                    void loadOrders();
+                    return prev;
+                });
+            },
+            onError: err => {
+                const msg = err.message.toLowerCase();
+                if (msg.includes("token") || msg.includes("jwt") || msg.includes("auth")) {
+                    clear();
+                    onSessionExpired?.();
+                }
+                // Altri errori silenziosi: Realtime auto-reconnect built-in,
+                // refresh button manuale + initial load restano fallback.
+            }
+        });
+
+        return () => {
+            channel?.unsubscribe();
+        };
+    }, [isOpen, activeTab, session?.jwt, loadOrders, clear, onSessionExpired]);
 
     return (
         <PublicSheet

@@ -25,6 +25,7 @@
  */
 
 import { FunctionsHttpError } from "@supabase/supabase-js";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
 import type {
     OrderItemRequest,
@@ -36,6 +37,7 @@ import type {
     CancelOrderAdminResult,
     RectifyOrderResult,
     RectifyOrderItem,
+    V2Order,
     V2OrderWithItems,
     V2OrderItem,
     ListOrdersOptions
@@ -571,5 +573,74 @@ function throwMappedTransitionError(parsed: ParsedInvokeError): never {
             throw new Error("Troppe richieste, riprova tra un momento");
         default:
             throw new Error("Errore del server");
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REALTIME (customer-side)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Subscribe a Realtime postgres_changes su `orders` della sessione
+ * customer corrente. RLS policy "Customer select own orders" filtra
+ * automaticamente per `customer_session_id` estratto dal JWT, quindi
+ * il channel riceve SOLO eventi della sessione del JWT passato.
+ *
+ * Pattern: `setAuth(jwt)` swap auth contesto del singleton supabase
+ * client (NON crea nuovo client) + subscribe a postgres_changes su
+ * tabella orders. UPDATE cattura transitions di status (submitted →
+ * acknowledged → delivered | cancelled). INSERT raro (admin crea
+ * ordine per customer); DELETE non dovrebbe mai avvenire (cancel =
+ * status update), incluso per safety.
+ *
+ * Caller responsabile cleanup: channel.unsubscribe() onmount.
+ *
+ * @returns RealtimeChannel handle per cleanup. Null se setup fallisce.
+ */
+export function subscribeToSessionOrders(
+    customerJwt: string,
+    callbacks: {
+        onInsert?: (order: V2Order) => void;
+        onUpdate?: (order: V2Order) => void;
+        onDelete?: (orderId: string) => void;
+        onError?: (error: Error) => void;
+    }
+): RealtimeChannel | null {
+    try {
+        // Swap JWT su singleton client (no riconnessione WS se gia aperto)
+        supabase.realtime.setAuth(customerJwt);
+
+        const channel = supabase
+            .channel("session-orders-" + Date.now())
+            .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: "orders" },
+                payload => {
+                    if (payload.eventType === "INSERT" && callbacks.onInsert) {
+                        callbacks.onInsert(payload.new as V2Order);
+                    } else if (payload.eventType === "UPDATE" && callbacks.onUpdate) {
+                        callbacks.onUpdate(payload.new as V2Order);
+                    } else if (payload.eventType === "DELETE" && callbacks.onDelete) {
+                        const oldId = (payload.old as { id?: string })?.id;
+                        if (oldId) callbacks.onDelete(oldId);
+                    }
+                }
+            )
+            .subscribe((status, err) => {
+                if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+                    callbacks.onError?.(
+                        err instanceof Error
+                            ? err
+                            : new Error("Realtime channel error: " + status)
+                    );
+                }
+            });
+
+        return channel;
+    } catch (err) {
+        callbacks.onError?.(
+            err instanceof Error ? err : new Error("Realtime subscribe failed")
+        );
+        return null;
     }
 }
