@@ -2,10 +2,11 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Minus, Plus, Trash2, RefreshCw, X } from "lucide-react";
 import PublicSheet from "../PublicSheet/PublicSheet";
+import OrderStatusStepper from "./OrderStatusStepper";
 import { getOrdersForSession, cancelOrderCustomer, subscribeToSessionOrders } from "@/services/supabase/orders";
 import { requestBill, subscribeToCustomerSession } from "@/services/supabase/customerSessions";
 import { useCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
-import type { SessionOrderSummary, OrderStatus, V2CustomerSession } from "@/types/orders";
+import type { SessionOrderSummary, V2CustomerSession } from "@/types/orders";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import styles from "./OrderingSheet.module.scss";
 
@@ -48,7 +49,7 @@ function formatPrice(n: number): string {
 function formatRelativeMinimal(iso: string): string {
     const diffMs = Date.now() - new Date(iso).getTime();
     const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return "Ora";
+    if (diffMin < 1) return "ora";
     if (diffMin < 60) return `${diffMin} min fa`;
     const diffH = Math.floor(diffMin / 60);
     if (diffH < 24) return `${diffH} h fa`;
@@ -58,16 +59,6 @@ function formatRelativeMinimal(iso: string): string {
         hour: "2-digit",
         minute: "2-digit"
     }).format(new Date(iso));
-}
-
-function statusInfo(status: OrderStatus): { label: string; className: string } {
-    switch (status) {
-        case "submitted":    return { label: "In attesa di conferma",  className: "statusSubmitted" };
-        case "acknowledged": return { label: "Confermato dallo staff", className: "statusAcknowledged" };
-        case "delivered":    return { label: "Consegnato",             className: "statusDelivered" };
-        case "cancelled":    return { label: "Cancellato",             className: "statusCancelled" };
-        default:             return { label: status,                   className: "statusSubmitted" };
-    }
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -529,10 +520,10 @@ export default function OrderingSheet({
                         ) : (
                             <div className={styles.ordersList}>
                                 {orders.map(order => {
-                                    const st = statusInfo(order.status);
                                     const isConfirming = confirmingCancelId === order.id;
                                     const isProcessing = processingCancelId === order.id;
                                     const canCancel = order.status === "submitted";
+                                    const isCancelled = order.status === "cancelled";
 
                                     return (
                                         <div
@@ -540,16 +531,27 @@ export default function OrderingSheet({
                                             className={styles.orderCard}
                                             data-status={order.status}
                                         >
-                                            <div className={styles.orderHeader}>
-                                                <span
-                                                    className={`${styles.statusPill} ${styles[st.className]}`}
-                                                >
-                                                    {st.label}
-                                                </span>
-                                                <span className={styles.orderTime}>
-                                                    {formatRelativeMinimal(order.created_at)}
-                                                </span>
-                                            </div>
+                                            {isCancelled ? (
+                                                <div className={styles.orderHeader}>
+                                                    <span
+                                                        className={`${styles.statusPill} ${styles.statusCancelled}`}
+                                                    >
+                                                        Cancellato
+                                                    </span>
+                                                    <span className={styles.orderTime}>
+                                                        {formatRelativeMinimal(order.cancelled_at ?? order.created_at)}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className={styles.orderHeader}>
+                                                        <span className={styles.orderTime}>
+                                                            Inviato {formatRelativeMinimal(order.created_at)}
+                                                        </span>
+                                                    </div>
+                                                    <OrderStatusStepper order={order} />
+                                                </>
+                                            )}
 
                                             <ul className={styles.itemsList}>
                                                 {(order.items ?? []).map(item => (

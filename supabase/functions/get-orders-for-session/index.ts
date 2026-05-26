@@ -86,6 +86,9 @@ interface OrderRow {
     order_group_id: string | null;
     notes: string | null;
     created_at: string;
+    acknowledged_at: string | null;
+    delivered_at: string | null;
+    cancelled_at: string | null;
     items: OrderItemRow[] | null;
 }
 
@@ -186,6 +189,7 @@ async function _fetchOrdersWithItems(
         .select(
             `
             id, status, total_amount, order_group_id, notes, created_at,
+            acknowledged_at, delivered_at, cancelled_at,
             items:order_items(
                 id, product_id, product_name_snapshot,
                 unit_price_snapshot, quantity, line_total,
@@ -210,6 +214,9 @@ function _shapeOrders(orders: OrderRow[]): Array<Record<string, unknown>> {
         order_group_id: o.order_group_id,
         notes: o.notes,
         created_at: o.created_at,
+        acknowledged_at: o.acknowledged_at,
+        delivered_at: o.delivered_at,
+        cancelled_at: o.cancelled_at,
         items: (o.items ?? []).map(it => ({
             id: it.id,
             product_id: it.product_id,

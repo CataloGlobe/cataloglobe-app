@@ -269,6 +269,9 @@ export interface SessionOrderSummary {
     order_group_id: string | null;
     notes: string | null;
     created_at: string;
+    acknowledged_at: string | null;
+    delivered_at: string | null;
+    cancelled_at: string | null;
     items: V2OrderItem[];
 }
 
