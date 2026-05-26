@@ -21,6 +21,7 @@ import Text from "@components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { usePageHeader } from "@/context/usePageHeader";
+import { isOwner, isAdmin } from "@/lib/permissions";
 
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
 import { ActivityVisibilityDrawer } from "@/pages/Operativita/Attivita/components/ActivityVisibilityDrawer/ActivityVisibilityDrawer";
@@ -76,9 +77,9 @@ export default function Businesses() {
 
     // Role-aware copy for inactive subscription toast.
     const subscriptionInactiveMessage = useCallback(() => {
-        if (userRole === "owner")
+        if (isOwner(userRole))
             return "L'abbonamento non è attivo. Vai alla pagina abbonamento per riattivarlo.";
-        if (userRole === "admin")
+        if (isAdmin(userRole))
             return "L'abbonamento non è attivo. Solo il proprietario può riattivarlo.";
         return "L'abbonamento non è attivo. Contatta il proprietario.";
     }, [userRole]);
@@ -380,14 +381,14 @@ export default function Businesses() {
             if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
                 const paidSeats = selectedTenant.paid_seats;
                 const seatsLabel = paidSeats === 1 ? "una sede" : `${paidSeats} sedi`;
-                if (userRole === "owner") {
+                if (isOwner(userRole)) {
                     showToast({
                         message: `Hai raggiunto il limite di sedi. Il tuo piano include ${seatsLabel}. Apri la pagina abbonamento per espandere.`,
                         type: "error",
                         duration: 4000
                     });
                     navigate(`/business/${businessId}/subscription`);
-                } else if (userRole === "admin") {
+                } else if (isAdmin(userRole)) {
                     showToast({
                         message: `Hai raggiunto il limite di sedi. Il piano include ${seatsLabel}. Solo il proprietario può espandere l'abbonamento.`,
                         type: "error",
@@ -967,9 +968,9 @@ export default function Businesses() {
                         {(() => {
                             const paidSeats = selectedTenant?.paid_seats ?? 0;
                             const seatsLabel = paidSeats === 1 ? "una sede" : `${paidSeats} sedi`;
-                            if (userRole === "owner")
+                            if (isOwner(userRole))
                                 return `Il tuo piano include ${seatsLabel}. Per aggiungerne altre, espandi il piano dalla pagina abbonamento.`;
-                            if (userRole === "admin")
+                            if (isAdmin(userRole))
                                 return `Il piano include ${seatsLabel}. Solo il proprietario può espandere l'abbonamento.`;
                             return `Il piano include ${seatsLabel}. Contatta il proprietario per aggiungere altre sedi.`;
                         })()}
@@ -977,7 +978,7 @@ export default function Businesses() {
                 </ModalLayoutContent>
 
                 <ModalLayoutFooter>
-                    {userRole === "owner" ? (
+                    {isOwner(userRole) ? (
                         <>
                             <Button
                                 variant="secondary"
@@ -995,7 +996,7 @@ export default function Businesses() {
                                 Apri abbonamento
                             </Button>
                         </>
-                    ) : userRole === "admin" ? (
+                    ) : isAdmin(userRole) ? (
                         <>
                             <Button
                                 variant="secondary"

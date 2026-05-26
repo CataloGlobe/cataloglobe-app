@@ -7,6 +7,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { createCheckoutSession, createPortalSession, updateSeats } from "@/services/supabase/billing";
 import { getActivityCount } from "@/services/supabase/activities";
 import { calculatePrice, formatPrice, MAX_SEATS } from "@/utils/pricing";
+import { isOwner, isAdmin, isMember } from "@/lib/permissions";
 import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -53,7 +54,7 @@ export default function SubscriptionPage() {
 
     usePageHeader({
         title: "Abbonamento",
-        subtitle: userRole === "member"
+        subtitle: isMember(userRole)
             ? undefined
             : "Gestisci il piano e il metodo di pagamento della tua attività.",
         sticky: true,
@@ -61,7 +62,7 @@ export default function SubscriptionPage() {
 
     if (loading || !selectedTenant) return null;
 
-    if (userRole === "member") {
+    if (isMember(userRole)) {
         return (
             <div className={styles.page}>
                 <div className={styles.restrictedCard}>
@@ -168,7 +169,7 @@ export default function SubscriptionPage() {
 
     return (
         <div className={styles.page}>
-            {userRole === "admin" && (
+            {isAdmin(userRole) && (
                 <div
                     style={{
                         display: "flex",
@@ -271,13 +272,13 @@ export default function SubscriptionPage() {
 
                     {activityCount >= paidSeats && paidSeats > 0 && (
                         <InlineBanner variant="warning">
-                            {userRole === "owner"
+                            {isOwner(userRole)
                                 ? "Hai raggiunto il limite. Modifica il numero di sedi per espandere il piano."
                                 : "Hai raggiunto il limite. Solo il proprietario può modificare il numero di sedi."}
                         </InlineBanner>
                     )}
 
-                    {userRole === "owner" && (
+                    {isOwner(userRole) && (
                         <Button
                             variant="secondary"
                             onClick={handleOpenSeatsDrawer}
@@ -290,7 +291,7 @@ export default function SubscriptionPage() {
             </div>
 
             {/* --- Actions (owner only) --- */}
-            {userRole === "owner" && (
+            {isOwner(userRole) && (
             <div className={styles.section}>
                 <div className={styles.sectionHeader}>
                     <Shield size={18} />
@@ -366,7 +367,7 @@ export default function SubscriptionPage() {
             )}
 
             {/* --- Modify seats drawer (2-step, owner only) --- */}
-            {userRole === "owner" && (
+            {isOwner(userRole) && (
             <SystemDrawer
                 open={seatsDrawerOpen}
                 onClose={() => { setSeatsDrawerOpen(false); setSeatsDrawerStep("edit"); }}

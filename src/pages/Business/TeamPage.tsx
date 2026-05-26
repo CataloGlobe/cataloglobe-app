@@ -3,6 +3,7 @@ import { supabase } from "@/services/supabase/client";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
+import { canManage, isOwner } from "@/lib/permissions";
 import { Card } from "@/components/ui/Card/Card";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -42,7 +43,7 @@ export default function TeamPage() {
     const [search, setSearch] = useState("");
     const [roleFilter, setRoleFilter] = useState("");
 
-    const isAdmin = userRole === "owner" || userRole === "admin";
+    const isAdmin = canManage(userRole);
 
     usePageHeader({
         title: "Team",
@@ -211,7 +212,7 @@ export default function TeamPage() {
                             label: "Cambia ruolo",
                             icon: UserCog,
                             onClick: () => handleChangeRole(row),
-                            hidden: row.role === "owner",
+                            hidden: isOwner(row.role),
                         },
                         {
                             label: "Rimuovi membro",
@@ -219,7 +220,7 @@ export default function TeamPage() {
                             onClick: () => handleRemove(row),
                             variant: "destructive",
                             separator: true,
-                            hidden: row.role === "owner",
+                            hidden: isOwner(row.role),
                         },
                     ];
 

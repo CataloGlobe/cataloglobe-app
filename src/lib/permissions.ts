@@ -1,14 +1,21 @@
 export type Role = "owner" | "admin" | "member";
 
-export const permissions = {
-    activity: {
-        create: (role: Role) => role === "owner" || role === "admin",
-        update: (role: Role) => role === "owner" || role === "admin",
-        delete: (role: Role) => role === "owner" || role === "admin"
-    },
-    tenant: {
-        invite: (role: Role) => role === "owner" || role === "admin",
-        changeRole: (role: Role) => role === "owner",
-        transferOwnership: (role: Role) => role === "owner"
-    }
-} as const;
+/** True if role is owner. */
+export function isOwner(role: Role | string | null | undefined): boolean {
+    return role === "owner";
+}
+
+/** True if role is admin. */
+export function isAdmin(role: Role | string | null | undefined): boolean {
+    return role === "admin";
+}
+
+/** True if role is member. */
+export function isMember(role: Role | string | null | undefined): boolean {
+    return role === "member";
+}
+
+/** True if role can manage (owner OR admin): invite members, edit business, etc. */
+export function canManage(role: Role | string | null | undefined): boolean {
+    return role === "owner" || role === "admin";
+}

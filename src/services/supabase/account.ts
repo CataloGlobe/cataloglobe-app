@@ -1,5 +1,6 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
+import { isOwner } from "@/lib/permissions";
 import type { V2Tenant } from "@/types/tenant";
 
 export const DELETED_ACCOUNT_HANDOFF_KEY = "cg_auth_deleted_handoff";
@@ -85,8 +86,8 @@ export async function listUserTenantsForDeletion(): Promise<{
 
     const all = (data ?? []) as V2Tenant[];
     return {
-        owned: all.filter(t => t.user_role === "owner"),
-        member: all.filter(t => t.user_role !== "owner")
+        owned: all.filter(t => isOwner(t.user_role)),
+        member: all.filter(t => !isOwner(t.user_role))
     };
 }
 

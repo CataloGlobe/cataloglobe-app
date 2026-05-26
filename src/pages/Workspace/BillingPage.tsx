@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { usePageHeader } from "@/context/usePageHeader";
+import { isOwner } from "@/lib/permissions";
 import Text from "@/components/ui/Text/Text";
 import { Badge, type BadgeVariant } from "@/components/ui/Badge/Badge";
 import { useAuth } from "@/context/useAuth";
@@ -87,7 +88,7 @@ export default function BillingPage() {
                         {tenants.map(tenant => {
                             const status = tenant.subscription_status;
                             const daysLeft = getTrialDaysLeft(tenant.trial_until);
-                            const isOwner = tenant.user_role === "owner";
+                            const tenantIsOwner = isOwner(tenant.user_role);
                             const needsActivation = !tenant.stripe_subscription_id;
                             const usedSeats = activityCounts[tenant.id] ?? 0;
 
@@ -107,7 +108,7 @@ export default function BillingPage() {
                                             </Text>
                                             <Text variant="caption" colorVariant="muted">
                                                 Piano Pro · {usedSeats}/{tenant.paid_seats} sed{tenant.paid_seats === 1 ? "e" : "i"}
-                                                {!isOwner && " · Membro"}
+                                                {!tenantIsOwner && " · Membro"}
                                             </Text>
                                         </div>
                                     </div>

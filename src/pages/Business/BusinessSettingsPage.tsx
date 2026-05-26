@@ -4,6 +4,7 @@ import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import Text from "@/components/ui/Text/Text";
 import { usePageHeader } from "@/context/usePageHeader";
+import { isOwner } from "@/lib/permissions";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Button } from "@/components/ui/Button/Button";
 import { FileInput } from "@/components/ui/Input/FileInput";
@@ -110,7 +111,7 @@ export default function BusinessSettingsPage() {
 
     if (loading || !selectedTenant) return null;
 
-    if (userRole !== "owner") {
+    if (!isOwner(userRole)) {
         return (
             <div className={styles.page}>
                 <div className={styles.emptyWrap}>
@@ -127,7 +128,7 @@ export default function BusinessSettingsPage() {
     return (
         <div className={styles.page}>
             {/* Section 1 — Business info (owner only) */}
-            {userRole === "owner" && (
+            {isOwner(userRole) && (
                 <div className={styles.section}>
                     <Text variant="title-sm" weight={600}>
                         Informazioni attività
@@ -166,7 +167,7 @@ export default function BusinessSettingsPage() {
             )}
 
             {/* Section 2 — Logo (owner only) */}
-            {userRole === "owner" && (
+            {isOwner(userRole) && (
                 <div className={styles.section}>
                     <Text variant="title-sm" weight={600}>
                         Identità visiva
@@ -212,7 +213,7 @@ export default function BusinessSettingsPage() {
             )}
 
             {/* Section 3 — Danger zone (owner only) */}
-            {userRole === "owner" && (
+            {isOwner(userRole) && (
                 <div className={`${styles.section} ${styles.dangerSection}`}>
                     <Text variant="title-sm" weight={600}>
                         Zona pericolosa

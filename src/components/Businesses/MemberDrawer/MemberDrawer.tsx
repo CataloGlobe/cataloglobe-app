@@ -7,6 +7,7 @@ import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { useToast } from "@/context/Toast/ToastContext";
+import { isOwner } from "@/lib/permissions";
 import type { TenantMemberRow } from "@/types/team";
 import styles from "./MemberDrawer.module.scss";
 
@@ -31,7 +32,7 @@ export function MemberDrawer({ open, member, tenantId, onClose, onSuccess }: Pro
     // Reinitialize role selection whenever target member changes
     useEffect(() => {
         if (member) {
-            setPendingRole(member.role === "owner" ? "admin" : member.role);
+            setPendingRole(isOwner(member.role) ? "admin" : member.role);
         }
     }, [member]);
 
