@@ -64,6 +64,32 @@ const corsHeaders = {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Note length limits — mirrored client-side (OrderingSheet) and DB-side
+// (CHECK constraints in 20260526180000_orders_notes_length_check.sql).
+const ORDER_NOTES_MAX_LEN = 300;
+const ITEM_NOTES_MAX_LEN = 140;
+
+/**
+ * Trim + collapse multi-whitespace. Return null on empty result. Throws
+ * SanitizeNoteTooLong if the trimmed string exceeds `maxLen` characters.
+ */
+class SanitizeNoteTooLong extends Error {
+    constructor(public readonly maxLen: number) {
+        super(`Note too long: max ${maxLen} characters.`);
+    }
+}
+
+function sanitizeNote(raw: unknown, maxLen: number): string | null {
+    if (raw === null || raw === undefined) return null;
+    if (typeof raw !== "string") return null;
+    const trimmed = raw.trim().replace(/\s+/g, " ");
+    if (trimmed.length === 0) return null;
+    if (trimmed.length > maxLen) {
+        throw new SanitizeNoteTooLong(maxLen);
+    }
+    return trimmed;
+}
+
 // ============================================================
 // Request body types
 // ============================================================
@@ -169,14 +195,23 @@ function _parseAndValidateBody(raw: unknown): SubmitOrderRequestBody | { error: 
             requested.addon_value_ids = addons;
         }
 
-        if (
-            itObj.item_notes !== undefined &&
-            itObj.item_notes !== null
-        ) {
+        if (itObj.item_notes !== undefined && itObj.item_notes !== null) {
             if (typeof itObj.item_notes !== "string") {
                 return { error: `items[${i}].item_notes must be a string or null.` };
             }
-            requested.item_notes = itObj.item_notes as string;
+            try {
+                const sanitized = sanitizeNote(itObj.item_notes, ITEM_NOTES_MAX_LEN);
+                if (sanitized !== null) {
+                    requested.item_notes = sanitized;
+                }
+            } catch (e) {
+                if (e instanceof SanitizeNoteTooLong) {
+                    return {
+                        error: `items[${i}].item_notes too long (max ${ITEM_NOTES_MAX_LEN} characters).`
+                    };
+                }
+                throw e;
+            }
         }
 
         items.push(requested);
@@ -188,7 +223,16 @@ function _parseAndValidateBody(raw: unknown): SubmitOrderRequestBody | { error: 
         if (typeof obj.notes !== "string") {
             return { error: "`notes` must be a string or null." };
         }
-        notes = obj.notes;
+        try {
+            notes = sanitizeNote(obj.notes, ORDER_NOTES_MAX_LEN);
+        } catch (e) {
+            if (e instanceof SanitizeNoteTooLong) {
+                return {
+                    error: `\`notes\` too long (max ${ORDER_NOTES_MAX_LEN} characters).`
+                };
+            }
+            throw e;
+        }
     }
 
     // target_group_id

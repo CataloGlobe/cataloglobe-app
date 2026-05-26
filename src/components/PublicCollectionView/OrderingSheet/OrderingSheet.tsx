@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Minus, Plus, Trash2, RefreshCw, X } from "lucide-react";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import OrderStatusStepper from "./OrderStatusStepper";
+import ItemNoteEditor from "./ItemNoteEditor";
+import OrderNoteEditor from "./OrderNoteEditor";
 import { getOrdersForSession, cancelOrderCustomer, subscribeToSessionOrders } from "@/services/supabase/orders";
 import { requestBill, subscribeToCustomerSession } from "@/services/supabase/customerSessions";
 import { useCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
@@ -34,6 +36,8 @@ export type SelectionItem = {
     selectedAddons?: SelectedAddon[];
     /** basePrice + sum(addon.priceDelta) — effective unit price */
     unitPrice: number;
+    /** Free-text item note (max 140 chars, applied client/Edge/DB). `null` = no note. */
+    note: string | null;
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -74,6 +78,15 @@ interface OrderingSheetProps {
     onRemove: (index: number) => void;
     onClear: () => void;
     onEditItem?: (index: number, item: SelectionItem) => void;
+    /** Save trimmed item note (cart line `index`). */
+    onItemNoteSave?: (index: number, note: string) => void;
+    /** Remove item note (cart line `index`). */
+    onItemNoteRemove?: (index: number) => void;
+
+    /** Current order-level note (max 300). `null` = no note saved. */
+    orderNote?: string | null;
+    onOrderNoteSave?: (note: string) => void;
+    onOrderNoteRemove?: () => void;
 
     orderingActive?: boolean;
     onSubmitOrder?: () => void;
@@ -82,6 +95,7 @@ interface OrderingSheetProps {
     onSessionExpired?: () => void;
     ordersRefreshKey?: number;
 }
+
 
 export default function OrderingSheet({
     isOpen,
@@ -93,6 +107,11 @@ export default function OrderingSheet({
     onRemove,
     onClear,
     onEditItem,
+    onItemNoteSave,
+    onItemNoteRemove,
+    orderNote = null,
+    onOrderNoteSave,
+    onOrderNoteRemove,
     orderingActive = false,
     onSubmitOrder,
     isSubmitting = false,
@@ -378,6 +397,7 @@ export default function OrderingSheet({
                                 <ul className={styles.list}>
                                     {items.map((item, index) => (
                                         <li key={index} className={styles.listItem}>
+                                            <div className={styles.listItemMain}>
                                             <div className={styles.itemInfo}>
                                                 <span className={styles.itemName}>{item.name}</span>
                                                 {(item.selectedFormat ||
@@ -441,9 +461,24 @@ export default function OrderingSheet({
                                                     <Plus size={13} strokeWidth={2} />
                                                 </button>
                                             </div>
+                                            </div>
+                                            {onItemNoteSave && onItemNoteRemove && (
+                                                <ItemNoteEditor
+                                                    note={item.note ?? null}
+                                                    onSave={note => onItemNoteSave(index, note)}
+                                                    onRemove={() => onItemNoteRemove(index)}
+                                                />
+                                            )}
                                         </li>
                                     ))}
                                 </ul>
+                            )}
+                            {!isEmptyCart && onOrderNoteSave && onOrderNoteRemove && (
+                                <OrderNoteEditor
+                                    note={orderNote}
+                                    onSave={onOrderNoteSave}
+                                    onRemove={onOrderNoteRemove}
+                                />
                             )}
                         </div>
                         {!isEmptyCart && (

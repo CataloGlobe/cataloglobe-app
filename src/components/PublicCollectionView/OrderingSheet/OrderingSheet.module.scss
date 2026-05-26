@@ -222,15 +222,21 @@
 
 .listItem {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    flex-direction: column;
+    gap: 8px;
     padding: 14px 20px;
     border-bottom: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface)));
 
     &:last-child {
         border-bottom: none;
     }
+}
+
+.listItemMain {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 .itemInfo {
@@ -677,3 +683,4 @@
     border-radius: var(--pub-btn-radius, 8px);
     font-size: 12px;
 }
+

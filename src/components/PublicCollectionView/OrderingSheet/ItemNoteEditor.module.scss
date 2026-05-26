@@ -1,0 +1,170 @@
+/* ─────────────────────────────────────────────────────────
+   ItemNoteEditor — 3-state cart-line note: hidden / editing / saved
+──────────────────────────────────────────────────────────── */
+
+/* ── HIDDEN: text-link "+ Aggiungi nota" ─────────────────── */
+
+.addBtn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.45);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 6px 0 0 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.15s ease;
+
+    &:hover {
+        color: rgba(255, 255, 255, 0.7);
+    }
+}
+
+/* ── SAVED: compact gold pill, single line + ellipsis ────── */
+
+.savedPill {
+    background: rgba(197, 183, 131, 0.08);
+    border: 1px solid rgba(197, 183, 131, 0.25);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-top: 8px;
+    width: 100%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+    font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s ease;
+
+    &:hover {
+        background: rgba(197, 183, 131, 0.12);
+    }
+}
+
+.savedIcon {
+    color: var(--pub-primary, #c5b783);
+    flex-shrink: 0;
+}
+
+.savedText {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 12px;
+    font-style: italic;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.savedRemove {
+    color: rgba(255, 255, 255, 0.4);
+    flex-shrink: 0;
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s ease;
+
+    &:hover {
+        color: rgba(255, 255, 255, 0.8);
+    }
+}
+
+/* ── EDITING: bordered textarea + Annulla/counter/Conferma ── */
+
+.editor {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(197, 183, 131, 0.35);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-top: 8px;
+}
+
+.textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 13px;
+    font-family: inherit;
+    line-height: 1.4;
+    resize: none;
+    padding: 0;
+    min-height: 20px;
+    overflow: hidden;
+
+    &::placeholder {
+        color: rgba(255, 255, 255, 0.3);
+    }
+}
+
+.footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    gap: 8px;
+}
+
+.cancelBtn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.6);
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 999px;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s ease, color 0.15s ease;
+
+    &:hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.85);
+    }
+}
+
+.counter {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+    font-variant-numeric: tabular-nums;
+    transition: color 0.2s ease;
+}
+
+.counterWarn {
+    color: rgba(220, 80, 80, 0.85);
+    font-weight: 600;
+}
+
+.confirmBtn {
+    background: var(--pub-primary, #c5b783);
+    border: none;
+    color: var(--pub-on-primary, #1a1a1a);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 5px 12px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.15s ease, transform 0.05s ease;
+
+    &:hover {
+        opacity: 0.92;
+    }
+
+    &:active {
+        transform: scale(0.97);
+    }
+}

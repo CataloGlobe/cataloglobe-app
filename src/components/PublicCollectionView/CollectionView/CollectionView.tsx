@@ -59,7 +59,11 @@ function generateSelectionKey(
 }
 
 function migrateSelectionItem(item: Record<string, unknown>): SelectionItem {
-    if ("unitPrice" in item) return item as unknown as SelectionItem;
+    if ("unitPrice" in item) {
+        // Legacy shape with `unitPrice` but no `note` field — backfill null.
+        const legacy = item as unknown as SelectionItem & { note?: string | null };
+        return { ...legacy, note: legacy.note ?? null };
+    }
     const price = typeof item.price === "number" ? item.price : 0;
     return {
         id: item.id as string,
@@ -69,6 +73,7 @@ function migrateSelectionItem(item: Record<string, unknown>): SelectionItem {
         selectedFormat: null,
         selectedAddons: [],
         unitPrice: price,
+        note: null,
     };
 }
 
@@ -787,9 +792,14 @@ export default function CollectionView({
                 selectedFormat: selectedFormat ?? null,
                 selectedAddons: addons,
                 unitPrice,
+                note: null,
             }];
         });
     }, [mode, activityId]);
+
+    const updateSelectionNote = useCallback((index: number, value: string | null) => {
+        setSelection(prev => prev.map((i, idx) => (idx === index ? { ...i, note: value } : i)));
+    }, []);
 
     const updateSelectionQty = useCallback((index: number, qty: number) => {
         setSelection(prev => prev.map((i, idx) => idx === index ? { ...i, qty } : i));
@@ -808,7 +818,12 @@ export default function CollectionView({
         });
     }, [mode, activityId]);
 
-    const clearSelection = useCallback(() => setSelection([]), []);
+    const [orderNote, setOrderNote] = useState<string | null>(null);
+
+    const clearSelection = useCallback(() => {
+        setSelection([]);
+        setOrderNote(null);
+    }, []);
 
     // ── Customer session + submit order ─────────────────────────────────────
     const customerSession = useOptionalCustomerSession();
@@ -819,6 +834,7 @@ export default function CollectionView({
         | null
     >(null);
     const [confirmedOrder, setConfirmedOrder] = useState<SubmitOrderResult | null>(null);
+    const [confirmedOrderNote, setConfirmedOrderNote] = useState<string | null>(null);
     const [hasOrdersInSession, setHasOrdersInSession] = useState(false);
 
     const handleSessionExpired = useCallback(() => {
@@ -878,6 +894,7 @@ export default function CollectionView({
             const items: OrderItemRequest[] = selection.flatMap(it => {
                 const baseQty = it.qty;
                 if (baseQty <= 0) return [];
+                const trimmedNote = it.note?.trim().replace(/\s+/g, " ");
                 const entry: OrderItemRequest = {
                     product_id: it.id,
                     quantity: baseQty,
@@ -886,18 +903,30 @@ export default function CollectionView({
                         : {}),
                     ...(it.selectedAddons && it.selectedAddons.length > 0
                         ? { addon_value_ids: it.selectedAddons.map(a => a.id) }
-                        : {})
+                        : {}),
+                    ...(trimmedNote ? { item_notes: trimmedNote } : {})
                 };
                 return [entry];
             });
 
-            const result = await submitOrder(customerSession.session.jwt, items);
+            const trimmedOrderNote = orderNote?.trim().replace(/\s+/g, " ");
+            const notesArg = trimmedOrderNote && trimmedOrderNote.length > 0
+                ? trimmedOrderNote
+                : undefined;
+
+            const result = await submitOrder(
+                customerSession.session.jwt,
+                items,
+                notesArg
+            );
 
             clearSelection();
+            setOrderNote(null);
             setIsOrderingOpen(false);
             setActiveOrderingTab("orders");
             setOrdersRefreshKey(k => k + 1);
             setConfirmedOrder(result);
+            setConfirmedOrderNote(notesArg ?? null);
             setHasOrdersInSession(true);
         } catch (err) {
             if (err instanceof Error) {
@@ -930,7 +959,7 @@ export default function CollectionView({
         } finally {
             setIsSubmittingOrder(false);
         }
-    }, [customerSession, selection, clearSelection]);
+    }, [customerSession, selection, orderNote, clearSelection]);
 
     const findProductById = useCallback((productId: string): CollectionViewSectionItem | null => {
         for (const group of sectionGroups) {
@@ -2086,9 +2115,14 @@ export default function CollectionView({
                     <OrderConfirmationSheet
                         isOpen={confirmedOrder !== null}
                         order={confirmedOrder}
-                        onClose={() => setConfirmedOrder(null)}
+                        orderNote={confirmedOrderNote}
+                        onClose={() => {
+                            setConfirmedOrder(null);
+                            setConfirmedOrderNote(null);
+                        }}
                         onViewMyOrders={() => {
                             setConfirmedOrder(null);
+                            setConfirmedOrderNote(null);
                             setActiveOrderingTab("orders");
                             setIsOrderingOpen(true);
                         }}
@@ -2110,6 +2144,21 @@ export default function CollectionView({
                         onEditItem={mode === "public" && activeTab === "menu"
                             ? handleEditSelectionItem
                             : undefined
+                        }
+                        onItemNoteSave={
+                            orderingActive
+                                ? (index, note) => updateSelectionNote(index, note)
+                                : undefined
+                        }
+                        onItemNoteRemove={
+                            orderingActive
+                                ? index => updateSelectionNote(index, null)
+                                : undefined
+                        }
+                        orderNote={orderingActive ? orderNote : null}
+                        onOrderNoteSave={orderingActive ? setOrderNote : undefined}
+                        onOrderNoteRemove={
+                            orderingActive ? () => setOrderNote(null) : undefined
                         }
                         orderingActive={orderingActive}
                         onSubmitOrder={orderingActive ? handleSubmitOrder : undefined}
