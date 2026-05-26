@@ -161,6 +161,12 @@ verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/submit-order/index.ts"
 
+[functions.request-bill]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/request-bill/index.ts"
+
 [functions.get-orders-for-session]
 enabled = true
 verify_jwt = false

@@ -579,3 +579,101 @@
         cursor: not-allowed;
     }
 }
+
+/* ─────────────────────────────────────────────────────────
+   BILL BLOCK (Totale al tavolo + Chiedi il conto)
+──────────────────────────────────────────────────────────── */
+
+.billBlock {
+    margin: 12px 20px 4px;
+    padding: 14px 16px;
+    background: color-mix(in srgb, var(--pub-text) 5%, var(--pub-surface));
+    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 14%, var(--pub-surface)));
+    border-radius: var(--pub-radius, 12px);
+    font-family: var(--pub-font-family, sans-serif);
+}
+
+.billHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+}
+
+.billLabel {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pub-text);
+}
+
+.billAmount {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--pub-text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+.billCta {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 16px;
+    background: var(--pub-primary);
+    color: var(--pub-on-primary, #ffffff);
+    border: none;
+    border-radius: var(--pub-btn-radius, 10px);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.05s ease;
+    -webkit-tap-highlight-color: transparent;
+
+    &:hover:not(:disabled) {
+        opacity: 0.92;
+    }
+
+    &:active:not(:disabled) {
+        transform: scale(0.99);
+    }
+
+    &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+}
+
+.billRequested {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+    border-radius: var(--pub-btn-radius, 8px);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.billRequestedDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    flex-shrink: 0;
+    animation: billPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes billPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.55; transform: scale(0.88); }
+}
+
+.billErrorMsg {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: rgba(239, 68, 68, 0.1);
+    color: #b91c1c;
+    border-radius: var(--pub-btn-radius, 8px);
+    font-size: 12px;
+}

@@ -51,6 +51,8 @@ export interface V2CustomerSession {
     first_seen_at: string;
     last_activity_at: string;
     expires_at: string;
+    /** Timestamp request "Chiedi il conto" customer-side. NULL = no request. */
+    bill_requested_at: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -132,6 +134,8 @@ export interface V2TableWithState extends V2Table {
     pending_orders_count: number;
     open_groups_count: number;
     current_total: number;
+    /** Count sessions attive con bill_requested_at NOT NULL su questo tavolo. */
+    bill_requested_count: number;
 }
 
 // ─── Orders ────────────────────────────────────────────────────────────────
@@ -276,6 +280,10 @@ export interface GetOrdersForSessionResult {
         zone: string | null;
     } | null;
     current_open_group_id: string | null;
+    /** Snapshot lato server di customer_sessions.bill_requested_at al fetch.
+     *  NULL = nessuna richiesta attiva. Usato dal client per init UI tab Ordini
+     *  senza dover attendere il primo Realtime UPDATE. */
+    bill_requested_at: string | null;
     orders: SessionOrderSummary[];
 }
 

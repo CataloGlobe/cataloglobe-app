@@ -59,6 +59,7 @@ interface CustomerSessionRow {
     current_table_id: string | null;
     order_group_id: string | null;
     expires_at: string;
+    bill_requested_at: string | null;
 }
 
 interface TableRow {
@@ -124,7 +125,7 @@ async function _fetchSession(
 > {
     const { data, error } = await supabase
         .from("customer_sessions")
-        .select("id, tenant_id, current_table_id, order_group_id, expires_at")
+        .select("id, tenant_id, current_table_id, order_group_id, expires_at, bill_requested_at")
         .eq("id", customerSessionId)
         .maybeSingle();
 
@@ -342,6 +343,7 @@ serve(async (req: Request) => {
                 ? { id: tableRow.id, label: tableRow.label, zone: tableRow.zone }
                 : null,
             current_open_group_id: currentOpenGroupId,
+            bill_requested_at: session.bill_requested_at,
             orders: _shapeOrders(orders)
         });
     } catch (e) {

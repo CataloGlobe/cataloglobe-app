@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Minus, Plus, Trash2, RefreshCw, X } from "lucide-react";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import { getOrdersForSession, cancelOrderCustomer, subscribeToSessionOrders } from "@/services/supabase/orders";
+import { requestBill, subscribeToCustomerSession } from "@/services/supabase/customerSessions";
 import { useCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
-import type { SessionOrderSummary, OrderStatus } from "@/types/orders";
+import type { SessionOrderSummary, OrderStatus, V2CustomerSession } from "@/types/orders";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import styles from "./OrderingSheet.module.scss";
 
@@ -116,10 +117,26 @@ export default function OrderingSheet({
     const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
     const [processingCancelId, setProcessingCancelId] = useState<string | null>(null);
 
+    // Bill request state — sync iniziale dal context, poi Realtime su customer_sessions
+    const [billRequestedAt, setBillRequestedAt] = useState<string | null>(null);
+    const [isRequestingBill, setIsRequestingBill] = useState(false);
+    const [billError, setBillError] = useState<string | null>(null);
+
     const cartCount = items.reduce((sum, it) => sum + it.qty, 0);
     const cartTotal = items.reduce((sum, it) => sum + it.qty * it.unitPrice, 0);
     const activeOrdersCount = orders.filter(o => o.status !== "cancelled").length;
     const isEmptyCart = items.length === 0;
+
+    // Totale tavolo (per-session): somma orders acknowledged + delivered, esclude
+    // cancelled e submitted (submitted = ordine appena inviato non ancora confermato,
+    // mostrato in Riepilogo conto solo dopo acknowledge).
+    const tableTotal = useMemo(() => {
+        return orders
+            .filter(o => o.status === "acknowledged" || o.status === "delivered")
+            .reduce((sum, o) => sum + (o.total_amount ?? 0), 0);
+    }, [orders]);
+
+    const showBillBlock = activeTab === "orders" && tableTotal > 0;
 
     const loadOrders = useCallback(async () => {
         if (!session) {
@@ -131,6 +148,7 @@ export default function OrderingSheet({
         try {
             const data = await getOrdersForSession(session.jwt);
             setOrders(data.orders);
+            setBillRequestedAt(data.bill_requested_at);
         } catch (err) {
             if (err instanceof Error) {
                 if (err.message.toLowerCase().includes("scaduta")) {
@@ -239,6 +257,55 @@ export default function OrderingSheet({
             channel?.unsubscribe();
         };
     }, [isOpen, activeTab, session?.jwt, loadOrders, clear, onSessionExpired]);
+
+    // Realtime subscribe a customer_sessions per propagare bill_requested_at
+    // change quando admin fa "Risposto" o close-table clear implicit.
+    useEffect(() => {
+        const jwt = session?.jwt;
+        if (!isOpen || activeTab !== "orders" || !jwt) return;
+
+        let channel: RealtimeChannel | null = null;
+        channel = subscribeToCustomerSession(jwt, {
+            onUpdate: (updatedSession: V2CustomerSession) => {
+                setBillRequestedAt(updatedSession.bill_requested_at ?? null);
+            },
+            onError: err => {
+                const msg = err.message.toLowerCase();
+                if (msg.includes("token") || msg.includes("jwt") || msg.includes("auth")) {
+                    clear();
+                    onSessionExpired?.();
+                }
+            }
+        });
+
+        return () => {
+            channel?.unsubscribe();
+        };
+    }, [isOpen, activeTab, session?.jwt, clear, onSessionExpired]);
+
+    // Handler "Chiedi il conto"
+    const handleRequestBill = useCallback(async () => {
+        if (!session?.jwt) return;
+        setIsRequestingBill(true);
+        setBillError(null);
+        try {
+            const result = await requestBill(session.jwt);
+            setBillRequestedAt(result.bill_requested_at);
+        } catch (err) {
+            if (err instanceof Error) {
+                if (err.message.toLowerCase().includes("scaduta")) {
+                    clear();
+                    onSessionExpired?.();
+                    return;
+                }
+                setBillError(err.message);
+                return;
+            }
+            setBillError("Errore durante la richiesta");
+        } finally {
+            setIsRequestingBill(false);
+        }
+    }, [session?.jwt, clear, onSessionExpired]);
 
     return (
         <PublicSheet
@@ -411,6 +478,39 @@ export default function OrderingSheet({
                     </>
                 ) : (
                     <div className={styles.scrollArea}>
+                        {showBillBlock && (
+                            <div className={styles.billBlock}>
+                                <div className={styles.billHeader}>
+                                    <span className={styles.billLabel}>Totale al tavolo</span>
+                                    <span className={styles.billAmount}>
+                                        {new Intl.NumberFormat("it-IT", {
+                                            style: "currency",
+                                            currency: "EUR",
+                                            minimumFractionDigits: 2
+                                        }).format(tableTotal)}
+                                    </span>
+                                </div>
+                                {billRequestedAt ? (
+                                    <div className={styles.billRequested}>
+                                        <span className={styles.billRequestedDot} aria-hidden="true" />
+                                        <span>Conto richiesto. Lo staff sta arrivando.</span>
+                                    </div>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className={styles.billCta}
+                                        onClick={handleRequestBill}
+                                        disabled={isRequestingBill}
+                                    >
+                                        {isRequestingBill ? "Invio..." : "Chiedi il conto"}
+                                    </button>
+                                )}
+                                {billError && (
+                                    <div className={styles.billErrorMsg}>{billError}</div>
+                                )}
+                            </div>
+                        )}
+
                         {ordersError && (
                             <div className={styles.errorBanner}>{ordersError}</div>
                         )}

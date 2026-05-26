@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Grid2X2, RefreshCw, QrCode, RotateCw, Lock } from "lucide-react";
+import { Plus, Grid2X2, RefreshCw, QrCode, RotateCw, Lock, Bell } from "lucide-react";
+import BillRequestsDrawer from "./BillRequestsDrawer";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
@@ -79,6 +80,7 @@ export default function Tables() {
     // Close table drawer
     const [isCloseOpen, setIsCloseOpen] = useState(false);
     const [tableToClose, setTableToClose] = useState<V2TableWithState | null>(null);
+    const [billDrawerTable, setBillDrawerTable] = useState<{ id: string; label: string } | null>(null);
 
     // QR generation flags (per disabilitazione bottoni durante async)
     const [isGeneratingQrAll, setIsGeneratingQrAll] = useState(false);
@@ -368,6 +370,25 @@ export default function Tables() {
                         <Text variant="body-sm" colorVariant="muted">
                             {row.zone}
                         </Text>
+                    )}
+                    {row.bill_requested_count > 0 && (
+                        <button
+                            type="button"
+                            className={styles.billBadge}
+                            onClick={e => {
+                                e.stopPropagation();
+                                setBillDrawerTable({ id: row.id, label: row.label });
+                            }}
+                            aria-label={`${row.bill_requested_count} richieste conto`}
+                        >
+                            <Bell size={12} />
+                            <span>Conto richiesto</span>
+                            {row.bill_requested_count > 1 && (
+                                <span className={styles.billBadgeCount}>
+                                    {row.bill_requested_count}
+                                </span>
+                            )}
+                        </button>
                     )}
                 </div>
             )
@@ -703,6 +724,14 @@ export default function Tables() {
                     setTableToClose(null);
                 }}
                 onConfirm={handleCloseConfirm}
+            />
+
+            <BillRequestsDrawer
+                isOpen={billDrawerTable !== null}
+                onClose={() => setBillDrawerTable(null)}
+                tableId={billDrawerTable?.id ?? null}
+                tableLabel={billDrawerTable?.label ?? ""}
+                onSuccess={loadData}
             />
         </section>
     );

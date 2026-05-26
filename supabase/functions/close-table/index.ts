@@ -365,6 +365,22 @@ serve(async (req: Request) => {
         }
         const closedIds = closeResult.closedIds;
 
+        // ── Implicit clear bill_requested_at su tutte le sessions del tavolo.
+        // Cliente potrebbe aver chiesto conto, staff porta il conto + chiude
+        // tavolo → clear automatico, no orphan badge admin. Non bloccante. ──
+        const { error: clearBillError } = await supabaseService
+            .from("customer_sessions")
+            .update({ bill_requested_at: null })
+            .eq("current_table_id", tableId)
+            .not("bill_requested_at", "is", null);
+        if (clearBillError) {
+            console.warn(
+                "[close-table] clear bill_requested_at failed:",
+                clearBillError.message
+            );
+            // continua, non bloccante
+        }
+
         // ── Count orders attached to those closed groups (informational) ──
         const ordersCount = await _countOrdersInGroups(supabaseService, closedIds);
         if (ordersCount.kind === "db_error") {

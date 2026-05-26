@@ -43,8 +43,53 @@ export async function listTablesWithState(
     if (error) throw error;
     return (data ?? []).map(row => ({
         ...row,
-        current_total: Number(row.current_total)
+        current_total: Number(row.current_total),
+        bill_requested_count: Number(row.bill_requested_count ?? 0)
     }));
+}
+
+/**
+ * Admin clear "Risposto" della richiesta conto per una session specifica.
+ * RLS authenticated permette UPDATE su customer_sessions tenant-scoped.
+ */
+export async function clearBillRequest(
+    sessionId: string,
+    tenantId: string
+): Promise<void> {
+    const { error } = await supabase
+        .from("customer_sessions")
+        .update({ bill_requested_at: null })
+        .eq("id", sessionId)
+        .eq("tenant_id", tenantId);
+    if (error) throw error;
+}
+
+/**
+ * Admin lista sessions attive con bill_requested_at NOT NULL per un tavolo.
+ * Usata da drawer "Risposto" per mostrare chi ha chiamato.
+ */
+export interface BillRequestRow {
+    id: string;
+    customer_name: string | null;
+    bill_requested_at: string;
+    first_seen_at: string;
+}
+
+export async function listBillRequestsForTable(
+    tableId: string,
+    tenantId: string
+): Promise<BillRequestRow[]> {
+    const nowIso = new Date().toISOString();
+    const { data, error } = await supabase
+        .from("customer_sessions")
+        .select("id, customer_name, bill_requested_at, first_seen_at")
+        .eq("current_table_id", tableId)
+        .eq("tenant_id", tenantId)
+        .not("bill_requested_at", "is", null)
+        .gt("expires_at", nowIso)
+        .order("bill_requested_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as BillRequestRow[];
 }
 
 /**

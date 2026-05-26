@@ -1,4 +1,4 @@
-import { createClient, FunctionsHttpError, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient, FunctionsHttpError, type SupabaseClient, type RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
 import type {
     V2CustomerSession,
@@ -239,4 +239,89 @@ export async function closeTable(tableId: string): Promise<CloseTableResult> {
         throw new Error("Errore nella chiusura del tavolo");
     }
     return data as CloseTableResult;
+}
+
+// ============================================================
+// CUSTOMER BILL REQUEST
+// ============================================================
+
+export interface RequestBillResult {
+    bill_requested_at: string;
+    already_requested: boolean;
+}
+
+/**
+ * Customer "Chiedi il conto". POST /request-bill con customer JWT.
+ * Idempotente lato Edge: chiamate ripetute ritornano already_requested=true.
+ *
+ * Throws (italiano user-facing):
+ *   401/404 SESSION_EXPIRED|SESSION_NOT_FOUND → "Sessione scaduta..."
+ *   429 RATE_LIMITED → "Troppe richieste..."
+ *   500 → "Errore del server"
+ */
+export async function requestBill(customerJwt: string): Promise<RequestBillResult> {
+    const { data, error } = await supabase.functions.invoke<RequestBillResult>(
+        "request-bill",
+        {
+            body: {},
+            headers: { Authorization: `Bearer ${customerJwt}` }
+        }
+    );
+
+    if (error) {
+        if (error instanceof FunctionsHttpError) {
+            const status = error.context.status;
+            if (status === 401 || status === 404) {
+                throw new Error("Sessione scaduta, scansiona di nuovo il QR");
+            }
+            if (status === 429) {
+                throw new Error("Troppe richieste, riprova tra poco");
+            }
+        }
+        throw new Error("Errore durante la richiesta del conto");
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Subscribe Realtime alla customer_sessions row corrente. RLS anon
+ * "Customer select own session" garantisce che il channel riceva SOLO
+ * eventi della session del JWT.
+ *
+ * Pattern coerente con subscribeToSessionOrders (orders.ts): setAuth +
+ * channel postgres_changes UPDATE. Caller responsabile cleanup
+ * `channel.unsubscribe()` onmount.
+ */
+export function subscribeToCustomerSession(
+    customerJwt: string,
+    callbacks: {
+        onUpdate?: (session: V2CustomerSession) => void;
+        onError?: (error: Error) => void;
+    }
+): RealtimeChannel | null {
+    try {
+        supabase.realtime.setAuth(customerJwt);
+        const channel = supabase
+            .channel("customer-session-" + Date.now())
+            .on(
+                "postgres_changes",
+                { event: "UPDATE", schema: "public", table: "customer_sessions" },
+                payload => {
+                    callbacks.onUpdate?.(payload.new as V2CustomerSession);
+                }
+            )
+            .subscribe((status, err) => {
+                if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+                    callbacks.onError?.(
+                        err instanceof Error ? err : new Error("Realtime channel error: " + status)
+                    );
+                }
+            });
+        return channel;
+    } catch (err) {
+        callbacks.onError?.(err instanceof Error ? err : new Error("Realtime subscribe failed"));
+        return null;
+    }
 }
