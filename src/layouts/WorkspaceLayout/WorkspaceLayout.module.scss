@@ -35,6 +35,13 @@ $global-header-height: 56px;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  padding: 24px;
   display: flex;
   flex-direction: column;
+}
+
+@media (max-width: 767px) {
+  .content {
+    padding: 16px;
+  }
 }

@@ -1,5 +1,4 @@
 .page {
-  padding: 48px 40px;
   background: #f8fafc;
   min-height: 100%;
 }
@@ -196,10 +195,6 @@
 }
 
 @media (max-width: 768px) {
-  .page {
-    padding: 32px 20px;
-  }
-
   .preferencesGrid {
     grid-template-columns: 1fr;
   }

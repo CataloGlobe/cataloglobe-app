@@ -26,6 +26,17 @@
   margin: 0 -2px;
 }
 
+.greeting {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0F172A;
+  white-space: nowrap;
+
+  @media (max-width: 767px) {
+    display: none;
+  }
+}
+
 /* ===== Mobile hamburger trigger ===== */
 .mobileMenuToggle {
   display: none;

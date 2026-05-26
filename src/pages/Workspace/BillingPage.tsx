@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import PageHeader from "@/components/ui/PageHeader/PageHeader";
+import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Badge, type BadgeVariant } from "@/components/ui/Badge/Badge";
 import { useAuth } from "@/context/useAuth";
@@ -69,14 +69,15 @@ export default function BillingPage() {
         fetchTenants();
     }, [fetchTenants]);
 
+    usePageHeader({
+        title: "Abbonamenti",
+        subtitle: "Panoramica degli abbonamenti delle tue attività.",
+        sticky: true,
+    });
+
     return (
         <div className={styles.page}>
             <div className={styles.container}>
-                <PageHeader
-                    title="Abbonamenti"
-                    subtitle="Panoramica degli abbonamenti delle tue attività."
-                />
-
                 {loading ? null : tenants.length === 0 ? (
                     <Text variant="body" colorVariant="muted">
                         Nessuna attività trovata.

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
-import { getProfile } from "@/services/supabase/profile";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
+import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import BusinessCard from "@/components/Businesses/BusinessCard";
 import { CreateBusinessDrawer } from "@/components/Businesses/CreateBusinessDrawer";
@@ -57,15 +57,13 @@ export default function WorkspacePage() {
     const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
     const [actionInProgressId, setActionInProgressId] = useState<string | null>(null);
     const [restoringId, setRestoringId] = useState<string | null>(null);
-    const [firstName, setFirstName] = useState<string | null>(null);
     const shownNotificationIdsRef = useRef<Set<string>>(new Set());
 
-    useEffect(() => {
-        if (!user?.id) return;
-        getProfile(user.id)
-            .then(p => setFirstName(p?.first_name ?? null))
-            .catch(() => {});
-    }, [user?.id]);
+    usePageHeader({
+        title: "Le tue attività",
+        subtitle: "Seleziona un'attività per accedere alla sua dashboard",
+        sticky: true,
+    });
 
     useEffect(() => {
         if (!user) return;
@@ -275,27 +273,13 @@ export default function WorkspacePage() {
         }
     };
 
-    const header = (
-        <div className={styles.header}>
-            {firstName && <p className={styles.greeting}>Ciao {firstName}</p>}
-            <h1 className={styles.title}>Le tue attività</h1>
-            <p className={styles.subtitle}>Seleziona un'attività per accedere alla sua dashboard</p>
-        </div>
-    );
-
     if (loading) {
-        return (
-            <div className={styles.page}>
-                <div className={styles.container}>{header}</div>
-            </div>
-        );
+        return null;
     }
 
     return (
         <div className={styles.page}>
             <div className={styles.container}>
-                {header}
-
                 {pendingInvites.length > 0 && (
                     <div className={styles.pendingSection}>
                         <Text variant="body" weight={600}>
