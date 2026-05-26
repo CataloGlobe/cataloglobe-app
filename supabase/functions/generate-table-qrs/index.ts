@@ -3,9 +3,14 @@
 // generate-table-qrs — admin-side endpoint that builds a printable PDF of
 // QR codes for the tables of a given activity. 4×4 grid per A4 page. The
 // embedded URL is the public ordering link
-//     https://cataloglobe.com/<activity_slug>?t=<qr_token>
-// (docs/orders-architecture.md §11.2). The base URL is hardcoded on
-// purpose — printed QR codes are always for production.
+//     https://<env-host>/t/<qr_token>
+// (allineato a route TableEntryPage `/t/:qrToken` lato client).
+// APP_URL comes from Edge env (same var as send-tenant-invite, single
+// source of truth for frontend URL). Set explicitly on each Supabase
+// project: staging project → APP_URL = https://staging.cataloglobe.com,
+// prod project → APP_URL = https://cataloglobe.com. Fallback hardcoded
+// preserva backward compat se la var fosse assente (improbabile, ma
+// safety net).
 //
 // Unlike every other Phase 2 endpoint, the success response is binary
 // (Content-Type: application/pdf). Error responses remain JSON.
@@ -37,7 +42,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const PUBLIC_BASE_URL = "https://cataloglobe.com";
+const APP_URL =
+    Deno.env.get("APP_URL")?.replace(/\/+$/, "") ??
+    "https://cataloglobe.com";
 
 const RATE_LIMIT_PER_USER_PER_ACTIVITY_PER_MIN = 10;
 
@@ -281,7 +288,7 @@ async function _generatePdf(
             const qrX = cellOriginX + (CELL_WIDTH - QR_SIZE) / 2;
             const qrY = cellOriginY + CELL_HEIGHT - QR_SIZE - LABEL_GAP;
 
-            const qrUrl = `${PUBLIC_BASE_URL}/${activitySlug}?t=${table.qr_token}`;
+            const qrUrl = `${APP_URL}/t/${table.qr_token}`;
             const qrPng = await _generateQrPng(qrUrl);
             const embedded = await pdfDoc.embedPng(qrPng);
 
