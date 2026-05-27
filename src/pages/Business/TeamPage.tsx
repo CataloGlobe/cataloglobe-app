@@ -154,6 +154,82 @@ export default function TeamPage() {
         setRefreshKey(k => k + 1);
     }, [showToast]);
 
+    const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+    const [selectedInviteIds, setSelectedInviteIds] = useState<string[]>([]);
+
+    const handleBulkRemoveMembers = useCallback(async (ids: string[]) => {
+        if (!selectedTenantId || ids.length === 0) return;
+        const rows = members.filter(
+            m => m.status === "active" && ids.includes(m.membership_id) && !isOwner(m.role)
+        );
+        if (rows.length === 0) {
+            showToast({ type: "error", message: "Nessun membro rimovibile selezionato." });
+            setSelectedMemberIds([]);
+            return;
+        }
+        const results = await Promise.allSettled(
+            rows.map(r =>
+                supabase
+                    .rpc("remove_tenant_member", {
+                        p_tenant_id: selectedTenantId,
+                        p_user_id: r.user_id,
+                    })
+                    .then(({ error }) => {
+                        if (error) throw error;
+                    })
+            )
+        );
+        const failed = results.filter(r => r.status === "rejected").length;
+        const ok = results.length - failed;
+        if (ok > 0) {
+            showToast({
+                type: "success",
+                message: ok === 1 ? "1 membro rimosso" : `${ok} membri rimossi`,
+            });
+        }
+        if (failed > 0) {
+            showToast({
+                type: "error",
+                message: failed === 1
+                    ? "1 membro non rimosso"
+                    : `${failed} membri non rimossi`,
+            });
+        }
+        setSelectedMemberIds([]);
+        setRefreshKey(k => k + 1);
+    }, [selectedTenantId, members, showToast]);
+
+    const handleBulkCancelInvites = useCallback(async (ids: string[]) => {
+        if (ids.length === 0) return;
+        const results = await Promise.allSettled(
+            ids.map(id =>
+                supabase
+                    .rpc("revoke_invite", { p_membership_id: id })
+                    .then(({ error }) => {
+                        if (error) throw error;
+                    })
+            )
+        );
+        const failed = results.filter(r => r.status === "rejected").length;
+        const ok = results.length - failed;
+        if (ok > 0) {
+            showToast({
+                type: "success",
+                message: ok === 1 ? "1 invito annullato" : `${ok} inviti annullati`,
+            });
+        }
+        if (failed > 0) {
+            showToast({
+                type: "error",
+                message: failed === 1
+                    ? "1 invito non annullato"
+                    : `${failed} inviti non annullati`,
+            });
+        }
+        setSelectedInviteIds([]);
+        setRefreshKey(k => k + 1);
+    }, [showToast]);
+
     const handleResendInvite = useCallback(async (member: TenantMemberRow) => {
         const { error } = await supabase.rpc("resend_invite", {
             p_membership_id: member.membership_id,
@@ -316,17 +392,9 @@ export default function TeamPage() {
         return base;
     }, [isAdmin, handleResendInvite, handleCancelInvite]);
 
-    const emptyState = (
-        <div className={styles.emptyState}>
-            <Text variant="body">Nessun membro trovato.</Text>
-        </div>
-    );
-
-    const loadingState = (
-        <div className={styles.emptyState}>
-            <Text variant="body">Caricamento membri...</Text>
-        </div>
-    );
+    const membersEmptyState = { title: "Nessun membro trovato." };
+    const membersLoadingState = { message: "Caricamento membri..." };
+    const invitesEmptyState = { title: "Nessun invito in attesa." };
 
     return (
         <>
@@ -387,9 +455,13 @@ export default function TeamPage() {
                                 data={filteredActiveMembers}
                                 columns={activeColumns}
                                 isLoading={loading}
-                                emptyState={emptyState}
-                                loadingState={loadingState}
-                                density="extended"
+                                emptyState={membersEmptyState}
+                                loadingState={membersLoadingState}
+                                getRowId={row => row.membership_id}
+                                selectable={isAdmin}
+                                selectedRowIds={selectedMemberIds}
+                                onSelectedRowsChange={setSelectedMemberIds}
+                                onBulkDelete={handleBulkRemoveMembers}
                             />
                         </Card>
 
@@ -410,13 +482,13 @@ export default function TeamPage() {
                                     data={filteredPendingInvites}
                                     columns={pendingColumns}
                                     isLoading={loading}
-                                    emptyState={
-                                        <div className={styles.emptyState}>
-                                            <Text variant="body">Nessun invito in attesa.</Text>
-                                        </div>
-                                    }
-                                    loadingState={loadingState}
-                                    density="compact"
+                                    emptyState={invitesEmptyState}
+                                    loadingState={membersLoadingState}
+                                    getRowId={row => row.membership_id}
+                                    selectable={isAdmin}
+                                    selectedRowIds={selectedInviteIds}
+                                    onSelectedRowsChange={setSelectedInviteIds}
+                                    onBulkDelete={handleBulkCancelInvites}
                                 />
                             </Card>
                         )}

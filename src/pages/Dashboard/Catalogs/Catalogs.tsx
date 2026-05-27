@@ -254,7 +254,7 @@ export default function Catalogs() {
         {
             id: "actions",
             header: "",
-            width: "60px",
+            width: "56px",
             align: "right",
             cell: (_value, catalog) => (
                 <TableRowActions
@@ -345,7 +345,6 @@ export default function Catalogs() {
                     <DataTable<V2Catalog>
                         data={filteredCatalogs}
                         columns={columns}
-                        density="compact"
                         selectable
                         onBulkDelete={handleBulkDelete}
                         onRowClick={catalog =>

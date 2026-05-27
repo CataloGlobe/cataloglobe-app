@@ -6,8 +6,7 @@ import type { BusinessListProps, BusinessWithCapabilities } from "@/types/Busine
 import styles from "./BusinessList.module.scss";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import { IconButton } from "@/components/ui/Button/IconButton";
-import { ExternalLink, Link, FileText, Edit, Trash2, Calendar, ClipboardCheck, MapPin } from "lucide-react";
+import { ExternalLink, Link, FileText, Edit, Trash2, Calendar, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useNavigate, useParams } from "react-router-dom";
@@ -75,7 +74,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
             {
                 id: "actions",
                 header: "",
-                width: "100px",
+                width: "56px",
                 align: "right",
                 cell: (_, business) => {
                     const activeCatalog = activeCatalogsMap?.[business.id];
@@ -83,17 +82,6 @@ export const BusinessList: React.FC<BusinessListProps> = ({
 
                     return (
                         <div className={styles.actionsCell} onClick={e => e.stopPropagation()}>
-                            {activeCatalog && (
-                                <IconButton
-                                    icon={<ClipboardCheck size={18} />}
-                                    variant="ghost"
-                                    onClick={() =>
-                                        onManageAvailability?.(business.id, business.name)
-                                    }
-                                    aria-label="Gestisci disponibilità"
-                                    title="Gestisci disponibilità"
-                                />
-                            )}
                             <TableRowActions
                                 actions={[
                                     {

@@ -86,6 +86,9 @@ export default function Tables() {
     const [isGeneratingQrAll, setIsGeneratingQrAll] = useState(false);
     const [generatingQrTableId, setGeneratingQrTableId] = useState<string | null>(null);
 
+    // Bulk selection
+    const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
+
     // ── Activities load (once on mount per tenant) ──
     const loadActivities = useCallback(async () => {
         if (!tenantId) return;
@@ -123,6 +126,31 @@ export default function Tables() {
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    const handleBulkDelete = useCallback(async (ids: string[]) => {
+        if (!tenantId || ids.length === 0) return;
+        const results = await Promise.allSettled(
+            ids.map(id => deleteTable(id, tenantId))
+        );
+        const failed = results.filter(r => r.status === "rejected").length;
+        const ok = results.length - failed;
+        if (ok > 0) {
+            showToast({
+                message: ok === 1 ? "1 tavolo eliminato" : `${ok} tavoli eliminati`,
+                type: "success"
+            });
+        }
+        if (failed > 0) {
+            showToast({
+                message: failed === 1
+                    ? "1 tavolo non eliminato"
+                    : `${failed} tavoli non eliminati`,
+                type: "error"
+            });
+        }
+        setSelectedTableIds([]);
+        await loadData();
+    }, [tenantId, showToast, loadData]);
 
     // ── Filtering ──
     const filteredItems = useMemo(() => {
@@ -458,7 +486,7 @@ export default function Tables() {
         {
             id: "actions",
             header: "",
-            width: "60px",
+            width: "56px",
             align: "right",
             cell: (_v, row) => (
                 <TableRowActions
@@ -618,8 +646,11 @@ export default function Tables() {
                     <DataTable<V2TableWithState>
                         data={filteredItems}
                         columns={columns}
-                        density="compact"
                         isLoading={isLoading}
+                        selectable
+                        selectedRowIds={selectedTableIds}
+                        onSelectedRowsChange={setSelectedTableIds}
+                        onBulkDelete={handleBulkDelete}
                     />
                 )}
             </div>

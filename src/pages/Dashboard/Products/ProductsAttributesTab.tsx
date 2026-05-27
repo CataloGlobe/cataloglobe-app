@@ -169,7 +169,7 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
         {
             id: "actions",
             header: "",
-            width: "72px",
+            width: "56px",
             align: "right",
             cell: (_value, row) => (
                 <TableRowActions

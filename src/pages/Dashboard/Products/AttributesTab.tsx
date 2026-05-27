@@ -377,7 +377,7 @@ export function AttributesTab({ productId, tenantId, vertical }: AttributesTabPr
         {
             id: "actions",
             header: "",
-            width: "64px",
+            width: "56px",
             align: "right",
             cell: (_, def) => (
                 <div data-row-click-ignore="true">
@@ -430,7 +430,6 @@ export function AttributesTab({ productId, tenantId, vertical }: AttributesTabPr
                 <DataTable
                     data={linkedDefinitions}
                     columns={columns}
-                    density="compact"
                     selectable
                     selectedRowIds={selectedIds}
                     onSelectedRowsChange={setSelectedIds}

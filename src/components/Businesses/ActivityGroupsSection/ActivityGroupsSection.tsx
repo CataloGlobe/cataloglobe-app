@@ -167,7 +167,7 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
             {
                 id: "actions",
                 header: "",
-                width: "64px",
+                width: "56px",
                 align: "right",
                 cell: (_, group) => (
                     <TableRowActions
@@ -185,7 +185,7 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                 )
             }
         ],
-        [highlightedGroupIds]
+        []
     );
 
     useEffect(() => {
@@ -240,9 +240,7 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                         columns={columns}
                         selectable
                         onBulkDelete={handleBulkDelete}
-                        rowClassName={group =>
-                            highlightedGroupIds.includes(group.id) ? styles.highlighted : undefined
-                        }
+                        highlightedRowIds={highlightedGroupIds}
                     />
                 </>
             )}
