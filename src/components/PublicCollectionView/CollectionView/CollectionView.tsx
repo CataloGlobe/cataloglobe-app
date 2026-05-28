@@ -34,6 +34,12 @@ const ItemDetail = lazy(() => import("../ItemDetail/ItemDetail"));
 const OrderingSheet = lazy(() => import("../OrderingSheet/OrderingSheet"));
 const ReviewsView = lazy(() => import("../ReviewsView/ReviewsView"));
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
+import AllergensSheet from "../AllergensSheet/AllergensSheet";
+import MoreSheet from "../MoreSheet/MoreSheet";
+import {
+    getAllergenPreferences,
+    setAllergenPreferences,
+} from "@/services/customer/allergenPreferences";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
 import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
 import type { ActivityFee } from "@/types/activity";
@@ -680,6 +686,69 @@ export default function CollectionView({
     );
     const hasAnyInfo = hasHours || hasFees || hasPaymentMethods || hasActivityServices || hasContacts || !!activityAddress;
 
+    // ── More sheet ──────────────────────────────────────────────────────────
+    const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
+
+    // ── Allergen filter (customer-side, sessionStorage per-activity) ────────
+    const [allergenFilterIds, setAllergenFilterIds] = useState<number[]>(() =>
+        activityId && mode === "public" ? getAllergenPreferences(activityId) : []
+    );
+    const [isAllergensFilterOpen, setIsAllergensFilterOpen] = useState(false);
+
+    useEffect(() => {
+        if (!activityId || mode !== "public") return;
+        setAllergenPreferences(activityId, allergenFilterIds);
+    }, [activityId, mode, allergenFilterIds]);
+
+    // Union degli allergens presenti nel catalogo corrente (dedup per id,
+    // sorted by label localizzata). Riusa ResolvedAllergen.label già tradotto
+    // dall'edge function resolve-public-catalog.
+    const allergensInCatalog = useMemo<ResolvedAllergen[]>(() => {
+        const seen = new Map<number, ResolvedAllergen>();
+        for (const group of sectionGroups) {
+            const all = [group.root, ...group.children];
+            for (const section of all) {
+                for (const item of section.items) {
+                    if (!item.allergens) continue;
+                    for (const a of item.allergens) {
+                        if (!seen.has(a.id)) seen.set(a.id, a);
+                    }
+                }
+            }
+        }
+        return Array.from(seen.values()).sort((a, b) =>
+            a.label.localeCompare(b.label, "it")
+        );
+    }, [sectionGroups]);
+
+    // Filtra item per allergens. Prodotti senza allergens taggati: sempre
+    // visibili (no match possibile, disclaimer nel sheet copre il caso).
+    const displaySectionGroups = useMemo<CollectionViewSectionGroup[]>(() => {
+        if (allergenFilterIds.length === 0) return sectionGroups;
+        const blocked = new Set(allergenFilterIds);
+        const filterItems = (items: CollectionViewSectionItem[]) =>
+            items.filter(item => {
+                if (!item.allergens || item.allergens.length === 0) return true;
+                return !item.allergens.some(a => blocked.has(a.id));
+            });
+        const result: CollectionViewSectionGroup[] = [];
+        for (const group of sectionGroups) {
+            const rootItems = filterItems(group.root.items);
+            const children = group.children
+                .map(c => ({ ...c, items: filterItems(c.items) }))
+                .filter(c => c.items.length > 0);
+            if (rootItems.length === 0 && children.length === 0) continue;
+            result.push({
+                root: { ...group.root, items: rootItems },
+                children,
+            });
+        }
+        return result;
+    }, [sectionGroups, allergenFilterIds]);
+
+    const allFiltered =
+        allergenFilterIds.length > 0 && displaySectionGroups.length === 0;
+
     // ── Selezione prodotti ──────────────────────────────────────────────────
     const selectionStorageKey = activityId ? `catalogobe-selection-${activityId}` : null;
 
@@ -1262,9 +1331,11 @@ export default function CollectionView({
     }, [l1Sections, scrollContainerEl, mode]);
 
     // ── Nav items — L1 + children per dropdown sotto-sezioni ────────────────
+    // Derivati da displaySectionGroups: il filtro allergeni nasconde anche le
+    // voci di navigazione delle sezioni completamente filtrate.
     const navItems: SectionNavItem[] = useMemo(
         () =>
-            sectionGroups.map(g => ({
+            displaySectionGroups.map(g => ({
                 id: g.root.id,
                 name: g.root.name,
                 ...(g.children.length > 0
@@ -1277,7 +1348,7 @@ export default function CollectionView({
                       }
                     : {})
             })),
-        [sectionGroups]
+        [displaySectionGroups]
     );
 
     // ── Scroll to section ───────────────────────────────────────────────────
@@ -1702,8 +1773,8 @@ export default function CollectionView({
                     headerRadius={style.appearanceRadius}
                     activeTab={activeTab}
                     onTabChange={onTabChange ?? (() => {})}
-                    hasInfo={hasAnyInfo}
-                    onInfoPress={() => setIsInfoSheetOpen(true)}
+                    allergensCount={allergenFilterIds.length}
+                    onOpenMore={mode === "public" ? () => setIsMoreSheetOpen(true) : undefined}
                 />
             )}
 
@@ -1856,7 +1927,7 @@ export default function CollectionView({
             {activeTab === "menu" && (
                 <>
                     {/* ── NAV – sticky, topOffset dinamico ── */}
-                    {!emptyState && (
+                    {!emptyState && !allFiltered && (
                         <CollectionSectionNav
                             sections={navItems}
                             activeSectionId={activeSectionId}
@@ -1893,7 +1964,21 @@ export default function CollectionView({
                                     data-product-style={style.productStyle ?? "card"}
                                 >
                                     {featuredBeforeCatalogSlot}
-                                    {sectionGroups.map(group => (
+                                    {allFiltered && (
+                                        <div className={styles.allergenEmptyState}>
+                                            <Text variant="body" color="var(--pub-bg-text)">
+                                                {t("allergens.filter_no_results")}
+                                            </Text>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsAllergensFilterOpen(true)}
+                                                className={styles.allergenEmptyBtn}
+                                            >
+                                                {t("allergens.filter_edit_cta")}
+                                            </button>
+                                        </div>
+                                    )}
+                                    {displaySectionGroups.map(group => (
                                         <section
                                             key={group.root.id}
                                             data-section-id={group.root.id}
@@ -2128,6 +2213,29 @@ export default function CollectionView({
                         }}
                     />
                 </Suspense>
+            )}
+
+            {mode === "public" && (
+                <MoreSheet
+                    isOpen={isMoreSheetOpen}
+                    onClose={() => setIsMoreSheetOpen(false)}
+                    onOpenAllergens={() => setIsAllergensFilterOpen(true)}
+                    onOpenInfo={() => setIsInfoSheetOpen(true)}
+                    allergensCount={allergenFilterIds.length}
+                    hasAllergensInCatalog={allergensInCatalog.length > 0}
+                    hasInfo={hasAnyInfo}
+                />
+            )}
+
+            {mode === "public" && (
+                <AllergensSheet
+                    mode="filter"
+                    isOpen={isAllergensFilterOpen}
+                    onClose={() => setIsAllergensFilterOpen(false)}
+                    allergens={allergensInCatalog}
+                    selectedIds={allergenFilterIds}
+                    onApplyFilter={setAllergenFilterIds}
+                />
             )}
 
             {isOrderingOpen && (

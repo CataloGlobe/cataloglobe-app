@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, CalendarDays, ImageIcon, Info, MessageSquareHeart, Search } from "lucide-react";
+import { BookOpen, CalendarDays, ImageIcon, MessageSquareHeart, MoreHorizontal, Search } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
@@ -58,10 +58,10 @@ export type PublicCollectionHeaderProps = {
     activeTab: HubTab;
     /** Callback per cambio tab. */
     onTabChange: (tab: HubTab) => void;
-    /** True se ci sono informazioni sede da mostrare. */
-    hasInfo?: boolean;
-    /** Chiamato al tap sull'icona info. */
-    onInfoPress?: () => void;
+    /** Conteggio allergeni filtrati attivi (per badge sul pulsante More). */
+    allergensCount?: number;
+    /** Apre il MoreSheet (allergeni + info). Undefined in preview. */
+    onOpenMore?: () => void;
 };
 
 export default function PublicCollectionHeader({
@@ -81,8 +81,8 @@ export default function PublicCollectionHeader({
     headerRadius,
     activeTab,
     onTabChange,
-    hasInfo,
-    onInfoPress,
+    allergensCount = 0,
+    onOpenMore,
 }: PublicCollectionHeaderProps) {
     const { t } = useTranslation("public");
     // ── ResizeObserver: write --pub-header-height on <main> ancestor ────────────
@@ -261,17 +261,6 @@ export default function PublicCollectionHeader({
 
                         {mode !== "preview" && <LanguageSelector variant="hero" />}
 
-                        {mode !== "preview" && hasInfo && onInfoPress && (
-                            <button
-                                type="button"
-                                className={styles.iconBtn}
-                                onClick={onInfoPress}
-                                aria-label={t("header.info_aria")}
-                            >
-                                <Info size={15} strokeWidth={2} />
-                            </button>
-                        )}
-
                         {onSearchOpen && (
                             <button
                                 type="button"
@@ -280,6 +269,22 @@ export default function PublicCollectionHeader({
                                 aria-label={t("header.search_aria")}
                             >
                                 <Search size={15} strokeWidth={2} />
+                            </button>
+                        )}
+
+                        {mode !== "preview" && onOpenMore && (
+                            <button
+                                type="button"
+                                className={styles.iconBtn}
+                                onClick={onOpenMore}
+                                aria-label={t("header.more_aria")}
+                            >
+                                <MoreHorizontal size={16} strokeWidth={2} />
+                                {allergensCount > 0 && (
+                                    <span className={styles.iconBtnBadge} aria-hidden>
+                                        {allergensCount}
+                                    </span>
+                                )}
                             </button>
                         )}
                     </div>

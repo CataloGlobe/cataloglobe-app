@@ -92,11 +92,19 @@ export default function LanguageSelector({ variant }: LanguageSelectorProps) {
                 aria-label={t("language_selector.trigger_aria")}
                 aria-expanded={open}
             >
-                <Globe size={14} strokeWidth={2} />
-                <span className={styles.triggerLabel}>
-                    {currentLang.toUpperCase()}
-                </span>
-                <ChevronDown size={12} strokeWidth={2} className={chevronClass} />
+                {variant === "hero" ? (
+                    <span className={styles.triggerCode}>
+                        {currentLang.toUpperCase()}
+                    </span>
+                ) : (
+                    <>
+                        <Globe size={14} strokeWidth={2} />
+                        <span className={styles.triggerLabel}>
+                            {currentLang.toUpperCase()}
+                        </span>
+                        <ChevronDown size={12} strokeWidth={2} className={chevronClass} />
+                    </>
+                )}
             </button>
 
             {open && createPortal(

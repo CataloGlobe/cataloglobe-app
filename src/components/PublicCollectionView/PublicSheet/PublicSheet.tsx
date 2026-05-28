@@ -140,51 +140,80 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
         }
     }, [isOpen, isMobile, y]);
 
-    // ── Close con animazione (tutti i trigger: drag, button, overlay, Escape) ─
+    // ── Animate-out mobile — estratto per riuso (triggerClose + external close) ─
+    // Esegue SOLO la sequenza pointer-events off → body lock release → spring
+    // animate y, SENZA chiamare onClose né setShouldRender. Idempotente sul
+    // body lock (releaseBodyLock usa bodyLockReleasedRef come guard).
+    const animateOutMobile = useCallback(
+        async (velocityY = 0) => {
+            if (backdropRef.current) backdropRef.current.style.pointerEvents = "none";
+            if (panelRef.current) panelRef.current.style.pointerEvents = "none";
+            releaseBodyLock();
+            await animate(y, window.innerHeight * 1.1, {
+                type: "spring",
+                damping: 28,
+                stiffness: 260,
+                velocity: velocityY,
+                restDelta: 1,
+            });
+        },
+        [releaseBodyLock, y]
+    );
+
+    // ── Close con animazione (trigger interni: drag, button, overlay, Escape) ─
+    // Mobile path: wrapper su animateOutMobile + onClose + unmount.
+    // Desktop path: pointer-events off + release lock + onClose; l'exit
+    // animation è gestita da AnimatePresence sul motion overlay/panel.
     const triggerClose = useCallback(
         async (velocityY = 0) => {
             if (isClosingRef.current) return;
             isClosingRef.current = true;
 
-            // ⚡ IMMEDIATO — pointer-events off su TUTTI gli elementi.
-            // Impedisce interazioni durante l'animazione di uscita.
             if (isMobile) {
-                if (backdropRef.current) backdropRef.current.style.pointerEvents = "none";
+                await animateOutMobile(velocityY);
+                if (!isMountedRef.current) return;
+                onClose();
+                if (isClosingRef.current) setShouldRender(false);
             } else {
                 if (overlayRef.current) overlayRef.current.style.pointerEvents = "none";
-            }
-            if (panelRef.current) panelRef.current.style.pointerEvents = "none";
-
-            // ⚡ IMMEDIATO — rilascio body lock: la pagina sotto torna interactive
-            // subito (scroll libero, tap affidabili su iOS Safari). Il panel è
-            // position:fixed via .mobileRoot (ancorato al viewport, non al body)
-            // → rilasciare body.position non sposta visivamente il panel.
-            releaseBodyLock();
-
-            if (isMobile) {
-                // Animazione completata PRIMA di notificare il parent: evita il re-render
-                // di React che nella versione precedente interferiva con i frame di animazione.
-                // La pagina sotto è già libera mentre il panel scende.
-                await animate(y, window.innerHeight * 1.1, {
-                    type: "spring",
-                    damping: 28,
-                    stiffness: 260,
-                    velocity: velocityY,
-                    restDelta: 1,
-                });
-                // Guard: componente rimosso dal parent esternamente durante l'animazione.
-                if (!isMountedRef.current) return;
-            }
-
-            // Notifica parent dopo animazione completata.
-            onClose();
-
-            if (isMobile && isClosingRef.current) {
-                setShouldRender(false);
+                if (panelRef.current) panelRef.current.style.pointerEvents = "none";
+                releaseBodyLock();
+                onClose();
             }
         },
-        [isMobile, onClose, releaseBodyLock, y]
+        [isMobile, onClose, releaseBodyLock, animateOutMobile]
     );
+
+    // ── External-close detector mobile ──────────────────────────────────────
+    // Il parent può settare isOpen=false direttamente senza passare per
+    // triggerClose (es. MoreSheet che apre InfoSheet/AllergensSheet su tap).
+    // Desktop: AnimatePresence gestisce l'exit. Mobile: serve trigger esplicito
+    // dell'animate-out — altrimenti il panel resta appiccicato a y=0 finché
+    // shouldRender non viene cambiato (mai, in quel flow) e si vedono i due
+    // sheet sovrapposti.
+    const isOpenRef = useRef(isOpen);
+    useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
+
+    useEffect(() => {
+        if (!isMobile) return;
+        if (isOpen) return;
+        if (!shouldRender) return;
+        if (isClosingRef.current) return;
+
+        isClosingRef.current = true;
+        void (async () => {
+            await animateOutMobile();
+            if (!isMountedRef.current) return;
+            // Riaperto durante l'exit: lascia che l'open useEffect gestisca,
+            // non smontare il panel.
+            if (isOpenRef.current) {
+                isClosingRef.current = false;
+                return;
+            }
+            setShouldRender(false);
+            isClosingRef.current = false;
+        })();
+    }, [isOpen, isMobile, shouldRender, animateOutMobile]);
 
     // ── Escape key ───────────────────────────────────────────────────────────
     useEffect(() => {

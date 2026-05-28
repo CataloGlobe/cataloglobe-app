@@ -1228,3 +1228,29 @@
   }
 }
 
+.allergenEmptyState {
+  padding: 56px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.allergenEmptyBtn {
+  padding: 11px 22px;
+  background: var(--pub-accent, #F59E0B);
+  color: var(--pub-cta-text, #fff);
+  border: none;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-accent, #F59E0B) 88%, white);
+  }
+}
+

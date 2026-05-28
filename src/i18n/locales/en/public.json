@@ -21,7 +21,20 @@
     "header": {
         "info_aria": "Venue information",
         "search_aria": "Search the catalog",
-        "info_sheet_aria": "Venue information"
+        "info_sheet_aria": "Venue information",
+        "more_aria": "More options"
+    },
+    "more": {
+        "title": "Options",
+        "close_aria": "Close",
+        "close_label": "Close",
+        "allergens_label": "Filter by allergens",
+        "allergens_subtitle_inactive": "Hide products with allergens",
+        "allergens_subtitle_active_one": "{{count}} allergen active",
+        "allergens_subtitle_active_other": "{{count}} allergens active",
+        "allergens_subtitle_empty": "No products with allergens",
+        "info_label": "Information",
+        "info_subtitle": "Address, hours, contacts"
     },
     "search": {
         "placeholder": "Search product…",
@@ -38,7 +51,15 @@
         "title": "Allergens",
         "close_aria": "Close",
         "close_label": "Close",
-        "disclaimer": "For detailed information about preparation and allergen presence in individual dishes, ask the dining staff."
+        "disclaimer": "For detailed information about preparation and allergen presence in individual dishes, ask the dining staff.",
+        "filter_title": "Filter by allergens",
+        "filter_intro": "Hide products containing these allergens.",
+        "filter_empty": "This menu has no products tagged with allergens.",
+        "filter_disclaimer": "Filters rely on products tagged by the restaurant. For severe allergies, always confirm with staff.",
+        "filter_reset": "Reset",
+        "filter_apply": "Apply",
+        "filter_no_results": "No products available with the current filters.",
+        "filter_edit_cta": "Edit filters"
     },
     "characteristics": {
         "title": "Characteristics",
