@@ -85,7 +85,7 @@
   }
 
   &:hover {
-    background: color-mix(in srgb, var(--hover-bg, #f1f5f9) 60%, white 40%);
+    background: var(--hover-bg, #f1f5f9);
   }
 
   &:hover .dragHandle {
@@ -104,7 +104,11 @@
 }
 
 .rowSelected {
-  background: color-mix(in srgb, var(--brand-primary, #6366f1) 5%, white 95%);
+  background: color-mix(in srgb, var(--brand-primary, #6366f1) 8%, transparent);
+
+  &:hover {
+    background: color-mix(in srgb, var(--brand-primary, #6366f1) 14%, transparent);
+  }
 }
 
 .rowDragging {
@@ -411,73 +415,6 @@
   }
 }
 
-.menuButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: none;
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--color-gray-400, #9ca3af);
-  transition:
-    background 0.1s,
-    color 0.1s;
-
-  &:hover {
-    background: var(--hover-bg, #f1f5f9);
-    color: var(--text, #0f172a);
-  }
-}
-
-.rowMenuDropdown {
-  [role="menu"] {
-    width: 140px;
-    min-width: 140px;
-    gap: 0;
-    padding: 4px;
-    border: 0.5px solid var(--border, #e2e8f0);
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  }
-
-  [role="menuitem"],
-  button[role="menuitem"] {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    font-size: 14px;
-    font-weight: 400;
-    color: var(--text);
-    background: transparent;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    width: 100%;
-    text-align: left;
-    box-shadow: none;
-    transition: background-color 0.12s ease;
-
-    // Ensure icon+text inside Button's .label span are spaced
-    span {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    &:hover {
-      background: var(--hover-bg, #f1f5f9);
-    }
-
-    &:focus-visible {
-      background: var(--hover-bg, #f1f5f9);
-      outline: none;
-    }
-  }
-}
 
 /* ─── Responsive ──────────────────────────────────────────────── */
 

@@ -212,6 +212,14 @@ Catalogo completo, bug history (`purgeTenantData` ordine FK, `purgeActivityFolde
 
 ---
 
+## Aree in sviluppo / da completare
+
+Tech-debt e refactor differiti. Non bloccanti per il task corrente; da valutare durante refactor mirati o cicli di consolidamento.
+
+- **DropdownMenu custom vs TableRowActions** — coesistono due implementazioni di menu a tendina. `TableRowActions` (Radix-based) usato in 22 DataTable kebab. `DropdownMenu` custom (`src/components/ui/DropdownMenu/`, scritto a mano con framer-motion + useState/useRef/createPortal) usato in 4 call site non-tabella: `HeaderUserMenu`, `HeaderNotifications`, `ActivitySettingsTab`, `Programming.tsx` (bulk action). Refactor proposto: migrare i 4 call site a Radix DropdownMenu (stessa libreria di TableRowActions) ed eliminare `DropdownMenu` custom. Non urgente — funziona oggi. Vantaggio: una sola libreria menu, codice meno custom, manutenzione singola.
+
+---
+
 ## Plugin & MCP — regole d'uso
 
 Le regole prevalgono sui descriptor dei plugin in caso di conflitto.

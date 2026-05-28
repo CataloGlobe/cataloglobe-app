@@ -1,9 +1,8 @@
-import { Globe, Building2, Users, AlertCircle, Loader2, MoreVertical, Copy, Trash2 } from "lucide-react";
+import { Globe, Building2, Users, AlertCircle, Loader2, Copy, Trash2 } from "lucide-react";
 import Text from "@components/ui/Text/Text";
 import { Tooltip } from "@components/ui/Tooltip/Tooltip";
 import { Switch } from "@components/ui/Switch/Switch";
-import { DropdownMenu } from "@components/ui/DropdownMenu/DropdownMenu";
-import { DropdownItem } from "@components/ui/DropdownMenu/DropdownItem";
+import { TableRowActions } from "@components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
 import { buildRuleSummary } from "@utils/ruleHelpers";
 import { isLayoutRuleDraft } from "@utils/scheduleDraft";
@@ -253,25 +252,21 @@ export function RuleRow({
 
             {/* Actions menu */}
             <div className={styles.rowActions} data-no-click="true">
-                <div className={styles.rowMenuDropdown}>
-                    <DropdownMenu
-                        trigger={
-                            <button type="button" className={styles.menuButton} title="Azioni">
-                                <MoreVertical size={16} />
-                            </button>
+                <TableRowActions
+                    actions={[
+                        {
+                            label: "Duplica",
+                            icon: Copy,
+                            onClick: () => onDuplicate(rule.id)
+                        },
+                        {
+                            label: "Elimina",
+                            icon: Trash2,
+                            variant: "destructive",
+                            onClick: () => onDelete(rule.id)
                         }
-                        placement="bottom-end"
-                    >
-                        <DropdownItem onClick={e => { e.stopPropagation(); onDuplicate(rule.id); }}>
-                            <Copy size={14} />
-                            <span>Duplica</span>
-                        </DropdownItem>
-                        <DropdownItem onClick={e => { e.stopPropagation(); onDelete(rule.id); }} danger>
-                            <Trash2 size={14} />
-                            <span>Elimina</span>
-                        </DropdownItem>
-                    </DropdownMenu>
-                </div>
+                    ]}
+                />
             </div>
         </div>
     );
