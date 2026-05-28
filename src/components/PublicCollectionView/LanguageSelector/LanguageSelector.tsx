@@ -1,15 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Check, ChevronDown, Globe } from "lucide-react";
+import { Check } from "lucide-react";
 import { useLanguage } from "@context/Language/useLanguage";
 import styles from "./LanguageSelector.module.scss";
 
-type LanguageSelectorProps = {
-    variant: "hero" | "compact";
-};
-
-export default function LanguageSelector({ variant }: LanguageSelectorProps) {
+export default function LanguageSelector() {
     const { t } = useTranslation("public");
     const { currentLang, availableLanguages, setLang } = useLanguage();
     const [open, setOpen] = useState(false);
@@ -72,15 +68,7 @@ export default function LanguageSelector({ variant }: LanguageSelectorProps) {
         })()
         : {};
 
-    const triggerClass = [
-        styles.trigger,
-        variant === "hero" ? styles.triggerHero : styles.triggerCompact,
-    ].join(" ");
-
-    const chevronClass = [
-        styles.triggerChevron,
-        open ? styles.triggerChevronOpen : "",
-    ].filter(Boolean).join(" ");
+    const triggerClass = `${styles.trigger} ${styles.triggerHero}`;
 
     return (
         <>
@@ -92,19 +80,9 @@ export default function LanguageSelector({ variant }: LanguageSelectorProps) {
                 aria-label={t("language_selector.trigger_aria")}
                 aria-expanded={open}
             >
-                {variant === "hero" ? (
-                    <span className={styles.triggerCode}>
-                        {currentLang.toUpperCase()}
-                    </span>
-                ) : (
-                    <>
-                        <Globe size={14} strokeWidth={2} />
-                        <span className={styles.triggerLabel}>
-                            {currentLang.toUpperCase()}
-                        </span>
-                        <ChevronDown size={12} strokeWidth={2} className={chevronClass} />
-                    </>
-                )}
+                <span className={styles.triggerCode}>
+                    {currentLang.toUpperCase()}
+                </span>
             </button>
 
             {open && createPortal(

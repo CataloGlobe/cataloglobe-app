@@ -1,6 +1,6 @@
 /* ─────────────────────────────────────────────────────────
    LanguageSelector
-   Selettore lingua per public collection header (hero + compact)
+   Selettore lingua per public collection header
 ──────────────────────────────────────────────────────────── */
 
 /* ── TRIGGER BUTTON ─────────────────────────────────────── */
@@ -16,17 +16,14 @@
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-/* Hero variant — glass, allineato all'iconBtn dell'header (44×44 square) */
+/* Hero variant — glass, allineato a .iconBtn dell'header (44×44 square) */
 .triggerHero {
   min-width: 44px;
   min-height: 44px;
   padding: 0;
   justify-content: center;
-  border-radius: var(--pub-btn-radius, 8px);
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   color: #fff;
 
   &:hover {
@@ -40,33 +37,6 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   line-height: 1;
-}
-
-/* Compact variant — solid, altezza allineata a compactSearchBtn (36px) */
-.triggerCompact {
-  height: 36px;
-  background: var(--pub-surface, #fff);
-  border: 1px solid var(--pub-border);
-  color: var(--pub-bg-text-secondary, #57534E);
-
-  &:hover {
-    background: color-mix(in srgb, var(--pub-bg-text) 4%, var(--pub-surface, #fff));
-  }
-}
-
-.triggerLabel {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  line-height: 1;
-}
-
-.triggerChevron {
-  transition: transform 0.2s ease;
-}
-
-.triggerChevronOpen {
-  transform: rotate(180deg);
 }
 
 /* ── DROPDOWN (portale su document.body) ────────────────── */

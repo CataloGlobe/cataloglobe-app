@@ -259,7 +259,7 @@ export default function PublicCollectionHeader({
                             )}
                         </div>
 
-                        {mode !== "preview" && <LanguageSelector variant="hero" />}
+                        {mode !== "preview" && <LanguageSelector />}
 
                         {onSearchOpen && (
                             <button
