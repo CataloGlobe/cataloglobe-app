@@ -272,7 +272,7 @@ export function ProductAttributesDrawer({
                                         showSelectionBar={false}
                                         selectedRowIds={selectedIds}
                                         onSelectedRowsChange={setSelectedIds}
-                                        density="compact"
+                                        maxHeight="calc(100dvh - 320px)"
                                     />
                                 )}
                             </form>

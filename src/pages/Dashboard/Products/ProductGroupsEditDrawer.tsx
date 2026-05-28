@@ -213,13 +213,10 @@ export function ProductGroupsEditDrawer({
                             showSelectionBar={false}
                             selectedRowIds={selectedGroupIds}
                             onSelectedRowsChange={setSelectedGroupIds}
-                            density="compact"
-                            emptyState={
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Nessun gruppo trovato
-                                </Text>
-                            }
-                            rowsPerPage={100}
+                            emptyState={{ title: "Nessun gruppo trovato" }}
+                            pageSize={25}
+                            pageSizeOptions={[25, 50, 100, "all"]}
+                            maxHeight="calc(100dvh - 320px)"
                         />
                     </div>
                 )}

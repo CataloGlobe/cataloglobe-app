@@ -33,7 +33,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 width: "2fr",
                 cell: (_, business) => (
                     <div className={styles.nameCell}>
-                        <Text weight={600}>{business.name}</Text>
+                        <Text variant="body-sm" weight={600}>{business.name}</Text>
                         <Text variant="caption" colorVariant="muted">
                             {business.slug}
                         </Text>
@@ -44,13 +44,15 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 id: "address",
                 header: "Indirizzo",
                 width: "1.5fr",
-                accessor: b => b.address
+                accessor: b => b.address,
+                cell: (_, b) => <Text variant="body-sm">{b.address ?? "—"}</Text>
             },
             {
                 id: "city",
                 header: "Città",
                 width: "1fr",
-                accessor: b => b.city
+                accessor: b => b.city,
+                cell: (_, b) => <Text variant="body-sm">{b.city ?? "—"}</Text>
             },
             {
                 id: "status",
@@ -81,48 +83,46 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                     const publicUrl = `${window.location.origin}/${business.slug}`;
 
                     return (
-                        <div className={styles.actionsCell} onClick={e => e.stopPropagation()}>
-                            <TableRowActions
-                                actions={[
-                                    {
-                                        label: "Apri dettaglio",
-                                        icon: FileText,
-                                        onClick: () =>
-                                            navigate(`/business/${businessId}/locations/${business.id}`)
-                                    },
-                                    {
-                                        label: "Apri URL pubblico",
-                                        icon: ExternalLink,
-                                        onClick: () =>
-                                            window.open(publicUrl, "_blank", "noopener,noreferrer")
-                                    },
-                                    {
-                                        label: "Copia link",
-                                        icon: Link,
-                                        onClick: () => navigator.clipboard.writeText(publicUrl)
-                                    },
-                                    {
-                                        label: "Gestisci disponibilità",
-                                        icon: Calendar,
-                                        onClick: () =>
-                                            onManageAvailability?.(business.id, business.name),
-                                        hidden: !activeCatalog
-                                    },
-                                    {
-                                        label: "Modifica",
-                                        icon: Edit,
-                                        onClick: () => onEdit(business),
-                                        separator: true
-                                    },
-                                    {
-                                        label: "Elimina",
-                                        icon: Trash2,
-                                        onClick: () => onDelete(business.id),
-                                        variant: "destructive"
-                                    }
-                                ]}
-                            />
-                        </div>
+                        <TableRowActions
+                            actions={[
+                                {
+                                    label: "Apri dettaglio",
+                                    icon: FileText,
+                                    onClick: () =>
+                                        navigate(`/business/${businessId}/locations/${business.id}`)
+                                },
+                                {
+                                    label: "Apri URL pubblico",
+                                    icon: ExternalLink,
+                                    onClick: () =>
+                                        window.open(publicUrl, "_blank", "noopener,noreferrer")
+                                },
+                                {
+                                    label: "Copia link",
+                                    icon: Link,
+                                    onClick: () => navigator.clipboard.writeText(publicUrl)
+                                },
+                                {
+                                    label: "Gestisci disponibilità",
+                                    icon: Calendar,
+                                    onClick: () =>
+                                        onManageAvailability?.(business.id, business.name),
+                                    hidden: !activeCatalog
+                                },
+                                {
+                                    label: "Modifica",
+                                    icon: Edit,
+                                    onClick: () => onEdit(business),
+                                    separator: true
+                                },
+                                {
+                                    label: "Elimina",
+                                    icon: Trash2,
+                                    onClick: () => onDelete(business.id),
+                                    variant: "destructive"
+                                }
+                            ]}
+                        />
                     );
                 }
             }

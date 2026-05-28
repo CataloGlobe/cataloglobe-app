@@ -302,11 +302,7 @@ export default function TeamPage() {
 
                     if (actions.filter(a => !a.hidden).length === 0) return null;
 
-                    return (
-                        <div className={styles.actionsCell} data-row-click-ignore="true">
-                            <TableRowActions actions={actions} />
-                        </div>
-                    );
+                    return <TableRowActions actions={actions} />;
                 },
             });
         }
@@ -380,11 +376,7 @@ export default function TeamPage() {
                         },
                     ];
 
-                    return (
-                        <div className={styles.actionsCell} data-row-click-ignore="true">
-                            <TableRowActions actions={actions} />
-                        </div>
-                    );
+                    return <TableRowActions actions={actions} />;
                 },
             });
         }
@@ -400,14 +392,14 @@ export default function TeamPage() {
         <>
             <div className={styles.page}>
                 {!selectedTenantId ? (
-                    <Card className={styles.card}>
+                    <Card noHoverLift>
                         <div className={styles.emptyState}>
                             <Text variant="body">Seleziona un&apos;attività per vedere i membri.</Text>
                         </div>
                     </Card>
                 ) : (
                     <>
-                        <Card className={styles.card}>
+                        <Card noHoverLift>
                             <div className={styles.cardHeader}>
                                 <div className={styles.cardHeaderText}>
                                     <Text variant="title-sm" weight={600}>Membri</Text>
@@ -466,7 +458,7 @@ export default function TeamPage() {
                         </Card>
 
                         {members.some(m => m.status === "pending") && (
-                            <Card className={styles.card}>
+                            <Card noHoverLift>
                                 <div className={styles.cardHeader}>
                                     <div className={styles.cardHeaderText}>
                                         <Text variant="title-sm" weight={600}>

@@ -640,31 +640,15 @@
   margin-top: var(--spacing-3, 12px);
 }
 
-.assignRowInherited {
-  opacity: 0.55;
+.assignRowInheritedWrapper {
+  display: contents;
 
-  input[type="checkbox"] {
-    cursor: not-allowed;
-  }
-}
+  > * {
+    opacity: 0.55;
 
-.assignActionsBtn {
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: var(--radius-sm, 8px);
-  background: transparent;
-  color: var(--color-gray-400, #94a3b8);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
-  flex-shrink: 0;
-
-  &:hover {
-    background: var(--color-gray-100, #f1f5f9);
-    color: var(--color-gray-700, #334155);
+    input[type="checkbox"] {
+      cursor: not-allowed;
+    }
   }
 }
 

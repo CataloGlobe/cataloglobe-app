@@ -47,8 +47,7 @@
   border: none;
 }
 
-.loadingState,
-.emptyState {
+.loadingState {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -56,15 +55,6 @@
   padding: 64px 24px;
   text-align: center;
   gap: 8px;
-}
-
-.emptyIcon {
-  color: var(--color-border);
-  margin-bottom: 16px;
-}
-
-.emptyButton {
-  margin-top: 16px;
 }
 
 .filterBarRow {
@@ -345,18 +335,6 @@
   color: var(--color-text-muted);
   opacity: 0.65;
   line-height: 1.3;
-}
-
-.rowLink {
-  display: block;
-  width: 100%;
-  border: 0;
-  padding: 0;
-  margin: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
 }
 
 .descriptionText {

@@ -88,14 +88,6 @@
   }
 }
 
-.rowExpandable {
-  cursor: pointer;
-}
-
-.rowExpanded {
-  background-color: var(--color-gray-50);
-}
-
 .listRowVariant {
   display: flex;
   align-items: center;
@@ -202,10 +194,14 @@
   padding-left: 24px;
 }
 
-.variantTableRow {
-  background: var(--hover-bg, #f1f5f9) !important;
+.variantRowWrapper {
+  display: contents;
 
-  &:hover {
+  > * {
+    background: var(--hover-bg, #f1f5f9) !important;
+  }
+
+  > *:hover {
     background: var(--hover-bg, #f1f5f9) !important;
   }
 }

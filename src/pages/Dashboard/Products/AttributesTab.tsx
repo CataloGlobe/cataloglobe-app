@@ -380,17 +380,15 @@ export function AttributesTab({ productId, tenantId, vertical }: AttributesTabPr
             width: "56px",
             align: "right",
             cell: (_, def) => (
-                <div data-row-click-ignore="true">
-                    <TableRowActions
-                        actions={[
-                            {
-                                label: "Rimuovi attributo",
-                                onClick: () => handleRemove(def.id),
-                                variant: "destructive"
-                            }
-                        ]}
-                    />
-                </div>
+                <TableRowActions
+                    actions={[
+                        {
+                            label: "Rimuovi attributo",
+                            onClick: () => handleRemove(def.id),
+                            variant: "destructive"
+                        }
+                    ]}
+                />
             ),
         },
     ];

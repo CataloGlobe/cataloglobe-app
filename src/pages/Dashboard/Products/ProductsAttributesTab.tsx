@@ -240,10 +240,8 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
                         data={platformAttrs}
                         columns={platformColumns}
                         isLoading={isLoading}
-                        loadingState={
-                            <Text variant="body-sm" colorVariant="muted">Caricamento attributi in corso...</Text>
-                        }
-                        emptyState={<></>}
+                        loadingState={{ message: "Caricamento attributi in corso..." }}
+                        emptyState={{ title: "Nessun attributo suggerito" }}
                     />
                 </div>
             )}
@@ -260,27 +258,19 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
                     isLoading={isLoading}
                     selectable
                     onBulkDelete={handleBulkDelete}
-                    loadingState={
-                        <Text variant="body-sm" colorVariant="muted">Caricamento attributi in corso...</Text>
-                    }
-                    emptyState={
-                        <div className={styles.emptyState}>
-                            <IconTags size={40} stroke={1} style={{ color: "var(--color-gray-400)" }} />
-                            <Text variant="title-sm" weight={600}>
-                                {searchQuery ? "Nessun attributo trovato" : "Nessun attributo personalizzato"}
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                {searchQuery
-                                    ? "Nessun attributo corrisponde alla tua ricerca."
-                                    : verticalConfig.copy.productAttributes.emptyDescription}
-                            </Text>
-                            {!searchQuery && (
-                                <Button variant="primary" size="sm" onClick={handleCreate} disabled={!canEdit} className={styles.emptyStateButton}>
-                                    Crea attributo
-                                </Button>
-                            )}
-                        </div>
-                    }
+                    loadingState={{ message: "Caricamento attributi in corso..." }}
+                    emptyState={{
+                        icon: <IconTags size={40} stroke={1} style={{ color: "var(--color-gray-400)" }} />,
+                        title: searchQuery ? "Nessun attributo trovato" : "Nessun attributo personalizzato",
+                        description: searchQuery
+                            ? "Nessun attributo corrisponde alla tua ricerca."
+                            : verticalConfig.copy.productAttributes.emptyDescription,
+                        action: !searchQuery ? (
+                            <Button variant="primary" size="sm" onClick={handleCreate} disabled={!canEdit}>
+                                Crea attributo
+                            </Button>
+                        ) : undefined
+                    }}
                 />
             </div>
 

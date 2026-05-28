@@ -255,27 +255,20 @@ export default function Styles() {
                 header: "Nome stile",
                 width: "1.4fr",
                 accessor: style => style.name,
-                sortable: false,
                 cell: (_value, style) => (
-                    <button
-                        type="button"
-                        className={styles.rowLink}
-                        onClick={() => handleEditClick(style)}
-                    >
-                        <div className={styles.colName}>
-                            <div className={styles.styleNameRow}>
-                                <Text variant="body-sm" weight={600}>
-                                    {style.name}
-                                </Text>
-                                {style.is_system && (
-                                    <IconShieldCheck size={14} className={styles.systemIcon} />
-                                )}
-                            </div>
-                            <Text variant="caption" colorVariant="muted">
-                                Versione {style.current_version?.version || "0"}
+                    <div className={styles.colName}>
+                        <div className={styles.styleNameRow}>
+                            <Text variant="body-sm" weight={600}>
+                                {style.name}
                             </Text>
+                            {style.is_system && (
+                                <IconShieldCheck size={14} className={styles.systemIcon} />
+                            )}
                         </div>
-                    </button>
+                        <Text variant="caption" colorVariant="muted">
+                            Versione {style.current_version?.version || "0"}
+                        </Text>
+                    </div>
                 )
             },
             {
@@ -288,7 +281,7 @@ export default function Styles() {
             {
                 id: "actions",
                 header: "",
-                width: "72px",
+                width: "56px",
                 align: "right",
                 cell: (_value, style) => renderRowActions(style)
             }
@@ -336,17 +329,32 @@ export default function Styles() {
                 </div>
 
                 {isLoading ? (
-                    <Card className={styles.tableCard}>{loadingState}</Card>
+                    <Card className={styles.tableCard} noHoverLift>{loadingState}</Card>
                 ) : filteredStyles.length === 0 ? (
                     emptyState
                 ) : viewMode === "list" ? (
-                    <Card className={styles.tableCard}>
+                    <Card className={styles.tableCard} noHoverLift>
                         <DataTable<V2Style>
                             data={filteredStyles}
                             columns={columns}
                             selectable
                             onBulkDelete={handleBulkDelete}
-                            emptyState={emptyState}
+                            onRowClick={style => handleEditClick(style)}
+                            emptyState={{
+                                icon: <IconPalette size={48} stroke={1} />,
+                                title: "Nessuno stile trovato",
+                                description:
+                                    "Crea un nuovo stile per personalizzare l'aspetto del tuo catalogo.",
+                                action: (
+                                    <Button
+                                        variant="primary"
+                                        onClick={handleCreateClick}
+                                        disabled={!canEdit}
+                                    >
+                                        Crea stile
+                                    </Button>
+                                )
+                            }}
                         />
                     </Card>
                 ) : (
