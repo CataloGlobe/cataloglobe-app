@@ -192,7 +192,15 @@ export default function Businesses() {
     // STATE: Filtri e Vista (MOCK)
     // ======================================
     const [searchTerm, setSearchTerm] = useState("");
-    const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
+    const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
+        const saved = localStorage.getItem("businesses_view_mode");
+        return (saved === "list" || saved === "grid") ? saved : "grid";
+    });
+
+    const handleViewChange = (v: "list" | "grid") => {
+        setViewMode(v);
+        localStorage.setItem("businesses_view_mode", v);
+    };
 
     // ======================================
     // FETCH BUSINESS
@@ -815,7 +823,7 @@ export default function Businesses() {
                 }}
                 view={{
                     value: viewMode,
-                    onChange: setViewMode
+                    onChange: handleViewChange
                 }}
             />
 
