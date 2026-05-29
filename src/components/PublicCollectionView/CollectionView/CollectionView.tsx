@@ -48,8 +48,8 @@ import PublicSheet from "../PublicSheet/PublicSheet";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
 import { submitOrder, getOrdersForSession } from "@/services/supabase/orders";
 import { useOptionalCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
-import type { OrderItemRequest, SubmitOrderResult } from "@/types/orders";
-import { ClipboardList } from "lucide-react";
+import type { OrderItemRequest, SubmitOrderResult, OrderingStateReason } from "@/types/orders";
+import { ClipboardList, AlertCircle } from "lucide-react";
 const OrderConfirmationSheet = lazy(() => import("../OrderConfirmationSheet/OrderConfirmationSheet"));
 
 // ─── Selection helpers ────────────────────────────────────────────────────────
@@ -600,6 +600,20 @@ type Props = {
      * - mostrare badge tavolo nell'header
      */
     orderingActive?: boolean;
+    /**
+     * Quando definito: la pagina viene resa in modalita read-only per
+     * ordering (banner sticky + submit disabilitato). Reason proviene da
+     * URL param `?maintenance=<reason>` su QR-scan flow oppure da catch
+     * lato submit-order (423 ORDERING_UNAVAILABLE).
+     *
+     * Reason rilevanti per catalog read-only:
+     *   - "ordering_disabled":  ristoratore ha sospeso ordini QR sulla sede
+     *   - "table_maintenance":  tavolo singolo in manutenzione
+     */
+    orderingMaintenance?: {
+        reason: OrderingStateReason;
+        message: string;
+    } | null;
 };
 
 export default function CollectionView({
@@ -630,8 +644,44 @@ export default function CollectionView({
     fees,
     allergens,
     catalogCharacteristics,
-    orderingActive = false
+    orderingActive = false,
+    orderingMaintenance = null
 }: Props) {
+    // Maintenance scoperto runtime via 423 ORDERING_UNAVAILABLE su submit
+    // (Strict + Reactive: il cliente lo apprende solo al tentativo). Solo
+    // OrderingSheet usa effectiveMaintenance per banner inline + submit
+    // disable; il banner sticky CollectionView resta legato al prop esterno
+    // (URL param / resolve-table response).
+    const [discoveredMaintenance, setDiscoveredMaintenance] = useState<
+        { reason: OrderingStateReason; message: string } | null
+    >(null);
+    const effectiveMaintenance = orderingMaintenance ?? discoveredMaintenance;
+
+    // Reason "silenziosi": ordering_disabled = feature non disponibile per il
+    // cliente (no banner, no FAB). Altri reason "rumorosi" (table_maintenance)
+    // mostrano comunque banner sticky + nascondono FAB.
+    const SILENT_MAINTENANCE_REASONS = new Set<OrderingStateReason>([
+        "ordering_disabled"
+    ]);
+    const shouldShowStickyBanner =
+        orderingMaintenance != null &&
+        !SILENT_MAINTENANCE_REASONS.has(orderingMaintenance.reason);
+    // Nascondi entry point ordering (FAB) per:
+    //   - URL-param maintenance (table_maintenance)
+    //   - Cliente entrato via /:slug diretto senza sessione QR (no
+    //     orderingActive): ordering QR e' by-design tied a sessione tavolo
+    //     da resolve-table — niente sessione = niente entry point.
+    // Discovery runtime NON rimuove il FAB (cliente ha gia visto la
+    // selection, banner inline su submit fail e' sufficiente).
+    // Gate `mode === "public"` per preservare preview dashboard
+    // (orderingActive=false in preview e' default, non significa "no session").
+    const shouldHideOrderingEntry =
+        orderingMaintenance != null || (mode === "public" && !orderingActive);
+    // Gate per "+" buttons su ProductRow / ProductCompactRow / ItemDetail:
+    // include discovery runtime (rispetto a shouldHideOrderingEntry) per
+    // coerenza con OrderingSheet submit gating + no-session hide.
+    const orderingEntryHidden =
+        effectiveMaintenance != null || (mode === "public" && !orderingActive);
     const { t } = useTranslation("public");
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
         () => sectionGroups[0]?.root.id ?? null
@@ -1000,7 +1050,19 @@ export default function CollectionView({
         } catch (err) {
             if (err instanceof Error) {
                 const msg = err.message;
-                if (msg.toLowerCase().includes("scaduta") || msg === "SESSION_EXPIRED") {
+                const code = (err as Error & { code?: string }).code;
+                const reason = (err as Error & { reason?: string }).reason as
+                    | OrderingStateReason
+                    | undefined;
+                if (code === "ORDERING_UNAVAILABLE") {
+                    // Propaga maintenance scoperta a OrderingSheet via prop
+                    // (banner inline + submit disabled). NIENTE toast: il
+                    // banner inline copre la UX dentro la modale.
+                    setDiscoveredMaintenance({
+                        reason: reason ?? "ordering_disabled",
+                        message: msg
+                    });
+                } else if (msg.toLowerCase().includes("scaduta") || msg === "SESSION_EXPIRED") {
                     customerSession.clear();
                     setSubmitFeedback({
                         type: "error",
@@ -1525,7 +1587,7 @@ export default function CollectionView({
                                         allergens={item.allergens}
                                         characteristics={item.characteristics}
                                         onAddToSelection={
-                                            activeTab === "menu"
+                                            activeTab === "menu" && !orderingEntryHidden
                                                 ? () => handleAddClick(
                                                       item.id,
                                                       item.name,
@@ -1556,7 +1618,7 @@ export default function CollectionView({
                                         allergens={item.allergens}
                                         characteristics={item.characteristics}
                                         onAddToSelection={
-                                            activeTab === "menu"
+                                            activeTab === "menu" && !orderingEntryHidden
                                                 ? () => handleAddClick(
                                                       item.id,
                                                       item.name,
@@ -1619,7 +1681,7 @@ export default function CollectionView({
                                                     });
                                                 }}
                                                 onAddToSelection={
-                                                    activeTab === "menu"
+                                                    activeTab === "menu" && !orderingEntryHidden
                                                         ? () => handleAddClick(
                                                               v.id,
                                                               v.name,
@@ -1698,7 +1760,7 @@ export default function CollectionView({
                                                     });
                                                 }}
                                                 onAddToSelection={
-                                                    activeTab === "menu"
+                                                    activeTab === "menu" && !orderingEntryHidden
                                                         ? () => handleAddClick(
                                                               v.id,
                                                               v.name,
@@ -1752,6 +1814,20 @@ export default function CollectionView({
                 <a className={styles.skipLink} href={`#${contentId}`}>
                     <Text variant="caption">{t("skip_to_content")}</Text>
                 </a>
+            )}
+
+            {/* Maintenance banner: ordering sospeso o tavolo in manutenzione.
+                Soppresso per reason silenziosi (es. ordering_disabled = feature
+                non disponibile per il cliente). */}
+            {shouldShowStickyBanner && orderingMaintenance && (
+                <div
+                    className={styles.maintenanceBanner}
+                    role="status"
+                    aria-live="polite"
+                >
+                    <AlertCircle size={14} aria-hidden="true" />
+                    <span>{orderingMaintenance.message}</span>
+                </div>
             )}
 
             {/* ── HEADER: sostituisce PublicBrandHeader + CollectionHero ── */}
@@ -2062,7 +2138,7 @@ export default function CollectionView({
                                             }}
                                             mode={mode}
                                             showImage={style.productStyle !== "compact" && style.cardTemplate !== "no-image"}
-                                            onAddToSelection={mode === "public" && activeTab === "menu"
+                                            onAddToSelection={mode === "public" && activeTab === "menu" && !orderingEntryHidden
                                                 ? (editingSelectionIndex !== null
                                                     ? handleUpdateSelection
                                                     : (productId, productName, basePrice, format, addons) => {
@@ -2131,7 +2207,7 @@ export default function CollectionView({
             )}
 
             {/* ── ORDERING FAB — unico, context-aware (cart o ordini) ── */}
-            {mode === "public" && activeTab === "menu" && (selectionCount > 0 || (orderingActive && hasOrdersInSession)) && (
+            {mode === "public" && activeTab === "menu" && !shouldHideOrderingEntry && (selectionCount > 0 || (orderingActive && hasOrdersInSession)) && (
                 <button
                     type="button"
                     className={styles.orderingFab}
@@ -2268,9 +2344,14 @@ export default function CollectionView({
                         onOrderNoteRemove={
                             orderingActive ? () => setOrderNote(null) : undefined
                         }
-                        orderingActive={orderingActive}
-                        onSubmitOrder={orderingActive ? handleSubmitOrder : undefined}
+                        orderingActive={orderingActive && !shouldHideOrderingEntry}
+                        onSubmitOrder={
+                            orderingActive && !shouldHideOrderingEntry
+                                ? handleSubmitOrder
+                                : undefined
+                        }
                         isSubmitting={isSubmittingOrder}
+                        maintenance={effectiveMaintenance}
                         onSessionExpired={handleSessionExpired}
                         ordersRefreshKey={ordersRefreshKey}
                     />

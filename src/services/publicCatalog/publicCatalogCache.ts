@@ -12,7 +12,10 @@ import type { PublicCatalogPayload } from "./fetchPublicCatalog";
  * private mode pre-15). In tutti questi casi degradiamo silenziosamente.
  */
 
-const SCHEMA_VERSION = 1 as const;
+// Bump v2: aggiunto business.ordering_enabled al payload server-side
+// (maintenance mode mid-session Fix 1). Cache v1 → orphaned in storage,
+// nuove letture vanno solo a v2.
+const SCHEMA_VERSION = 2 as const;
 const KEY_PREFIX = `cataloglobe:public-menu:v${SCHEMA_VERSION}`;
 const TTL_MS = 7 * 24 * 60 * 60 * 1_000; // 7 giorni
 

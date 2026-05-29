@@ -13,6 +13,7 @@ import type { HubTab } from "@/types/collectionStyle";
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 import type { OpeningHoursEntry, UpcomingClosure } from "@/components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 import type { ActivityFee } from "@/types/activity";
+import type { OrderingStateReason } from "@/types/orders";
 import { VERTICAL_CONFIG, type VerticalType } from "@/constants/verticalTypes";
 import { listAllAllergens, type Allergen } from "@/services/supabase/allergens";
 
@@ -225,6 +226,13 @@ type PublicBusiness = {
     cover_image: string | null;
     status: "active" | "inactive";
     inactive_reason: "maintenance" | "closed" | "unavailable" | null;
+    /**
+     * Maintenance mode ordinazioni QR per-sede. Fonte di verita server-side
+     * via `resolve-public-catalog`. Quando `false`, frontend mostra UI
+     * read-only senza FAB/+/buttons. Backward compat: payload Redis snapshot
+     * pre-Fix 1 puo non avere il campo — consumer usa fallback `?? true`.
+     */
+    ordering_enabled: boolean;
     address: string | null;
     street_number: string | null;
     postal_code: string | null;
@@ -294,6 +302,24 @@ type ResolvedPayloadShape = {
     vertical_type?: VerticalType | null;
 };
 
+// ── Maintenance message centralization ───────────────────────────────────
+// Centralizza i testi user-facing per reason di ordering maintenance.
+// Single source of truth tra URL-param flow (table_maintenance) e
+// payload-derived flow (ordering_disabled).
+const ORDERING_DISABLED_MESSAGE =
+    "Il ristorante ha temporaneamente sospeso le ordinazioni tramite QR. Per favore, chiedi allo staff per ordinare.";
+
+function messageForReason(reason: OrderingStateReason): string {
+    switch (reason) {
+        case "ordering_disabled":
+            return ORDERING_DISABLED_MESSAGE;
+        case "table_maintenance":
+            return "Questo tavolo non e' al momento disponibile per le ordinazioni. Chiedi allo staff.";
+        default:
+            return "L'ordinazione tramite QR non e' al momento disponibile. Chiedi allo staff.";
+    }
+}
+
 /**
  * Wrapper interno: vive DENTRO CustomerSessionProvider e legge isActive
  * dal context per propagarlo come prop a CollectionView. Tiene CollectionView
@@ -312,9 +338,51 @@ export default function PublicCollectionPage() {
     const { t, i18n } = useTranslation("public");
     const [searchParams] = useSearchParams();
     const simulateParam = searchParams.get("simulate");
+
+    // Maintenance mode mid-session — due canali:
+    //   1. URL param `?maintenance=<reason>`: solo per reason che NON sono
+    //      derivabili dal payload server (`table_maintenance` — tied alla
+    //      sessione QR, non alla sede). Migrera a Router state in step
+    //      successivo.
+    //   2. Payload server-side `business.ordering_enabled`: source of truth
+    //      per `ordering_disabled` (sostituisce URL param visibile/manipolabile).
+    const maintenanceParam = searchParams.get("maintenance");
+    const orderingMaintenanceFromUrl = useMemo<
+        { reason: OrderingStateReason; message: string } | null
+    >(() => {
+        if (!maintenanceParam) return null;
+        // Whitelist ristretta post-Fix 1: solo reason ancora veicolate via URL.
+        const VALID_URL_PARAM_REASONS = new Set<OrderingStateReason>([
+            "table_maintenance"
+        ]);
+        if (!VALID_URL_PARAM_REASONS.has(maintenanceParam as OrderingStateReason)) {
+            return null;
+        }
+        const reason = maintenanceParam as OrderingStateReason;
+        return { reason, message: messageForReason(reason) };
+    }, [maintenanceParam]);
     const [effectiveSimulate, setEffectiveSimulate] = useState<string | null>(null);
     const isSimulation = !!effectiveSimulate;
     const [state, setState] = useState<PageState>({ status: "loading" });
+
+    // Payload-derived: ordering_disabled deriva da business.ordering_enabled.
+    // Backward compat: snapshot Redis pre-Fix 1 puo non avere il campo →
+    // `!== false` rende il check permissivo (no maintenance), submit-order
+    // Edge runtime gestira eventuali tentativi via 423.
+    const orderingMaintenanceFromPayload = useMemo<
+        { reason: OrderingStateReason; message: string } | null
+    >(() => {
+        if (state.status !== "ready") return null;
+        if (state.business.ordering_enabled !== false) return null;
+        return {
+            reason: "ordering_disabled",
+            message: ORDERING_DISABLED_MESSAGE
+        };
+    }, [state]);
+
+    // URL param prevale su payload (table_maintenance e' piu specifico:
+    // riguarda il singolo tavolo, ordering_disabled tutta la sede).
+    const orderingMaintenance = orderingMaintenanceFromUrl ?? orderingMaintenanceFromPayload;
     const [retryToken, setRetryToken] = useState(0);
     const handleRetry = useCallback(() => {
         setRetryToken(t => t + 1);
@@ -821,6 +889,7 @@ export default function PublicCollectionPage() {
                 fees={business.fees}
                 allergens={allergens}
                 catalogCharacteristics={catalogCharacteristics}
+                orderingMaintenance={orderingMaintenance}
             />
             </div>
             {/* Toast cambio lingua — sempre nel DOM, CSS transitions */}

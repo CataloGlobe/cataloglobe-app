@@ -3,11 +3,15 @@ import { useParams, useNavigate } from "react-router-dom";
 import { resolveTable } from "@/services/supabase/customerSessions";
 import { saveCustomerSession } from "@/services/customer/customerSessionStorage";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
+import { ResolveTableOrderingUnavailableError } from "@/types/orders";
+import type { OrderingStateReason } from "@/types/orders";
+import TableUnavailablePage from "./TableUnavailablePage";
 import styles from "./TableEntryPage.module.scss";
 
 type PageState =
     | { status: "loading" }
-    | { status: "error"; message: string };
+    | { status: "error"; message: string }
+    | { status: "unavailable"; reason: OrderingStateReason; message: string };
 
 export default function TableEntryPage() {
     const { qrToken } = useParams<{ qrToken: string }>();
@@ -42,6 +46,43 @@ export default function TableEntryPage() {
                 navigate(`/${result.activity.slug}`, { replace: true });
             } catch (err) {
                 if (cancelled) return;
+
+                // 423 ORDERING_UNAVAILABLE: discrimina canViewMenu + reason.
+                // - canViewMenu=true:
+                //     * ordering_disabled → redirect pulito a /:slug.
+                //       Verita lato server via payload resolve-public-catalog
+                //       (business.ordering_enabled). NO URL param.
+                //     * table_maintenance (+ future canViewMenu reasons) →
+                //       URL param ?maintenance=table_maintenance. Verra
+                //       migrato a React Router state in step successivo.
+                // - canViewMenu=false (subscription_inactive, tenant_deleted,
+                //   activity_inactive, table_deleted): full-page error.
+                if (err instanceof ResolveTableOrderingUnavailableError) {
+                    if (err.payload.canViewMenu) {
+                        if (err.payload.reason === "ordering_disabled") {
+                            navigate(
+                                `/${err.payload.activity.slug}`,
+                                { replace: true }
+                            );
+                        } else {
+                            const params = new URLSearchParams({
+                                maintenance: err.payload.reason
+                            });
+                            navigate(
+                                `/${err.payload.activity.slug}?${params.toString()}`,
+                                { replace: true }
+                            );
+                        }
+                        return;
+                    }
+                    setState({
+                        status: "unavailable",
+                        reason: err.payload.reason,
+                        message: err.payload.message,
+                    });
+                    return;
+                }
+
                 const message =
                     err instanceof Error && err.message
                         ? err.message
@@ -64,6 +105,10 @@ export default function TableEntryPage() {
                 <p className={styles.message}>Avvio della tua sessione...</p>
             </div>
         );
+    }
+
+    if (state.status === "unavailable") {
+        return <TableUnavailablePage reason={state.reason} message={state.message} />;
     }
 
     return (
