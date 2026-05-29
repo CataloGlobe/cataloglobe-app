@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Minus, Plus, Trash2, RefreshCw, X } from "lucide-react";
+import { Minus, Plus, Trash2, RefreshCw, X, AlertCircle } from "lucide-react";
+import type { OrderingStateReason } from "@/types/orders";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import OrderStatusStepper from "./OrderStatusStepper";
 import ItemNoteEditor from "./ItemNoteEditor";
@@ -92,6 +93,14 @@ interface OrderingSheetProps {
     onSubmitOrder?: () => void;
     isSubmitting?: boolean;
 
+    /**
+     * Quando definito: maintenance attivo. Render banner inline sopra la
+     * footer-CTA e disabilita "Invia ordine" (sostituito da "Ordinazioni
+     * sospese"). Sorgente: prop esterna (URL param) oppure scoperta runtime
+     * via 423 ORDERING_UNAVAILABLE sul submit precedente.
+     */
+    maintenance?: { reason: OrderingStateReason; message: string } | null;
+
     onSessionExpired?: () => void;
     ordersRefreshKey?: number;
 }
@@ -115,6 +124,7 @@ export default function OrderingSheet({
     orderingActive = false,
     onSubmitOrder,
     isSubmitting = false,
+    maintenance = null,
     onSessionExpired,
     ordersRefreshKey
 }: OrderingSheetProps) {
@@ -488,16 +498,40 @@ export default function OrderingSheet({
                                     <span className={styles.footerTotal}>{formatPrice(cartTotal)}</span>
                                 </div>
                                 {orderingActive && onSubmitOrder && (
-                                    <button
-                                        type="button"
-                                        className={styles.submitCta}
-                                        onClick={onSubmitOrder}
-                                        disabled={isSubmitting || items.length === 0}
-                                    >
-                                        {isSubmitting
-                                            ? "Invio in corso..."
-                                            : `Invia ordine · ${formatPrice(cartTotal)}`}
-                                    </button>
+                                    <>
+                                        {maintenance && (
+                                            <div
+                                                className={styles.maintenanceBanner}
+                                                role="status"
+                                                aria-live="polite"
+                                            >
+                                                <AlertCircle
+                                                    size={14}
+                                                    className={styles.maintenanceIcon}
+                                                    aria-hidden="true"
+                                                />
+                                                <div className={styles.maintenanceText}>
+                                                    {maintenance.message}
+                                                </div>
+                                            </div>
+                                        )}
+                                        <button
+                                            type="button"
+                                            className={`${styles.submitCta}${maintenance ? ` ${styles.submitDisabled}` : ""}`}
+                                            onClick={maintenance ? undefined : onSubmitOrder}
+                                            disabled={
+                                                maintenance != null ||
+                                                isSubmitting ||
+                                                items.length === 0
+                                            }
+                                        >
+                                            {maintenance
+                                                ? "Ordinazioni sospese"
+                                                : isSubmitting
+                                                    ? "Invio in corso..."
+                                                    : `Invia ordine · ${formatPrice(cartTotal)}`}
+                                        </button>
+                                    </>
                                 )}
                             </div>
                         )}
@@ -543,7 +577,7 @@ export default function OrderingSheet({
 
                         {isLoadingOrders && orders.length === 0 ? (
                             <div className={styles.loading}>
-                                <p>Caricamento ordini...</p>
+                                <p className={styles.loadingText}>Caricamento ordini...</p>
                             </div>
                         ) : orders.length === 0 ? (
                             <div className={styles.empty}>
