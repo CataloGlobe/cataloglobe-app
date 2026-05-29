@@ -32,7 +32,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 import { ensureUniqueBusinessSlug } from "@/utils/businessSlug";
-import { sanitizeSlugForSave } from "@/utils/slugify";
+import { generateSlug, sanitizeSlugForSave } from "@/utils/slugify";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 
 // Tipi importati da "@/types/Businesses"
@@ -268,11 +268,12 @@ export default function Businesses() {
                     const newName = value as string;
 
                     if (!createSlugTouched) {
+                        // slugify istantaneo on-keystroke per feedback immediato.
+                        // useEffect debounced rifinisce con suffisso anti-collisione.
                         return {
                             ...prev,
-                            name: newName
-                            // NON aggiorniamo lo slug qui
-                            // lo farà useEffect con debounce + ensureUniqueBusinessSlug
+                            name: newName,
+                            slug: generateSlug(newName)
                         };
                     }
 
@@ -284,7 +285,6 @@ export default function Businesses() {
                 }
 
                 // cambio dello SLUG (campo editabile)
-                // dopo — NIENTE slugify live!
                 if (field === "slug") {
                     setCreateSlugState({ type: "idle" });
                     return { ...prev, slug: value as string };
