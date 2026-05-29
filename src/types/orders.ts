@@ -58,6 +58,55 @@ export interface V2CustomerSession {
 }
 
 /**
+ * Reason restituito da resolve-table / submit-order quando l'ordering QR
+ * non e' disponibile (status 423 ORDERING_UNAVAILABLE). Allineato con
+ * `OrderingStateReason` in `supabase/functions/_shared/checkOrderingState.ts`.
+ */
+export type OrderingStateReason =
+    | "subscription_inactive"
+    | "tenant_deleted"
+    | "activity_inactive"
+    | "ordering_disabled"
+    | "table_maintenance"
+    | "table_deleted";
+
+/**
+ * Payload di errore 423 da resolve-table. `canViewMenu=true` significa che
+ * il client puo redirigere al menu in modalita read-only (ordering_disabled /
+ * table_maintenance). False = sede non agibile, mostrare full-page error.
+ */
+export interface ResolveTableOrderingUnavailable {
+    code: "ORDERING_UNAVAILABLE";
+    reason: OrderingStateReason;
+    message: string;
+    canViewMenu: boolean;
+    tenant_id: string;
+    activity: {
+        id: string;
+        slug: string;
+    };
+    table: {
+        id: string;
+        label: string;
+        zone: string | null;
+    };
+}
+
+/**
+ * Error throwato da resolveTable() quando l'Edge ritorna 423. Permette al
+ * caller di leggere `reason` e decidere se renderizzare il full-page error
+ * o redirigere al menu (vedi `ResolveTableOrderingUnavailable.canViewMenu`).
+ */
+export class ResolveTableOrderingUnavailableError extends Error {
+    readonly payload: ResolveTableOrderingUnavailable;
+    constructor(payload: ResolveTableOrderingUnavailable) {
+        super(payload.message);
+        this.name = "ResolveTableOrderingUnavailableError";
+        this.payload = payload;
+    }
+}
+
+/**
  * Response dell'Edge Function resolve-table. Combina jwt + session + table +
  * activity in un unico payload "tutto quello che serve al customer per partire".
  */
