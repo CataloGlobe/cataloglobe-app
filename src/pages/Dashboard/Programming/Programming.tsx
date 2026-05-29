@@ -14,8 +14,7 @@ import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { BulkBar } from "@/components/ui/BulkBar/BulkBar";
 import { usePageHeader } from "@/context/usePageHeader";
-import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
-import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
+import { Menu } from "@/components/ui/Menu";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
@@ -1019,7 +1018,7 @@ export default function Programming() {
             </Button>
             {ruleTypeFilter === "all" ? (
                 <div className={styles.newRuleDropdown}>
-                    <DropdownMenu
+                    <Menu
                         trigger={
                             <Button
                                 variant="primary"
@@ -1029,21 +1028,21 @@ export default function Programming() {
                                 {isCreating ? "Creazione..." : "Nuova regola"}
                             </Button>
                         }
-                        placement="bottom-end"
+                        align="end"
                     >
-                        <DropdownItem onClick={() => void handleCreateRule("layout")}>
+                        <Menu.Item onSelect={() => void handleCreateRule("layout")}>
                             Layout
-                        </DropdownItem>
-                        <DropdownItem onClick={() => void handleCreateRule("featured")}>
+                        </Menu.Item>
+                        <Menu.Item onSelect={() => void handleCreateRule("featured")}>
                             In evidenza
-                        </DropdownItem>
-                        <DropdownItem onClick={() => void handleCreateRule("price")}>
+                        </Menu.Item>
+                        <Menu.Item onSelect={() => void handleCreateRule("price")}>
                             Prezzi
-                        </DropdownItem>
-                        <DropdownItem onClick={() => void handleCreateRule("visibility")}>
+                        </Menu.Item>
+                        <Menu.Item onSelect={() => void handleCreateRule("visibility")}>
                             Visibilità
-                        </DropdownItem>
-                    </DropdownMenu>
+                        </Menu.Item>
+                    </Menu>
                 </div>
             ) : (
                 <Button
@@ -1144,7 +1143,7 @@ export default function Programming() {
                                     </p>
                                     {ruleTypeFilter === "all" ? (
                                         <div className={styles.newRuleDropdown}>
-                                            <DropdownMenu
+                                            <Menu
                                                 trigger={
                                                     <Button
                                                         variant="primary"
@@ -1154,21 +1153,21 @@ export default function Programming() {
                                                         {isCreating ? "Creazione..." : "Crea la prima regola"}
                                                     </Button>
                                                 }
-                                                placement="bottom-start"
+                                                align="start"
                                             >
-                                                <DropdownItem onClick={() => void handleCreateRule("layout")}>
+                                                <Menu.Item onSelect={() => void handleCreateRule("layout")}>
                                                     Layout
-                                                </DropdownItem>
-                                                <DropdownItem onClick={() => void handleCreateRule("featured")}>
+                                                </Menu.Item>
+                                                <Menu.Item onSelect={() => void handleCreateRule("featured")}>
                                                     In evidenza
-                                                </DropdownItem>
-                                                <DropdownItem onClick={() => void handleCreateRule("price")}>
+                                                </Menu.Item>
+                                                <Menu.Item onSelect={() => void handleCreateRule("price")}>
                                                     Prezzi
-                                                </DropdownItem>
-                                                <DropdownItem onClick={() => void handleCreateRule("visibility")}>
+                                                </Menu.Item>
+                                                <Menu.Item onSelect={() => void handleCreateRule("visibility")}>
                                                     Visibilità
-                                                </DropdownItem>
-                                            </DropdownMenu>
+                                                </Menu.Item>
+                                            </Menu>
                                         </div>
                                     ) : (
                                         <Button

@@ -1,5 +1,5 @@
 import { Bell, BellOff } from "lucide-react";
-import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
+import { Menu } from "@/components/ui/Menu";
 import styles from "./AppHeader.module.scss";
 
 interface Notification {
@@ -11,7 +11,6 @@ interface Notification {
     category: "order" | "review" | "team" | "billing";
 }
 
-// Phase 3 wires this to a real backend. Empty stub keeps the bell silent.
 const NOTIFICATIONS: Notification[] = [];
 
 export function HeaderNotifications() {
@@ -29,12 +28,12 @@ export function HeaderNotifications() {
     );
 
     return (
-        <DropdownMenu trigger={trigger} placement="bottom-end">
+        <Menu trigger={trigger} align="end">
             <div className={styles.emptyState}>
                 <BellOff size={24} className={styles.emptyStateIcon} aria-hidden="true" />
                 <div className={styles.emptyStateText}>Nessuna notifica</div>
                 <div className={styles.emptyStateSub}>Le notifiche appariranno qui</div>
             </div>
-        </DropdownMenu>
+        </Menu>
     );
 }

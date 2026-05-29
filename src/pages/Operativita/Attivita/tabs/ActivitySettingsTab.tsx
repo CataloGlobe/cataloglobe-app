@@ -22,8 +22,7 @@ import {
 import { Button, Card } from "@/components/ui";
 import UIText from "@/components/ui/Text/Text";
 import { Switch } from "@/components/ui/Switch/Switch";
-import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
-import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
+import { Menu } from "@/components/ui/Menu";
 import ModalLayout, {
     ModalLayoutContent,
     ModalLayoutFooter,
@@ -704,7 +703,7 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                             pagina pubblica della sede.
                                         </p>
                                         <div className={styles.qrSectionActions}>
-                                            <DropdownMenu
+                                            <Menu
                                                 trigger={
                                                     <Button
                                                         variant="secondary"
@@ -715,15 +714,13 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                                     </Button>
                                                 }
                                             >
-                                                <DropdownItem onClick={handleDownloadQR}>
-                                                    <ImageIcon size={14} />
+                                                <Menu.Item icon={ImageIcon} onSelect={handleDownloadQR}>
                                                     Scarica PNG
-                                                </DropdownItem>
-                                                <DropdownItem onClick={handleDownloadSVG}>
-                                                    <Download size={14} />
+                                                </Menu.Item>
+                                                <Menu.Item icon={Download} onSelect={handleDownloadSVG}>
                                                     Scarica SVG
-                                                </DropdownItem>
-                                            </DropdownMenu>
+                                                </Menu.Item>
+                                            </Menu>
                                             <Button
                                                 variant="secondary"
                                                 size="sm"
