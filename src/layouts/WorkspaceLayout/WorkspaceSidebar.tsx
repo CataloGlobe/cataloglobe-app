@@ -5,9 +5,7 @@ import { Building2, CreditCard, Settings, PanelLeftClose, PanelLeftOpen, X } fro
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import styles from "./WorkspaceSidebar.module.scss";
-
-const SIDEBAR_EXPANDED = 260;
-const SIDEBAR_COLLAPSED = 90;
+import { SIDEBAR_COLLAPSED, SIDEBAR_EXPANDED } from "@/constants/layout";
 
 interface NavItem {
     to: string;
@@ -62,6 +60,7 @@ export default function WorkspaceSidebar({
             <motion.aside
                 className={[styles.sidebar, isMobile ? styles.mobile : styles.desktop].join(" ")}
                 data-collapsed={collapsed}
+                style={{ "--sidebar-collapsed": `${SIDEBAR_COLLAPSED}px` } as React.CSSProperties}
                 initial={false}
                 animate={{
                     width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED,
@@ -108,7 +107,11 @@ export default function WorkspaceSidebar({
                                                 }}
                                             >
                                                 {!isMobile && collapsed ? (
-                                                    <Tooltip content={link.label} side="right">
+                                                    <Tooltip
+                                                        content={link.label}
+                                                        side="right"
+                                                        sideOffset={30}
+                                                    >
                                                         <span className={styles.icon}>
                                                             {link.icon}
                                                         </span>
@@ -117,22 +120,7 @@ export default function WorkspaceSidebar({
                                                     <span className={styles.icon}>{link.icon}</span>
                                                 )}
 
-                                                <motion.span
-                                                    className={styles.label}
-                                                    initial={false}
-                                                    animate={{
-                                                        opacity: collapsed ? 0 : 1,
-                                                        x: collapsed ? -8 : 0,
-                                                        width: collapsed ? 0 : "auto"
-                                                    }}
-                                                    transition={{
-                                                        type: "spring",
-                                                        stiffness: 300,
-                                                        damping: 30
-                                                    }}
-                                                >
-                                                    {link.label}
-                                                </motion.span>
+                                                <span className={styles.label}>{link.label}</span>
                                             </NavLink>
                                         </li>
                                     ))}
@@ -151,7 +139,18 @@ export default function WorkspaceSidebar({
                             aria-label={collapsed ? "Espandi menù laterale" : "Comprimi menù laterale"}
                             title={collapsed ? "Espandi" : "Comprimi"}
                         >
-                            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+                            <span
+                                className={`${styles.toggleIcon} ${styles.toggleIconExpanded}`}
+                                aria-hidden="true"
+                            >
+                                <PanelLeftClose size={18} />
+                            </span>
+                            <span
+                                className={`${styles.toggleIcon} ${styles.toggleIconCollapsed}`}
+                                aria-hidden="true"
+                            >
+                                <PanelLeftOpen size={18} />
+                            </span>
                         </button>
                     </div>
                 )}

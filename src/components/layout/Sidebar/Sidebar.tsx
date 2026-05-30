@@ -28,9 +28,7 @@ import {
 import styles from "./Sidebar.module.scss";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { useTenant } from "@/context/useTenant";
-
-const SIDEBAR_EXPANDED = 260;
-const SIDEBAR_COLLAPSED = 90;
+import { SIDEBAR_COLLAPSED, SIDEBAR_EXPANDED } from "@/constants/layout";
 
 interface NavItem {
     to: string;
@@ -98,7 +96,12 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
             items: [
                 { to: `${b}/team`, label: "Team", icon: <Users size={18} /> },
                 { to: `${b}/subscription`, label: "Abbonamento", icon: <CreditCard size={18} /> },
-                { to: `${b}/settings`, label: "Impostazioni", icon: <Settings size={18} />, end: true }
+                {
+                    to: `${b}/settings`,
+                    label: "Impostazioni",
+                    icon: <Settings size={18} />,
+                    end: true
+                }
             ]
         }
     ];
@@ -144,6 +147,7 @@ export default function Sidebar({
             <motion.aside
                 className={[styles.sidebar, isMobile ? styles.mobile : styles.desktop].join(" ")}
                 data-collapsed={collapsed}
+                style={{ "--sidebar-collapsed": `${SIDEBAR_COLLAPSED}px` } as React.CSSProperties}
                 initial={false}
                 animate={{
                     width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED,
@@ -184,16 +188,24 @@ export default function Sidebar({
                                                     }}
                                                 >
                                                     {!isMobile && collapsed ? (
-                                                        <Tooltip content={link.label} side="right">
+                                                        <Tooltip
+                                                            content={link.label}
+                                                            side="right"
+                                                            sideOffset={28}
+                                                        >
                                                             <span className={styles.icon}>
                                                                 {link.icon}
                                                             </span>
                                                         </Tooltip>
                                                     ) : (
-                                                        <span className={styles.icon}>{link.icon}</span>
+                                                        <span className={styles.icon}>
+                                                            {link.icon}
+                                                        </span>
                                                     )}
 
-                                                    <span className={styles.label}>{link.label}</span>
+                                                    <span className={styles.label}>
+                                                        {link.label}
+                                                    </span>
                                                 </NavLink>
                                             </li>
                                         ))}
@@ -210,10 +222,23 @@ export default function Sidebar({
                             type="button"
                             className={styles.collapseToggle}
                             onClick={onToggleCollapse}
-                            aria-label={collapsed ? "Espandi menù laterale" : "Comprimi menù laterale"}
+                            aria-label={
+                                collapsed ? "Espandi menù laterale" : "Comprimi menù laterale"
+                            }
                             title={collapsed ? "Espandi" : "Comprimi"}
                         >
-                            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+                            <span
+                                className={`${styles.toggleIcon} ${styles.toggleIconExpanded}`}
+                                aria-hidden="true"
+                            >
+                                <PanelLeftClose size={18} />
+                            </span>
+                            <span
+                                className={`${styles.toggleIcon} ${styles.toggleIconCollapsed}`}
+                                aria-hidden="true"
+                            >
+                                <PanelLeftOpen size={18} />
+                            </span>
                         </button>
                     </div>
                 )}
