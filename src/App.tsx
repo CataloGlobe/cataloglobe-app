@@ -10,6 +10,7 @@ import { OtpRoute } from "./components/Routes/OtpRoute";
 import { RecoveryRoute } from "./components/Routes/RecoveryRoute";
 import { AdminRoute } from "./components/Routes/AdminRoute";
 import { TenantProvider } from "@context/TenantProvider";
+import { PermissionsProvider } from "@context/PermissionsContext";
 import { DashboardRedirect } from "./components/Routes/DashboardRedirect";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 
@@ -188,7 +189,9 @@ export default function App() {
                 element={
                     <ProtectedRoute>
                         <TenantProvider>
-                            <MainLayout />
+                            <PermissionsProvider>
+                                <MainLayout />
+                            </PermissionsProvider>
                         </TenantProvider>
                     </ProtectedRoute>
                 }
