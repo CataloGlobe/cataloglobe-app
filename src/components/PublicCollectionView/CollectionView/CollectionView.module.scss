@@ -22,6 +22,32 @@
 
 }
 
+.maintenanceBanner {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 10px)
+    16px
+    10px;
+  background: var(--color-warning-100, #fef3c7);
+  border-bottom: 1px solid var(--color-warning-300, #fcd34d);
+  color: var(--color-warning-700, #b45309);
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 500;
+  text-align: center;
+
+  svg {
+    flex-shrink: 0;
+    color: var(--color-warning-700, #b45309);
+  }
+}
+
 /* Skip link (solo public) */
 .skipLink {
   position: absolute;
