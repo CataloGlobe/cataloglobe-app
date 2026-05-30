@@ -60,17 +60,26 @@ export default function TableEntryPage() {
                 if (err instanceof ResolveTableOrderingUnavailableError) {
                     if (err.payload.canViewMenu) {
                         if (err.payload.reason === "ordering_disabled") {
+                            // ordering_disabled: nessun state, payload server-side decide.
                             navigate(
                                 `/${err.payload.activity.slug}`,
                                 { replace: true }
                             );
                         } else {
-                            const params = new URLSearchParams({
-                                maintenance: err.payload.reason
-                            });
+                            // table_maintenance e future reason canViewMenu=true:
+                            // veicolate via Router state (non shareable, persistono
+                            // a refresh come l'URL param ma non bookmarkable).
                             navigate(
-                                `/${err.payload.activity.slug}?${params.toString()}`,
-                                { replace: true }
+                                `/${err.payload.activity.slug}`,
+                                {
+                                    replace: true,
+                                    state: {
+                                        tableMaintenance: {
+                                            reason: err.payload.reason,
+                                            message: err.payload.message,
+                                        },
+                                    },
+                                }
                             );
                         }
                         return;

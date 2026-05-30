@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 import { usePageHead } from "@/hooks/usePageHead";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import CollectionView, {
@@ -336,22 +336,38 @@ export default function PublicCollectionPage() {
     const { slug, lang: langFromUrl } = useParams<{ slug: string; lang?: string }>();
     const navigate = useNavigate();
     const { t, i18n } = useTranslation("public");
+    const location = useLocation();
     const [searchParams] = useSearchParams();
     const simulateParam = searchParams.get("simulate");
 
-    // Maintenance mode mid-session — due canali:
-    //   1. URL param `?maintenance=<reason>`: solo per reason che NON sono
-    //      derivabili dal payload server (`table_maintenance` — tied alla
-    //      sessione QR, non alla sede). Migrera a Router state in step
-    //      successivo.
-    //   2. Payload server-side `business.ordering_enabled`: source of truth
+    // Maintenance mode mid-session — tre canali, in ordine di priorita:
+    //   1. Router state (preferito): set da TableEntryPage navigate post-423
+    //      resolve-table. Non shareable / non bookmarkable. Persiste a refresh
+    //      via window.history.state (voluto: stato server, non client).
+    //   2. URL param `?maintenance=<reason>` (legacy, backwards-compat 1 ciclo
+    //      deploy per link salvati esistenti). Rimovibile in deploy successivo.
+    //   3. Payload server-side `business.ordering_enabled`: source of truth
     //      per `ordering_disabled` (sostituisce URL param visibile/manipolabile).
+    const orderingMaintenanceFromState = useMemo<
+        { reason: OrderingStateReason; message: string } | null
+    >(() => {
+        const state = location.state as
+            | { tableMaintenance?: { reason: OrderingStateReason; message: string } }
+            | null;
+        if (!state?.tableMaintenance) return null;
+        // Whitelist defensive: solo reason canViewMenu=true (no full-page error).
+        const VALID_STATE_REASONS = new Set<OrderingStateReason>([
+            "table_maintenance"
+        ]);
+        if (!VALID_STATE_REASONS.has(state.tableMaintenance.reason)) return null;
+        return state.tableMaintenance;
+    }, [location.state]);
+
     const maintenanceParam = searchParams.get("maintenance");
     const orderingMaintenanceFromUrl = useMemo<
         { reason: OrderingStateReason; message: string } | null
     >(() => {
         if (!maintenanceParam) return null;
-        // Whitelist ristretta post-Fix 1: solo reason ancora veicolate via URL.
         const VALID_URL_PARAM_REASONS = new Set<OrderingStateReason>([
             "table_maintenance"
         ]);
@@ -380,9 +396,13 @@ export default function PublicCollectionPage() {
         };
     }, [state]);
 
-    // URL param prevale su payload (table_maintenance e' piu specifico:
-    // riguarda il singolo tavolo, ordering_disabled tutta la sede).
-    const orderingMaintenance = orderingMaintenanceFromUrl ?? orderingMaintenanceFromPayload;
+    // Priorita: Router state > URL param legacy > payload server.
+    // table_maintenance (state/URL) prevale su ordering_disabled (payload):
+    // e' piu specifico (singolo tavolo vs tutta la sede).
+    const orderingMaintenance =
+        orderingMaintenanceFromState ??
+        orderingMaintenanceFromUrl ??
+        orderingMaintenanceFromPayload;
     const [retryToken, setRetryToken] = useState(0);
     const handleRetry = useCallback(() => {
         setRetryToken(t => t + 1);
