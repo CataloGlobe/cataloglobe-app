@@ -1,3 +1,12 @@
+/* ===== Spacing scale ===== */
+$scroll-padding-x: 12px;
+$nav-padding-x-collapsed: 4px;
+$item-padding-x: 12px;
+$icon-size: 20px;
+$toggle-size: 32px;
+// Footer expanded: aligns toggle glyph CENTER with nav icon slot CENTER.
+$footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + ($icon-size - $toggle-size) / 2;
+
 .sidebar {
   position: relative;
   background: #FFFFFF;
@@ -88,12 +97,17 @@
 
 .icon {
   display: inline-flex;
-  min-width: 20px;
+  min-width: $icon-size;
 }
 
 .label {
-  margin-left: 10px;
+  flex: 1 1 auto;
   white-space: nowrap;
+  max-width: 220px;
+  margin-inline-start: 10px;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.16s ease 0.06s, max-width 0.22s ease, margin-inline-start 0.22s ease;
 }
 
 .active {
@@ -119,22 +133,30 @@
 
 /* ===== Collapsed state ===== */
 .sidebar[data-collapsed="true"] .link {
-  justify-content: center;
-  padding: 0;
+  padding: 0 calc((var(--sidebar-collapsed) - 2 * #{$scroll-padding-x} - 2 * #{$nav-padding-x-collapsed} - #{$icon-size}) / 2);
+}
+
+.sidebar[data-collapsed="true"] .icon::before {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
 
 .sidebar[data-collapsed="true"] .nav {
-  padding: 0 4px;
+  padding: 0 $nav-padding-x-collapsed;
 }
 
 .sidebar[data-collapsed="true"] .label {
-  display: none;
+  opacity: 0;
+  max-width: 0;
+  margin-inline-start: 0;
+  transition: opacity 0.08s ease, max-width 0.22s ease, margin-inline-start 0.22s ease;
 }
 
 /* ===== Collapse footer ===== */
 .collapseFooter {
   border-top: 1px solid #F1F2F4;
-  padding: 8px 36px;
+  padding: 8px $footer-padding-x-expanded;
   display: flex;
   justify-content: flex-start;
   flex-shrink: 0;
@@ -142,12 +164,13 @@
 }
 
 .sidebar[data-collapsed="true"] .collapseFooter {
-  padding: 8px 29px;
+  padding: 8px calc((var(--sidebar-collapsed) - #{$toggle-size}) / 2);
 }
 
 .collapseToggle {
-  width: 32px;
-  height: 32px;
+  position: relative;
+  width: $toggle-size;
+  height: $toggle-size;
   border-radius: 7px;
   border: none;
   background: transparent;
@@ -167,4 +190,29 @@
     outline: 2px solid #A5B4FC;
     outline-offset: 2px;
   }
+}
+
+.toggleIcon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.18s ease;
+}
+
+.toggleIconExpanded {
+  opacity: 1;
+}
+
+.toggleIconCollapsed {
+  opacity: 0;
+}
+
+.sidebar[data-collapsed="true"] .toggleIconExpanded {
+  opacity: 0;
+}
+
+.sidebar[data-collapsed="true"] .toggleIconCollapsed {
+  opacity: 1;
 }
