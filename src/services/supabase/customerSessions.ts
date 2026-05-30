@@ -3,8 +3,10 @@ import { supabase } from "@/services/supabase/client";
 import type {
     V2CustomerSession,
     ResolveTableResult,
+    ResolveTableOrderingUnavailable,
     CloseTableResult
 } from "@/types/orders";
+import { ResolveTableOrderingUnavailableError } from "@/types/orders";
 
 function getEnvValue(key: string): string | undefined {
     const importMetaEnv =
@@ -69,9 +71,23 @@ export async function resolveTable(
     if (error) {
         if (error instanceof FunctionsHttpError) {
             const status = error.context.status;
+            if (status === 423) {
+                // Maintenance mode: parse body per esporre reason + canViewMenu
+                // al caller (TableEntryPage decide se redirigere al menu o
+                // mostrare TableUnavailablePage).
+                let body: ResolveTableOrderingUnavailable | null = null;
+                try {
+                    body = (await error.context.clone().json()) as ResolveTableOrderingUnavailable;
+                } catch {
+                    /* fall through to generic message */
+                }
+                if (body && body.code === "ORDERING_UNAVAILABLE") {
+                    throw new ResolveTableOrderingUnavailableError(body);
+                }
+                throw new Error("Tavolo temporaneamente non disponibile");
+            }
             if (status === 400) throw new Error("Codice QR non valido");
-            if (status === 404) throw new Error("Tavolo non trovato o non più attivo");
-            if (status === 423) throw new Error("Tavolo temporaneamente non disponibile");
+            if (status === 404) throw new Error("QR code non valido. Verifica con lo staff.");
             if (status === 429) throw new Error("Troppe richieste, riprova tra poco");
         }
         throw new Error("Errore nella risoluzione del tavolo");

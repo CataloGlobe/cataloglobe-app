@@ -125,7 +125,7 @@ export async function submitOrder(
     );
 
     if (error) {
-        const { status, code, details } = await parseInvokeError(error);
+        const { status, code, details, rawMessage, reason } = await parseInvokeError(error);
 
         if (status === 400) throw new Error("Richiesta non valida");
         if (status === 401) {
@@ -143,6 +143,16 @@ export async function submitOrder(
         if (status === 422 && code === "INVALID_ITEMS") {
             const err = new Error("INVALID_ITEMS");
             (err as Error & { details?: unknown }).details = details;
+            throw err;
+        }
+        if (status === 423 && code === "ORDERING_UNAVAILABLE") {
+            // Maintenance mode mid-session. Espone `reason` come property
+            // enumerable cosi il caller (CollectionView) puo customizzare il
+            // messaggio (es. "Il ristorante ha sospeso gli ordini QR" vs
+            // generico).
+            const err = new Error(rawMessage ?? "ORDERING_UNAVAILABLE");
+            (err as Error & { code?: string; reason?: string }).code = "ORDERING_UNAVAILABLE";
+            (err as Error & { code?: string; reason?: string }).reason = reason;
             throw err;
         }
         if (status === 429) {
@@ -499,6 +509,8 @@ interface ParsedInvokeError {
     code: string | undefined;
     details: unknown;
     rawMessage: string | undefined;
+    /** Solo per 423 ORDERING_UNAVAILABLE: reason maintenance (vedi OrderingStateReason). */
+    reason: string | undefined;
 }
 
 /**
@@ -518,28 +530,32 @@ async function parseInvokeError(error: unknown): Promise<ParsedInvokeError> {
             status: null,
             code: undefined,
             details: undefined,
-            rawMessage: undefined
+            rawMessage: undefined,
+            reason: undefined
         };
     }
     const status = error.context?.status ?? null;
     try {
-        const body = (await error.context.json()) as {
+        const body = (await error.context.clone().json()) as {
             code?: unknown;
             details?: unknown;
             message?: unknown;
+            reason?: unknown;
         };
         return {
             status,
             code: typeof body?.code === "string" ? body.code : undefined,
             details: body?.details,
-            rawMessage: typeof body?.message === "string" ? body.message : undefined
+            rawMessage: typeof body?.message === "string" ? body.message : undefined,
+            reason: typeof body?.reason === "string" ? body.reason : undefined
         };
     } catch {
         return {
             status,
             code: undefined,
             details: undefined,
-            rawMessage: undefined
+            rawMessage: undefined,
+            reason: undefined
         };
     }
 }
