@@ -3,7 +3,8 @@ import { supabase } from "@/services/supabase/client";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
-import { canManage, isOwner } from "@/lib/permissions";
+import { canManage, isOwner, canDoOnTenant } from "@/lib/permissions";
+import { usePermissions } from "@/context/PermissionsContext";
 import { Card } from "@/components/ui/Card/Card";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -11,7 +12,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { Select } from "@/components/ui/Select/Select";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions, TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
-import { InviteMemberDrawer } from "@/components/Businesses/InviteMemberDrawer";
+import { InviteMemberDrawer } from "@/components/Businesses/InviteMemberDrawer/InviteMemberDrawer";
 import { MemberDrawer } from "@/components/Businesses/MemberDrawer/MemberDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { Send, UserCog, UserMinus, X } from "lucide-react";
@@ -44,6 +45,8 @@ export default function TeamPage() {
     const [roleFilter, setRoleFilter] = useState("");
 
     const isAdmin = canManage(userRole);
+    const { permissions } = usePermissions();
+    const canInvite = permissions ? canDoOnTenant(permissions, "team.invite") : false;
 
     usePageHeader({
         title: "Team",
@@ -407,7 +410,7 @@ export default function TeamPage() {
                                         Membri attivi con accesso a questa attività.
                                     </Text>
                                 </div>
-                                {isAdmin && (
+                                {canInvite && (
                                     <Button
                                         variant="primary"
                                         size="sm"
