@@ -1,11 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-    // Legacy
     isOwner,
-    isAdmin,
-    isMember,
-    canManage,
-    // New API
     canDoOnTenant,
     canDoOnActivity,
     canDoOnAnyActivity,
@@ -57,34 +52,16 @@ const viewer = mk("viewer", {
 });
 
 // ============================================================
-// LEGACY helpers
+// isOwner (UserPermissions)
 // ============================================================
 
-describe("legacy helpers", () => {
-    it("isOwner string overload", () => {
-        expect(isOwner("owner")).toBe(true);
-        expect(isOwner("admin")).toBe(false);
-        expect(isOwner("member")).toBe(false);
-        expect(isOwner(null)).toBe(false);
-        expect(isOwner(undefined)).toBe(false);
-    });
-
-    it("isOwner UserPermissions overload", () => {
+describe("isOwner", () => {
+    it("true se role=owner, false altrimenti", () => {
         expect(isOwner(owner)).toBe(true);
         expect(isOwner(admin)).toBe(false);
         expect(isOwner(manager)).toBe(false);
         expect(isOwner(staff)).toBe(false);
-    });
-
-    it("isAdmin / isMember / canManage", () => {
-        expect(isAdmin("admin")).toBe(true);
-        expect(isAdmin("owner")).toBe(false);
-        expect(isMember("member")).toBe(true);
-        expect(isMember("staff")).toBe(false);  // staff non è "member"
-        expect(canManage("owner")).toBe(true);
-        expect(canManage("admin")).toBe(true);
-        expect(canManage("member")).toBe(false);
-        expect(canManage(null)).toBe(false);
+        expect(isOwner(viewer)).toBe(false);
     });
 });
 
