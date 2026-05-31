@@ -1,0 +1,135 @@
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.addBox {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.errorRow {
+    color: var(--color-danger-700, #b91c1c);
+    margin-top: -4px;
+}
+
+.zoneList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.zoneRow {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border, #e2e8f0);
+    background-color: var(--color-surface, #ffffff);
+}
+
+.zoneRowHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.zoneRowName {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.zoneRowMeta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.countBadge {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #64748b);
+    background-color: var(--color-surface-muted, #f1f5f9);
+    padding: 3px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.zoneActions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.iconButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--color-text-muted, #64748b);
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+
+    &:hover:not(:disabled) {
+        background-color: var(--color-surface-muted, #f1f5f9);
+        color: var(--color-text, #0f172a);
+    }
+
+    &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+}
+
+.iconButtonDanger {
+    &:hover:not(:disabled) {
+        background-color: var(--color-danger-50, #fef2f2);
+        color: var(--color-danger-700, #b91c1c);
+    }
+}
+
+.editForm {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.editActions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.confirmDelete {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 6px;
+    background-color: var(--color-warning-50, #fffbeb);
+    border: 1px solid var(--color-warning-200, #fde68a);
+}
+
+.confirmActions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}

@@ -93,3 +93,28 @@ export async function deleteTableZone(
         .eq("tenant_id", tenantId);
     if (error) throw error;
 }
+
+/**
+ * Conteggio tavoli attivi per zone_id in una sede. Usato dal drawer
+ * "Gestisci zone" per mostrare quanti tavoli verranno orfanati se la
+ * zona viene eliminata. Aggregazione client-side (dataset piccolo,
+ * RLS filtra per tenant).
+ */
+export async function getZoneTableCounts(
+    tenantId: string,
+    activityId: string
+): Promise<Record<string, number>> {
+    const { data, error } = await supabase
+        .from("tables")
+        .select("zone_id")
+        .eq("tenant_id", tenantId)
+        .eq("activity_id", activityId)
+        .is("deleted_at", null)
+        .not("zone_id", "is", null);
+    if (error) throw error;
+    return (data ?? []).reduce<Record<string, number>>((acc, row) => {
+        const zoneId = (row as { zone_id: string }).zone_id;
+        acc[zoneId] = (acc[zoneId] ?? 0) + 1;
+        return acc;
+    }, {});
+}

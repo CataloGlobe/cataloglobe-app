@@ -8,12 +8,14 @@ import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ActivityProfileTab } from "./tabs/ActivityProfileTab";
 import { ActivityAvailabilityTab } from "./tabs/ActivityAvailabilityTab";
 import { ActivitySettingsTab } from "./tabs/ActivitySettingsTab";
+import { TablesManagement } from "@/components/Tables/TablesManagement/TablesManagement";
+import { TablesEmptyState } from "@/components/Tables/TablesManagement/TablesEmptyState";
 import { getActivityById } from "@/services/supabase/activities";
 import { V2Activity } from "@/types/activity";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./ActivityDetailPage.module.scss";
 
-type TabValue = "profile" | "availability" | "settings";
+type TabValue = "profile" | "availability" | "tables" | "settings";
 
 const LEGACY_TAB_MAP: Record<string, TabValue> = {
     info: "profile",
@@ -23,7 +25,7 @@ const LEGACY_TAB_MAP: Record<string, TabValue> = {
 };
 
 const isTabValue = (v: string): v is TabValue =>
-    v === "profile" || v === "availability" || v === "settings";
+    v === "profile" || v === "availability" || v === "tables" || v === "settings";
 
 const ActivityDetailPage: React.FC = () => {
     const { activityId, businessId } = useParams<{ activityId: string; businessId: string }>();
@@ -142,6 +144,7 @@ const ActivityDetailPage: React.FC = () => {
                     <Tabs.List>
                         <Tabs.Tab value="profile">Profilo</Tabs.Tab>
                         <Tabs.Tab value="availability">Disponibilità</Tabs.Tab>
+                        <Tabs.Tab value="tables">Tavoli</Tabs.Tab>
                         <Tabs.Tab value="settings">Impostazioni</Tabs.Tab>
                     </Tabs.List>
 
@@ -160,6 +163,21 @@ const ActivityDetailPage: React.FC = () => {
                                 tenantId={businessId!}
                                 onReload={fetchData}
                             />
+                        </Tabs.Panel>
+
+                        <Tabs.Panel value="tables">
+                            {activity.ordering_enabled ? (
+                                <TablesManagement
+                                    tenantId={businessId!}
+                                    activityId={activity.id}
+                                    orderingEnabled={true}
+                                    mode="embedded"
+                                />
+                            ) : (
+                                <TablesEmptyState
+                                    onGoToSettings={() => setActiveTab("settings")}
+                                />
+                            )}
                         </Tabs.Panel>
 
                         <Tabs.Panel value="settings">
