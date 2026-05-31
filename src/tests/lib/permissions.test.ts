@@ -226,6 +226,88 @@ describe("canChangeRoleOf", () => {
     });
 });
 
+describe("canChangeRoleOf — self-modification guard", () => {
+    const CALLER_UID = "caller-uid-123";
+
+    it("target.userId === callerUserId → false (admin caller)", () => {
+        expect(canChangeRoleOf(
+            admin,
+            { role: "admin", activityIds: [], userId: CALLER_UID },
+            CALLER_UID
+        )).toBe(false);
+    });
+
+    it("target.userId === callerUserId → false (manager caller)", () => {
+        expect(canChangeRoleOf(
+            manager,
+            { role: "manager", activityIds: [ACT_A], userId: CALLER_UID },
+            CALLER_UID
+        )).toBe(false);
+    });
+
+    it("target.userId !== callerUserId → comportamento normale", () => {
+        expect(canChangeRoleOf(
+            admin,
+            { role: "manager", activityIds: [ACT_A], userId: "other-uid" },
+            CALLER_UID
+        )).toBe(true);
+    });
+
+    it("callerUserId omesso → backward compat, no self-check", () => {
+        expect(canChangeRoleOf(
+            admin,
+            { role: "admin", activityIds: [], userId: CALLER_UID }
+        )).toBe(true);
+    });
+
+    it("target.userId omesso → no self-check", () => {
+        expect(canChangeRoleOf(
+            admin,
+            { role: "admin", activityIds: [] },
+            CALLER_UID
+        )).toBe(true);
+    });
+});
+
+describe("canRemoveMember — self-removal guard", () => {
+    const CALLER_UID = "caller-uid-456";
+
+    it("target.userId === callerUserId → false", () => {
+        const withRemove = mk("manager", {
+            activityIds: [ACT_A],
+            permissions: new Set(["team.remove"])
+        });
+        expect(canRemoveMember(
+            withRemove,
+            { role: "staff", activityIds: [ACT_A], userId: CALLER_UID },
+            CALLER_UID
+        )).toBe(false);
+    });
+
+    it("target.userId !== callerUserId → comportamento normale", () => {
+        const withRemove = mk("manager", {
+            activityIds: [ACT_A],
+            permissions: new Set(["team.remove"])
+        });
+        expect(canRemoveMember(
+            withRemove,
+            { role: "staff", activityIds: [ACT_A], userId: "other-uid" },
+            CALLER_UID
+        )).toBe(true);
+    });
+
+    it("callerUserId omesso → backward compat", () => {
+        const withRemove = mk("manager", {
+            activityIds: [ACT_A],
+            permissions: new Set(["team.remove"])
+        });
+        expect(canRemoveMember(
+            withRemove,
+            { role: "staff", activityIds: [ACT_A], userId: CALLER_UID }
+        )).toBe(true);
+    });
+});
+
 describe("canRemoveMember", () => {
     it("usa team.remove non team.manage_roles", () => {
         const onlyManageRoles = mk("manager", {

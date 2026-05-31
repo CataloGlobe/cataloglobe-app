@@ -151,18 +151,30 @@ interface MembershipTarget {
     role: UserRole;
     /** Per ruoli activity-scoped: array di activity_id assegnate al membro target. */
     activityIds: string[];
+    /** Opzionale: user_id del target. Se passato insieme a `callerUserId`,
+     *  abilita il check self-modification. */
+    userId?: string;
 }
 
 /**
  * True se il caller può cambiare il ruolo del membro target.
  * Replica la logica di `public.change_member_role` RPC:
  *  - owner non modificabile via questa RPC
+ *  - self-modification bloccata (se `callerUserId` e `target.userId` passati)
  *  - serve `team.manage_roles`
  *  - solo owner/admin possono cambiare un admin OR promuovere a admin
  *  - manager può modificare solo membri con tma TUTTE nelle sue sedi
+ *
+ * `callerUserId` è opzionale per backward compat con i call site che non
+ * lo passano (il gating self-modification viene saltato in quel caso).
  */
-export function canChangeRoleOf(perms: UserPermissions, target: MembershipTarget): boolean {
+export function canChangeRoleOf(
+    perms: UserPermissions,
+    target: MembershipTarget,
+    callerUserId?: string
+): boolean {
     if (target.role === "owner") return false;
+    if (callerUserId && target.userId && target.userId === callerUserId) return false;
     if (!canDoOnTenant(perms, "team.manage_roles")) return false;
     if (!isOwnerOrAdmin(perms) && target.role === "admin") return false;
     if (!isOwnerOrAdmin(perms)) {
@@ -175,10 +187,15 @@ export function canChangeRoleOf(perms: UserPermissions, target: MembershipTarget
 /**
  * True se il caller può rimuovere il membro target. Stessa logica di
  * {@link canChangeRoleOf} ma controlla `team.remove` invece di
- * `team.manage_roles`.
+ * `team.manage_roles`. Anche qui self-removal bloccata.
  */
-export function canRemoveMember(perms: UserPermissions, target: MembershipTarget): boolean {
+export function canRemoveMember(
+    perms: UserPermissions,
+    target: MembershipTarget,
+    callerUserId?: string
+): boolean {
     if (target.role === "owner") return false;
+    if (callerUserId && target.userId && target.userId === callerUserId) return false;
     if (!canDoOnTenant(perms, "team.remove")) return false;
     if (!isOwnerOrAdmin(perms) && target.role === "admin") return false;
     if (!isOwnerOrAdmin(perms)) {

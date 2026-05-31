@@ -2,75 +2,85 @@ import { useCallback, useEffect, useState } from "react";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
 import { useToast } from "@/context/Toast/ToastContext";
-import { TextInput } from "@/components/ui/Input/TextInput";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { RoleSelector } from "@/components/ui/RoleSelector/RoleSelector";
+import { ActivityMultiSelect } from "@/components/ui/ActivityMultiSelect/ActivityMultiSelect";
 import {
-    canInviteRole,
+    canChangeRoleOf,
     isOwnerOrAdmin,
     type UserPermissions,
     type UserRole
 } from "@/lib/permissions";
-import { RoleSelector } from "@/components/ui/RoleSelector/RoleSelector";
-import { ActivityMultiSelect } from "@/components/ui/ActivityMultiSelect/ActivityMultiSelect";
-import styles from "./InviteMemberForm.module.scss";
+import type { TenantMemberRow } from "@/types/team";
+import styles from "./MemberForm.module.scss";
 
-interface InviteMemberFormProps {
+interface MemberFormProps {
     formId: string;
     tenantId: string;
     permissions: UserPermissions;
-    onSuccess: (newMembershipId: string) => void;
+    member: TenantMemberRow;
+    onSuccess: () => void;
     onSavingChange: (saving: boolean) => void;
 }
 
-const ALL_ROLES: UserRole[] = ["admin", "manager", "staff", "viewer"];
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ASSIGNABLE_ROLES: UserRole[] = ["admin", "manager", "staff", "viewer"];
 
 function mapRpcError(error: PostgrestError): string {
     const msg = error.message ?? "";
-    if (msg.includes("user already member")) return "Questo utente è già membro dell'azienda.";
-    if (msg.includes("invite already pending"))
-        return "Esiste già un invito pendente per questa email.";
     if (error.code === "42501") return "Permesso negato per questa operazione.";
+    if (error.code === "44000") return msg || "Membership non trovata.";
     if (error.code === "22023") return msg || "Dati non validi.";
-    if (error.code === "44000") return msg || "Risorsa non trovata.";
     return `Errore: ${msg || "operazione fallita"}`;
 }
 
-export function InviteMemberForm({
+export function MemberForm({
     formId,
     tenantId,
     permissions,
+    member,
     onSuccess,
     onSavingChange
-}: InviteMemberFormProps) {
+}: MemberFormProps) {
     const { showToast } = useToast();
 
-    const [email, setEmail] = useState("");
-    const [role, setRole] = useState<UserRole | null>(null);
-    const [activityIds, setActivityIds] = useState<string[]>([]);
+    const initialRole: UserRole =
+        member.effective_role === "owner" ? "admin" : member.effective_role;
+
+    const [role, setRole] = useState<UserRole>(initialRole);
+    const [activityIds, setActivityIds] = useState<string[]>(member.activity_ids);
     const [touched, setTouched] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
 
-    const availableRoles = ALL_ROLES.filter(r => canInviteRole(permissions, r));
-    const callerIsTenantWide = isOwnerOrAdmin(permissions);
+    // Re-init quando cambia il member target (drawer riusato per altro membro)
+    useEffect(() => {
+        setRole(member.effective_role === "owner" ? "admin" : member.effective_role);
+        setActivityIds(member.activity_ids);
+        setTouched(false);
+        setSubmitError(null);
+    }, [member.membership_id, member.effective_role, member.activity_ids]);
 
-    // Reset activityIds quando il ruolo passa da scoped → admin (admin non accetta sedi)
+    // Reset activityIds quando passa a admin
     useEffect(() => {
         if (role === "admin" && activityIds.length > 0) {
             setActivityIds([]);
         }
     }, [role, activityIds.length]);
 
+    // Filtra ruoli assegnabili: simuliamo "target con role=newRole" per usare
+    // canChangeRoleOf come gating (manager non può promuovere a admin).
+    const availableRoles = ASSIGNABLE_ROLES.filter(newRole =>
+        canChangeRoleOf(permissions, { role: newRole, activityIds: [] })
+    );
+
+    const callerIsTenantWide = isOwnerOrAdmin(permissions);
+
     const validate = useCallback((): string | null => {
-        const trimmed = email.trim().toLowerCase();
-        if (!trimmed) return "L'email è obbligatoria.";
-        if (!EMAIL_REGEX.test(trimmed)) return "Email non valida.";
         if (!role) return "Seleziona un ruolo.";
         if (role !== "admin" && activityIds.length === 0)
             return "Seleziona almeno una sede.";
         return null;
-    }, [email, role, activityIds.length]);
+    }, [role, activityIds.length]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -83,18 +93,15 @@ export function InviteMemberForm({
             return;
         }
 
-        const normalizedEmail = email.trim().toLowerCase();
-        const finalRole = role as UserRole; // validate() garantisce non-null
-        const finalActivityIds = finalRole === "admin" ? null : activityIds;
+        const finalActivityIds = role === "admin" ? null : activityIds;
 
         try {
             setSaving(true);
             onSavingChange(true);
 
-            const { data, error } = await supabase.rpc("invite_tenant_member", {
-                p_tenant_id: tenantId,
-                p_email: normalizedEmail,
-                p_role: finalRole,
+            const { error } = await supabase.rpc("change_member_role", {
+                p_membership_id: member.membership_id,
+                p_new_role: role,
                 p_activity_ids: finalActivityIds
             });
 
@@ -103,35 +110,23 @@ export function InviteMemberForm({
                 return;
             }
 
-            const newMembershipId = typeof data === "string" ? data : "";
-            showToast({ type: "success", message: "Invito inviato con successo." });
-            onSuccess(newMembershipId);
+            showToast({ type: "success", message: "Ruolo aggiornato." });
+            onSuccess();
         } catch (err) {
-            console.error("[InviteMemberForm] invite failed:", err);
-            setSubmitError("Errore durante l'invio dell'invito.");
+            console.error("[MemberForm] change_member_role failed:", err);
+            setSubmitError("Errore durante l'aggiornamento del ruolo.");
         } finally {
             setSaving(false);
             onSavingChange(false);
         }
     };
 
-    const showActivities = role !== null && role !== "admin";
+    const showActivities = role !== "admin";
     const activitiesError =
         touched && showActivities && activityIds.length === 0 ? "Almeno una sede richiesta." : undefined;
 
     return (
         <form id={formId} onSubmit={handleSubmit} className={styles.form} noValidate>
-            <TextInput
-                label="Email"
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="es. utente@esempio.com"
-                disabled={saving}
-                required
-                autoFocus
-            />
-
             <RoleSelector
                 value={role}
                 onChange={setRole}

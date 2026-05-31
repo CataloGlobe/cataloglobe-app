@@ -1,20 +1,19 @@
 .header {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 4px;
 }
 
-.content {
+.footer {
     display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
+    justify-content: flex-end;
+    gap: 8px;
+    width: 100%;
 }
 
-.currentRole {
+.loadingState {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 1rem;
-    background: var(--color-surface-raised, #f8f9fa);
-    border-radius: 8px;
+    justify-content: center;
+    min-height: 200px;
 }
