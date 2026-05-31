@@ -1,3 +1,5 @@
+@use 'sass:math';
+
 /* ===== Spacing scale ===== */
 $scroll-padding-x: 12px;
 $nav-padding-x: 8px;
@@ -6,7 +8,7 @@ $icon-size: 20px;
 $toggle-size: 32px;
 // Footer expanded: aligns toggle glyph CENTER with nav icon slot CENTER.
 // = (scroll + nav + link-padding-left) + (icon-slot - toggle-box) / 2
-$footer-padding-x-expanded: $scroll-padding-x + $nav-padding-x + $item-padding-x-expanded + ($icon-size - $toggle-size) / 2;
+$footer-padding-x-expanded: $scroll-padding-x + $nav-padding-x + $item-padding-x-expanded + math.div($icon-size - $toggle-size, 2);
 
 .sidebar {
   position: relative;
