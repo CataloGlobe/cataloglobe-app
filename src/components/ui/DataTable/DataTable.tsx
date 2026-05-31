@@ -56,9 +56,15 @@ interface DataTableProps<T> {
     onRowClick?: (row: T, rowIndex: number) => void;
 
     selectable?: boolean;
+    /** Per-row gating opzionale. Se passato, checkbox riga disabled per le
+     *  righe che ritornano false; conteggi header e select-all considerano
+     *  solo le righe selectable. */
+    isRowSelectable?: (row: T) => boolean;
     selectedRowIds?: string[];
     onSelectedRowsChange?: (ids: string[]) => void;
     onBulkDelete?: (ids: string[]) => void;
+    /** Label custom per il pulsante azione nella BulkBar. */
+    bulkActionLabel?: string;
     showSelectionBar?: boolean;
 
     /** Righe con animazione highlight transitorio (~2s fade amber). */
@@ -103,6 +109,8 @@ interface DataTableRowProps<T> {
     gridStyle: CSSProperties;
     onRowClick?: (row: T, rowIndex: number) => void;
     selectable?: boolean;
+    /** Resolved per-row: se false, checkbox riga disabled. Default true. */
+    isRowSelectableResolved?: boolean;
     isSelected?: boolean;
     onSelect?: (id: string, checked: boolean) => void;
     isHighlighted?: boolean;
@@ -119,6 +127,7 @@ function DataTableRow<T>({
     gridStyle,
     onRowClick,
     selectable,
+    isRowSelectableResolved = true,
     isSelected,
     onSelect,
     isHighlighted,
@@ -164,7 +173,7 @@ function DataTableRow<T>({
                         onChange={e => onSelect?.(rowId, e.target.checked)}
                         onClick={e => e.stopPropagation()}
                         aria-label="Seleziona riga"
-                        disabled={isDisabled}
+                        disabled={isDisabled || !isRowSelectableResolved}
                     />
                 </div>
             )}
@@ -198,9 +207,11 @@ export function DataTable<T>({
     pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
     onRowClick,
     selectable = false,
+    isRowSelectable,
     selectedRowIds,
     onSelectedRowsChange,
     onBulkDelete,
+    bulkActionLabel,
     showSelectionBar = true,
     highlightedRowIds,
     disabledRowIds,
@@ -308,12 +319,19 @@ export function DataTable<T>({
     // ─── Selection handlers ────────────────────────────────────────────────
     const currentPageIds = useMemo(() => displayWithIds.map(d => d.rowId), [displayWithIds]);
 
+    // Per-row gating: filtra ids selezionabili (default tutti se isRowSelectable
+    // non passato). Header checkbox + select-all considerano solo questi.
+    const selectableCurrentPageIds = useMemo(() => {
+        if (!isRowSelectable) return currentPageIds;
+        return displayWithIds.filter(d => isRowSelectable(d.row)).map(d => d.rowId);
+    }, [displayWithIds, currentPageIds, isRowSelectable]);
+
     const allCurrentPageSelected =
         selectable &&
-        currentPageIds.length > 0 &&
-        currentPageIds.every(id => selectedSet.has(id));
+        selectableCurrentPageIds.length > 0 &&
+        selectableCurrentPageIds.every(id => selectedSet.has(id));
     const someCurrentPageSelected =
-        selectable && !allCurrentPageSelected && currentPageIds.some(id => selectedSet.has(id));
+        selectable && !allCurrentPageSelected && selectableCurrentPageIds.some(id => selectedSet.has(id));
 
     const handleSelectRow = useCallback(
         (id: string, checked: boolean) => {
@@ -330,17 +348,17 @@ export function DataTable<T>({
             if (checked) {
                 commitSelected(prev => {
                     const set = new Set(prev);
-                    currentPageIds.forEach(id => set.add(id));
+                    selectableCurrentPageIds.forEach(id => set.add(id));
                     return Array.from(set);
                 });
             } else {
                 commitSelected(prev => {
-                    const onPage = new Set(currentPageIds);
+                    const onPage = new Set(selectableCurrentPageIds);
                     return prev.filter(id => !onPage.has(id));
                 });
             }
         },
-        [commitSelected, currentPageIds]
+        [commitSelected, selectableCurrentPageIds]
     );
 
     const handleClearSelection = useCallback(() => commitSelected(() => []), [commitSelected]);
@@ -394,6 +412,7 @@ export function DataTable<T>({
                     gridStyle={gridStyle}
                     onRowClick={onRowClick}
                     selectable={selectable}
+                    isRowSelectableResolved={isRowSelectable ? isRowSelectable(row) : true}
                     isSelected={selectedSet.has(rowId)}
                     onSelect={handleSelectRow}
                     isHighlighted={highlightSet.has(rowId)}
@@ -522,6 +541,7 @@ export function DataTable<T>({
                 <BulkBar
                     selectedCount={selected.length}
                     onDelete={onBulkDelete ? handleBulkDelete : undefined}
+                    actionLabel={bulkActionLabel}
                     onClearSelection={handleClearSelection}
                 />
             )}

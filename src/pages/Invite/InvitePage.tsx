@@ -12,8 +12,17 @@ import styles from "./InvitePage.module.scss";
 type InviteInfo = {
     tenant_id: string;
     tenant_name: string;
-    role: string;
+    effective_role: string;
     status: string;
+    activity_ids: string[];
+    activity_names: string[];
+};
+
+const ROLE_DISPLAY: Record<string, string> = {
+    admin: "Admin",
+    manager: "Manager",
+    staff: "Staff",
+    viewer: "Viewer"
 };
 
 export default function InvitePage() {
@@ -249,7 +258,18 @@ export default function InvitePage() {
                         Ruolo
                     </Text>
                     <Text variant="body" weight={600}>
-                        {invite.role === "admin" ? "Admin" : "Member"}
+                        {ROLE_DISPLAY[invite.effective_role] ?? invite.effective_role}
+                    </Text>
+
+                    <Text variant="body-sm" colorVariant="muted">
+                        Sedi
+                    </Text>
+                    <Text variant="body" weight={600}>
+                        {invite.effective_role === "admin"
+                            ? "Tutte le sedi"
+                            : invite.activity_names.length === 0
+                                ? "—"
+                                : invite.activity_names.join(", ")}
                     </Text>
                 </div>
 
