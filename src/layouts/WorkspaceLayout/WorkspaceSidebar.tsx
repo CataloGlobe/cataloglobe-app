@@ -20,9 +20,7 @@ interface NavGroup {
 
 const GROUPS: NavGroup[] = [
     {
-        items: [
-            { to: "/workspace", label: "Attività", icon: <Building2 size={18} />, end: true }
-        ]
+        items: [{ to: "/workspace", label: "Attività", icon: <Building2 size={18} />, end: true }]
     },
     {
         items: [
@@ -110,7 +108,7 @@ export default function WorkspaceSidebar({
                                                     <Tooltip
                                                         content={link.label}
                                                         side="right"
-                                                        sideOffset={30}
+                                                        sideOffset={28}
                                                     >
                                                         <span className={styles.icon}>
                                                             {link.icon}
@@ -136,7 +134,9 @@ export default function WorkspaceSidebar({
                             type="button"
                             className={styles.collapseToggle}
                             onClick={onToggleCollapse}
-                            aria-label={collapsed ? "Espandi menù laterale" : "Comprimi menù laterale"}
+                            aria-label={
+                                collapsed ? "Espandi menù laterale" : "Comprimi menù laterale"
+                            }
                             title={collapsed ? "Espandi" : "Comprimi"}
                         >
                             <span
