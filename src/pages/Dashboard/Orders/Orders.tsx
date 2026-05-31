@@ -7,6 +7,8 @@ import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
+import { ActivitySelectorCombobox } from "@/components/ui/ActivitySelectorCombobox/ActivitySelectorCombobox";
+import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
 
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -16,24 +18,26 @@ import {
     acknowledgeOrder,
     deliverOrder,
     cancelOrderAdmin,
-    rectifyOrder
+    rectifyOrder,
+    getOrdersCountToday,
+    getOrdersServedToday
 } from "@/services/supabase/orders";
 import type {
+    V2Order,
     V2OrderWithItems,
     ListOrdersOptions,
-    RectifyOrderItem
+    RectifyOrderItem,
+    V2TableWithState
 } from "@/types/orders";
 
-import { listTables } from "@/services/supabase/tables";
+import { listTables, listTablesWithState } from "@/services/supabase/tables";
 import type { V2Table } from "@/types/orders";
-
-import { getActivities } from "@/services/supabase/activities";
-import type { V2Activity } from "@/types/activity";
 
 import OrderCard from "./OrderCard";
 import OrderDetailDrawer from "./OrderDetailDrawer";
 import OrderCancelDrawer from "./OrderCancelDrawer";
 import OrderRectifyDrawer from "./OrderRectifyDrawer";
+import { OrdersKpiBar } from "./OrdersKpiBar";
 import styles from "./Orders.module.scss";
 
 type OrderStatusFilter =
@@ -43,23 +47,31 @@ type OrderStatusFilter =
     | "delivered"
     | "cancelled";
 
+type MainTab = "comande" | "tavoli" | "storico";
+
 const AUTO_REFRESH_STORAGE_KEY = "ordersAutoRefresh";
+const ACTIVITY_STORAGE_KEY = "cataloglobe:orders:lastActivityId";
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
 export default function Orders() {
     const tenantId = useTenantId();
     const { showToast } = useToast();
 
-    // Activity selection
-    const [activities, setActivities] = useState<V2Activity[]>([]);
+    // Activity selection (via combobox, persiste localStorage)
     const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+
+    // Main tabs (3 sezioni principali)
+    const [mainTab, setMainTab] = useState<MainTab>("comande");
 
     // Data
     const [orders, setOrders] = useState<V2OrderWithItems[]>([]);
     const [tables, setTables] = useState<V2Table[]>([]);
+    const [tablesWithState, setTablesWithState] = useState<V2TableWithState[]>([]);
+    const [ordersTodayCount, setOrdersTodayCount] = useState<number>(0);
+    const [ordersServedToday, setOrdersServedToday] = useState<V2Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Filters
+    // Filters (tab Comande)
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>("all");
     const [tableFilter, setTableFilter] = useState<string>("all");
@@ -81,25 +93,7 @@ export default function Orders() {
     const [isRectifyOpen, setIsRectifyOpen] = useState(false);
     const [orderToRectify, setOrderToRectify] = useState<V2OrderWithItems | null>(null);
 
-    // ── Activities load ──
-    const loadActivities = useCallback(async () => {
-        if (!tenantId) return;
-        try {
-            const data = await getActivities(tenantId);
-            setActivities(data);
-            setSelectedActivityId(prev =>
-                prev ?? (data.length > 0 ? data[0].id : null)
-            );
-        } catch {
-            showToast({ message: "Impossibile caricare le sedi", type: "error" });
-        }
-    }, [tenantId, showToast]);
-
-    useEffect(() => {
-        loadActivities();
-    }, [loadActivities]);
-
-    // ── Tables load (per lookup label/zone) ──
+    // ── Tables load (per lookup label/zone nel filtro tab Comande) ──
     const loadTables = useCallback(async () => {
         if (!tenantId || !selectedActivityId) {
             setTables([]);
@@ -109,15 +103,56 @@ export default function Orders() {
             const data = await listTables(tenantId, selectedActivityId);
             setTables(data);
         } catch {
-            // Silenzioso: lookup ottimizzazione, fallback "?" lato render
+            /* silent: lookup ottimizzazione */
         }
     }, [tenantId, selectedActivityId]);
 
     useEffect(() => {
-        loadTables();
+        void loadTables();
     }, [loadTables]);
 
-    // ── Orders load ──
+    // ── Tables with state (per KPI bar) ──
+    const loadTablesWithState = useCallback(async () => {
+        if (!tenantId || !selectedActivityId) {
+            setTablesWithState([]);
+            return;
+        }
+        try {
+            const data = await listTablesWithState(tenantId, selectedActivityId);
+            setTablesWithState(data);
+        } catch {
+            /* silent: KPI gracefully degrada a 0 */
+        }
+    }, [tenantId, selectedActivityId]);
+
+    useEffect(() => {
+        void loadTablesWithState();
+    }, [loadTablesWithState]);
+
+    // ── KPI data (orders today + served today) ──
+    const loadKpi = useCallback(async () => {
+        if (!tenantId || !selectedActivityId) {
+            setOrdersTodayCount(0);
+            setOrdersServedToday([]);
+            return;
+        }
+        try {
+            const [count, served] = await Promise.all([
+                getOrdersCountToday(tenantId, selectedActivityId),
+                getOrdersServedToday(tenantId, selectedActivityId)
+            ]);
+            setOrdersTodayCount(count);
+            setOrdersServedToday(served);
+        } catch {
+            /* silent: KPI degrada a 0 */
+        }
+    }, [tenantId, selectedActivityId]);
+
+    useEffect(() => {
+        void loadKpi();
+    }, [loadKpi]);
+
+    // ── Orders load (tab Comande) ──
     const loadOrders = useCallback(async () => {
         if (!tenantId || !selectedActivityId) {
             setOrders([]);
@@ -146,48 +181,67 @@ export default function Orders() {
     }, [tenantId, selectedActivityId, statusFilter, tableFilter, showToast]);
 
     useEffect(() => {
-        loadOrders();
+        void loadOrders();
     }, [loadOrders]);
 
-    // ── Auto-refresh effect ──
+    // ── Refresh totale (header button) ──
+    const refreshAll = useCallback(() => {
+        void loadOrders();
+        void loadTables();
+        void loadTablesWithState();
+        void loadKpi();
+    }, [loadOrders, loadTables, loadTablesWithState, loadKpi]);
+
+    // ── Auto-refresh: tutto in batch ──
     useEffect(() => {
         if (!autoRefreshEnabled) return;
         const id = setInterval(() => {
-            loadOrders();
+            refreshAll();
         }, AUTO_REFRESH_INTERVAL_MS);
         return () => clearInterval(id);
-    }, [autoRefreshEnabled, loadOrders]);
+    }, [autoRefreshEnabled, refreshAll]);
 
     useEffect(() => {
         localStorage.setItem(AUTO_REFRESH_STORAGE_KEY, String(autoRefreshEnabled));
     }, [autoRefreshEnabled]);
 
-    const headerActions = useMemo(() => (
-        <div className={styles.headerActions}>
-            <Button
-                variant="secondary"
-                leftIcon={<RefreshCw size={16} />}
-                onClick={loadOrders}
-                disabled={!selectedActivityId || isLoading}
-            >
-                Aggiorna
-            </Button>
-            <label className={styles.autoRefreshToggle}>
-                <input
-                    type="checkbox"
-                    checked={autoRefreshEnabled}
-                    onChange={e => setAutoRefreshEnabled(e.target.checked)}
-                />
-                <Text variant="body-sm">Auto-aggiorna (30s)</Text>
-            </label>
-        </div>
-    ), [loadOrders, selectedActivityId, isLoading, autoRefreshEnabled]);
+    const headerActions = useMemo(
+        () => (
+            <div className={styles.headerActions}>
+                {tenantId && (
+                    <ActivitySelectorCombobox
+                        tenantId={tenantId}
+                        value={selectedActivityId}
+                        onChange={setSelectedActivityId}
+                        storageKey={ACTIVITY_STORAGE_KEY}
+                    />
+                )}
+                <Button
+                    variant="secondary"
+                    leftIcon={<RefreshCw size={16} />}
+                    onClick={refreshAll}
+                    disabled={!selectedActivityId || isLoading}
+                >
+                    Aggiorna
+                </Button>
+                <label className={styles.autoRefreshToggle}>
+                    <input
+                        type="checkbox"
+                        checked={autoRefreshEnabled}
+                        onChange={e => setAutoRefreshEnabled(e.target.checked)}
+                    />
+                    <Text variant="body-sm">Auto-aggiorna (30s)</Text>
+                </label>
+            </div>
+        ),
+        [tenantId, selectedActivityId, refreshAll, isLoading, autoRefreshEnabled]
+    );
 
     usePageHeader({
         title: "Ordini",
         subtitle: "Dashboard live degli ordini in corso.",
         actions: headerActions,
-        sticky: true,
+        sticky: true
     });
 
     // ── Filtering (client-side: search + customer_name) ──
@@ -203,7 +257,6 @@ export default function Orders() {
         });
     }, [orders, searchQuery, tables]);
 
-    // ── Transition handlers + optimistic lock handling ──
     function labelFor(order: V2OrderWithItems): string {
         const t = tables.find(tt => tt.id === order.table_id);
         return t ? t.label : `#${order.id.slice(0, 6)}`;
@@ -259,6 +312,7 @@ export default function Orders() {
                 type: "success"
             });
             await loadOrders();
+            void loadKpi();
         } catch (err) {
             handleTransitionError(err, order, "la consegna");
         }
@@ -390,92 +444,121 @@ export default function Orders() {
 
     return (
         <section className={styles.container}>
-
-            {activities.length > 1 && (
-                <div className={styles.activitySelector}>
-                    <label htmlFor="activity-select" className={styles.activitySelectorLabel}>
-                        Sede:
-                    </label>
-                    <select
-                        id="activity-select"
-                        className={styles.activitySelect}
-                        value={selectedActivityId ?? ""}
-                        onChange={e => setSelectedActivityId(e.target.value || null)}
-                    >
-                        {activities.map(a => (
-                            <option key={a.id} value={a.id}>
-                                {a.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+            {mainTab !== "storico" && tenantId && selectedActivityId && (
+                <OrdersKpiBar
+                    tables={tablesWithState}
+                    ordersTodayCount={ordersTodayCount}
+                    ordersServedToday={ordersServedToday}
+                />
             )}
 
-            <Tabs<OrderStatusFilter>
-                value={statusFilter}
-                onChange={setStatusFilter}
-            >
+            <Tabs<MainTab> value={mainTab} onChange={setMainTab}>
                 <Tabs.List>
-                    <Tabs.Tab value="all">Tutti</Tabs.Tab>
-                    <Tabs.Tab value="submitted">Da prendere</Tabs.Tab>
-                    <Tabs.Tab value="acknowledged">In corso</Tabs.Tab>
-                    <Tabs.Tab value="delivered">Consegnati</Tabs.Tab>
-                    <Tabs.Tab value="cancelled">Cancellati</Tabs.Tab>
+                    <Tabs.Tab value="comande">Comande</Tabs.Tab>
+                    <Tabs.Tab value="tavoli">Tavoli</Tabs.Tab>
+                    <Tabs.Tab value="storico">Storico</Tabs.Tab>
                 </Tabs.List>
             </Tabs>
 
-            <div className={styles.filtersRow}>
-                <FilterBar
-                    search={{
-                        value: searchQuery,
-                        onChange: setSearchQuery,
-                        placeholder: "Cerca per cliente o tavolo..."
-                    }}
-                />
-                {tables.length > 0 && (
-                    <select
-                        className={styles.tableFilter}
-                        value={tableFilter}
-                        onChange={e => setTableFilter(e.target.value)}
+            {mainTab === "comande" && (
+                <>
+                    <Tabs<OrderStatusFilter>
+                        value={statusFilter}
+                        onChange={setStatusFilter}
                     >
-                        <option value="all">Tutti i tavoli</option>
-                        {tables.map(t => (
-                            <option key={t.id} value={t.id}>
-                                {t.label}
-                            </option>
-                        ))}
-                    </select>
-                )}
-            </div>
+                        <Tabs.List>
+                            <Tabs.Tab value="all">Tutti</Tabs.Tab>
+                            <Tabs.Tab value="submitted">Da prendere</Tabs.Tab>
+                            <Tabs.Tab value="acknowledged">In corso</Tabs.Tab>
+                            <Tabs.Tab value="delivered">Consegnati</Tabs.Tab>
+                            <Tabs.Tab value="cancelled">Cancellati</Tabs.Tab>
+                        </Tabs.List>
+                    </Tabs>
 
-            {!isLoading && filteredOrders.length === 0 ? (
-                <EmptyState
-                    icon={<ClipboardList size={40} strokeWidth={1.5} />}
-                    title={orders.length === 0 ? "Nessun ordine" : "Nessun risultato"}
-                    description={
-                        orders.length === 0
-                            ? "Quando i clienti inizieranno a ordinare, gli ordini compariranno qui."
-                            : "Modifica i filtri per vedere altri risultati."
-                    }
+                    <div className={styles.filtersRow}>
+                        <FilterBar
+                            search={{
+                                value: searchQuery,
+                                onChange: setSearchQuery,
+                                placeholder: "Cerca per cliente o tavolo..."
+                            }}
+                        />
+                        {tables.length > 0 && (
+                            <select
+                                className={styles.tableFilter}
+                                value={tableFilter}
+                                onChange={e => setTableFilter(e.target.value)}
+                            >
+                                <option value="all">Tutti i tavoli</option>
+                                {tables.map(t => (
+                                    <option key={t.id} value={t.id}>
+                                        {t.label}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
+
+                    {!isLoading && filteredOrders.length === 0 ? (
+                        <EmptyState
+                            icon={<ClipboardList size={40} strokeWidth={1.5} />}
+                            title={
+                                orders.length === 0 ? "Nessun ordine" : "Nessun risultato"
+                            }
+                            description={
+                                orders.length === 0
+                                    ? "Quando i clienti inizieranno a ordinare, gli ordini compariranno qui."
+                                    : "Modifica i filtri per vedere altri risultati."
+                            }
+                        />
+                    ) : (
+                        <div className={styles.cardsList}>
+                            {filteredOrders.map(order => {
+                                const table = tables.find(t => t.id === order.table_id);
+                                return (
+                                    <OrderCard
+                                        key={order.id}
+                                        order={order}
+                                        tableLabel={table?.label ?? "?"}
+                                        tableZone={table?.zone_name ?? null}
+                                        onAcknowledge={handleAcknowledge}
+                                        onDeliver={handleDeliver}
+                                        onCancel={handleCancelOpen}
+                                        onRectify={handleRectifyOpen}
+                                        onViewDetail={handleViewDetail}
+                                    />
+                                );
+                            })}
+                        </div>
+                    )}
+                </>
+            )}
+
+            {mainTab === "tavoli" && tenantId && selectedActivityId && (
+                <TablesLiveView
+                    tenantId={tenantId}
+                    activityId={selectedActivityId}
+                    autoRefreshMs={autoRefreshEnabled ? AUTO_REFRESH_INTERVAL_MS : undefined}
                 />
-            ) : (
-                <div className={styles.cardsList}>
-                    {filteredOrders.map(order => {
-                        const table = tables.find(t => t.id === order.table_id);
-                        return (
-                            <OrderCard
-                                key={order.id}
-                                order={order}
-                                tableLabel={table?.label ?? "?"}
-                                tableZone={table?.zone_name ?? null}
-                                onAcknowledge={handleAcknowledge}
-                                onDeliver={handleDeliver}
-                                onCancel={handleCancelOpen}
-                                onRectify={handleRectifyOpen}
-                                onViewDetail={handleViewDetail}
-                            />
-                        );
-                    })}
+            )}
+
+            {mainTab === "storico" && (
+                <div className={styles.historyPlaceholder}>
+                    <div className={styles.historyFilters}>
+                        <select className={styles.historyFilter} disabled>
+                            <option>Tutte</option>
+                            <option>Servite</option>
+                            <option>Annullate</option>
+                        </select>
+                        <select className={styles.historyFilter} disabled>
+                            <option>Tutti i tavoli</option>
+                        </select>
+                    </div>
+                    <EmptyState
+                        icon={<ClipboardList size={40} strokeWidth={1.5} />}
+                        title="Storico non ancora implementato"
+                        description="Funzionalita' completa (lista sessioni servite + Ripristina) in arrivo nello Step 5."
+                    />
                 </div>
             )}
 

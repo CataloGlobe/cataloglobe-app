@@ -199,6 +199,17 @@ UI shared CRUD tavoli in `src/components/Tables/`:
 - `TablesManagement/` — componente shared con `mode: "page" | "embedded"`. Usato sia da `Dashboard/Tables/Tables.tsx` standalone (page) sia da tab "Tavoli" di `ActivityDetailPage` (embedded). `TablesEmptyState` sub-componente per prerequisito `ordering_enabled=false`.
 - `ZoneSelectField/` — dropdown zone nel form Crea/Modifica tavolo con expand inline "+ Crea nuova zona" (mini-form). Niente modali nested.
 - `TableZoneManagementDrawer/` — drawer dedicato per CRUD zone (md=520px). Rename inline, delete con conferma + count tavoli orfanati, callback `onZonesChanged` notifica parent.
+- `TablesLiveView/` — vista operativa live tavoli (card per zona, read-only) usata in tab "Tavoli" di pagina Ordini. Auto-refresh `autoRefreshMs` opzionale, filtri Tutti/Aperti/Liberi/Manutenzione, raggruppamento per `zone_name` (no-zone fallback ultimo).
+
+UI riusabili in `src/components/ui/`:
+- `ActivitySelectorCombobox/` — combobox sede con search input + dropdown lista con dot stato (verde active+ordering, ambra active+!ordering, grigio inactive). Persistenza selezione via `storageKey` localStorage opzionale. Default: prima sede alfabetica. Sempre visibile anche con 1 sola sede.
+
+Pagina Ordini (`src/pages/Dashboard/Orders/`):
+- 3 tab principali: Comande (logica esistente, 5 sub-tab filtro stato) / Tavoli (`<TablesLiveView>`) / Storico (placeholder, Step 5 cleanup).
+- `OrdersKpiBar.tsx` — 4 KPI condivisi (Tavoli aperti, Comande oggi, Tempo medio, Servite oggi). Visibile in Comande + Tavoli, nascosto in Storico.
+- Selettore sede `<ActivitySelectorCombobox>` in header actions, persistenza `cataloglobe:orders:lastActivityId`.
+- Auto-refresh 30s opzionale via checkbox: ricarica ordini + tabelle + tabellestate + KPI in batch.
+- Service helper `orders.ts:getOrdersCountToday` / `getOrdersServedToday` — usano `getOperativeDayStartIso()` hardcoded `Europe/Rome`. TODO Step 5: backend-side per multi-region.
 
 ---
 

@@ -660,3 +660,82 @@ export function subscribeToSessionOrders(
         return null;
     }
 }
+
+// ─── KPI helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Inizio della giornata operativa "oggi" come ISO timestamp.
+ *
+ * TODO Step 5: backend-side via RPC `now() AT TIME ZONE '<activity_tz>'::date`
+ * per gestire DST + multi-region. Per ora hardcode `Europe/Rome` client-side
+ * (90%+ tenant IT).
+ */
+function getOperativeDayStartIso(): string {
+    // Estrae componenti data in Europe/Rome via Intl, poi costruisce
+    // un istante UTC equivalente a quella mezzanotte locale.
+    const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Rome",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    }).formatToParts(new Date());
+    const y = parts.find(p => p.type === "year")!.value;
+    const m = parts.find(p => p.type === "month")!.value;
+    const d = parts.find(p => p.type === "day")!.value;
+    // Costruiamo "YYYY-MM-DDT00:00:00" assunto Europe/Rome; per ottenere
+    // l'istante UTC corrispondente, lasciamo che il DB confronti via gte
+    // su submitted_at (timestamptz) — il valore puo' essere "wall-clock"
+    // approssimativo (DST off-by-one possibile ai cambi DST 2 volte l'anno).
+    // Compatibile con Postgres: timestamptz parsa "YYYY-MM-DDT00:00:00" come
+    // ora locale del server (UTC). Per evitare off-by-2h tra UTC e Europe/Rome,
+    // sottraiamo l'offset corrente Europe/Rome via getTimezoneOffset trick:
+    const localMidnight = new Date(`${y}-${m}-${d}T00:00:00Z`);
+    // Offset di Europe/Rome in minuti rispetto a UTC (positivo = ad est di UTC)
+    const romeOffsetMin = -new Date(
+        new Date().toLocaleString("en-US", { timeZone: "Europe/Rome" })
+    ).getTimezoneOffset();
+    // Adjust: midnight locale - offset = istante UTC
+    return new Date(localMidnight.getTime() - romeOffsetMin * 60_000).toISOString();
+}
+
+/**
+ * Conta ordini con `submitted_at >= start_of_today_Europe/Rome`. Per KPI bar.
+ * Non scarica row dati, usa COUNT lato Postgres.
+ */
+export async function getOrdersCountToday(
+    tenantId: string,
+    activityId: string
+): Promise<number> {
+    const fromIso = getOperativeDayStartIso();
+    const { count, error } = await supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .eq("activity_id", activityId)
+        .gte("submitted_at", fromIso);
+    if (error) throw error;
+    return count ?? 0;
+}
+
+/**
+ * Lista ordini con `status='delivered' AND delivered_at >= start_of_today`.
+ * Per KPI tempo medio + count "servite oggi". Non include items (overhead inutile).
+ */
+export async function getOrdersServedToday(
+    tenantId: string,
+    activityId: string
+): Promise<V2Order[]> {
+    const fromIso = getOperativeDayStartIso();
+    const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("activity_id", activityId)
+        .eq("status", "delivered")
+        .gte("delivered_at", fromIso);
+    if (error) throw error;
+    return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(row => ({
+        ...row,
+        total_amount: Number(row.total_amount)
+    })) as unknown as V2Order[];
+}
