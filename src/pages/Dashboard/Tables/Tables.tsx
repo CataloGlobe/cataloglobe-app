@@ -160,7 +160,7 @@ export default function Tables() {
             result = result.filter(
                 t =>
                     t.label.toLowerCase().includes(q) ||
-                    (t.zone?.toLowerCase() ?? "").includes(q)
+                    (t.zone_name?.toLowerCase() ?? "").includes(q)
             );
         }
         if (statusFilter !== "all") {
@@ -189,7 +189,8 @@ export default function Tables() {
     function openEdit(item: V2Table) {
         setEditingItem(item);
         setFormLabel(item.label);
-        setFormZone(item.zone ?? "");
+        // TODO Step 2: dropdown zone_id reale. Per ora pre-populate solo display read-only.
+        setFormZone(item.zone_name ?? "");
         setFormSeats(item.seats?.toString() ?? "");
         setFormMaintenanceMode(item.maintenance_mode);
         setIsDrawerOpen(true);
@@ -227,7 +228,8 @@ export default function Tables() {
             if (editingItem) {
                 await updateTable(editingItem.id, tenantId, {
                     label: formLabel.trim(),
-                    zone: formZone.trim() || null,
+                    // TODO Step 2: dropdown zone_id reale (mantiene assegnazione esistente).
+                    zone_id: editingItem.zone_id,
                     seats: seatsParsed ?? null,
                     maintenance_mode: formMaintenanceMode
                 });
@@ -236,7 +238,8 @@ export default function Tables() {
                 await createTable(tenantId, {
                     activity_id: selectedActivityId,
                     label: formLabel.trim(),
-                    zone: formZone.trim() || undefined,
+                    // TODO Step 2: dropdown zone_id reale (default null in Step 1).
+                    zone_id: null,
                     seats: seatsParsed,
                     maintenance_mode: formMaintenanceMode
                 });
@@ -394,9 +397,9 @@ export default function Tables() {
                     <Text variant="body-sm" weight={600}>
                         {row.label}
                     </Text>
-                    {row.zone && (
+                    {row.zone_name && (
                         <Text variant="body-sm" colorVariant="muted">
-                            {row.zone}
+                            {row.zone_name}
                         </Text>
                     )}
                     {row.bill_requested_count > 0 && (
@@ -695,11 +698,15 @@ export default function Tables() {
                             onChange={e => setFormLabel(e.target.value)}
                             placeholder="es. T1, Tavolo 5, Sala A-3"
                         />
+                        {/* TODO Step 2: sostituire con dropdown zone_id +
+                            inline "+ Crea zona". Field disabilitato in Step 1
+                            (zone gestite via DB diretto fino a UI Step 2). */}
                         <TextInput
-                            label="Zona (opzionale)"
+                            label="Zona (sola lettura, gestione Step 2)"
                             value={formZone}
                             onChange={e => setFormZone(e.target.value)}
-                            placeholder="es. Sala interna, Dehor, Sala A"
+                            placeholder="—"
+                            disabled
                         />
                         <TextInput
                             label="Posti (opzionale)"

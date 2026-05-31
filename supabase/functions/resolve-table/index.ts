@@ -142,7 +142,9 @@ async function _fetchTableRaw(
     const { data, error } = await supabase
         .from("tables")
         .select(
-            "id, tenant_id, activity_id, label, zone, maintenance_mode, " +
+            "id, tenant_id, activity_id, label, maintenance_mode, " +
+            "zone_id, " +
+            "zone_data:table_zones!tables_zone_id_fkey(name), " +
             "activities!inner(slug)"
         )
         .eq("qr_token", qrToken)
@@ -159,18 +161,22 @@ async function _fetchTableRaw(
         tenant_id: string;
         activity_id: string;
         label: string;
-        zone: string | null;
         maintenance_mode: boolean;
+        zone_id: string | null;
+        zone_data: { name: string } | { name: string }[] | null;
         activities: { slug: string } | { slug: string }[];
     };
     const act = Array.isArray(row.activities) ? row.activities[0] : row.activities;
+    const zoneObj = Array.isArray(row.zone_data) ? row.zone_data[0] : row.zone_data;
     return {
         table_id: row.id,
         tenant_id: row.tenant_id,
         activity_id: row.activity_id,
         activity_slug: act?.slug ?? "",
         label: row.label,
-        zone: row.zone,
+        // Alias backward-compat: payload customer espone `zone` come stringa-o-null.
+        // Customer localStorage e ResolveTableResult.table.zone preservati.
+        zone: zoneObj?.name ?? null,
         maintenance_mode: row.maintenance_mode
     };
 }

@@ -151,14 +151,30 @@ async function _fetchTable(
 ): Promise<TableRow | null> {
     const { data, error } = await supabase
         .from("tables")
-        .select("id, label, zone")
+        .select(
+            "id, label, zone_id, " +
+            "zone_data:table_zones!tables_zone_id_fkey(name)"
+        )
         .eq("id", tableId)
         .maybeSingle();
 
     if (error) {
         throw new Error(`tables select failed: ${error.message}`);
     }
-    return data as TableRow | null;
+    if (!data) return null;
+    const row = data as {
+        id: string;
+        label: string;
+        zone_id: string | null;
+        zone_data: { name: string } | { name: string }[] | null;
+    };
+    const zoneObj = Array.isArray(row.zone_data) ? row.zone_data[0] : row.zone_data;
+    // Alias backward-compat: payload customer espone `zone` come stringa-o-null.
+    return {
+        id: row.id,
+        label: row.label,
+        zone: zoneObj?.name ?? null
+    };
 }
 
 async function _fetchCurrentOpenGroupId(

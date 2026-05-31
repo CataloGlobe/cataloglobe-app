@@ -467,7 +467,7 @@ export default function Orders() {
                                 key={order.id}
                                 order={order}
                                 tableLabel={table?.label ?? "?"}
-                                tableZone={table?.zone ?? null}
+                                tableZone={table?.zone_name ?? null}
                                 onAcknowledge={handleAcknowledge}
                                 onDeliver={handleDeliver}
                                 onCancel={handleCancelOpen}
@@ -486,7 +486,7 @@ export default function Orders() {
                     tables.find(t => t.id === orderInDetail?.table_id)?.label ?? "?"
                 }
                 tableZone={
-                    tables.find(t => t.id === orderInDetail?.table_id)?.zone ?? null
+                    tables.find(t => t.id === orderInDetail?.table_id)?.zone_name ?? null
                 }
                 onClose={() => {
                     setIsDetailOpen(false);
@@ -514,7 +514,7 @@ export default function Orders() {
                     tables.find(t => t.id === orderToRectify?.table_id)?.label ?? "?"
                 }
                 tableZone={
-                    tables.find(t => t.id === orderToRectify?.table_id)?.zone ?? null
+                    tables.find(t => t.id === orderToRectify?.table_id)?.zone_name ?? null
                 }
                 onClose={() => {
                     setIsRectifyOpen(false);

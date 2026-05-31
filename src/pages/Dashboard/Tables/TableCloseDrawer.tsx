@@ -71,7 +71,7 @@ export default function TableCloseDrawer({ open, table, onClose, onConfirm }: Pr
                 <div className={styles.content}>
                     <Text>
                         Stai per chiudere il tavolo <strong>{table.label}</strong>
-                        {table.zone && <span> ({table.zone})</span>}.
+                        {table.zone_name && <span> ({table.zone_name})</span>}.
                     </Text>
 
                     {hasOpenGroups ? (
