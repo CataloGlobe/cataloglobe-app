@@ -49,7 +49,7 @@ npm run test:watch   # vitest watch
 - **Errori**: controllare `error.code` — `PGRST116` (not found), `23503` (FK violation), `23505` (duplicate). Poi `throw error`.
 - **Route**: tutte in `src/App.tsx`. Business routes sotto `/business/:businessId/`. `businessId` = source of truth per tenant. Lista completa in `docs/routes.md`.
 - **Layout**: `MainLayout` (business), `WorkspaceLayout` (workspace), `SiteLayout` (pubblico). Non crearne di nuovi. Entrambi i layout admin (business + workspace) hanno `AppHeader` globale fisso in alto + sidebar a sinistra; il workspace usa `AppHeaderWorkspace` (logo + greeting "Ciao {firstName}" + notifiche + avatar, niente tenant pill).
-- **Provider esistenti**: AuthProvider, TenantProvider, DrawerProvider, ToastProvider, ThemeProvider, TooltipProvider. Non crearne di nuovi senza necessità.
+- **Provider esistenti**: AuthProvider, TenantProvider, PermissionsProvider (solo dentro `/business/:businessId/*`), DrawerProvider, ToastProvider, ThemeProvider, TooltipProvider. Non crearne di nuovi senza necessità.
 
 ---
 
@@ -57,7 +57,57 @@ npm run test:watch   # vitest watch
 
 - `tenant_id` SOLO da `useTenantId()` o `useTenant().selectedTenantId`. **MAI** da `auth.user.id`.
 - OGNI write al DB include `tenant_id`. Nessun dato cross-tenant (eccezione: `allergens`).
-- RLS obbligatorio su ogni tabella tenant-scoped: `tenant_id = ANY(get_my_tenant_ids())`.
+- RLS obbligatorio su ogni tabella tenant-scoped: `tenant_id = ANY(get_my_tenant_ids())`. Per scope activity-granulare usa `has_permission(permission_id, activity_id?)` — vedi `## Sistema permessi multi-sede`.
+
+---
+
+## Sistema permessi multi-sede
+
+### Ruoli (5)
+
+Modello post-Fase 2: scope tenant-wide vs activity-scoped.
+
+- **owner**: `tenants.owner_user_id` (NESSUNA riga in `tenant_memberships`)
+- **admin**: `tenant_memberships.role='admin'` (scope tenant-wide)
+- **manager / staff / viewer**: `tenant_memberships.role=NULL` + righe in `tenant_membership_activities` con `role + activity_id` (scope activity)
+
+### Backend permission system
+
+- Tabella `role_permissions`: 38 permission seed, scope `tenant` o `activity`
+- Helper SECURITY DEFINER:
+  - `has_permission(p_permission_id text, p_activity_id uuid DEFAULT NULL) → boolean`
+  - `has_permission_any_activity(p_permission_id text, p_tenant_id uuid) → boolean`
+  - `get_my_activity_ids() → setof uuid`
+  - `get_my_tenant_ids() → setof uuid`
+- Pattern RLS: `USING (has_permission('<perm>.read', activity_id))` per tabelle activity-scoped
+- **Self-mod guard server-side**: `change_member_role` e `remove_tenant_member` rifiutano con `42501` se `target_user_id = auth.uid()`
+- **Owner synthetic row** in `get_tenant_members`: `membership_id` sentinel `'00000000-0000-0000-0000-000000000000'` (owner non ha tm post-Fase 5.B.2 cleanup)
+
+### RPC pubbliche (frontend)
+
+| RPC | Scope | Note |
+|---|---|---|
+| `get_my_permissions(uuid)` | tenant | 42501 se non membro. Returns role + activity_ids + permissions[] |
+| `get_tenant_members(uuid)` | tenant | Requires `team.read`. Owner synthetic first |
+| `invite_tenant_member` | tenant | Sig 4 args (tenant_id, email, role, activity_ids[]) |
+| `change_member_role` | tenant | Sig 3 args (membership_id, new_role, activity_ids[]) + self-guard |
+| `remove_tenant_member(uuid)` | tenant | Sig single arg + manager scope + tma cleanup |
+| `get_invite_info_by_token(uuid)` | pre-auth | anon + authenticated |
+| `get_my_pending_invites()` | user | Per InviteModal workspace |
+| `has_permission(text, uuid?)` | inline | Usato in policy RLS |
+
+### Frontend libraries
+
+- **`src/lib/permissions.ts`** — `UserPermissions, UserRole, isOwner(perms), canDoOnTenant, canDoOnActivity, canDoOnAnyActivity, isOwnerOrAdmin, isTenantWide, canChangeRoleOf, canRemoveMember, canInviteRole, canEditSchedule`. **SOLO dentro `/business/:businessId/*`** (richiede `PermissionsProvider`).
+- **`src/utils/workspaceRole.ts`** — `workspaceRoleIsOwner, workspaceRoleIsAdmin, workspaceRoleIsScoped`. **SOLO per workspace** (`/workspace/*`, `/select-business`). Literal compare su `tenant.user_role` da `get_user_tenants` view (no PermissionsProvider in scope).
+- **`src/context/PermissionsContext.tsx`** — `usePermissions()` hook: `{ permissions, loading, refresh }`. Manual `refresh()` dopo cambio ruolo runtime (no realtime).
+
+### Pattern UI
+
+- **Locked state**: `EmptyState` + `Lock` icon (size 40, strokeWidth 1.5) usato in TeamPage / SubscriptionPage / BusinessSettingsPage per `!canDoOnTenant(perms, '<read>')`. Pre-check permission → if locked, return Locked block early.
+- **Sidebar gating**: `NavItem.permission?: (perms) => boolean` filter per voce. Loading-optimistic: `permissions===null` mostra tutte le voci (transitorio). Gruppi vuoti nascosti.
+- **Skip fetch pre-check**: se `!canRead<resource>` NON chiamare RPC (evita `42501` inutile). Esempio: `TeamPage` useEffect guard.
+- **Self-modification frontend guard**: `canChangeRoleOf` / `canRemoveMember` accettano opzionale `callerUserId` → ritorna `false` se `target.userId === callerUserId`. Backend ha guard hardcoded (defense in depth).
 
 ---
 
@@ -143,7 +193,12 @@ Spec autoritativa: `docs/orders-architecture.md` v1.2. Dettaglio pattern (dual-a
 - **Edge Functions customer-only** (`submit-order`, `cancel-order`, `get-orders-for-session`) NON callable da contesto admin (richiedono customer JWT custom).
 - `orders.version` increment **applicativo** (no trigger DB).
 
-Service layer in `src/services/supabase/`: `tables.ts`, `tableZones.ts`, `customerSessions.ts`, `productAvailability.ts`, `orders.ts`. Tipi in `src/types/orders.ts`.
+Service layer in `src/services/supabase/`: `tables.ts`, `tableZones.ts` (4 funzioni + `getZoneTableCounts` per drawer "Gestisci zone"), `customerSessions.ts`, `productAvailability.ts`, `orders.ts`. Tipi in `src/types/orders.ts`.
+
+UI shared CRUD tavoli in `src/components/Tables/`:
+- `TablesManagement/` — componente shared con `mode: "page" | "embedded"`. Usato sia da `Dashboard/Tables/Tables.tsx` standalone (page) sia da tab "Tavoli" di `ActivityDetailPage` (embedded). `TablesEmptyState` sub-componente per prerequisito `ordering_enabled=false`.
+- `ZoneSelectField/` — dropdown zone nel form Crea/Modifica tavolo con expand inline "+ Crea nuova zona" (mini-form). Niente modali nested.
+- `TableZoneManagementDrawer/` — drawer dedicato per CRUD zone (md=520px). Rename inline, delete con conferma + count tavoli orfanati, callback `onZonesChanged` notifica parent.
 
 ---
 
@@ -155,6 +210,7 @@ Service layer in `src/services/supabase/`: `tables.ts`, `tableZones.ts`, `custom
 - FK: `entita_id`. Self-ref: `parent_entita_id`. Colonne: `snake_case`. Tabelle: plurale.
 - Schema attuale + fact critici (slug uniqueness, Stripe-on-tenants, schedule_targets RLS, ecc.) → `docs/database-reference.md`.
 - **`table_zones`** (migration `20260531150043`): entita' zone tavoli, UNIQUE `(activity_id, name)`. FK `tables.zone_id ON DELETE SET NULL`. RLS via `has_permission('tables.read'|'tables.manage', activity_id)`. View `v_tables_with_state` espone `zone_name` via LEFT JOIN. Campo `tables.zone` text DROPPED nella stessa migration. Frontend admin legge `zone_name` dal JOIN; payload Edge customer mantiene alias `zone: string | null` per backward-compat localStorage.
+- **Sistema permessi multi-sede** (vedi `## Sistema permessi multi-sede` sopra): tabelle `tenant_memberships` (role NULL|'admin' post Fase 5.B.2), `tenant_membership_activities (tenant_membership_id, activity_id, tenant_id, role IN manager|staff|viewer)`, `permissions (id, scope)`, `role_permissions (role, permission_id)`. Helper SECURITY DEFINER: `has_permission`, `has_permission_any_activity`, `get_my_activity_ids`, `get_my_tenant_ids`.
 - Dati legali aziendali: `src/config/company.ts` ↔ `supabase/functions/_shared/company-config.ts` sono **duplicazione sincronizzata** (header `// ⚠️ SYNC`). Modifica entrambi nello stesso commit. Stesso pattern di `scheduleResolver.ts`.
 - **Migration con `CREATE FUNCTION` + REVOKE/GRANT**: `supabase db push` fallisce con `SQLSTATE 42601`. Workaround: applicare via Studio SQL Editor + registrare in `supabase_migrations.schema_migrations`, oppure splittare in 2 file consecutivi. Dettaglio: `docs/patterns/storage-sql.md`.
 
@@ -175,6 +231,7 @@ Dettaglio completo + esempi SQL: `docs/patterns/storage-sql.md`.
 - `SET search_path TO ''` obbligatorio + qualifiche `public.<table>` esplicite.
 - `REVOKE EXECUTE ... FROM PUBLIC` dopo `CREATE FUNCTION`.
 - `SECURITY DEFINER` non destinata a `anon`/`authenticated`: `REVOKE FROM PUBLIC` NON basta — Supabase pre-configura grant default a `anon, authenticated, service_role`. Pattern: REVOKE espliciti da `PUBLIC + anon + authenticated`, GRANT solo a `service_role`. Verifica post-deploy con query `pg_proc + has_function_privilege`.
+- **`RETURNS TABLE` alias collision**: le colonne OUT della `RETURNS TABLE` sono in scope nel body plpgsql come variabili. `SELECT/EXISTS` su tabella con colonna stesso nome senza qualificazione → `column reference "X" is ambiguous`. Pattern: qualifica SEMPRE le colonne con alias tabella (`tm.role`, `t.id`); per CTE con alias output identici alle cols `RETURNS TABLE`, prefisso `r_*` (vedi `20260530190000_fix_get_tenant_members_ambiguous.sql`). Incappato 2 volte (Fase 4 + Fase 5.B.2).
 
 ### Stripe lifecycle
 Usare sempre `_shared/stripe-helpers.ts`. Pattern: `scheduleStripeCancel()` soft-delete → `reactivateStripeSubIfScheduled()` recovery → `cancelStripeSubImmediate()` + `deleteStripeCustomer()` hard-delete. Tutti idempotenti e non-throwing. NON chiamare `stripe.subscriptions.cancel()` direttamente in soft-delete.
@@ -212,6 +269,7 @@ Catalogo completo, bug history (`purgeTenantData` ordine FK, `purgeActivityFolde
 - Import alias: `@components/`, `@services/`, `@context/`, `@types/`, `@utils/`, `@pages/`, `@layouts/`, `@styles/`. Mai `../../`.
 - Toast: `useToast().showToast({ message, type })`.
 - **Tooltip vs InfoTooltip**: regole d'uso in `memory/feedback_tooltip_guidelines.md`.
+- **Gating permission**: scope business → `usePermissions()` + helper `src/lib/permissions.ts` (canDoOnTenant, canDoOnActivity, ecc.). Scope workspace → `src/utils/workspaceRole.ts` (literal compare). Pattern Locked state via `EmptyState + Lock` icon per pagine intere (TeamPage / SubscriptionPage / BusinessSettingsPage). Sidebar gating per voce via `NavItem.permission`. Vedi `## Sistema permessi multi-sede`.
 
 ---
 
@@ -220,6 +278,11 @@ Catalogo completo, bug history (`purgeTenantData` ordine FK, `purgeActivityFolde
 Tech-debt e refactor differiti. Non bloccanti per il task corrente; da valutare durante refactor mirati o cicli di consolidamento.
 
 - **DropdownMenu custom vs TableRowActions** — coesistono due implementazioni di menu a tendina. `TableRowActions` (Radix-based) usato in 22 DataTable kebab. `DropdownMenu` custom (`src/components/ui/DropdownMenu/`, scritto a mano con framer-motion + useState/useRef/createPortal) usato in 4 call site non-tabella: `HeaderUserMenu`, `HeaderNotifications`, `ActivitySettingsTab`, `Programming.tsx` (bulk action). Refactor proposto: migrare i 4 call site a Radix DropdownMenu (stessa libreria di TableRowActions) ed eliminare `DropdownMenu` custom. Non urgente — funziona oggi. Vantaggio: una sola libreria menu, codice meno custom, manutenzione singola.
+- **`leave_tenant` RPC rewrite** — vecchia firma `(p_tenant_id)`, no manager scope, no allineamento a `remove_tenant_member` v2. Low priority.
+- **Realtime sync su `tenant_memberships`** — cambio ruolo runtime richiede refresh manuale (`usePermissions().refresh()`). Eventuale switch a Supabase Realtime channel per propagation automatica.
+- **Sidebar loading-optimistic** — oggi `permissions===null` mostra tutte le voci (transitorio). Visivo flash su utenti scoped. Alternativa: skeleton durante load.
+- **Permission `translations.read` dedicato** — mancante. Sidebar voce "Lingue" usa `catalogs.read` proxy. Creare permission dedicato se gating più fine.
+- **Bulk cancel pending invites senza ConfirmDialog** — asimmetria vs bulk remove members (che ora ha confirm intermedio). Aggiungere ConfirmDialog per coerenza UX.
 
 ---
 
@@ -326,5 +389,7 @@ NON modificare automaticamente: `CLAUDE.md` (root + `docs/`), `MEMORY.md`, file 
 **Scheduling**: `end_at` come mezzanotte UTC (usare `T23:59:59` locale) | disabilitare giorni della settimana se periodo attivo (sono combinabili) | slot `hero` nei featured (rimosso)
 
 **Pattern**: `null` da `list*` | `useEffect` senza `useCallback` | omettere toast nei catch | no reload dopo CRUD success | form con logica drawer | modificare scheduleResolver in un solo posto
+
+**Permessi**: usare `userRole` da `TenantContext` per gating (NULL per manager/staff/viewer) | usare API legacy (`Role` enum, `canManage`, `isOwner(string)`, `isAdmin`, `isMember` — eliminate Fase 5.C.C) | bypassare i gating frontend (`canChangeRoleOf`, `canRemoveMember`, `canInviteRole`) chiamando direttamente la RPC senza pre-check | montare `PermissionsProvider` fuori da `/business/:businessId/*` | usare `usePermissions()` in componenti workspace (`/workspace/*`, `/select-business`) — usa `workspaceRole` helpers | INSERT manuale `tenant_memberships.role='owner'` (constraint post-Fase 5.B.2 ammette solo NULL\|'admin')
 
 **Plugin & MCP**: invocare plugin disabilitati | DDL via Supabase MCP senza file migration creato prima | `/clean_gone` senza conferma esplicita per branch | `caveman:compress` su CLAUDE.md/MEMORY.md senza conferma | `superpowers` brainstorm/write-plan quando il prompt è già strutturato | knowledge memorizzata su versioni libreria invece di `context7`
