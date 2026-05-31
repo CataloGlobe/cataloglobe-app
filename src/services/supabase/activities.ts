@@ -290,6 +290,29 @@ export async function updateActivity(
     return data;
 }
 
+/**
+ * Toggle `ordering_enabled` per una sede. Quando false: cliente vede menu
+ * ma submit-order risponde 423 ORDERING_UNAVAILABLE (reason ordering_disabled).
+ *
+ * Pattern coerente con `updateActivity` (tenant-scoped + revalidate cache
+ * public catalog).
+ */
+export async function updateActivityOrderingEnabled(
+    activityId: string,
+    tenantId: string,
+    enabled: boolean
+): Promise<void> {
+    const { error } = await supabase
+        .from("activities")
+        .update({ ordering_enabled: enabled, updated_at: new Date().toISOString() })
+        .eq("id", activityId)
+        .eq("tenant_id", tenantId);
+
+    if (error) throw error;
+
+    void revalidatePublicCatalogForTenant(tenantId);
+}
+
 export async function deleteActivity(id: string, tenantId: string) {
     // Nota: l'eliminazione atomica (bucket + db) è gestita via Edge Function
     // o manualmente chiamando prima deleteActivityAssets.

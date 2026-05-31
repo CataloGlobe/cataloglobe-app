@@ -48,7 +48,8 @@ import { ExportCatalogDrawer } from "./ExportCatalogDrawer";
 import { ConfigAccordionSection } from "./components/ConfigAccordionSection";
 import {
     deleteActivityAtomic,
-    updateActivity
+    updateActivity,
+    updateActivityOrderingEnabled
 } from "@/services/supabase/activities";
 import { listActivityHours } from "@/services/supabase/activityHours";
 import { listActivityClosures } from "@/services/supabase/activityClosures";
@@ -409,6 +410,27 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
             } catch {
                 showToast({
                     message: "Impossibile aggiornare la visibilità.",
+                    type: "error"
+                });
+            }
+        },
+        [activity.id, tenantId, onReload, showToast]
+    );
+
+    const handleOrderingEnabledToggle = useCallback(
+        async (checked: boolean) => {
+            try {
+                await updateActivityOrderingEnabled(activity.id, tenantId, checked);
+                showToast({
+                    message: checked
+                        ? "Ordinazioni QR riattivate"
+                        : "Ordinazioni QR sospese. I clienti vedranno il menu ma non potranno ordinare.",
+                    type: "success"
+                });
+                await onReload();
+            } catch {
+                showToast({
+                    message: "Impossibile aggiornare lo stato delle ordinazioni.",
                     type: "error"
                 });
             }
@@ -839,6 +861,30 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                         </div>
                     </Card>
                 </div>
+
+                {/* ── Row 2b: Ordinazioni QR maintenance toggle (full width) ── */}
+                <Card className={styles.card}>
+                    <div className={styles.cardHeader}>
+                        <div className={styles.cardHeaderText}>
+                            <h3 className={styles.cardTitle}>Ordinazioni dal tavolo</h3>
+                            <p className={styles.cardSubtitle}>
+                                Sospendi temporaneamente la ricezione di ordini dal QR senza chiudere la sede.
+                            </p>
+                        </div>
+                    </div>
+                    <div className={styles.cardBodyFlat} style={{ padding: "16px 24px" }}>
+                        <Switch
+                            checked={activity.ordering_enabled}
+                            onChange={handleOrderingEnabledToggle}
+                            label="Ordinazioni QR abilitate"
+                            description={
+                                activity.ordering_enabled
+                                    ? "I clienti possono ordinare scansionando il QR del tavolo."
+                                    : "I clienti vedono il menu in sola lettura. Il tasto Invia ordine e' disabilitato. Riattiva quando vuoi accettare nuovamente ordini al tavolo."
+                            }
+                        />
+                    </div>
+                </Card>
 
                 {/* ── Row 3: Publication status (full width) ───────────────── */}
                 <Card className={styles.card}>

@@ -44,6 +44,10 @@ import {
     type RequestedOrderItem,
     type ValidatedOrder
 } from "../_shared/validateOrderItems.ts";
+import {
+    checkOrderingState,
+    orderingStateMessage
+} from "../_shared/checkOrderingState.ts";
 
 // ============================================================
 // Constants
@@ -103,6 +107,9 @@ interface SubmitOrderRequestBody {
 interface CustomerSessionLookupRow {
     id: string;
     expires_at: string;
+    tenant_id: string;
+    activity_id: string;
+    current_table_id: string | null;
 }
 
 // ============================================================
@@ -251,14 +258,20 @@ async function _fetchSessionForDiagnostics(
     supabase: SupabaseClient,
     customerSessionId: string
 ): Promise<
-    | { kind: "ok"; expiresAt: string }
+    | {
+          kind: "ok";
+          expiresAt: string;
+          tenantId: string;
+          activityId: string;
+          tableId: string | null;
+      }
     | { kind: "not_found" }
     | { kind: "expired" }
     | { kind: "db_error"; message: string }
 > {
     const { data, error } = await supabase
         .from("customer_sessions")
-        .select("id, expires_at")
+        .select("id, expires_at, tenant_id, activity_id, current_table_id")
         .eq("id", customerSessionId)
         .maybeSingle();
 
@@ -272,7 +285,13 @@ async function _fetchSessionForDiagnostics(
     if (new Date(row.expires_at).getTime() <= Date.now()) {
         return { kind: "expired" };
     }
-    return { kind: "ok", expiresAt: row.expires_at };
+    return {
+        kind: "ok",
+        expiresAt: row.expires_at,
+        tenantId: row.tenant_id,
+        activityId: row.activity_id,
+        tableId: row.current_table_id
+    };
 }
 
 interface RpcSuccessPayload {
@@ -438,6 +457,23 @@ serve(async (req: Request) => {
             return jsonResponse(500, {
                 code: "INTERNAL_ERROR",
                 message: "Errore interno."
+            });
+        }
+
+        // ── Ordering state check (tenant + activity + table) ──
+        // Intercept maintenance mode mid-session: cliente con session valida
+        // ma tenant scaduto / activity inactive / ordering_enabled=false /
+        // table.maintenance_mode=true → 423 ORDERING_UNAVAILABLE con reason.
+        const state = await checkOrderingState(supabase, {
+            tenantId: diag.tenantId,
+            activityId: diag.activityId,
+            tableId: diag.tableId
+        });
+        if (!state.ok) {
+            return jsonResponse(423, {
+                code: "ORDERING_UNAVAILABLE",
+                reason: state.reason,
+                message: orderingStateMessage(state.reason)
             });
         }
 

@@ -32,6 +32,7 @@ export interface V2Activity {
     fees: ActivityFee[] | null;
     fees_public: boolean;
     hours_public: boolean;
+    ordering_enabled: boolean;
     qr_fg_color: string | null;
     qr_bg_color: string | null;
     google_review_url: string | null;
