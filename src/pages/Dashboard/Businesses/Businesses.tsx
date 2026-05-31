@@ -21,7 +21,7 @@ import Text from "@components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { usePageHeader } from "@/context/usePageHeader";
-import { isOwner, isAdmin } from "@/lib/permissions";
+import { workspaceRoleIsOwner as isOwner, workspaceRoleIsAdmin as isAdmin } from "@/utils/workspaceRole";
 
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
 import { ActivityVisibilityDrawer } from "@/pages/Operativita/Attivita/components/ActivityVisibilityDrawer/ActivityVisibilityDrawer";

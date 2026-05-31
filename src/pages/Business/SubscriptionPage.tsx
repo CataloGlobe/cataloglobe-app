@@ -7,7 +7,9 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { createCheckoutSession, createPortalSession, updateSeats } from "@/services/supabase/billing";
 import { getActivityCount } from "@/services/supabase/activities";
 import { calculatePrice, formatPrice, MAX_SEATS } from "@/utils/pricing";
-import { isOwner, isAdmin, isMember } from "@/lib/permissions";
+import { canDoOnTenant } from "@/lib/permissions";
+import { usePermissions } from "@/context/PermissionsContext";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -31,7 +33,11 @@ const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "prima
 export default function SubscriptionPage() {
     const tenantId = useTenantId();
     const navigate = useNavigate();
-    const { selectedTenant, loading, userRole, refreshTenants } = useTenant();
+    const { selectedTenant, loading, refreshTenants } = useTenant();
+    const { permissions, loading: permissionsLoading } = usePermissions();
+    const canReadBilling = permissions ? canDoOnTenant(permissions, "billing.read") : false;
+    const canManageBilling = permissions ? canDoOnTenant(permissions, "billing.manage") : false;
+    const canCancelBilling = permissions ? canDoOnTenant(permissions, "billing.cancel") : false;
     const { status, trialDaysLeft, hasPaymentMethod } = useSubscriptionGuard();
     const { showToast } = useToast();
 
@@ -54,7 +60,7 @@ export default function SubscriptionPage() {
 
     usePageHeader({
         title: "Abbonamento",
-        subtitle: isMember(userRole)
+        subtitle: !canReadBilling
             ? undefined
             : "Gestisci il piano e il metodo di pagamento della tua attività.",
         sticky: true,
@@ -62,23 +68,15 @@ export default function SubscriptionPage() {
 
     if (loading || !selectedTenant) return null;
 
-    if (isMember(userRole)) {
+    if (!permissionsLoading && permissions && !canReadBilling) {
         return (
             <div className={styles.page}>
                 <div className={styles.restrictedCard}>
-                    <Lock size={32} className={styles.restrictedIcon} />
-                    <Text variant="title-sm" weight={700}>
-                        Accesso riservato
-                    </Text>
-                    <Text variant="body-sm" colorVariant="muted" style={{ textAlign: "center", maxWidth: 360 }}>
-                        Questa pagina è accessibile solo a proprietario e amministratori del team.
-                    </Text>
-                    <button
-                        className={styles.restrictedLink}
-                        onClick={() => navigate(`/business/${tenantId}/overview`)}
-                    >
-                        Torna alla dashboard
-                    </button>
+                    <EmptyState
+                        icon={<Lock size={40} strokeWidth={1.5} />}
+                        title="Non hai accesso all'abbonamento"
+                        description="La gestione dell'abbonamento è riservata al proprietario. Contatta il proprietario se hai bisogno di accedere a queste informazioni."
+                    />
                 </div>
             </div>
         );
@@ -169,7 +167,7 @@ export default function SubscriptionPage() {
 
     return (
         <div className={styles.page}>
-            {isAdmin(userRole) && (
+            {canManageBilling && !canCancelBilling && (
                 <div
                     style={{
                         display: "flex",
@@ -184,7 +182,7 @@ export default function SubscriptionPage() {
                 >
                     <Info size={16} style={{ flexShrink: 0, marginTop: "2px" }} />
                     <Text variant="body-sm" weight={500}>
-                        Solo il proprietario può modificare l&apos;abbonamento. Hai accesso in sola lettura.
+                        Solo il proprietario può cancellare l&apos;abbonamento. Hai accesso a gestione (metodo pagamento, posti) ma non a cancellazione.
                     </Text>
                 </div>
             )}
@@ -272,13 +270,13 @@ export default function SubscriptionPage() {
 
                     {activityCount >= paidSeats && paidSeats > 0 && (
                         <InlineBanner variant="warning">
-                            {isOwner(userRole)
+                            {canManageBilling
                                 ? "Hai raggiunto il limite. Modifica il numero di sedi per espandere il piano."
                                 : "Hai raggiunto il limite. Solo il proprietario può modificare il numero di sedi."}
                         </InlineBanner>
                     )}
 
-                    {isOwner(userRole) && (
+                    {canManageBilling && (
                         <Button
                             variant="secondary"
                             onClick={handleOpenSeatsDrawer}
@@ -290,8 +288,8 @@ export default function SubscriptionPage() {
                 </div>
             </div>
 
-            {/* --- Actions (owner only) --- */}
-            {isOwner(userRole) && (
+            {/* --- Actions (manage + cancel) --- */}
+            {canManageBilling && (
             <div className={styles.section}>
                 <div className={styles.sectionHeader}>
                     <Shield size={18} />
@@ -366,8 +364,8 @@ export default function SubscriptionPage() {
             </div>
             )}
 
-            {/* --- Modify seats drawer (2-step, owner only) --- */}
-            {isOwner(userRole) && (
+            {/* --- Modify seats drawer (2-step, manage billing) --- */}
+            {canManageBilling && (
             <SystemDrawer
                 open={seatsDrawerOpen}
                 onClose={() => { setSeatsDrawerOpen(false); setSeatsDrawerStep("edit"); }}

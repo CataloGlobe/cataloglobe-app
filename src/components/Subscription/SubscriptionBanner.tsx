@@ -5,14 +5,18 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useTenant } from "@/context/useTenant";
-import { isOwner } from "@/lib/permissions";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnTenant } from "@/lib/permissions";
 import { createPortalSession } from "@/services/supabase/billing";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./SubscriptionBanner.module.scss";
 
 export function SubscriptionBanner() {
     const { businessId } = useParams<{ businessId: string }>();
-    const { selectedTenant, userRole } = useTenant();
+    const { selectedTenant } = useTenant();
+    const { permissions } = usePermissions();
+    const canManageBilling = permissions ? canDoOnTenant(permissions, "billing.manage") : false;
+    const canCancelBilling = permissions ? canDoOnTenant(permissions, "billing.cancel") : false;
     const { status, trialDaysLeft } = useSubscriptionGuard();
     const { showToast } = useToast();
     const navigate = useNavigate();
@@ -54,7 +58,7 @@ export function SubscriptionBanner() {
                         }
                     </Text>
                 </div>
-                {isOwner(userRole) && (
+                {canManageBilling && (
                     <button className={styles.link} onClick={goToSubscription}>
                         Gestisci abbonamento
                     </button>
@@ -72,7 +76,7 @@ export function SubscriptionBanner() {
                         Problema con il pagamento. Aggiorna il metodo di pagamento per evitare interruzioni.
                     </Text>
                 </div>
-                {isOwner(userRole) && (
+                {canManageBilling && (
                     <Button
                         variant="secondary"
                         size="sm"
@@ -98,7 +102,7 @@ export function SubscriptionBanner() {
                             : "Il tuo abbonamento è sospeso. Contatta l'assistenza per ripristinare l'accesso."}
                     </Text>
                 </div>
-                {isOwner(userRole) && status === "canceled" && (
+                {canCancelBilling && status === "canceled" && (
                     <Button
                         variant="primary"
                         size="sm"
