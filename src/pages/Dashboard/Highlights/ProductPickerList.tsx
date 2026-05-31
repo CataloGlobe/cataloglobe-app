@@ -169,9 +169,11 @@ export default function ProductPickerList({
                     data={filteredProducts}
                     columns={columns}
                     isLoading={loading}
-                    loadingState="Caricamento prodotti disponibili..."
-                    emptyState="Nessun prodotto trovato con i filtri attuali."
-                    rowsPerPage={8}
+                    loadingState={{ message: "Caricamento prodotti disponibili..." }}
+                    emptyState={{ title: "Nessun prodotto trovato con i filtri attuali." }}
+                    pageSize={25}
+                    pageSizeOptions={[25, 50, 100, "all"]}
+                    maxHeight="calc(100dvh - 320px)"
                     selectable
                     selectedRowIds={selectedProductIds}
                     onSelectedRowsChange={onSelectionChange}

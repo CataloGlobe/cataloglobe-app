@@ -183,3 +183,40 @@
         transform: scale(0.995);
     }
 }
+
+/* ── NOTES RECAP (read-only echo of notes typed pre-submit) ─────────────── */
+
+.itemEntry {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.itemNoteRecap {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 4px;
+    margin-left: 40px;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+.orderNoteRecap {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 12px;
+}
+
+.orderNoteRecapLabel {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 4px;
+}
+
+.orderNoteRecapText {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.85);
+    font-style: italic;
+    line-height: 1.45;
+}

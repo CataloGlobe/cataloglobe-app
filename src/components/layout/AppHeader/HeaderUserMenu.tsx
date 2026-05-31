@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { LogOut } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { LogOut, User } from "lucide-react";
 import { useAuth } from "@/context/useAuth";
-import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
-import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
+import { Menu } from "@/components/ui/Menu";
 import { Avatar } from "@/components/ui/Avatar";
 import { getProfile } from "@/services/supabase/profile";
 import type { Profile } from "@/types/database";
@@ -17,6 +17,7 @@ function readMetaString(meta: unknown, key: string): string | undefined {
 
 export function HeaderUserMenu() {
     const { user, signOut } = useAuth();
+    const navigate = useNavigate();
     const [profile, setProfile] = useState<Profile | null>(null);
 
     const fetchProfile = useCallback(() => {
@@ -63,16 +64,19 @@ export function HeaderUserMenu() {
     );
 
     return (
-        <DropdownMenu trigger={trigger} placement="bottom-end">
-            <div className={styles.userInfo}>
+        <Menu trigger={trigger} align="end" side="bottom">
+            <Menu.Label>
                 <div className={styles.userName}>{displayName}</div>
                 <div className={styles.userEmail}>{email}</div>
-            </div>
-            {/* TODO: aggiungere route /account quando creata */}
-            <DropdownItem danger onClick={() => void signOut()}>
-                <LogOut size={14} />
-                <span>Esci</span>
-            </DropdownItem>
-        </DropdownMenu>
+            </Menu.Label>
+            <Menu.Separator />
+            <Menu.Item icon={User} onSelect={() => navigate("/workspace/settings")}>
+                Il mio account
+            </Menu.Item>
+            <Menu.Separator />
+            <Menu.Item icon={LogOut} onSelect={() => void signOut()}>
+                Esci
+            </Menu.Item>
+        </Menu>
     );
 }

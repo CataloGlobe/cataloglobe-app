@@ -196,8 +196,8 @@ export default function Highlights() {
         },
         {
             id: "actions",
-            header: "Azioni",
-            width: "96px",
+            header: "",
+            width: "56px",
             align: "right",
             cell: (_value, item) => (
                 <TableRowActions
@@ -261,7 +261,6 @@ export default function Highlights() {
                         <DataTable<FeaturedContentWithProducts>
                             data={filteredContents}
                             columns={columns}
-                            density="compact"
                             selectable
                             onBulkDelete={handleBulkDelete}
                             onRowClick={item => navigate(`/business/${tenantId}/featured/${item.id}`)}

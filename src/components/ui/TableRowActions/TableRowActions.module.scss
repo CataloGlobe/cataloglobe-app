@@ -1,6 +1,6 @@
 .trigger {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: var(--radius-sm, 8px);
   background: transparent;
@@ -9,10 +9,17 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
 
-  &:hover {
-    background: var(--color-gray-100, #f1f5f9);
-    color: var(--color-gray-800, #1e293b);
+  &:hover,
+  &[data-state="open"] {
+    // Più scuro di --hover-bg per restare visibile anche quando la riga sotto
+    // è già in stato hover. Overlay semi-trasparente: si adatta sia a riga
+    // bianca (light gray) sia a riga grigia (darker gray).
+    // Stato `data-state="open"` (Radix) tiene il trigger evidenziato finché
+    // il menu è aperto.
+    background: color-mix(in srgb, var(--text, #0f172a) 10%, transparent);
+    color: var(--text, #0f172a);
   }
 }
 

@@ -2,11 +2,21 @@
 //
 // resolve-table — public entry point for the table-ordering epic.
 //
-// Hit by the guest's phone immediately after a QR scan. Resolves the
-// qr_token via the RPC `public.resolve_table_by_token`, then either
-// reuses or creates a `customer_sessions` row, signs a custom JWT
-// (role: "anon" + customer_session_id claim), and returns the bundle
-// the client needs to start ordering.
+// Hit by the guest's phone immediately after a QR scan. Looks up the
+// table row via qr_token (raw query, no status filtering), runs the
+// shared `checkOrderingState` helper to discriminate the actual cause
+// when ordering is unavailable, then either reuses or creates a
+// `customer_sessions` row, signs a custom JWT (role: "anon" +
+// customer_session_id claim), and returns the bundle the client needs
+// to start ordering.
+//
+// Maintenance-mode handling (mid-session epic):
+//   - 404 TOKEN_NOT_FOUND   → qr_token doesn't exist at all (only "real" 404).
+//   - 423 ORDERING_UNAVAILABLE + reason payload (subscription_inactive /
+//     tenant_deleted / activity_inactive / ordering_disabled /
+//     table_maintenance / table_deleted). `canViewMenu` lets the client
+//     decide: redirect to /:slug for catalog read-only (ordering_disabled,
+//     table_maintenance) vs full-page error (others).
 //
 // Anon-facing. All sensitive data is rederived server-side from the
 // token — nothing from the request body is trusted besides `qr_token`
@@ -19,6 +29,11 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { signCustomerJwt } from "../_shared/customerJwt.ts";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import {
+    checkOrderingState,
+    orderingStateMessage,
+    shouldShowCatalogReadOnly
+} from "../_shared/checkOrderingState.ts";
 
 // ============================================================
 // Constants
@@ -82,19 +97,10 @@ interface OtherActiveSession {
 // Local error classes
 // ============================================================
 
-class TableNotFoundError extends Error {
+class TokenNotFoundError extends Error {
     constructor() {
-        super("Tavolo non trovato o non più attivo.");
-        this.name = "TableNotFoundError";
-    }
-}
-
-class TableMaintenanceError extends Error {
-    readonly tableInfo: { label: string; zone: string | null };
-    constructor(label: string, zone: string | null) {
-        super("Questo tavolo è temporaneamente non disponibile.");
-        this.name = "TableMaintenanceError";
-        this.tableInfo = { label, zone };
+        super("QR code non valido. Verifica con lo staff.");
+        this.name = "TokenNotFoundError";
     }
 }
 
@@ -121,24 +127,52 @@ function jsonResponse(
     });
 }
 
-async function _resolveTable(
+/**
+ * Lookup raw del tavolo via qr_token. NON filtra per status/deleted_at:
+ * delega tutta la logica di "ordering disponibile?" a checkOrderingState
+ * cosi possiamo restituire una reason specifica anziche un 404 generico.
+ *
+ * Service-role client bypassa RLS, quindi questo SELECT funziona anche
+ * su righe activity inactive / table soft-deleted.
+ */
+async function _fetchTableRaw(
     supabase: SupabaseClient,
     qrToken: string
 ): Promise<TableInfo> {
-    const { data, error } = await supabase.rpc("resolve_table_by_token", {
-        p_token: qrToken
-    });
+    const { data, error } = await supabase
+        .from("tables")
+        .select(
+            "id, tenant_id, activity_id, label, zone, maintenance_mode, " +
+            "activities!inner(slug)"
+        )
+        .eq("qr_token", qrToken)
+        .maybeSingle();
+
     if (error) {
-        throw new Error(`resolve_table_by_token failed: ${error.message}`);
+        throw new Error(`tables select failed: ${error.message}`);
     }
-
-    const rows = Array.isArray(data) ? data : data ? [data] : [];
-    if (rows.length === 0) {
-        throw new TableNotFoundError();
+    if (!data) {
+        throw new TokenNotFoundError();
     }
-
-    const row = rows[0] as TableInfo;
-    return row;
+    const row = data as {
+        id: string;
+        tenant_id: string;
+        activity_id: string;
+        label: string;
+        zone: string | null;
+        maintenance_mode: boolean;
+        activities: { slug: string } | { slug: string }[];
+    };
+    const act = Array.isArray(row.activities) ? row.activities[0] : row.activities;
+    return {
+        table_id: row.id,
+        tenant_id: row.tenant_id,
+        activity_id: row.activity_id,
+        activity_slug: act?.slug ?? "",
+        label: row.label,
+        zone: row.zone,
+        maintenance_mode: row.maintenance_mode
+    };
 }
 
 async function _resolveOrCreateSession(
@@ -365,11 +399,33 @@ serve(async (req: Request) => {
             windowSeconds: 60
         });
 
-        // ── Resolve table from QR token ──
-        const table = await _resolveTable(supabase, qrToken);
+        // ── Lookup raw table (no status filtering) ──
+        const table = await _fetchTableRaw(supabase, qrToken);
 
-        if (table.maintenance_mode) {
-            throw new TableMaintenanceError(table.label, table.zone);
+        // ── Ordering state check (tenant + activity + table) ──
+        const state = await checkOrderingState(supabase, {
+            tenantId: table.tenant_id,
+            activityId: table.activity_id,
+            tableId: table.table_id
+        });
+
+        if (!state.ok) {
+            return jsonResponse(423, {
+                code: "ORDERING_UNAVAILABLE",
+                reason: state.reason,
+                message: orderingStateMessage(state.reason),
+                canViewMenu: shouldShowCatalogReadOnly(state.reason),
+                tenant_id: table.tenant_id,
+                activity: {
+                    id: table.activity_id,
+                    slug: table.activity_slug
+                },
+                table: {
+                    id: table.table_id,
+                    label: table.label,
+                    zone: table.zone
+                }
+            });
         }
 
         // ── Resolve or create session ──
@@ -398,17 +454,10 @@ serve(async (req: Request) => {
                 { "Retry-After": String(e.retryAfterSeconds) }
             );
         }
-        if (e instanceof TableNotFoundError) {
+        if (e instanceof TokenNotFoundError) {
             return jsonResponse(404, {
-                code: "TABLE_NOT_FOUND",
+                code: "TOKEN_NOT_FOUND",
                 message: e.message
-            });
-        }
-        if (e instanceof TableMaintenanceError) {
-            return jsonResponse(423, {
-                code: "TABLE_MAINTENANCE",
-                message: e.message,
-                table: e.tableInfo
             });
         }
         // Unknown error: keep the response generic, do not leak qr_token or

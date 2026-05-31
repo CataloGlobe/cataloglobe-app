@@ -82,12 +82,6 @@
 
 .tableWrapper {
     overflow: hidden;
-
-    :global(.table-header) {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-    }
 }
 
 .productCell {
@@ -100,11 +94,6 @@
     display: flex;
     align-items: center;
     gap: 8px;
-}
-
-.rowSaving {
-    opacity: 0.5;
-    pointer-events: none;
 }
 
 .loading {

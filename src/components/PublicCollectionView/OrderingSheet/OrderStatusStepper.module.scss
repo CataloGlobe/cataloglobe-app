@@ -1,0 +1,116 @@
+.stepper {
+    margin-bottom: 14px;
+    padding: 0 6px;
+}
+
+.row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 4px;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+}
+
+.dot {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+    color: white;
+}
+
+.step--done .dot {
+    background: #047857;
+}
+
+.step--active .dot {
+    background: #b45309;
+}
+
+.step--pending .dot {
+    background: transparent;
+    border: 2px solid #e5e7eb;
+}
+
+.pulse {
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    background: #b45309;
+    opacity: 0.25;
+    animation: stepperPulse 1.6s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes stepperPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.25;
+    }
+    50% {
+        transform: scale(1.4);
+        opacity: 0;
+    }
+}
+
+.label {
+    font-size: 11px;
+    margin-top: 6px;
+    text-align: center;
+    line-height: 1.2;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--pub-font-family, sans-serif);
+}
+
+.step--done .label {
+    color: #6b7280;
+}
+
+.step--active .label {
+    color: #b45309;
+    font-weight: 500;
+}
+
+.step--pending .label {
+    color: #9ca3af;
+}
+
+.connector {
+    height: 2px;
+    background: #e5e7eb;
+    flex: 1;
+    margin-top: 12px;
+    align-self: flex-start;
+}
+
+.connector--done {
+    background: #047857;
+}
+
+.kitchenTime {
+    text-align: center;
+    font-size: 11px;
+    color: #b45309;
+    margin-top: 10px;
+    font-family: var(--pub-font-family, sans-serif);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pulse {
+        animation: none;
+    }
+}

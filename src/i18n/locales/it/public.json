@@ -21,7 +21,20 @@
     "header": {
         "info_aria": "Informazioni sede",
         "search_aria": "Cerca nel catalogo",
-        "info_sheet_aria": "Informazioni sede"
+        "info_sheet_aria": "Informazioni sede",
+        "more_aria": "Altre opzioni"
+    },
+    "more": {
+        "title": "Opzioni",
+        "close_aria": "Chiudi",
+        "close_label": "Chiudi",
+        "allergens_label": "Filtra per allergeni",
+        "allergens_subtitle_inactive": "Nascondi i prodotti con allergeni",
+        "allergens_subtitle_active_one": "{{count}} allergene attivo",
+        "allergens_subtitle_active_other": "{{count}} allergeni attivi",
+        "allergens_subtitle_empty": "Nessun prodotto con allergeni",
+        "info_label": "Informazioni",
+        "info_subtitle": "Indirizzo, orari, contatti"
     },
     "search": {
         "placeholder": "Cerca prodotto…",
@@ -38,7 +51,15 @@
         "title": "Allergeni",
         "close_aria": "Chiudi",
         "close_label": "Chiudi",
-        "disclaimer": "Per informazioni dettagliate sulla preparazione e sulla presenza di allergeni nei singoli piatti, chiedi al personale di sala."
+        "disclaimer": "Per informazioni dettagliate sulla preparazione e sulla presenza di allergeni nei singoli piatti, chiedi al personale di sala.",
+        "filter_title": "Filtra per allergeni",
+        "filter_intro": "Nascondi i prodotti che contengono questi allergeni.",
+        "filter_empty": "Questo menu non ha prodotti taggati con allergeni.",
+        "filter_disclaimer": "I filtri si basano sui prodotti taggati dal ristorante. Per allergie gravi, conferma sempre con lo staff.",
+        "filter_reset": "Reset",
+        "filter_apply": "Applica",
+        "filter_no_results": "Nessun prodotto disponibile con i filtri attuali.",
+        "filter_edit_cta": "Modifica filtri"
     },
     "characteristics": {
         "title": "Caratteristiche",

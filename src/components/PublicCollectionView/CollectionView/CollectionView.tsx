@@ -34,6 +34,12 @@ const ItemDetail = lazy(() => import("../ItemDetail/ItemDetail"));
 const OrderingSheet = lazy(() => import("../OrderingSheet/OrderingSheet"));
 const ReviewsView = lazy(() => import("../ReviewsView/ReviewsView"));
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
+import AllergensSheet from "../AllergensSheet/AllergensSheet";
+import MoreSheet from "../MoreSheet/MoreSheet";
+import {
+    getAllergenPreferences,
+    setAllergenPreferences,
+} from "@/services/customer/allergenPreferences";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
 import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
 import type { ActivityFee } from "@/types/activity";
@@ -42,8 +48,8 @@ import PublicSheet from "../PublicSheet/PublicSheet";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
 import { submitOrder, getOrdersForSession } from "@/services/supabase/orders";
 import { useOptionalCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
-import type { OrderItemRequest, SubmitOrderResult } from "@/types/orders";
-import { ClipboardList } from "lucide-react";
+import type { OrderItemRequest, SubmitOrderResult, OrderingStateReason } from "@/types/orders";
+import { ClipboardList, AlertCircle } from "lucide-react";
 const OrderConfirmationSheet = lazy(() => import("../OrderConfirmationSheet/OrderConfirmationSheet"));
 
 // ─── Selection helpers ────────────────────────────────────────────────────────
@@ -59,7 +65,11 @@ function generateSelectionKey(
 }
 
 function migrateSelectionItem(item: Record<string, unknown>): SelectionItem {
-    if ("unitPrice" in item) return item as unknown as SelectionItem;
+    if ("unitPrice" in item) {
+        // Legacy shape with `unitPrice` but no `note` field — backfill null.
+        const legacy = item as unknown as SelectionItem & { note?: string | null };
+        return { ...legacy, note: legacy.note ?? null };
+    }
     const price = typeof item.price === "number" ? item.price : 0;
     return {
         id: item.id as string,
@@ -69,6 +79,7 @@ function migrateSelectionItem(item: Record<string, unknown>): SelectionItem {
         selectedFormat: null,
         selectedAddons: [],
         unitPrice: price,
+        note: null,
     };
 }
 
@@ -589,6 +600,20 @@ type Props = {
      * - mostrare badge tavolo nell'header
      */
     orderingActive?: boolean;
+    /**
+     * Quando definito: la pagina viene resa in modalita read-only per
+     * ordering (banner sticky + submit disabilitato). Reason proviene da
+     * URL param `?maintenance=<reason>` su QR-scan flow oppure da catch
+     * lato submit-order (423 ORDERING_UNAVAILABLE).
+     *
+     * Reason rilevanti per catalog read-only:
+     *   - "ordering_disabled":  ristoratore ha sospeso ordini QR sulla sede
+     *   - "table_maintenance":  tavolo singolo in manutenzione
+     */
+    orderingMaintenance?: {
+        reason: OrderingStateReason;
+        message: string;
+    } | null;
 };
 
 export default function CollectionView({
@@ -619,8 +644,44 @@ export default function CollectionView({
     fees,
     allergens,
     catalogCharacteristics,
-    orderingActive = false
+    orderingActive = false,
+    orderingMaintenance = null
 }: Props) {
+    // Maintenance scoperto runtime via 423 ORDERING_UNAVAILABLE su submit
+    // (Strict + Reactive: il cliente lo apprende solo al tentativo). Solo
+    // OrderingSheet usa effectiveMaintenance per banner inline + submit
+    // disable; il banner sticky CollectionView resta legato al prop esterno
+    // (URL param / resolve-table response).
+    const [discoveredMaintenance, setDiscoveredMaintenance] = useState<
+        { reason: OrderingStateReason; message: string } | null
+    >(null);
+    const effectiveMaintenance = orderingMaintenance ?? discoveredMaintenance;
+
+    // Reason "silenziosi": ordering_disabled = feature non disponibile per il
+    // cliente (no banner, no FAB). Altri reason "rumorosi" (table_maintenance)
+    // mostrano comunque banner sticky + nascondono FAB.
+    const SILENT_MAINTENANCE_REASONS = new Set<OrderingStateReason>([
+        "ordering_disabled"
+    ]);
+    const shouldShowStickyBanner =
+        orderingMaintenance != null &&
+        !SILENT_MAINTENANCE_REASONS.has(orderingMaintenance.reason);
+    // Nascondi entry point ordering (FAB) per:
+    //   - URL-param maintenance (table_maintenance)
+    //   - Cliente entrato via /:slug diretto senza sessione QR (no
+    //     orderingActive): ordering QR e' by-design tied a sessione tavolo
+    //     da resolve-table — niente sessione = niente entry point.
+    // Discovery runtime NON rimuove il FAB (cliente ha gia visto la
+    // selection, banner inline su submit fail e' sufficiente).
+    // Gate `mode === "public"` per preservare preview dashboard
+    // (orderingActive=false in preview e' default, non significa "no session").
+    const shouldHideOrderingEntry =
+        orderingMaintenance != null || (mode === "public" && !orderingActive);
+    // Gate per "+" buttons su ProductRow / ProductCompactRow / ItemDetail:
+    // include discovery runtime (rispetto a shouldHideOrderingEntry) per
+    // coerenza con OrderingSheet submit gating + no-session hide.
+    const orderingEntryHidden =
+        effectiveMaintenance != null || (mode === "public" && !orderingActive);
     const { t } = useTranslation("public");
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
         () => sectionGroups[0]?.root.id ?? null
@@ -674,6 +735,69 @@ export default function CollectionView({
         (socialLinks?.facebook_public && socialLinks?.facebook)
     );
     const hasAnyInfo = hasHours || hasFees || hasPaymentMethods || hasActivityServices || hasContacts || !!activityAddress;
+
+    // ── More sheet ──────────────────────────────────────────────────────────
+    const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
+
+    // ── Allergen filter (customer-side, sessionStorage per-activity) ────────
+    const [allergenFilterIds, setAllergenFilterIds] = useState<number[]>(() =>
+        activityId && mode === "public" ? getAllergenPreferences(activityId) : []
+    );
+    const [isAllergensFilterOpen, setIsAllergensFilterOpen] = useState(false);
+
+    useEffect(() => {
+        if (!activityId || mode !== "public") return;
+        setAllergenPreferences(activityId, allergenFilterIds);
+    }, [activityId, mode, allergenFilterIds]);
+
+    // Union degli allergens presenti nel catalogo corrente (dedup per id,
+    // sorted by label localizzata). Riusa ResolvedAllergen.label già tradotto
+    // dall'edge function resolve-public-catalog.
+    const allergensInCatalog = useMemo<ResolvedAllergen[]>(() => {
+        const seen = new Map<number, ResolvedAllergen>();
+        for (const group of sectionGroups) {
+            const all = [group.root, ...group.children];
+            for (const section of all) {
+                for (const item of section.items) {
+                    if (!item.allergens) continue;
+                    for (const a of item.allergens) {
+                        if (!seen.has(a.id)) seen.set(a.id, a);
+                    }
+                }
+            }
+        }
+        return Array.from(seen.values()).sort((a, b) =>
+            a.label.localeCompare(b.label, "it")
+        );
+    }, [sectionGroups]);
+
+    // Filtra item per allergens. Prodotti senza allergens taggati: sempre
+    // visibili (no match possibile, disclaimer nel sheet copre il caso).
+    const displaySectionGroups = useMemo<CollectionViewSectionGroup[]>(() => {
+        if (allergenFilterIds.length === 0) return sectionGroups;
+        const blocked = new Set(allergenFilterIds);
+        const filterItems = (items: CollectionViewSectionItem[]) =>
+            items.filter(item => {
+                if (!item.allergens || item.allergens.length === 0) return true;
+                return !item.allergens.some(a => blocked.has(a.id));
+            });
+        const result: CollectionViewSectionGroup[] = [];
+        for (const group of sectionGroups) {
+            const rootItems = filterItems(group.root.items);
+            const children = group.children
+                .map(c => ({ ...c, items: filterItems(c.items) }))
+                .filter(c => c.items.length > 0);
+            if (rootItems.length === 0 && children.length === 0) continue;
+            result.push({
+                root: { ...group.root, items: rootItems },
+                children,
+            });
+        }
+        return result;
+    }, [sectionGroups, allergenFilterIds]);
+
+    const allFiltered =
+        allergenFilterIds.length > 0 && displaySectionGroups.length === 0;
 
     // ── Selezione prodotti ──────────────────────────────────────────────────
     const selectionStorageKey = activityId ? `catalogobe-selection-${activityId}` : null;
@@ -787,9 +911,14 @@ export default function CollectionView({
                 selectedFormat: selectedFormat ?? null,
                 selectedAddons: addons,
                 unitPrice,
+                note: null,
             }];
         });
     }, [mode, activityId]);
+
+    const updateSelectionNote = useCallback((index: number, value: string | null) => {
+        setSelection(prev => prev.map((i, idx) => (idx === index ? { ...i, note: value } : i)));
+    }, []);
 
     const updateSelectionQty = useCallback((index: number, qty: number) => {
         setSelection(prev => prev.map((i, idx) => idx === index ? { ...i, qty } : i));
@@ -808,7 +937,12 @@ export default function CollectionView({
         });
     }, [mode, activityId]);
 
-    const clearSelection = useCallback(() => setSelection([]), []);
+    const [orderNote, setOrderNote] = useState<string | null>(null);
+
+    const clearSelection = useCallback(() => {
+        setSelection([]);
+        setOrderNote(null);
+    }, []);
 
     // ── Customer session + submit order ─────────────────────────────────────
     const customerSession = useOptionalCustomerSession();
@@ -819,6 +953,7 @@ export default function CollectionView({
         | null
     >(null);
     const [confirmedOrder, setConfirmedOrder] = useState<SubmitOrderResult | null>(null);
+    const [confirmedOrderNote, setConfirmedOrderNote] = useState<string | null>(null);
     const [hasOrdersInSession, setHasOrdersInSession] = useState(false);
 
     const handleSessionExpired = useCallback(() => {
@@ -878,6 +1013,7 @@ export default function CollectionView({
             const items: OrderItemRequest[] = selection.flatMap(it => {
                 const baseQty = it.qty;
                 if (baseQty <= 0) return [];
+                const trimmedNote = it.note?.trim().replace(/\s+/g, " ");
                 const entry: OrderItemRequest = {
                     product_id: it.id,
                     quantity: baseQty,
@@ -886,23 +1022,47 @@ export default function CollectionView({
                         : {}),
                     ...(it.selectedAddons && it.selectedAddons.length > 0
                         ? { addon_value_ids: it.selectedAddons.map(a => a.id) }
-                        : {})
+                        : {}),
+                    ...(trimmedNote ? { item_notes: trimmedNote } : {})
                 };
                 return [entry];
             });
 
-            const result = await submitOrder(customerSession.session.jwt, items);
+            const trimmedOrderNote = orderNote?.trim().replace(/\s+/g, " ");
+            const notesArg = trimmedOrderNote && trimmedOrderNote.length > 0
+                ? trimmedOrderNote
+                : undefined;
+
+            const result = await submitOrder(
+                customerSession.session.jwt,
+                items,
+                notesArg
+            );
 
             clearSelection();
+            setOrderNote(null);
             setIsOrderingOpen(false);
             setActiveOrderingTab("orders");
             setOrdersRefreshKey(k => k + 1);
             setConfirmedOrder(result);
+            setConfirmedOrderNote(notesArg ?? null);
             setHasOrdersInSession(true);
         } catch (err) {
             if (err instanceof Error) {
                 const msg = err.message;
-                if (msg.toLowerCase().includes("scaduta") || msg === "SESSION_EXPIRED") {
+                const code = (err as Error & { code?: string }).code;
+                const reason = (err as Error & { reason?: string }).reason as
+                    | OrderingStateReason
+                    | undefined;
+                if (code === "ORDERING_UNAVAILABLE") {
+                    // Propaga maintenance scoperta a OrderingSheet via prop
+                    // (banner inline + submit disabled). NIENTE toast: il
+                    // banner inline copre la UX dentro la modale.
+                    setDiscoveredMaintenance({
+                        reason: reason ?? "ordering_disabled",
+                        message: msg
+                    });
+                } else if (msg.toLowerCase().includes("scaduta") || msg === "SESSION_EXPIRED") {
                     customerSession.clear();
                     setSubmitFeedback({
                         type: "error",
@@ -930,7 +1090,7 @@ export default function CollectionView({
         } finally {
             setIsSubmittingOrder(false);
         }
-    }, [customerSession, selection, clearSelection]);
+    }, [customerSession, selection, orderNote, clearSelection]);
 
     const findProductById = useCallback((productId: string): CollectionViewSectionItem | null => {
         for (const group of sectionGroups) {
@@ -1233,9 +1393,11 @@ export default function CollectionView({
     }, [l1Sections, scrollContainerEl, mode]);
 
     // ── Nav items — L1 + children per dropdown sotto-sezioni ────────────────
+    // Derivati da displaySectionGroups: il filtro allergeni nasconde anche le
+    // voci di navigazione delle sezioni completamente filtrate.
     const navItems: SectionNavItem[] = useMemo(
         () =>
-            sectionGroups.map(g => ({
+            displaySectionGroups.map(g => ({
                 id: g.root.id,
                 name: g.root.name,
                 ...(g.children.length > 0
@@ -1248,7 +1410,7 @@ export default function CollectionView({
                       }
                     : {})
             })),
-        [sectionGroups]
+        [displaySectionGroups]
     );
 
     // ── Scroll to section ───────────────────────────────────────────────────
@@ -1425,7 +1587,7 @@ export default function CollectionView({
                                         allergens={item.allergens}
                                         characteristics={item.characteristics}
                                         onAddToSelection={
-                                            activeTab === "menu"
+                                            activeTab === "menu" && !orderingEntryHidden
                                                 ? () => handleAddClick(
                                                       item.id,
                                                       item.name,
@@ -1456,7 +1618,7 @@ export default function CollectionView({
                                         allergens={item.allergens}
                                         characteristics={item.characteristics}
                                         onAddToSelection={
-                                            activeTab === "menu"
+                                            activeTab === "menu" && !orderingEntryHidden
                                                 ? () => handleAddClick(
                                                       item.id,
                                                       item.name,
@@ -1519,7 +1681,7 @@ export default function CollectionView({
                                                     });
                                                 }}
                                                 onAddToSelection={
-                                                    activeTab === "menu"
+                                                    activeTab === "menu" && !orderingEntryHidden
                                                         ? () => handleAddClick(
                                                               v.id,
                                                               v.name,
@@ -1598,7 +1760,7 @@ export default function CollectionView({
                                                     });
                                                 }}
                                                 onAddToSelection={
-                                                    activeTab === "menu"
+                                                    activeTab === "menu" && !orderingEntryHidden
                                                         ? () => handleAddClick(
                                                               v.id,
                                                               v.name,
@@ -1654,6 +1816,20 @@ export default function CollectionView({
                 </a>
             )}
 
+            {/* Maintenance banner: ordering sospeso o tavolo in manutenzione.
+                Soppresso per reason silenziosi (es. ordering_disabled = feature
+                non disponibile per il cliente). */}
+            {shouldShowStickyBanner && orderingMaintenance && (
+                <div
+                    className={styles.maintenanceBanner}
+                    role="status"
+                    aria-live="polite"
+                >
+                    <AlertCircle size={14} aria-hidden="true" />
+                    <span>{orderingMaintenance.message}</span>
+                </div>
+            )}
+
             {/* ── HEADER: sostituisce PublicBrandHeader + CollectionHero ── */}
             {hasHeader && (
                 <PublicCollectionHeader
@@ -1673,8 +1849,8 @@ export default function CollectionView({
                     headerRadius={style.appearanceRadius}
                     activeTab={activeTab}
                     onTabChange={onTabChange ?? (() => {})}
-                    hasInfo={hasAnyInfo}
-                    onInfoPress={() => setIsInfoSheetOpen(true)}
+                    allergensCount={allergenFilterIds.length}
+                    onOpenMore={mode === "public" ? () => setIsMoreSheetOpen(true) : undefined}
                 />
             )}
 
@@ -1827,7 +2003,7 @@ export default function CollectionView({
             {activeTab === "menu" && (
                 <>
                     {/* ── NAV – sticky, topOffset dinamico ── */}
-                    {!emptyState && (
+                    {!emptyState && !allFiltered && (
                         <CollectionSectionNav
                             sections={navItems}
                             activeSectionId={activeSectionId}
@@ -1864,7 +2040,21 @@ export default function CollectionView({
                                     data-product-style={style.productStyle ?? "card"}
                                 >
                                     {featuredBeforeCatalogSlot}
-                                    {sectionGroups.map(group => (
+                                    {allFiltered && (
+                                        <div className={styles.allergenEmptyState}>
+                                            <Text variant="body" color="var(--pub-bg-text)">
+                                                {t("allergens.filter_no_results")}
+                                            </Text>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsAllergensFilterOpen(true)}
+                                                className={styles.allergenEmptyBtn}
+                                            >
+                                                {t("allergens.filter_edit_cta")}
+                                            </button>
+                                        </div>
+                                    )}
+                                    {displaySectionGroups.map(group => (
                                         <section
                                             key={group.root.id}
                                             data-section-id={group.root.id}
@@ -1948,7 +2138,7 @@ export default function CollectionView({
                                             }}
                                             mode={mode}
                                             showImage={style.productStyle !== "compact" && style.cardTemplate !== "no-image"}
-                                            onAddToSelection={mode === "public" && activeTab === "menu"
+                                            onAddToSelection={mode === "public" && activeTab === "menu" && !orderingEntryHidden
                                                 ? (editingSelectionIndex !== null
                                                     ? handleUpdateSelection
                                                     : (productId, productName, basePrice, format, addons) => {
@@ -2017,7 +2207,7 @@ export default function CollectionView({
             )}
 
             {/* ── ORDERING FAB — unico, context-aware (cart o ordini) ── */}
-            {mode === "public" && activeTab === "menu" && (selectionCount > 0 || (orderingActive && hasOrdersInSession)) && (
+            {mode === "public" && activeTab === "menu" && !shouldHideOrderingEntry && (selectionCount > 0 || (orderingActive && hasOrdersInSession)) && (
                 <button
                     type="button"
                     className={styles.orderingFab}
@@ -2086,14 +2276,42 @@ export default function CollectionView({
                     <OrderConfirmationSheet
                         isOpen={confirmedOrder !== null}
                         order={confirmedOrder}
-                        onClose={() => setConfirmedOrder(null)}
+                        orderNote={confirmedOrderNote}
+                        onClose={() => {
+                            setConfirmedOrder(null);
+                            setConfirmedOrderNote(null);
+                        }}
                         onViewMyOrders={() => {
                             setConfirmedOrder(null);
+                            setConfirmedOrderNote(null);
                             setActiveOrderingTab("orders");
                             setIsOrderingOpen(true);
                         }}
                     />
                 </Suspense>
+            )}
+
+            {mode === "public" && (
+                <MoreSheet
+                    isOpen={isMoreSheetOpen}
+                    onClose={() => setIsMoreSheetOpen(false)}
+                    onOpenAllergens={() => setIsAllergensFilterOpen(true)}
+                    onOpenInfo={() => setIsInfoSheetOpen(true)}
+                    allergensCount={allergenFilterIds.length}
+                    hasAllergensInCatalog={allergensInCatalog.length > 0}
+                    hasInfo={hasAnyInfo}
+                />
+            )}
+
+            {mode === "public" && (
+                <AllergensSheet
+                    mode="filter"
+                    isOpen={isAllergensFilterOpen}
+                    onClose={() => setIsAllergensFilterOpen(false)}
+                    allergens={allergensInCatalog}
+                    selectedIds={allergenFilterIds}
+                    onApplyFilter={setAllergenFilterIds}
+                />
             )}
 
             {isOrderingOpen && (
@@ -2111,9 +2329,29 @@ export default function CollectionView({
                             ? handleEditSelectionItem
                             : undefined
                         }
-                        orderingActive={orderingActive}
-                        onSubmitOrder={orderingActive ? handleSubmitOrder : undefined}
+                        onItemNoteSave={
+                            orderingActive
+                                ? (index, note) => updateSelectionNote(index, note)
+                                : undefined
+                        }
+                        onItemNoteRemove={
+                            orderingActive
+                                ? index => updateSelectionNote(index, null)
+                                : undefined
+                        }
+                        orderNote={orderingActive ? orderNote : null}
+                        onOrderNoteSave={orderingActive ? setOrderNote : undefined}
+                        onOrderNoteRemove={
+                            orderingActive ? () => setOrderNote(null) : undefined
+                        }
+                        orderingActive={orderingActive && !shouldHideOrderingEntry}
+                        onSubmitOrder={
+                            orderingActive && !shouldHideOrderingEntry
+                                ? handleSubmitOrder
+                                : undefined
+                        }
                         isSubmitting={isSubmittingOrder}
+                        maintenance={effectiveMaintenance}
                         onSessionExpired={handleSessionExpired}
                         ordersRefreshKey={ordersRefreshKey}
                     />

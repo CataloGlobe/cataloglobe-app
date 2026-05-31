@@ -1,73 +1,40 @@
-import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/services/supabase/client";
+import { useState } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
-import { Button } from "@/components/ui";
+import { Button } from "@/components/ui/Button/Button";
+import { Loader } from "@/components/ui/Loader/Loader";
 import Text from "@/components/ui/Text/Text";
-import { Select } from "@/components/ui/Select/Select";
-import { Badge } from "@/components/ui/Badge/Badge";
-import { useToast } from "@/context/Toast/ToastContext";
-import { isOwner } from "@/lib/permissions";
+import { usePermissions } from "@/context/PermissionsContext";
 import type { TenantMemberRow } from "@/types/team";
+import { MemberForm } from "./MemberForm";
 import styles from "./MemberDrawer.module.scss";
 
-const ROLE_OPTIONS = [
-    { value: "member", label: "Member" },
-    { value: "admin", label: "Admin" }
-];
-
-type Props = {
+interface MemberDrawerProps {
     open: boolean;
-    member: TenantMemberRow | null;
-    tenantId: string;
     onClose: () => void;
-    onSuccess: () => void;
-};
+    tenantId: string;
+    member: TenantMemberRow | null;
+    onSuccess?: () => void;
+}
 
-export function MemberDrawer({ open, member, tenantId, onClose, onSuccess }: Props) {
-    const { showToast } = useToast();
-    const [pendingRole, setPendingRole] = useState("member");
-    const [isSaving, setIsSaving] = useState(false);
+const FORM_ID = "member-form";
 
-    // Reinitialize role selection whenever target member changes
-    useEffect(() => {
-        if (member) {
-            setPendingRole(isOwner(member.role) ? "admin" : member.role);
-        }
-    }, [member]);
+export function MemberDrawer({ open, onClose, tenantId, member, onSuccess }: MemberDrawerProps) {
+    const { permissions, loading: permissionsLoading } = usePermissions();
+    const [saving, setSaving] = useState(false);
 
-    const safeClose = useCallback(() => {
-        if (!isSaving) onClose();
-    }, [isSaving, onClose]);
-
-    const handleSave = useCallback(async () => {
-        if (!member || !tenantId) return;
-        setIsSaving(true);
-
-        const { error } = await supabase.rpc("change_member_role", {
-            p_tenant_id: tenantId,
-            p_user_id: member.user_id,
-            p_role: pendingRole
-        });
-
-        setIsSaving(false);
-
-        if (error) {
-            showToast({ type: "error", message: `Errore: ${error.message}` });
-            return;
-        }
-
-        showToast({ type: "success", message: "Ruolo aggiornato." });
-        onSuccess();
+    const handleClose = () => {
+        if (saving) return;
         onClose();
-    }, [member, tenantId, pendingRole, showToast, onSuccess, onClose]);
+    };
 
-    const roleBadgeVariant = member?.role === "admin" ? "primary" : "secondary";
-    const roleLabel =
-        member?.role === "owner" ? "Owner" : member?.role === "admin" ? "Admin" : "Member";
+    const handleSuccess = () => {
+        onSuccess?.();
+        onClose();
+    };
 
     return (
-        <SystemDrawer open={open} onClose={safeClose} width={440}>
+        <SystemDrawer open={open} onClose={handleClose} width={520}>
             <DrawerLayout
                 header={
                     <div className={styles.header}>
@@ -82,32 +49,36 @@ export function MemberDrawer({ open, member, tenantId, onClose, onSuccess }: Pro
                     </div>
                 }
                 footer={
-                    <>
-                        <Button variant="secondary" onClick={safeClose} disabled={isSaving}>
+                    <div className={styles.footer}>
+                        <Button variant="secondary" onClick={handleClose} disabled={saving}>
                             Annulla
                         </Button>
-                        <Button variant="primary" onClick={handleSave} loading={isSaving}>
+                        <Button
+                            type="submit"
+                            form={FORM_ID}
+                            variant="primary"
+                            loading={saving}
+                            disabled={!permissions || !member}
+                        >
                             Salva
                         </Button>
-                    </>
+                    </div>
                 }
             >
-                <div className={styles.content}>
-                    <div className={styles.currentRole}>
-                        <Text variant="body-sm" colorVariant="muted">
-                            Ruolo attuale
-                        </Text>
-                        <Badge variant={roleBadgeVariant}>{roleLabel}</Badge>
+                {!member || permissionsLoading || !permissions ? (
+                    <div className={styles.loadingState}>
+                        <Loader size="md" />
                     </div>
-
-                    <Select
-                        label="Nuovo ruolo"
-                        value={pendingRole}
-                        onChange={e => setPendingRole(e.target.value)}
-                        options={ROLE_OPTIONS}
-                        disabled={isSaving}
+                ) : (
+                    <MemberForm
+                        formId={FORM_ID}
+                        tenantId={tenantId}
+                        permissions={permissions}
+                        member={member}
+                        onSuccess={handleSuccess}
+                        onSavingChange={setSaving}
                     />
-                </div>
+                )}
             </DrawerLayout>
         </SystemDrawer>
     );

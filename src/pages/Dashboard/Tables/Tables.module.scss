@@ -114,3 +114,38 @@
     flex-direction: column;
     gap: 4px;
 }
+
+/* ── BILL REQUEST BADGE (su table card label cell) ─────── */
+
+.billBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 4px 10px;
+    background: color-mix(in srgb, #ef4444 12%, transparent);
+    color: #dc2626;
+    border: 1px solid color-mix(in srgb, #ef4444 30%, transparent);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    align-self: flex-start;
+
+    &:hover {
+        background: color-mix(in srgb, #ef4444 20%, transparent);
+    }
+}
+
+.billBadgeCount {
+    background: #dc2626;
+    color: #ffffff;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 11px;
+    min-width: 16px;
+    text-align: center;
+    font-weight: 700;
+}

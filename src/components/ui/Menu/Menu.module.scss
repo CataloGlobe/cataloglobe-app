@@ -1,0 +1,96 @@
+@keyframes menuIn {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes menuOut {
+    from {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.96) translateY(-4px);
+    }
+}
+
+.content {
+    background-color: white;
+    border-radius: var(--radius-md, 12px);
+    padding: 6px;
+    box-shadow:
+        0 10px 38px -10px rgba(22, 23, 24, 0.35),
+        0 10px 20px -15px rgba(22, 23, 24, 0.2);
+    min-width: 200px;
+    border: 1px solid var(--color-gray-200, #e2e8f0);
+    z-index: 50;
+    transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+
+    &[data-state="open"] {
+        animation: menuIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    &[data-state="closed"] {
+        animation: menuOut 120ms ease-in;
+    }
+}
+
+.label {
+    padding: 8px 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    user-select: none;
+    cursor: default;
+}
+
+.item {
+    font-size: 13px;
+    line-height: 1;
+    color: var(--color-gray-700, #334155);
+    border-radius: var(--radius-sm, 8px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 12px;
+    position: relative;
+    user-select: none;
+    outline: none;
+    cursor: pointer;
+
+    &[data-highlighted] {
+        background-color: var(--color-gray-100, #f1f5f9);
+        color: var(--color-gray-900, #0f172a);
+    }
+
+    &[data-disabled] {
+        opacity: 0.5;
+        pointer-events: none;
+    }
+}
+
+.itemLabel {
+    flex: 1;
+    min-width: 0;
+}
+
+.separator {
+    height: 1px;
+    background-color: var(--color-gray-200, #e2e8f0);
+    margin: 6px -6px;
+}
+
+.danger {
+    color: var(--color-red-600, #dc2626);
+
+    &[data-highlighted] {
+        background-color: var(--color-red-50, #fef2f2);
+        color: var(--color-red-700, #b91c1c);
+    }
+}

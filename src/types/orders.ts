@@ -51,8 +51,59 @@ export interface V2CustomerSession {
     first_seen_at: string;
     last_activity_at: string;
     expires_at: string;
+    /** Timestamp request "Chiedi il conto" customer-side. NULL = no request. */
+    bill_requested_at: string | null;
     created_at: string;
     updated_at: string;
+}
+
+/**
+ * Reason restituito da resolve-table / submit-order quando l'ordering QR
+ * non e' disponibile (status 423 ORDERING_UNAVAILABLE). Allineato con
+ * `OrderingStateReason` in `supabase/functions/_shared/checkOrderingState.ts`.
+ */
+export type OrderingStateReason =
+    | "subscription_inactive"
+    | "tenant_deleted"
+    | "activity_inactive"
+    | "ordering_disabled"
+    | "table_maintenance"
+    | "table_deleted";
+
+/**
+ * Payload di errore 423 da resolve-table. `canViewMenu=true` significa che
+ * il client puo redirigere al menu in modalita read-only (ordering_disabled /
+ * table_maintenance). False = sede non agibile, mostrare full-page error.
+ */
+export interface ResolveTableOrderingUnavailable {
+    code: "ORDERING_UNAVAILABLE";
+    reason: OrderingStateReason;
+    message: string;
+    canViewMenu: boolean;
+    tenant_id: string;
+    activity: {
+        id: string;
+        slug: string;
+    };
+    table: {
+        id: string;
+        label: string;
+        zone: string | null;
+    };
+}
+
+/**
+ * Error throwato da resolveTable() quando l'Edge ritorna 423. Permette al
+ * caller di leggere `reason` e decidere se renderizzare il full-page error
+ * o redirigere al menu (vedi `ResolveTableOrderingUnavailable.canViewMenu`).
+ */
+export class ResolveTableOrderingUnavailableError extends Error {
+    readonly payload: ResolveTableOrderingUnavailable;
+    constructor(payload: ResolveTableOrderingUnavailable) {
+        super(payload.message);
+        this.name = "ResolveTableOrderingUnavailableError";
+        this.payload = payload;
+    }
 }
 
 /**
@@ -132,6 +183,8 @@ export interface V2TableWithState extends V2Table {
     pending_orders_count: number;
     open_groups_count: number;
     current_total: number;
+    /** Count sessions attive con bill_requested_at NOT NULL su questo tavolo. */
+    bill_requested_count: number;
 }
 
 // ─── Orders ────────────────────────────────────────────────────────────────
@@ -265,6 +318,9 @@ export interface SessionOrderSummary {
     order_group_id: string | null;
     notes: string | null;
     created_at: string;
+    acknowledged_at: string | null;
+    delivered_at: string | null;
+    cancelled_at: string | null;
     items: V2OrderItem[];
 }
 
@@ -276,6 +332,10 @@ export interface GetOrdersForSessionResult {
         zone: string | null;
     } | null;
     current_open_group_id: string | null;
+    /** Snapshot lato server di customer_sessions.bill_requested_at al fetch.
+     *  NULL = nessuna richiesta attiva. Usato dal client per init UI tab Ordini
+     *  senza dover attendere il primo Realtime UPDATE. */
+    bill_requested_at: string | null;
     orders: SessionOrderSummary[];
 }
 

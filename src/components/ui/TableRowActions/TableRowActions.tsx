@@ -35,6 +35,7 @@ export function TableRowActions({ actions }: TableRowActionsProps) {
                     className={styles.content}
                     align="end"
                     sideOffset={4}
+                    onClick={e => e.stopPropagation()}
                 >
                     {visibleActions.map((action, index) => (
                         <React.Fragment key={index}>

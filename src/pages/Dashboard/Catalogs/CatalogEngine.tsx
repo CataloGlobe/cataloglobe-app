@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
 import { Select } from "@/components/ui/Select/Select";
 import {
@@ -24,13 +26,9 @@ import {
 import {
     SortableContext,
     verticalListSortingStrategy,
-    arrayMove,
-    useSortable
+    arrayMove
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { IconGripVertical, IconPhoto, IconChevronDown, IconChevronRight, IconArrowLeft, IconDotsVertical, IconSettings } from "@tabler/icons-react";
-import { DropdownMenu } from "@/components/ui/DropdownMenu/DropdownMenu";
-import { DropdownItem } from "@/components/ui/DropdownMenu/DropdownItem";
+import { IconGripVertical, IconPhoto, IconChevronDown, IconChevronRight, IconArrowLeft, IconSettings } from "@tabler/icons-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -266,40 +264,6 @@ function flattenTreeDFS(nodes: CatalogTreeNodeData[]): CatalogTreeNodeData[] {
     }
     return result;
 }
-
-type SortableProductRowProps = {
-    children: React.ReactNode;
-    id: string;
-};
-
-const SortableProductRow = ({ children, id }: SortableProductRowProps) => {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-        id
-    });
-
-    const style: React.CSSProperties = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        zIndex: isDragging ? 1 : 0,
-        position: "relative",
-        opacity: isDragging ? 0.5 : 1
-    };
-
-    return (
-        <div ref={setNodeRef} style={style} {...attributes}>
-            {React.Children.map(children, child => {
-                if (React.isValidElement(child)) {
-                    // Inject listeners only to the drag handle icon if found
-                    // We need to pass the listeners to the specific cell that contains IconGripVertical
-                    return React.cloneElement(child as React.ReactElement<any>, {
-                        dragHandleProps: listeners
-                    });
-                }
-                return child;
-            })}
-        </div>
-    );
-};
 
 export default function CatalogEngine() {
     const { id: catalogId } = useParams<{ id: string }>();
@@ -1618,40 +1582,36 @@ export default function CatalogEngine() {
             {
                 id: "actions",
                 header: "",
-                width: "44px",
+                width: "56px",
                 align: "right",
                 cell: (_value, row) => (
-                    <div data-row-click-ignore="true">
-                        <DropdownMenu
-                            trigger={
-                                <button type="button" className={styles.assignActionsBtn}>
-                                    <IconDotsVertical size={15} />
-                                </button>
-                            }
-                            placement="bottom-end"
-                        >
-                            <DropdownItem
-                                onClick={() => {
-                                    const product = allProducts.find(p => p.id === row.productId) ?? null;
+                    <TableRowActions
+                        actions={[
+                            {
+                                label: "Modifica",
+                                onClick: () => {
+                                    const product =
+                                        allProducts.find(p => p.id === row.productId) ?? null;
                                     setMainEditProduct(product);
-                                }}
-                            >
-                                Modifica
-                            </DropdownItem>
-                            <DropdownItem
-                                href={`/business/${currentTenantId}/products/${row.productId}`}
-                                target="_blank"
-                            >
-                                Apri in Piatti
-                            </DropdownItem>
-                            <DropdownItem
-                                danger
-                                onClick={() => setProductToRemoveFromCategory(row)}
-                            >
-                                Rimuovi dalla categoria
-                            </DropdownItem>
-                        </DropdownMenu>
-                    </div>
+                                }
+                            },
+                            {
+                                label: "Apri in Piatti",
+                                onClick: () =>
+                                    window.open(
+                                        `/business/${currentTenantId}/products/${row.productId}`,
+                                        "_blank",
+                                        "noopener,noreferrer"
+                                    )
+                            },
+                            {
+                                label: "Rimuovi dalla categoria",
+                                onClick: () => setProductToRemoveFromCategory(row),
+                                variant: "destructive",
+                                separator: true
+                            }
+                        ]}
+                    />
                 )
             }
         ],
@@ -1755,47 +1715,39 @@ export default function CatalogEngine() {
             {
                 id: "actions",
                 header: "",
-                width: "44px",
+                width: "56px",
                 align: "right",
                 cell: (_value, row) => {
                     const isInherited = inheritedProductIds.has(row.id);
                     return (
-                        <div data-row-click-ignore="true">
-                            <DropdownMenu
-                                trigger={
-                                    <button type="button" className={styles.assignActionsBtn}>
-                                        <IconDotsVertical size={15} />
-                                    </button>
-                                }
-                                placement="bottom-end"
-                            >
-                                {isInherited ? (
-                                    <DropdownItem
-                                        onClick={() => {
+                        <TableRowActions
+                            actions={[
+                                isInherited
+                                    ? {
+                                        label: "Visualizza dettaglio",
+                                        onClick: () => {
                                             setEditingProduct(row);
                                             setIsEditingReadOnly(true);
-                                        }}
-                                    >
-                                        Visualizza dettaglio
-                                    </DropdownItem>
-                                ) : (
-                                    <DropdownItem
-                                        onClick={() => {
+                                        }
+                                    }
+                                    : {
+                                        label: "Modifica",
+                                        onClick: () => {
                                             setEditingProduct(row);
                                             setIsEditingReadOnly(false);
-                                        }}
-                                    >
-                                        Modifica
-                                    </DropdownItem>
-                                )}
-                                <DropdownItem
-                                    href={`/business/${currentTenantId}/products/${row.id}`}
-                                    target="_blank"
-                                >
-                                    Apri in Piatti
-                                </DropdownItem>
-                            </DropdownMenu>
-                        </div>
+                                        }
+                                    },
+                                {
+                                    label: "Apri in Piatti",
+                                    onClick: () =>
+                                        window.open(
+                                            `/business/${currentTenantId}/products/${row.id}`,
+                                            "_blank",
+                                            "noopener,noreferrer"
+                                        )
+                                }
+                            ]}
+                        />
                     );
                 }
             }
@@ -1911,27 +1863,25 @@ export default function CatalogEngine() {
                                 <DataTable<ProductRow>
                                     data={visibleRows}
                                     columns={columns}
-                                    rowsPerPage={20}
+                                    pageSize={20}
                                     selectable
                                     onBulkDelete={handleBulkRemoveSelected}
-                                    emptyState={
-                                        <div style={{ padding: "24px" }}>
-                                            <Text variant="body-sm" colorVariant="muted">
-                                                {productSearch.trim()
-                                                    ? "Nessun prodotto corrisponde al filtro."
-                                                    : "Nessun prodotto associato a questa categoria."}
-                                            </Text>
-                                        </div>
-                                    }
-                                    rowClassName={row =>
-                                        row.productId === newlyAddedProductId
-                                            ? styles.rowNewlyAdded
-                                            : undefined
+                                    emptyState={{
+                                        title: productSearch.trim()
+                                            ? "Nessun prodotto corrisponde al filtro."
+                                            : "Nessun prodotto associato a questa categoria."
+                                    }}
+                                    highlightedRowIds={
+                                        newlyAddedProductId
+                                            ? visibleRows
+                                                .filter(r => r.productId === newlyAddedProductId)
+                                                .map(r => r.id)
+                                            : []
                                     }
                                     rowWrapper={(row, rowData) => (
-                                        <SortableProductRow key={rowData.id} id={rowData.id}>
+                                        <SortableDataTableRow key={rowData.id} id={rowData.id}>
                                             {row}
-                                        </SortableProductRow>
+                                        </SortableDataTableRow>
                                     )}
                                 />
                             </SortableContext>
@@ -2304,16 +2254,20 @@ export default function CatalogEngine() {
                                 <DataTable<V2Product>
                                     data={assignableProducts}
                                     columns={assignColumns}
-                                    emptyState={
-                                        <Text variant="body-sm" colorVariant="muted">
-                                            Nessun prodotto disponibile da associare.
-                                        </Text>
-                                    }
-                                    rowsPerPage={8}
-                                    rowClassName={row =>
-                                        inheritedProductIds.has(row.id)
-                                            ? styles.assignRowInherited
-                                            : undefined
+                                    emptyState={{
+                                        title: "Nessun prodotto disponibile da associare."
+                                    }}
+                                    pageSize={25}
+                                    pageSizeOptions={[25, 50, 100, "all"]}
+                                    maxHeight="calc(100dvh - 320px)"
+                                    rowWrapper={(row, rowData) =>
+                                        inheritedProductIds.has(rowData.id) ? (
+                                            <div className={styles.assignRowInheritedWrapper}>
+                                                {row}
+                                            </div>
+                                        ) : (
+                                            row
+                                        )
                                     }
                                     showSelectionBar={false}
                                 />

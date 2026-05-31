@@ -22,6 +22,32 @@
 
 }
 
+.maintenanceBanner {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 10px)
+    16px
+    10px;
+  background: var(--color-warning-100, #fef3c7);
+  border-bottom: 1px solid var(--color-warning-300, #fcd34d);
+  color: var(--color-warning-700, #b45309);
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 500;
+  text-align: center;
+
+  svg {
+    flex-shrink: 0;
+    color: var(--color-warning-700, #b45309);
+  }
+}
+
 /* Skip link (solo public) */
 .skipLink {
   position: absolute;
@@ -429,7 +455,7 @@
 
     .rowBody {
       flex: 1;
-      padding: 0.75rem 1rem 0;
+      padding: 0.75rem 1rem;
     }
 
     .addBtn {
@@ -835,7 +861,9 @@
   }
 }
 
-/* Overlay variant — bottone glassmorphism in Card·Grid, sovrapposto all'immagine */
+/* Overlay variant — solid white pill in Card·Grid, layered over product image.
+   Contrast at rest is mandatory: touch devices have no hover, and light product
+   photos would otherwise erase the button. */
 .addBtnOverlay {
   position: absolute;
   bottom: 8px;
@@ -843,10 +871,9 @@
   width: 32px;
   height: 32px;
   border-radius: var(--pub-btn-radius);
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: none;
+  background: var(--pub-surface, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -854,13 +881,14 @@
   color: #1a1a1a;
   padding: 0;
   z-index: 2;
-  transition: background 0.15s ease;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
   outline: none;
   -webkit-tap-highlight-color: transparent;
 
   @media (hover: hover) {
     &:hover {
-      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24);
+      transform: scale(1.05);
     }
   }
 
@@ -873,8 +901,6 @@
 .addBtnOverlayActive {
   background: var(--pub-accent);
   color: var(--pub-cta-text);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 
   @media (hover: hover) {
     &:hover {
@@ -1225,6 +1251,32 @@
   to {
     transform: translate(-50%, 0);
     opacity: 1;
+  }
+}
+
+.allergenEmptyState {
+  padding: 56px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.allergenEmptyBtn {
+  padding: 11px 22px;
+  background: var(--pub-accent, #F59E0B);
+  color: var(--pub-cta-text, #fff);
+  border: none;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-accent, #F59E0B) 88%, white);
   }
 }
 

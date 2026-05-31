@@ -4,6 +4,7 @@ import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
@@ -33,10 +34,8 @@ import {
     arrayMove,
     SortableContext,
     sortableKeyboardCoordinates,
-    verticalListSortingStrategy,
-    useSortable
+    verticalListSortingStrategy
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 
 interface ProductsManagerCardProps {
     featuredId: string;
@@ -47,39 +46,6 @@ interface ProductsManagerCardProps {
         onApply: (productIds: string[]) => Promise<void>
     ) => void;
 }
-
-type SortableDataTableRowProps = {
-    children: React.ReactNode;
-    id: string;
-};
-
-const SortableDataTableRow = ({ children, id }: SortableDataTableRowProps) => {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-        id
-    });
-
-    const style: React.CSSProperties = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        zIndex: isDragging ? 1 : 0,
-        position: "relative",
-        opacity: isDragging ? 0.55 : 1
-    };
-
-    return (
-        <div ref={setNodeRef} style={style} {...attributes}>
-            {React.Children.map(children, child => {
-                if (React.isValidElement(child)) {
-                    return React.cloneElement(
-                        child as React.ReactElement<{ dragHandleProps?: unknown }>,
-                        { dragHandleProps: listeners }
-                    );
-                }
-                return child;
-            })}
-        </div>
-    );
-};
 
 function formatPrice(price: number): string {
     return new Intl.NumberFormat("it-IT", {
@@ -362,7 +328,7 @@ export default function ProductsManagerCard({
                 id: "actions",
                 header: "",
                 align: "right",
-                width: "72px",
+                width: "56px",
                 cell: (_value, row) => (
                     <TableRowActions
                         actions={[
@@ -388,7 +354,7 @@ export default function ProductsManagerCard({
 
     return (
         <>
-        <Card>
+        <Card noHoverLift>
             <div style={{ display: "flex", flexDirection: "column" }}>
                 <div
                     style={{
@@ -429,24 +395,23 @@ export default function ProductsManagerCard({
                                 <DataTable<FeaturedContentProductRow>
                                     data={products}
                                     columns={columns}
-                                    emptyState={
-                                        <div style={{ padding: "24px", textAlign: "center" }}>
-                                            <Text
-                                                colorVariant="muted"
-                                                style={{ marginBottom: "12px" }}
-                                            >
-                                                Nessun prodotto associato a questo contenuto.
-                                            </Text>
+                                    emptyState={{
+                                        title: "Nessun prodotto associato a questo contenuto.",
+                                        action: (
                                             <Button
                                                 variant="primary"
                                                 onClick={handleOpenAddModal}
                                             >
                                                 Aggiungi il primo prodotto
                                             </Button>
-                                        </div>
-                                    }
+                                        )
+                                    }}
                                     rowWrapper={(row, rowData) => (
-                                        <SortableDataTableRow key={rowData.id} id={rowData.id}>
+                                        <SortableDataTableRow
+                                            key={rowData.id}
+                                            id={rowData.id}
+                                            draggingOpacity={0.55}
+                                        >
                                             {row}
                                         </SortableDataTableRow>
                                     )}

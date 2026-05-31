@@ -5,11 +5,19 @@ import styles from "./BulkBar.module.scss";
 export interface BulkBarProps {
     selectedCount: number;
     onDelete?: () => void;
+    /** Label custom per il pulsante azione. Default: "Elimina selezionati". */
+    actionLabel?: string;
     onClearSelection?: () => void;
     additionalActions?: React.ReactNode;
 }
 
-export function BulkBar({ selectedCount, onDelete, onClearSelection, additionalActions }: BulkBarProps) {
+export function BulkBar({
+    selectedCount,
+    onDelete,
+    actionLabel = "Elimina selezionati",
+    onClearSelection,
+    additionalActions
+}: BulkBarProps) {
     if (selectedCount === 0) return null;
 
     return createPortal(
@@ -24,7 +32,7 @@ export function BulkBar({ selectedCount, onDelete, onClearSelection, additionalA
                     onClick={onDelete}
                 >
                     <IconTrash size={16} />
-                    Elimina selezionati
+                    {actionLabel}
                 </button>
             )}
             {onClearSelection && (

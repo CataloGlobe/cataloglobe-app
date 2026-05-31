@@ -142,7 +142,7 @@ export function Ingredients({ createTrigger }: IngredientsProps) {
         {
             id: "actions",
             header: "",
-            width: "72px",
+            width: "56px",
             align: "right",
             cell: (_value, row) => (
                 <TableRowActions
@@ -184,44 +184,26 @@ export function Ingredients({ createTrigger }: IngredientsProps) {
                 selectedRowIds={selectedIds}
                 onSelectedRowsChange={setSelectedIds}
                 onBulkDelete={handleBulkDelete}
-                loadingState={
-                    <Text variant="body-sm" colorVariant="muted">
-                        Caricamento ingredienti in corso...
-                    </Text>
-                }
-                emptyState={
-                    <div
-                        style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            gap: 10,
-                            padding: "32px 0",
-                            textAlign: "center"
-                        }}
-                    >
-                        <IconLeaf size={40} stroke={1} style={{ color: "var(--color-gray-400)" }} />
-                        <Text variant="title-sm" weight={600}>
-                            {searchQuery ? "Nessun ingrediente trovato" : "Nessun ingrediente creato"}
-                        </Text>
-                        <Text variant="body-sm" colorVariant="muted">
-                            {searchQuery
-                                ? "Nessun ingrediente corrisponde alla tua ricerca."
-                                : "Aggiungi ingredienti per associarli ai tuoi prodotti."}
-                        </Text>
-                        {!searchQuery && (
-                            <Button
-                                variant="primary"
-                                size="sm"
-                                onClick={handleCreate}
-                                disabled={!canEdit}
-                                style={{ marginTop: 4 }}
-                            >
-                                Crea ingrediente
-                            </Button>
-                        )}
-                    </div>
-                }
+                loadingState={{
+                    message: "Caricamento ingredienti in corso..."
+                }}
+                emptyState={{
+                    icon: <IconLeaf size={40} stroke={1} style={{ color: "var(--color-gray-400)" }} />,
+                    title: searchQuery ? "Nessun ingrediente trovato" : "Nessun ingrediente creato",
+                    description: searchQuery
+                        ? "Nessun ingrediente corrisponde alla tua ricerca."
+                        : "Aggiungi ingredienti per associarli ai tuoi prodotti.",
+                    action: !searchQuery ? (
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleCreate}
+                            disabled={!canEdit}
+                        >
+                            Crea ingrediente
+                        </Button>
+                    ) : undefined
+                }}
             />
 
             {tenantId && (

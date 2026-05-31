@@ -9,7 +9,7 @@
     display: flex;
     flex-direction: column;
     font-family: var(--pub-font-family, sans-serif);
-    color: var(--pub-text);
+    color: var(--pub-surface-text);
 }
 
 /* ── HEADER ─────────────────────────────────────────────── */
@@ -21,7 +21,7 @@
     justify-content: space-between;
     gap: 10px;
     padding: 16px 20px 12px 20px;
-    border-bottom: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface)));
+    border-bottom: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-surface-text) 10%, var(--pub-surface)));
     background: var(--pub-surface, #ffffff);
 }
 
@@ -29,7 +29,7 @@
     margin: 0;
     font-size: 20px;
     font-weight: 700;
-    color: var(--pub-text);
+    color: var(--pub-surface-text);
     line-height: 1.2;
 }
 
@@ -60,11 +60,11 @@
 
 .refreshBtn {
     background: transparent;
-    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 12%, var(--pub-surface)));
+    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-surface-text) 12%, var(--pub-surface)));
     border-radius: var(--pub-btn-radius, 8px);
     padding: 8px;
     cursor: pointer;
-    color: var(--pub-text);
+    color: var(--pub-surface-text);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -72,7 +72,7 @@
     -webkit-tap-highlight-color: transparent;
 
     &:hover:not(:disabled) {
-        background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
+        background: color-mix(in srgb, var(--pub-surface-text) 6%, var(--pub-surface));
     }
 
     &:disabled {
@@ -102,8 +102,8 @@
     display: flex;
     gap: 4px;
     padding: 4px;
-    background: color-mix(in srgb, var(--pub-text) 5%, var(--pub-surface));
-    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface)));
+    background: color-mix(in srgb, var(--pub-surface-text) 5%, var(--pub-surface));
+    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-surface-text) 10%, var(--pub-surface)));
     border-radius: var(--pub-radius, 12px);
 }
 
@@ -118,7 +118,7 @@
     background: transparent;
     border: none;
     border-radius: calc(var(--pub-radius, 12px) - 4px);
-    color: color-mix(in srgb, var(--pub-text) 65%, var(--pub-surface));
+    color: color-mix(in srgb, var(--pub-surface-text) 65%, var(--pub-surface));
     font-family: inherit;
     font-size: 0.88rem;
     font-weight: 600;
@@ -175,7 +175,7 @@
     justify-content: center;
     gap: 8px;
     text-align: center;
-    color: var(--pub-text-muted, color-mix(in srgb, var(--pub-text) 55%, var(--pub-surface)));
+    color: var(--pub-surface-text-muted, color-mix(in srgb, var(--pub-surface-text) 55%, var(--pub-surface)));
 
     p {
         margin: 0;
@@ -186,7 +186,7 @@
     margin: 0;
     font-size: 15px;
     font-weight: 600;
-    color: var(--pub-text);
+    color: var(--pub-surface-text);
     text-align: center;
 }
 
@@ -196,7 +196,11 @@
     line-height: 1.4;
     max-width: 32ch;
     text-align: center;
-    color: color-mix(in srgb, var(--pub-text) 60%, transparent);
+    color: color-mix(in srgb, var(--pub-surface-text) 60%, transparent);
+}
+
+.loadingText {
+    color: var(--pub-surface-text-muted, color-mix(in srgb, var(--pub-surface-text) 55%, var(--pub-surface)));
 }
 
 /* ── ERROR BANNER ───────────────────────────────────────── */
@@ -222,15 +226,21 @@
 
 .listItem {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    flex-direction: column;
+    gap: 8px;
     padding: 14px 20px;
-    border-bottom: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface)));
+    border-bottom: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-surface-text) 10%, var(--pub-surface)));
 
     &:last-child {
         border-bottom: none;
     }
+}
+
+.listItemMain {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 .itemInfo {
@@ -244,7 +254,7 @@
 .itemName {
     font-size: 0.9rem;
     font-weight: 500;
-    color: var(--pub-text);
+    color: var(--pub-surface-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -253,7 +263,7 @@
 
 .itemMeta {
     font-size: 0.75rem;
-    color: var(--pub-text-muted, color-mix(in srgb, var(--pub-text) 55%, var(--pub-surface)));
+    color: var(--pub-surface-text-muted, color-mix(in srgb, var(--pub-surface-text) 55%, var(--pub-surface)));
     line-height: 1.3;
     white-space: nowrap;
     overflow: hidden;
@@ -262,7 +272,7 @@
 
 .itemPrice {
     font-size: 0.78rem;
-    color: var(--pub-text-muted, color-mix(in srgb, var(--pub-text) 55%, var(--pub-surface)));
+    color: var(--pub-surface-text-muted, color-mix(in srgb, var(--pub-surface-text) 55%, var(--pub-surface)));
     font-variant-numeric: tabular-nums;
 }
 
@@ -296,9 +306,9 @@
     width: 30px;
     height: 30px;
     border-radius: var(--pub-btn-radius, 8px);
-    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 12%, var(--pub-surface)));
+    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-surface-text) 12%, var(--pub-surface)));
     background: var(--pub-surface, #ffffff);
-    color: var(--pub-text);
+    color: var(--pub-surface-text);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -307,8 +317,8 @@
     -webkit-tap-highlight-color: transparent;
 
     &:hover {
-        background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
-        border-color: color-mix(in srgb, var(--pub-text) 20%, var(--pub-surface));
+        background: color-mix(in srgb, var(--pub-surface-text) 6%, var(--pub-surface));
+        border-color: color-mix(in srgb, var(--pub-surface-text) 20%, var(--pub-surface));
     }
 
     &:active {
@@ -321,7 +331,7 @@
     text-align: center;
     font-size: 0.9rem;
     font-weight: 700;
-    color: var(--pub-text);
+    color: var(--pub-surface-text);
     font-variant-numeric: tabular-nums;
     line-height: 1;
 }
@@ -335,7 +345,7 @@
     gap: 12px;
     padding: 16px 20px;
     padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
-    border-top: 2px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 12%, var(--pub-surface)));
+    border-top: 2px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-surface-text) 12%, var(--pub-surface)));
     background: var(--pub-surface, #ffffff);
 }
 
@@ -347,13 +357,13 @@
 
 .footerLabel {
     font-size: 0.875rem;
-    color: var(--pub-text-muted, color-mix(in srgb, var(--pub-text) 55%, var(--pub-surface)));
+    color: var(--pub-surface-text-muted, color-mix(in srgb, var(--pub-surface-text) 55%, var(--pub-surface)));
 }
 
 .footerTotal {
     font-size: 1.3rem;
     font-weight: 700;
-    color: var(--pub-text);
+    color: var(--pub-surface-text);
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
 }
@@ -387,6 +397,42 @@
     }
 }
 
+/* Maintenance state: ordering sospeso (URL param o discovered via 423). */
+.submitDisabled {
+    background: rgba(120, 120, 120, 0.25);
+    color: rgba(255, 255, 255, 0.55);
+    cursor: not-allowed;
+
+    &:hover:not(:disabled) {
+        opacity: 1;
+    }
+}
+
+.maintenanceBanner {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    background: rgba(220, 38, 38, 0.12);
+    border: 1px solid rgba(220, 38, 38, 0.3);
+    border-radius: 10px;
+    color: rgba(220, 38, 38, 1);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.maintenanceIcon {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: rgba(220, 38, 38, 1);
+}
+
+.maintenanceText {
+    flex: 1;
+    color: rgba(220, 38, 38, 1);
+}
+
 /* ─────────────────────────────────────────────────────────
    ORDERS TAB
 ──────────────────────────────────────────────────────────── */
@@ -405,7 +451,7 @@
     gap: 10px;
     padding: 14px;
     background: var(--pub-surface, #ffffff);
-    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 12%, var(--pub-surface)));
+    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-surface-text) 12%, var(--pub-surface)));
     border-radius: var(--pub-radius, 12px);
 
     &[data-status="cancelled"] {
@@ -450,7 +496,7 @@
 
 .orderTime {
     font-size: 12px;
-    color: var(--pub-text-muted, color-mix(in srgb, var(--pub-text) 55%, var(--pub-surface)));
+    color: var(--pub-surface-text-muted, color-mix(in srgb, var(--pub-surface-text) 55%, var(--pub-surface)));
     white-space: nowrap;
     flex-shrink: 0;
 }
@@ -470,12 +516,12 @@
     gap: 8px;
     font-size: 14px;
     align-items: baseline;
-    color: var(--pub-text);
+    color: var(--pub-surface-text);
 }
 
 .itemQty {
     font-weight: 600;
-    color: var(--pub-text-muted, color-mix(in srgb, var(--pub-text) 55%, var(--pub-surface)));
+    color: var(--pub-surface-text-muted, color-mix(in srgb, var(--pub-surface-text) 55%, var(--pub-surface)));
 }
 
 .orderTotalRow {
@@ -483,10 +529,10 @@
     justify-content: space-between;
     align-items: baseline;
     padding-top: 8px;
-    border-top: 1px dashed var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 14%, var(--pub-surface)));
+    border-top: 1px dashed var(--pub-surface-border, color-mix(in srgb, var(--pub-surface-text) 14%, var(--pub-surface)));
     font-size: 14px;
     font-weight: 600;
-    color: var(--pub-text);
+    color: var(--pub-surface-text);
 
     span:last-child {
         font-variant-numeric: tabular-nums;
@@ -525,14 +571,14 @@
     flex-direction: column;
     gap: 10px;
     padding: 12px;
-    background: color-mix(in srgb, var(--pub-text) 5%, var(--pub-surface));
+    background: color-mix(in srgb, var(--pub-surface-text) 5%, var(--pub-surface));
     border: 1px solid rgba(239, 68, 68, 0.2);
     border-radius: var(--pub-btn-radius, 8px);
 }
 
 .confirmLabel {
     font-size: 14px;
-    color: var(--pub-text);
+    color: var(--pub-surface-text);
     line-height: 1.35;
 }
 
@@ -557,11 +603,11 @@
 
 .confirmCancel {
     background: transparent;
-    color: var(--pub-text);
-    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-text) 14%, var(--pub-surface)));
+    color: var(--pub-surface-text);
+    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-surface-text) 14%, var(--pub-surface)));
 
     &:hover:not(:disabled) {
-        background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
+        background: color-mix(in srgb, var(--pub-surface-text) 6%, var(--pub-surface));
     }
 }
 
@@ -579,3 +625,102 @@
         cursor: not-allowed;
     }
 }
+
+/* ─────────────────────────────────────────────────────────
+   BILL BLOCK (Totale al tavolo + Chiedi il conto)
+──────────────────────────────────────────────────────────── */
+
+.billBlock {
+    margin: 12px 20px 4px;
+    padding: 14px 16px;
+    background: color-mix(in srgb, var(--pub-surface-text) 5%, var(--pub-surface));
+    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-surface-text) 14%, var(--pub-surface)));
+    border-radius: var(--pub-radius, 12px);
+    font-family: var(--pub-font-family, sans-serif);
+}
+
+.billHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+}
+
+.billLabel {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pub-surface-text);
+}
+
+.billAmount {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--pub-surface-text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+.billCta {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 16px;
+    background: var(--pub-primary);
+    color: var(--pub-on-primary, #ffffff);
+    border: none;
+    border-radius: var(--pub-btn-radius, 10px);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.05s ease;
+    -webkit-tap-highlight-color: transparent;
+
+    &:hover:not(:disabled) {
+        opacity: 0.92;
+    }
+
+    &:active:not(:disabled) {
+        transform: scale(0.99);
+    }
+
+    &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+}
+
+.billRequested {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+    border-radius: var(--pub-btn-radius, 8px);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.billRequestedDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    flex-shrink: 0;
+    animation: billPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes billPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.55; transform: scale(0.88); }
+}
+
+.billErrorMsg {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: rgba(239, 68, 68, 0.1);
+    color: #b91c1c;
+    border-radius: var(--pub-btn-radius, 8px);
+    font-size: 12px;
+}
+

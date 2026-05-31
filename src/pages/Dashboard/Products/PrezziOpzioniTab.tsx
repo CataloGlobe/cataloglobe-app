@@ -1047,7 +1047,6 @@ export default function PrezziOpzioniTab({
                         <DataTable
                             data={variants}
                             columns={variantColumns}
-                            density="compact"
                             onRowClick={variant =>
                                 navigate(
                                     `/business/${businessId}/products/${variant.id}`
@@ -1229,12 +1228,7 @@ export default function PrezziOpzioniTab({
                                 <DataTable
                                     data={group.values}
                                     columns={valueColumns}
-                                    density="compact"
-                                    emptyState={
-                                        <Text variant="body-sm" colorVariant="muted">
-                                            Nessun valore configurato
-                                        </Text>
-                                    }
+                                    emptyState={{ title: "Nessun valore configurato" }}
                                 />
 
                                 <div className={styles.addValueRow}>

@@ -3,7 +3,9 @@ import { supabase } from "@/services/supabase/client";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
-import { canManage, isOwner } from "@/lib/permissions";
+import { canDoOnTenant, canChangeRoleOf, canRemoveMember } from "@/lib/permissions";
+import { usePermissions } from "@/context/PermissionsContext";
+import { useAuth } from "@/context/useAuth";
 import { Card } from "@/components/ui/Card/Card";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -11,15 +13,16 @@ import { Button } from "@/components/ui/Button/Button";
 import { Select } from "@/components/ui/Select/Select";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions, TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
-import { InviteMemberDrawer } from "@/components/Businesses/InviteMemberDrawer";
+import { InviteMemberDrawer } from "@/components/Businesses/InviteMemberDrawer/InviteMemberDrawer";
 import { MemberDrawer } from "@/components/Businesses/MemberDrawer/MemberDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { Send, UserCog, UserMinus, X } from "lucide-react";
+import { Lock, Send, UserCog, UserMinus, X } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import styles from "./TeamPage.module.scss";
 
-import type { TenantMemberRow } from "@/types/team";
-import { listTenantMembers } from "@/services/supabase/team";
+import type { TenantMemberRow, EffectiveRole } from "@/types/team";
+import { listTenantMembers, removeTenantMember } from "@/services/supabase/team";
 
 function formatExpiry(expiresAt: string): string {
     const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000);
@@ -28,8 +31,61 @@ function formatExpiry(expiresAt: string): string {
     return `tra ${days} gg`;
 }
 
+const ROLE_BADGE_LABEL: Record<EffectiveRole, string> = {
+    owner: "Owner",
+    admin: "Admin",
+    manager: "Manager",
+    staff: "Staff",
+    viewer: "Viewer"
+};
+
+const ROLE_BADGE_CLASS: Record<EffectiveRole, string> = {
+    owner: styles.roleOwner,
+    admin: styles.roleAdmin,
+    manager: styles.roleManager,
+    staff: styles.roleStaff,
+    viewer: styles.roleViewer
+};
+
+function RoleBadge({ role }: { role: EffectiveRole }) {
+    return (
+        <span className={`${styles.roleBadge} ${ROLE_BADGE_CLASS[role]}`}>
+            {ROLE_BADGE_LABEL[role]}
+        </span>
+    );
+}
+
+function ActivitiesCell({ member }: { member: TenantMemberRow }) {
+    if (member.effective_role === "owner" || member.effective_role === "admin") {
+        return (
+            <Text variant="body-sm" colorVariant="muted">
+                Tutte le sedi
+            </Text>
+        );
+    }
+    if (member.activity_names.length === 0) {
+        return (
+            <Text variant="body-sm" colorVariant="muted">
+                —
+            </Text>
+        );
+    }
+    if (member.activity_names.length <= 2) {
+        return (
+            <Text variant="body-sm">
+                {member.activity_names.join(", ")}
+            </Text>
+        );
+    }
+    return (
+        <Text variant="body-sm" title={member.activity_names.join(", ")}>
+            {member.activity_names.length} sedi
+        </Text>
+    );
+}
+
 export default function TeamPage() {
-    const { selectedTenant, selectedTenantId, userRole } = useTenant();
+    const { selectedTenant, selectedTenantId } = useTenant();
     const { showToast } = useToast();
 
     const [members, setMembers] = useState<TenantMemberRow[]>([]);
@@ -43,7 +99,12 @@ export default function TeamPage() {
     const [search, setSearch] = useState("");
     const [roleFilter, setRoleFilter] = useState("");
 
-    const isAdmin = canManage(userRole);
+    const { permissions, loading: permissionsLoading } = usePermissions();
+    const { user } = useAuth();
+    const callerUserId = user?.id;
+    const canInvite = permissions ? canDoOnTenant(permissions, "team.invite") : false;
+    const canReadTeam = permissions ? canDoOnTenant(permissions, "team.read") : false;
+    const canRemoveAny = permissions ? canDoOnTenant(permissions, "team.remove") : false;
 
     usePageHeader({
         title: "Team",
@@ -52,13 +113,14 @@ export default function TeamPage() {
     });
 
     const filteredActiveMembers = useMemo(() => {
-        let result = members.filter(m => m.status === "active");
+        // "Active" include owner synthetic (status=NULL) e membership status='active'
+        let result = members.filter(m => m.status === "active" || m.effective_role === "owner");
         if (search.trim()) {
             const q = search.trim().toLowerCase();
             result = result.filter(m => m.email?.toLowerCase().includes(q));
         }
         if (roleFilter) {
-            result = result.filter(m => m.role === roleFilter);
+            result = result.filter(m => m.effective_role === roleFilter);
         }
         return result;
     }, [members, search, roleFilter]);
@@ -74,6 +136,13 @@ export default function TeamPage() {
 
     useEffect(() => {
         if (!selectedTenantId) return;
+        // Skip fetch se il caller non ha team.read (la RPC tornerebbe 42501).
+        // Il render mostra il locked state — niente network roundtrip.
+        if (permissions && !canReadTeam) {
+            setMembers([]);
+            setLoading(false);
+            return;
+        }
         let cancelled = false;
 
         const fetchMembers = async () => {
@@ -93,40 +162,31 @@ export default function TeamPage() {
 
         fetchMembers();
         return () => { cancelled = true; };
-    }, [selectedTenantId, refreshKey]);
+    }, [selectedTenantId, refreshKey, permissions, canReadTeam]);
 
     const handleRemove = useCallback((member: TenantMemberRow) => {
         setMemberToRemove(member);
     }, []);
 
     const handleConfirmRemove = useCallback(async (): Promise<boolean> => {
-        if (!memberToRemove || !selectedTenantId) return false;
+        if (!memberToRemove) return false;
 
-        const { error } = await supabase.rpc("remove_tenant_member", {
-            p_tenant_id: selectedTenantId,
-            p_user_id: memberToRemove.user_id,
-        });
-
-        if (error) {
-            console.error("[BusinessTeamPage] remove member failed:", error);
-            const msg = error.message ?? "";
+        try {
+            await removeTenantMember(memberToRemove.membership_id);
+        } catch (err) {
+            console.error("[BusinessTeamPage] remove member failed:", err);
+            const error = err as { code?: string; message?: string };
             let userMessage = "Impossibile rimuovere il membro. Riprova più tardi.";
-            if (msg.includes("cannot remove yourself")) {
-                userMessage = "Non puoi rimuovere te stesso. Esci dal tenant invece.";
-            } else if (msg.includes("cannot remove owner")) {
-                userMessage = "Non puoi rimuovere il proprietario del tenant.";
-            } else if (msg.includes("not allowed")) {
-                userMessage = "Non hai i permessi per rimuovere questo membro.";
-            } else if (msg.includes("member not found")) {
-                userMessage = "Membro non trovato.";
-            }
+            if (error.code === "42501") userMessage = error.message || "Permesso negato.";
+            else if (error.code === "44000") userMessage = "Membro non trovato.";
+            else if (error.code === "22023") userMessage = error.message || "Operazione non valida.";
             showToast({ type: "error", message: userMessage });
             return false;
         }
 
         setRefreshKey(k => k + 1);
         return true;
-    }, [memberToRemove, selectedTenantId, showToast]);
+    }, [memberToRemove, showToast]);
 
     const handleChangeRole = useCallback((member: TenantMemberRow) => {
         setMemberDrawerTarget(member);
@@ -151,6 +211,85 @@ export default function TeamPage() {
         }
 
         showToast({ type: "success", message: "Invito annullato." });
+        setRefreshKey(k => k + 1);
+    }, [showToast]);
+
+    const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+    const [selectedInviteIds, setSelectedInviteIds] = useState<string[]>([]);
+    const [bulkRemovePendingIds, setBulkRemovePendingIds] = useState<string[]>([]);
+    const bulkRemoveConfirmOpen = bulkRemovePendingIds.length > 0;
+
+    const handleBulkRemoveMembers = useCallback((ids: string[]) => {
+        if (!selectedTenantId || ids.length === 0) return;
+        const removableIds = members
+            .filter(
+                m => m.status === "active"
+                  && ids.includes(m.membership_id)
+                  && m.effective_role !== "owner"
+            )
+            .map(m => m.membership_id);
+        if (removableIds.length === 0) {
+            showToast({ type: "error", message: "Nessun membro rimovibile selezionato." });
+            setSelectedMemberIds([]);
+            return;
+        }
+        setBulkRemovePendingIds(removableIds);
+    }, [selectedTenantId, members, showToast]);
+
+    const handleBulkRemoveConfirm = useCallback(async (): Promise<boolean> => {
+        if (bulkRemovePendingIds.length === 0) return false;
+        const results = await Promise.allSettled(
+            bulkRemovePendingIds.map(id => removeTenantMember(id))
+        );
+        const failed = results.filter(r => r.status === "rejected").length;
+        const ok = results.length - failed;
+        if (ok > 0) {
+            showToast({
+                type: "success",
+                message: ok === 1 ? "1 membro rimosso" : `${ok} membri rimossi`,
+            });
+        }
+        if (failed > 0) {
+            showToast({
+                type: "error",
+                message: failed === 1
+                    ? "1 membro non rimosso"
+                    : `${failed} membri non rimossi`,
+            });
+        }
+        setSelectedMemberIds([]);
+        setRefreshKey(k => k + 1);
+        return true;
+    }, [bulkRemovePendingIds, showToast]);
+
+    const handleBulkCancelInvites = useCallback(async (ids: string[]) => {
+        if (ids.length === 0) return;
+        const results = await Promise.allSettled(
+            ids.map(id =>
+                supabase
+                    .rpc("revoke_invite", { p_membership_id: id })
+                    .then(({ error }) => {
+                        if (error) throw error;
+                    })
+            )
+        );
+        const failed = results.filter(r => r.status === "rejected").length;
+        const ok = results.length - failed;
+        if (ok > 0) {
+            showToast({
+                type: "success",
+                message: ok === 1 ? "1 invito annullato" : `${ok} inviti annullati`,
+            });
+        }
+        if (failed > 0) {
+            showToast({
+                type: "error",
+                message: failed === 1
+                    ? "1 invito non annullato"
+                    : `${failed} inviti non annullati`,
+            });
+        }
+        setSelectedInviteIds([]);
         setRefreshKey(k => k + 1);
     }, [showToast]);
 
@@ -182,61 +321,70 @@ export default function TeamPage() {
                 id: "email",
                 header: "Email",
                 width: "2fr",
-                cell: (_, row) => (
-                    <Text variant="body-sm" className={styles.emailCell}>
-                        {row.email ?? "—"}
-                    </Text>
-                ),
+                cell: (_, row) => {
+                    const isSelf = callerUserId && row.user_id === callerUserId;
+                    return (
+                        <span className={styles.emailWithBadge}>
+                            <Text variant="body-sm" className={styles.emailCell}>
+                                {row.email || "—"}
+                            </Text>
+                            {isSelf && <Badge variant="secondary">Tu</Badge>}
+                        </span>
+                    );
+                },
             },
             {
                 id: "role",
                 header: "Ruolo",
-                width: "140px",
-                cell: (_, row) => (
-                    <Badge variant={row.role === "owner" ? "primary" : "secondary"}>
-                        {row.role === "owner" ? "Owner" : row.role === "admin" ? "Admin" : "Member"}
-                    </Badge>
-                ),
+                width: "120px",
+                cell: (_, row) => <RoleBadge role={row.effective_role} />,
+            },
+            {
+                id: "activities",
+                header: "Sedi",
+                width: "2fr",
+                cell: (_, row) => <ActivitiesCell member={row} />,
             },
         ];
 
-        if (isAdmin) {
-            base.push({
-                id: "actions",
-                header: "",
-                width: "56px",
-                align: "right",
-                cell: (_, row) => {
-                    const actions: TableRowAction[] = [
-                        {
-                            label: "Cambia ruolo",
-                            icon: UserCog,
-                            onClick: () => handleChangeRole(row),
-                            hidden: isOwner(row.role),
-                        },
-                        {
-                            label: "Rimuovi membro",
-                            icon: UserMinus,
-                            onClick: () => handleRemove(row),
-                            variant: "destructive",
-                            separator: true,
-                            hidden: isOwner(row.role),
-                        },
-                    ];
+        base.push({
+            id: "actions",
+            header: "",
+            width: "56px",
+            align: "right",
+            cell: (_, row) => {
+                const target = {
+                    role: row.effective_role,
+                    activityIds: row.activity_ids,
+                    userId: row.user_id ?? undefined
+                };
+                const canEdit = permissions ? canChangeRoleOf(permissions, target, callerUserId) : false;
+                const canRemove = permissions ? canRemoveMember(permissions, target, callerUserId) : false;
 
-                    if (actions.filter(a => !a.hidden).length === 0) return null;
+                const actions: TableRowAction[] = [
+                    {
+                        label: "Cambia ruolo",
+                        icon: UserCog,
+                        onClick: () => handleChangeRole(row),
+                        hidden: !canEdit,
+                    },
+                    {
+                        label: "Rimuovi",
+                        icon: UserMinus,
+                        onClick: () => handleRemove(row),
+                        variant: "destructive",
+                        separator: true,
+                        hidden: !canRemove,
+                    },
+                ];
 
-                    return (
-                        <div className={styles.actionsCell} data-row-click-ignore="true">
-                            <TableRowActions actions={actions} />
-                        </div>
-                    );
-                },
-            });
-        }
+                if (actions.filter(a => !a.hidden).length === 0) return null;
+                return <TableRowActions actions={actions} />;
+            },
+        });
 
         return base;
-    }, [isAdmin, handleChangeRole, handleRemove]);
+    }, [permissions, callerUserId, handleChangeRole, handleRemove]);
 
     const pendingColumns = useMemo<ColumnDefinition<TenantMemberRow>[]>(() => {
         const base: ColumnDefinition<TenantMemberRow>[] = [
@@ -246,7 +394,7 @@ export default function TeamPage() {
                 width: "2fr",
                 cell: (_, row) => (
                     <Text variant="body-sm" className={styles.emailCell}>
-                        {row.email ?? "—"}
+                        {row.email || "—"}
                     </Text>
                 ),
             },
@@ -254,19 +402,21 @@ export default function TeamPage() {
                 id: "role",
                 header: "Ruolo",
                 width: "120px",
-                cell: (_, row) => (
-                    <Badge variant="secondary">
-                        {row.role === "admin" ? "Admin" : "Member"}
-                    </Badge>
-                ),
+                cell: (_, row) => <RoleBadge role={row.effective_role} />,
+            },
+            {
+                id: "activities",
+                header: "Sedi",
+                width: "1.5fr",
+                cell: (_, row) => <ActivitiesCell member={row} />,
             },
             {
                 id: "invited_by",
                 header: "Invitato da",
-                width: "2fr",
+                width: "1.5fr",
                 cell: (_, row) => (
                     <Text variant="body-sm" colorVariant="muted">
-                        {row.inviter_email ?? "—"}
+                        {row.invited_by_email ?? "—"}
                     </Text>
                 ),
             },
@@ -282,64 +432,75 @@ export default function TeamPage() {
             },
         ];
 
-        if (isAdmin) {
-            base.push({
-                id: "actions",
-                header: "",
-                width: "56px",
-                align: "right",
-                cell: (_, row) => {
-                    const actions: TableRowAction[] = [
-                        {
-                            label: "Rinvia invito",
-                            icon: Send,
-                            onClick: () => handleResendInvite(row),
-                        },
-                        {
-                            label: "Annulla invito",
-                            icon: X,
-                            onClick: () => handleCancelInvite(row),
-                            variant: "destructive",
-                            separator: true,
-                        },
-                    ];
+        base.push({
+            id: "actions",
+            header: "",
+            width: "56px",
+            align: "right",
+            cell: (_, row) => {
+                const target = {
+                    role: row.effective_role,
+                    activityIds: row.activity_ids,
+                    userId: row.user_id ?? undefined
+                };
+                const canEdit = permissions ? canChangeRoleOf(permissions, target, callerUserId) : false;
+                const canRemove = permissions ? canRemoveMember(permissions, target, callerUserId) : false;
 
-                    return (
-                        <div className={styles.actionsCell} data-row-click-ignore="true">
-                            <TableRowActions actions={actions} />
-                        </div>
-                    );
-                },
-            });
-        }
+                const actions: TableRowAction[] = [
+                    {
+                        label: "Cambia ruolo",
+                        icon: UserCog,
+                        onClick: () => handleChangeRole(row),
+                        hidden: !canEdit,
+                    },
+                    {
+                        label: "Rinvia invito",
+                        icon: Send,
+                        onClick: () => handleResendInvite(row),
+                        hidden: !canEdit,
+                    },
+                    {
+                        label: "Annulla invito",
+                        icon: X,
+                        onClick: () => handleCancelInvite(row),
+                        variant: "destructive",
+                        separator: true,
+                        hidden: !canRemove,
+                    },
+                ];
+
+                if (actions.filter(a => !a.hidden).length === 0) return null;
+                return <TableRowActions actions={actions} />;
+            },
+        });
 
         return base;
-    }, [isAdmin, handleResendInvite, handleCancelInvite]);
+    }, [permissions, callerUserId, handleChangeRole, handleResendInvite, handleCancelInvite]);
 
-    const emptyState = (
-        <div className={styles.emptyState}>
-            <Text variant="body">Nessun membro trovato.</Text>
-        </div>
-    );
-
-    const loadingState = (
-        <div className={styles.emptyState}>
-            <Text variant="body">Caricamento membri...</Text>
-        </div>
-    );
+    const membersEmptyState = { title: "Nessun membro trovato." };
+    const membersLoadingState = { message: "Caricamento membri..." };
+    const invitesEmptyState = { title: "Nessun invito in attesa." };
 
     return (
         <>
             <div className={styles.page}>
                 {!selectedTenantId ? (
-                    <Card className={styles.card}>
+                    <Card noHoverLift>
                         <div className={styles.emptyState}>
                             <Text variant="body">Seleziona un&apos;attività per vedere i membri.</Text>
                         </div>
                     </Card>
+                ) : !permissionsLoading && permissions && !canReadTeam ? (
+                    <div className={styles.lockedWrap}>
+                        <EmptyState
+                            icon={<Lock size={40} strokeWidth={1.5} />}
+                            title="Non hai accesso alla gestione del team"
+                            description="La gestione dei membri del team è riservata a proprietario, amministratori e manager. Contatta il proprietario o un amministratore se hai bisogno di accedere a queste informazioni."
+                        />
+                    </div>
                 ) : (
                     <>
-                        <Card className={styles.card}>
+                        <Card noHoverLift>
                             <div className={styles.cardHeader}>
                                 <div className={styles.cardHeaderText}>
                                     <Text variant="title-sm" weight={600}>Membri</Text>
@@ -347,7 +508,7 @@ export default function TeamPage() {
                                         Membri attivi con accesso a questa attività.
                                     </Text>
                                 </div>
-                                {isAdmin && (
+                                {canInvite && (
                                     <Button
                                         variant="primary"
                                         size="sm"
@@ -375,7 +536,9 @@ export default function TeamPage() {
                                                     { value: "",        label: "Tutti" },
                                                     { value: "owner",   label: "Owner" },
                                                     { value: "admin",   label: "Admin" },
-                                                    { value: "member",  label: "Member" },
+                                                    { value: "manager", label: "Manager" },
+                                                    { value: "staff",   label: "Staff" },
+                                                    { value: "viewer",  label: "Viewer" },
                                                 ]}
                                             />
                                         </div>
@@ -387,14 +550,32 @@ export default function TeamPage() {
                                 data={filteredActiveMembers}
                                 columns={activeColumns}
                                 isLoading={loading}
-                                emptyState={emptyState}
-                                loadingState={loadingState}
-                                density="extended"
+                                emptyState={membersEmptyState}
+                                loadingState={membersLoadingState}
+                                getRowId={row => row.membership_id}
+                                selectable={canRemoveAny}
+                                isRowSelectable={row =>
+                                    permissions
+                                        ? canRemoveMember(
+                                              permissions,
+                                              {
+                                                  role: row.effective_role,
+                                                  activityIds: row.activity_ids,
+                                                  userId: row.user_id ?? undefined
+                                              },
+                                              callerUserId
+                                          )
+                                        : false
+                                }
+                                selectedRowIds={selectedMemberIds}
+                                onSelectedRowsChange={setSelectedMemberIds}
+                                onBulkDelete={handleBulkRemoveMembers}
+                                bulkActionLabel="Rimuovi dal team"
                             />
                         </Card>
 
                         {members.some(m => m.status === "pending") && (
-                            <Card className={styles.card}>
+                            <Card noHoverLift>
                                 <div className={styles.cardHeader}>
                                     <div className={styles.cardHeaderText}>
                                         <Text variant="title-sm" weight={600}>
@@ -410,13 +591,27 @@ export default function TeamPage() {
                                     data={filteredPendingInvites}
                                     columns={pendingColumns}
                                     isLoading={loading}
-                                    emptyState={
-                                        <div className={styles.emptyState}>
-                                            <Text variant="body">Nessun invito in attesa.</Text>
-                                        </div>
+                                    emptyState={invitesEmptyState}
+                                    loadingState={membersLoadingState}
+                                    getRowId={row => row.membership_id}
+                                    selectable={canRemoveAny}
+                                    isRowSelectable={row =>
+                                        permissions
+                                            ? canRemoveMember(
+                                                  permissions,
+                                                  {
+                                                      role: row.effective_role,
+                                                      activityIds: row.activity_ids,
+                                                      userId: row.user_id ?? undefined
+                                                  },
+                                                  callerUserId
+                                              )
+                                            : false
                                     }
-                                    loadingState={loadingState}
-                                    density="compact"
+                                    selectedRowIds={selectedInviteIds}
+                                    onSelectedRowsChange={setSelectedInviteIds}
+                                    onBulkDelete={handleBulkCancelInvites}
+                                    bulkActionLabel="Annulla inviti"
                                 />
                             </Card>
                         )}
@@ -437,8 +632,21 @@ export default function TeamPage() {
                 isOpen={memberToRemove !== null}
                 onClose={() => setMemberToRemove(null)}
                 onConfirm={handleConfirmRemove}
-                title="Rimuovi membro"
-                message={`Rimuovere ${memberToRemove?.email ?? memberToRemove?.user_id} dal team?`}
+                title="Rimuovi dal team"
+                message={`Rimuovere ${memberToRemove?.email ?? memberToRemove?.user_id} dal team? Non avrà più accesso a questa azienda. Può essere reinvitato in futuro.`}
+                confirmLabel="Rimuovi"
+            />
+
+            <ConfirmDialog
+                isOpen={bulkRemoveConfirmOpen}
+                onClose={() => setBulkRemovePendingIds([])}
+                onConfirm={handleBulkRemoveConfirm}
+                title={
+                    bulkRemovePendingIds.length === 1
+                        ? "Rimuovi 1 membro dal team?"
+                        : `Rimuovi ${bulkRemovePendingIds.length} membri dal team?`
+                }
+                message="I membri rimossi non avranno più accesso a questa azienda. Possono essere reinvitati in futuro."
                 confirmLabel="Rimuovi"
             />
 

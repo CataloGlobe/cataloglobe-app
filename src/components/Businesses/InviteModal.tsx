@@ -13,10 +13,18 @@ import styles from "./InviteModal.module.scss";
 export type PendingInviteData = {
     id: string;
     invite_token: string;
-    role: string;
+    effective_role: string;
     tenant_id: string;
     tenant_name: string;
     inviter_email: string | null;
+    activity_names: string[];
+};
+
+const ROLE_DISPLAY: Record<string, string> = {
+    admin: "Admin",
+    manager: "Manager",
+    staff: "Staff",
+    viewer: "Viewer"
 };
 
 type Props = {
@@ -98,7 +106,17 @@ export function InviteModal({ invite, onClose, onAccepted, onDeclined }: Props) 
                         <div className={styles.row}>
                             <Text variant="body-sm" colorVariant="muted">Ruolo</Text>
                             <Text variant="body" weight={600}>
-                                {invite.role === "admin" ? "Admin" : "Member"}
+                                {ROLE_DISPLAY[invite.effective_role] ?? invite.effective_role}
+                            </Text>
+                        </div>
+                        <div className={styles.row}>
+                            <Text variant="body-sm" colorVariant="muted">Sedi</Text>
+                            <Text variant="body" weight={600}>
+                                {invite.effective_role === "admin"
+                                    ? "Tutte le sedi"
+                                    : invite.activity_names.length === 0
+                                        ? "—"
+                                        : invite.activity_names.join(", ")}
                             </Text>
                         </div>
                     </div>

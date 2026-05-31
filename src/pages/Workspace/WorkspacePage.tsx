@@ -81,10 +81,11 @@ export default function WorkspacePage() {
                 rows.map(r => ({
                     id: r.membership_id,
                     invite_token: r.invite_token ?? "",
-                    role: r.role,
+                    effective_role: r.effective_role,
                     tenant_id: r.tenant_id,
                     tenant_name: r.tenant_name,
                     inviter_email: r.inviter_email ?? null,
+                    activity_names: r.activity_names ?? [],
                 }))
             );
         };

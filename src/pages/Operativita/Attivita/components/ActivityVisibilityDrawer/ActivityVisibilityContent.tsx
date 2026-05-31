@@ -253,9 +253,8 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                     <DataTable
                         data={filtered}
                         columns={columns}
-                        rowClassName={p =>
-                            savingId === p.product_id ? styles.rowSaving : undefined
-                        }
+                        getRowId={p => p.product_id}
+                        disabledRowIds={savingId ? [savingId] : []}
                     />
                 </div>
             )}

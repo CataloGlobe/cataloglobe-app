@@ -282,19 +282,15 @@ export function ProductGroupCreateEditDrawer({
                             selectedRowIds={selectedProductIds}
                             onSelectedRowsChange={setSelectedProductIds}
                             showSelectionBar={false}
-                            density="compact"
-                            emptyState={
-                                <Text variant="body-sm" colorVariant="muted">
-                                    {productSearch
-                                        ? "Nessun prodotto corrisponde alla ricerca."
-                                        : "Nessun prodotto disponibile."}
-                                </Text>
-                            }
-                            loadingState={
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Caricamento prodotti...
-                                </Text>
-                            }
+                            emptyState={{
+                                title: productSearch
+                                    ? "Nessun prodotto corrisponde alla ricerca."
+                                    : "Nessun prodotto disponibile."
+                            }}
+                            loadingState={{ message: "Caricamento prodotti..." }}
+                            pageSize={25}
+                            pageSizeOptions={[25, 50, 100, "all"]}
+                            maxHeight="calc(100dvh - 320px)"
                         />
                     </div>
                 </div>

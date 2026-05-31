@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Grid2X2, RefreshCw, QrCode, RotateCw, Lock } from "lucide-react";
+import { Plus, Grid2X2, RefreshCw, QrCode, RotateCw, Lock, Bell } from "lucide-react";
+import BillRequestsDrawer from "./BillRequestsDrawer";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
@@ -79,10 +80,14 @@ export default function Tables() {
     // Close table drawer
     const [isCloseOpen, setIsCloseOpen] = useState(false);
     const [tableToClose, setTableToClose] = useState<V2TableWithState | null>(null);
+    const [billDrawerTable, setBillDrawerTable] = useState<{ id: string; label: string } | null>(null);
 
     // QR generation flags (per disabilitazione bottoni durante async)
     const [isGeneratingQrAll, setIsGeneratingQrAll] = useState(false);
     const [generatingQrTableId, setGeneratingQrTableId] = useState<string | null>(null);
+
+    // Bulk selection
+    const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
 
     // ── Activities load (once on mount per tenant) ──
     const loadActivities = useCallback(async () => {
@@ -121,6 +126,31 @@ export default function Tables() {
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    const handleBulkDelete = useCallback(async (ids: string[]) => {
+        if (!tenantId || ids.length === 0) return;
+        const results = await Promise.allSettled(
+            ids.map(id => deleteTable(id, tenantId))
+        );
+        const failed = results.filter(r => r.status === "rejected").length;
+        const ok = results.length - failed;
+        if (ok > 0) {
+            showToast({
+                message: ok === 1 ? "1 tavolo eliminato" : `${ok} tavoli eliminati`,
+                type: "success"
+            });
+        }
+        if (failed > 0) {
+            showToast({
+                message: failed === 1
+                    ? "1 tavolo non eliminato"
+                    : `${failed} tavoli non eliminati`,
+                type: "error"
+            });
+        }
+        setSelectedTableIds([]);
+        await loadData();
+    }, [tenantId, showToast, loadData]);
 
     // ── Filtering ──
     const filteredItems = useMemo(() => {
@@ -369,6 +399,25 @@ export default function Tables() {
                             {row.zone}
                         </Text>
                     )}
+                    {row.bill_requested_count > 0 && (
+                        <button
+                            type="button"
+                            className={styles.billBadge}
+                            onClick={e => {
+                                e.stopPropagation();
+                                setBillDrawerTable({ id: row.id, label: row.label });
+                            }}
+                            aria-label={`${row.bill_requested_count} richieste conto`}
+                        >
+                            <Bell size={12} />
+                            <span>Conto richiesto</span>
+                            {row.bill_requested_count > 1 && (
+                                <span className={styles.billBadgeCount}>
+                                    {row.bill_requested_count}
+                                </span>
+                            )}
+                        </button>
+                    )}
                 </div>
             )
         },
@@ -437,7 +486,7 @@ export default function Tables() {
         {
             id: "actions",
             header: "",
-            width: "60px",
+            width: "56px",
             align: "right",
             cell: (_v, row) => (
                 <TableRowActions
@@ -597,8 +646,11 @@ export default function Tables() {
                     <DataTable<V2TableWithState>
                         data={filteredItems}
                         columns={columns}
-                        density="compact"
                         isLoading={isLoading}
+                        selectable
+                        selectedRowIds={selectedTableIds}
+                        onSelectedRowsChange={setSelectedTableIds}
+                        onBulkDelete={handleBulkDelete}
                     />
                 )}
             </div>
@@ -703,6 +755,14 @@ export default function Tables() {
                     setTableToClose(null);
                 }}
                 onConfirm={handleCloseConfirm}
+            />
+
+            <BillRequestsDrawer
+                isOpen={billDrawerTable !== null}
+                onClose={() => setBillDrawerTable(null)}
+                tableId={billDrawerTable?.id ?? null}
+                tableLabel={billDrawerTable?.label ?? ""}
+                onSuccess={loadData}
             />
         </section>
     );

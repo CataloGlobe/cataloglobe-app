@@ -7,6 +7,8 @@ export interface RadioOption {
     value: string;
     label: string;
     description?: string;
+    /** Disabilita questa singola opzione (opt-in). Il group-level `disabled` ha priorità. */
+    disabled?: boolean;
 }
 
 export interface RadioGroupProps {
@@ -54,12 +56,13 @@ export const RadioGroup: React.FC<RadioGroupProps> = ({
                 <div className={styles.group} role="radiogroup" aria-invalid={hasError || undefined} aria-describedby={describedById}>
                     {options.map(opt => {
                         const radioId = `${inputId}-${opt.value}`;
+                        const optDisabled = isDisabled || opt.disabled === true;
 
                         return (
                             <label
                                 key={opt.value}
                                 htmlFor={radioId}
-                                className={`${styles.option} ${isDisabled ? styles.disabled : ""}`}
+                                className={`${styles.option} ${optDisabled ? styles.disabled : ""}`}
                             >
                                 <input
                                     id={radioId}
@@ -67,7 +70,7 @@ export const RadioGroup: React.FC<RadioGroupProps> = ({
                                     name={inputId}
                                     value={opt.value}
                                     checked={value === opt.value}
-                                    disabled={isDisabled}
+                                    disabled={optDisabled}
                                     onChange={() => onChange(opt.value)}
                                     className={styles.input}
                                 />

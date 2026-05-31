@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { usePageHeader } from "@/context/usePageHeader";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { useTenantId } from "@/context/useTenantId";
@@ -60,6 +61,7 @@ const formatCurrency = (value: number) => `${value.toFixed(2)} €`;
 
 export default function Products() {
     const currentTenantId = useTenantId();
+    const navigate = useNavigate();
     const { selectedTenant } = useTenant();
     const { showToast } = useToast();
     const verticalConfig = useVerticalConfig();
@@ -412,8 +414,8 @@ export default function Products() {
         },
         {
             id: "actions",
-            header: "Azioni",
-            width: "96px",
+            header: "",
+            width: "56px",
             align: "right",
             cell: (_value, row) => (
                 <TableRowActions
@@ -502,11 +504,21 @@ export default function Products() {
                             <DataTable<ProductTableRow>
                                 data={tableRows}
                                 columns={columns}
-                                density="compact"
                                 selectable
                                 onBulkDelete={handleBulkDelete}
-                                rowClassName={row =>
-                                    row.kind === "variant" ? styles.variantTableRow : undefined
+                                onRowClick={row =>
+                                    navigate(
+                                        `/business/${currentTenantId}/products/${row.product.id}`
+                                    )
+                                }
+                                rowWrapper={(row, rowData) =>
+                                    rowData.kind === "variant" ? (
+                                        <div className={styles.variantRowWrapper}>
+                                            {row}
+                                        </div>
+                                    ) : (
+                                        row
+                                    )
                                 }
                             />
                         ) : (

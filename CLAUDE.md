@@ -212,6 +212,14 @@ Catalogo completo, bug history (`purgeTenantData` ordine FK, `purgeActivityFolde
 
 ---
 
+## Aree in sviluppo / da completare
+
+Tech-debt e refactor differiti. Non bloccanti per il task corrente; da valutare durante refactor mirati o cicli di consolidamento.
+
+- **DropdownMenu custom vs TableRowActions** — coesistono due implementazioni di menu a tendina. `TableRowActions` (Radix-based) usato in 22 DataTable kebab. `DropdownMenu` custom (`src/components/ui/DropdownMenu/`, scritto a mano con framer-motion + useState/useRef/createPortal) usato in 4 call site non-tabella: `HeaderUserMenu`, `HeaderNotifications`, `ActivitySettingsTab`, `Programming.tsx` (bulk action). Refactor proposto: migrare i 4 call site a Radix DropdownMenu (stessa libreria di TableRowActions) ed eliminare `DropdownMenu` custom. Non urgente — funziona oggi. Vantaggio: una sola libreria menu, codice meno custom, manutenzione singola.
+
+---
+
 ## Plugin & MCP — regole d'uso
 
 Le regole prevalgono sui descriptor dei plugin in caso di conflitto.
@@ -247,8 +255,31 @@ Utile per task multi-step complessi, dannoso per task tattici (overhead di plann
 
 ### Commit
 
-- Standard: `commit-commands` (`/commit`, `/commit-push-pr`). Format: Conventional Commits.
+- Standard: `commit-commands` (`/commit`, `/commit-push-pr`).
+- Format: Conventional Commits.
 - `/clean_gone` — VIETATO senza conferma esplicita umana per ogni branch eliminato.
+
+#### Anti-drift WIP (obbligatorio prima di ogni commit)
+
+Prima di ogni `git add` Claude Code DEVE eseguire e mostrare all'utente l'output di:
+
+```bash
+git diff --stat
+git status --short
+```
+
+E identificare esplicitamente:
+- File modified appartenenti al task corrente (vanno staged)
+- File modified appartenenti ad altre chat parallele (NON vanno staged)
+- File untracked nuovi: nostri (vanno staged) vs altri (lasciati)
+
+Pattern di drift ricorrente: file modificati durante una task (es. `src/types/orders.ts`, `customerSessions.ts`) ma dimenticati nel `git add` perche il focus era su altri file. Risultato: build CI fallisce su file che importano export che il repo Git non ha ancora, recovery commit a cascata.
+
+REGOLE:
+1. `git add` SEMPRE esplicito file-by-file. MAI `git add -A`, MAI `git add .`.
+2. Per file con modifiche interleavate (nostre + altre chat nello stesso file), valutare `git add -p` per stage selettivo. Se non separabili (es. nuovo blocco di codice nostro che dipende da modifiche dell'altra chat), committare l'intero blocco coerente con messaggio descrittivo.
+3. Dopo OGNI commit di feature epic ricca di file, eseguire verifica: `git ls-files | grep <feature_keyword>` per confermare che tutti i file referenziati dal commit siano nel repo.
+4. Pre-go-live di un epic: eseguire `npm run build` LOCALE su working tree pulito (solo file dell'epic stessa) per simulare ambiente CI. Se fallisce localmente → fallira su Vercel.
 
 ### Compressione output (caveman)
 

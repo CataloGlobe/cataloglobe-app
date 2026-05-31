@@ -8,6 +8,8 @@ interface Props {
     order: SubmitOrderResult | null;
     onClose: () => void;
     onViewMyOrders: () => void;
+    /** Order-level note typed by customer pre-submit. Echoed read-only here. */
+    orderNote?: string | null;
 }
 
 function formatPrice(n: number): string {
@@ -18,7 +20,13 @@ function formatPrice(n: number): string {
     }).format(n);
 }
 
-export default function OrderConfirmationSheet({ isOpen, order, onClose, onViewMyOrders }: Props) {
+export default function OrderConfirmationSheet({
+    isOpen,
+    order,
+    onClose,
+    onViewMyOrders,
+    orderNote
+}: Props) {
     const total = order?.total_amount ?? 0;
     const items = order?.items ?? [];
 
@@ -38,10 +46,17 @@ export default function OrderConfirmationSheet({ isOpen, order, onClose, onViewM
                         <h3 className={styles.itemsTitle}>Riepilogo</h3>
                         <ul className={styles.itemsList}>
                             {items.map((item, idx) => (
-                                <li key={`${item.product_id ?? "x"}-${idx}`} className={styles.itemRow}>
-                                    <span className={styles.itemQty}>{item.quantity}x</span>
-                                    <span className={styles.itemName}>{item.product_name_snapshot}</span>
-                                    <span className={styles.itemPrice}>{formatPrice(item.line_total)}</span>
+                                <li key={`${item.product_id ?? "x"}-${idx}`} className={styles.itemEntry}>
+                                    <div className={styles.itemRow}>
+                                        <span className={styles.itemQty}>{item.quantity}x</span>
+                                        <span className={styles.itemName}>{item.product_name_snapshot}</span>
+                                        <span className={styles.itemPrice}>{formatPrice(item.line_total)}</span>
+                                    </div>
+                                    {item.item_notes && (
+                                        <div className={styles.itemNoteRecap}>
+                                            “{item.item_notes}”
+                                        </div>
+                                    )}
                                 </li>
                             ))}
                         </ul>
@@ -49,6 +64,16 @@ export default function OrderConfirmationSheet({ isOpen, order, onClose, onViewM
                             <span>Totale</span>
                             <span>{formatPrice(total)}</span>
                         </div>
+                        {orderNote && (
+                            <div className={styles.orderNoteRecap}>
+                                <div className={styles.orderNoteRecapLabel}>
+                                    Note per la cucina
+                                </div>
+                                <div className={styles.orderNoteRecapText}>
+                                    “{orderNote}”
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

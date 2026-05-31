@@ -44,6 +44,10 @@ import {
     type RequestedOrderItem,
     type ValidatedOrder
 } from "../_shared/validateOrderItems.ts";
+import {
+    checkOrderingState,
+    orderingStateMessage
+} from "../_shared/checkOrderingState.ts";
 
 // ============================================================
 // Constants
@@ -64,6 +68,32 @@ const corsHeaders = {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Note length limits — mirrored client-side (OrderingSheet) and DB-side
+// (CHECK constraints in 20260526180000_orders_notes_length_check.sql).
+const ORDER_NOTES_MAX_LEN = 300;
+const ITEM_NOTES_MAX_LEN = 140;
+
+/**
+ * Trim + collapse multi-whitespace. Return null on empty result. Throws
+ * SanitizeNoteTooLong if the trimmed string exceeds `maxLen` characters.
+ */
+class SanitizeNoteTooLong extends Error {
+    constructor(public readonly maxLen: number) {
+        super(`Note too long: max ${maxLen} characters.`);
+    }
+}
+
+function sanitizeNote(raw: unknown, maxLen: number): string | null {
+    if (raw === null || raw === undefined) return null;
+    if (typeof raw !== "string") return null;
+    const trimmed = raw.trim().replace(/\s+/g, " ");
+    if (trimmed.length === 0) return null;
+    if (trimmed.length > maxLen) {
+        throw new SanitizeNoteTooLong(maxLen);
+    }
+    return trimmed;
+}
+
 // ============================================================
 // Request body types
 // ============================================================
@@ -77,6 +107,9 @@ interface SubmitOrderRequestBody {
 interface CustomerSessionLookupRow {
     id: string;
     expires_at: string;
+    tenant_id: string;
+    activity_id: string;
+    current_table_id: string | null;
 }
 
 // ============================================================
@@ -169,14 +202,23 @@ function _parseAndValidateBody(raw: unknown): SubmitOrderRequestBody | { error: 
             requested.addon_value_ids = addons;
         }
 
-        if (
-            itObj.item_notes !== undefined &&
-            itObj.item_notes !== null
-        ) {
+        if (itObj.item_notes !== undefined && itObj.item_notes !== null) {
             if (typeof itObj.item_notes !== "string") {
                 return { error: `items[${i}].item_notes must be a string or null.` };
             }
-            requested.item_notes = itObj.item_notes as string;
+            try {
+                const sanitized = sanitizeNote(itObj.item_notes, ITEM_NOTES_MAX_LEN);
+                if (sanitized !== null) {
+                    requested.item_notes = sanitized;
+                }
+            } catch (e) {
+                if (e instanceof SanitizeNoteTooLong) {
+                    return {
+                        error: `items[${i}].item_notes too long (max ${ITEM_NOTES_MAX_LEN} characters).`
+                    };
+                }
+                throw e;
+            }
         }
 
         items.push(requested);
@@ -188,7 +230,16 @@ function _parseAndValidateBody(raw: unknown): SubmitOrderRequestBody | { error: 
         if (typeof obj.notes !== "string") {
             return { error: "`notes` must be a string or null." };
         }
-        notes = obj.notes;
+        try {
+            notes = sanitizeNote(obj.notes, ORDER_NOTES_MAX_LEN);
+        } catch (e) {
+            if (e instanceof SanitizeNoteTooLong) {
+                return {
+                    error: `\`notes\` too long (max ${ORDER_NOTES_MAX_LEN} characters).`
+                };
+            }
+            throw e;
+        }
     }
 
     // target_group_id
@@ -207,14 +258,20 @@ async function _fetchSessionForDiagnostics(
     supabase: SupabaseClient,
     customerSessionId: string
 ): Promise<
-    | { kind: "ok"; expiresAt: string }
+    | {
+          kind: "ok";
+          expiresAt: string;
+          tenantId: string;
+          activityId: string;
+          tableId: string | null;
+      }
     | { kind: "not_found" }
     | { kind: "expired" }
     | { kind: "db_error"; message: string }
 > {
     const { data, error } = await supabase
         .from("customer_sessions")
-        .select("id, expires_at")
+        .select("id, expires_at, tenant_id, activity_id, current_table_id")
         .eq("id", customerSessionId)
         .maybeSingle();
 
@@ -228,7 +285,13 @@ async function _fetchSessionForDiagnostics(
     if (new Date(row.expires_at).getTime() <= Date.now()) {
         return { kind: "expired" };
     }
-    return { kind: "ok", expiresAt: row.expires_at };
+    return {
+        kind: "ok",
+        expiresAt: row.expires_at,
+        tenantId: row.tenant_id,
+        activityId: row.activity_id,
+        tableId: row.current_table_id
+    };
 }
 
 interface RpcSuccessPayload {
@@ -394,6 +457,23 @@ serve(async (req: Request) => {
             return jsonResponse(500, {
                 code: "INTERNAL_ERROR",
                 message: "Errore interno."
+            });
+        }
+
+        // ── Ordering state check (tenant + activity + table) ──
+        // Intercept maintenance mode mid-session: cliente con session valida
+        // ma tenant scaduto / activity inactive / ordering_enabled=false /
+        // table.maintenance_mode=true → 423 ORDERING_UNAVAILABLE con reason.
+        const state = await checkOrderingState(supabase, {
+            tenantId: diag.tenantId,
+            activityId: diag.activityId,
+            tableId: diag.tableId
+        });
+        if (!state.ok) {
+            return jsonResponse(423, {
+                code: "ORDERING_UNAVAILABLE",
+                reason: state.reason,
+                message: orderingStateMessage(state.reason)
             });
         }
 

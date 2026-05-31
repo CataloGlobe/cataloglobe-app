@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState, useMemo } from "react";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import Text from "@/components/ui/Text/Text";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { TablePagination } from "@/components/ui/TablePagination/TablePagination";
 import { IconFolder } from "@tabler/icons-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import styles from "./ProductGroupsTab.module.scss";
@@ -54,8 +53,6 @@ function buildFlatTree(groups: ProductGroupWithCount[]): FlatGroup[] {
     return result;
 }
 
-const DEFAULT_PAGE_SIZE = 20;
-
 interface ProductGroupsTabProps {
     tenantId?: string;
     isCreateOpen: boolean;
@@ -74,9 +71,6 @@ export default function ProductGroupsTab({
     const [allGroups, setAllGroups] = useState<ProductGroupWithCount[]>([]);
 
     const [searchQuery, setSearchQuery] = useState("");
-
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
     const [isCreateEditOpen, setIsCreateEditOpen] = useState(false);
     const [createEditMode, setCreateEditMode] = useState<GroupFormMode>("create");
@@ -132,15 +126,6 @@ export default function ProductGroupsTab({
         }
         return buildFlatTree(allGroups);
     }, [allGroups, searchQuery, groupNameById]);
-
-    useEffect(() => {
-        setPage(1);
-    }, [searchQuery, pageSize]);
-
-    const paginatedRows = useMemo(() => {
-        const offset = (page - 1) * pageSize;
-        return flatTree.slice(offset, offset + pageSize);
-    }, [flatTree, page, pageSize]);
 
     const handleEdit = (group: ProductGroupWithCount) => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
@@ -223,44 +208,36 @@ export default function ProductGroupsTab({
         {
             id: "actions",
             header: "",
-            width: "64px",
+            width: "56px",
             align: "right",
             cell: (_value, row) => (
-                <div data-row-click-ignore="true">
-                    <TableRowActions
-                        actions={[
-                            { label: "Modifica", onClick: () => handleEdit(row) },
-                            {
-                                label: "Crea sottogruppo",
-                                onClick: () => handleCreateSubgroup(row),
-                                hidden: row.parent_group_id !== null
-                            },
-                            {
-                                label: "Elimina",
-                                onClick: () => handleDelete(row),
-                                variant: "destructive",
-                                separator: true
-                            }
-                        ]}
-                    />
-                </div>
+                <TableRowActions
+                    actions={[
+                        { label: "Modifica", onClick: () => handleEdit(row) },
+                        {
+                            label: "Crea sottogruppo",
+                            onClick: () => handleCreateSubgroup(row),
+                            hidden: row.parent_group_id !== null
+                        },
+                        {
+                            label: "Elimina",
+                            onClick: () => handleDelete(row),
+                            variant: "destructive",
+                            separator: true
+                        }
+                    ]}
+                />
             )
         }
     ];
 
-    const emptyState = (
-        <div className={styles.emptyState}>
-            <IconFolder size={48} stroke={1} className={styles.emptyIcon} />
-            <Text variant="title-sm" weight={600}>
-                Nessun gruppo trovato
-            </Text>
-            <Text variant="body-sm" colorVariant="muted">
-                {searchQuery
-                    ? "Nessun gruppo corrisponde ai filtri di ricerca."
-                    : "Non hai ancora aggiunto alcun gruppo di prodotti."}
-            </Text>
-        </div>
-    );
+    const emptyState = {
+        icon: <IconFolder size={48} stroke={1} />,
+        title: "Nessun gruppo trovato",
+        description: searchQuery
+            ? "Nessun gruppo corrisponde ai filtri di ricerca."
+            : "Non hai ancora aggiunto alcun gruppo di prodotti."
+    };
 
     return (
         <div className={styles.tabContent}>
@@ -276,28 +253,13 @@ export default function ProductGroupsTab({
             </div>
 
             <DataTable<FlatGroup>
-                data={paginatedRows}
+                data={flatTree}
                 columns={columns}
                 isLoading={isLoading}
                 selectable
                 onBulkDelete={handleBulkDelete}
                 emptyState={emptyState}
-                loadingState={
-                    <Text variant="body-sm" colorVariant="muted">
-                        Caricamento gruppi in corso...
-                    </Text>
-                }
-                pagination={
-                    !isLoading && flatTree.length > 0 ? (
-                        <TablePagination
-                            page={page}
-                            pageSize={pageSize}
-                            total={flatTree.length}
-                            onPageChange={setPage}
-                            onPageSizeChange={setPageSize}
-                        />
-                    ) : undefined
-                }
+                loadingState={{ message: "Caricamento gruppi in corso..." }}
             />
 
             <ProductGroupCreateEditDrawer
