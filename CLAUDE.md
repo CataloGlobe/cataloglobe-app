@@ -209,7 +209,7 @@ Pagina Ordini (`src/pages/Dashboard/Orders/`):
 - `OrdersKpiBar.tsx` — 4 KPI condivisi (Tavoli aperti, Comande oggi, Tempo medio, Servite oggi). Visibile in Comande + Tavoli, nascosto in Storico.
 - Selettore sede `<ActivitySelectorCombobox>` in header actions, persistenza `cataloglobe:orders:lastActivityId`.
 - Auto-refresh 30s opzionale via checkbox: ricarica ordini + tabelle + tabellestate + KPI in batch.
-- Service helper `orders.ts:getOrdersCountToday` / `getOrdersServedToday` — usano `getOperativeDayStartIso()` hardcoded `Europe/Rome`. TODO Step 5: backend-side per multi-region.
+- Service helper `orders.ts:getOrdersCountToday` / `getOrdersServedToday` — boundary "giornata operativa" calcolata server-side via RPC `get_operative_day_start()` (migration `20260601150000`). Formula `date_trunc('day', now() AT TIME ZONE 'Europe/Rome') AT TIME ZONE 'Europe/Rome'` — DST-aware, no off-by-1h ai cambi stagionali (29/3 + 25/10). Funzione `SECURITY INVOKER`, `SET search_path TO ''`, GRANT solo `authenticated`. TODO multi-region: parametrizzare il timezone via `activities.iana_timezone` quando arriveranno tenant non-IT.
 
 ---
 
@@ -260,12 +260,15 @@ Catalogo completo, bug history (`purgeTenantData` ordine FK, `purgeActivityFolde
 
 **`resolve-table` + `get-orders-for-session`**: post-migration `table_zones` (γ-lite), entrambe fanno JOIN `tables → table_zones` e mappano `zone_data.name → zone` (alias backward-compat) nel payload customer. Customer storage (`localStorage tableZone`) + `ResolveTableResult.table.zone` invariati. Refactor effettuato nella stessa migration di `table_zones` per evitare runtime errors (SELECT su colonna droppata).
 
-**Admin order transitions** (4 endpoint, tutti wrapper di `_shared/adminOrderTransition.ts`):
+**Admin order transitions** (5 endpoint, tutti wrapper di `_shared/adminOrderTransition.ts`):
 - `acknowledge-order`: `submitted → acknowledged` (popola `acknowledged_at`)
 - `mark-order-ready`: `acknowledged → ready` (popola `ready_at`) — Step 4a
 - `deliver-order`: `acknowledged|ready → delivered` (popola `delivered_at`) — Step 4a estende il source set: ora accetta entrambi cosi i workflow che saltano lo step "ready" continuano a funzionare
 - `cancel-order-admin`: `submitted|acknowledged → cancelled` (popola `cancelled_at`, `cancelled_by='admin'`, `cancellation_reason`)
-Tutte: optimistic locking via `expected_version`, error mapping unificato (409 `OPTIMISTIC_LOCK_CONFLICT` vs wrong-state via `details.reason`), rate limit 30/min per `(user, order)` con namespace per `function_name`. Service mirror in `src/services/supabase/orders.ts`: `acknowledgeOrder`, `markOrderReady`, `deliverOrder`, `cancelOrderAdmin` — tutte ritornano `throwMappedTransitionError(parseInvokeError(err))` sui 4xx/5xx.
+- `restore-order`: `delivered → acknowledged` (azzera `delivered_at` + `ready_at` via `clear_fields`, nessun timestamp dedicato di ripristino) — Step 5a, usato dallo Storico per recuperare i "Servito" accidentali. NB: ordini `cancelled` NON sono ripristinabili (terminale per design).
+Tutte: optimistic locking via `expected_version`, error mapping unificato (409 `OPTIMISTIC_LOCK_CONFLICT` vs wrong-state via `details.reason`), rate limit 30/min per `(user, order)` con namespace per `function_name`. Service mirror in `src/services/supabase/orders.ts`: `acknowledgeOrder`, `markOrderReady`, `deliverOrder`, `cancelOrderAdmin`, `restoreOrder` — tutte ritornano `throwMappedTransitionError(parseInvokeError(err))` sui 4xx/5xx.
+
+**Helper `_shared/adminOrderTransition.ts` — estensione Step 5a**: `TransitionConfig.timestamp_field` ora `?: string | null` (opzionale: passare `null` quando la transition non ha colonna timestamp dedicata, come `restore-order`). Nuovo `TransitionConfig.clear_fields?: string[]` — colonne SET = NULL al success (es. `restore-order` clears `delivered_at` + `ready_at`). `updated_at` settato SEMPRE indipendentemente da `timestamp_field`. Backward-compat: i 4 wrapper esistenti passano una stringa → invariati.
 
 **Realtime su `orders`** (Step 4b): tabella `orders` in publication `supabase_realtime` (insieme a `customer_sessions`, `order_groups`, `notifications`). RLS SELECT su `orders` filtra automaticamente i `postgres_changes` per il subscriber autenticato:
 - Customer JWT custom: policy `customer_session_id = get_jwt_customer_session_id()`

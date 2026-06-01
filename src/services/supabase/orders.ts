@@ -36,6 +36,7 @@ import type {
     MarkOrderReadyResult,
     DeliverOrderResult,
     CancelOrderAdminResult,
+    RestoreOrderResult,
     RectifyOrderResult,
     RectifyOrderItem,
     V2Order,
@@ -438,6 +439,30 @@ export async function cancelOrderAdmin(
 }
 
 /**
+ * Transizione delivered → acknowledged (ripristino post-servito).
+ * Optimistic locking via expected_version. Mirror 1:1 dell'Edge Function
+ * `restore-order` (Step 5a): resetta `delivered_at` + `ready_at` a null,
+ * nessun timestamp dedicato di ripristino. Stesso mapping errori di
+ * acknowledgeOrder.
+ */
+export async function restoreOrder(
+    orderId: string,
+    expectedVersion: number
+): Promise<RestoreOrderResult> {
+    const { data, error } = await supabase.functions.invoke<RestoreOrderResult>(
+        "restore-order",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
  * Rettifica parziale di un ordine: crea un nuovo ordine "storno" che
  * sottrae quantità da items specifici dell'ordine parent.
  *
@@ -691,37 +716,17 @@ export function subscribeToSessionOrders(
 
 /**
  * Inizio della giornata operativa "oggi" come ISO timestamp.
- *
- * TODO Step 5: backend-side via RPC `now() AT TIME ZONE '<activity_tz>'::date`
- * per gestire DST + multi-region. Per ora hardcode `Europe/Rome` client-side
- * (90%+ tenant IT).
+ * Server-side via RPC `get_operative_day_start()` (DST-aware Europe/Rome,
+ * migration 20260601150000). TODO multi-region: parametrizzare il timezone
+ * via `activities.iana_timezone` nella RPC.
  */
-function getOperativeDayStartIso(): string {
-    // Estrae componenti data in Europe/Rome via Intl, poi costruisce
-    // un istante UTC equivalente a quella mezzanotte locale.
-    const parts = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Europe/Rome",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-    }).formatToParts(new Date());
-    const y = parts.find(p => p.type === "year")!.value;
-    const m = parts.find(p => p.type === "month")!.value;
-    const d = parts.find(p => p.type === "day")!.value;
-    // Costruiamo "YYYY-MM-DDT00:00:00" assunto Europe/Rome; per ottenere
-    // l'istante UTC corrispondente, lasciamo che il DB confronti via gte
-    // su submitted_at (timestamptz) — il valore puo' essere "wall-clock"
-    // approssimativo (DST off-by-one possibile ai cambi DST 2 volte l'anno).
-    // Compatibile con Postgres: timestamptz parsa "YYYY-MM-DDT00:00:00" come
-    // ora locale del server (UTC). Per evitare off-by-2h tra UTC e Europe/Rome,
-    // sottraiamo l'offset corrente Europe/Rome via getTimezoneOffset trick:
-    const localMidnight = new Date(`${y}-${m}-${d}T00:00:00Z`);
-    // Offset di Europe/Rome in minuti rispetto a UTC (positivo = ad est di UTC)
-    const romeOffsetMin = -new Date(
-        new Date().toLocaleString("en-US", { timeZone: "Europe/Rome" })
-    ).getTimezoneOffset();
-    // Adjust: midnight locale - offset = istante UTC
-    return new Date(localMidnight.getTime() - romeOffsetMin * 60_000).toISOString();
+async function fetchOperativeDayStartIso(): Promise<string> {
+    const { data, error } = await supabase.rpc("get_operative_day_start");
+    if (error) throw error;
+    if (typeof data !== "string") {
+        throw new Error("get_operative_day_start returned non-string");
+    }
+    return data;
 }
 
 /**
@@ -732,7 +737,7 @@ export async function getOrdersCountToday(
     tenantId: string,
     activityId: string
 ): Promise<number> {
-    const fromIso = getOperativeDayStartIso();
+    const fromIso = await fetchOperativeDayStartIso();
     const { count, error } = await supabase
         .from("orders")
         .select("id", { count: "exact", head: true })
@@ -751,7 +756,7 @@ export async function getOrdersServedToday(
     tenantId: string,
     activityId: string
 ): Promise<V2Order[]> {
-    const fromIso = getOperativeDayStartIso();
+    const fromIso = await fetchOperativeDayStartIso();
     const { data, error } = await supabase
         .from("orders")
         .select("*")

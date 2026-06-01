@@ -215,6 +215,12 @@ verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/cancel-order-admin/index.ts"
 
+[functions.restore-order]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/restore-order/index.ts"
+
 [functions.rectify-order]
 enabled = true
 verify_jwt = false

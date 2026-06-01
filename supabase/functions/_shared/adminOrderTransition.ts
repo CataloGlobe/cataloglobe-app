@@ -65,8 +65,18 @@ export interface TransitionConfig {
     /**
      * Timestamp column to set to now() on success
      * (e.g. "acknowledged_at", "delivered_at", "cancelled_at").
+     * Optional: pass null when the transition has no dedicated timestamp
+     * (e.g. restore-order, which only resets fields and bumps version).
+     * `updated_at` is always set regardless of this value.
      */
-    timestamp_field: string;
+    timestamp_field?: string | null;
+    /**
+     * Optional: columns to SET = NULL on success. Used by reversal-like
+     * transitions to clear timestamps tied to the previous state
+     * (e.g. restore-order clears delivered_at + ready_at when going back
+     * from delivered to acknowledged).
+     */
+    clear_fields?: string[];
     /**
      * Optional: parse + validate endpoint-specific body fields beyond
      * order_id + expected_version. Return either the parsed extras object
@@ -440,13 +450,22 @@ export async function performAdminOrderTransition(
             status: config.target_status,
             version: order.version + 1,
             updated_at: nowIso,
-            [config.timestamp_field]: nowIso,
+            ...(config.timestamp_field ? { [config.timestamp_field]: nowIso } : {}),
+            ...((config.clear_fields ?? []).reduce<Record<string, unknown>>((acc, col) => {
+                acc[col] = null;
+                return acc;
+            }, {})),
             ...(config.build_extra_update_fields?.(extras) ?? {})
         };
 
-        const baseReturning = ["id", "status", "version", config.timestamp_field];
+        const baseReturning = ["id", "status", "version"];
+        if (config.timestamp_field) baseReturning.push(config.timestamp_field);
         const returningColumns = Array.from(
-            new Set([...baseReturning, ...(config.extra_returning_columns ?? [])])
+            new Set([
+                ...baseReturning,
+                ...(config.clear_fields ?? []),
+                ...(config.extra_returning_columns ?? [])
+            ])
         );
 
         const updateResult = await _tryTransition(
@@ -493,7 +512,13 @@ export async function performAdminOrderTransition(
             order_id: updated.id,
             status: updated.status,
             version: updated.version,
-            [config.timestamp_field]: updated[config.timestamp_field],
+            ...(config.timestamp_field
+                ? { [config.timestamp_field]: updated[config.timestamp_field] }
+                : {}),
+            ...((config.clear_fields ?? []).reduce<Record<string, unknown>>((acc, col) => {
+                acc[col] = updated[col] ?? null;
+                return acc;
+            }, {})),
             ...(config.build_extra_response_fields?.(updated, extras) ?? {})
         };
 

@@ -409,6 +409,20 @@ export interface CancelOrderAdminResult {
     cancellation_reason: string | null;
 }
 
+/**
+ * Result di restoreOrder. Mirror dell'Edge Function `restore-order`
+ * (delivered → acknowledged). Nessun timestamp dedicato per la transizione
+ * di ripristino; `delivered_at` + `ready_at` tornano a null perche' la
+ * giornata operativa di "servito" e' annullata.
+ */
+export interface RestoreOrderResult {
+    order_id: string;
+    status: "acknowledged";
+    version: number;
+    delivered_at: null;
+    ready_at: null;
+}
+
 export interface RectifyOrderResult {
     rectification_order_id: string;
     parent_order_id: string;
