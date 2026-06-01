@@ -27,6 +27,7 @@ import ResetPassword from "./pages/Auth/ResetPassword";
 import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
 import PublicErrorBoundary from "./components/PublicErrorBoundary/PublicErrorBoundary";
 import TableEntryPage from "./pages/TableEntryPage/TableEntryPage";
+import ReservationPage from "./pages/ReservationPage/ReservationPage";
 import Home from "./pages/Home/Home";
 import NotFound from "./pages/NotFound/NotFound";
 import InvitePage from "./pages/Invite/InvitePage";
@@ -53,6 +54,7 @@ const Overview = lazy(() => import("@/pages/Business/OverviewPage"));
 const Businesses = lazy(() => import("./pages/Dashboard/Businesses/Businesses"));
 const Tables = lazy(() => import("./pages/Dashboard/Tables/Tables"));
 const Orders = lazy(() => import("./pages/Dashboard/Orders/Orders"));
+const Reservations = lazy(() => import("./pages/Dashboard/Reservations/Reservations"));
 const Catalogs = lazy(() => import("./pages/Dashboard/Catalogs/Catalogs"));
 const CatalogEngine = lazy(() => import("./pages/Dashboard/Catalogs/CatalogEngine"));
 const Reviews = lazy(() => import("@pages/Dashboard/Reviews/Reviews"));
@@ -207,6 +209,7 @@ export default function App() {
                 <Route path="tables" element={<Tables />} />
 
                 <Route path="orders" element={<Orders />} />
+                <Route path="reservations" element={<Reservations />} />
 
                 <Route path="scheduling" element={<Programming />} />
                 <Route path="scheduling/:ruleId" element={<ProgrammingRuleDetail />} />
@@ -268,6 +271,16 @@ export default function App() {
 
             {/* CUSTOMER ORDERING — QR bootstrap (DEVE precedere /:slug catch-all) */}
             <Route path="/t/:qrToken" element={<TableEntryPage />} />
+
+            {/* RESERVATION FORM — più specifica del catch-all /:slug/:lang? grazie al segmento literal */}
+            <Route
+                path="/:slug/prenota"
+                element={
+                    <PublicErrorBoundary>
+                        <ReservationPage />
+                    </PublicErrorBoundary>
+                }
+            />
 
             {/* PUBLIC BUSINESS */}
             <Route

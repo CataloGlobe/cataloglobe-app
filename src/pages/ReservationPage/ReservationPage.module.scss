@@ -1,0 +1,354 @@
+/* =============================================================================
+   ReservationPage — branded layout, uses contrast-aware --pub-* tokens.
+
+   Token scopes:
+     - .page background → --pub-bg, --pub-bg-pattern (page scope)
+     - text on page bg  → --pub-bg-text*       (contrast-aware vs bg)
+     - cards (form)     → --pub-surface + --pub-text* (contrast-aware vs surface)
+     - primary CTA      → --pub-cta-bg / --pub-cta-text (contrast-aware vs accent)
+   ========================================================================== */
+
+.page {
+    min-height: 100vh;
+    background-color: var(--pub-bg);
+    background-image: var(--pub-bg-pattern, none);
+    background-size: var(--pub-bg-pattern-size, auto);
+    color: var(--pub-bg-text);
+    font-family: var(--pub-font-family, system-ui, sans-serif);
+    padding-bottom: 64px;
+}
+
+/* ── HEADER ACTION SLOT (Link "Menu" passato come actionSlot a PublicCollectionHeader) */
+/* Stile coerente col context dark-glass del header pubblico. */
+.headerActionLink {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.14);
+    border-radius: var(--pub-btn-radius, 8px);
+    text-decoration: none;
+    transition: background 0.15s ease;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    line-height: 1;
+
+    &:hover {
+        background: rgba(255, 255, 255, 0.22);
+    }
+}
+
+/* ── BODY CONTAINER ─────────────────────────────────────────────────────── */
+
+.container {
+    width: 100%;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.containerTop {
+    margin-top: 48px;
+}
+
+.intro {
+    text-align: center;
+    padding: 8px 0 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.eyebrow {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--pub-bg-text-secondary);
+}
+
+.title {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1.15;
+    font-weight: 700;
+    color: var(--pub-bg-text);
+}
+
+.subtitle {
+    margin: 0;
+    font-size: 14px;
+    color: var(--pub-bg-text-secondary);
+    max-width: 420px;
+}
+
+/* ── CARD (form / states) ───────────────────────────────────────────────── */
+
+.card {
+    background: var(--pub-surface);
+    border: 1px solid var(--pub-surface-border, var(--pub-border));
+    border-radius: var(--pub-radius, 16px);
+    padding: 24px;
+    color: var(--pub-text);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: var(--pub-card-shadow, none);
+}
+
+.row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+
+    @media (max-width: 480px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--pub-text);
+}
+
+.labelHint {
+    color: var(--pub-text-muted);
+    font-weight: 400;
+}
+
+.input,
+.textarea {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 15px;
+    font-family: inherit;
+    color: var(--pub-text);
+    background: color-mix(in srgb, var(--pub-text) 3%, var(--pub-surface));
+    border: 1px solid var(--pub-surface-border, var(--pub-border));
+    border-radius: var(--pub-btn-radius, 8px);
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &:focus {
+        outline: none;
+        border-color: var(--pub-accent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--pub-accent) 22%, transparent);
+    }
+
+    &[aria-invalid="true"] {
+        border-color: #dc2626;
+    }
+
+    &::placeholder {
+        color: var(--pub-text-muted);
+    }
+}
+
+.textarea {
+    min-height: 88px;
+    resize: vertical;
+}
+
+.fieldError {
+    font-size: 12px;
+    color: #dc2626;
+}
+
+/* ── PARTY SIZE PILLS ───────────────────────────────────────────────────── */
+
+.partyPills {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+
+    @media (max-width: 480px) {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.partyPill {
+    padding: 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pub-text);
+    background: color-mix(in srgb, var(--pub-text) 4%, var(--pub-surface));
+    border: 1px solid var(--pub-surface-border, var(--pub-border));
+    border-radius: var(--pub-btn-radius, 8px);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    font-family: inherit;
+
+    &:hover:not(:disabled):not(.partyPillActive) {
+        background: color-mix(in srgb, var(--pub-text) 8%, var(--pub-surface));
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.partyPillActive {
+    background: var(--pub-accent);
+    color: var(--pub-cta-text);
+    border-color: var(--pub-accent);
+}
+
+.partyPlusField {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* ── BUTTONS / LINKS ────────────────────────────────────────────────────── */
+
+.submit {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--pub-cta-text);
+    background: var(--pub-cta-bg, var(--pub-accent));
+    border: none;
+    border-radius: var(--pub-btn-radius, 8px);
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+    font-family: inherit;
+
+    &:hover:not(:disabled) {
+        opacity: 0.92;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.privacy {
+    font-size: 12px;
+    color: var(--pub-text-muted);
+    text-align: center;
+    line-height: 1.45;
+
+    a {
+        color: inherit;
+        text-decoration: underline;
+    }
+}
+
+.banner {
+    padding: 14px 16px;
+    border-radius: var(--pub-btn-radius, 8px);
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.bannerError {
+    @extend .banner;
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fee2e2;
+}
+
+/* ── STATE BLOCKS (success / disabled / inactive / not-found) ───────────── */
+
+.stateCard {
+    @extend .card;
+    text-align: center;
+    align-items: center;
+    padding: 40px 24px;
+}
+
+.stateIcon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--pub-accent) 18%, var(--pub-surface));
+    color: var(--pub-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+}
+
+.stateTitle {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--pub-text);
+}
+
+.stateText {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--pub-text-secondary);
+    max-width: 420px;
+}
+
+.stateActions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    margin-top: 8px;
+}
+
+.linkButton {
+    display: inline-block;
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pub-cta-text);
+    background: var(--pub-cta-bg, var(--pub-accent));
+    border-radius: var(--pub-btn-radius, 8px);
+    text-decoration: none;
+    text-align: center;
+    border: 1px solid var(--pub-accent);
+    transition: opacity 0.15s ease;
+
+    &:hover {
+        opacity: 0.92;
+    }
+}
+
+.linkButtonSecondary {
+    display: inline-block;
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--pub-text);
+    background: transparent;
+    border: 1px solid var(--pub-surface-border, var(--pub-border));
+    border-radius: var(--pub-btn-radius, 8px);
+    text-decoration: none;
+    text-align: center;
+    transition: background 0.15s ease;
+
+    &:hover {
+        background: color-mix(in srgb, var(--pub-text) 5%, var(--pub-surface));
+    }
+}
+
+/* Plain centered text on page bg (loading / network-error fallback). */
+
+.pageMessage {
+    padding: 80px 24px;
+    text-align: center;
+    color: var(--pub-bg-text-secondary);
+    font-size: 15px;
+}

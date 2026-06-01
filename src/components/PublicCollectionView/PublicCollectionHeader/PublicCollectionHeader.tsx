@@ -54,14 +54,20 @@ export type PublicCollectionHeaderProps = {
     /** Border radius iniziale dell'header in px (da tokens.appearance.borderRadius via collectionStyle).
      *  Interpolato da lerp() verso 0 durante lo scroll. Fallback a 16/20 se assente. */
     headerRadius?: number;
-    /** Hub navigation tab attiva. */
-    activeTab: HubTab;
-    /** Callback per cambio tab. */
-    onTabChange: (tab: HubTab) => void;
+    /** Hub navigation tab attiva. Obbligatoria solo quando showHubTabs !== false. */
+    activeTab?: HubTab;
+    /** Callback per cambio tab. Obbligatoria solo quando showHubTabs !== false. */
+    onTabChange?: (tab: HubTab) => void;
     /** Conteggio allergeni filtrati attivi (per badge sul pulsante More). */
     allergensCount?: number;
     /** Apre il MoreSheet (allergeni + info). Undefined in preview. */
     onOpenMore?: () => void;
+    /** Mostra le hub tabs (menu/eventi/recensioni). Default true (comportamento storico). */
+    showHubTabs?: boolean;
+    /** Mostra il LanguageSelector. Default true (comportamento storico). */
+    showLanguageSelector?: boolean;
+    /** Slot opzionale a destra del titolo (es. link "Menu" per pagine non-catalogo). */
+    actionSlot?: ReactNode;
 };
 
 export default function PublicCollectionHeader({
@@ -83,6 +89,9 @@ export default function PublicCollectionHeader({
     onTabChange,
     allergensCount = 0,
     onOpenMore,
+    showHubTabs = true,
+    showLanguageSelector = true,
+    actionSlot,
 }: PublicCollectionHeaderProps) {
     const { t } = useTranslation("public");
     // ── ResizeObserver: write --pub-header-height on <main> ancestor ────────────
@@ -259,7 +268,9 @@ export default function PublicCollectionHeader({
                             )}
                         </div>
 
-                        {mode !== "preview" && <LanguageSelector />}
+                        {mode !== "preview" && showLanguageSelector && <LanguageSelector />}
+
+                        {actionSlot}
 
                         {onSearchOpen && (
                             <button
@@ -289,30 +300,32 @@ export default function PublicCollectionHeader({
                         )}
                     </div>
 
-                    <div
-                        className={[
-                            styles.chips,
-                            mode === "preview" ? styles.chipsPreview : "",
-                        ]
-                            .filter(Boolean)
-                            .join(" ")}
-                    >
-                        {HUB_TABS.map(tab => (
-                            <button
-                                key={tab.id}
-                                type="button"
-                                className={[
-                                    styles.chip,
-                                    activeTab === tab.id ? styles.chipActive : "",
-                                ]
-                                    .filter(Boolean)
-                                    .join(" ")}
-                                onClick={() => onTabChange(tab.id)}
-                            >
-                                {tab.icon} {t(tab.labelKey)}
-                            </button>
-                        ))}
-                    </div>
+                    {showHubTabs && (
+                        <div
+                            className={[
+                                styles.chips,
+                                mode === "preview" ? styles.chipsPreview : "",
+                            ]
+                                .filter(Boolean)
+                                .join(" ")}
+                        >
+                            {HUB_TABS.map(tab => (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    className={[
+                                        styles.chip,
+                                        activeTab === tab.id ? styles.chipActive : "",
+                                    ]
+                                        .filter(Boolean)
+                                        .join(" ")}
+                                    onClick={() => onTabChange?.(tab.id)}
+                                >
+                                    {tab.icon} {t(tab.labelKey)}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </header>
 

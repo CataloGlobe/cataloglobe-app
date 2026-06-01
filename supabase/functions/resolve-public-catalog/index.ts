@@ -272,7 +272,7 @@ serve(async (req: Request) => {
 
         const ACTIVITY_SELECT =
             "id, tenant_id, name, slug, cover_image, status, inactive_reason, " +
-            "ordering_enabled, " +
+            "ordering_enabled, enable_reservations, " +
             "address, street_number, postal_code, city, province, " +
             "instagram, instagram_public, facebook, facebook_public, " +
             "whatsapp, whatsapp_public, website, website_public, " +
@@ -333,6 +333,7 @@ serve(async (req: Request) => {
             status: activity.status,
             inactive_reason: activity.inactive_reason,
             ordering_enabled: activity.ordering_enabled ?? true,
+            enable_reservations: activity.enable_reservations ?? false,
             address: activity.address ?? null,
             street_number: activity.street_number ?? null,
             postal_code: activity.postal_code ?? null,

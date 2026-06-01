@@ -119,6 +119,18 @@ verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/submit-review/index.ts"
 
+[functions.submit-reservation]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/submit-reservation/index.ts"
+
+[functions.respond-reservation]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/respond-reservation/index.ts"
+
 [functions.search-google-places]
 enabled = true
 verify_jwt = false

@@ -233,6 +233,13 @@ type PublicBusiness = {
      * pre-Fix 1 puo non avere il campo — consumer usa fallback `?? true`.
      */
     ordering_enabled: boolean;
+    /**
+     * Reservation form opt-in per-sede. Quando `true`, la route `/:slug/prenota`
+     * renderizza il form; quando `false`, mostra lo stato "reservations-disabled".
+     * Backward compat: payload stale (Redis/localStorage) pre-deploy non ha il
+     * campo → fallback `?? false` lato consumer (sede deve esplicitamente abilitarle).
+     */
+    enable_reservations: boolean;
     address: string | null;
     street_number: string | null;
     postal_code: string | null;
@@ -856,6 +863,8 @@ export default function PublicCollectionPage() {
                 style={collectionStyle}
                 mode="public"
                 activityId={business.id}
+                slug={business.slug}
+                enableReservations={business.enable_reservations}
                 tenantLogoUrl={tenantLogoUrl}
                 activityAddress={(() => {
                     const street = [business.address, business.street_number]

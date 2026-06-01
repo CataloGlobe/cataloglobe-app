@@ -7,6 +7,7 @@ import {
     Store,
     Grid2X2,
     ClipboardList,
+    CalendarCheck,
     Settings,
     Calendar,
     BookOpen,
@@ -74,6 +75,8 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
                   permission: perms => canDoOnAnyActivity(perms, "tables.read") },
                 { to: `${b}/orders`, label: "Ordini", icon: <ClipboardList size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "orders.read") },
+                { to: `${b}/reservations`, label: "Prenotazioni", icon: <CalendarCheck size={18} />,
+                  permission: perms => canDoOnAnyActivity(perms, "reservations.read") },
                 { to: `${b}/scheduling`, label: "Programmazione", icon: <Calendar size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "scheduling.read") }
             ]

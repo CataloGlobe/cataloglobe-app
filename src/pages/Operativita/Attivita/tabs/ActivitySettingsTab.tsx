@@ -438,6 +438,29 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
         [activity.id, tenantId, onReload, showToast]
     );
 
+    const handleEnableReservationsToggle = useCallback(
+        async (checked: boolean) => {
+            try {
+                await updateActivity(activity.id, tenantId, {
+                    enable_reservations: checked
+                });
+                showToast({
+                    message: checked
+                        ? "Prenotazioni attivate."
+                        : "Prenotazioni disattivate.",
+                    type: "success"
+                });
+                await onReload();
+            } catch {
+                showToast({
+                    message: "Impossibile aggiornare lo stato delle prenotazioni.",
+                    type: "error"
+                });
+            }
+        },
+        [activity.id, tenantId, onReload, showToast]
+    );
+
     // ── Handlers: URL / QR / PDF ─────────────────────────────────────────────
     const handleCopyLink = useCallback(async () => {
         try {
@@ -881,6 +904,30 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                 activity.ordering_enabled
                                     ? "I clienti possono ordinare scansionando il QR del tavolo."
                                     : "I clienti vedono il menu in sola lettura. Il tasto Invia ordine e' disabilitato. Riattiva quando vuoi accettare nuovamente ordini al tavolo."
+                            }
+                        />
+                    </div>
+                </Card>
+
+                {/* ── Row 2c: Prenotazioni toggle (full width) ──────────────── */}
+                <Card className={styles.card}>
+                    <div className={styles.cardHeader}>
+                        <div className={styles.cardHeaderText}>
+                            <h3 className={styles.cardTitle}>Prenotazioni</h3>
+                            <p className={styles.cardSubtitle}>
+                                Abilita il modulo di prenotazione tavolo sulla pagina pubblica della sede.
+                            </p>
+                        </div>
+                    </div>
+                    <div className={styles.cardBodyFlat} style={{ padding: "16px 24px" }}>
+                        <Switch
+                            checked={activity.enable_reservations}
+                            onChange={handleEnableReservationsToggle}
+                            label="Accetta prenotazioni"
+                            description={
+                                activity.enable_reservations
+                                    ? "I clienti possono richiedere una prenotazione dalla pagina pubblica della sede."
+                                    : "Il modulo di prenotazione e' nascosto dalla pagina pubblica. Riattiva quando vuoi tornare a ricevere richieste."
                             }
                         />
                     </div>
