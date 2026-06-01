@@ -33,6 +33,7 @@ import type {
     GetOrdersForSessionResult,
     CancelOrderCustomerResult,
     AcknowledgeOrderResult,
+    MarkOrderReadyResult,
     DeliverOrderResult,
     CancelOrderAdminResult,
     RectifyOrderResult,
@@ -350,8 +351,33 @@ export async function acknowledgeOrder(
 }
 
 /**
- * Transizione acknowledged → delivered. Optimistic locking via expected_version.
- * Stesso mapping errori di acknowledgeOrder.
+ * Transizione acknowledged → ready. Optimistic locking via expected_version.
+ * Stesso mapping errori di acknowledgeOrder. Mirror 1:1 dell'Edge Function
+ * `mark-order-ready` (Step 4a), che usa `performAdminOrderTransition` con
+ * `source_status='acknowledged' → target_status='ready'` e popola `ready_at`.
+ */
+export async function markOrderReady(
+    orderId: string,
+    expectedVersion: number
+): Promise<MarkOrderReadyResult> {
+    const { data, error } = await supabase.functions.invoke<MarkOrderReadyResult>(
+        "mark-order-ready",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione (acknowledged|ready) → delivered. Optimistic locking via
+ * expected_version. Stesso mapping errori di acknowledgeOrder. Lato server
+ * `deliver-order` accetta entrambi gli stati sorgente (Step 4a) cosi i
+ * workflow che saltano lo step "ready" continuano a funzionare.
  */
 export async function deliverOrder(
     orderId: string,

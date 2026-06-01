@@ -260,6 +260,13 @@ Catalogo completo, bug history (`purgeTenantData` ordine FK, `purgeActivityFolde
 
 **`resolve-table` + `get-orders-for-session`**: post-migration `table_zones` (γ-lite), entrambe fanno JOIN `tables → table_zones` e mappano `zone_data.name → zone` (alias backward-compat) nel payload customer. Customer storage (`localStorage tableZone`) + `ResolveTableResult.table.zone` invariati. Refactor effettuato nella stessa migration di `table_zones` per evitare runtime errors (SELECT su colonna droppata).
 
+**Admin order transitions** (4 endpoint, tutti wrapper di `_shared/adminOrderTransition.ts`):
+- `acknowledge-order`: `submitted → acknowledged` (popola `acknowledged_at`)
+- `mark-order-ready`: `acknowledged → ready` (popola `ready_at`) — Step 4a
+- `deliver-order`: `acknowledged|ready → delivered` (popola `delivered_at`) — Step 4a estende il source set: ora accetta entrambi cosi i workflow che saltano lo step "ready" continuano a funzionare
+- `cancel-order-admin`: `submitted|acknowledged → cancelled` (popola `cancelled_at`, `cancelled_by='admin'`, `cancellation_reason`)
+Tutte: optimistic locking via `expected_version`, error mapping unificato (409 `OPTIMISTIC_LOCK_CONFLICT` vs wrong-state via `details.reason`), rate limit 30/min per `(user, order)` con namespace per `function_name`. Service mirror in `src/services/supabase/orders.ts`: `acknowledgeOrder`, `markOrderReady`, `deliverOrder`, `cancelOrderAdmin` — tutte ritornano `throwMappedTransitionError(parseInvokeError(err))` sui 4xx/5xx.
+
 ---
 
 ## Integrazioni

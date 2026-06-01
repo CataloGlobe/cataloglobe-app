@@ -386,6 +386,13 @@ export interface AcknowledgeOrderResult {
     acknowledged_at: string;
 }
 
+export interface MarkOrderReadyResult {
+    order_id: string;
+    status: "ready";
+    version: number;
+    ready_at: string;
+}
+
 export interface DeliverOrderResult {
     order_id: string;
     status: "delivered";
