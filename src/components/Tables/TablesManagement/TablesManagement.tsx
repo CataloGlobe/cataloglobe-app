@@ -12,7 +12,6 @@ import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 
-import { usePageHeader } from "@/context/usePageHeader";
 import { useToast } from "@/context/Toast/ToastContext";
 
 import {
@@ -48,16 +47,12 @@ export interface TablesManagementProps {
     activityId: string;
     /** Se false: bottoni create/edit disabilitati con tooltip prerequisito. */
     orderingEnabled: boolean;
-    /** "page" = include header `usePageHeader` con titolo "Tavoli".
-     *  "embedded" = no header, il parent (tab) fornisce il titolo. */
-    mode: "page" | "embedded";
 }
 
 export function TablesManagement({
     tenantId,
     activityId,
-    orderingEnabled,
-    mode
+    orderingEnabled
 }: TablesManagementProps) {
     const { showToast } = useToast();
 
@@ -571,25 +566,9 @@ export function TablesManagement({
         [loadData, activityId, isLoading, isGeneratingQrAll, items.length, orderingEnabled]
     );
 
-    // usePageHeader accetta null per "non registrare nessun header".
-    // Mode "page": titolo + sticky in cima alla pagina standalone /tables.
-    // Mode "embedded": titolo viene dalla tab padre (ActivityDetailPage), niente registrazione.
-    usePageHeader(
-        mode === "page"
-            ? {
-                  title: "Tavoli",
-                  subtitle: "Gestisci i tavoli delle tue sedi e monitora lo stato live.",
-                  actions: headerActions,
-                  sticky: true
-              }
-            : null
-    );
-
     return (
         <section className={styles.container}>
-            {mode === "embedded" && (
-                <div className={styles.embeddedHeader}>{headerActions}</div>
-            )}
+            <div className={styles.embeddedHeader}>{headerActions}</div>
 
             <div className={styles.content}>
                 <FilterBar

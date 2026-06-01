@@ -5,7 +5,6 @@ import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import {
     LayoutDashboard,
     Store,
-    Grid2X2,
     ClipboardList,
     CalendarCheck,
     Settings,
@@ -71,8 +70,6 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
             items: [
                 { to: `${b}/locations`, label: "Sedi", icon: <Store size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "activity.read") },
-                { to: `${b}/tables`, label: "Tavoli", icon: <Grid2X2 size={18} />,
-                  permission: perms => canDoOnAnyActivity(perms, "tables.read") },
                 { to: `${b}/orders`, label: "Ordini", icon: <ClipboardList size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "orders.read") },
                 { to: `${b}/reservations`, label: "Prenotazioni", icon: <CalendarCheck size={18} />,

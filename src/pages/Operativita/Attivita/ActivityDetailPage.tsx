@@ -171,7 +171,6 @@ const ActivityDetailPage: React.FC = () => {
                                     tenantId={businessId!}
                                     activityId={activity.id}
                                     orderingEnabled={true}
-                                    mode="embedded"
                                 />
                             ) : (
                                 <TablesEmptyState

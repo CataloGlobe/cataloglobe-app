@@ -196,7 +196,7 @@ Spec autoritativa: `docs/orders-architecture.md` v1.2. Dettaglio pattern (dual-a
 Service layer in `src/services/supabase/`: `tables.ts`, `tableZones.ts` (4 funzioni + `getZoneTableCounts` per drawer "Gestisci zone"), `customerSessions.ts`, `productAvailability.ts`, `orders.ts`. Tipi in `src/types/orders.ts`.
 
 UI shared CRUD tavoli in `src/components/Tables/`:
-- `TablesManagement/` — componente shared con `mode: "page" | "embedded"`. Usato sia da `Dashboard/Tables/Tables.tsx` standalone (page) sia da tab "Tavoli" di `ActivityDetailPage` (embedded). `TablesEmptyState` sub-componente per prerequisito `ordering_enabled=false`.
+- `TablesManagement/` — componente shared per CRUD tavoli + stato live. Usato dalla tab "Tavoli" di `ActivityDetailPage` (unico call site post Step 6). Header con bottoni "Gestisci zone" + "Nuovo tavolo" renderizzato inline, sempre. `TablesEmptyState` sub-componente per prerequisito `ordering_enabled=false`.
 - `ZoneSelectField/` — dropdown zone nel form Crea/Modifica tavolo con expand inline "+ Crea nuova zona" (mini-form). Niente modali nested.
 - `TableZoneManagementDrawer/` — drawer dedicato per CRUD zone (md=520px). Rename inline, delete con conferma + count tavoli orfanati, callback `onZonesChanged` notifica parent.
 - `TablesLiveView/` — vista operativa live tavoli (card per zona, read-only) usata in tab "Tavoli" di pagina Ordini. Auto-refresh `autoRefreshMs` opzionale, filtri Tutti/Aperti/Liberi/Manutenzione, raggruppamento per `zone_name` (no-zone fallback ultimo).
