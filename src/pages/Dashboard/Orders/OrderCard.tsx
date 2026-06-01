@@ -37,6 +37,9 @@ function statusVariantAndLabel(status: V2OrderWithItems["status"]): {
             return { variant: "warning", label: "Da prendere" };
         case "acknowledged":
             return { variant: "success", label: "In corso" };
+        case "ready":
+            // TODO Step 4: visual refinement (dedicated variant). Provisional reuse of "success".
+            return { variant: "success", label: "Pronto" };
         case "delivered":
             return { variant: "neutral", label: "Consegnato" };
         case "cancelled":

@@ -218,6 +218,7 @@ export interface V2TableWithState extends V2Table {
 export type OrderStatus =
     | "submitted"
     | "acknowledged"
+    | "ready"
     | "delivered"
     | "cancelled";
 
@@ -242,6 +243,7 @@ export interface V2Order {
     version: number;
     submitted_at: string;
     acknowledged_at: string | null;
+    ready_at: string | null;
     delivered_at: string | null;
     cancelled_at: string | null;
     cancelled_by: CancelledBy | null;
