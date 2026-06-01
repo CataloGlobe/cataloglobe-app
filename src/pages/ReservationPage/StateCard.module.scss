@@ -1,0 +1,103 @@
+/* =============================================================================
+   StateCard — branded card for inactive / disabled / not-found / network-error.
+   Lives inside PublicThemeScope so all --pub-* vars resolve to brand tokens.
+   ========================================================================== */
+
+.card {
+    background: var(--pub-surface);
+    border: 1px solid var(--pub-surface-border, var(--pub-border));
+    border-radius: var(--pub-radius, 16px);
+    padding: 40px 28px 36px;
+    color: var(--pub-text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+    box-shadow: var(--pub-card-shadow, 0 1px 2px rgba(0, 0, 0, 0.04));
+
+    @media (max-width: 520px) {
+        padding: 32px 22px 28px;
+        border-radius: 14px;
+    }
+}
+
+.icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--pub-accent) 18%, var(--pub-surface));
+    color: var(--pub-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+    box-shadow:
+        0 0 0 6px color-mix(in srgb, var(--pub-accent) 8%, transparent);
+}
+
+.title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.18;
+    letter-spacing: -0.01em;
+    color: var(--pub-text);
+}
+
+.text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--pub-text-secondary);
+    max-width: 380px;
+}
+
+.actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    max-width: 280px;
+    margin-top: 8px;
+}
+
+.primaryCta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pub-cta-text);
+    background: var(--pub-cta-bg, var(--pub-accent));
+    border-radius: var(--pub-btn-radius, 10px);
+    text-decoration: none;
+    text-align: center;
+    border: 1px solid var(--pub-accent);
+    transition: opacity 0.15s ease, transform 0.12s ease;
+
+    &:hover { opacity: 0.94; }
+    &:active { transform: scale(0.98); }
+}
+
+.secondaryCta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--pub-text);
+    background: transparent;
+    border: 1px solid var(--pub-surface-border, var(--pub-border));
+    border-radius: var(--pub-btn-radius, 10px);
+    text-decoration: none;
+    text-align: center;
+    transition: background 0.15s ease;
+
+    &:hover {
+        background: color-mix(in srgb, var(--pub-text) 5%, var(--pub-surface));
+    }
+}
