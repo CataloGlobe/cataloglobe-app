@@ -166,13 +166,13 @@ $footer-padding-x-expanded: $scroll-padding-x + $nav-padding-x + $item-padding-x
 
 /* ===== Active item: light bg + left vertical rail ===== */
 .active {
-  background: rgba(99, 102, 241, 0.1);
-  color: #6366f1;
+  background: var(--brand-primary-soft);
+  color: var(--brand-primary);
   font-weight: 600;
 
   &:hover {
-    background: rgba(99, 102, 241, 0.15);
-    color: #6366f1;
+    background: var(--brand-primary-soft-hover);
+    color: var(--brand-primary);
   }
 }
 
@@ -183,7 +183,7 @@ $footer-padding-x-expanded: $scroll-padding-x + $nav-padding-x + $item-padding-x
   top: 6px;
   bottom: 6px;
   width: 3px;
-  background: #6366F1;
+  background: var(--brand-primary);
   border-radius: 0 2px 2px 0;
 }
 

@@ -6,6 +6,7 @@ import styles from "./Tabs.module.scss";
 /* ------------------------------------------------------------------ */
 
 export type TabsValue = string | number;
+export type TabsVariant = "primary" | "secondary";
 
 /**
  * Context NON generico
@@ -13,6 +14,7 @@ export type TabsValue = string | number;
 interface TabsContextValue {
     value: TabsValue;
     setValue: (value: TabsValue) => void;
+    variant?: TabsVariant;
 }
 
 const TabsContext = createContext<TabsContextValue | null>(null);
@@ -32,10 +34,11 @@ function useTabsContext() {
 interface TabsProps<T extends TabsValue> {
     value: T;
     onChange: (value: T) => void;
+    variant?: TabsVariant;
     children: React.ReactNode;
 }
 
-export function Tabs<T extends TabsValue>({ value, onChange, children }: TabsProps<T>) {
+export function Tabs<T extends TabsValue>({ value, onChange, variant, children }: TabsProps<T>) {
     /**
      * Wrapper che rende onChange compatibile con TabsValue
      */
@@ -46,9 +49,13 @@ export function Tabs<T extends TabsValue>({ value, onChange, children }: TabsPro
         [onChange]
     );
 
+    const rootClassName = variant
+        ? `${styles.root} ${styles[`variant_${variant}`]}`
+        : styles.root;
+
     return (
-        <TabsContext.Provider value={{ value, setValue }}>
-            <div className={styles.root}>{children}</div>
+        <TabsContext.Provider value={{ value, setValue, variant }}>
+            <div className={rootClassName}>{children}</div>
         </TabsContext.Provider>
     );
 }
