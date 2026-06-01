@@ -205,11 +205,11 @@ UI riusabili in `src/components/ui/`:
 - `ActivitySelectorCombobox/` — combobox sede con search input + dropdown lista con dot stato (verde active+ordering, ambra active+!ordering, grigio inactive). Persistenza selezione via `storageKey` localStorage opzionale. Default: prima sede alfabetica. Sempre visibile anche con 1 sola sede.
 
 Pagina Ordini (`src/pages/Dashboard/Orders/`):
-- 3 tab principali: Comande (logica esistente, 5 sub-tab filtro stato) / Tavoli (`<TablesLiveView>`) / Storico (placeholder, Step 5 cleanup).
+- 3 tab principali: Comande (logica esistente, 5 sub-tab filtro stato) / Tavoli (`<TablesLiveView>`) / Storico (delivered + cancelled della giornata operativa, con azione Ripristina sui delivered — Step 5b).
 - `OrdersKpiBar.tsx` — 4 KPI condivisi (Tavoli aperti, Comande oggi, Tempo medio, Servite oggi). Visibile in Comande + Tavoli, nascosto in Storico.
 - Selettore sede `<ActivitySelectorCombobox>` in header actions, persistenza `cataloglobe:orders:lastActivityId`.
 - Auto-refresh 30s opzionale via checkbox: ricarica ordini + tabelle + tabellestate + KPI in batch.
-- Service helper `orders.ts:getOrdersCountToday` / `getOrdersServedToday` — boundary "giornata operativa" calcolata server-side via RPC `get_operative_day_start()` (migration `20260601150000`). Formula `date_trunc('day', now() AT TIME ZONE 'Europe/Rome') AT TIME ZONE 'Europe/Rome'` — DST-aware, no off-by-1h ai cambi stagionali (29/3 + 25/10). Funzione `SECURITY INVOKER`, `SET search_path TO ''`, GRANT solo `authenticated`. TODO multi-region: parametrizzare il timezone via `activities.iana_timezone` quando arriveranno tenant non-IT.
+- Service helper `orders.ts:getOrdersCountToday` / `getOrdersServedToday` / `listOrdersHistoryToday` — boundary "giornata operativa" calcolata server-side via RPC `get_operative_day_start()` (migration `20260601150000`). Formula `date_trunc('day', now() AT TIME ZONE 'Europe/Rome') AT TIME ZONE 'Europe/Rome'` — DST-aware, no off-by-1h ai cambi stagionali (29/3 + 25/10). Funzione `SECURITY INVOKER`, `SET search_path TO ''`, GRANT solo `authenticated`. `listOrdersHistoryToday` (Step 5b): `.eq('tenant_id') + .eq('activity_id')` esplicito (defense in depth oltre RLS) + `.or(and(status.eq.delivered,delivered_at.gte.X),and(status.eq.cancelled,cancelled_at.gte.X))` per la disgiunzione del filtro temporale; sort `updated_at DESC` (coincide con `delivered_at`/`cancelled_at` come exit-timestamp; rectify-order non muta il parent). TODO multi-region: parametrizzare il timezone via `activities.iana_timezone` quando arriveranno tenant non-IT.
 
 ---
 
@@ -325,6 +325,7 @@ Tech-debt e refactor differiti. Non bloccanti per il task corrente; da valutare 
 - **Permission `translations.read` dedicato** — mancante. Sidebar voce "Lingue" usa `catalogs.read` proxy. Creare permission dedicato se gating più fine.
 - **Bulk cancel pending invites senza ConfirmDialog** — asimmetria vs bulk remove members (che ora ha confirm intermedio). Aggiungere ConfirmDialog per coerenza UX.
 - **Realtime `TablesLiveView` + drawer dettaglio-tavolo** — Step 4b ha consegnato il realtime sulle comande admin (`useActiveOrdersRealtime`); la vista live tavoli continua a girare via auto-refresh 30s. Step 4c estenderà il pattern realtime a `TablesLiveView` (subscribe a `customer_sessions` + `orders` aggregati view-side) e aggiungerà drawer dettaglio-tavolo con storia ordini per sessione.
+- **Storico admin — ripristino ordini annullati (caso A)** — Step 5b ha consegnato lo Storico (delivered + cancelled del giorno operativo) con azione "Ripristina" SOLO sui delivered (`restore-order`). Gli ordini `cancelled` restano terminali per design (no UI restore). Caso A futuro: recupero annullati richiederebbe una nuova edge function `restore-cancelled-order` (transition `cancelled → submitted` o `cancelled → acknowledged` con reset di `cancelled_at`/`cancelled_by`/`cancellation_reason` via `clear_fields`), source policy da concordare (es. solo entro N minuti dalla cancellazione).
 
 ---
 

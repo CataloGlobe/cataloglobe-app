@@ -720,7 +720,7 @@ export function subscribeToSessionOrders(
  * migration 20260601150000). TODO multi-region: parametrizzare il timezone
  * via `activities.iana_timezone` nella RPC.
  */
-async function fetchOperativeDayStartIso(): Promise<string> {
+export async function fetchOperativeDayStartIso(): Promise<string> {
     const { data, error } = await supabase.rpc("get_operative_day_start");
     if (error) throw error;
     if (typeof data !== "string") {
@@ -769,4 +769,50 @@ export async function getOrdersServedToday(
         ...row,
         total_amount: Number(row.total_amount)
     })) as unknown as V2Order[];
+}
+
+/**
+ * Storico ordini della giornata operativa per una sede: delivered + cancelled
+ * con timestamp di uscita >= start_of_today (Europe/Rome, DST-aware via RPC).
+ *
+ * Filtra esplicitamente tenant_id + activity_id oltre alla RLS, in modo che
+ * un bug futuro nelle policy non possa esporre storico cross-tenant o cross-
+ * activity (defense in depth).
+ *
+ * Ordinamento: `updated_at DESC` — coincide con `delivered_at` per ordini
+ * serviti e con `cancelled_at` per ordini annullati (parent di rettifiche
+ * non viene mutato; rectify-order crea una nuova riga `is_rectification`).
+ *
+ * Include items (il drawer dettaglio li richiede). Limite alto (200) per
+ * coprire la giornata operativa di una singola sede.
+ */
+export async function listOrdersHistoryToday(
+    tenantId: string,
+    activityId: string
+): Promise<V2OrderWithItems[]> {
+    const fromIso = await fetchOperativeDayStartIso();
+    const { data, error } = await supabase
+        .from("orders")
+        .select("*, items:order_items(*)")
+        .eq("tenant_id", tenantId)
+        .eq("activity_id", activityId)
+        .or(
+            `and(status.eq.delivered,delivered_at.gte.${fromIso}),` +
+                `and(status.eq.cancelled,cancelled_at.gte.${fromIso})`
+        )
+        .order("updated_at", { ascending: false })
+        .limit(200);
+    if (error) throw error;
+    return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(row => {
+        const rawItems = row.items as V2OrderItem[] | undefined;
+        return {
+            ...row,
+            total_amount: Number(row.total_amount),
+            items: (rawItems ?? []).map(item => ({
+                ...item,
+                unit_price_snapshot: Number(item.unit_price_snapshot),
+                line_total: Number(item.line_total)
+            }))
+        } as unknown as V2OrderWithItems;
+    });
 }

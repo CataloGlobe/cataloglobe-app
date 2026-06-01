@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ClipboardList, RefreshCw } from "lucide-react";
+import { AlertCircle, ClipboardList, RefreshCw } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import FilterBar from "@/components/ui/FilterBar/FilterBar";
@@ -19,8 +19,10 @@ import {
     deliverOrder,
     cancelOrderAdmin,
     rectifyOrder,
+    restoreOrder,
     getOrdersCountToday,
-    getOrdersServedToday
+    getOrdersServedToday,
+    listOrdersHistoryToday
 } from "@/services/supabase/orders";
 import type {
     V2Order,
@@ -35,6 +37,7 @@ import type { V2Table } from "@/types/orders";
 import OrderDetailDrawer from "./OrderDetailDrawer";
 import OrderCancelDrawer from "./OrderCancelDrawer";
 import OrderRectifyDrawer from "./OrderRectifyDrawer";
+import OrderHistoryRow from "./OrderHistoryRow";
 import { OrdersKpiBar } from "./OrdersKpiBar";
 import OrdersKanban from "./OrdersKanban";
 import { useActiveOrdersRealtime } from "./hooks/useActiveOrdersRealtime";
@@ -61,6 +64,11 @@ export default function Orders() {
     const [tablesWithState, setTablesWithState] = useState<V2TableWithState[]>([]);
     const [ordersTodayCount, setOrdersTodayCount] = useState<number>(0);
     const [ordersServedToday, setOrdersServedToday] = useState<V2Order[]>([]);
+
+    // Storico (delivered + cancelled della giornata operativa)
+    const [historyOrders, setHistoryOrders] = useState<V2OrderWithItems[]>([]);
+    const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+    const [historyError, setHistoryError] = useState<Error | null>(null);
 
     // Filters (tab Comande)
     const [searchQuery, setSearchQuery] = useState("");
@@ -107,6 +115,26 @@ export default function Orders() {
     useEffect(() => {
         void loadKpi();
     }, [loadKpi]);
+
+    // ── Storico (delivered + cancelled del giorno operativo) ──
+    // Niente realtime: vista review, fetch on open + refetch dopo Ripristina.
+    const loadHistory = useCallback(async () => {
+        if (!tenantId || !selectedActivityId) {
+            setHistoryOrders([]);
+            setHistoryError(null);
+            return;
+        }
+        setIsHistoryLoading(true);
+        setHistoryError(null);
+        try {
+            const data = await listOrdersHistoryToday(tenantId, selectedActivityId);
+            setHistoryOrders(data);
+        } catch (err) {
+            setHistoryError(err instanceof Error ? err : new Error("Errore caricamento storico"));
+        } finally {
+            setIsHistoryLoading(false);
+        }
+    }, [tenantId, selectedActivityId]);
 
     // ── Realtime active orders board ──
     const handleOrderLeftBoard = useCallback(() => {
@@ -160,6 +188,12 @@ export default function Orders() {
     useEffect(() => {
         void loadTablesWithState();
     }, [loadTablesWithState]);
+
+    // Carica lo Storico solo quando la tab e' attiva (o si cambia sede / si rientra).
+    useEffect(() => {
+        if (mainTab !== "storico") return;
+        void loadHistory();
+    }, [mainTab, loadHistory]);
 
     // ── Refresh totale (header button). Triggers kanban refetch + all REST sources. ──
     const refreshAll = useCallback(() => {
@@ -459,6 +493,44 @@ export default function Orders() {
         }
     }
 
+    async function handleRestore(order: V2OrderWithItems) {
+        try {
+            await restoreOrder(order.id, order.version);
+            // Rimuovi la riga dalla lista; rientrera' nel kanban via realtime
+            // (acknowledged e' uno status attivo). Refetch KPI per "servite oggi".
+            setHistoryOrders(prev => prev.filter(o => o.id !== order.id));
+            showToast({
+                message: `Ordine ${labelFor(order)} ripristinato`,
+                type: "success"
+            });
+            void loadKpi();
+        } catch (err) {
+            if (err instanceof Error) {
+                if (err.message === "OPTIMISTIC_LOCK_CONFLICT") {
+                    showToast({
+                        message:
+                            "L'ordine è stato modificato da un altro utente, aggiorno lo storico",
+                        type: "warning"
+                    });
+                    void loadHistory();
+                    return;
+                }
+                if (err.message === "INVALID_STATE_TRANSITION") {
+                    const details = (err as Error & {
+                        details?: { current_status?: string };
+                    }).details;
+                    showToast({
+                        message: `Impossibile ripristinare: stato corrente ${details?.current_status ?? "non valido"}`,
+                        type: "error"
+                    });
+                    void loadHistory();
+                    return;
+                }
+            }
+            showToast({ message: "Errore durante il ripristino", type: "error" });
+        }
+    }
+
     return (
         <section className={styles.container}>
             {mainTab !== "storico" && tenantId && selectedActivityId && (
@@ -536,23 +608,56 @@ export default function Orders() {
             )}
 
             {mainTab === "storico" && (
-                <div className={styles.historyPlaceholder}>
-                    <div className={styles.historyFilters}>
-                        <select className={styles.historyFilter} disabled>
-                            <option>Tutte</option>
-                            <option>Servite</option>
-                            <option>Annullate</option>
-                        </select>
-                        <select className={styles.historyFilter} disabled>
-                            <option>Tutti i tavoli</option>
-                        </select>
-                    </div>
-                    <EmptyState
-                        icon={<ClipboardList size={40} strokeWidth={1.5} />}
-                        title="Storico non ancora implementato"
-                        description="Funzionalita' completa (lista sessioni servite + Ripristina) in arrivo nello Step 5."
-                    />
-                </div>
+                <>
+                    {!selectedActivityId ? (
+                        <EmptyState
+                            icon={<ClipboardList size={40} strokeWidth={1.5} />}
+                            title="Seleziona una sede"
+                            description="Scegli una sede per visualizzare lo storico della giornata."
+                        />
+                    ) : historyError ? (
+                        <EmptyState
+                            icon={<AlertCircle size={40} strokeWidth={1.5} />}
+                            title="Errore caricamento storico"
+                            description={historyError.message}
+                            action={
+                                <Button variant="secondary" onClick={() => void loadHistory()}>
+                                    Riprova
+                                </Button>
+                            }
+                        />
+                    ) : isHistoryLoading ? (
+                        <EmptyState
+                            icon={<ClipboardList size={40} strokeWidth={1.5} />}
+                            title="Caricamento..."
+                            description="Recupero degli ordini conclusi oggi."
+                        />
+                    ) : historyOrders.length === 0 ? (
+                        <EmptyState
+                            icon={<ClipboardList size={40} strokeWidth={1.5} />}
+                            title="Nessun ordine concluso oggi"
+                            description="Gli ordini serviti o annullati nella giornata operativa appariranno qui."
+                        />
+                    ) : (
+                        <div className={styles.historyList}>
+                            {historyOrders.map(o => (
+                                <OrderHistoryRow
+                                    key={o.id}
+                                    order={o}
+                                    tableLabel={
+                                        tables.find(t => t.id === o.table_id)?.label ??
+                                        `#${o.id.slice(0, 6)}`
+                                    }
+                                    tableZone={
+                                        tables.find(t => t.id === o.table_id)?.zone_name ?? null
+                                    }
+                                    onRestore={handleRestore}
+                                    onViewDetail={handleViewDetail}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </>
             )}
 
             <OrderDetailDrawer
