@@ -221,7 +221,7 @@ Pagina Ordini (`src/pages/Dashboard/Orders/`):
 - FK: `entita_id`. Self-ref: `parent_entita_id`. Colonne: `snake_case`. Tabelle: plurale.
 - Schema attuale + fact critici (slug uniqueness, Stripe-on-tenants, schedule_targets RLS, ecc.) → `docs/database-reference.md`.
 - **`table_zones`** (migration `20260531150043`): entita' zone tavoli, UNIQUE `(activity_id, name)`. FK `tables.zone_id ON DELETE SET NULL`. RLS via `has_permission('tables.read'|'tables.manage', activity_id)`. View `v_tables_with_state` espone `zone_name` via LEFT JOIN. Campo `tables.zone` text DROPPED nella stessa migration. Frontend admin legge `zone_name` dal JOIN; payload Edge customer mantiene alias `zone: string | null` per backward-compat localStorage.
-- **`orders.status` + `orders.ready_at`** (migration `20260531180000`): constraint `orders_status_check` ora accetta 5 valori — `'submitted','acknowledged','ready','delivered','cancelled'`. Colonna `ready_at timestamptz NULL` write-once popolata al transition `acknowledged → ready`. Step 3.5 schema-only: la transizione `mark-order-ready` (Edge Function mirror 1:1 di `acknowledge-order` + service `markOrderReady` con optimistic locking) arriverà in Step 4 insieme al kanban admin a 3 colonne. Index partial `idx_orders_active` ancora limitato a `('submitted','acknowledged')`: estensione a `'ready'` = prereq Step 4 quando il kanban filtrerà su tutti e 3 gli stati attivi.
+- **`orders.status` + `orders.ready_at`** (migration `20260531180000`): constraint `orders_status_check` accetta 5 valori — `'submitted','acknowledged','ready','delivered','cancelled'`. Colonna `ready_at timestamptz NULL` write-once popolata al transition `acknowledged → ready` (Edge `mark-order-ready`, Step 4a). Index partial `idx_orders_active` esteso a `('submitted','acknowledged','ready')` con migration `20260601100000`.
 - **Sistema permessi multi-sede** (vedi `## Sistema permessi multi-sede` sopra): tabelle `tenant_memberships` (role NULL|'admin' post Fase 5.B.2), `tenant_membership_activities (tenant_membership_id, activity_id, tenant_id, role IN manager|staff|viewer)`, `permissions (id, scope)`, `role_permissions (role, permission_id)`. Helper SECURITY DEFINER: `has_permission`, `has_permission_any_activity`, `get_my_activity_ids`, `get_my_tenant_ids`.
 - Dati legali aziendali: `src/config/company.ts` ↔ `supabase/functions/_shared/company-config.ts` sono **duplicazione sincronizzata** (header `// ⚠️ SYNC`). Modifica entrambi nello stesso commit. Stesso pattern di `scheduleResolver.ts`.
 - **Migration con `CREATE FUNCTION` + REVOKE/GRANT**: `supabase db push` fallisce con `SQLSTATE 42601`. Workaround: applicare via Studio SQL Editor + registrare in `supabase_migrations.schema_migrations`, oppure splittare in 2 file consecutivi. Dettaglio: `docs/patterns/storage-sql.md`.
@@ -267,6 +267,25 @@ Catalogo completo, bug history (`purgeTenantData` ordine FK, `purgeActivityFolde
 - `cancel-order-admin`: `submitted|acknowledged → cancelled` (popola `cancelled_at`, `cancelled_by='admin'`, `cancellation_reason`)
 Tutte: optimistic locking via `expected_version`, error mapping unificato (409 `OPTIMISTIC_LOCK_CONFLICT` vs wrong-state via `details.reason`), rate limit 30/min per `(user, order)` con namespace per `function_name`. Service mirror in `src/services/supabase/orders.ts`: `acknowledgeOrder`, `markOrderReady`, `deliverOrder`, `cancelOrderAdmin` — tutte ritornano `throwMappedTransitionError(parseInvokeError(err))` sui 4xx/5xx.
 
+**Realtime su `orders`** (Step 4b): tabella `orders` in publication `supabase_realtime` (insieme a `customer_sessions`, `order_groups`, `notifications`). RLS SELECT su `orders` filtra automaticamente i `postgres_changes` per il subscriber autenticato:
+- Customer JWT custom: policy `customer_session_id = get_jwt_customer_session_id()`
+- Admin user JWT: policy `has_permission('orders.read', activity_id)`
+
+Nessun leak cross-tenant: il server realtime non emette eventi per righe non visibili via RLS SELECT del subscriber.
+
+Hook admin: `src/pages/Dashboard/Orders/hooks/useActiveOrdersRealtime.ts`. Subscribe con filter `activity_id=eq.<id>` (volume reduction; RLS è la security boundary). Pattern: initial fetch via REST (`listOrdersForActivity` con status `['submitted','acknowledged','ready']`) + subscribe `postgres_changes` event=`*`. UPDATE applica patch con **version-max gate** (`new.version > local.version`) — scarta echi della propria azione e update stale. Se nuovo status non-attivo (`delivered`/`cancelled`) → drop dalla board + callback `onOrderLeftBoard` (parent refresha KPI). INSERT triggera silent refetch (postgres_changes NON delivera `items[]`). Re-SUBSCRIBED → refetch (colma eventi persi durante disconnect, wifi sala flaky). Cleanup canale on unmount/activityId-change.
+
+Hook customer: `subscribeToSessionOrders` (in `orders.ts`), già pre-Step 4b. RLS via JWT custom `customer_session_id`. Pattern singleton `supabase.realtime.setAuth(jwt)` (no riconnessione WS, swap auth contesto).
+
+Kanban admin "Comande" (`src/pages/Dashboard/Orders/OrdersKanban.tsx`): 3 colonne (Nuove / In lavorazione / Pronte) basate su status. Card actions per colonna:
+- submitted: primary "Conferma" + secondary "Cancella"
+- acknowledged: primary "Pronto" + secondary "Servito direttamente" (skip-ready workflow) + "Cancella"
+- ready: primary "Servito" + secondary "Cancella"
+
+Transition: bottone loading durante invoke (NO optimistic-move). Post-success: `applyLocalPatch(response)` con `(status, version, timestamp)` — realtime echo deduplicato dal version-max. Errori discriminati: `OPTIMISTIC_LOCK_CONFLICT` → toast warning + refetch silenzioso. `INVALID_STATE_TRANSITION` → toast error con `details.current_status` + refetch.
+
+Customer stepper (`OrderStatusStepper.tsx`): 4 step (Inviato → In cucina → Pronto → Consegnato). Stato `ready` mostra step "Pronto" come `active` (icona `BellRing`).
+
 ---
 
 ## Integrazioni
@@ -302,6 +321,7 @@ Tech-debt e refactor differiti. Non bloccanti per il task corrente; da valutare 
 - **Sidebar loading-optimistic** — oggi `permissions===null` mostra tutte le voci (transitorio). Visivo flash su utenti scoped. Alternativa: skeleton durante load.
 - **Permission `translations.read` dedicato** — mancante. Sidebar voce "Lingue" usa `catalogs.read` proxy. Creare permission dedicato se gating più fine.
 - **Bulk cancel pending invites senza ConfirmDialog** — asimmetria vs bulk remove members (che ora ha confirm intermedio). Aggiungere ConfirmDialog per coerenza UX.
+- **Realtime `TablesLiveView` + drawer dettaglio-tavolo** — Step 4b ha consegnato il realtime sulle comande admin (`useActiveOrdersRealtime`); la vista live tavoli continua a girare via auto-refresh 30s. Step 4c estenderà il pattern realtime a `TablesLiveView` (subscribe a `customer_sessions` + `orders` aggregati view-side) e aggiungerà drawer dettaglio-tavolo con storia ordini per sessione.
 
 ---
 

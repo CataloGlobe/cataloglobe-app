@@ -11,6 +11,14 @@ import styles from "./OrderCard.module.scss";
 interface Props {
     order: V2OrderWithItems;
     onAcknowledge: (order: V2OrderWithItems) => Promise<void>;
+    /**
+     * Optional. When provided and the order is in `acknowledged`, the
+     * primary CTA becomes "Pronto" (mark-order-ready) and the deliver CTA
+     * is demoted to a secondary "Servito direttamente" affordance for
+     * workflows that skip the explicit ready step. When omitted, the
+     * legacy behaviour applies: primary "Consegna" on acknowledged.
+     */
+    onMarkReady?: (order: V2OrderWithItems) => Promise<void>;
     onDeliver: (order: V2OrderWithItems) => Promise<void>;
     onCancel: (order: V2OrderWithItems) => void;
     onRectify: (order: V2OrderWithItems) => void;
@@ -38,7 +46,6 @@ function statusVariantAndLabel(status: V2OrderWithItems["status"]): {
         case "acknowledged":
             return { variant: "success", label: "In corso" };
         case "ready":
-            // TODO Step 4: visual refinement (dedicated variant). Provisional reuse of "success".
             return { variant: "success", label: "Pronto" };
         case "delivered":
             return { variant: "neutral", label: "Consegnato" };
@@ -50,6 +57,7 @@ function statusVariantAndLabel(status: V2OrderWithItems["status"]): {
 export default function OrderCard({
     order,
     onAcknowledge,
+    onMarkReady,
     onDeliver,
     onCancel,
     onRectify,
@@ -63,6 +71,16 @@ export default function OrderCard({
         setIsProcessing(true);
         try {
             await onAcknowledge(order);
+        } finally {
+            setIsProcessing(false);
+        }
+    }
+
+    async function handleReady() {
+        if (!onMarkReady) return;
+        setIsProcessing(true);
+        try {
+            await onMarkReady(order);
         } finally {
             setIsProcessing(false);
         }
@@ -163,7 +181,32 @@ export default function OrderCard({
                             </Button>
                         </>
                     )}
-                    {order.status === "acknowledged" && (
+                    {order.status === "acknowledged" && onMarkReady && (
+                        <>
+                            <Button
+                                variant="primary"
+                                onClick={handleReady}
+                                loading={isProcessing}
+                            >
+                                Pronto
+                            </Button>
+                            <Button
+                                variant="secondary"
+                                onClick={handleDel}
+                                disabled={isProcessing}
+                            >
+                                Servito direttamente
+                            </Button>
+                            <Button
+                                variant="secondary"
+                                onClick={() => onCancel(order)}
+                                disabled={isProcessing}
+                            >
+                                Cancella
+                            </Button>
+                        </>
+                    )}
+                    {order.status === "acknowledged" && !onMarkReady && (
                         <>
                             <Button
                                 variant="primary"
@@ -171,6 +214,24 @@ export default function OrderCard({
                                 loading={isProcessing}
                             >
                                 Consegna
+                            </Button>
+                            <Button
+                                variant="secondary"
+                                onClick={() => onCancel(order)}
+                                disabled={isProcessing}
+                            >
+                                Cancella
+                            </Button>
+                        </>
+                    )}
+                    {order.status === "ready" && (
+                        <>
+                            <Button
+                                variant="primary"
+                                onClick={handleDel}
+                                loading={isProcessing}
+                            >
+                                Servito
                             </Button>
                             <Button
                                 variant="secondary"

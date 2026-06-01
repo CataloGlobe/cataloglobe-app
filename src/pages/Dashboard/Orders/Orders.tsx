@@ -14,8 +14,8 @@ import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 
 import {
-    listOrdersForActivity,
     acknowledgeOrder,
+    markOrderReady,
     deliverOrder,
     cancelOrderAdmin,
     rectifyOrder,
@@ -25,7 +25,6 @@ import {
 import type {
     V2Order,
     V2OrderWithItems,
-    ListOrdersOptions,
     RectifyOrderItem,
     V2TableWithState
 } from "@/types/orders";
@@ -33,19 +32,13 @@ import type {
 import { listTables, listTablesWithState } from "@/services/supabase/tables";
 import type { V2Table } from "@/types/orders";
 
-import OrderCard from "./OrderCard";
 import OrderDetailDrawer from "./OrderDetailDrawer";
 import OrderCancelDrawer from "./OrderCancelDrawer";
 import OrderRectifyDrawer from "./OrderRectifyDrawer";
 import { OrdersKpiBar } from "./OrdersKpiBar";
+import OrdersKanban from "./OrdersKanban";
+import { useActiveOrdersRealtime } from "./hooks/useActiveOrdersRealtime";
 import styles from "./Orders.module.scss";
-
-type OrderStatusFilter =
-    | "all"
-    | "submitted"
-    | "acknowledged"
-    | "delivered"
-    | "cancelled";
 
 type MainTab = "comande" | "tavoli" | "storico";
 
@@ -64,19 +57,17 @@ export default function Orders() {
     const [mainTab, setMainTab] = useState<MainTab>("comande");
 
     // Data
-    const [orders, setOrders] = useState<V2OrderWithItems[]>([]);
     const [tables, setTables] = useState<V2Table[]>([]);
     const [tablesWithState, setTablesWithState] = useState<V2TableWithState[]>([]);
     const [ordersTodayCount, setOrdersTodayCount] = useState<number>(0);
     const [ordersServedToday, setOrdersServedToday] = useState<V2Order[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
 
     // Filters (tab Comande)
     const [searchQuery, setSearchQuery] = useState("");
-    const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>("all");
     const [tableFilter, setTableFilter] = useState<string>("all");
 
-    // Auto-refresh
+    // Auto-refresh (fallback layer over realtime — kept on for KPI counters
+    // and the Tavoli tab snapshot, which are still REST-driven).
     const [autoRefreshEnabled, setAutoRefreshEnabled] = useState<boolean>(
         () => localStorage.getItem(AUTO_REFRESH_STORAGE_KEY) === "true"
     );
@@ -92,6 +83,47 @@ export default function Orders() {
     // Rectify drawer
     const [isRectifyOpen, setIsRectifyOpen] = useState(false);
     const [orderToRectify, setOrderToRectify] = useState<V2OrderWithItems | null>(null);
+
+    // ── KPI data (orders today + served today). Re-fetched on order
+    // transitions that move a card off the kanban (delivered / cancelled).
+    const loadKpi = useCallback(async () => {
+        if (!tenantId || !selectedActivityId) {
+            setOrdersTodayCount(0);
+            setOrdersServedToday([]);
+            return;
+        }
+        try {
+            const [count, served] = await Promise.all([
+                getOrdersCountToday(tenantId, selectedActivityId),
+                getOrdersServedToday(tenantId, selectedActivityId)
+            ]);
+            setOrdersTodayCount(count);
+            setOrdersServedToday(served);
+        } catch {
+            /* silent: KPI gracefully degrada a 0 */
+        }
+    }, [tenantId, selectedActivityId]);
+
+    useEffect(() => {
+        void loadKpi();
+    }, [loadKpi]);
+
+    // ── Realtime active orders board ──
+    const handleOrderLeftBoard = useCallback(() => {
+        // KPI counters depend on "served today"; refresh on every exit
+        // from the active board to keep the bar in sync without polling.
+        void loadKpi();
+    }, [loadKpi]);
+
+    const {
+        orders: activeOrders,
+        isLoading: isLoadingOrders,
+        error: ordersError,
+        refetch: refetchOrders,
+        applyLocalPatch
+    } = useActiveOrdersRealtime(tenantId, selectedActivityId, {
+        onOrderLeftBoard: handleOrderLeftBoard
+    });
 
     // ── Tables load (per lookup label/zone nel filtro tab Comande) ──
     const loadTables = useCallback(async () => {
@@ -129,77 +161,24 @@ export default function Orders() {
         void loadTablesWithState();
     }, [loadTablesWithState]);
 
-    // ── KPI data (orders today + served today) ──
-    const loadKpi = useCallback(async () => {
-        if (!tenantId || !selectedActivityId) {
-            setOrdersTodayCount(0);
-            setOrdersServedToday([]);
-            return;
-        }
-        try {
-            const [count, served] = await Promise.all([
-                getOrdersCountToday(tenantId, selectedActivityId),
-                getOrdersServedToday(tenantId, selectedActivityId)
-            ]);
-            setOrdersTodayCount(count);
-            setOrdersServedToday(served);
-        } catch {
-            /* silent: KPI degrada a 0 */
-        }
-    }, [tenantId, selectedActivityId]);
-
-    useEffect(() => {
-        void loadKpi();
-    }, [loadKpi]);
-
-    // ── Orders load (tab Comande) ──
-    const loadOrders = useCallback(async () => {
-        if (!tenantId || !selectedActivityId) {
-            setOrders([]);
-            setIsLoading(false);
-            return;
-        }
-        setIsLoading(true);
-        try {
-            const options: ListOrdersOptions = {
-                status: statusFilter === "all" ? undefined : statusFilter,
-                tableId: tableFilter === "all" ? undefined : tableFilter,
-                includeItems: true,
-                limit: 100
-            };
-            const data = await listOrdersForActivity(
-                tenantId,
-                selectedActivityId,
-                options
-            );
-            setOrders(data);
-        } catch {
-            showToast({ message: "Impossibile caricare gli ordini", type: "error" });
-        } finally {
-            setIsLoading(false);
-        }
-    }, [tenantId, selectedActivityId, statusFilter, tableFilter, showToast]);
-
-    useEffect(() => {
-        void loadOrders();
-    }, [loadOrders]);
-
-    // ── Refresh totale (header button) ──
+    // ── Refresh totale (header button). Triggers kanban refetch + all REST sources. ──
     const refreshAll = useCallback(() => {
-        void loadOrders();
+        void refetchOrders();
         void loadTables();
         void loadTablesWithState();
         void loadKpi();
-    }, [loadOrders, loadTables, loadTablesWithState, loadKpi]);
+    }, [refetchOrders, loadTables, loadTablesWithState, loadKpi]);
 
-    // ── Auto-refresh: tutto in batch ──
+    // ── Auto-refresh: KPI + tables snapshot only (kanban is realtime).
     useEffect(() => {
         if (!autoRefreshEnabled) return;
         const id = setInterval(() => {
-            refreshAll();
+            void loadTables();
+            void loadTablesWithState();
+            void loadKpi();
         }, AUTO_REFRESH_INTERVAL_MS);
         return () => clearInterval(id);
-    }, [autoRefreshEnabled, refreshAll]);
+    }, [autoRefreshEnabled, loadTables, loadTablesWithState, loadKpi]);
 
     useEffect(() => {
         localStorage.setItem(AUTO_REFRESH_STORAGE_KEY, String(autoRefreshEnabled));
@@ -220,7 +199,7 @@ export default function Orders() {
                     variant="secondary"
                     leftIcon={<RefreshCw size={16} />}
                     onClick={refreshAll}
-                    disabled={!selectedActivityId || isLoading}
+                    disabled={!selectedActivityId || isLoadingOrders}
                 >
                     Aggiorna
                 </Button>
@@ -230,11 +209,11 @@ export default function Orders() {
                         checked={autoRefreshEnabled}
                         onChange={e => setAutoRefreshEnabled(e.target.checked)}
                     />
-                    <Text variant="body-sm">Auto-aggiorna (30s)</Text>
+                    <Text variant="body-sm">Auto-aggiorna KPI (30s)</Text>
                 </label>
             </div>
         ),
-        [tenantId, selectedActivityId, refreshAll, isLoading, autoRefreshEnabled]
+        [tenantId, selectedActivityId, refreshAll, isLoadingOrders, autoRefreshEnabled]
     );
 
     usePageHeader({
@@ -244,18 +223,21 @@ export default function Orders() {
         sticky: true
     });
 
-    // ── Filtering (client-side: search + customer_name) ──
+    // ── Filtering (client-side: search + tableId) ──
     const filteredOrders = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
-        if (q.length === 0) return orders;
-        return orders.filter(o => {
+        const byTable =
+            tableFilter === "all"
+                ? activeOrders
+                : activeOrders.filter(o => o.table_id === tableFilter);
+        if (q.length === 0) return byTable;
+        return byTable.filter(o => {
             if (o.customer_name_snapshot?.toLowerCase().includes(q)) return true;
             const tableLabel =
                 tables.find(t => t.id === o.table_id)?.label.toLowerCase() ?? "";
-            if (tableLabel.includes(q)) return true;
-            return false;
+            return tableLabel.includes(q);
         });
-    }, [orders, searchQuery, tables]);
+    }, [activeOrders, searchQuery, tableFilter, tables]);
 
     function labelFor(order: V2OrderWithItems): string {
         const t = tables.find(tt => tt.id === order.table_id);
@@ -274,7 +256,7 @@ export default function Orders() {
                         "L'ordine è stato modificato da un altro utente, aggiorno la lista",
                     type: "warning"
                 });
-                void loadOrders();
+                void refetchOrders();
                 return;
             }
             if (err.message === "INVALID_STATE_TRANSITION") {
@@ -284,7 +266,7 @@ export default function Orders() {
                     message: `Impossibile ${action}: stato corrente ${details?.current_status ?? "non valido"}`,
                     type: "error"
                 });
-                void loadOrders();
+                void refetchOrders();
                 return;
             }
         }
@@ -293,25 +275,53 @@ export default function Orders() {
 
     async function handleAcknowledge(order: V2OrderWithItems) {
         try {
-            await acknowledgeOrder(order.id, order.version);
+            const res = await acknowledgeOrder(order.id, order.version);
+            applyLocalPatch({
+                id: res.order_id,
+                status: res.status,
+                version: res.version,
+                acknowledged_at: res.acknowledged_at
+            });
             showToast({
                 message: `Ordine ${labelFor(order)} confermato`,
                 type: "success"
             });
-            await loadOrders();
         } catch (err) {
             handleTransitionError(err, order, "la conferma");
         }
     }
 
+    async function handleMarkReady(order: V2OrderWithItems) {
+        try {
+            const res = await markOrderReady(order.id, order.version);
+            applyLocalPatch({
+                id: res.order_id,
+                status: res.status,
+                version: res.version,
+                ready_at: res.ready_at
+            });
+            showToast({
+                message: `Ordine ${labelFor(order)} segnato come pronto`,
+                type: "success"
+            });
+        } catch (err) {
+            handleTransitionError(err, order, "la marcatura come pronto");
+        }
+    }
+
     async function handleDeliver(order: V2OrderWithItems) {
         try {
-            await deliverOrder(order.id, order.version);
+            const res = await deliverOrder(order.id, order.version);
+            applyLocalPatch({
+                id: res.order_id,
+                status: res.status,
+                version: res.version,
+                delivered_at: res.delivered_at
+            });
             showToast({
                 message: `Ordine ${labelFor(order)} consegnato`,
                 type: "success"
             });
-            await loadOrders();
             void loadKpi();
         } catch (err) {
             handleTransitionError(err, order, "la consegna");
@@ -332,18 +342,25 @@ export default function Orders() {
         if (!orderToCancel) return;
         const trimmed = reason.trim();
         try {
-            await cancelOrderAdmin(
+            const res = await cancelOrderAdmin(
                 orderToCancel.id,
                 orderToCancel.version,
                 trimmed.length > 0 ? trimmed : undefined
             );
+            applyLocalPatch({
+                id: res.order_id,
+                status: res.status,
+                version: res.version,
+                cancelled_at: res.cancelled_at,
+                cancelled_by: res.cancelled_by,
+                cancellation_reason: res.cancellation_reason
+            });
             showToast({
                 message: `Ordine ${labelFor(orderToCancel)} cancellato`,
                 type: "success"
             });
             setIsCancelOpen(false);
             setOrderToCancel(null);
-            await loadOrders();
         } catch (err) {
             if (err instanceof Error && err.message === "REASON_TOO_LONG") {
                 showToast({
@@ -377,7 +394,7 @@ export default function Orders() {
             showToast({ message: "Rettifica registrata", type: "success" });
             setIsRectifyOpen(false);
             setOrderToRectify(null);
-            await loadOrders();
+            void refetchOrders();
         } catch (err) {
             if (err instanceof Error) {
                 switch (err.message) {
@@ -406,7 +423,7 @@ export default function Orders() {
                         });
                         setIsRectifyOpen(false);
                         setOrderToRectify(null);
-                        void loadOrders();
+                        void refetchOrders();
                         return;
                     case "INVALID_PARENT_STATE": {
                         const details = (err as Error & {
@@ -418,7 +435,7 @@ export default function Orders() {
                         });
                         setIsRectifyOpen(false);
                         setOrderToRectify(null);
-                        void loadOrders();
+                        void refetchOrders();
                         return;
                     }
                     case "INVALID_RECTIFICATION_ITEMS": {
@@ -462,19 +479,6 @@ export default function Orders() {
 
             {mainTab === "comande" && (
                 <>
-                    <Tabs<OrderStatusFilter>
-                        value={statusFilter}
-                        onChange={setStatusFilter}
-                    >
-                        <Tabs.List>
-                            <Tabs.Tab value="all">Tutti</Tabs.Tab>
-                            <Tabs.Tab value="submitted">Da prendere</Tabs.Tab>
-                            <Tabs.Tab value="acknowledged">In corso</Tabs.Tab>
-                            <Tabs.Tab value="delivered">Consegnati</Tabs.Tab>
-                            <Tabs.Tab value="cancelled">Cancellati</Tabs.Tab>
-                        </Tabs.List>
-                    </Tabs>
-
                     <div className={styles.filtersRow}>
                         <FilterBar
                             search={{
@@ -499,37 +503,26 @@ export default function Orders() {
                         )}
                     </div>
 
-                    {!isLoading && filteredOrders.length === 0 ? (
+                    {!selectedActivityId ? (
                         <EmptyState
                             icon={<ClipboardList size={40} strokeWidth={1.5} />}
-                            title={
-                                orders.length === 0 ? "Nessun ordine" : "Nessun risultato"
-                            }
-                            description={
-                                orders.length === 0
-                                    ? "Quando i clienti inizieranno a ordinare, gli ordini compariranno qui."
-                                    : "Modifica i filtri per vedere altri risultati."
-                            }
+                            title="Seleziona una sede"
+                            description="Scegli una sede per visualizzare le comande in corso."
                         />
                     ) : (
-                        <div className={styles.cardsList}>
-                            {filteredOrders.map(order => {
-                                const table = tables.find(t => t.id === order.table_id);
-                                return (
-                                    <OrderCard
-                                        key={order.id}
-                                        order={order}
-                                        tableLabel={table?.label ?? "?"}
-                                        tableZone={table?.zone_name ?? null}
-                                        onAcknowledge={handleAcknowledge}
-                                        onDeliver={handleDeliver}
-                                        onCancel={handleCancelOpen}
-                                        onRectify={handleRectifyOpen}
-                                        onViewDetail={handleViewDetail}
-                                    />
-                                );
-                            })}
-                        </div>
+                        <OrdersKanban
+                            orders={filteredOrders}
+                            tables={tables}
+                            isLoading={isLoadingOrders}
+                            error={ordersError}
+                            onRetry={() => void refetchOrders()}
+                            onAcknowledge={handleAcknowledge}
+                            onMarkReady={handleMarkReady}
+                            onDeliver={handleDeliver}
+                            onCancel={handleCancelOpen}
+                            onRectify={handleRectifyOpen}
+                            onViewDetail={handleViewDetail}
+                        />
                     )}
                 </>
             )}
