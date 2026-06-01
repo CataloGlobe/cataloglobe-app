@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
-import { Check, Clock, ChefHat } from "lucide-react";
+import { Check, Clock, ChefHat, BellRing } from "lucide-react";
 import type { SessionOrderSummary } from "@/types/orders";
 import styles from "./OrderStatusStepper.module.scss";
 
@@ -8,7 +8,7 @@ interface Props {
 }
 
 type StepState = "done" | "active" | "pending";
-type StepIcon = "check" | "clock" | "chef-hat";
+type StepIcon = "check" | "clock" | "chef-hat" | "bell-ring";
 
 interface StepDef {
     label: string;
@@ -21,6 +21,7 @@ function computeSteps(order: SessionOrderSummary): StepDef[] {
         return [
             { label: "Inviato", state: "active", icon: "clock" },
             { label: "In cucina", state: "pending", icon: "chef-hat" },
+            { label: "Pronto", state: "pending", icon: "bell-ring" },
             { label: "Consegnato", state: "pending", icon: "check" }
         ];
     }
@@ -28,6 +29,15 @@ function computeSteps(order: SessionOrderSummary): StepDef[] {
         return [
             { label: "Inviato", state: "done", icon: "check" },
             { label: "In cucina", state: "active", icon: "chef-hat" },
+            { label: "Pronto", state: "pending", icon: "bell-ring" },
+            { label: "Consegnato", state: "pending", icon: "check" }
+        ];
+    }
+    if (order.status === "ready") {
+        return [
+            { label: "Inviato", state: "done", icon: "check" },
+            { label: "In cucina", state: "done", icon: "check" },
+            { label: "Pronto", state: "active", icon: "bell-ring" },
             { label: "Consegnato", state: "pending", icon: "check" }
         ];
     }
@@ -35,6 +45,7 @@ function computeSteps(order: SessionOrderSummary): StepDef[] {
         return [
             { label: "Inviato", state: "done", icon: "check" },
             { label: "In cucina", state: "done", icon: "check" },
+            { label: "Pronto", state: "done", icon: "check" },
             { label: "Consegnato", state: "done", icon: "check" }
         ];
     }
@@ -42,6 +53,7 @@ function computeSteps(order: SessionOrderSummary): StepDef[] {
     return [
         { label: "Inviato", state: "done", icon: "check" },
         { label: "In cucina", state: "pending", icon: "chef-hat" },
+        { label: "Pronto", state: "pending", icon: "bell-ring" },
         { label: "Consegnato", state: "pending", icon: "check" }
     ];
 }
@@ -56,6 +68,7 @@ function formatMinutesSince(iso: string | null): number | null {
 function renderIcon(icon: StepIcon, size: number) {
     if (icon === "check") return <Check size={size} />;
     if (icon === "clock") return <Clock size={size} />;
+    if (icon === "bell-ring") return <BellRing size={size} />;
     return <ChefHat size={size} />;
 }
 

@@ -147,12 +147,20 @@ export default function OrderingSheet({
     const activeOrdersCount = orders.filter(o => o.status !== "cancelled").length;
     const isEmptyCart = items.length === 0;
 
-    // Totale tavolo (per-session): somma orders acknowledged + delivered, esclude
-    // cancelled e submitted (submitted = ordine appena inviato non ancora confermato,
-    // mostrato in Riepilogo conto solo dopo acknowledge).
+    // Totale tavolo (per-session): somma orders acknowledged + ready + delivered,
+    // esclude cancelled e submitted (submitted = ordine appena inviato non ancora
+    // confermato, mostrato in Riepilogo conto solo dopo acknowledge). Lo stato
+    // 'ready' indica che la cucina ha terminato la preparazione ma la consegna
+    // al tavolo non e' ancora avvenuta — il cliente vede comunque l'importo
+    // perche' l'impegno commerciale e' gia' confermato.
     const tableTotal = useMemo(() => {
         return orders
-            .filter(o => o.status === "acknowledged" || o.status === "delivered")
+            .filter(
+                o =>
+                    o.status === "acknowledged" ||
+                    o.status === "ready" ||
+                    o.status === "delivered"
+            )
             .reduce((sum, o) => sum + (o.total_amount ?? 0), 0);
     }, [orders]);
 
