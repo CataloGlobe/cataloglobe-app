@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { resolveTable } from "@/services/supabase/customerSessions";
 import { saveCustomerSession } from "@/services/customer/customerSessionStorage";
+import { getOrCreateDeviceId } from "@/services/customer/deviceId";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import { ResolveTableOrderingUnavailableError } from "@/types/orders";
 import type { OrderingStateReason } from "@/types/orders";
@@ -18,17 +19,26 @@ export default function TableEntryPage() {
     const navigate = useNavigate();
     const [state, setState] = useState<PageState>({ status: "loading" });
 
+    // Guard contro double-invoke dell'effect (StrictMode dev, suspense
+    // rimount). La protezione vera contro session duplicate e' lato server
+    // (Edge resolve-table riconosce device_id), ma questo guard evita
+    // anche la chiamata di rete extra in dev. Belt-and-braces.
+    const calledRef = useRef(false);
+
     useEffect(() => {
         if (!qrToken) {
             setState({ status: "error", message: "Codice QR non valido" });
             return;
         }
+        if (calledRef.current) return;
+        calledRef.current = true;
 
         let cancelled = false;
 
         async function bootstrap() {
             try {
-                const result = await resolveTable(qrToken!);
+                const deviceId = getOrCreateDeviceId();
+                const result = await resolveTable(qrToken!, { deviceId });
                 if (cancelled) return;
 
                 saveCustomerSession({

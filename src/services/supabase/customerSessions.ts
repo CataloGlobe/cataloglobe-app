@@ -53,19 +53,25 @@ function buildCustomerClient(customerJwt: string): SupabaseClient {
  * Risolve un QR token chiamando l'Edge Function `resolve-table`.
  * Crea (o ri-attacca) una customer_session sul tavolo scansionato.
  *
- * @param qrToken           UUID del QR scansionato.
- * @param existingSessionId UUID opzionale di una session già salvata in
- *                          localStorage (TTL 12h). Se valida e same-tenant,
- *                          l'Edge Function la riusa invece di crearne una nuova.
+ * @param qrToken UUID del QR scansionato.
+ * @param opts    Opzioni:
+ *   - `existingSessionId`: UUID di una session già salvata. Se valida e
+ *     same-tenant, l'Edge Function la riusa invece di crearne una nuova.
+ *   - `deviceId`: UUID stabile per il dispositivo (vedi
+ *     `src/services/customer/deviceId.ts`). Permette all'Edge di riusare
+ *     la session attiva per `(device_id, tenant_id)` evitando duplicati
+ *     ad ogni refresh/multi-tab/StrictMode double-invoke. Tenant_id e'
+ *     SEMPRE derivato server-side dal tavolo, mai dal client.
  */
 export async function resolveTable(
     qrToken: string,
-    existingSessionId?: string | null
+    opts?: { existingSessionId?: string | null; deviceId?: string | null }
 ): Promise<ResolveTableResult> {
     const { data, error } = await supabase.functions.invoke("resolve-table", {
         body: {
             qr_token: qrToken,
-            existing_session_id: existingSessionId ?? null
+            existing_session_id: opts?.existingSessionId ?? null,
+            device_id: opts?.deviceId ?? null
         }
     });
 
