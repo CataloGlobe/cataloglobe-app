@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
+import { usePageHead } from "@/hooks/usePageHead";
 import { fetchPublicCatalog } from "@/services/publicCatalog/fetchPublicCatalog";
 import type { ResolvedStyle } from "@/types/resolvedCollections";
 import ReservationHeader from "./ReservationHeader";
@@ -89,6 +90,23 @@ export default function ReservationPage() {
     const handleSuccess = useCallback((snapshot: FormFields) => {
         setSuccessSnapshot(snapshot);
     }, []);
+
+    // Document <title>: aligned with the public menu's pattern via
+    // usePageHead — venue name first, descriptor after (matches
+    // PublicCollectionPage `${name} · Menu`).
+    const brandNameForTitle: string | null =
+        resolve.status === "ready" || resolve.status === "reservations-disabled"
+            ? resolve.brand.brandName
+            : resolve.status === "inactive"
+                ? resolve.brand?.brandName ?? null
+                : null;
+    const pageTitle =
+        resolve.status === "loading"
+            ? undefined
+            : brandNameForTitle
+                ? `${brandNameForTitle} · Prenotazione`
+                : "Prenotazione";
+    usePageHead({ title: pageTitle });
 
     const handleResolveErrorCode = useCallback(
         (code: "ACTIVITY_NOT_FOUND" | "ACTIVITY_NOT_ACTIVE" | "RESERVATIONS_DISABLED") => {

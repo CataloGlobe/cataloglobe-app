@@ -1,5 +1,6 @@
 import PartySizePicker from "./PartySizePicker";
 import type { FieldErrors, FormFields } from "./types";
+import { snapTimeToQuarter } from "./validators";
 import styles from "./ReservationForm.module.scss";
 
 type Props = {
@@ -63,10 +64,30 @@ export default function WhenSection({
                         id="reservation_time"
                         type="time"
                         required
+                        step={900}
                         className={styles.input}
                         value={values.reservation_time}
-                        onChange={e => onChange("reservation_time", e.target.value)}
-                        onBlur={() => onBlur("reservation_time")}
+                        onChange={e => {
+                            const raw = e.target.value;
+                            onChange(
+                                "reservation_time",
+                                raw ? snapTimeToQuarter(raw) : ""
+                            );
+                        }}
+                        onBlur={() => {
+                            // Defensive snap on blur: catches programmatic
+                            // value changes (autofill, scripted setters) and
+                            // any browser that emits non-quarter values
+                            // without firing change.
+                            const current = values.reservation_time;
+                            if (current) {
+                                const snapped = snapTimeToQuarter(current);
+                                if (snapped !== current) {
+                                    onChange("reservation_time", snapped);
+                                }
+                            }
+                            onBlur("reservation_time");
+                        }}
                         aria-invalid={errors.reservation_time ? "true" : undefined}
                         aria-describedby={
                             errors.reservation_time ? "err-reservation_time" : undefined
