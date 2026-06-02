@@ -33,13 +33,17 @@ export default function TableEntryPage() {
         if (calledRef.current) return;
         calledRef.current = true;
 
-        let cancelled = false;
-
+        // Niente flag `cancelled` qui: il useRef guard garantisce che
+        // bootstrap parta UNA sola volta in tutto il ciclo di vita della
+        // pagina. Aggiungere un `cancelled` con cleanup darebbe il bug
+        // opposto in StrictMode: Run 1 partirebbe, lo StrictMode cleanup
+        // setterebbe cancelled=true, Run 2 verrebbe bloccata dal useRef
+        // e la Run 1 risolverebbe per poi auto-bailare prima di
+        // saveCustomerSession + navigate → loading infinito.
         async function bootstrap() {
             try {
                 const deviceId = getOrCreateDeviceId();
                 const result = await resolveTable(qrToken!, { deviceId });
-                if (cancelled) return;
 
                 saveCustomerSession({
                     jwt: result.jwt,
@@ -55,8 +59,6 @@ export default function TableEntryPage() {
 
                 navigate(`/${result.activity.slug}`, { replace: true });
             } catch (err) {
-                if (cancelled) return;
-
                 // 423 ORDERING_UNAVAILABLE: discrimina canViewMenu + reason.
                 // - canViewMenu=true:
                 //     * ordering_disabled → redirect pulito a /:slug.
@@ -111,10 +113,6 @@ export default function TableEntryPage() {
         }
 
         void bootstrap();
-
-        return () => {
-            cancelled = true;
-        };
     }, [qrToken, navigate]);
 
     if (state.status === "loading") {
