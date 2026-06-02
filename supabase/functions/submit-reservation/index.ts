@@ -13,8 +13,11 @@ import { COMPANY, getEmailFooterHtml, getEmailFooterText } from "../_shared/comp
 // fires (best-effort) two emails:
 //
 //   1. Receipt to the customer.
-//   2. Alert to the venue (recipient resolution: future per-site field →
-//      `activities.email_public` → tenant owner email via auth.users).
+//   2. Alert(s) to the venue. Recipient resolution:
+//        1. `activities.reservation_notification_emails` (per-site explicit
+//           list) — when non-empty, each address gets its own send so
+//           recipients do not see each other.
+//        2. Tenant owner email via `tenants.owner_user_id` → auth.users.
 //
 // Hard guarantees:
 //   - tenant_id ALWAYS derived from the server-resolved activity, NEVER from
@@ -117,37 +120,43 @@ function reservationVenueAlertReason(activityName: string): string {
 
 // --- Recipient resolution (isolated block — future priority 1 plugs in here) -
 
-type RecipientSource = "activity_contact" | "owner";
+type RecipientSource = "per_site" | "owner";
 
-interface ResolvedRecipient {
-    email: string;
+interface ResolvedRecipients {
+    emails: string[];
     source: RecipientSource;
 }
 
 /**
- * Resolve the venue alert recipient in priority order:
+ * Resolve the venue alert recipients in priority order:
  *
- *   1. FUTURE: per-site configurable alerts email (column not yet present).
- *      Insertion point only — do NOT add a column here.
- *   2. `activities.email_public` if set/non-empty.
- *   3. Tenant owner email via `tenants.owner_user_id` → `auth.users`.
+ *   1. `activities.reservation_notification_emails` — when non-empty, the
+ *      caller sends one separate email per recipient (no BCC) so they do
+ *      not see each other.
+ *   2. Tenant owner email via `tenants.owner_user_id` → `auth.users`.
  *
  * Returns null when no recipient is resolvable. Caller skips the alert and
- * logs.
+ * logs a warning.
  */
-async function resolveAlertRecipient(
+async function resolveAlertRecipients(
     supabase: ReturnType<typeof createClient>,
-    activity: { tenant_id: string; email_public: string | null }
-): Promise<ResolvedRecipient | null> {
-    // 1. FUTURE per-site dedicated alerts email — placeholder for tomorrow's
-    //    priority 1. When the column lands, lookup here BEFORE the others.
-
-    // 2. Activity contact email.
-    if (activity.email_public && activity.email_public.trim().length > 0) {
-        return { email: activity.email_public.trim(), source: "activity_contact" };
+    activity: { tenant_id: string; reservation_notification_emails: string[] | null }
+): Promise<ResolvedRecipients | null> {
+    // 1. Per-site explicit list. Trim, drop empties, dedup case-insensitive.
+    const rawList = activity.reservation_notification_emails ?? [];
+    const seen = new Set<string>();
+    const cleaned: string[] = [];
+    for (const raw of rawList) {
+        const trimmed = (raw ?? "").trim();
+        if (trimmed.length === 0) continue;
+        const key = trimmed.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        cleaned.push(trimmed);
     }
+    if (cleaned.length > 0) return { emails: cleaned, source: "per_site" };
 
-    // 3. Tenant owner email via service_role admin API.
+    // 2. Tenant owner email via service_role admin API.
     const { data: tenant, error: tenantError } = await supabase
         .from("tenants")
         .select("owner_user_id")
@@ -170,7 +179,7 @@ async function resolveAlertRecipient(
     const ownerEmail = ownerData?.user?.email;
     if (!ownerEmail) return null;
 
-    return { email: ownerEmail, source: "owner" };
+    return { emails: [ownerEmail], source: "owner" };
 }
 
 // --- Email bodies ------------------------------------------------------------
@@ -376,7 +385,7 @@ serve(async (req: Request) => {
         // ── Resolve slug → activity (server-side; tenant_id NEVER from body)
         const { data: activity, error: activityError } = await supabase
             .from("activities")
-            .select("id, tenant_id, name, slug, status, enable_reservations, email_public")
+            .select("id, tenant_id, name, slug, status, enable_reservations, reservation_notification_emails")
             .eq("slug", slug)
             .maybeSingle();
 
@@ -435,19 +444,21 @@ serve(async (req: Request) => {
             console.error("[submit-reservation] customer receipt email failed:", mailErr);
         }
 
-        // Venue alert
+        // Venue alert(s) — one separate send per recipient so addresses
+        // never see each other. allSettled isolates failures: a single
+        // bounced address does not block the others.
         try {
-            const recipient = await resolveAlertRecipient(supabase, {
+            const recipients = await resolveAlertRecipients(supabase, {
                 tenant_id: activity.tenant_id,
-                email_public: activity.email_public
+                reservation_notification_emails: activity.reservation_notification_emails
             });
-            if (!recipient) {
+            if (!recipients) {
                 console.warn(
                     `[submit-reservation] no alert recipient resolvable (reservation_id=${reservationId}, activity_id=${activity.id}). Skipping alert.`
                 );
             } else {
                 console.log(
-                    `[submit-reservation] alert recipient resolved (reservation_id=${reservationId}, source=${recipient.source}).`
+                    `[submit-reservation] alert resolved (reservation_id=${reservationId}, source=${recipients.source}, count=${recipients.emails.length}).`
                 );
                 const venueBody = buildVenueAlertEmail({
                     activityName: activity.name,
@@ -459,17 +470,29 @@ serve(async (req: Request) => {
                     customerPhone,
                     notes
                 });
-                await resend.emails.send({
-                    from: COMPANY.email.sender,
-                    reply_to: COMPANY.contact.support,
-                    to: recipient.email,
-                    subject: venueBody.subject,
-                    html: venueBody.html,
-                    text: venueBody.text
+                const results = await Promise.allSettled(
+                    recipients.emails.map(to =>
+                        resend.emails.send({
+                            from: COMPANY.email.sender,
+                            reply_to: COMPANY.contact.support,
+                            to,
+                            subject: venueBody.subject,
+                            html: venueBody.html,
+                            text: venueBody.text
+                        })
+                    )
+                );
+                results.forEach((r, i) => {
+                    if (r.status === "rejected") {
+                        console.error(
+                            `[submit-reservation] venue alert email failed for ${recipients.emails[i]}:`,
+                            r.reason
+                        );
+                    }
                 });
             }
         } catch (mailErr) {
-            console.error("[submit-reservation] venue alert email failed:", mailErr);
+            console.error("[submit-reservation] venue alert resolver failed:", mailErr);
         }
 
         return jsonResponse({ success: true, reservation_id: reservationId }, 200);
