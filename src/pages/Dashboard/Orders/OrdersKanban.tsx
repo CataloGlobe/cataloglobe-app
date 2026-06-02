@@ -113,7 +113,10 @@ export default function OrdersKanban({
                         data-status={col.status}
                     >
                         <div className={styles.columnHeader}>
-                            <span className={styles.columnTitle}>{col.title}</span>
+                            <span className={styles.columnTitleGroup}>
+                                <span className={styles.columnDot} aria-hidden />
+                                <span className={styles.columnTitle}>{col.title}</span>
+                            </span>
                             <span className={styles.columnCount}>{colOrders.length}</span>
                         </div>
                         <div className={styles.columnList}>

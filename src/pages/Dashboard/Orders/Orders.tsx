@@ -261,9 +261,34 @@ export default function Orders() {
                 version: res.version,
                 delivered_at: res.delivered_at
             });
+            // Undo inline: usa la versione post-deliver (res.version), NON
+            // order.version che e' ormai stale. handleRestore esistente non
+            // serve qui — chiamiamo direttamente restoreOrder per evitare
+            // di propagare la version stale tramite l'order originale.
             showToast({
-                message: `Ordine ${labelFor(order)} consegnato`,
-                type: "success"
+                message: `Ordine ${labelFor(order)} servito`,
+                type: "success",
+                actionLabel: "Annulla",
+                onAction: () => {
+                    void (async () => {
+                        try {
+                            const restored = await restoreOrder(res.order_id, res.version);
+                            applyLocalPatch({
+                                id: restored.order_id,
+                                status: restored.status,
+                                version: restored.version,
+                                delivered_at: null,
+                                ready_at: null
+                            });
+                            showToast({
+                                message: `Ordine ${labelFor(order)} ripristinato`,
+                                type: "info"
+                            });
+                        } catch (err) {
+                            handleTransitionError(err, order, "il ripristino");
+                        }
+                    })();
+                }
             });
         } catch (err) {
             handleTransitionError(err, order, "la consegna");

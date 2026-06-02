@@ -5,31 +5,18 @@
 
     @media (min-width: 900px) {
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        align-items: stretch;
+        align-items: start;
+        gap: 20px;
     }
 }
 
+// Colonna trasparente: niente box, niente bordo, niente background.
+// Le card galleggiano sul background della pagina.
 .column {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    background: var(--surface-muted, #f6f7f9);
-    border: 1px solid var(--border-default, #e1e3e8);
-    border-radius: 8px;
-    padding: 12px;
+    gap: 12px;
     min-height: 200px;
-}
-
-.column[data-status="submitted"] {
-    border-top: 3px solid var(--color-warning, #d97706);
-}
-
-.column[data-status="acknowledged"] {
-    border-top: 3px solid var(--color-info, #2563eb);
-}
-
-.column[data-status="ready"] {
-    border-top: 3px solid var(--color-success, #16a34a);
 }
 
 .columnHeader {
@@ -37,49 +24,91 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding-bottom: 6px;
+    padding: 4px 4px 8px;
+}
+
+.columnTitleGroup {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+// Dot colorato per stato colonna. Color via [data-status] sul .column
+// padre (selettore parent → figlio per evitare prop drilling).
+.columnDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted, #6b6f76);
+    flex-shrink: 0;
+}
+
+.column[data-status="submitted"] .columnDot {
+    background: var(--text-muted, #6b6f76);
+}
+
+.column[data-status="acknowledged"] .columnDot {
+    background: var(--color-warning-500, #f59e0b);
+}
+
+.column[data-status="ready"] .columnDot {
+    background: var(--color-green-500, #10b981);
 }
 
 .columnTitle {
     font-weight: 600;
-    font-size: 14px;
-    color: var(--text-primary, #1a1d21);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted, #6b6f76);
 }
 
+// Pill contatore con tinta leggera coerente al dot. Stesso pattern
+// [data-status] sul parent.
 .columnCount {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 22px;
+    min-width: 24px;
     height: 22px;
-    padding: 0 7px;
+    padding: 0 8px;
     border-radius: 999px;
-    background: var(--surface-elevated, #fff);
-    border: 1px solid var(--border-default, #e1e3e8);
     font-size: 12px;
     font-weight: 600;
+    background: rgba(107, 111, 118, 0.12);
     color: var(--text-primary, #1a1d21);
+}
+
+.column[data-status="acknowledged"] .columnCount {
+    background: rgba(245, 158, 11, 0.14);
+    color: var(--color-warning-700, #b45309);
+}
+
+.column[data-status="ready"] .columnCount {
+    background: rgba(16, 185, 129, 0.14);
+    color: var(--color-green-900, #14532d);
 }
 
 .columnList {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
+// Empty state: box tratteggiato sottile, neutro.
 .emptyColumn {
     padding: 20px 12px;
     text-align: center;
     color: var(--text-muted, #6b6f76);
     font-size: 13px;
     border: 1px dashed var(--border-default, #e1e3e8);
-    border-radius: 6px;
-    background: var(--surface-elevated, #fff);
+    border-radius: 8px;
+    background: transparent;
 }
 
 .skeleton {
     height: 120px;
-    border-radius: 6px;
+    border-radius: 12px;
     background: linear-gradient(
         90deg,
         var(--surface-elevated, #fff) 0%,
@@ -101,7 +130,7 @@
 
 .errorBanner {
     padding: 12px;
-    border-radius: 6px;
+    border-radius: 8px;
     background: var(--surface-elevated, #fff);
     border: 1px solid var(--color-danger, #dc2626);
     color: var(--color-danger, #dc2626);

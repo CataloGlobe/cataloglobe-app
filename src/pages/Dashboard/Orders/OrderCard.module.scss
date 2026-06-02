@@ -1,24 +1,17 @@
 .card {
     background: var(--surface-elevated, #ffffff);
     border: 1px solid var(--border-default, #e1e3e8);
-    border-left: 4px solid var(--border-default, #e1e3e8);
     border-radius: 12px;
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: box-shadow 0.15s ease;
 
     &:hover {
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
     }
 
-    &[data-status="submitted"] {
-        border-left-color: var(--color-warning-500, #f59e0b);
-    }
-    &[data-status="acknowledged"] {
-        border-left-color: var(--color-success-500, #10b981);
-    }
     &[data-status="cancelled"] {
         opacity: 0.75;
     }
@@ -42,6 +35,13 @@
     align-items: baseline;
 }
 
+.headerRight {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
 .timeStamp {
     display: inline-flex;
     align-items: center;
@@ -49,16 +49,10 @@
     color: var(--text-muted, #6b6f76);
 }
 
-.customer {
-    display: flex;
-    gap: 6px;
-    align-items: baseline;
-}
-
 .items {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
     padding: 12px 0;
     border-top: 1px dashed var(--border-default, #e1e3e8);
     border-bottom: 1px dashed var(--border-default, #e1e3e8);
@@ -66,7 +60,7 @@
 
 .itemRow {
     display: grid;
-    grid-template-columns: 32px 1fr auto;
+    grid-template-columns: 32px 1fr;
     gap: 8px;
     align-items: baseline;
 }
@@ -77,22 +71,59 @@
     font-variant-numeric: tabular-nums;
 }
 
+.itemBody {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
 .itemName {
     color: var(--text-primary, #1a1d21);
 }
 
-.itemPrice {
-    font-variant-numeric: tabular-nums;
-    color: var(--text-primary, #1a1d21);
+.itemModifiers {
+    font-size: 13px;
+    font-style: italic;
+    color: var(--text-muted, #6b6f76);
 }
 
-.notes {
+.itemNotes {
+    font-size: 13px;
+    font-style: italic;
+    color: var(--text-muted, #6b6f76);
+}
+
+.expander {
+    align-self: flex-start;
+    background: transparent;
+    border: none;
+    padding: 4px 0;
+    font-size: 13px;
+    color: var(--text-muted, #6b6f76);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+        color: var(--text-primary, #1a1d21);
+    }
+}
+
+.orderNotes {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    align-items: flex-start;
+    gap: 8px;
     padding: 10px 12px;
-    background: var(--surface-muted, #f4f5f7);
-    border-radius: 8px;
+    background: var(--color-warning-50, #fffbeb);
+    border-left: 3px solid var(--color-warning-300, #fcd34d);
+    border-radius: 6px;
+}
+
+.orderNotesIcon {
+    color: var(--color-warning-500, #f59e0b);
+    flex-shrink: 0;
+    margin-top: 2px;
 }
 
 .total {
@@ -101,18 +132,80 @@
     align-items: center;
 }
 
-.actions {
+.footer {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     gap: 8px;
     padding-top: 8px;
     border-top: 1px solid var(--border-default, #e1e3e8);
-    flex-wrap: wrap;
 }
 
-.actionsLeft {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+.menuTrigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid var(--border-default, #e1e3e8);
+    border-radius: 8px;
+    background: var(--surface-elevated, #ffffff);
+    color: var(--text-primary, #1a1d21);
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+    flex-shrink: 0;
+
+    &:hover:not(:disabled) {
+        background: var(--surface-muted, #f4f5f7);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary, #6366f1);
+        outline-offset: 2px;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.primaryCta {
+    flex: 1;
+    min-width: 0;
+}
+
+// CTA tinte specifiche per stato: dominanza cromatica diversa per card.
+// Selettore compound (.primaryCta.ctaX) → specificita' 0,0,2,0 batte la
+// classe singola .variant-primary di Button (0,0,1,0) senza !important.
+// Lo state :disabled/.loading di Button resta intoccato (nessun override
+// su :disabled), quindi loading e disabled mantengono il loro look.
+.primaryCta.ctaSubmitted {
+    background: var(--brand-primary, #6366f1);
+    border-color: var(--brand-primary, #6366f1);
+
+    &:hover:not(:disabled) {
+        background: var(--brand-primary-hover, #4f46e5);
+        border-color: var(--brand-primary-hover, #4f46e5);
+    }
+}
+
+.primaryCta.ctaAcknowledged {
+    background: var(--color-warning-500, #f59e0b);
+    border-color: var(--color-warning-500, #f59e0b);
+
+    &:hover:not(:disabled) {
+        background: var(--color-warning-700, #b45309);
+        border-color: var(--color-warning-700, #b45309);
+    }
+}
+
+.primaryCta.ctaReady {
+    background: var(--color-green-500, #10b981);
+    border-color: var(--color-green-500, #10b981);
+
+    &:hover:not(:disabled) {
+        background: var(--color-green-900, #14532d);
+        border-color: var(--color-green-900, #14532d);
+    }
 }
