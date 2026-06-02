@@ -95,8 +95,13 @@
 .input,
 .textarea {
     width: 100%;
+    min-width: 0;
     padding: 11px 12px;
-    font-size: 15px;
+    /* 16px floor: iOS Safari auto-zoom kicks in below 16px on focus.
+       Combined with min-width:0, this also keeps native date/time inputs
+       from overflowing the form card on iOS (their intrinsic min-width is
+       auto and refuses to shrink under their content otherwise). */
+    font-size: 16px;
     font-family: inherit;
     color: var(--pub-text);
     background: color-mix(in srgb, var(--pub-text) 3%, var(--pub-surface));
