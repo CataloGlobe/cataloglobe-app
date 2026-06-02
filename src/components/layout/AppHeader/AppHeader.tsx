@@ -3,8 +3,7 @@ import { HeaderLogo } from "./HeaderLogo";
 import { HeaderTenantSwitcher } from "./HeaderTenantSwitcher";
 import { HeaderNotifications } from "./HeaderNotifications";
 import { HeaderUserMenu } from "./HeaderUserMenu";
-import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
-import { useBreadcrumb } from "@/context/useBreadcrumb";
+import { NavbarBreadcrumb } from "./NavbarBreadcrumb";
 import styles from "./AppHeader.module.scss";
 
 interface AppHeaderProps {
@@ -12,8 +11,6 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
-    const { items: breadcrumbItems } = useBreadcrumb();
-
     return (
         <div className={styles.appHeader}>
             <div className={styles.left}>
@@ -30,14 +27,7 @@ export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
                 <HeaderLogo />
                 <span className={styles.separator} aria-hidden="true">/</span>
                 <HeaderTenantSwitcher />
-                {breadcrumbItems.length > 0 && (
-                    <>
-                        <span className={styles.separator} aria-hidden="true">/</span>
-                        <div className={styles.headerBreadcrumb}>
-                            <Breadcrumb items={breadcrumbItems} />
-                        </div>
-                    </>
-                )}
+                <NavbarBreadcrumb />
             </div>
             <div className={styles.right}>
                 <HeaderNotifications />

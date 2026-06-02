@@ -1,0 +1,25 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+.separator {
+  font-size: 18px;
+  color: #E5E7EB;
+  font-weight: 300;
+  user-select: none;
+  margin: 0 -2px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  .row {
+    display: none;
+  }
+}

@@ -1,57 +1,33 @@
-import { useEffect, useState, type RefObject } from "react";
+import type { RefObject } from "react";
 import { useReadPageHeader } from "@/context/useReadPageHeader";
-import Text from "@/components/ui/Text/Text";
 import styles from "./PageHeaderSlot.module.scss";
 
 interface PageHeaderSlotProps {
-    scrollContainerRef: RefObject<HTMLElement | null>;
+    /** Mantenuto per API stabilità (chiamato da MainLayout). Non più usato qui:
+     *  l'animazione di shrink al scroll era legata al titolo, eliminato in questa
+     *  fase. Verrà rimosso nel cleanup finale del refactor header. */
+    scrollContainerRef?: RefObject<HTMLElement | null>;
 }
 
-export function PageHeaderSlot({ scrollContainerRef }: PageHeaderSlotProps) {
+/**
+ * Slot post-refactor breadcrumb: rende SOLO le `actions`.
+ * Il titolo/sottotitolo passati via `usePageHeader` vengono ignorati: il
+ * nome pagina vive ora nel breadcrumb di navbar. Se non ci sono actions,
+ * lo slot non rende alcuna barra (evita lo spazio vuoto).
+ *
+ * Le 9 pagine che oggi chiamano `usePageHeader({title, subtitle, actions})`
+ * NON vanno modificate in questa fase: i campi inutilizzati restano nel
+ * config e verranno rimossi in una fase di cleanup successiva.
+ */
+export function PageHeaderSlot(props: PageHeaderSlotProps) {
+    void props;
     const config = useReadPageHeader();
-    const sticky = config?.sticky ?? true;
-    const [shrunk, setShrunk] = useState(false);
 
-    useEffect(() => {
-        if (!config || !sticky) return;
-        const el = scrollContainerRef.current;
-        if (!el) return;
-
-        const handler = () => setShrunk(el.scrollTop > 24);
-        el.addEventListener("scroll", handler, { passive: true });
-        handler();
-        return () => el.removeEventListener("scroll", handler);
-    }, [config, sticky, scrollContainerRef]);
-
-    useEffect(() => {
-        setShrunk(false);
-    }, [config?.title]);
-
-    if (!config) return null;
-
-    const isShrunk = sticky && shrunk;
-    const classes = [styles.slot, sticky && styles.sticky, isShrunk && styles.shrunk]
-        .filter(Boolean)
-        .join(" ");
+    if (!config?.actions) return null;
 
     return (
-        <header className={classes}>
-            <div className={styles.content}>
-                <div className={styles.titleRow}>
-                    <Text variant={isShrunk ? "title-sm" : "title-lg"} as="h1">
-                        {config.title}
-                    </Text>
-                    {config.titleAddon}
-                </div>
-                {config.subtitle && (
-                    <div className={styles.subtitle}>
-                        <Text variant="body" colorVariant="muted">
-                            {config.subtitle}
-                        </Text>
-                    </div>
-                )}
-            </div>
-            {config.actions && <div className={styles.actions}>{config.actions}</div>}
-        </header>
+        <div className={styles.slot}>
+            <div className={styles.actions}>{config.actions}</div>
+        </div>
     );
 }
