@@ -137,6 +137,27 @@
     line-height: 1.45;
 }
 
+/* iOS Safari fix: native date/time inputs keep an intrinsic width on their
+   internal "value view" that ignores width:100% + min-width:0 unless the
+   UA appearance is reset. Removing appearance does NOT disable the picker
+   (tap still opens the wheel); it only drops the UA's intrinsic sizing.
+   The custom glyph lives on ::-webkit-calendar-picker-indicator below and
+   stays untouched. */
+.input[type="date"],
+.input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+/* Internal value-view spacing reset — keeps "GG/MM/AAAA" / "--:--" centered
+   on the input padding instead of carrying an inherited left margin that
+   pushes the cursor + glyph past the right edge of the card. */
+.input[type="date"]::-webkit-date-and-time-value,
+.input[type="time"]::-webkit-date-and-time-value {
+    margin: 0;
+    text-align: left;
+}
+
 /* Native WebKit calendar/clock indicator replaced with a custom Lucide-style
    glyph mask tinted by --pub-surface-text. Solid CSS solution: zero JS,
    automatically follows brand contrast (dark card ⇒ light glyph; light card
