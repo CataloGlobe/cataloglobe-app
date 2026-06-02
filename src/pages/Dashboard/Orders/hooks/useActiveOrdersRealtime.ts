@@ -77,6 +77,14 @@ export interface UseActiveOrdersRealtimeOptions {
      * needing a full screen refresh.
      */
     onOrderLeftBoard?: (order: V2OrderWithItems) => void;
+    /**
+     * Fired SOLO su INSERT realtime genuino di un nuovo ordine submitted
+     * (non rectification). NON viene chiamato sul fetch iniziale, sul
+     * reconnect refetch, sulle transizioni UPDATE o sulle azioni proprie.
+     * Dedup per id all'interno dell'hook evita doppio fire sullo stesso
+     * evento. Usato dalla pagina per alert sonoro + title pulse.
+     */
+    onNewOrder?: (order: V2Order) => void;
 }
 
 export interface UseActiveOrdersRealtimeResult {
@@ -110,6 +118,15 @@ export function useActiveOrdersRealtime(
 
     const onOrderLeftBoardRef = useRef(options?.onOrderLeftBoard);
     onOrderLeftBoardRef.current = options?.onOrderLeftBoard;
+
+    const onNewOrderRef = useRef(options?.onNewOrder);
+    onNewOrderRef.current = options?.onNewOrder;
+
+    // Dedup INSERT realtime per id. Bounded ~100 entries FIFO per evitare
+    // crescita illimitata in lunghe sessioni. Reset al resubscribe (cambio
+    // tenantId/activityId) — quel reset avviene nel cleanup del useEffect
+    // realtime sotto.
+    const seenInsertsRef = useRef<Set<string>>(new Set());
 
     const fetchActive = useCallback(async (): Promise<void> => {
         if (!tenantId || !activityId) {
@@ -219,6 +236,23 @@ export function useActiveOrdersRealtime(
 
         function handleInsert(row: V2Order): void {
             if (!isActiveStatus(row.status)) return;
+            // Dedup per id (postgres_changes potrebbe consegnare lo stesso
+            // INSERT in rari casi di re-stream); bounded FIFO ~100.
+            const seen = seenInsertsRef.current;
+            if (!seen.has(row.id)) {
+                seen.add(row.id);
+                if (seen.size > 100) {
+                    const oldest = seen.values().next().value;
+                    if (oldest !== undefined) seen.delete(oldest);
+                }
+                // Alert sonoro/visivo SOLO per arrivi genuini di nuovi
+                // ordini (submitted, non rectification). Le rettifiche
+                // arrivano con status 'delivered' come righe is_rectification,
+                // gia' escluse dal check status; defensive comunque.
+                if (row.status === "submitted" && !row.is_rectification) {
+                    onNewOrderRef.current?.(row);
+                }
+            }
             // postgres_changes does not deliver embedded items; refetch
             // silently to materialise the full card.
             void fetchActive();
@@ -263,6 +297,11 @@ export function useActiveOrdersRealtime(
 
         return () => {
             cancelled = true;
+            // Reset dedup Set al resubscribe: la prossima sessione realtime
+            // partira' con SUBSCRIBED refetch che ripopola lo state via REST,
+            // quindi il primo INSERT post-resub e' di nuovo "genuino" e va
+            // segnalato.
+            seenInsertsRef.current.clear();
             if (channel) {
                 void supabase.removeChannel(channel);
                 channel = null;

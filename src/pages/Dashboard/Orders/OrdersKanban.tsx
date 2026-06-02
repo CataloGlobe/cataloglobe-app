@@ -15,7 +15,7 @@
  * before splitting orders by status.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import OrderCard from "./OrderCard";
@@ -34,7 +34,15 @@ interface Props {
     onCancel: (order: V2OrderWithItems) => void;
     onRectify: (order: V2OrderWithItems) => void;
     onViewDetail: (order: V2OrderWithItems) => void;
+    /**
+     * Token monotono: ad ogni incremento la colonna "Nuove" applica
+     * un'animazione pulse di ~1.5s sull'header. Cambio del valore =
+     * key-like trigger (no flag dedicato da resettare).
+     */
+    pulseSubmittedToken?: number;
 }
+
+const PULSE_DURATION_MS = 1500;
 
 interface ColumnDef {
     status: "submitted" | "acknowledged" | "ready";
@@ -63,8 +71,18 @@ export default function OrdersKanban({
     onDeliver,
     onCancel,
     onRectify,
-    onViewDetail
+    onViewDetail,
+    pulseSubmittedToken
 }: Props) {
+    // Pulse header "Nuove" sul cambio di token. Token = 0 (default) NON
+    // pulsa al mount. setTimeout cleared on next bump o unmount.
+    const [isPulsing, setIsPulsing] = useState(false);
+    useEffect(() => {
+        if (!pulseSubmittedToken) return;
+        setIsPulsing(true);
+        const t = window.setTimeout(() => setIsPulsing(false), PULSE_DURATION_MS);
+        return () => window.clearTimeout(t);
+    }, [pulseSubmittedToken]);
     const byStatus = useMemo(() => {
         const map: Record<ColumnDef["status"], V2OrderWithItems[]> = {
             submitted: [],
@@ -112,7 +130,13 @@ export default function OrdersKanban({
                         className={styles.column}
                         data-status={col.status}
                     >
-                        <div className={styles.columnHeader}>
+                        <div
+                            className={`${styles.columnHeader}${
+                                isPulsing && col.status === "submitted"
+                                    ? ` ${styles.columnHeaderPulsing}`
+                                    : ""
+                            }`}
+                        >
                             <span className={styles.columnTitleGroup}>
                                 <span className={styles.columnDot} aria-hidden />
                                 <span className={styles.columnTitle}>{col.title}</span>

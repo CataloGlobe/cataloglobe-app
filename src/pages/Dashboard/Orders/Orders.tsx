@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, ClipboardList, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, ClipboardList, RefreshCw, Volume2, VolumeX } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
@@ -35,6 +35,7 @@ import OrderRectifyDrawer from "./OrderRectifyDrawer";
 import OrderHistoryRow from "./OrderHistoryRow";
 import OrdersKanban from "./OrdersKanban";
 import { useActiveOrdersRealtime } from "./hooks/useActiveOrdersRealtime";
+import { useNewOrderAlert } from "./hooks/useNewOrderAlert";
 import styles from "./Orders.module.scss";
 
 type MainTab = "comande" | "tavoli" | "storico";
@@ -99,13 +100,29 @@ export default function Orders() {
     }, [tenantId, selectedActivityId]);
 
     // ── Realtime active orders board ──
+    // triggerAlert e' definito DOPO la chiamata a useActiveOrdersRealtime
+    // (perche' richiede submittedCount derivato da activeOrders). Si passa
+    // un thunk che de-referenzia il ref aggiornato sotto.
+    const triggerAlertRef = useRef<() => void>(() => {});
     const {
         orders: activeOrders,
         isLoading: isLoadingOrders,
         error: ordersError,
         refetch: refetchOrders,
         applyLocalPatch
-    } = useActiveOrdersRealtime(tenantId, selectedActivityId);
+    } = useActiveOrdersRealtime(tenantId, selectedActivityId, {
+        onNewOrder: () => triggerAlertRef.current()
+    });
+
+    // ── Alert nuova comanda (suono + titolo tab + pulse) ──
+    const submittedCount = useMemo(
+        () => activeOrders.filter(o => o.status === "submitted").length,
+        [activeOrders]
+    );
+    const { soundEnabled, toggleSound, triggerAlert, pulseToken } = useNewOrderAlert({
+        submittedCount
+    });
+    triggerAlertRef.current = triggerAlert;
 
     // ── Tables load (per lookup label/zone nel filtro tab Comande) ──
     const loadTables = useCallback(async () => {
@@ -164,9 +181,27 @@ export default function Orders() {
                 >
                     Aggiorna
                 </Button>
+                <button
+                    type="button"
+                    className={styles.soundToggle}
+                    onClick={toggleSound}
+                    aria-pressed={soundEnabled}
+                    aria-label={
+                        soundEnabled
+                            ? "Disattiva suono nuove comande"
+                            : "Attiva suono nuove comande"
+                    }
+                    title={
+                        soundEnabled
+                            ? "Suono nuove comande attivo"
+                            : "Suono nuove comande disattivato"
+                    }
+                >
+                    {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                </button>
             </div>
         ),
-        [tenantId, selectedActivityId, refreshAll, isLoadingOrders]
+        [tenantId, selectedActivityId, refreshAll, isLoadingOrders, soundEnabled, toggleSound]
     );
 
     usePageHeader({
@@ -511,6 +546,7 @@ export default function Orders() {
                             onCancel={handleCancelOpen}
                             onRectify={handleRectifyOpen}
                             onViewDetail={handleViewDetail}
+                            pulseSubmittedToken={pulseToken}
                         />
                     )}
                 </>

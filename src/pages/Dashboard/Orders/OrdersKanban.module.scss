@@ -25,6 +25,30 @@
     justify-content: space-between;
     gap: 8px;
     padding: 4px 4px 8px;
+    border-radius: 8px;
+    transition: background-color 0.25s ease;
+}
+
+// Pulse breve sull'arrivo di una nuova comanda: il background passa
+// rapidamente in stato "evidenziato" e torna trasparente. Animazione
+// CSS sobria, no movimento, no scaling — solo cambio di tinta + alone.
+.columnHeaderPulsing {
+    animation: orderPulse 1.5s ease-out;
+}
+
+@keyframes orderPulse {
+    0% {
+        background-color: transparent;
+        box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.0);
+    }
+    20% {
+        background-color: rgba(99, 102, 241, 0.12);
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18);
+    }
+    100% {
+        background-color: transparent;
+        box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.0);
+    }
 }
 
 .columnTitleGroup {

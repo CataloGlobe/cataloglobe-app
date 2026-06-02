@@ -62,3 +62,33 @@
     flex-direction: column;
     gap: 8px;
 }
+
+.soundToggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid var(--border-default, #e1e3e8);
+    border-radius: 8px;
+    background: var(--surface-elevated, #ffffff);
+    color: var(--text-primary, #1a1d21);
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+    flex-shrink: 0;
+
+    &:hover {
+        background: var(--surface-muted, #f4f5f7);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary, #6366f1);
+        outline-offset: 2px;
+    }
+
+    // Stato "muted": icona piu' tenue, niente accento
+    &[aria-pressed="false"] {
+        color: var(--text-muted, #6b6f76);
+    }
+}
