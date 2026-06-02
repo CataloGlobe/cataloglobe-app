@@ -1,0 +1,17 @@
+// SedeScopeSelect — wrapper minimo. Lo stile dell'<select>
+// resta quello di `Select.module.scss`. Qui solo larghezza
+// pensata per la collocazione in AppHeader (build-only: il
+// mount avverrà in una fase successiva).
+
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.container {
+  // Larghezza compatta per la navbar; il caller può estendere
+  // via `className` sul wrapper.
+  min-width: 12rem;
+  max-width: 18rem;
+}
