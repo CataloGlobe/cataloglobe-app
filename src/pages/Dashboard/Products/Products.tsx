@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { usePageHeader } from "@/context/usePageHeader";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { usePageHeader } from "@/context/usePageHeader";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -11,13 +11,14 @@ import {
     type ProductTabDef
 } from "@/hooks/useFilteredProductTabs";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
-import FilterBar from "@/components/ui/FilterBar/FilterBar";
+import { SearchInput } from "@/components/ui/Input/SearchInput";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
-import { Package } from "lucide-react";
+import { Package, LayoutGrid, List as ListIcon } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { Link } from "react-router-dom";
 import ProductCard from "./components/ProductCard";
@@ -200,32 +201,89 @@ export default function Products() {
         setIsCreateEditOpen(true);
     }, [canEdit, showToast]);
 
-    const headerActions = useMemo(() => (
-        activeTab === "products" ? (
-            <Button variant="primary" onClick={handleCreateBase} disabled={!canEdit}>
+    const handleTabChange = useCallback((val: ProductsTab) => {
+        setActiveTab(val);
+    }, []);
+
+    const handleViewChange = useCallback((v: "list" | "grid") => {
+        setViewMode(v);
+        localStorage.setItem("products_view_mode", v);
+    }, []);
+
+    // ── Header slot: leading (tabs controllati) + actions (search/view/CTA) ──
+    const leading = useMemo(() => (
+        <Tabs<ProductsTab>
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="line"
+        >
+            <Tabs.List>
+                {visibleTabs.map(tab => (
+                    <Tabs.Tab key={tab.value} value={tab.value}>
+                        {tab.label}
+                    </Tabs.Tab>
+                ))}
+            </Tabs.List>
+        </Tabs>
+    ), [activeTab, handleTabChange, visibleTabs]);
+
+    const headerActions = useMemo(() => {
+        const cta = activeTab === "products" ? (
+            <Button variant="primary" onClick={handleCreateBase} disabled={!canEdit} className={styles.toolbarCta}>
                 {`Crea ${verticalConfig.productLabel.toLowerCase()}`}
             </Button>
         ) : activeTab === "groups" ? (
-            <Button variant="primary" onClick={() => setCreateGroupOpen(true)} disabled={!canEdit}>
+            <Button variant="primary" onClick={() => setCreateGroupOpen(true)} disabled={!canEdit} className={styles.toolbarCta}>
                 Crea gruppo
             </Button>
         ) : activeTab === "attributes" ? (
-            <Button variant="primary" onClick={() => setAttrCreateSeq(s => s + 1)} disabled={!canEdit}>
+            <Button variant="primary" onClick={() => setAttrCreateSeq(s => s + 1)} disabled={!canEdit} className={styles.toolbarCta}>
                 Nuovo attributo
             </Button>
         ) : activeTab === "ingredients" && verticalConfig.productSections.ingredients ? (
-            <Button variant="primary" onClick={() => setIngredientCreateSeq(s => s + 1)} disabled={!canEdit}>
+            <Button variant="primary" onClick={() => setIngredientCreateSeq(s => s + 1)} disabled={!canEdit} className={styles.toolbarCta}>
                 Crea ingrediente
             </Button>
-        ) : null
-    ), [activeTab, canEdit, handleCreateBase, verticalConfig]);
+        ) : null;
 
-    usePageHeader({
-        title: verticalConfig.productLabelPlural,
-        subtitle: `Gestisci il tuo catalogo ${verticalConfig.productLabelPlural.toLowerCase()}, prezzi, varianti e raggruppamenti.`,
-        actions: headerActions,
-        sticky: true,
-    });
+        if (activeTab !== "products") return cta;
+
+        return (
+            <>
+                <SearchInput
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder={`Cerca ${verticalConfig.productLabel.toLowerCase()} o variante...`}
+                    allowClear
+                    onClear={() => setSearchQuery("")}
+                    containerClassName={styles.toolbarSearch}
+                />
+                <div className={styles.viewToggle} role="radiogroup" aria-label="Vista">
+                    <IconButton
+                        icon={<LayoutGrid size={16} />}
+                        aria-label="Vista griglia"
+                        title="Griglia"
+                        variant="ghost"
+                        size="sm"
+                        className={`${styles.viewToggleBtn} ${viewMode === "grid" ? styles.viewToggleBtnActive : ""}`}
+                        onClick={() => handleViewChange("grid")}
+                    />
+                    <IconButton
+                        icon={<ListIcon size={16} />}
+                        aria-label="Vista lista"
+                        title="Lista"
+                        variant="ghost"
+                        size="sm"
+                        className={`${styles.viewToggleBtn} ${viewMode === "list" ? styles.viewToggleBtnActive : ""}`}
+                        onClick={() => handleViewChange("list")}
+                    />
+                </div>
+                {cta}
+            </>
+        );
+    }, [activeTab, canEdit, handleCreateBase, verticalConfig, searchQuery, viewMode, handleViewChange]);
+
+    usePageHeader({ leading, actions: headerActions });
 
     const handleCreateVariant = (baseProduct: V2Product) => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
@@ -292,11 +350,6 @@ export default function Products() {
         }
 
         await loadData();
-    };
-
-    const handleViewChange = (v: "list" | "grid") => {
-        setViewMode(v);
-        localStorage.setItem("products_view_mode", v);
     };
 
     const toggleRow = (id: string) => {
@@ -447,32 +500,9 @@ export default function Products() {
 
     return (
         <section className={styles.container}>
-            <Tabs value={activeTab} onChange={val => setActiveTab(val as ProductsTab)}>
-                <Tabs.List>
-                    {visibleTabs.map(tab => (
-                        <Tabs.Tab key={tab.value} value={tab.value}>
-                            {tab.label}
-                        </Tabs.Tab>
-                    ))}
-                </Tabs.List>
-
-                <Tabs.Panel value="products">
+            {activeTab === "products" && (
+                <>
                     <div className={styles.content}>
-                        <div className={styles.filterRow}>
-                            <FilterBar
-                                search={{
-                                    value: searchQuery,
-                                    onChange: setSearchQuery,
-                                    placeholder: `Cerca ${verticalConfig.productLabel.toLowerCase()} o variante...`
-                                }}
-                                view={{
-                                    value: viewMode,
-                                    onChange: handleViewChange
-                                }}
-                                className={styles.filterBar}
-                            />
-                        </div>
-
                         {isLoading ? (
                             <div className={styles.loadingState}>
                                 <Text variant="body-sm" colorVariant="muted">
@@ -554,7 +584,6 @@ export default function Products() {
                         )}
                     </div>
 
-                    {/* Drawers */}
                     <ProductCreateEditDrawer
                         open={isCreateEditOpen}
                         onClose={() => setIsCreateEditOpen(false)}
@@ -571,29 +600,25 @@ export default function Products() {
                         productData={productToDelete}
                         onSuccess={loadData}
                     />
-                </Tabs.Panel>
-                <Tabs.Panel value="groups">
-                    <ProductGroupsTab
-                        tenantId={currentTenantId ?? undefined}
-                        isCreateOpen={isCreateGroupOpen}
-                        onCloseCreate={() => setCreateGroupOpen(false)}
-                    />
-                </Tabs.Panel>
-                {verticalConfig.productSections.customAttributes && (
-                    <Tabs.Panel value="attributes">
-                        <ProductsAttributesTab
-                            tenantId={currentTenantId ?? undefined}
-                            vertical={selectedTenant?.vertical_type}
-                            createTrigger={attrCreateSeq}
-                        />
-                    </Tabs.Panel>
-                )}
-                {verticalConfig.productSections.ingredients && (
-                    <Tabs.Panel value="ingredients">
-                        <Ingredients createTrigger={ingredientCreateSeq} />
-                    </Tabs.Panel>
-                )}
-            </Tabs>
+                </>
+            )}
+            {activeTab === "groups" && (
+                <ProductGroupsTab
+                    tenantId={currentTenantId ?? undefined}
+                    isCreateOpen={isCreateGroupOpen}
+                    onCloseCreate={() => setCreateGroupOpen(false)}
+                />
+            )}
+            {activeTab === "attributes" && verticalConfig.productSections.customAttributes && (
+                <ProductsAttributesTab
+                    tenantId={currentTenantId ?? undefined}
+                    vertical={selectedTenant?.vertical_type}
+                    createTrigger={attrCreateSeq}
+                />
+            )}
+            {activeTab === "ingredients" && verticalConfig.productSections.ingredients && (
+                <Ingredients createTrigger={ingredientCreateSeq} />
+            )}
         </section>
     );
 }

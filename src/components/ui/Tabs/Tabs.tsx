@@ -6,7 +6,7 @@ import styles from "./Tabs.module.scss";
 /* ------------------------------------------------------------------ */
 
 export type TabsValue = string | number;
-export type TabsVariant = "primary" | "secondary";
+export type TabsVariant = "primary" | "secondary" | "line";
 
 /**
  * Context NON generico

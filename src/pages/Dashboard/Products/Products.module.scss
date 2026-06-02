@@ -2,10 +2,6 @@
 
 .container {
   background-color: var(--color-gray-50);
-
-  > div {
-    margin-top: 12px;
-  }
 }
 
 .content {
@@ -13,16 +9,72 @@
   margin: 0 auto;
 }
 
-.filterRow {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
+// Header band search: larghezza fissa per evitare flex-grow → no wrap del cluster.
+// Altezza ESTERNA pareggiata a toggle/CTA (38px) via override locale sul
+// `<input>` interno con `box-sizing: border-box`: il border 1.5px del TextInput
+// non si somma più all'altezza, l'esterno combacia al pixel.
+.toolbarSearch {
+  width: 280px;
+  flex: 0 0 auto;
+
+  input {
+    box-sizing: border-box;
+    height: 38px;
+    line-height: 1;
+  }
+
+  @media (max-width: 767px) {
+    width: 100%;
+    flex: 1 1 auto;
+  }
 }
 
-.filterBar {
-  flex: 1;
+// Altezza canonica controlli header band: 38px (= altezza nativa di
+// TextInput con padding 0.62rem + font 0.95rem + border 1.5px).
+// Search resta nativa; toggle e CTA armonizzati a quella misura.
+$toolbar-ctrl-h: 38px;
+
+// Segmented pill: contenitore unico bg muto + 2 segmenti icona.
+// Attivo "sollevato" (surface + ring sottile), inattivo trasparente.
+// Outer height = container padding 4px*2 + segment 30px = 38px.
+.viewToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--hover-bg);
+  border-radius: 8px;
+  height: $toolbar-ctrl-h;
+  box-sizing: border-box;
+}
+
+.viewToggleBtn {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+
+  &:hover {
+    color: var(--text);
+  }
+
+  &.viewToggleBtnActive {
+    background: var(--card-bg);
+    color: var(--text);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  }
+}
+
+// CTA cluster: bumpa min-height al canonico così Button md (32px)
+// si allinea a SearchInput + toggle (38px) — padding/font invariati,
+// flex align-items: center già nel componente Button.
+.toolbarCta {
+  box-sizing: border-box;
+  height: $toolbar-ctrl-h;
 }
 
 .loadingState,

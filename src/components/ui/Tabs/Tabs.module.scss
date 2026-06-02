@@ -89,6 +89,66 @@
 }
 
 /* ============================================================ */
+/* Variant: line (underline bar — header band template)          */
+/* ============================================================ */
+
+.variant_line {
+  // Riempie verticalmente il contenitore (es. PageHeaderSlot leading
+  // con align-items: stretch) così che la sottolineatura della tab
+  // attiva sia a filo del bordo inferiore della banda.
+  height: 100%;
+  align-self: stretch;
+
+  .list {
+    display: inline-flex;
+    align-items: stretch;
+    gap: 0;
+    // `flex: 1` invece di `height: 100%`: regge anche con eventuali figli
+    // futuri (es. <Tabs.Panel>) nel root `flex-direction: column`.
+    flex: 1;
+  }
+
+  .tab {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 14px;
+    background: transparent;
+    border-radius: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: color 0.15s;
+
+    &::after {
+      content: "";
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: -1px; // sovrapponi il bordo del PageHeaderSlot
+      height: 2px;
+      background: transparent;
+      border-radius: 2px 2px 0 0;
+      transition: background 0.15s;
+    }
+
+    &:hover {
+      color: var(--text);
+    }
+
+    &[aria-selected="true"] {
+      color: var(--brand-primary);
+      font-weight: 600;
+    }
+
+    &[aria-selected="true"]::after {
+      background: var(--brand-primary);
+    }
+  }
+}
+
+/* ============================================================ */
 /* Variant: secondary (segmented, inset, compact)                */
 /* ============================================================ */
 

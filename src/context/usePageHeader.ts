@@ -25,6 +25,7 @@ export function usePageHeader(config: PageHeaderConfig | null) {
         config?.title,
         config?.subtitle,
         config?.sticky,
+        config?.leading,
         config?.actions,
         config?.titleAddon,
         setConfig,
