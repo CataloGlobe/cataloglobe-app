@@ -53,6 +53,8 @@ export default function ReservationPage() {
                 };
                 tenantLogoUrl?: string | null;
                 resolved?: { style?: ResolvedStyle | null };
+                opening_hours?: Brand["hours"];
+                upcoming_closures?: Brand["closures"];
             };
             const business = payload.business;
             if (!business || !business.name) {
@@ -65,7 +67,9 @@ export default function ReservationPage() {
                 tenantLogoUrl: payload.tenantLogoUrl ?? null,
                 coverImage: business.cover_image ?? null,
                 phone: business.phone ?? null,
-                phonePublic: business.phone_public ?? false
+                phonePublic: business.phone_public ?? false,
+                hours: payload.opening_hours ?? [],
+                closures: payload.upcoming_closures ?? []
             };
             if (business.status !== "active") {
                 setResolve({ status: "inactive", brand });
@@ -193,6 +197,8 @@ export default function ReservationPage() {
                             </p>
                             <ReservationForm
                                 slug={slug}
+                                hours={brand.hours}
+                                closures={brand.closures}
                                 onSuccess={handleSuccess}
                                 onResolveErrorCode={handleResolveErrorCode}
                             />

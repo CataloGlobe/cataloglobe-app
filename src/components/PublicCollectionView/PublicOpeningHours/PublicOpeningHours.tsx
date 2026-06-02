@@ -8,6 +8,9 @@ export type OpeningHoursEntry = {
     opens_at: string | null;
     closes_at: string | null;
     is_closed: boolean;
+    /** Overnight slot — closes_at falls on the following day. Optional for
+     *  backward compatibility with pre-Apr-2026 payloads. */
+    closes_next_day?: boolean;
 };
 
 export type UpcomingClosure = {

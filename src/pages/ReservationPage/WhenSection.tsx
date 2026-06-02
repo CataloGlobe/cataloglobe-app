@@ -6,11 +6,21 @@ type Props = {
     values: Pick<FormFields, "reservation_date" | "reservation_time" | "party_size">;
     errors: FieldErrors;
     minDate: string;
+    /** "Aperto 12:00–15:00, 19:00–23:00" — empty string when no schedule
+     *  available, day fully closed, or hours not configured for the venue. */
+    slotsLabel: string;
     onChange: (name: keyof FormFields, value: string) => void;
     onBlur: (name: keyof FormFields) => void;
 };
 
-export default function WhenSection({ values, errors, minDate, onChange, onBlur }: Props) {
+export default function WhenSection({
+    values,
+    errors,
+    minDate,
+    slotsLabel,
+    onChange,
+    onBlur
+}: Props) {
     return (
         <section className={styles.section} aria-labelledby="sec-quando">
             <div className={styles.sectionHead}>
@@ -69,6 +79,12 @@ export default function WhenSection({ values, errors, minDate, onChange, onBlur 
                     )}
                 </div>
             </div>
+
+            {slotsLabel && (
+                <p className={styles.slotsHint} aria-live="polite">
+                    {slotsLabel}
+                </p>
+            )}
 
             <PartySizePicker
                 value={values.party_size}

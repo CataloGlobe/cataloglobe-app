@@ -1,4 +1,8 @@
 import type { ResolvedStyle } from "@/types/resolvedCollections";
+import type {
+    OpeningHoursEntry,
+    UpcomingClosure
+} from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
 
 export type Brand = {
     brandName: string;
@@ -7,6 +11,10 @@ export type Brand = {
     coverImage: string | null;
     phone: string | null;
     phonePublic: boolean;
+    /** Configured weekday opening hours. Empty array = validation disabled. */
+    hours: OpeningHoursEntry[];
+    /** Upcoming closures (max 10 from resolve-public-catalog). */
+    closures: UpcomingClosure[];
 };
 
 export type ResolveState =

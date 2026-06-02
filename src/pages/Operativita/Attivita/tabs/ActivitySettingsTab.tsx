@@ -19,7 +19,7 @@ import {
     Palette,
     Trash2
 } from "lucide-react";
-import { Button, Card } from "@/components/ui";
+import { Button, Card, InlineBanner } from "@/components/ui";
 import UIText from "@/components/ui/Text/Text";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { Menu } from "@/components/ui/Menu";
@@ -930,6 +930,15 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                     : "Il modulo di prenotazione e' nascosto dalla pagina pubblica. Riattiva quando vuoi tornare a ricevere richieste."
                             }
                         />
+                        {activity.enable_reservations &&
+                            !isHoursLoading &&
+                            !hours.some(h => !h.is_closed && h.opens_at && h.closes_at) && (
+                                <div className={styles.reservationsHoursNote}>
+                                    <InlineBanner variant="info">
+                                        Questa sede non ha fasce orarie di apertura configurate: imposta gli orari di apertura per gestire e filtrare correttamente le richieste di prenotazione.
+                                    </InlineBanner>
+                                </div>
+                            )}
                     </div>
                 </Card>
 

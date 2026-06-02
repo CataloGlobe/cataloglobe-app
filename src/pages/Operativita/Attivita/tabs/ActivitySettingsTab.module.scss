@@ -443,3 +443,9 @@
     justify-content: flex-end;
     width: 100%;
 }
+
+/* Margin wrapper for the inline note shown under the "Accetta prenotazioni"
+   Switch when the venue has no opening hours configured. */
+.reservationsHoursNote {
+    margin-top: 12px;
+}
