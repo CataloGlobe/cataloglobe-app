@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { ActivitySelectorCombobox } from "@/components/ui/ActivitySelectorCombobox/ActivitySelectorCombobox";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
+import { TableDetailDrawer } from "@/components/Tables/TableDetailDrawer/TableDetailDrawer";
 
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -91,6 +92,10 @@ export default function Orders() {
     // Rectify drawer
     const [isRectifyOpen, setIsRectifyOpen] = useState(false);
     const [orderToRectify, setOrderToRectify] = useState<V2OrderWithItems | null>(null);
+
+    // Table detail drawer (Step 4c — apertura via click su card in tab "Tavoli")
+    const [isTableDetailOpen, setIsTableDetailOpen] = useState(false);
+    const [tableInDetailId, setTableInDetailId] = useState<string | null>(null);
 
     // ── KPI data (orders today + served today). Re-fetched on order
     // transitions that move a card off the kanban (delivered / cancelled).
@@ -603,7 +608,10 @@ export default function Orders() {
                 <TablesLiveView
                     tenantId={tenantId}
                     activityId={selectedActivityId}
-                    autoRefreshMs={autoRefreshEnabled ? AUTO_REFRESH_INTERVAL_MS : undefined}
+                    onTableClick={tableId => {
+                        setTableInDetailId(tableId);
+                        setIsTableDetailOpen(true);
+                    }}
                 />
             )}
 
@@ -702,6 +710,17 @@ export default function Orders() {
                     setOrderToRectify(null);
                 }}
                 onConfirm={handleRectifyConfirm}
+            />
+
+            <TableDetailDrawer
+                open={isTableDetailOpen}
+                tenantId={tenantId}
+                activityId={selectedActivityId}
+                tableId={tableInDetailId}
+                onClose={() => {
+                    setIsTableDetailOpen(false);
+                    setTableInDetailId(null);
+                }}
             />
         </section>
     );

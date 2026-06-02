@@ -92,6 +92,19 @@
     background-color: var(--color-warning-50, #fffbeb);
 }
 
+.cardClickable {
+    cursor: pointer;
+
+    &:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary, #6366f1);
+        outline-offset: 2px;
+    }
+}
+
 .cardHeader {
     display: flex;
     align-items: center;

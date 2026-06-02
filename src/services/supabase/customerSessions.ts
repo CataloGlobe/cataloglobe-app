@@ -2,6 +2,7 @@ import { createClient, FunctionsHttpError, type SupabaseClient, type RealtimeCha
 import { supabase } from "@/services/supabase/client";
 import type {
     V2CustomerSession,
+    V2OrderGroup,
     ResolveTableResult,
     ResolveTableOrderingUnavailable,
     CloseTableResult
@@ -221,6 +222,34 @@ export async function listActiveSessionsForTable(
 
     if (error) throw error;
     return data ?? [];
+}
+
+/**
+ * Open order_group corrente per un tavolo (status='open', closed_at IS NULL).
+ * Per UI dettaglio tavolo (Step 4c). Filtro tenant_id + table_id esplicito
+ * oltre RLS (defense in depth, no cross-activity leak).
+ *
+ * Vincolo logico: al massimo 1 open group per tavolo alla volta (enforced
+ * da close-table edge function + resolve-table che riusa l'open esistente).
+ * Se per qualche ragione ne esistono piu' di uno, ritorna il piu' recente.
+ */
+export async function getOpenOrderGroupForTable(
+    tenantId: string,
+    tableId: string
+): Promise<V2OrderGroup | null> {
+    const { data, error } = await supabase
+        .from("order_groups")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("table_id", tableId)
+        .eq("status", "open")
+        .is("closed_at", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (error) throw error;
+    return (data as V2OrderGroup | null) ?? null;
 }
 
 // ============================================================

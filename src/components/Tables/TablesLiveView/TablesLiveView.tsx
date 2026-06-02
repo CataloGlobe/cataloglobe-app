@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Grid2X2 } from "lucide-react";
 
 import Text from "@/components/ui/Text/Text";
@@ -6,15 +6,16 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 
 import { useToast } from "@/context/Toast/ToastContext";
-import { listTablesWithState } from "@/services/supabase/tables";
 import type { V2TableWithState } from "@/types/orders";
 
+import { useTablesLiveRealtime } from "./useTablesLiveRealtime";
 import styles from "./TablesLiveView.module.scss";
 
 export interface TablesLiveViewProps {
     tenantId: string;
     activityId: string;
-    autoRefreshMs?: number;
+    /** Callback su click card. Se omessa, le card non sono cliccabili. */
+    onTableClick?: (tableId: string) => void;
 }
 
 type StatusFilter = "all" | "open" | "free" | "maintenance";
@@ -30,48 +31,32 @@ const FILTER_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
 ];
 
 function formatElapsed(sessionsCount: number): string {
-    // Placeholder semplice: tempo trascorso reale richiede customer_session.created_at
-    // (out of scope view aggregata listTablesWithState). Per ora: "in corso" se occupato.
+    // Snapshot semplice: vista aggregata. Il drawer dettaglio mostra
+    // il tempo reale calcolato da customer_sessions.first_seen_at.
     return sessionsCount > 0 ? "in corso" : "";
 }
 
 export function TablesLiveView({
     tenantId,
     activityId,
-    autoRefreshMs = 30_000
+    onTableClick
 }: TablesLiveViewProps) {
     const { showToast } = useToast();
-    const [items, setItems] = useState<V2TableWithState[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { items, isLoading, error } = useTablesLiveRealtime(tenantId, activityId);
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
-    const loadData = useCallback(async () => {
-        if (!tenantId || !activityId) {
-            setItems([]);
-            setIsLoading(false);
-            return;
-        }
-        try {
-            const data = await listTablesWithState(tenantId, activityId);
-            setItems(data);
-        } catch {
+    // Surface caricamento errori (rete, RLS) come toast — silenzia oltre il
+    // primo per non spammare durante reconnect cycles.
+    const [lastErrorReported, setLastErrorReported] = useState<string | null>(null);
+    useEffect(() => {
+        if (error && error !== lastErrorReported) {
             showToast({ message: "Impossibile caricare i tavoli", type: "error" });
-        } finally {
-            setIsLoading(false);
+            setLastErrorReported(error);
         }
-    }, [tenantId, activityId, showToast]);
-
-    useEffect(() => {
-        void loadData();
-    }, [loadData]);
-
-    useEffect(() => {
-        if (!autoRefreshMs) return;
-        const id = setInterval(() => {
-            void loadData();
-        }, autoRefreshMs);
-        return () => clearInterval(id);
-    }, [loadData, autoRefreshMs]);
+        if (!error && lastErrorReported !== null) {
+            setLastErrorReported(null);
+        }
+    }, [error, lastErrorReported, showToast]);
 
     const filtered = useMemo(() => {
         if (statusFilter === "all") return items;
@@ -183,10 +168,34 @@ export function TablesLiveView({
                                         : t.active_sessions_count > 0
                                           ? "occupied"
                                           : "free";
+                                    const clickable = !!onTableClick;
+                                    const cardClass = `${styles.card} ${styles[`card_${status}`]} ${
+                                        clickable ? styles.cardClickable : ""
+                                    }`;
                                     return (
                                         <article
                                             key={t.id}
-                                            className={`${styles.card} ${styles[`card_${status}`]}`}
+                                            className={cardClass}
+                                            role={clickable ? "button" : undefined}
+                                            tabIndex={clickable ? 0 : undefined}
+                                            onClick={
+                                                clickable
+                                                    ? () => onTableClick!(t.id)
+                                                    : undefined
+                                            }
+                                            onKeyDown={
+                                                clickable
+                                                    ? e => {
+                                                          if (
+                                                              e.key === "Enter" ||
+                                                              e.key === " "
+                                                          ) {
+                                                              e.preventDefault();
+                                                              onTableClick!(t.id);
+                                                          }
+                                                      }
+                                                    : undefined
+                                            }
                                         >
                                             <div className={styles.cardHeader}>
                                                 <Text weight={600} className={styles.cardLabel}>
