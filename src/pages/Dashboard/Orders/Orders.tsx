@@ -2,11 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, ClipboardList, RefreshCw } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
-import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
-import Text from "@/components/ui/Text/Text";
 import { ActivitySelectorCombobox } from "@/components/ui/ActivitySelectorCombobox/ActivitySelectorCombobox";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
 import { TableDetailDrawer } from "@/components/Tables/TableDetailDrawer/TableDetailDrawer";
@@ -21,34 +19,27 @@ import {
     cancelOrderAdmin,
     rectifyOrder,
     restoreOrder,
-    getOrdersCountToday,
-    getOrdersServedToday,
     listOrdersHistoryToday
 } from "@/services/supabase/orders";
 import type {
-    V2Order,
     V2OrderWithItems,
-    RectifyOrderItem,
-    V2TableWithState
+    RectifyOrderItem
 } from "@/types/orders";
 
-import { listTables, listTablesWithState } from "@/services/supabase/tables";
+import { listTables } from "@/services/supabase/tables";
 import type { V2Table } from "@/types/orders";
 
 import OrderDetailDrawer from "./OrderDetailDrawer";
 import OrderCancelDrawer from "./OrderCancelDrawer";
 import OrderRectifyDrawer from "./OrderRectifyDrawer";
 import OrderHistoryRow from "./OrderHistoryRow";
-import { OrdersKpiBar } from "./OrdersKpiBar";
 import OrdersKanban from "./OrdersKanban";
 import { useActiveOrdersRealtime } from "./hooks/useActiveOrdersRealtime";
 import styles from "./Orders.module.scss";
 
 type MainTab = "comande" | "tavoli" | "storico";
 
-const AUTO_REFRESH_STORAGE_KEY = "ordersAutoRefresh";
 const ACTIVITY_STORAGE_KEY = "cataloglobe:orders:lastActivityId";
-const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
 export default function Orders() {
     const tenantId = useTenantId();
@@ -62,24 +53,14 @@ export default function Orders() {
 
     // Data
     const [tables, setTables] = useState<V2Table[]>([]);
-    const [tablesWithState, setTablesWithState] = useState<V2TableWithState[]>([]);
-    const [ordersTodayCount, setOrdersTodayCount] = useState<number>(0);
-    const [ordersServedToday, setOrdersServedToday] = useState<V2Order[]>([]);
 
     // Storico (delivered + cancelled della giornata operativa)
     const [historyOrders, setHistoryOrders] = useState<V2OrderWithItems[]>([]);
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [historyError, setHistoryError] = useState<Error | null>(null);
 
-    // Filters (tab Comande)
-    const [searchQuery, setSearchQuery] = useState("");
+    // Filtri (tab Comande): solo dropdown tavolo.
     const [tableFilter, setTableFilter] = useState<string>("all");
-
-    // Auto-refresh (fallback layer over realtime — kept on for KPI counters
-    // and the Tavoli tab snapshot, which are still REST-driven).
-    const [autoRefreshEnabled, setAutoRefreshEnabled] = useState<boolean>(
-        () => localStorage.getItem(AUTO_REFRESH_STORAGE_KEY) === "true"
-    );
 
     // Detail drawer
     const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -96,30 +77,6 @@ export default function Orders() {
     // Table detail drawer (Step 4c — apertura via click su card in tab "Tavoli")
     const [isTableDetailOpen, setIsTableDetailOpen] = useState(false);
     const [tableInDetailId, setTableInDetailId] = useState<string | null>(null);
-
-    // ── KPI data (orders today + served today). Re-fetched on order
-    // transitions that move a card off the kanban (delivered / cancelled).
-    const loadKpi = useCallback(async () => {
-        if (!tenantId || !selectedActivityId) {
-            setOrdersTodayCount(0);
-            setOrdersServedToday([]);
-            return;
-        }
-        try {
-            const [count, served] = await Promise.all([
-                getOrdersCountToday(tenantId, selectedActivityId),
-                getOrdersServedToday(tenantId, selectedActivityId)
-            ]);
-            setOrdersTodayCount(count);
-            setOrdersServedToday(served);
-        } catch {
-            /* silent: KPI gracefully degrada a 0 */
-        }
-    }, [tenantId, selectedActivityId]);
-
-    useEffect(() => {
-        void loadKpi();
-    }, [loadKpi]);
 
     // ── Storico (delivered + cancelled del giorno operativo) ──
     // Niente realtime: vista review, fetch on open + refetch dopo Ripristina.
@@ -142,21 +99,13 @@ export default function Orders() {
     }, [tenantId, selectedActivityId]);
 
     // ── Realtime active orders board ──
-    const handleOrderLeftBoard = useCallback(() => {
-        // KPI counters depend on "served today"; refresh on every exit
-        // from the active board to keep the bar in sync without polling.
-        void loadKpi();
-    }, [loadKpi]);
-
     const {
         orders: activeOrders,
         isLoading: isLoadingOrders,
         error: ordersError,
         refetch: refetchOrders,
         applyLocalPatch
-    } = useActiveOrdersRealtime(tenantId, selectedActivityId, {
-        onOrderLeftBoard: handleOrderLeftBoard
-    });
+    } = useActiveOrdersRealtime(tenantId, selectedActivityId);
 
     // ── Tables load (per lookup label/zone nel filtro tab Comande) ──
     const loadTables = useCallback(async () => {
@@ -176,52 +125,18 @@ export default function Orders() {
         void loadTables();
     }, [loadTables]);
 
-    // ── Tables with state (per KPI bar) ──
-    const loadTablesWithState = useCallback(async () => {
-        if (!tenantId || !selectedActivityId) {
-            setTablesWithState([]);
-            return;
-        }
-        try {
-            const data = await listTablesWithState(tenantId, selectedActivityId);
-            setTablesWithState(data);
-        } catch {
-            /* silent: KPI gracefully degrada a 0 */
-        }
-    }, [tenantId, selectedActivityId]);
-
-    useEffect(() => {
-        void loadTablesWithState();
-    }, [loadTablesWithState]);
-
     // Carica lo Storico solo quando la tab e' attiva (o si cambia sede / si rientra).
     useEffect(() => {
         if (mainTab !== "storico") return;
         void loadHistory();
     }, [mainTab, loadHistory]);
 
-    // ── Refresh totale (header button). Triggers kanban refetch + all REST sources. ──
+    // ── Refresh totale (header button) ──
+    // Force-refetch del kanban realtime + lookup tavoli per il dropdown filtro.
     const refreshAll = useCallback(() => {
         void refetchOrders();
         void loadTables();
-        void loadTablesWithState();
-        void loadKpi();
-    }, [refetchOrders, loadTables, loadTablesWithState, loadKpi]);
-
-    // ── Auto-refresh: KPI + tables snapshot only (kanban is realtime).
-    useEffect(() => {
-        if (!autoRefreshEnabled) return;
-        const id = setInterval(() => {
-            void loadTables();
-            void loadTablesWithState();
-            void loadKpi();
-        }, AUTO_REFRESH_INTERVAL_MS);
-        return () => clearInterval(id);
-    }, [autoRefreshEnabled, loadTables, loadTablesWithState, loadKpi]);
-
-    useEffect(() => {
-        localStorage.setItem(AUTO_REFRESH_STORAGE_KEY, String(autoRefreshEnabled));
-    }, [autoRefreshEnabled]);
+    }, [refetchOrders, loadTables]);
 
     const headerActions = useMemo(
         () => (
@@ -242,17 +157,9 @@ export default function Orders() {
                 >
                     Aggiorna
                 </Button>
-                <label className={styles.autoRefreshToggle}>
-                    <input
-                        type="checkbox"
-                        checked={autoRefreshEnabled}
-                        onChange={e => setAutoRefreshEnabled(e.target.checked)}
-                    />
-                    <Text variant="body-sm">Auto-aggiorna KPI (30s)</Text>
-                </label>
             </div>
         ),
-        [tenantId, selectedActivityId, refreshAll, isLoadingOrders, autoRefreshEnabled]
+        [tenantId, selectedActivityId, refreshAll, isLoadingOrders]
     );
 
     usePageHeader({
@@ -262,21 +169,11 @@ export default function Orders() {
         sticky: true
     });
 
-    // ── Filtering (client-side: search + tableId) ──
+    // ── Filtering (client-side: solo tableId) ──
     const filteredOrders = useMemo(() => {
-        const q = searchQuery.trim().toLowerCase();
-        const byTable =
-            tableFilter === "all"
-                ? activeOrders
-                : activeOrders.filter(o => o.table_id === tableFilter);
-        if (q.length === 0) return byTable;
-        return byTable.filter(o => {
-            if (o.customer_name_snapshot?.toLowerCase().includes(q)) return true;
-            const tableLabel =
-                tables.find(t => t.id === o.table_id)?.label.toLowerCase() ?? "";
-            return tableLabel.includes(q);
-        });
-    }, [activeOrders, searchQuery, tableFilter, tables]);
+        if (tableFilter === "all") return activeOrders;
+        return activeOrders.filter(o => o.table_id === tableFilter);
+    }, [activeOrders, tableFilter]);
 
     function labelFor(order: V2OrderWithItems): string {
         const t = tables.find(tt => tt.id === order.table_id);
@@ -361,7 +258,6 @@ export default function Orders() {
                 message: `Ordine ${labelFor(order)} consegnato`,
                 type: "success"
             });
-            void loadKpi();
         } catch (err) {
             handleTransitionError(err, order, "la consegna");
         }
@@ -502,13 +398,12 @@ export default function Orders() {
         try {
             await restoreOrder(order.id, order.version);
             // Rimuovi la riga dalla lista; rientrera' nel kanban via realtime
-            // (acknowledged e' uno status attivo). Refetch KPI per "servite oggi".
+            // (acknowledged e' uno status attivo).
             setHistoryOrders(prev => prev.filter(o => o.id !== order.id));
             showToast({
                 message: `Ordine ${labelFor(order)} ripristinato`,
                 type: "success"
             });
-            void loadKpi();
         } catch (err) {
             if (err instanceof Error) {
                 if (err.message === "OPTIMISTIC_LOCK_CONFLICT") {
@@ -538,14 +433,6 @@ export default function Orders() {
 
     return (
         <section className={styles.container}>
-            {mainTab !== "storico" && tenantId && selectedActivityId && (
-                <OrdersKpiBar
-                    tables={tablesWithState}
-                    ordersTodayCount={ordersTodayCount}
-                    ordersServedToday={ordersServedToday}
-                />
-            )}
-
             <Tabs<MainTab> value={mainTab} onChange={setMainTab}>
                 <Tabs.List>
                     <Tabs.Tab value="comande">Comande</Tabs.Tab>
@@ -556,15 +443,8 @@ export default function Orders() {
 
             {mainTab === "comande" && (
                 <>
-                    <div className={styles.filtersRow}>
-                        <FilterBar
-                            search={{
-                                value: searchQuery,
-                                onChange: setSearchQuery,
-                                placeholder: "Cerca per cliente o tavolo..."
-                            }}
-                        />
-                        {tables.length > 0 && (
+                    {tables.length > 0 && (
+                        <div className={styles.filtersRow}>
                             <select
                                 className={styles.tableFilter}
                                 value={tableFilter}
@@ -577,8 +457,8 @@ export default function Orders() {
                                     </option>
                                 ))}
                             </select>
-                        )}
-                    </div>
+                        </div>
+                    )}
 
                     {!selectedActivityId ? (
                         <EmptyState

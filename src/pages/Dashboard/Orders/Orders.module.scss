@@ -11,18 +11,6 @@
     align-items: center;
 }
 
-.autoRefreshToggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    user-select: none;
-
-    input[type="checkbox"] {
-        cursor: pointer;
-    }
-}
-
 .activitySelector {
     display: flex;
     align-items: center;
