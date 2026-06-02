@@ -17,9 +17,10 @@ import {
     Image as ImageIcon,
     Link as LinkIcon,
     Palette,
+    Plus,
     Trash2
 } from "lucide-react";
-import { Button, Card, InlineBanner } from "@/components/ui";
+import { Button, Card, InlineBanner, MultiEmailInput } from "@/components/ui";
 import UIText from "@/components/ui/Text/Text";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { Menu } from "@/components/ui/Menu";
@@ -53,7 +54,11 @@ import {
 } from "@/services/supabase/activities";
 import { listActivityHours } from "@/services/supabase/activityHours";
 import { listActivityClosures } from "@/services/supabase/activityClosures";
+import { listTenantMembers } from "@/services/supabase/team";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
+import type { TenantMemberRow } from "@/types/team";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnTenant } from "@/lib/permissions";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenant } from "@/context/useTenant";
 import { FEE_DEFINITIONS_BY_KEY } from "@/constants/activityFees";
@@ -89,7 +94,19 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
 }) => {
     const { showToast } = useToast();
     const { selectedTenant } = useTenant();
+    const { permissions } = usePermissions();
+    const canReadTeam = permissions ? canDoOnTenant(permissions, "team.read") : false;
     const navigate = useNavigate();
+
+    // ── Reservation alert recipients state ──────────────────────────────────
+    const reservationEmails: string[] =
+        activity.reservation_notification_emails ?? [];
+    const [isUpdatingEmails, setIsUpdatingEmails] = useState(false);
+    // Team members loaded lazily (only when reservations are enabled AND the
+    // user holds `team.read`). Owner email surfaces here for the auto-fill
+    // on toggle-activation and for the "+ Aggiungi dal team" quick-pick.
+    const [teamMembers, setTeamMembers] = useState<TenantMemberRow[]>([]);
+    const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
 
     // ── Hours state ──────────────────────────────────────────────────────────
     const [hours, setHours] = useState<V2ActivityHours[]>([]);
@@ -272,6 +289,31 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
         loadClosures();
     }, [loadHours, loadClosures]);
 
+    // Lazy fetch team members for the reservations email field. Gated on
+    // `team.read` (scoped roles without that permission see no quick-pick
+    // and no auto-fill). Only runs when reservations are enabled so we
+    // avoid an unnecessary RPC on every settings page load.
+    useEffect(() => {
+        if (!canReadTeam || !activity.enable_reservations) {
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const rows = await listTenantMembers(tenantId);
+                if (cancelled) return;
+                setTeamMembers(rows);
+                const owner = rows.find(r => r.effective_role === "owner");
+                setOwnerEmail(owner?.email ?? null);
+            } catch {
+                // Silent — quick-pick + auto-fill simply stay hidden.
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [canReadTeam, activity.enable_reservations, tenantId]);
+
     // Sync QR colors from props if changed externally
     useEffect(() => {
         setQrFgColor(activity.qr_fg_color ?? DEFAULT_FG);
@@ -438,9 +480,44 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
         [activity.id, tenantId, onReload, showToast]
     );
 
+    const handleReservationEmailsChange = useCallback(
+        async (next: string[]) => {
+            const before = activity.reservation_notification_emails ?? [];
+            // Skip no-op writes (chip removal that produced no change, etc.).
+            if (next.length === before.length && next.every((v, i) => v === before[i])) {
+                return;
+            }
+            setIsUpdatingEmails(true);
+            try {
+                await updateActivity(activity.id, tenantId, {
+                    reservation_notification_emails: next
+                });
+                await onReload();
+            } catch {
+                showToast({
+                    message: "Impossibile aggiornare i destinatari degli avvisi.",
+                    type: "error"
+                });
+            } finally {
+                setIsUpdatingEmails(false);
+            }
+        },
+        [
+            activity.id,
+            activity.reservation_notification_emails,
+            tenantId,
+            onReload,
+            showToast
+        ]
+    );
+
     const handleEnableReservationsToggle = useCallback(
         async (checked: boolean) => {
             try {
+                // No auto-fill: leaving the column empty keeps the backend
+                // resolver pointed at the CURRENT owner of the tenant. The
+                // UI surfaces the resolved owner email in the empty-state
+                // note instead of freezing it into the row.
                 await updateActivity(activity.id, tenantId, {
                     enable_reservations: checked
                 });
@@ -939,6 +1016,71 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                     </InlineBanner>
                                 </div>
                             )}
+
+                        {activity.enable_reservations && (
+                            <div className={styles.reservationsEmailsField}>
+                                <div className={styles.reservationsEmailsHeader}>
+                                    <label
+                                        htmlFor="reservation-alert-emails"
+                                        className={styles.reservationsEmailsLabel}
+                                    >
+                                        Email per gli avvisi di prenotazione
+                                    </label>
+                                    {canReadTeam && teamMembers.length > 0 && (() => {
+                                        const taken = new Set(
+                                            reservationEmails.map(e => e.toLowerCase())
+                                        );
+                                        const pickable = teamMembers.filter(
+                                            m => m.email && !taken.has(m.email.toLowerCase())
+                                        );
+                                        if (pickable.length === 0) return null;
+                                        return (
+                                            <Menu
+                                                trigger={
+                                                    <Button
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        leftIcon={<Plus size={14} />}
+                                                        disabled={isUpdatingEmails}
+                                                    >
+                                                        Aggiungi dal team
+                                                    </Button>
+                                                }
+                                                align="end"
+                                            >
+                                                {pickable.map(m => (
+                                                    <Menu.Item
+                                                        key={m.membership_id}
+                                                        onSelect={() =>
+                                                            handleReservationEmailsChange([
+                                                                ...reservationEmails,
+                                                                m.email.trim().toLowerCase()
+                                                            ])
+                                                        }
+                                                    >
+                                                        {m.email}
+                                                    </Menu.Item>
+                                                ))}
+                                            </Menu>
+                                        );
+                                    })()}
+                                </div>
+                                <MultiEmailInput
+                                    id="reservation-alert-emails"
+                                    value={reservationEmails}
+                                    onChange={handleReservationEmailsChange}
+                                    placeholder="email@esempio.it"
+                                    disabled={isUpdatingEmails}
+                                />
+                                {reservationEmails.length === 0 && (
+                                    <p className={styles.reservationsEmailsNote}>
+                                        {ownerEmail
+                                            ? `Se lasci vuoto, gli avvisi andranno a ${ownerEmail} (proprietario dell'azienda).`
+                                            : "Se lasci vuoto, gli avvisi andranno all'email del proprietario dell'azienda."}
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </Card>
 
