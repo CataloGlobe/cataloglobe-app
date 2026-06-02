@@ -125,6 +125,13 @@ export default function Orders() {
         void loadTables();
     }, [loadTables]);
 
+    // Reset filtro tavolo al cambio sede: il tableFilter potrebbe contenere
+    // un table_id non piu' valido nella nuova sede, nascondendo silenziosamente
+    // tutte le comande (kanban vuoto senza messaggio).
+    useEffect(() => {
+        setTableFilter("all");
+    }, [selectedActivityId]);
+
     // Carica lo Storico solo quando la tab e' attiva (o si cambia sede / si rientra).
     useEffect(() => {
         if (mainTab !== "storico") return;
