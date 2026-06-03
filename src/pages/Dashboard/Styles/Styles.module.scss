@@ -26,12 +26,20 @@
   overflow: hidden;
 }
 
+// Wrapper contenuto pagina: nessun margin-top — il ritmo verticale
+// navbar→banda→contenuto deriva da `MainLayout .content` (24px),
+// identico a Products/Catalogs.
 .content {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  margin-top: 24px;
+}
+
+// CTA della header band: altezza armonizzata a search/toggle via --control-height.
+.toolbarCta {
+  box-sizing: border-box;
+  height: var(--control-height, 38px);
 }
 
 .tableCard {
@@ -55,14 +63,6 @@
   padding: 64px 24px;
   text-align: center;
   gap: 8px;
-}
-
-.filterBarRow {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-  flex-shrink: 0;
 }
 
 /* ── Grid View ────────────────────────────────────────────────────────────── */
