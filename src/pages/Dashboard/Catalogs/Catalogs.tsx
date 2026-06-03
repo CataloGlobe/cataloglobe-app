@@ -6,7 +6,8 @@ import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
-import FilterBar from "@/components/ui/FilterBar/FilterBar";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
+import { ViewModeToggle } from "@/components/ui/ViewModeToggle";
 import { Card } from "@/components/ui/Card/Card";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import Text from "@/components/ui/Text/Text";
@@ -98,8 +99,19 @@ export default function Catalogs() {
         setIsDrawerOpen(true);
     }, [canEdit, showToast]);
 
+    const handleViewModeChange = useCallback((next: "list" | "grid") => {
+        setViewMode(next);
+        localStorage.setItem("cataloglobe_catalogs_view_mode", next);
+    }, []);
+
     const headerActions = useMemo(() => (
-        <div style={{ display: "flex", gap: 8 }}>
+        <>
+            <ToolbarSearch
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder={`Cerca ${catalogLower}...`}
+            />
+            <ViewModeToggle value={viewMode} onChange={handleViewModeChange} />
             <Button
                 variant="outline"
                 onClick={() => {
@@ -108,14 +120,20 @@ export default function Catalogs() {
                 }}
                 disabled={!canEdit}
                 leftIcon={<Sparkles size={16} />}
+                className={styles.toolbarCta}
             >
                 Importa con AI
             </Button>
-            <Button variant="primary" onClick={handleOpenCreate} disabled={!canEdit}>
+            <Button
+                variant="primary"
+                onClick={handleOpenCreate}
+                disabled={!canEdit}
+                className={styles.toolbarCta}
+            >
                 {`Crea ${catalogLower}`}
             </Button>
-        </div>
-    ), [canEdit, showToast, handleOpenCreate, catalogLower]);
+        </>
+    ), [canEdit, showToast, handleOpenCreate, catalogLower, searchQuery, viewMode, handleViewModeChange]);
 
     usePageHeader({
         title: verticalConfig.catalogLabel,
@@ -304,22 +322,6 @@ export default function Catalogs() {
     return (
         <section className={styles.container}>
             <div className={styles.content}>
-                <FilterBar
-                    search={{
-                        value: searchQuery,
-                        onChange: setSearchQuery,
-                        placeholder: `Cerca ${catalogLower}...`
-                    }}
-                    view={{
-                        value: viewMode,
-                        onChange: v => {
-                            setViewMode(v);
-                            localStorage.setItem("cataloglobe_catalogs_view_mode", v);
-                        }
-                    }}
-                    className={styles.filterBar}
-                />
-
                 {isLoading ? (
                     loadingState
                 ) : filteredCatalogs.length === 0 ? (

@@ -11,6 +11,11 @@
   --skeleton-base: #e5e7eb;
   --skeleton-highlight: #f3f4f6;
 
+  // Altezza canonica dei controlli interattivi nella header band
+  // (search/toolbar/CTA). Sorgente unica condivisa: pagine + componenti
+  // (ViewModeToggle, ToolbarSearch, .toolbarCta) leggono da qui.
+  --control-height: 38px;
+
   // Warning palette (amber)
   --color-warning-50:  #fffbeb;
   --color-warning-100: #fef3c7;

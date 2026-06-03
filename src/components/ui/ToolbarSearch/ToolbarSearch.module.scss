@@ -1,0 +1,20 @@
+// Wrapper container (passato come `containerClassName` a InputBase):
+// larghezza fissa 280px desktop, stretch su mobile.
+.wrap {
+  width: 280px;
+  flex: 0 0 auto;
+
+  @media (max-width: 767px) {
+    width: 100%;
+    flex: 1 1 auto;
+  }
+}
+
+// `inputClassName` applicata direttamente all'<input> interno
+// (vedi SearchInput.tsx). Altezza esterna armonizzata col cluster
+// header band via border-box + height.
+.input {
+  box-sizing: border-box;
+  height: var(--control-height, 38px);
+  line-height: 1;
+}

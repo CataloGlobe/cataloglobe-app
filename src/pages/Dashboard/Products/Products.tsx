@@ -11,14 +11,14 @@ import {
     type ProductTabDef
 } from "@/hooks/useFilteredProductTabs";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
-import { SearchInput } from "@/components/ui/Input/SearchInput";
-import { IconButton } from "@/components/ui/Button/IconButton";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
+import { ViewModeToggle } from "@/components/ui/ViewModeToggle";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
-import { Package, LayoutGrid, List as ListIcon } from "lucide-react";
+import { Package } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { Link } from "react-router-dom";
 import ProductCard from "./components/ProductCard";
@@ -250,34 +250,12 @@ export default function Products() {
 
         return (
             <>
-                <SearchInput
+                <ToolbarSearch
                     value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
+                    onChange={setSearchQuery}
                     placeholder={`Cerca ${verticalConfig.productLabel.toLowerCase()} o variante...`}
-                    allowClear
-                    onClear={() => setSearchQuery("")}
-                    containerClassName={styles.toolbarSearch}
                 />
-                <div className={styles.viewToggle} role="radiogroup" aria-label="Vista">
-                    <IconButton
-                        icon={<LayoutGrid size={16} />}
-                        aria-label="Vista griglia"
-                        title="Griglia"
-                        variant="ghost"
-                        size="sm"
-                        className={`${styles.viewToggleBtn} ${viewMode === "grid" ? styles.viewToggleBtnActive : ""}`}
-                        onClick={() => handleViewChange("grid")}
-                    />
-                    <IconButton
-                        icon={<ListIcon size={16} />}
-                        aria-label="Vista lista"
-                        title="Lista"
-                        variant="ghost"
-                        size="sm"
-                        className={`${styles.viewToggleBtn} ${viewMode === "list" ? styles.viewToggleBtnActive : ""}`}
-                        onClick={() => handleViewChange("list")}
-                    />
-                </div>
+                <ViewModeToggle value={viewMode} onChange={handleViewChange} />
                 {cta}
             </>
         );
