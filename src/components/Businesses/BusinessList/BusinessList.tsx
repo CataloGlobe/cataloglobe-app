@@ -62,7 +62,9 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 cell: (_, business) =>
                     business.status === "inactive" ? (
                         <StatusBadge variant="neutral" label="Sospesa" />
-                    ) : null
+                    ) : (
+                        <StatusBadge variant="success" label="Pubblicata" />
+                    )
             },
             {
                 id: "catalog",

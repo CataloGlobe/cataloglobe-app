@@ -57,6 +57,15 @@
   font-weight: 500;
 }
 
+// Status pill bi-stato (Pubblicata / Sospesa) sempre visibile sulla cover.
+// Distinta dal dimming + overlayPill (inactive_reason) che restano inactive-only.
+.statusBadgeOverlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+}
+
 .cardInactive {
   opacity: 0.75;
 }
