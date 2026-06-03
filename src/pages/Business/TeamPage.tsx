@@ -11,6 +11,8 @@ import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
 import { Select } from "@/components/ui/Select/Select";
+import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions, TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
 import { InviteMemberDrawer } from "@/components/Businesses/InviteMemberDrawer/InviteMemberDrawer";
@@ -18,7 +20,6 @@ import { MemberDrawer } from "@/components/Businesses/MemberDrawer/MemberDrawer"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { Lock, Send, UserCog, UserMinus, X } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import styles from "./TeamPage.module.scss";
 
 import type { TenantMemberRow, EffectiveRole } from "@/types/team";
@@ -99,18 +100,16 @@ export default function TeamPage() {
     const [search, setSearch] = useState("");
     const [roleFilter, setRoleFilter] = useState("");
 
+    type TeamTab = "members" | "invites";
+    const [activeTab, setActiveTab] = useState<TeamTab>("members");
+    const handleTabChange = useCallback((next: TeamTab) => setActiveTab(next), []);
+
     const { permissions, loading: permissionsLoading } = usePermissions();
     const { user } = useAuth();
     const callerUserId = user?.id;
     const canInvite = permissions ? canDoOnTenant(permissions, "team.invite") : false;
     const canReadTeam = permissions ? canDoOnTenant(permissions, "team.read") : false;
     const canRemoveAny = permissions ? canDoOnTenant(permissions, "team.remove") : false;
-
-    usePageHeader({
-        title: "Team",
-        subtitle: "Gestisci i membri del team per questo business.",
-        sticky: true,
-    });
 
     const filteredActiveMembers = useMemo(() => {
         // "Active" include owner synthetic (status=NULL) e membership status='active'
@@ -133,6 +132,68 @@ export default function TeamPage() {
         }
         return result;
     }, [members, search]);
+
+    const pendingCount = useMemo(
+        () => members.filter(m => m.status === "pending").length,
+        [members]
+    );
+
+    // ── Header band: leading (tab line) + actions (search + filtro + CTA) ──
+    const leading = useMemo(() => (
+        <Tabs<TeamTab>
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="line"
+        >
+            <Tabs.List>
+                <Tabs.Tab value="members">Membri</Tabs.Tab>
+                <Tabs.Tab value="invites">
+                    {pendingCount > 0
+                        ? `Inviti in attesa · ${pendingCount}`
+                        : "Inviti in attesa"}
+                </Tabs.Tab>
+            </Tabs.List>
+        </Tabs>
+    ), [activeTab, handleTabChange, pendingCount]);
+
+    const headerActions = useMemo(() => (
+        <>
+            <ToolbarSearch
+                value={search}
+                onChange={setSearch}
+                placeholder="Cerca per email..."
+            />
+            <Select
+                aria-label="Filtra per ruolo"
+                value={roleFilter}
+                onChange={e => setRoleFilter(e.target.value)}
+                containerClassName={styles.toolbarFilter}
+                selectClassName={styles.toolbarFilterSelect}
+                options={[
+                    { value: "", label: "Tutti i ruoli" },
+                    { value: "owner", label: "Owner" },
+                    { value: "admin", label: "Admin" },
+                    { value: "manager", label: "Manager" },
+                    { value: "staff", label: "Staff" },
+                    { value: "viewer", label: "Viewer" }
+                ]}
+            />
+            {canInvite && (
+                <Button
+                    variant="primary"
+                    onClick={() => setInviteDrawerOpen(true)}
+                    className={styles.toolbarCta}
+                >
+                    Invita membro
+                </Button>
+            )}
+        </>
+    ), [search, roleFilter, canInvite]);
+
+    usePageHeader({
+        leading: canReadTeam ? leading : undefined,
+        actions: canReadTeam ? headerActions : undefined,
+    });
 
     useEffect(() => {
         if (!selectedTenantId) return;
@@ -498,124 +559,60 @@ export default function TeamPage() {
                             description="La gestione dei membri del team è riservata a proprietario, amministratori e manager. Contatta il proprietario o un amministratore se hai bisogno di accedere a queste informazioni."
                         />
                     </div>
+                ) : activeTab === "members" ? (
+                    <DataTable<TenantMemberRow>
+                        data={filteredActiveMembers}
+                        columns={activeColumns}
+                        isLoading={loading}
+                        emptyState={membersEmptyState}
+                        loadingState={membersLoadingState}
+                        getRowId={row => row.membership_id}
+                        selectable={canRemoveAny}
+                        isRowSelectable={row =>
+                            permissions
+                                ? canRemoveMember(
+                                      permissions,
+                                      {
+                                          role: row.effective_role,
+                                          activityIds: row.activity_ids,
+                                          userId: row.user_id ?? undefined
+                                      },
+                                      callerUserId
+                                  )
+                                : false
+                        }
+                        selectedRowIds={selectedMemberIds}
+                        onSelectedRowsChange={setSelectedMemberIds}
+                        onBulkDelete={handleBulkRemoveMembers}
+                        bulkActionLabel="Rimuovi dal team"
+                    />
                 ) : (
-                    <>
-                        <Card noHoverLift>
-                            <div className={styles.cardHeader}>
-                                <div className={styles.cardHeaderText}>
-                                    <Text variant="title-sm" weight={600}>Membri</Text>
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        Membri attivi con accesso a questa attività.
-                                    </Text>
-                                </div>
-                                {canInvite && (
-                                    <Button
-                                        variant="primary"
-                                        size="sm"
-                                        onClick={() => setInviteDrawerOpen(true)}
-                                    >
-                                        Invita membro
-                                    </Button>
-                                )}
-                            </div>
-
-                            <div className={styles.filterBarWrapper}>
-                                <FilterBar
-                                    search={{
-                                        value: search,
-                                        onChange: setSearch,
-                                        placeholder: "Cerca per email...",
-                                    }}
-                                    advancedFilters={
-                                        <div className={styles.filterControls}>
-                                            <Select
-                                                label="Ruolo"
-                                                value={roleFilter}
-                                                onChange={e => setRoleFilter(e.target.value)}
-                                                options={[
-                                                    { value: "",        label: "Tutti" },
-                                                    { value: "owner",   label: "Owner" },
-                                                    { value: "admin",   label: "Admin" },
-                                                    { value: "manager", label: "Manager" },
-                                                    { value: "staff",   label: "Staff" },
-                                                    { value: "viewer",  label: "Viewer" },
-                                                ]}
-                                            />
-                                        </div>
-                                    }
-                                />
-                            </div>
-
-                            <DataTable<TenantMemberRow>
-                                data={filteredActiveMembers}
-                                columns={activeColumns}
-                                isLoading={loading}
-                                emptyState={membersEmptyState}
-                                loadingState={membersLoadingState}
-                                getRowId={row => row.membership_id}
-                                selectable={canRemoveAny}
-                                isRowSelectable={row =>
-                                    permissions
-                                        ? canRemoveMember(
-                                              permissions,
-                                              {
-                                                  role: row.effective_role,
-                                                  activityIds: row.activity_ids,
-                                                  userId: row.user_id ?? undefined
-                                              },
-                                              callerUserId
-                                          )
-                                        : false
-                                }
-                                selectedRowIds={selectedMemberIds}
-                                onSelectedRowsChange={setSelectedMemberIds}
-                                onBulkDelete={handleBulkRemoveMembers}
-                                bulkActionLabel="Rimuovi dal team"
-                            />
-                        </Card>
-
-                        {members.some(m => m.status === "pending") && (
-                            <Card noHoverLift>
-                                <div className={styles.cardHeader}>
-                                    <div className={styles.cardHeaderText}>
-                                        <Text variant="title-sm" weight={600}>
-                                            {`Inviti in attesa (${filteredPendingInvites.length})`}
-                                        </Text>
-                                        <Text variant="body-sm" colorVariant="muted">
-                                            Inviti inviati in attesa di accettazione.
-                                        </Text>
-                                    </div>
-                                </div>
-
-                                <DataTable<TenantMemberRow>
-                                    data={filteredPendingInvites}
-                                    columns={pendingColumns}
-                                    isLoading={loading}
-                                    emptyState={invitesEmptyState}
-                                    loadingState={membersLoadingState}
-                                    getRowId={row => row.membership_id}
-                                    selectable={canRemoveAny}
-                                    isRowSelectable={row =>
-                                        permissions
-                                            ? canRemoveMember(
-                                                  permissions,
-                                                  {
-                                                      role: row.effective_role,
-                                                      activityIds: row.activity_ids,
-                                                      userId: row.user_id ?? undefined
-                                                  },
-                                                  callerUserId
-                                              )
-                                            : false
-                                    }
-                                    selectedRowIds={selectedInviteIds}
-                                    onSelectedRowsChange={setSelectedInviteIds}
-                                    onBulkDelete={handleBulkCancelInvites}
-                                    bulkActionLabel="Annulla inviti"
-                                />
-                            </Card>
-                        )}
-                    </>
+                    <DataTable<TenantMemberRow>
+                        data={filteredPendingInvites}
+                        columns={pendingColumns}
+                        isLoading={loading}
+                        emptyState={invitesEmptyState}
+                        loadingState={membersLoadingState}
+                        getRowId={row => row.membership_id}
+                        selectable={canRemoveAny}
+                        isRowSelectable={row =>
+                            permissions
+                                ? canRemoveMember(
+                                      permissions,
+                                      {
+                                          role: row.effective_role,
+                                          activityIds: row.activity_ids,
+                                          userId: row.user_id ?? undefined
+                                      },
+                                      callerUserId
+                                  )
+                                : false
+                        }
+                        selectedRowIds={selectedInviteIds}
+                        onSelectedRowsChange={setSelectedInviteIds}
+                        onBulkDelete={handleBulkCancelInvites}
+                        bulkActionLabel="Annulla inviti"
+                    />
                 )}
             </div>
 
