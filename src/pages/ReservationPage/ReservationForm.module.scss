@@ -147,6 +147,12 @@
 .input[type="time"] {
     -webkit-appearance: none;
     appearance: none;
+    /* Empty native date/time inputs collapse to ~24px once UA appearance is
+       removed because the value-view has no content. Match the natural
+       height of a text input (padding 11×2 + font-size 16 × line-height 1.2
+       + border 1×2 ≈ 43.2 → 44px) so empty + filled render identically. */
+    min-height: 44px;
+    line-height: 1.2;
 }
 
 /* Internal value-view spacing reset — keeps "GG/MM/AAAA" / "--:--" centered
