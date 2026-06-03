@@ -1,13 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Bell, Grid2X2, Layers, Lock, Plus, QrCode, RefreshCw, RotateCw } from "lucide-react";
+import { Bell, Grid2X2, Layers, Lock, MoreHorizontal, Plus, QrCode, RefreshCw, RotateCw } from "lucide-react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
-import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -524,85 +527,83 @@ export function TablesManagement({
 
     const hasFiltersActive = searchQuery.trim().length > 0 || statusFilter !== "all";
 
-    const headerActions = useMemo(
-        () => (
-            <div className={styles.headerActions}>
-                <Button
-                    variant="secondary"
-                    leftIcon={<RefreshCw size={16} />}
-                    onClick={loadData}
-                    disabled={!activityId || isLoading}
-                >
-                    Aggiorna
-                </Button>
-                <Button
-                    variant="secondary"
-                    leftIcon={<Layers size={16} />}
-                    onClick={() => setIsZoneDrawerOpen(true)}
-                    disabled={!activityId}
-                >
-                    Gestisci zone
-                </Button>
-                <Button
-                    variant="secondary"
-                    leftIcon={<QrCode size={16} />}
-                    onClick={handleGenerateQrAll}
-                    loading={isGeneratingQrAll}
-                    disabled={!activityId || items.length === 0}
-                >
-                    Genera QR
-                </Button>
-                <Button
-                    variant="primary"
-                    leftIcon={<Plus size={16} />}
-                    onClick={openCreate}
-                    disabled={!activityId || !orderingEnabled}
-                >
-                    Nuovo tavolo
-                </Button>
-            </div>
-        ),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [loadData, activityId, isLoading, isGeneratingQrAll, items.length, orderingEnabled]
-    );
-
     return (
         <section className={styles.container}>
-            <div className={styles.embeddedHeader}>{headerActions}</div>
-
             <div className={styles.content}>
-                <FilterBar
-                    search={{
-                        value: searchQuery,
-                        onChange: setSearchQuery,
-                        placeholder: "Cerca per nome o zona..."
-                    }}
-                />
-
-                <div className={styles.statusFilter} role="tablist">
-                    {(
-                        [
+                {/* Toolbar di sezione: filtro SX · cluster DX (search + refresh + altro + CTA) */}
+                <div className={styles.toolbar}>
+                    <SegmentedControl<StatusFilter>
+                        value={statusFilter}
+                        onChange={setStatusFilter}
+                        options={[
                             { value: "all", label: "Tutti" },
                             { value: "free", label: "Liberi" },
                             { value: "occupied", label: "Occupati" },
                             { value: "maintenance", label: "Manutenzione" }
-                        ] as Array<{ value: StatusFilter; label: string }>
-                    ).map(opt => (
-                        <button
-                            key={opt.value}
-                            type="button"
-                            role="tab"
-                            aria-selected={statusFilter === opt.value}
-                            className={
-                                statusFilter === opt.value
-                                    ? styles.statusButtonActive
-                                    : styles.statusButton
-                            }
-                            onClick={() => setStatusFilter(opt.value)}
+                        ]}
+                    />
+                    <div className={styles.actionsCluster}>
+                        <ToolbarSearch
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="Cerca per nome o zona..."
+                        />
+                        <IconButton
+                            icon={<RefreshCw size={16} />}
+                            aria-label="Aggiorna"
+                            title="Aggiorna"
+                            variant="outline"
+                            onClick={loadData}
+                            disabled={!activityId || isLoading}
+                            className={styles.toolbarIconBtn}
+                        />
+                        <DropdownMenu.Root>
+                            <DropdownMenu.Trigger asChild>
+                                <Button
+                                    variant="outline"
+                                    leftIcon={<MoreHorizontal size={16} />}
+                                    disabled={!activityId}
+                                    className={styles.toolbarCta}
+                                    aria-label="Altre azioni"
+                                >
+                                    Altro
+                                </Button>
+                            </DropdownMenu.Trigger>
+                            <DropdownMenu.Portal>
+                                <DropdownMenu.Content
+                                    className={styles.dropdownContent}
+                                    align="end"
+                                    sideOffset={6}
+                                >
+                                    <DropdownMenu.Item
+                                        className={styles.dropdownItem}
+                                        onSelect={() => setIsZoneDrawerOpen(true)}
+                                        disabled={!activityId}
+                                    >
+                                        <Layers size={14} />
+                                        <span>Gestisci zone</span>
+                                    </DropdownMenu.Item>
+                                    <DropdownMenu.Item
+                                        className={styles.dropdownItem}
+                                        onSelect={() => void handleGenerateQrAll()}
+                                        disabled={!activityId || items.length === 0 || isGeneratingQrAll}
+                                    >
+                                        <QrCode size={14} />
+                                        <span>{isGeneratingQrAll ? "Generazione..." : "Genera QR"}</span>
+                                    </DropdownMenu.Item>
+                                </DropdownMenu.Content>
+                            </DropdownMenu.Portal>
+                        </DropdownMenu.Root>
+                        <Button
+                            variant="primary"
+                            leftIcon={<Plus size={16} />}
+                            onClick={openCreate}
+                            disabled={!activityId || !orderingEnabled}
+                            className={styles.toolbarCta}
                         >
-                            {opt.label}
-                        </button>
-                    ))}
+                            Nuovo tavolo
+                        </Button>
+                    </div>
                 </div>
 
                 {!isLoading && filteredItems.length === 0 ? (

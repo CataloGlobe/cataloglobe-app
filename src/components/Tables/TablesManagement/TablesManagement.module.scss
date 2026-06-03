@@ -4,53 +4,76 @@
     gap: 16px;
 }
 
-.embeddedHeader {
-    display: flex;
-    justify-content: flex-end;
-}
-
-.headerActions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
 .content {
     display: flex;
     flex-direction: column;
     gap: 12px;
 }
 
-.statusFilter {
+// Toolbar di sezione: filtro SX, cluster azioni DX (search · refresh · altro · CTA).
+.toolbar {
     display: flex;
-    gap: 4px;
-    padding: 4px;
-    background: var(--surface-muted, #f4f5f7);
-    border-radius: 8px;
-    width: fit-content;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
-.statusButton,
-.statusButtonActive {
-    padding: 6px 12px;
-    border: none;
-    background: transparent;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-muted, #6b6f76);
+.actionsCluster {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    flex-wrap: wrap;
+
+    @media (max-width: 767px) {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+// Bottoni allineati al cluster: --control-height + box-sizing border-box.
+.toolbarCta {
+    box-sizing: border-box;
+    height: var(--control-height, 38px);
+}
+
+.toolbarIconBtn {
+    box-sizing: border-box;
+    width: var(--control-height, 38px);
+    height: var(--control-height, 38px);
+    min-width: var(--control-height, 38px);
+}
+
+// Dropdown "Altro" — pattern coerente con TableRowActions.
+.dropdownContent {
+    min-width: 200px;
+    background: var(--card-bg, #FFFFFF);
+    border: 1px solid var(--border, #E5E7EB);
+    border-radius: 10px;
+    padding: 6px 0;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+    z-index: 50;
+}
+
+.dropdownItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    font-size: 13.5px;
+    color: var(--text, #0F172A);
     cursor: pointer;
-    transition: background-color 120ms ease, color 120ms ease;
-}
+    outline: none;
+    user-select: none;
 
-.statusButton:hover {
-    color: var(--text-primary, #1a1d21);
-}
+    &[data-highlighted] {
+        background: var(--hover-bg, #F8FAFC);
+    }
 
-.statusButtonActive {
-    background: var(--surface-elevated, #fff);
-    color: var(--text-primary, #1a1d21);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    &[data-disabled] {
+        opacity: 0.5;
+        pointer-events: none;
+    }
 }
 
 .labelCell {
