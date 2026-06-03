@@ -570,9 +570,18 @@ export default function Orders() {
 
     async function handleRestore(order: V2OrderWithItems) {
         try {
-            await restoreOrder(order.id, order.version);
+            // Branch sull'origine effettiva: deliver-order NON azzera ready_at,
+            // quindi se l'ordine era passato per "Pronto" (ready_at != null) il
+            // ripristino deve riportarlo in `ready`, altrimenti in `acknowledged`
+            // (era stato servito direttamente da acknowledged).
+            const cameFromReady = order.ready_at != null;
+            if (cameFromReady) {
+                await undeliverToReady(order.id, order.version);
+            } else {
+                await restoreOrder(order.id, order.version);
+            }
             // Rimuovi la riga dalla lista; rientrera' nel kanban via realtime
-            // (acknowledged e' uno status attivo).
+            // (sia ready che acknowledged sono status attivi).
             setHistoryOrders(prev => prev.filter(o => o.id !== order.id));
             showToast({
                 message: `Ordine ${labelFor(order)} ripristinato`,
