@@ -39,6 +39,7 @@ import type {
     RestoreOrderResult,
     UnacknowledgeOrderResult,
     UnreadyOrderResult,
+    UndeliverToReadyResult,
     RectifyOrderResult,
     RectifyOrderItem,
     V2Order,
@@ -499,6 +500,30 @@ export async function unreadyOrder(
 ): Promise<UnreadyOrderResult> {
     const { data, error } = await supabase.functions.invoke<UnreadyOrderResult>(
         "unready-order",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione delivered → ready (undo "Servita" quando l'ordine
+ * veniva dalla colonna Pronte). Optimistic locking via
+ * expected_version. Mirror 1:1 dell'Edge Function `undeliver-to-ready`:
+ * azzera `delivered_at`, lascia `ready_at` intatto. Stesso mapping
+ * errori di acknowledgeOrder.
+ */
+export async function undeliverToReady(
+    orderId: string,
+    expectedVersion: number
+): Promise<UndeliverToReadyResult> {
+    const { data, error } = await supabase.functions.invoke<UndeliverToReadyResult>(
+        "undeliver-to-ready",
         { body: { order_id: orderId, expected_version: expectedVersion } }
     );
 

@@ -449,6 +449,20 @@ export interface UnreadyOrderResult {
     ready_at: null;
 }
 
+/**
+ * Result di undeliverToReady. Mirror dell'Edge Function
+ * `undeliver-to-ready` (delivered → ready). Usata come undo di
+ * "Servita" quando l'ordine veniva dalla colonna Pronte; `delivered_at`
+ * viene azzerato, `ready_at` resta popolato (l'ordine torna proprio
+ * nello stato `ready` raggiunto in precedenza).
+ */
+export interface UndeliverToReadyResult {
+    order_id: string;
+    status: "ready";
+    version: number;
+    delivered_at: null;
+}
+
 export interface RectifyOrderResult {
     rectification_order_id: string;
     parent_order_id: string;

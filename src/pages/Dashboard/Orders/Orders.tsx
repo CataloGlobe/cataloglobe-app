@@ -21,6 +21,7 @@ import {
     restoreOrder,
     unacknowledgeOrder,
     unreadyOrder,
+    undeliverToReady,
     listOrdersHistoryToday
 } from "@/services/supabase/orders";
 import type {
@@ -326,6 +327,11 @@ export default function Orders() {
     }
 
     async function handleDeliver(order: V2OrderWithItems) {
+        // Cattura lo stato d'origine PRIMA del deliver per scegliere il
+        // ramo undo: ready -> undeliverToReady (mantiene ready_at);
+        // acknowledged ("Servito direttamente") -> restoreOrder
+        // (delivered → acknowledged, azzera anche ready_at che era NULL).
+        const priorStatus = order.status;
         try {
             const res = await deliverOrder(order.id, order.version);
             applyLocalPatch({
@@ -334,10 +340,8 @@ export default function Orders() {
                 version: res.version,
                 delivered_at: res.delivered_at
             });
-            // Undo inline: usa la versione post-deliver (res.version), NON
-            // order.version che e' ormai stale. handleRestore esistente non
-            // serve qui — chiamiamo direttamente restoreOrder per evitare
-            // di propagare la version stale tramite l'order originale.
+            // Undo inline: usa SEMPRE la versione post-deliver (res.version),
+            // NON order.version che e' ormai stale.
             showToast({
                 message: `Ordine ${labelFor(order)} servito`,
                 type: "success",
@@ -345,14 +349,32 @@ export default function Orders() {
                 onAction: () => {
                     void (async () => {
                         try {
-                            const restored = await restoreOrder(res.order_id, res.version);
-                            applyLocalPatch({
-                                id: restored.order_id,
-                                status: restored.status,
-                                version: restored.version,
-                                delivered_at: null,
-                                ready_at: null
-                            });
+                            if (priorStatus === "ready") {
+                                const undone = await undeliverToReady(
+                                    res.order_id,
+                                    res.version
+                                );
+                                applyLocalPatch({
+                                    id: undone.order_id,
+                                    status: undone.status,
+                                    version: undone.version,
+                                    delivered_at: null
+                                    // ready_at intatto: l'ordine torna proprio
+                                    // nello stato `ready` precedente.
+                                });
+                            } else {
+                                const restored = await restoreOrder(
+                                    res.order_id,
+                                    res.version
+                                );
+                                applyLocalPatch({
+                                    id: restored.order_id,
+                                    status: restored.status,
+                                    version: restored.version,
+                                    delivered_at: null,
+                                    ready_at: null
+                                });
+                            }
                             showToast({
                                 message: `Ordine ${labelFor(order)} ripristinato`,
                                 type: "info"
