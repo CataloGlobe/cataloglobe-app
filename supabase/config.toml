@@ -239,6 +239,24 @@ verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/undeliver-to-ready/index.ts"
 
+[functions.uncancel-to-submitted]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/uncancel-to-submitted/index.ts"
+
+[functions.uncancel-to-acknowledged]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/uncancel-to-acknowledged/index.ts"
+
+[functions.uncancel-to-ready]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/uncancel-to-ready/index.ts"
+
 [functions.rectify-order]
 enabled = true
 verify_jwt = false

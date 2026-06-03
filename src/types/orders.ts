@@ -463,6 +463,51 @@ export interface UndeliverToReadyResult {
     delivered_at: null;
 }
 
+/**
+ * Result di uncancelToSubmitted. Mirror dell'Edge Function
+ * `uncancel-to-submitted` (cancelled → submitted). Undo immediato di
+ * "Elimina" quando l'ordine era stato cancellato dallo stato submitted.
+ * Azzera i metadati di cancellazione.
+ */
+export interface UncancelToSubmittedResult {
+    order_id: string;
+    status: "submitted";
+    version: number;
+    cancelled_at: null;
+    cancelled_by: null;
+    cancellation_reason: null;
+}
+
+/**
+ * Result di uncancelToAcknowledged. Mirror dell'Edge Function
+ * `uncancel-to-acknowledged` (cancelled → acknowledged). Undo immediato
+ * quando l'ordine era stato cancellato da acknowledged; `acknowledged_at`
+ * resta popolato (stato originale ripristinato).
+ */
+export interface UncancelToAcknowledgedResult {
+    order_id: string;
+    status: "acknowledged";
+    version: number;
+    cancelled_at: null;
+    cancelled_by: null;
+    cancellation_reason: null;
+}
+
+/**
+ * Result di uncancelToReady. Mirror dell'Edge Function
+ * `uncancel-to-ready` (cancelled → ready). Undo immediato quando
+ * l'ordine era stato cancellato da ready; `acknowledged_at` e `ready_at`
+ * restano popolati (stato originale ripristinato).
+ */
+export interface UncancelToReadyResult {
+    order_id: string;
+    status: "ready";
+    version: number;
+    cancelled_at: null;
+    cancelled_by: null;
+    cancellation_reason: null;
+}
+
 export interface RectifyOrderResult {
     rectification_order_id: string;
     parent_order_id: string;

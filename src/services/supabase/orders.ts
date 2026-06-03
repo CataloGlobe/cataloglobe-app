@@ -40,6 +40,9 @@ import type {
     UnacknowledgeOrderResult,
     UnreadyOrderResult,
     UndeliverToReadyResult,
+    UncancelToSubmittedResult,
+    UncancelToAcknowledgedResult,
+    UncancelToReadyResult,
     RectifyOrderResult,
     RectifyOrderItem,
     V2Order,
@@ -524,6 +527,75 @@ export async function undeliverToReady(
 ): Promise<UndeliverToReadyResult> {
     const { data, error } = await supabase.functions.invoke<UndeliverToReadyResult>(
         "undeliver-to-ready",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione cancelled → submitted (undo immediato di "Elimina" su
+ * un ordine che era in stato submitted). Optimistic locking via
+ * expected_version. Azzera cancelled_at/by/reason. Stesso mapping
+ * errori di acknowledgeOrder.
+ */
+export async function uncancelToSubmitted(
+    orderId: string,
+    expectedVersion: number
+): Promise<UncancelToSubmittedResult> {
+    const { data, error } = await supabase.functions.invoke<UncancelToSubmittedResult>(
+        "uncancel-to-submitted",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione cancelled → acknowledged (undo immediato di "Elimina" su
+ * un ordine che era in stato acknowledged). Optimistic locking via
+ * expected_version. Azzera cancelled_at/by/reason; acknowledged_at
+ * resta popolato.
+ */
+export async function uncancelToAcknowledged(
+    orderId: string,
+    expectedVersion: number
+): Promise<UncancelToAcknowledgedResult> {
+    const { data, error } = await supabase.functions.invoke<UncancelToAcknowledgedResult>(
+        "uncancel-to-acknowledged",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione cancelled → ready (undo immediato di "Elimina" su un
+ * ordine che era in stato ready). Optimistic locking via
+ * expected_version. Azzera cancelled_at/by/reason; acknowledged_at e
+ * ready_at restano popolati.
+ */
+export async function uncancelToReady(
+    orderId: string,
+    expectedVersion: number
+): Promise<UncancelToReadyResult> {
+    const { data, error } = await supabase.functions.invoke<UncancelToReadyResult>(
+        "uncancel-to-ready",
         { body: { order_id: orderId, expected_version: expectedVersion } }
     );
 

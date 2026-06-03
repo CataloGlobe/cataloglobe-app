@@ -22,6 +22,9 @@ import {
     unacknowledgeOrder,
     unreadyOrder,
     undeliverToReady,
+    uncancelToSubmitted,
+    uncancelToAcknowledged,
+    uncancelToReady,
     listOrdersHistoryToday
 } from "@/services/supabase/orders";
 import type {
@@ -403,6 +406,11 @@ export default function Orders() {
     async function handleCancelConfirm(reason: string) {
         if (!orderToCancel) return;
         const trimmed = reason.trim();
+        // Cattura priorStatus PRIMA del cancel per scegliere il ramo undo.
+        // cancel-order-admin preserva acknowledged_at + ready_at, quindi il
+        // ripristino e' esatto: cancelled → priorStatus.
+        const orderRef = orderToCancel;
+        const priorStatus = orderToCancel.status;
         try {
             const res = await cancelOrderAdmin(
                 orderToCancel.id,
@@ -418,8 +426,47 @@ export default function Orders() {
                 cancellation_reason: res.cancellation_reason
             });
             showToast({
-                message: `Ordine ${labelFor(orderToCancel)} cancellato`,
-                type: "success"
+                message: `Ordine ${labelFor(orderRef)} cancellato`,
+                type: "success",
+                actionLabel: "Annulla",
+                onAction: () => {
+                    void (async () => {
+                        try {
+                            // Usa SEMPRE res.version post-cancel (order.version
+                            // ormai stale).
+                            let undone:
+                                | { order_id: string; status: V2OrderWithItems["status"]; version: number }
+                                | null = null;
+                            if (priorStatus === "submitted") {
+                                undone = await uncancelToSubmitted(res.order_id, res.version);
+                            } else if (priorStatus === "acknowledged") {
+                                undone = await uncancelToAcknowledged(res.order_id, res.version);
+                            } else if (priorStatus === "ready") {
+                                undone = await uncancelToReady(res.order_id, res.version);
+                            }
+                            if (!undone) {
+                                // priorStatus non in {submitted, acknowledged, ready}:
+                                // non puo' succedere — cancel-order-admin accetta
+                                // solo questi 3 source. Defensive no-op.
+                                return;
+                            }
+                            applyLocalPatch({
+                                id: undone.order_id,
+                                status: undone.status,
+                                version: undone.version,
+                                cancelled_at: null,
+                                cancelled_by: null,
+                                cancellation_reason: null
+                            });
+                            showToast({
+                                message: `Ordine ${labelFor(orderRef)} ripristinato`,
+                                type: "info"
+                            });
+                        } catch (err) {
+                            handleTransitionError(err, orderRef, "il ripristino");
+                        }
+                    })();
+                }
             });
             setIsCancelOpen(false);
             setOrderToCancel(null);
@@ -431,7 +478,7 @@ export default function Orders() {
                 });
                 return;
             }
-            handleTransitionError(err, orderToCancel, "la cancellazione");
+            handleTransitionError(err, orderRef, "la cancellazione");
             setIsCancelOpen(false);
             setOrderToCancel(null);
         }
