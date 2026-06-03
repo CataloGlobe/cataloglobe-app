@@ -3,9 +3,9 @@ import { usePageHeader } from "@/context/usePageHeader";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
-import { ViewModeToggle } from "@/components/ui/ViewModeToggle";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { Pencil, Trash2, Layers } from "lucide-react";
+import { Pencil, Trash2, Layers, LayoutGrid, List as ListIcon } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -90,7 +90,15 @@ export default function Highlights() {
                 onChange={setSearchQuery}
                 placeholder="Cerca per titolo..."
             />
-            <ViewModeToggle value={viewMode} onChange={handleViewChange} />
+            <SegmentedControl<"list" | "grid">
+                iconsOnly
+                value={viewMode}
+                onChange={handleViewChange}
+                options={[
+                    { value: "grid", icon: <LayoutGrid size={16} />, label: "Vista griglia" },
+                    { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
+                ]}
+            />
             <Button
                 variant="primary"
                 onClick={handleCreate}

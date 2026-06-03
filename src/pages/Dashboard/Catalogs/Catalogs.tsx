@@ -7,13 +7,13 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
-import { ViewModeToggle } from "@/components/ui/ViewModeToggle";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { Card } from "@/components/ui/Card/Card";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconBook2 } from "@tabler/icons-react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, LayoutGrid, List as ListIcon } from "lucide-react";
 import { AiMenuImportDrawer } from "./AiMenuImport/AiMenuImportDrawer";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import {
@@ -111,7 +111,15 @@ export default function Catalogs() {
                 onChange={setSearchQuery}
                 placeholder={`Cerca ${catalogLower}...`}
             />
-            <ViewModeToggle value={viewMode} onChange={handleViewModeChange} />
+            <SegmentedControl<"list" | "grid">
+                iconsOnly
+                value={viewMode}
+                onChange={handleViewModeChange}
+                options={[
+                    { value: "grid", icon: <LayoutGrid size={16} />, label: "Vista griglia" },
+                    { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
+                ]}
+            />
             <Button
                 variant="outline"
                 onClick={() => {

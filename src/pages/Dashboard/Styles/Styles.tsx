@@ -4,12 +4,13 @@ import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
-import { ViewModeToggle } from "@/components/ui/ViewModeToggle";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { Card } from "@/components/ui/Card/Card";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconPalette, IconShieldCheck } from "@tabler/icons-react";
+import { LayoutGrid, List as ListIcon } from "lucide-react";
 import { TableRowActions, type TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
 import styles from "./Styles.module.scss";
 
@@ -154,7 +155,15 @@ export default function Styles() {
                 onChange={setSearchQuery}
                 placeholder="Cerca stili..."
             />
-            <ViewModeToggle value={viewMode} onChange={handleViewModeChange} />
+            <SegmentedControl<"list" | "grid">
+                iconsOnly
+                value={viewMode}
+                onChange={handleViewModeChange}
+                options={[
+                    { value: "grid", icon: <LayoutGrid size={16} />, label: "Vista griglia" },
+                    { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
+                ]}
+            />
             <Button
                 variant="primary"
                 onClick={handleCreateClick}

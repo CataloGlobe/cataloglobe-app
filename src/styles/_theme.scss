@@ -13,7 +13,7 @@
 
   // Altezza canonica dei controlli interattivi nella header band
   // (search/toolbar/CTA). Sorgente unica condivisa: pagine + componenti
-  // (ViewModeToggle, ToolbarSearch, .toolbarCta) leggono da qui.
+  // (SegmentedControl, ToolbarSearch, .toolbarCta) leggono da qui.
   --control-height: 38px;
 
   // Warning palette (amber)

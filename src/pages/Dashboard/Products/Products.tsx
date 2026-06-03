@@ -12,13 +12,13 @@ import {
 } from "@/hooks/useFilteredProductTabs";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
-import { ViewModeToggle } from "@/components/ui/ViewModeToggle";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
-import { Package } from "lucide-react";
+import { Package, LayoutGrid, List as ListIcon } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { Link } from "react-router-dom";
 import ProductCard from "./components/ProductCard";
@@ -255,7 +255,15 @@ export default function Products() {
                     onChange={setSearchQuery}
                     placeholder={`Cerca ${verticalConfig.productLabel.toLowerCase()} o variante...`}
                 />
-                <ViewModeToggle value={viewMode} onChange={handleViewChange} />
+                <SegmentedControl<"list" | "grid">
+                    iconsOnly
+                    value={viewMode}
+                    onChange={handleViewChange}
+                    options={[
+                        { value: "grid", icon: <LayoutGrid size={16} />, label: "Vista griglia" },
+                        { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
+                    ]}
+                />
                 {cta}
             </>
         );
