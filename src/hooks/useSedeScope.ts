@@ -15,8 +15,8 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { useTenantId } from "@/context/useTenantId";
 import { usePermissions } from "@/context/PermissionsContext";
 import { isOwnerOrAdmin } from "@/lib/permissions";
-import { getActivities } from "@/services/supabase/activities";
 import type { V2Activity } from "@/types/activity";
+import { getActivitiesCached, readActivitiesCache } from "./activitiesCache";
 import {
     readSedeScope,
     resolveSedeScope,
@@ -47,16 +47,26 @@ export function useSedeScope(): UseSedeScopeResult {
     const tenantId = useTenantId();
     const { permissions } = usePermissions();
 
-    const [activities, setActivities] = useState<V2Activity[]>([]);
+    // Sincrono: se la cache module-level ha già i dati, parti popolato
+    // (no loading flash sui mount successivi nella stessa tab).
+    const [activities, setActivities] = useState<V2Activity[]>(() =>
+        tenantId ? (readActivitiesCache(tenantId) ?? []) : []
+    );
 
-    // Fetch activities per tenant. Reset on tenant switch.
+    // Fetch activities per tenant via cache. Una sola call per tenant
+    // (deduplicata anche se più hook mount in parallelo). Reset on switch.
     useEffect(() => {
         if (!tenantId) {
             setActivities([]);
             return;
         }
+        const cached = readActivitiesCache(tenantId);
+        if (cached) {
+            setActivities(cached);
+            return;
+        }
         let cancelled = false;
-        getActivities(tenantId)
+        getActivitiesCached(tenantId)
             .then(rows => {
                 if (cancelled) return;
                 setActivities(rows);

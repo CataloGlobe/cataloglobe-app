@@ -1,10 +1,9 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
-import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
-import { getActivities } from "@/services/supabase/activities";
 import { getBusinessReviews, deleteReview } from "@/services/supabase/reviews";
+import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import type { Review } from "@/types/database";
 import { Trash2, MessageSquare } from "lucide-react";
 
@@ -23,7 +22,6 @@ import styles from "./Reviews.module.scss";
 
 /* ── Types ───────────────────────────────────────────── */
 
-type ActivityItem = { id: string; name: string };
 type PeriodFilter = "all" | "7d" | "30d" | "90d" | "custom";
 type SortOption = "newest" | "oldest" | "ratingAsc" | "ratingDesc";
 
@@ -114,14 +112,20 @@ function StarRow({ rating, size = 12 }: { rating: number; size?: number }) {
 
 export default function Reviews() {
     const tenantId = useTenantId();
-    const { selectedTenant } = useTenant();
     const location = useLocation();
     const { showToast } = useToast();
 
+    /* ── Sede scope condivisa via navbar ────────────── */
+    const {
+        value: scopeValue,
+        setValue: setSedeScope,
+        readableActivities
+    } = useSedeScope();
+    // SCOPE_ALL → stringa vuota = "tutte" per fetchReviews
+    const selectedActivity = scopeValue === SCOPE_ALL ? "" : scopeValue;
+
     /* ── State ──────────────────────────────────────── */
-    const [activities, setActivities] = useState<ActivityItem[]>([]);
     const [reviews, setReviews] = useState<Review[]>([]);
-    const [selectedActivity, setSelectedActivity] = useState("");
     const [loading, setLoading] = useState(true);
 
     const [filterRating, setFilterRating] = useState<string>("all");
@@ -151,58 +155,48 @@ export default function Reviews() {
         [],
     );
 
-    /* ── Initial load ───────────────────────────────── */
+    /* ── Honor preselect da navigation state (one-shot) ─ */
+    useEffect(() => {
+        if (preselectedId) {
+            setSedeScope(preselectedId);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [preselectedId]);
+
+    /* ── Fetch reviews quando cambia tenant o scope ────── */
     useEffect(() => {
         if (!tenantId) return;
-        const tid = tenantId;
         let cancelled = false;
 
-        async function init() {
+        async function load() {
             setLoading(true);
             try {
-                const acts = await getActivities(tid);
-                if (cancelled) return;
-
-                const items = acts.map((a) => ({ id: a.id, name: a.name }));
-                setActivities(items);
-
-                const initial = preselectedId ?? "";
-                setSelectedActivity(initial);
-
                 const data = await fetchReviews(
-                    initial,
-                    items.map((a) => a.id),
+                    selectedActivity,
+                    readableActivities.map((a) => a.id),
                 );
                 if (cancelled) return;
                 setReviews(data);
             } catch {
+                if (cancelled) return;
                 showToast({ message: "Errore nel caricamento", type: "error" });
             } finally {
                 if (!cancelled) setLoading(false);
             }
         }
 
-        void init();
+        void load();
         return () => {
             cancelled = true;
         };
-    }, [tenantId, preselectedId, fetchReviews, showToast]);
-
-    /* ── Activity options for Select ─────────────────── */
-    const activityOptions = useMemo(
-        () => [
-            { value: "", label: "Tutte le sedi" },
-            ...activities.map((a) => ({ value: a.id, label: a.name })),
-        ],
-        [activities],
-    );
+    }, [tenantId, selectedActivity, readableActivities, fetchReviews, showToast]);
 
     /* ── Activity name map ──────────────────────────── */
     const activityNameMap = useMemo(() => {
         const map = new Map<string, string>();
-        activities.forEach((a) => map.set(a.id, a.name));
+        readableActivities.forEach((a) => map.set(a.id, a.name));
         return map;
-    }, [activities]);
+    }, [readableActivities]);
 
     /* ── Period filtering (base for stats) ──────────── */
     const periodFilteredReviews = useMemo(() => {
@@ -300,41 +294,14 @@ export default function Reviews() {
         return result;
     }, [periodFilteredReviews, filterRating, searchQuery, sortBy]);
 
-    const headerActions = useMemo(() => (
-        <Select
-            value={selectedActivity}
-            disabled={loading}
-            onChange={(e) => void handleActivityChange(e.target.value)}
-            options={activityOptions}
-            containerClassName={styles.activitySelectContainer}
-        />
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    ), [selectedActivity, loading, activityOptions]);
-
+    // Selettore sede vive ora nella navbar (SedeScopeSelect) — qui niente actions.
     usePageHeader({
         title: "Recensioni",
         subtitle: "Monitora il feedback ricevuto dai tuoi clienti.",
-        actions: headerActions,
         sticky: true,
     });
 
     /* ── Handlers ───────────────────────────────────── */
-    async function handleActivityChange(activityId: string) {
-        setSelectedActivity(activityId);
-        setLoading(true);
-        try {
-            const data = await fetchReviews(
-                activityId,
-                activities.map((a) => a.id),
-            );
-            setReviews(data);
-        } catch {
-            showToast({ message: "Errore nel caricamento", type: "error" });
-        } finally {
-            setLoading(false);
-        }
-    }
-
     async function handleDelete(reviewId: string) {
         if (!tenantId) return;
         try {

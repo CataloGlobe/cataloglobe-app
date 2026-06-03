@@ -23,6 +23,15 @@
   gap: 1rem;
 }
 
+// Cluster controlli in usePageHeader actions: period segmented + export.
+// Il selettore sede vive nella navbar (SedeScopeSelect), non più qui.
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 .headerTop {
   display: flex;
   flex-direction: column;

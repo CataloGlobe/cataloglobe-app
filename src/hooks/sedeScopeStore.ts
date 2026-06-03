@@ -9,7 +9,9 @@
 //
 // File splittato dalla parte React per consentire test unitari
 // in environment `node` (vitest.config.ts → environment: "node")
-// senza richiedere `@testing-library/react`.
+// senza richiedere `@testing-library/react`. La cache delle
+// activities è in `activitiesCache.ts` (file separato perché
+// importa il service Supabase che ha alias non risolto da vitest).
 // ============================================================
 
 export const SCOPE_ALL = "__all__" as const;

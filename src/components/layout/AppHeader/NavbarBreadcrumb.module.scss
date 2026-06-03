@@ -3,10 +3,11 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
   font-size: 13px;
+  // Niente `overflow: hidden`: il dropdown del SedeScopeSelect è
+  // posizionato `absolute` sotto il button e veniva clippato dal
+  // bbox della row. La truncation dei segmenti breadcrumb è gestita
+  // dentro `Breadcrumb` (ellipsis sui singoli item se serve).
 }
 
 .separator {

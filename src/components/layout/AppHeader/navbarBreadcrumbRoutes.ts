@@ -24,6 +24,15 @@ export type BusinessRouteKey =
     | "subscription"
     | "settings";
 
+/** Route business su cui il SedeScopeSelect deve apparire nella navbar.
+ *  Distinto dal concettuale `SEDE_SCOPED_ROUTES` (sedeScopeStore): qui
+ *  c'è il sottoinsieme ATTUALMENTE migrato che consuma `useSedeScope`.
+ *  Estendere man mano che si migrano altre pagine. */
+export const SEDE_NAVBAR_ROUTES = new Set<BusinessRouteKey>([
+    "reviews",
+    "analytics"
+]);
+
 /** Label IT canonica per ogni voce di sidebar. Per `catalogs`
  *  il valore qui è solo fallback: il caller usa `useVerticalConfig().catalogLabel`
  *  per rispettare la verticale tenant (es. "Menu" vs "Catalogo"). */
