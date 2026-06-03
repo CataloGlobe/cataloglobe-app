@@ -129,6 +129,15 @@
     &::placeholder {
         color: var(--pub-text-muted);
     }
+
+    /* Dimmed look + not-allowed cursor for inputs disabled by upstream
+       gating (e.g. Ora prima della Data nel form prenotazione). Hover/focus
+       styles are skipped because :disabled already wins specificity-wise. */
+    &:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        background: color-mix(in srgb, var(--pub-text) 2%, var(--pub-surface));
+    }
 }
 
 .textarea {

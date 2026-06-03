@@ -1,6 +1,6 @@
 import PartySizePicker from "./PartySizePicker";
 import type { FieldErrors, FormFields } from "./types";
-import { ClockIcon } from "./icons";
+import { CalendarIcon, ClockIcon } from "./icons";
 import { snapTimeToQuarter } from "./validators";
 import styles from "./ReservationForm.module.scss";
 
@@ -43,7 +43,16 @@ export default function WhenSection({
                         className={styles.input}
                         value={values.reservation_date}
                         min={minDate}
-                        onChange={e => onChange("reservation_date", e.target.value)}
+                        onChange={e => {
+                            const next = e.target.value;
+                            onChange("reservation_date", next);
+                            // Clear time when date is removed: prevents an
+                            // orphan time value that bypasses availability
+                            // validation (which is gated on date presence).
+                            if (!next && values.reservation_time) {
+                                onChange("reservation_time", "");
+                            }
+                        }}
                         onBlur={() => onBlur("reservation_date")}
                         aria-invalid={errors.reservation_date ? "true" : undefined}
                         aria-describedby={
@@ -66,6 +75,7 @@ export default function WhenSection({
                         type="time"
                         required
                         step={900}
+                        disabled={!values.reservation_date}
                         className={styles.input}
                         value={values.reservation_time}
                         onChange={e => {
@@ -102,12 +112,17 @@ export default function WhenSection({
                 </div>
             </div>
 
-            {slotsLabel && (
+            {!values.reservation_date ? (
+                <p className={styles.slotsHint} aria-live="polite">
+                    <CalendarIcon size={14} />
+                    <span>Scegli prima la data</span>
+                </p>
+            ) : slotsLabel ? (
                 <p className={styles.slotsHint} aria-live="polite">
                     <ClockIcon size={14} />
                     <span>{slotsLabel}</span>
                 </p>
-            )}
+            ) : null}
 
             <PartySizePicker
                 value={values.party_size}
