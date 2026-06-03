@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { useTenantId } from "@/context/useTenantId";
 import {
@@ -216,29 +217,21 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
     return (
         <div className={styles.container}>
             <div className={styles.toolbar}>
-                <div className={styles.searchWrap}>
-                    <Search size={16} className={styles.searchIcon} />
-                    <input
-                        type="text"
-                        className={styles.searchInput}
+                <SegmentedControl<FilterValue>
+                    value={filter}
+                    onChange={setFilter}
+                    options={[
+                        { value: "all", label: "Tutti" },
+                        { value: "visible", label: "Visibili" },
+                        { value: "hidden", label: "Nascosti" }
+                    ]}
+                />
+                <div className={styles.searchSlot}>
+                    <ToolbarSearch
                         value={search}
-                        onChange={e => setSearch(e.target.value)}
+                        onChange={setSearch}
                         placeholder="Cerca prodotto…"
                     />
-                </div>
-                <div className={styles.filters}>
-                    {(["all", "visible", "hidden"] as FilterValue[]).map(f => (
-                        <button
-                            key={f}
-                            type="button"
-                            className={`${styles.filterPill} ${
-                                filter === f ? styles.filterPillActive : ""
-                            }`}
-                            onClick={() => setFilter(f)}
-                        >
-                            {f === "all" ? "Tutti" : f === "visible" ? "Visibili" : "Nascosti"}
-                        </button>
-                    ))}
                 </div>
             </div>
 

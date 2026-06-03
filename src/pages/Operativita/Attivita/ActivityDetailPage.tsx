@@ -3,7 +3,7 @@ import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { IconLoader2 } from "@tabler/icons-react";
 import { Button } from "@/components/ui";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
-import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { usePageHeader } from "@/context/usePageHeader";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ActivityProfileTab } from "./tabs/ActivityProfileTab";
 import { ActivityAvailabilityTab } from "./tabs/ActivityAvailabilityTab";
@@ -56,12 +56,12 @@ const ActivityDetailPage: React.FC = () => {
             ? LEGACY_TAB_MAP[rawTab]
             : "profile";
 
-    const setActiveTab = (tab: string) => {
+    const handleTabChange = useCallback((next: TabValue) => {
         setSearchParams(prev => {
-            prev.set("tab", tab);
+            prev.set("tab", next);
             return prev;
         });
-    };
+    }, [setSearchParams]);
 
     const [activity, setActivity] = useState<V2Activity | null>(null);
     const [loading, setLoading] = useState(true);
@@ -99,6 +99,25 @@ const ActivityDetailPage: React.FC = () => {
 
     useBreadcrumbItems(breadcrumbItems);
 
+    // ── Header band: solo leading (tab line controllati). Lo stato sede
+    // (Pubblicata/Sospesa) è già visibile in lista Sedi (overlay card +
+    // colonna tabella) e nella tab Impostazioni: niente badge nella banda. ──
+    const leading = useMemo(() => (
+        <Tabs<TabValue> value={activeTab} onChange={handleTabChange} variant="line">
+            <Tabs.List>
+                <Tabs.Tab value="profile">Profilo</Tabs.Tab>
+                <Tabs.Tab value="availability">Disponibilità</Tabs.Tab>
+                <Tabs.Tab value="tables">Tavoli</Tabs.Tab>
+                <Tabs.Tab value="settings">Impostazioni</Tabs.Tab>
+            </Tabs.List>
+        </Tabs>
+    ), [activeTab, handleTabChange]);
+
+    usePageHeader({
+        leading,
+        sticky: true,
+    });
+
     if (loading && !activity) {
         return (
             <div className={styles.container}>
@@ -127,67 +146,40 @@ const ActivityDetailPage: React.FC = () => {
     return (
         <div className={styles.container}>
             <div className={styles.contentWrapper}>
-                <div className={styles.header}>
-                    <div className={styles.titleSection}>
-                        <div className={styles.titleRow}>
-                            <h1>{activity.name}</h1>
-                            {activity.status === "active" ? (
-                                <StatusBadge variant="success" label="Pubblicata" />
-                            ) : (
-                                <StatusBadge variant="neutral" label="Sospesa" />
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                <Tabs value={activeTab} onChange={setActiveTab}>
-                    <Tabs.List>
-                        <Tabs.Tab value="profile">Profilo</Tabs.Tab>
-                        <Tabs.Tab value="availability">Disponibilità</Tabs.Tab>
-                        <Tabs.Tab value="tables">Tavoli</Tabs.Tab>
-                        <Tabs.Tab value="settings">Impostazioni</Tabs.Tab>
-                    </Tabs.List>
-
-                    <div style={{ marginTop: "24px" }}>
-                        <Tabs.Panel value="profile">
-                            <ActivityProfileTab
-                                activity={activity}
-                                tenantId={businessId!}
-                                onReload={fetchData}
-                            />
-                        </Tabs.Panel>
-
-                        <Tabs.Panel value="availability">
-                            <ActivityAvailabilityTab
-                                activity={activity}
-                                tenantId={businessId!}
-                                onReload={fetchData}
-                            />
-                        </Tabs.Panel>
-
-                        <Tabs.Panel value="tables">
-                            {activity.ordering_enabled ? (
-                                <TablesManagement
-                                    tenantId={businessId!}
-                                    activityId={activity.id}
-                                    orderingEnabled={true}
-                                />
-                            ) : (
-                                <TablesEmptyState
-                                    onGoToSettings={() => setActiveTab("settings")}
-                                />
-                            )}
-                        </Tabs.Panel>
-
-                        <Tabs.Panel value="settings">
-                            <ActivitySettingsTab
-                                activity={activity}
-                                tenantId={businessId!}
-                                onReload={fetchData}
-                            />
-                        </Tabs.Panel>
-                    </div>
-                </Tabs>
+                {activeTab === "profile" && (
+                    <ActivityProfileTab
+                        activity={activity}
+                        tenantId={businessId!}
+                        onReload={fetchData}
+                    />
+                )}
+                {activeTab === "availability" && (
+                    <ActivityAvailabilityTab
+                        activity={activity}
+                        tenantId={businessId!}
+                        onReload={fetchData}
+                    />
+                )}
+                {activeTab === "tables" && (
+                    activity.ordering_enabled ? (
+                        <TablesManagement
+                            tenantId={businessId!}
+                            activityId={activity.id}
+                            orderingEnabled={true}
+                        />
+                    ) : (
+                        <TablesEmptyState
+                            onGoToSettings={() => handleTabChange("settings")}
+                        />
+                    )
+                )}
+                {activeTab === "settings" && (
+                    <ActivitySettingsTab
+                        activity={activity}
+                        tenantId={businessId!}
+                        onReload={fetchData}
+                    />
+                )}
             </div>
         </div>
     );
