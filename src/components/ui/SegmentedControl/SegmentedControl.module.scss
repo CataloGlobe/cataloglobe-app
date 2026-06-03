@@ -1,13 +1,21 @@
 @use "@styles/variables" as *;
 
+// Altezza canonica dei controlli interattivi (search/select/CTA/segmented):
+// var(--control-height, 38px). Border-radius rounded-rect (non ovale) per
+// coerenza con select/input. Padding del track 4px + item 100% - 8px = 30px,
+// indicatore animato top:4 + height calc(100% - 8px) → aderente al segmento
+// attivo dentro i 38px senza overflow.
+
 .wrapper {
   position: relative;
   display: inline-flex;
   align-items: center;
+  height: var(--control-height, 38px);
+  box-sizing: border-box;
 
   padding: 4px;
   background: var(--hover-bg, #f1f5f9);
-  border-radius: 999px;
+  border-radius: 10px;
 }
 
 .item {
@@ -17,13 +25,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 6px;
 
-  padding: 0.25rem 0.7rem;
+  // Niente vertical padding: altezza definita dal wrapper - padding track.
+  padding: 0 12px;
+  height: 100%;
 
+  font-size: 13px;
   background: transparent;
   border: none;
-  border-radius: 999px;
+  border-radius: 6px;
 
   cursor: pointer;
   color: var(--text-muted, #64748b);
@@ -41,7 +52,7 @@
 
   height: calc(100% - 8px);
   background: #ffffff;
-  border-radius: 999px;
+  border-radius: 6px;
 
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }

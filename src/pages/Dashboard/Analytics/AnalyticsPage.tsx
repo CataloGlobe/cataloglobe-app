@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FileDown } from "lucide-react";
+import { Download } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
@@ -295,36 +295,36 @@ export default function AnalyticsPage() {
         period
     ]);
 
-    // Selettore sede vive ora nella navbar (SedeScopeSelect). Qui restano
-    // solo i controlli specifici di Analitiche: periodo + export.
+    // Selettore sede vive nella navbar (SedeScopeSelect). Nella banda:
+    // periodo a sinistra (leading), Esporta a destra (actions).
+    const leading = useMemo(() => (
+        <SegmentedControl
+            value={period}
+            onChange={setPeriod}
+            options={[
+                { value: "today", label: "Oggi" },
+                { value: "7d", label: "7 giorni" },
+                { value: "30d", label: "30 giorni" },
+                { value: "90d", label: "90 giorni" },
+                { value: "all", label: "Tutto" }
+            ]}
+        />
+    ), [period]);
+
     const headerActions = useMemo(() => (
-        <div className={styles.headerActions}>
-            <SegmentedControl
-                value={period}
-                onChange={setPeriod}
-                options={[
-                    { value: "today", label: "Oggi" },
-                    { value: "7d", label: "7 giorni" },
-                    { value: "30d", label: "30 giorni" },
-                    { value: "90d", label: "90 giorni" },
-                    { value: "all", label: "Tutto" }
-                ]}
-            />
-            <Button
-                variant="outline"
-                size="sm"
-                leftIcon={<FileDown size={14} />}
-                disabled={isLoading || isEmpty}
-                onClick={handleExportXlsx}
-            >
-                Esporta Excel
-            </Button>
-        </div>
-    ), [period, isLoading, isEmpty, handleExportXlsx]);
+        <Button
+            variant="outline"
+            leftIcon={<Download size={16} />}
+            disabled={isLoading || isEmpty}
+            onClick={handleExportXlsx}
+            className={styles.toolbarCta}
+        >
+            Esporta Excel
+        </Button>
+    ), [isLoading, isEmpty, handleExportXlsx]);
 
     usePageHeader({
-        title: "Analitiche",
-        subtitle: "Monitora le performance delle tue sedi.",
+        leading,
         actions: headerActions,
         sticky: true,
     });

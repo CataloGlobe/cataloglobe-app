@@ -1,17 +1,17 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { getBusinessReviews, deleteReview } from "@/services/supabase/reviews";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import type { Review } from "@/types/database";
-import { Trash2, MessageSquare } from "lucide-react";
+import { Trash2, MessageSquare, Star } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import { Select } from "@/components/ui/Select/Select";
-import { SearchInput } from "@/components/ui/Input/SearchInput";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DateInput } from "@/components/ui/Input/DateInput";
-import { PillGroupSingle } from "@/components/ui/PillGroup/PillGroupSingle";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -25,14 +25,17 @@ import styles from "./Reviews.module.scss";
 type PeriodFilter = "all" | "7d" | "30d" | "90d" | "custom";
 type SortOption = "newest" | "oldest" | "ratingAsc" | "ratingDesc";
 
-const RATING_OPTIONS = [
+// Stars filter via SegmentedControl: icon \u2b50 accanto al numero, "Tutte"
+// senza icona. `value` come stringa per coerenza con lo stato `filterRating`.
+const STAR_ICON = <Star size={12} fill="currentColor" />;
+const RATING_OPTIONS: { value: string; label: string; icon?: ReactNode }[] = [
     { value: "all", label: "Tutte" },
-    { value: "5", label: "5 \u2605" },
-    { value: "4", label: "4 \u2605" },
-    { value: "3", label: "3 \u2605" },
-    { value: "2", label: "2 \u2605" },
-    { value: "1", label: "1 \u2605" },
-] as const;
+    { value: "5", label: "5", icon: STAR_ICON },
+    { value: "4", label: "4", icon: STAR_ICON },
+    { value: "3", label: "3", icon: STAR_ICON },
+    { value: "2", label: "2", icon: STAR_ICON },
+    { value: "1", label: "1", icon: STAR_ICON },
+];
 
 const PERIOD_OPTIONS = [
     { value: "all", label: "Tutto il periodo" },
@@ -294,10 +297,52 @@ export default function Reviews() {
         return result;
     }, [periodFilteredReviews, filterRating, searchQuery, sortBy]);
 
-    // Selettore sede vive ora nella navbar (SedeScopeSelect) — qui niente actions.
+    // ── Header band: leading (filtro stelle) + actions (search + periodo + sort) ──
+    const leading = useMemo(() => (
+        <SegmentedControl<string>
+            value={filterRating}
+            onChange={setFilterRating}
+            options={RATING_OPTIONS}
+        />
+    ), [filterRating]);
+
+    const headerActions = useMemo(() => (
+        <>
+            <ToolbarSearch
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Cerca commenti..."
+            />
+            <Select
+                aria-label="Filtra per periodo"
+                value={filterPeriod}
+                onChange={(e) => {
+                    const val = e.target.value as PeriodFilter;
+                    setFilterPeriod(val);
+                    if (val !== "custom") {
+                        setCustomFrom("");
+                        setCustomTo("");
+                    }
+                }}
+                options={PERIOD_OPTIONS}
+                containerClassName={styles.toolbarPeriod}
+                selectClassName={styles.toolbarSelectInner}
+            />
+            <Select
+                aria-label="Ordina recensioni"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                options={SORT_OPTIONS}
+                containerClassName={styles.toolbarSort}
+                selectClassName={styles.toolbarSelectInner}
+            />
+        </>
+    ), [searchQuery, filterPeriod, sortBy]);
+
+    // Selettore sede vive nella navbar (SedeScopeSelect). Titolo nel breadcrumb.
     usePageHeader({
-        title: "Recensioni",
-        subtitle: "Monitora il feedback ricevuto dai tuoi clienti.",
+        leading,
+        actions: headerActions,
         sticky: true,
     });
 
@@ -401,48 +446,6 @@ export default function Reviews() {
                             );
                         })}
                     </div>
-                </div>
-            </div>
-
-            {/* ── Toolbar ─────────────────────────────── */}
-            <div className={styles.toolbar}>
-                <PillGroupSingle
-                    options={RATING_OPTIONS}
-                    value={filterRating}
-                    onChange={setFilterRating}
-                    ariaLabel="Filtra per voto"
-                />
-
-                <div className={styles.toolbarRight}>
-                    <Select
-                        value={filterPeriod}
-                        onChange={(e) => {
-                            const val = e.target.value as PeriodFilter;
-                            setFilterPeriod(val);
-                            if (val !== "custom") {
-                                setCustomFrom("");
-                                setCustomTo("");
-                            }
-                        }}
-                        options={PERIOD_OPTIONS}
-                        containerClassName={styles.toolbarSelect}
-                    />
-
-                    <SearchInput
-                        placeholder="Cerca..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        containerClassName={styles.toolbarSearch}
-                    />
-
-                    <Select
-                        value={sortBy}
-                        onChange={(e) =>
-                            setSortBy(e.target.value as SortOption)
-                        }
-                        options={SORT_OPTIONS}
-                        containerClassName={styles.toolbarSelectNarrow}
-                    />
                 </div>
             </div>
 

@@ -22,13 +22,14 @@
 
 .leading {
   display: flex;
-  align-items: stretch;
+  // Centra di default i controlli box (SegmentedControl, Select, ecc.)
+  // sulla linea di centro verticale della banda — stessa di `.actions`.
+  // I tab underline (`Tabs.variant_line`) si gestiscono via `align-self:
+  // stretch + height: 100%` sul componente: l'underline resta a filo del
+  // bordo inferiore della banda anche con leading centrato.
+  align-items: center;
   min-width: 0;
   flex-shrink: 1;
-
-  @media (max-width: 767px) {
-    align-items: center;
-  }
 }
 
 .actions {
