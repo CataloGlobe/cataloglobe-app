@@ -208,17 +208,26 @@
 
 /* "Aperto 12:00–15:00, 19:00–23:00" — sub-message under the date/time row
    that surfaces the valid windows for the selected day. Pure info, never an
-   error; styled like a muted hint that tracks the brand surface palette. */
+   error; rendered as a muted helper line (icon + text) with no frame so it
+   does not read as a third field next to Data / Ora. */
 .slotsHint {
-    margin: -4px 0 0;
-    padding: 6px 10px;
-    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0 0;
+    padding: 0;
+    font-size: 13px;
     line-height: 1.4;
-    color: var(--pub-text-secondary);
-    background: color-mix(in srgb, var(--pub-text) 4%, var(--pub-surface));
-    border: 1px solid color-mix(in srgb, var(--pub-text) 8%, transparent);
-    border-radius: var(--pub-btn-radius, 10px);
+    color: var(--pub-text-muted);
+    background: transparent;
+    border: none;
+    border-radius: 0;
     font-variant-numeric: tabular-nums;
+
+    svg {
+        flex-shrink: 0;
+        opacity: 0.85;
+    }
 }
 
 .notesCount {

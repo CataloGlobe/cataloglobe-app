@@ -1,5 +1,6 @@
 import PartySizePicker from "./PartySizePicker";
 import type { FieldErrors, FormFields } from "./types";
+import { ClockIcon } from "./icons";
 import { snapTimeToQuarter } from "./validators";
 import styles from "./ReservationForm.module.scss";
 
@@ -103,7 +104,8 @@ export default function WhenSection({
 
             {slotsLabel && (
                 <p className={styles.slotsHint} aria-live="polite">
-                    {slotsLabel}
+                    <ClockIcon size={14} />
+                    <span>{slotsLabel}</span>
                 </p>
             )}
 
