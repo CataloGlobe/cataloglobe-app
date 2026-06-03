@@ -34,6 +34,8 @@ interface Props {
     onCancel: (order: V2OrderWithItems) => void;
     onRectify: (order: V2OrderWithItems) => void;
     onViewDetail: (order: V2OrderWithItems) => void;
+    onUnacknowledge?: (order: V2OrderWithItems) => Promise<void>;
+    onUnready?: (order: V2OrderWithItems) => Promise<void>;
     /**
      * Token monotono: ad ogni incremento la colonna "Nuove" applica
      * un'animazione pulse di ~1.5s sull'header. Cambio del valore =
@@ -72,6 +74,8 @@ export default function OrdersKanban({
     onCancel,
     onRectify,
     onViewDetail,
+    onUnacknowledge,
+    onUnready,
     pulseSubmittedToken
 }: Props) {
     // Pulse header "Nuove" sul cambio di token. Token = 0 (default) NON
@@ -168,6 +172,8 @@ export default function OrdersKanban({
                                             onCancel={onCancel}
                                             onRectify={onRectify}
                                             onViewDetail={onViewDetail}
+                                            onUnacknowledge={onUnacknowledge}
+                                            onUnready={onUnready}
                                         />
                                     );
                                 })

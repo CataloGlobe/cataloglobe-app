@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { AlertCircle, Clock, MoreVertical, Edit3, Eye, Trash2, CheckCheck } from "lucide-react";
+import {
+    AlertCircle,
+    Clock,
+    MoreVertical,
+    Edit3,
+    Eye,
+    Trash2,
+    CheckCheck,
+    CornerUpLeft
+} from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -23,6 +32,16 @@ interface Props {
     onCancel: (order: V2OrderWithItems) => void;
     onRectify: (order: V2OrderWithItems) => void;
     onViewDetail: (order: V2OrderWithItems) => void;
+    /**
+     * Optional. Disponibile su status `acknowledged`: "Rimetti in Nuove"
+     * (acknowledged → submitted). Quando omesso, la voce e' nascosta.
+     */
+    onUnacknowledge?: (order: V2OrderWithItems) => Promise<void>;
+    /**
+     * Optional. Disponibile su status `ready`: "Rimetti in lavorazione"
+     * (ready → acknowledged). Quando omesso, la voce e' nascosta.
+     */
+    onUnready?: (order: V2OrderWithItems) => Promise<void>;
     tableLabel: string;
     tableZone: string | null;
 }
@@ -78,6 +97,8 @@ export default function OrderCard({
     onCancel,
     onRectify,
     onViewDetail,
+    onUnacknowledge,
+    onUnready,
     tableLabel,
     tableZone
 }: Props) {
@@ -200,6 +221,22 @@ export default function OrderCard({
                             onSelect={() => void runPrimary(() => onDeliver(order))}
                         >
                             Servito direttamente
+                        </Menu.Item>
+                    )}
+                    {order.status === "acknowledged" && onUnacknowledge && (
+                        <Menu.Item
+                            icon={CornerUpLeft}
+                            onSelect={() => void runPrimary(() => onUnacknowledge(order))}
+                        >
+                            Rimetti in Nuove
+                        </Menu.Item>
+                    )}
+                    {order.status === "ready" && onUnready && (
+                        <Menu.Item
+                            icon={CornerUpLeft}
+                            onSelect={() => void runPrimary(() => onUnready(order))}
+                        >
+                            Rimetti in lavorazione
                         </Menu.Item>
                     )}
                     <Menu.Item icon={Eye} onSelect={() => onViewDetail(order)}>

@@ -19,6 +19,8 @@ import {
     cancelOrderAdmin,
     rectifyOrder,
     restoreOrder,
+    unacknowledgeOrder,
+    unreadyOrder,
     listOrdersHistoryToday
 } from "@/services/supabase/orders";
 import type {
@@ -287,6 +289,42 @@ export default function Orders() {
         }
     }
 
+    async function handleUnacknowledge(order: V2OrderWithItems) {
+        try {
+            const res = await unacknowledgeOrder(order.id, order.version);
+            applyLocalPatch({
+                id: res.order_id,
+                status: res.status,
+                version: res.version,
+                acknowledged_at: null
+            });
+            showToast({
+                message: `Ordine ${labelFor(order)} rimesso in Nuove`,
+                type: "info"
+            });
+        } catch (err) {
+            handleTransitionError(err, order, "il rimettere in Nuove");
+        }
+    }
+
+    async function handleUnready(order: V2OrderWithItems) {
+        try {
+            const res = await unreadyOrder(order.id, order.version);
+            applyLocalPatch({
+                id: res.order_id,
+                status: res.status,
+                version: res.version,
+                ready_at: null
+            });
+            showToast({
+                message: `Ordine ${labelFor(order)} rimesso in lavorazione`,
+                type: "info"
+            });
+        } catch (err) {
+            handleTransitionError(err, order, "il rimettere in lavorazione");
+        }
+    }
+
     async function handleDeliver(order: V2OrderWithItems) {
         try {
             const res = await deliverOrder(order.id, order.version);
@@ -546,6 +584,8 @@ export default function Orders() {
                             onCancel={handleCancelOpen}
                             onRectify={handleRectifyOpen}
                             onViewDetail={handleViewDetail}
+                            onUnacknowledge={handleUnacknowledge}
+                            onUnready={handleUnready}
                             pulseSubmittedToken={pulseToken}
                         />
                     )}

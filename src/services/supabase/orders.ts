@@ -37,6 +37,8 @@ import type {
     DeliverOrderResult,
     CancelOrderAdminResult,
     RestoreOrderResult,
+    UnacknowledgeOrderResult,
+    UnreadyOrderResult,
     RectifyOrderResult,
     RectifyOrderItem,
     V2Order,
@@ -451,6 +453,52 @@ export async function restoreOrder(
 ): Promise<RestoreOrderResult> {
     const { data, error } = await supabase.functions.invoke<RestoreOrderResult>(
         "restore-order",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione acknowledged → submitted ("Rimetti in Nuove"). Optimistic
+ * locking via expected_version. Mirror 1:1 dell'Edge Function
+ * `unacknowledge-order`: azzera `acknowledged_at`. Stesso mapping
+ * errori di acknowledgeOrder.
+ */
+export async function unacknowledgeOrder(
+    orderId: string,
+    expectedVersion: number
+): Promise<UnacknowledgeOrderResult> {
+    const { data, error } = await supabase.functions.invoke<UnacknowledgeOrderResult>(
+        "unacknowledge-order",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione ready → acknowledged ("Rimetti in lavorazione"). Optimistic
+ * locking via expected_version. Mirror 1:1 dell'Edge Function
+ * `unready-order`: azzera `ready_at`, NON tocca `acknowledged_at`.
+ * Stesso mapping errori di acknowledgeOrder.
+ */
+export async function unreadyOrder(
+    orderId: string,
+    expectedVersion: number
+): Promise<UnreadyOrderResult> {
+    const { data, error } = await supabase.functions.invoke<UnreadyOrderResult>(
+        "unready-order",
         { body: { order_id: orderId, expected_version: expectedVersion } }
     );
 

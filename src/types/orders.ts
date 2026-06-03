@@ -423,6 +423,32 @@ export interface RestoreOrderResult {
     ready_at: null;
 }
 
+/**
+ * Result di unacknowledgeOrder. Mirror dell'Edge Function
+ * `unacknowledge-order` (acknowledged → submitted, "Rimetti in Nuove").
+ * `acknowledged_at` viene azzerato per riportare l'ordine allo stato
+ * pre-conferma.
+ */
+export interface UnacknowledgeOrderResult {
+    order_id: string;
+    status: "submitted";
+    version: number;
+    acknowledged_at: null;
+}
+
+/**
+ * Result di unreadyOrder. Mirror dell'Edge Function `unready-order`
+ * (ready → acknowledged, "Rimetti in lavorazione"). `ready_at` viene
+ * azzerato; `acknowledged_at` NON viene toccato perche' l'ordine torna
+ * proprio nello stato `acknowledged` raggiunto in precedenza.
+ */
+export interface UnreadyOrderResult {
+    order_id: string;
+    status: "acknowledged";
+    version: number;
+    ready_at: null;
+}
+
 export interface RectifyOrderResult {
     rectification_order_id: string;
     parent_order_id: string;
