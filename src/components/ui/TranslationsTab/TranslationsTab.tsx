@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import clsx from "clsx";
 import { Button } from "@/components/ui/Button/Button";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
@@ -37,6 +38,7 @@ interface TranslationsTabProps {
     sectionLabel: string;
     sectionDescription: string;
     placeholderItalian?: string;
+    flush?: boolean;
 }
 
 type StatusKind = "manual" | "auto" | "missing";
@@ -66,9 +68,11 @@ export function TranslationsTab({
     fieldKey,
     sectionLabel,
     sectionDescription,
-    placeholderItalian
+    placeholderItalian,
+    flush = false
 }: TranslationsTabProps) {
     const { showToast } = useToast();
+    const gridClass = clsx(styles.grid, flush && styles.gridFlush);
 
     const [isLoading, setIsLoading] = useState(true);
     const [translations, setTranslations] = useState<Translation[]>([]);
@@ -225,7 +229,7 @@ export function TranslationsTab({
 
     if (isLoading) {
         return (
-            <div className={styles.grid}>
+            <div className={gridClass}>
                 <div className={styles.loading}>
                     <Text variant="body-sm" colorVariant="muted">
                         Caricamento traduzioni...
@@ -240,7 +244,7 @@ export function TranslationsTab({
     const showTranslationsCard = !hasNoTargetLangs && !hasNoSource;
 
     return (
-        <div className={styles.grid}>
+        <div className={gridClass}>
             {hasNoTargetLangs ? (
                 <EmptyState
                     icon={<Languages size={40} strokeWidth={1.5} />}

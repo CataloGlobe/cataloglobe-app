@@ -1,9 +1,8 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
 import { Button } from "@/components/ui/Button/Button";
-import { Card } from "@/components/ui/Card/Card";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import Text from "@/components/ui/Text/Text";
 import { useTenantId } from "@/context/useTenantId";
@@ -79,7 +78,18 @@ export default function ProductPage() {
             variants: "prezzi-opzioni"
         }
     );
+    const [, setSearchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState<ProductPageTab>(initialTab);
+
+    // Tab change: sincronizza ?tab= con lo stato (replace per non polluire history).
+    // Il `useFilteredProductTabs` continua a gestire la legacy map al mount iniziale.
+    const handleTabChange = useCallback((next: ProductPageTab) => {
+        setActiveTab(next);
+        setSearchParams(prev => {
+            prev.set("tab", next);
+            return prev;
+        }, { replace: true });
+    }, [setSearchParams]);
 
     const [optionsLoading, setOptionsLoading] = useState(true);
     const [primaryPriceGroup, setPrimaryPriceGroup] = useState<GroupWithValues | null>(null);
@@ -146,10 +156,25 @@ export default function ProductPage() {
 
     useBreadcrumbItems(breadcrumbItems);
 
+    // ── Header band: leading (tab line controllati, sync URL) ──
+    const leading = useMemo(() => (
+        <Tabs<ProductPageTab>
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="line"
+        >
+            <Tabs.List>
+                {visibleTabs.map(tab => (
+                    <Tabs.Tab key={tab.value} value={tab.value}>
+                        {tab.label}
+                    </Tabs.Tab>
+                ))}
+            </Tabs.List>
+        </Tabs>
+    ), [activeTab, handleTabChange, visibleTabs]);
+
     usePageHeader({
-        title: loading
-            ? "Caricamento prodotto..."
-            : (product?.name ?? "Prodotto non trovato"),
+        leading,
         sticky: true,
     });
 
@@ -176,102 +201,73 @@ export default function ProductPage() {
 
     return (
         <div className={styles.container}>
-            <Tabs value={activeTab} onChange={val => setActiveTab(val as ProductPageTab)}>
-                <Tabs.List>
-                    {visibleTabs.map(tab => (
-                        <Tabs.Tab key={tab.value} value={tab.value}>
-                            {tab.label}
-                        </Tabs.Tab>
-                    ))}
-                </Tabs.List>
-
-                <div className={styles.tabContent}>
-                    <Tabs.Panel value="scheda">
-                        <Card>
-                            <SchedaTab
-                                product={product}
-                                productId={productId!}
-                                tenantId={tenantId!}
-                                vertical={selectedTenant?.vertical_type}
-                                onProductUpdated={updated => setProduct(updated)}
-                                onNavigateToTab={tab =>
-                                    setActiveTab(tab as ProductPageTab)
-                                }
-                            />
-                        </Card>
-                    </Tabs.Panel>
-
-                    <Tabs.Panel value="prezzi-opzioni">
-                        <Card>
-                            <PrezziOpzioniTab
-                                product={product}
-                                productId={productId!}
-                                tenantId={tenantId!}
-                                primaryPriceGroup={primaryPriceGroup}
-                                addonGroups={addonGroups}
-                                optionsLoading={optionsLoading}
-                                onRefreshOptions={loadOptions}
-                                onProductUpdated={updated => setProduct(updated)}
-                                onOpenVariantDrawer={() => setIsVariantDrawerOpen(true)}
-                                onVariantUpdated={loadProduct}
-                            />
-                        </Card>
-                    </Tabs.Panel>
-
-                    {verticalConfig.productSections.customAttributes && (
-                        <Tabs.Panel value="attributes">
-                            <Card>
-                                <AttributesTab
-                                    productId={productId!}
-                                    tenantId={tenantId!}
-                                    vertical={selectedTenant?.vertical_type}
-                                />
-                            </Card>
-                        </Tabs.Panel>
-                    )}
-
-                    {product.parent_product_id === null && (
-                        <Tabs.Panel value="translations">
-                            <Card>
-                                <div className={styles.translationsStack}>
-                                    <TranslationsTab
-                                        entityType="product"
-                                        entityId={productId!}
-                                        tenantId={tenantId!}
-                                        sourceText={product.description ?? ""}
-                                        fieldKey="description"
-                                        sectionLabel="Traduzioni descrizione"
-                                        sectionDescription="Modifica manualmente le traduzioni della descrizione. Le modifiche manuali non vengono sovrascritte dalla traduzione automatica."
-                                    />
-                                    <section className={styles.notesCard}>
-                                        <header className={styles.notesCardHeader}>
-                                            <span className={styles.notesCardLabel}>
-                                                Note prodotto
-                                            </span>
-                                        </header>
-                                        <div className={styles.notesCardBody}>
-                                            Le note del prodotto vengono tradotte automaticamente.
-                                            La modifica manuale delle traduzioni delle note non è
-                                            ancora disponibile.
-                                        </div>
-                                    </section>
-                                </div>
-                            </Card>
-                        </Tabs.Panel>
-                    )}
-
-                    <Tabs.Panel value="usage">
-                        <Card>
-                            <UsageTab
-                                productId={productId!}
-                                tenantId={tenantId!}
-                                usageData={usageData}
-                                usageLoading={usageLoading}
-                            />
-                        </Card>
-                    </Tabs.Panel>
+            {activeTab === "scheda" && (
+                <SchedaTab
+                    product={product}
+                    productId={productId!}
+                    tenantId={tenantId!}
+                    vertical={selectedTenant?.vertical_type}
+                    onProductUpdated={updated => setProduct(updated)}
+                    onNavigateToTab={tab =>
+                        handleTabChange(tab as ProductPageTab)
+                    }
+                />
+            )}
+            {activeTab === "prezzi-opzioni" && (
+                <PrezziOpzioniTab
+                    product={product}
+                    productId={productId!}
+                    tenantId={tenantId!}
+                    primaryPriceGroup={primaryPriceGroup}
+                    addonGroups={addonGroups}
+                    optionsLoading={optionsLoading}
+                    onRefreshOptions={loadOptions}
+                    onProductUpdated={updated => setProduct(updated)}
+                    onOpenVariantDrawer={() => setIsVariantDrawerOpen(true)}
+                    onVariantUpdated={loadProduct}
+                />
+            )}
+            {activeTab === "attributes" && verticalConfig.productSections.customAttributes && (
+                <AttributesTab
+                    productId={productId!}
+                    tenantId={tenantId!}
+                    vertical={selectedTenant?.vertical_type}
+                />
+            )}
+            {activeTab === "translations" && product.parent_product_id === null && (
+                <div className={styles.translationsStack}>
+                    <TranslationsTab
+                        entityType="product"
+                        entityId={productId!}
+                        tenantId={tenantId!}
+                        sourceText={product.description ?? ""}
+                        fieldKey="description"
+                        sectionLabel="Traduzioni descrizione"
+                        sectionDescription="Modifica manualmente le traduzioni della descrizione. Le modifiche manuali non vengono sovrascritte dalla traduzione automatica."
+                        flush
+                    />
+                    <section className={styles.notesCard}>
+                        <header className={styles.notesCardHeader}>
+                            <span className={styles.notesCardLabel}>
+                                Note prodotto
+                            </span>
+                        </header>
+                        <div className={styles.notesCardBody}>
+                            Le note del prodotto vengono tradotte automaticamente.
+                            La modifica manuale delle traduzioni delle note non è
+                            ancora disponibile.
+                        </div>
+                    </section>
                 </div>
-            </Tabs>
+            )}
+            {activeTab === "usage" && (
+                <UsageTab
+                    productId={productId!}
+                    tenantId={tenantId!}
+                    usageData={usageData}
+                    usageLoading={usageLoading}
+                />
+            )}
 
             <ProductCreateEditDrawer
                 open={isVariantDrawerOpen}
