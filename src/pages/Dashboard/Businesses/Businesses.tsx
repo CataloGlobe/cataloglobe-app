@@ -37,10 +37,12 @@ import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 
 // Tipi importati da "@/types/Businesses"
 
+import { LayoutGrid, List as ListIcon } from "lucide-react";
 import styles from "./Businesses.module.scss";
 import { BusinessLocationDrawer } from "@/components/Businesses/BusinessLocationDrawer/BusinessLocationDrawer";
 import { Button } from "@/components/ui";
-import FilterBar from "@/components/ui/FilterBar/FilterBar";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { RESERVED_SLUGS } from "@/constants/reservedSlugs";
 import ModalLayout, {
     ModalLayoutContent,
@@ -85,12 +87,6 @@ export default function Businesses() {
     }, [userRole]);
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTab = (searchParams.get("tab") as "activities" | "groups") || "activities";
-    const setActiveTab = (tab: string) => {
-        setSearchParams(prev => {
-            prev.set("tab", tab);
-            return prev;
-        });
-    };
 
     // ======================================
     // STATE: lista dei business
@@ -150,8 +146,49 @@ export default function Businesses() {
     const [createSlugState, setCreateSlugState] = useState<SlugInlineState>({ type: "idle" });
     const [editSlugState, setEditSlugState] = useState<SlugInlineState>({ type: "idle" });
 
-    const headerActions = useMemo(() => (
-        activeTab === "activities" ? (
+    // ======================================
+    // STATE: Filtri e Vista
+    // ======================================
+    const [searchTerm, setSearchTerm] = useState("");
+    const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
+        const saved = localStorage.getItem("businesses_view_mode");
+        return (saved === "list" || saved === "grid") ? saved : "grid";
+    });
+
+    const handleViewChange = useCallback((v: "list" | "grid") => {
+        setViewMode(v);
+        localStorage.setItem("businesses_view_mode", v);
+    }, []);
+
+    // ======================================
+    // HEADER BAND: leading (tab line) + actions (search + toggle + CTA)
+    // ======================================
+    type ActiveTab = "activities" | "groups";
+    const handleTabChange = useCallback((next: ActiveTab) => {
+        setSearchParams(prev => {
+            prev.set("tab", next);
+            return prev;
+        });
+    }, [setSearchParams]);
+
+    const leading = useMemo(() => {
+        if (businesses.length <= 1) return undefined;
+        return (
+            <Tabs<ActiveTab>
+                value={activeTab}
+                onChange={handleTabChange}
+                variant="line"
+            >
+                <Tabs.List>
+                    <Tabs.Tab value="activities">Sedi</Tabs.Tab>
+                    <Tabs.Tab value="groups">Gruppi di sedi</Tabs.Tab>
+                </Tabs.List>
+            </Tabs>
+        );
+    }, [activeTab, handleTabChange, businesses.length]);
+
+    const headerActions = useMemo(() => {
+        const cta = activeTab === "activities" ? (
             <Button
                 variant="primary"
                 disabled={!canEdit}
@@ -164,6 +201,7 @@ export default function Businesses() {
                     setIsCreateOpen(true);
                     setCreateSlugState({ type: "idle" });
                 }}
+                className={styles.toolbarCta}
             >
                 Aggiungi sede
             </Button>
@@ -175,32 +213,52 @@ export default function Businesses() {
                     if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
                     window.dispatchEvent(new CustomEvent("open-group-drawer"));
                 }}
+                className={styles.toolbarCta}
             >
                 Nuovo gruppo
             </Button>
-        )
-    ), [activeTab, canEdit, selectedTenant, businesses.length, showToast, subscriptionInactiveMessage]);
+        );
+
+        return (
+            <>
+                <ToolbarSearch
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder={
+                        activeTab === "activities" ? "Cerca sede..." : "Cerca gruppo..."
+                    }
+                />
+                {activeTab === "activities" && (
+                    <SegmentedControl<"list" | "grid">
+                        iconsOnly
+                        value={viewMode}
+                        onChange={handleViewChange}
+                        options={[
+                            { value: "grid", icon: <LayoutGrid size={16} />, label: "Vista griglia" },
+                            { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
+                        ]}
+                    />
+                )}
+                {cta}
+            </>
+        );
+    }, [
+        activeTab,
+        canEdit,
+        selectedTenant,
+        businesses.length,
+        showToast,
+        subscriptionInactiveMessage,
+        searchTerm,
+        viewMode,
+        handleViewChange
+    ]);
 
     usePageHeader({
-        title: "Le tue Sedi",
-        subtitle: "Gestisci le tue sedi e genera il QR del sito pubblico.",
+        leading,
         actions: headerActions,
         sticky: true,
     });
-
-    // ======================================
-    // STATE: Filtri e Vista (MOCK)
-    // ======================================
-    const [searchTerm, setSearchTerm] = useState("");
-    const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
-        const saved = localStorage.getItem("businesses_view_mode");
-        return (saved === "list" || saved === "grid") ? saved : "grid";
-    });
-
-    const handleViewChange = (v: "list" | "grid") => {
-        setViewMode(v);
-        localStorage.setItem("businesses_view_mode", v);
-    };
 
     // ======================================
     // FETCH BUSINESS
@@ -801,32 +859,26 @@ export default function Businesses() {
     // ======================================
     const showInitialSkeleton = isLoadingBusinesses && businesses.length === 0;
 
+    // Filtro lista sedi sulla query della banda (name/slug/city/address).
+    const filteredBusinesses = useMemo(() => {
+        const q = searchTerm.trim().toLowerCase();
+        if (!q) return businesses;
+        return businesses.filter(b => {
+            const name = b.name?.toLowerCase() ?? "";
+            const slug = b.slug?.toLowerCase() ?? "";
+            const city = b.city?.toLowerCase() ?? "";
+            const address = b.address?.toLowerCase() ?? "";
+            return (
+                name.includes(q) ||
+                slug.includes(q) ||
+                city.includes(q) ||
+                address.includes(q)
+            );
+        });
+    }, [businesses, searchTerm]);
+
     return (
         <section className={styles.businesses} aria-labelledby="businesses-title">
-            {businesses.length > 1 && (
-                <div className={styles.tabsContainer} style={{ marginBottom: "1rem" }}>
-                    <Tabs value={activeTab} onChange={setActiveTab}>
-                        <Tabs.List>
-                            <Tabs.Tab value="activities">Sedi</Tabs.Tab>
-                            <Tabs.Tab value="groups">Gruppi di sedi</Tabs.Tab>
-                        </Tabs.List>
-                    </Tabs>
-                </div>
-            )}
-
-            <FilterBar
-                search={{
-                    value: searchTerm,
-                    onChange: setSearchTerm,
-                    placeholder:
-                        activeTab === "activities" ? "Cerca sede..." : "Cerca gruppo..."
-                }}
-                view={{
-                    value: viewMode,
-                    onChange: handleViewChange
-                }}
-            />
-
             {activeTab === "activities" ? (
                 <>
                     <BusinessLocationDrawer
@@ -892,7 +944,7 @@ export default function Businesses() {
                     ) : (
                         <>
                             <BusinessList
-                                businesses={businesses}
+                                businesses={filteredBusinesses}
                                 viewMode={viewMode}
                                 onEdit={handleEditClick}
                                 onDelete={handleDelete}
