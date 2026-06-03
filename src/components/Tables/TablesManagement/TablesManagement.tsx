@@ -356,27 +356,44 @@ export function TablesManagement({
         setIsCloseOpen(true);
     }
 
-    async function handleCloseConfirm() {
+    async function handleCloseConfirm(
+        action: "none" | "deliver" | "cancel"
+    ): Promise<void> {
         if (!tableToClose) return;
         try {
-            const result = await closeTable(tableToClose.id);
-            const msg =
-                result.closed_groups_count === 0
-                    ? "Nessun conto aperto da chiudere"
-                    : `Tavolo chiuso (${result.closed_groups_count} ${result.closed_groups_count === 1 ? "conto" : "conti"}, ${result.closed_orders_count} ${result.closed_orders_count === 1 ? "ordine" : "ordini"})`;
+            const result = await closeTable(
+                tableToClose.id,
+                action === "none" ? undefined : action
+            );
+            // Toast message variabile per azione di risoluzione.
+            let msg: string;
+            if (result.resolved_action === "deliver") {
+                const k = result.resolved_orders_count;
+                msg = `Tavolo chiuso: ${k} ${k === 1 ? "ordine segnato" : "ordini segnati"} come ${k === 1 ? "servito" : "serviti"}.`;
+            } else if (result.resolved_action === "cancel") {
+                const k = result.resolved_orders_count;
+                msg = `Tavolo chiuso: ${k} ${k === 1 ? "ordine annullato" : "ordini annullati"}.`;
+            } else if (result.closed_groups_count === 0) {
+                msg = "Nessun conto aperto da chiudere.";
+            } else {
+                msg = `Tavolo chiuso (${result.closed_groups_count} ${result.closed_groups_count === 1 ? "conto" : "conti"}).`;
+            }
             showToast({ message: msg, type: "success" });
             setIsCloseOpen(false);
             setTableToClose(null);
             await loadData();
         } catch (err) {
             if (err instanceof Error && err.message === "TABLE_HAS_OPEN_ORDERS") {
+                // Rete di sicurezza: action='none' chiamata su tavolo che ha
+                // aperti (la UI normalmente impedisce il path, ma una race
+                // realtime potrebbe avere portato aperti tra fetch e click).
+                // Aggiorna i dati cosi' il drawer si riapre col gating
+                // corretto (2 bottoni di risoluzione).
                 showToast({
                     message:
-                        "Il tavolo ha ordini non ancora consegnati. Completa o cancella quegli ordini prima di chiudere il tavolo.",
-                    type: "error"
+                        "Il tavolo ha ordini ancora aperti. Scegli come risolverli (servi o annulla tutto) e ripeti.",
+                    type: "warning"
                 });
-                setIsCloseOpen(false);
-                setTableToClose(null);
                 await loadData();
                 return;
             }

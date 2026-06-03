@@ -4,14 +4,20 @@ import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
-import type { V2TableWithState } from "@/types/orders";
+import type { V2TableWithState, CloseTableOpenOrdersAction } from "@/types/orders";
 import styles from "./TableCloseDrawer.module.scss";
 
 interface Props {
     open: boolean;
     table: V2TableWithState | null;
     onClose: () => void;
-    onConfirm: () => Promise<void>;
+    /**
+     * `action`:
+     *   - 'none' chiusura semplice (nessun aperto).
+     *   - 'deliver' bulk-resolve a delivered.
+     *   - 'cancel'  bulk-resolve a cancelled.
+     */
+    onConfirm: (action: "none" | CloseTableOpenOrdersAction) => Promise<void>;
 }
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
@@ -24,21 +30,26 @@ function formatEur(n: number): string {
 }
 
 export default function TableCloseDrawer({ open, table, onClose, onConfirm }: Props) {
-    const [isProcessing, setIsProcessing] = useState(false);
+    const [processingAction, setProcessingAction] = useState<
+        "none" | CloseTableOpenOrdersAction | null
+    >(null);
+    const isProcessing = processingAction !== null;
 
-    async function handleConfirm() {
-        setIsProcessing(true);
+    async function handleConfirm(action: "none" | CloseTableOpenOrdersAction) {
+        setProcessingAction(action);
         try {
-            await onConfirm();
+            await onConfirm(action);
         } finally {
-            setIsProcessing(false);
+            setProcessingAction(null);
         }
     }
 
     if (!table) return null;
 
     const hasOpenGroups = table.open_groups_count > 0;
+    const hasOpenOrders = table.open_orders_count > 0;
     const hasCurrentTotal = table.current_total > 0;
+    const nothingToClose = !hasOpenGroups && !hasOpenOrders;
 
     return (
         <SystemDrawer open={open} onClose={onClose} width={420}>
@@ -49,23 +60,64 @@ export default function TableCloseDrawer({ open, table, onClose, onConfirm }: Pr
                     </Text>
                 }
                 footer={
-                    <>
+                    nothingToClose ? (
                         <Button
                             variant="secondary"
                             onClick={onClose}
                             disabled={isProcessing}
                         >
-                            Annulla
+                            Chiudi
                         </Button>
-                        <Button
-                            variant="primary"
-                            onClick={handleConfirm}
-                            loading={isProcessing}
-                            disabled={!hasOpenGroups}
-                        >
-                            Chiudi tavolo
-                        </Button>
-                    </>
+                    ) : hasOpenOrders ? (
+                        // Aperti > 0 → due bottoni di risoluzione bulk + chiusura.
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={onClose}
+                                disabled={isProcessing}
+                            >
+                                Annulla
+                            </Button>
+                            <Button
+                                variant="danger"
+                                onClick={() => void handleConfirm("cancel")}
+                                loading={processingAction === "cancel"}
+                                disabled={
+                                    isProcessing && processingAction !== "cancel"
+                                }
+                            >
+                                Annulla tutte e chiudi
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={() => void handleConfirm("deliver")}
+                                loading={processingAction === "deliver"}
+                                disabled={
+                                    isProcessing && processingAction !== "deliver"
+                                }
+                            >
+                                Segna tutte come servite e chiudi
+                            </Button>
+                        </>
+                    ) : (
+                        // Nessun aperto, solo conti da chiudere → chiusura semplice.
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={onClose}
+                                disabled={isProcessing}
+                            >
+                                Annulla
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={() => void handleConfirm("none")}
+                                loading={processingAction === "none"}
+                            >
+                                Chiudi tavolo
+                            </Button>
+                        </>
+                    )
                 }
             >
                 <div className={styles.content}>
@@ -74,7 +126,12 @@ export default function TableCloseDrawer({ open, table, onClose, onConfirm }: Pr
                         {table.zone_name && <span> ({table.zone_name})</span>}.
                     </Text>
 
-                    {hasOpenGroups ? (
+                    {nothingToClose ? (
+                        <InlineBanner variant="info">
+                            Questo tavolo non ha conti aperti ne'' ordini in corso.
+                            Non c'e' niente da chiudere.
+                        </InlineBanner>
+                    ) : (
                         <>
                             <div className={styles.stats}>
                                 <div className={styles.statRow}>
@@ -91,13 +148,13 @@ export default function TableCloseDrawer({ open, table, onClose, onConfirm }: Pr
                                     </Text>
                                     <Text weight={500}>{table.open_groups_count}</Text>
                                 </div>
-                                {table.pending_orders_count > 0 && (
+                                {hasOpenOrders && (
                                     <div className={styles.statRow}>
                                         <Text variant="body-sm" colorVariant="muted">
-                                            Ordini in cucina o da consegnare:
+                                            Ordini aperti (non ancora terminali):
                                         </Text>
                                         <Text weight={500} colorVariant="warning">
-                                            {table.pending_orders_count}
+                                            {table.open_orders_count}
                                         </Text>
                                     </div>
                                 )}
@@ -113,19 +170,24 @@ export default function TableCloseDrawer({ open, table, onClose, onConfirm }: Pr
                                 )}
                             </div>
 
-                            <InlineBanner variant="info">
-                                Tutti i conti aperti verranno chiusi. Le sessioni
-                                clienti attive vengono terminate naturalmente: alla
-                                prossima scansione del QR partirà una nuova sessione.
-                                Eventuali ordini ancora non consegnati (in cucina o
-                                da portare al tavolo) bloccano la chiusura — completa
-                                o cancella quegli ordini prima.
-                            </InlineBanner>
+                            {hasOpenOrders ? (
+                                <InlineBanner variant="warning">
+                                    Ci sono {table.open_orders_count} ordini ancora
+                                    aperti (in cucina, pronti o in attesa). Scegli
+                                    cosa farne prima di chiudere: segnali tutti come
+                                    serviti, oppure annullali tutti. La risoluzione
+                                    e la chiusura vengono applicate insieme,
+                                    atomicamente.
+                                </InlineBanner>
+                            ) : (
+                                <InlineBanner variant="info">
+                                    Tutti i conti aperti verranno chiusi. Le sessioni
+                                    cliente attive NON vengono terminate: scadranno
+                                    naturalmente o ripartiranno alla prossima
+                                    scansione del QR.
+                                </InlineBanner>
+                            )}
                         </>
-                    ) : (
-                        <InlineBanner variant="info">
-                            Questo tavolo non ha conti aperti. Non c'è niente da chiudere.
-                        </InlineBanner>
                     )}
                 </div>
             </DrawerLayout>

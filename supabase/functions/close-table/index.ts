@@ -1,45 +1,44 @@
 // @ts-nocheck
 //
-// close-table — admin-side endpoint that closes every open order_groups
-// row attached to a given table_id. Models the "chiudo il conto" action
-// from the staff dashboard.
+// close-table — admin-side endpoint che chiude i conti aperti di un
+// tavolo. Riscritta per delegare l'ATOMICITA' alla RPC
+// `close_table_with_resolution` (migration 20260603120100) e per
+// supportare la risoluzione bulk degli ordini ancora aperti
+// (submitted/acknowledged/ready) al momento della chiusura:
 //
-// Semantics (docs/orders-architecture.md §3.4, §11.3, §14):
-//   - Only `order_groups` rows are mutated. Their `status` flips from
-//     'open' to 'closed' and `closed_at` is set to now(). The `orders`
-//     rows themselves are NOT touched; their lifecycle stays governed
-//     by the dedicated state-transition endpoints (acknowledge / deliver
-//     / cancel-order-admin).
-//    - Pre-condition: every order on the table must be in a terminal
-//     state. If there is at least one order in `submitted` or
-//     `acknowledged`, the request fails with 409 TABLE_HAS_OPEN_ORDERS
-//     and `details.open_orders_count`. The staff has to resolve those
-//     orders first (Pattern A, §11.3).
-//   - Idempotent: closing a table with zero open groups returns 200 with
-//     counts at zero. Not an error.
-//   - `customer_sessions` that still point at the now-closed groups are
-//     left untouched on purpose. The next QR scan re-runs `resolve-table`
-//     and that pipeline creates a fresh order_group when needed (§3.5).
+//   - open_orders_action assente + aperti > 0 → 409
+//     TABLE_HAS_OPEN_ORDERS + details.open_orders_count. Lo staff deve
+//     scegliere come risolvere.
+//   - open_orders_action='deliver' → bulk-resolve a 'delivered' +
+//     chiusura order_groups, tutto atomico in una tx Postgres.
+//   - open_orders_action='cancel'  → bulk-resolve a 'cancelled' +
+//     chiusura order_groups, idem.
+//   - Nessun aperto → chiusura semplice (action='none').
 //
-// Race condition (accepted, documented):
-//   - Between the open-orders pre-check and the bulk UPDATE, a new
-//     order could be inserted on the same table. That order goes into
-//     either a still-existing open group or triggers lazy creation of a
-//     new group via submit_order_atomic — either way, the new group is
-//     NOT among the rows we close in this request. Idempotent retry by
-//     the staff handles the corner case.
+// SEPARAZIONE AUTHZ / ESECUZIONE (vedi commento header della migration
+// 20260603120100):
+//   - Authorization (chi puo' chiudere) RESTA in questa Edge Function:
+//     JWT validation + membership via `get_my_tenant_ids()` sul client
+//     user-scoped. Il confine attuale di close-table NON cambia.
+//   - La RPC `close_table_with_resolution` e' un esecutore atomico
+//     callable SOLO da service_role: REVOKE PUBLIC/anon/authenticated,
+//     GRANT solo a service_role. Niente `auth.uid()` ne'
+//     `has_permission(...)` lato RPC.
+//   - Questa Edge fn, dopo aver validato la membership, chiama la RPC
+//     via SERVICE_ROLE e passa il `tenant_id` derivato server-side
+//     dalla riga `tables` (mai dal client).
 //
 // Pipeline:
-//   1. Parse + validate body ({ table_id: uuid }).
-//   2. Verify Supabase user JWT (Authorization: Bearer ...).
+//   1. Parse + validate body ({ table_id: uuid, open_orders_action?: 'deliver'|'cancel' }).
+//   2. Verify Supabase user JWT.
 //   3. Pre-fetch table to derive tenant_id (404 if missing or soft-deleted).
 //   4. Membership check via supabaseUser.rpc("get_my_tenant_ids").
 //   5. Rate-limit per (user, table) at 30 req/min.
-//   6. Pre-check open orders on the table (409 TABLE_HAS_OPEN_ORDERS).
-//   7. Bulk UPDATE order_groups SET status='closed', closed_at=now()
-//      WHERE table_id = ? AND status='open' RETURNING id.
-//   8. SELECT COUNT(*) FROM orders WHERE order_group_id IN (closed ids).
-//   9. Reply 200 with { table_id, closed_groups_count, closed_orders_count }.
+//   6. Invoke close_table_with_resolution(p_table_id, p_tenant_id, p_action)
+//      via supabaseService (service_role).
+//   7. Mappa errori RPC (RAISE EXCEPTION con messaggio code) → HTTP.
+//   8. Reply 200 con { table_id, resolved_action, resolved_orders_count,
+//      closed_groups_count, closed_orders_count, cleared_bill_count }.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -63,18 +62,30 @@ const corsHeaders = {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+type OpenOrdersAction = "deliver" | "cancel";
+
 // ============================================================
 // Types
 // ============================================================
 
 interface CloseTableRequestBody {
     table_id: string;
+    open_orders_action?: OpenOrdersAction;
 }
 
 interface TableRow {
     id: string;
     tenant_id: string;
     deleted_at: string | null;
+}
+
+interface CloseTableRpcResult {
+    table_id: string;
+    resolved_action: "none" | OpenOrdersAction;
+    resolved_orders_count: number;
+    closed_groups_count: number;
+    closed_orders_count: number;
+    cleared_bill_count: number;
 }
 
 // ============================================================
@@ -108,7 +119,14 @@ function _parseAndValidateBody(raw: unknown): CloseTableRequestBody | { error: s
     if (!_isUuid(obj.table_id)) {
         return { error: "`table_id` must be a UUID." };
     }
-    return { table_id: obj.table_id as string };
+    const action = obj.open_orders_action;
+    if (action !== undefined && action !== "deliver" && action !== "cancel") {
+        return { error: "`open_orders_action` must be 'deliver' or 'cancel' when provided." };
+    }
+    return {
+        table_id: obj.table_id as string,
+        open_orders_action: action as OpenOrdersAction | undefined
+    };
 }
 
 function _extractBearerJwt(req: Request): string | null {
@@ -174,50 +192,58 @@ async function _fetchTable(
     return { kind: "ok", row };
 }
 
-async function _countOpenOrders(
-    supabase: SupabaseClient,
-    tableId: string
-): Promise<{ kind: "ok"; count: number } | { kind: "db_error"; message: string }> {
-    const { count, error } = await supabase
-        .from("orders")
-        .select("*", { count: "exact", head: true })
-        .eq("table_id", tableId)
-        .in("status", ["submitted", "acknowledged"]);
-    if (error) return { kind: "db_error", message: error.message };
-    return { kind: "ok", count: count ?? 0 };
-}
-
-async function _closeOpenGroups(
-    supabase: SupabaseClient,
-    tableId: string
-): Promise<
-    { kind: "ok"; closedIds: string[] } | { kind: "db_error"; message: string }
-> {
-    const { data, error } = await supabase
-        .from("order_groups")
-        .update({
-            status: "closed",
-            closed_at: new Date().toISOString()
-        })
-        .eq("table_id", tableId)
-        .eq("status", "open")
-        .select("id");
-    if (error) return { kind: "db_error", message: error.message };
-    const closedIds = ((data ?? []) as Array<{ id: string }>).map(r => r.id);
-    return { kind: "ok", closedIds };
-}
-
-async function _countOrdersInGroups(
-    supabase: SupabaseClient,
-    groupIds: string[]
-): Promise<{ kind: "ok"; count: number } | { kind: "db_error"; message: string }> {
-    if (groupIds.length === 0) return { kind: "ok", count: 0 };
-    const { count, error } = await supabase
-        .from("orders")
-        .select("*", { count: "exact", head: true })
-        .in("order_group_id", groupIds);
-    if (error) return { kind: "db_error", message: error.message };
-    return { kind: "ok", count: count ?? 0 };
+/**
+ * Mappa il messaggio di un'eccezione RAISE EXCEPTION emesso dalla RPC
+ * close_table_with_resolution alla shape di risposta HTTP.
+ *
+ *   TABLE_NOT_FOUND         → 404
+ *   TENANT_MISMATCH         → 500 INTERNAL_ERROR (input server-derived,
+ *                              mismatch significa che la riga e' cambiata
+ *                              tra pre-fetch ed RPC: bug, non utente)
+ *   INVALID_ACTION          → 400 INVALID_REQUEST (filtrato gia' lato
+ *                              parse, ma copertura defense-in-depth)
+ *   TABLE_HAS_OPEN_ORDERS:N → 409 con details.open_orders_count
+ */
+function _mapRpcErrorToResponse(message: string): Response {
+    if (message === "TABLE_NOT_FOUND") {
+        return jsonResponse(404, {
+            code: "TABLE_NOT_FOUND",
+            message: "Tavolo non trovato."
+        });
+    }
+    if (message === "TENANT_MISMATCH") {
+        // Difesa in profondita': il tenant_id passato alla RPC e' derivato
+        // server-side dalla riga `tables` letta poche righe prima. Un
+        // mismatch indica una race condition o un bug, non un input
+        // malformato dell'utente.
+        console.error("[close-table] RPC TENANT_MISMATCH — possibile race fetch/UPDATE");
+        return jsonResponse(500, {
+            code: "INTERNAL_ERROR",
+            message: "Errore interno."
+        });
+    }
+    if (message === "INVALID_ACTION") {
+        return jsonResponse(400, {
+            code: "INVALID_REQUEST",
+            message: "Azione non valida."
+        });
+    }
+    if (message.startsWith("TABLE_HAS_OPEN_ORDERS:")) {
+        const countStr = message.slice("TABLE_HAS_OPEN_ORDERS:".length);
+        const count = Number.parseInt(countStr, 10);
+        return jsonResponse(409, {
+            code: "TABLE_HAS_OPEN_ORDERS",
+            message:
+                "Impossibile chiudere il tavolo: ci sono ordini ancora aperti.",
+            details: { open_orders_count: Number.isFinite(count) ? count : 0 }
+        });
+    }
+    // Errore RPC sconosciuto: log + 500 generico.
+    console.error("[close-table] RPC unknown error:", message);
+    return jsonResponse(500, {
+        code: "INTERNAL_ERROR",
+        message: "Errore interno."
+    });
 }
 
 // ============================================================
@@ -252,7 +278,8 @@ serve(async (req: Request) => {
             message: parsed.error
         });
     }
-    const { table_id: tableId } = parsed as CloseTableRequestBody;
+    const { table_id: tableId, open_orders_action: requestedAction } =
+        parsed as CloseTableRequestBody;
 
     // ── Extract + validate JWT ──
     const jwt = _extractBearerJwt(req);
@@ -295,7 +322,7 @@ serve(async (req: Request) => {
         }
         const tenantId = tableFetch.row.tenant_id;
 
-        // ── Membership check ──
+        // ── Membership check (authz: confine invariato vs versione pre-RPC) ──
         const membership = await _isMemberOfTenant(supabaseUser, tenantId);
         if (membership.kind === "db_error") {
             console.error(
@@ -336,58 +363,27 @@ serve(async (req: Request) => {
             throw e;
         }
 
-        // ── Pre-check: no open orders (submitted/acknowledged) on this table ──
-        const openCount = await _countOpenOrders(supabaseService, tableId);
-        if (openCount.kind === "db_error") {
-            console.error("[close-table] open orders count error:", openCount.message);
-            return jsonResponse(500, {
-                code: "INTERNAL_ERROR",
-                message: "Errore interno."
-            });
-        }
-        if (openCount.count > 0) {
-            return jsonResponse(409, {
-                code: "TABLE_HAS_OPEN_ORDERS",
-                message:
-                    "Impossibile chiudere il tavolo: ci sono ordini ancora aperti.",
-                details: { open_orders_count: openCount.count }
-            });
+        // ── Invoca RPC atomica via service_role ──
+        // p_tenant_id e' SERVER-DERIVED (dalla riga tables sopra), mai dal
+        // client. La RPC e' callable solo da service_role (REVOKE
+        // FROM PUBLIC + anon + authenticated, GRANT TO service_role).
+        const rpcAction = requestedAction ?? "none";
+        const { data: rpcData, error: rpcError } = await supabaseService.rpc(
+            "close_table_with_resolution",
+            {
+                p_table_id: tableId,
+                p_tenant_id: tenantId,
+                p_action: rpcAction
+            }
+        );
+
+        if (rpcError) {
+            return _mapRpcErrorToResponse(rpcError.message ?? "");
         }
 
-        // ── Bulk UPDATE: close all open order_groups on this table ──
-        const closeResult = await _closeOpenGroups(supabaseService, tableId);
-        if (closeResult.kind === "db_error") {
-            console.error("[close-table] groups update error:", closeResult.message);
-            return jsonResponse(500, {
-                code: "INTERNAL_ERROR",
-                message: "Errore interno."
-            });
-        }
-        const closedIds = closeResult.closedIds;
-
-        // ── Implicit clear bill_requested_at su tutte le sessions del tavolo.
-        // Cliente potrebbe aver chiesto conto, staff porta il conto + chiude
-        // tavolo → clear automatico, no orphan badge admin. Non bloccante. ──
-        const { error: clearBillError } = await supabaseService
-            .from("customer_sessions")
-            .update({ bill_requested_at: null })
-            .eq("current_table_id", tableId)
-            .not("bill_requested_at", "is", null);
-        if (clearBillError) {
-            console.warn(
-                "[close-table] clear bill_requested_at failed:",
-                clearBillError.message
-            );
-            // continua, non bloccante
-        }
-
-        // ── Count orders attached to those closed groups (informational) ──
-        const ordersCount = await _countOrdersInGroups(supabaseService, closedIds);
-        if (ordersCount.kind === "db_error") {
-            console.error(
-                "[close-table] orders aggregate error:",
-                ordersCount.message
-            );
+        const result = rpcData as CloseTableRpcResult | null;
+        if (!result) {
+            console.error("[close-table] RPC returned empty result");
             return jsonResponse(500, {
                 code: "INTERNAL_ERROR",
                 message: "Errore interno."
@@ -400,14 +396,20 @@ serve(async (req: Request) => {
             user_id: userId,
             tenant_id: tenantId,
             table_id: tableId,
-            closed_groups_count: closedIds.length,
-            closed_orders_count: ordersCount.count
+            resolved_action: result.resolved_action,
+            resolved_orders_count: result.resolved_orders_count,
+            closed_groups_count: result.closed_groups_count,
+            closed_orders_count: result.closed_orders_count,
+            cleared_bill_count: result.cleared_bill_count
         });
 
         return jsonResponse(200, {
-            table_id: tableId,
-            closed_groups_count: closedIds.length,
-            closed_orders_count: ordersCount.count
+            table_id: result.table_id,
+            resolved_action: result.resolved_action,
+            resolved_orders_count: result.resolved_orders_count,
+            closed_groups_count: result.closed_groups_count,
+            closed_orders_count: result.closed_orders_count,
+            cleared_bill_count: result.cleared_bill_count
         });
     } catch (e) {
         console.error(

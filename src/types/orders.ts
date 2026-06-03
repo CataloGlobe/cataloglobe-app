@@ -160,12 +160,39 @@ export interface ResolveTableResult {
 }
 
 /**
+ * Azione di risoluzione bulk degli ordini aperti
+ * (submitted+acknowledged+ready) alla chiusura tavolo.
+ *   - 'deliver' → tutti gli aperti diventano delivered.
+ *   - 'cancel'  → tutti gli aperti diventano cancelled (cancelled_by=admin,
+ *                 cancellation_reason="Chiusura tavolo").
+ */
+export type CloseTableOpenOrdersAction = "deliver" | "cancel";
+
+/**
  * Response dell'Edge Function close-table.
+ *
+ * `resolved_action`:
+ *   - 'none'    → nessun aperto da risolvere (chiusura semplice).
+ *   - 'deliver' | 'cancel' → bulk-resolve eseguito atomicamente con la
+ *                 chiusura order_groups via RPC close_table_with_resolution.
  */
 export interface CloseTableResult {
     table_id: string;
+    resolved_action: "none" | CloseTableOpenOrdersAction;
+    resolved_orders_count: number;
     closed_groups_count: number;
     closed_orders_count: number;
+    cleared_bill_count: number;
+}
+
+/**
+ * Shape dei `details` su Error.message === "TABLE_HAS_OPEN_ORDERS"
+ * thrown da closeTable() quando si chiama senza `action` su un tavolo
+ * che ha ordini aperti. Il caller usa `open_orders_count` per gating
+ * UI dei bottoni "Segna come servite" / "Annulla tutte".
+ */
+export interface CloseTableHasOpenOrdersErrorDetails {
+    open_orders_count: number;
 }
 
 // ─── Product Availability ──────────────────────────────────────────────────
@@ -198,15 +225,22 @@ export interface V2ProductAvailabilityOverride {
 export type ProductAvailabilityScope = "daily" | "indefinite";
 
 // V2TableWithState — riga della view `public.v_tables_with_state`
-// (migration 20260519180000). Estende V2Table con i 4 aggregati derivati
-// runtime da `customer_sessions` / `orders` / `order_groups`.
+// (migration 20260519180000 base; 20260603120000 aggiunge open_orders_count).
+// Estende V2Table con gli aggregati derivati runtime da
+// `customer_sessions` / `orders` / `order_groups`.
 //
 // `current_total` è NUMERIC lato Postgres (supabase-js lo serializza come
 // stringa): il service `listTablesWithState` lo normalizza a number prima
 // di ritornarlo, quindi qui è tipato `number`.
+//
+// `pending_orders_count` e `open_orders_count` hanno semantica DIVERSA:
+//   - pending: submitted + acknowledged (UI "in cucina o da consegnare").
+//   - open: submitted + acknowledged + ready (UI "aperti", base per gate
+//     di close-table con risoluzione bulk).
 export interface V2TableWithState extends V2Table {
     active_sessions_count: number;
     pending_orders_count: number;
+    open_orders_count: number;
     open_groups_count: number;
     current_total: number;
     /** Count sessions attive con bill_requested_at NOT NULL su questo tavolo. */
