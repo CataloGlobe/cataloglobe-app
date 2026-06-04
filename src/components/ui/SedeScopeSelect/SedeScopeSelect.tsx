@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { useSedeScope, SCOPE_ALL, type SedeScopeValue } from "@/hooks/useSedeScope";
+import type { BusinessRouteKey } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
 import styles from "./SedeScopeSelect.module.scss";
 
 export interface SedeScopeSelectProps {
@@ -23,12 +24,15 @@ export interface SedeScopeSelectProps {
     /** Se `false`, l'opzione "Tutte le sedi" (SCOPE_ALL) non viene renderizzata.
      *  Default `true` (backward-compat con le 4 route esistenti). */
     allowAll?: boolean;
+    /** Route corrente: determina la modalità del hook (default vs single-site)
+     *  così il selettore e il consumer della pagina condividono lo stesso store. */
+    routeKey?: BusinessRouteKey;
 }
 
 const ALL_LABEL = "Tutte le sedi";
 
-export function SedeScopeSelect({ className, ariaLabel = "Sede attiva", allowAll = true }: SedeScopeSelectProps) {
-    const { value, setValue, readableActivities, isForcedSingleSite } = useSedeScope();
+export function SedeScopeSelect({ className, ariaLabel = "Sede attiva", allowAll = true, routeKey }: SedeScopeSelectProps) {
+    const { value, setValue, readableActivities, isForcedSingleSite } = useSedeScope({ routeKey });
     const [open, setOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
 

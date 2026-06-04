@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AlertCircle, ClipboardList, RefreshCw, Volume2, VolumeX } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
-import { ActivitySelectorCombobox } from "@/components/ui/ActivitySelectorCombobox/ActivitySelectorCombobox";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
 import { TableDetailDrawer } from "@/components/Tables/TableDetailDrawer/TableDetailDrawer";
 
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 
 import {
     acknowledgeOrder,
@@ -46,17 +47,32 @@ import styles from "./Orders.module.scss";
 
 type MainTab = "comande" | "tavoli" | "storico";
 
-const ACTIVITY_STORAGE_KEY = "cataloglobe:orders:lastActivityId";
-
 export default function Orders() {
     const tenantId = useTenantId();
     const { showToast } = useToast();
+    const [searchParams, setSearchParams] = useSearchParams();
 
-    // Activity selection (via combobox, persiste localStorage)
-    const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+    // Sede in modalità single-site: viene dal selettore navbar
+    // (SEDE_NAVBAR_ROUTES + SEDE_SINGLE_SITE_ROUTES → niente "Tutte le sedi",
+    // localStorage cross-session via key globale "cataloglobe:orders:lastActivityId").
+    const sedeScope = useSedeScope({ routeKey: "orders" });
+    const selectedActivityId: string | null =
+        sedeScope.value === SCOPE_ALL ? null : sedeScope.value;
 
-    // Main tabs (3 sezioni principali)
-    const [mainTab, setMainTab] = useState<MainTab>("comande");
+    // Main tabs (3 sezioni principali), init da ?tab=
+    const initialMainTab: MainTab = useMemo(() => {
+        const t = searchParams.get("tab");
+        return t === "tavoli" || t === "storico" ? t : "comande";
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    const [mainTab, setMainTab] = useState<MainTab>(initialMainTab);
+    const handleTabChange = useCallback((next: MainTab) => {
+        setMainTab(next);
+        setSearchParams(prev => {
+            prev.set("tab", next);
+            return prev;
+        }, { replace: true });
+    }, [setSearchParams]);
 
     // Data
     const [tables, setTables] = useState<V2Table[]>([]);
@@ -171,16 +187,9 @@ export default function Orders() {
     const headerActions = useMemo(
         () => (
             <div className={styles.headerActions}>
-                {tenantId && (
-                    <ActivitySelectorCombobox
-                        tenantId={tenantId}
-                        value={selectedActivityId}
-                        onChange={setSelectedActivityId}
-                        storageKey={ACTIVITY_STORAGE_KEY}
-                    />
-                )}
                 <Button
                     variant="secondary"
+                    className={styles.toolbarCta}
                     leftIcon={<RefreshCw size={16} />}
                     onClick={refreshAll}
                     disabled={!selectedActivityId || isLoadingOrders}
@@ -207,12 +216,25 @@ export default function Orders() {
                 </button>
             </div>
         ),
-        [tenantId, selectedActivityId, refreshAll, isLoadingOrders, soundEnabled, toggleSound]
+        [selectedActivityId, refreshAll, isLoadingOrders, soundEnabled, toggleSound]
     );
 
+    const headerLeading = useMemo(() => (
+        <Tabs<MainTab>
+            value={mainTab}
+            onChange={handleTabChange}
+            variant="line"
+        >
+            <Tabs.List>
+                <Tabs.Tab value="comande">Comande</Tabs.Tab>
+                <Tabs.Tab value="tavoli">Tavoli</Tabs.Tab>
+                <Tabs.Tab value="storico">Storico</Tabs.Tab>
+            </Tabs.List>
+        </Tabs>
+    ), [mainTab, handleTabChange]);
+
     usePageHeader({
-        title: "Ordini",
-        subtitle: "Dashboard live degli ordini in corso.",
+        leading: headerLeading,
         actions: headerActions,
         sticky: true
     });
@@ -616,14 +638,6 @@ export default function Orders() {
 
     return (
         <section className={styles.container}>
-            <Tabs<MainTab> value={mainTab} onChange={setMainTab}>
-                <Tabs.List>
-                    <Tabs.Tab value="comande">Comande</Tabs.Tab>
-                    <Tabs.Tab value="tavoli">Tavoli</Tabs.Tab>
-                    <Tabs.Tab value="storico">Storico</Tabs.Tab>
-                </Tabs.List>
-            </Tabs>
-
             {mainTab === "comande" && (
                 <>
                     {tables.length > 0 && (

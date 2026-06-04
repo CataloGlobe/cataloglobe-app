@@ -32,7 +32,8 @@ export const SEDE_NAVBAR_ROUTES = new Set<BusinessRouteKey>([
     "reviews",
     "analytics",
     "scheduling",
-    "reservations"
+    "reservations",
+    "orders"
 ]);
 
 /** Route che usano la modalità "sede singola" del primitivo sede-scope

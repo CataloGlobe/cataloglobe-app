@@ -48,7 +48,7 @@ function NavbarSedeSegment({ routeKey }: { routeKey: BusinessRouteKey }) {
     const allowAll = !SEDE_SINGLE_SITE_ROUTES.has(routeKey);
     return (
         <>
-            <SedeScopeSelect allowAll={allowAll} />
+            <SedeScopeSelect allowAll={allowAll} routeKey={routeKey} />
             <span className={styles.separator} aria-hidden="true">/</span>
         </>
     );
