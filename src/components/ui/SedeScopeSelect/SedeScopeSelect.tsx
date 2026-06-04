@@ -20,11 +20,14 @@ export interface SedeScopeSelectProps {
     className?: string;
     /** Label aria-label per accessibilità (default: "Sede attiva"). */
     ariaLabel?: string;
+    /** Se `false`, l'opzione "Tutte le sedi" (SCOPE_ALL) non viene renderizzata.
+     *  Default `true` (backward-compat con le 4 route esistenti). */
+    allowAll?: boolean;
 }
 
 const ALL_LABEL = "Tutte le sedi";
 
-export function SedeScopeSelect({ className, ariaLabel = "Sede attiva" }: SedeScopeSelectProps) {
+export function SedeScopeSelect({ className, ariaLabel = "Sede attiva", allowAll = true }: SedeScopeSelectProps) {
     const { value, setValue, readableActivities, isForcedSingleSite } = useSedeScope();
     const [open, setOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
@@ -80,22 +83,24 @@ export function SedeScopeSelect({ className, ariaLabel = "Sede attiva" }: SedeSc
 
             {open && (
                 <div className={styles.list} role="menu">
-                    <button
-                        type="button"
-                        role="menuitem"
-                        className={styles.row}
-                        onClick={() => handleSelect(SCOPE_ALL)}
-                    >
-                        <span className={styles.checkSlot}>
-                            {value === SCOPE_ALL && <Check size={14} />}
-                        </span>
-                        <span
-                            className={styles.rowName}
-                            data-active={value === SCOPE_ALL ? "true" : undefined}
+                    {allowAll && (
+                        <button
+                            type="button"
+                            role="menuitem"
+                            className={styles.row}
+                            onClick={() => handleSelect(SCOPE_ALL)}
                         >
-                            {ALL_LABEL}
-                        </span>
-                    </button>
+                            <span className={styles.checkSlot}>
+                                {value === SCOPE_ALL && <Check size={14} />}
+                            </span>
+                            <span
+                                className={styles.rowName}
+                                data-active={value === SCOPE_ALL ? "true" : undefined}
+                            >
+                                {ALL_LABEL}
+                            </span>
+                        </button>
+                    )}
                     {readableActivities.map(a => {
                         const isSelected = value === a.id;
                         return (

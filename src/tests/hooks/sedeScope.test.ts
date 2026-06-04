@@ -3,10 +3,14 @@ import {
     SCOPE_ALL,
     SEDE_SCOPED_ROUTES,
     clearSedeScope,
+    clearSedeScopeLocal,
     readSedeScope,
+    readSedeScopeLocal,
     resolveSedeScope,
+    resolveSedeScopeSingle,
     subscribeSedeScope,
-    writeSedeScope
+    writeSedeScope,
+    writeSedeScopeLocal
 } from "@/hooks/sedeScopeStore";
 
 // ============================================================
@@ -14,9 +18,9 @@ import {
 // "node", quindi `window.sessionStorage` non esiste di default.
 // ============================================================
 
-function installSessionStorageMock(): void {
+function makeStorage(): Storage {
     const map = new Map<string, string>();
-    const mockStorage: Storage = {
+    return {
         get length() {
             return map.size;
         },
@@ -30,9 +34,13 @@ function installSessionStorageMock(): void {
             map.set(k, v);
         }
     };
-    // jsdom non disponibile: definiamo `window` minimal con sessionStorage.
-    (globalThis as unknown as { window: { sessionStorage: Storage } }).window = {
-        sessionStorage: mockStorage
+}
+
+function installSessionStorageMock(): void {
+    // jsdom non disponibile: definiamo `window` minimal con session+local storage.
+    (globalThis as unknown as { window: { sessionStorage: Storage; localStorage: Storage } }).window = {
+        sessionStorage: makeStorage(),
+        localStorage: makeStorage()
     };
 }
 
@@ -254,5 +262,98 @@ describe("SEDE_SCOPED_ROUTES", () => {
             "reviews"
         ]);
         expect((SEDE_SCOPED_ROUTES as readonly string[]).includes("scheduling")).toBe(false);
+    });
+});
+
+// ============================================================
+// resolveSedeScopeSingle — modalità sede singola (mai SCOPE_ALL)
+// ============================================================
+
+describe("resolveSedeScopeSingle — modalità sede singola", () => {
+    it("zero sedi leggibili: SCOPE_ALL placeholder (UI gestisce con empty-state)", () => {
+        const res = resolveSedeScopeSingle({ storedValue: null, readableActivityIds: [] });
+        expect(res.value).toBe(SCOPE_ALL);
+        expect(res.isForcedSingleSite).toBe(false);
+    });
+
+    it("single-site: forza l'unica sede, isForcedSingleSite=true", () => {
+        const res = resolveSedeScopeSingle({ storedValue: null, readableActivityIds: [ACT_1] });
+        expect(res.value).toBe(ACT_1);
+        expect(res.isForcedSingleSite).toBe(true);
+    });
+
+    it("multi-site con stored=activityId valido: rispetta", () => {
+        const res = resolveSedeScopeSingle({
+            storedValue: ACT_2,
+            readableActivityIds: [ACT_1, ACT_2]
+        });
+        expect(res.value).toBe(ACT_2);
+        expect(res.isForcedSingleSite).toBe(false);
+    });
+
+    it("multi-site senza stored: default prima sede dell'array (mai SCOPE_ALL)", () => {
+        const res = resolveSedeScopeSingle({
+            storedValue: null,
+            readableActivityIds: [ACT_1, ACT_2]
+        });
+        expect(res.value).toBe(ACT_1);
+        expect(res.isForcedSingleSite).toBe(false);
+    });
+
+    it("multi-site con stored=SCOPE_ALL (legacy/altra route): scarta, fallback prima sede", () => {
+        const res = resolveSedeScopeSingle({
+            storedValue: SCOPE_ALL,
+            readableActivityIds: [ACT_1, ACT_2]
+        });
+        expect(res.value).toBe(ACT_1);
+        expect(res.isForcedSingleSite).toBe(false);
+    });
+
+    it("multi-site con stored=activityId NON più leggibile: fallback prima sede", () => {
+        const res = resolveSedeScopeSingle({
+            storedValue: ACT_3,
+            readableActivityIds: [ACT_1, ACT_2]
+        });
+        expect(res.value).toBe(ACT_1);
+        expect(res.isForcedSingleSite).toBe(false);
+    });
+});
+
+// ============================================================
+// Store primitive — localStorage (modalità sede singola)
+// ============================================================
+
+describe("sedeScopeStore — localStorage single-site", () => {
+    it("read/write su localStorage, NON tenant-scoped (key globale)", () => {
+        writeSedeScopeLocal(ACT_1);
+        expect(readSedeScopeLocal()).toBe(ACT_1);
+    });
+
+    it("overwrite: vince l'ultimo write", () => {
+        writeSedeScopeLocal(ACT_1);
+        writeSedeScopeLocal(ACT_2);
+        expect(readSedeScopeLocal()).toBe(ACT_2);
+    });
+
+    it("clear rimuove l'entry localStorage", () => {
+        writeSedeScopeLocal(ACT_1);
+        clearSedeScopeLocal();
+        expect(readSedeScopeLocal()).toBeNull();
+    });
+
+    it("write su localStorage notifica i subscriber del pub/sub condiviso", () => {
+        const l = vi.fn();
+        track(subscribeSedeScope(l));
+
+        writeSedeScopeLocal(ACT_1);
+        expect(l).toHaveBeenCalledTimes(1);
+    });
+
+    it("write sessionStorage e write localStorage sono indipendenti come storage", () => {
+        writeSedeScope(TENANT_A, ACT_1);
+        writeSedeScopeLocal(ACT_2);
+
+        expect(readSedeScope(TENANT_A)).toBe(ACT_1);
+        expect(readSedeScopeLocal()).toBe(ACT_2);
     });
 });

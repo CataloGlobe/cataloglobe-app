@@ -30,7 +30,9 @@ import { SedeScopeSelect } from "@/components/ui/SedeScopeSelect/SedeScopeSelect
 import {
     ROUTE_LABELS,
     SEDE_NAVBAR_ROUTES,
-    resolveBusinessRoute
+    SEDE_SINGLE_SITE_ROUTES,
+    resolveBusinessRoute,
+    type BusinessRouteKey
 } from "./navbarBreadcrumbRoutes";
 import styles from "./NavbarBreadcrumb.module.scss";
 
@@ -40,12 +42,13 @@ import styles from "./NavbarBreadcrumb.module.scss";
  * valore). Il check viene fatto qui via useSedeScope per evitare
  * separator orfano quando SedeScopeSelect auto-nasconde.
  */
-function NavbarSedeSegment() {
-    const { readableActivities, isForcedSingleSite } = useSedeScope();
+function NavbarSedeSegment({ routeKey }: { routeKey: BusinessRouteKey }) {
+    const { readableActivities, isForcedSingleSite } = useSedeScope({ routeKey });
     if (isForcedSingleSite || readableActivities.length === 0) return null;
+    const allowAll = !SEDE_SINGLE_SITE_ROUTES.has(routeKey);
     return (
         <>
-            <SedeScopeSelect />
+            <SedeScopeSelect allowAll={allowAll} />
             <span className={styles.separator} aria-hidden="true">/</span>
         </>
     );
@@ -97,7 +100,9 @@ export function NavbarBreadcrumb() {
     return (
         <div className={styles.row}>
             <span className={styles.separator} aria-hidden="true">/</span>
-            {showSedeSelector && <NavbarSedeSegment />}
+            {showSedeSelector && routeInfo.key && (
+                <NavbarSedeSegment routeKey={routeInfo.key} />
+            )}
             {items.length > 0 && <Breadcrumb items={items} />}
         </div>
     );

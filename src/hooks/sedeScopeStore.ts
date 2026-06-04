@@ -93,6 +93,51 @@ export function clearSedeScope(tenantId: string): void {
 }
 
 // ----------------------------------------------------------------------------
+// Single-site mode — storage localStorage (cross-session) + resolver dedicato.
+// Riusa lo STESSO pub/sub di sopra: un consumer single-site reagisce a write
+// (locali o session) sullo stesso store globale tramite getSnapshot.
+// La key NON è tenant-scoped per backward-compat col valore esistente del
+// combobox Ordini (`cataloglobe:orders:lastActivityId`).
+// ----------------------------------------------------------------------------
+
+const LOCAL_STORAGE_KEY = "cataloglobe:orders:lastActivityId";
+
+/** Legge la sede salvata in localStorage (cross-session). Side-effect free. */
+export function readSedeScopeLocal(): string | null {
+    if (typeof window === "undefined") return null;
+    try {
+        return window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    } catch {
+        return null;
+    }
+}
+
+/** Scrive in localStorage e notifica i subscriber (stesso pub/sub di
+ *  `subscribeSedeScope`). Best-effort: ignora errori storage (SSR/privacy). */
+export function writeSedeScopeLocal(value: string): void {
+    if (typeof window !== "undefined") {
+        try {
+            window.localStorage.setItem(LOCAL_STORAGE_KEY, value);
+        } catch {
+            /* best effort */
+        }
+    }
+    notify();
+}
+
+/** Rimuove l'entry localStorage e notifica. Utile per test/cleanup. */
+export function clearSedeScopeLocal(): void {
+    if (typeof window !== "undefined") {
+        try {
+            window.localStorage.removeItem(LOCAL_STORAGE_KEY);
+        } catch {
+            /* best effort */
+        }
+    }
+    notify();
+}
+
+// ----------------------------------------------------------------------------
 // Pure resolver — derivazione `value + isForcedSingleSite`.
 // ----------------------------------------------------------------------------
 
@@ -133,4 +178,36 @@ export function resolveSedeScope(params: ResolveSedeScopeParams): ResolveSedeSco
     }
 
     return { value: SCOPE_ALL, isForcedSingleSite: false };
+}
+
+/**
+ * Resolver per la modalità "single-site": il valore risolto NON è mai
+ * `SCOPE_ALL` (eccetto edge 0-sedi placeholder gestito dall'UI).
+ *
+ * Regole:
+ *  - 0 sedi leggibili → `SCOPE_ALL` placeholder, `isForcedSingleSite=false`
+ *  - 1 sede leggibile → forza l'unica sede, `isForcedSingleSite=true`
+ *  - >1 sedi: `storedValue` valido (≠ SCOPE_ALL && ∈ readable) → quello
+ *  - >1 sedi: altrimenti default = prima sede dell'array `readableActivityIds`
+ */
+export function resolveSedeScopeSingle(params: ResolveSedeScopeParams): ResolveSedeScopeResult {
+    const { storedValue, readableActivityIds } = params;
+
+    if (readableActivityIds.length === 0) {
+        return { value: SCOPE_ALL, isForcedSingleSite: false };
+    }
+
+    if (readableActivityIds.length === 1) {
+        return { value: readableActivityIds[0], isForcedSingleSite: true };
+    }
+
+    if (
+        storedValue &&
+        storedValue !== SCOPE_ALL &&
+        readableActivityIds.includes(storedValue)
+    ) {
+        return { value: storedValue, isForcedSingleSite: false };
+    }
+
+    return { value: readableActivityIds[0], isForcedSingleSite: false };
 }

@@ -35,6 +35,13 @@ export const SEDE_NAVBAR_ROUTES = new Set<BusinessRouteKey>([
     "reservations"
 ]);
 
+/** Route che usano la modalità "sede singola" del primitivo sede-scope
+ *  (mai SCOPE_ALL, persistenza localStorage). Sottoinsieme di
+ *  `SEDE_NAVBAR_ROUTES` per le route con scope-all disabilitato. */
+export const SEDE_SINGLE_SITE_ROUTES = new Set<BusinessRouteKey>([
+    "orders"
+]);
+
 /** Label IT canonica per ogni voce di sidebar. Per `catalogs`
  *  il valore qui è solo fallback: il caller usa `useVerticalConfig().catalogLabel`
  *  per rispettare la verticale tenant (es. "Menu" vs "Catalogo"). */

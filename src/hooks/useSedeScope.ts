@@ -3,12 +3,21 @@
 //
 // Consuma `useTenantId()` + `usePermissions()` e fetcha le
 // `activities` del tenant via service layer. Espone il valore
-// corrente (SedeScopeValue) e il setter. Persistenza in
-// sessionStorage namespaced per tenant, sync intra-tab via
-// subscriber module-level (vedi `sedeScopeStore.ts`).
+// corrente (SedeScopeValue) e il setter.
 //
-// NON crea provider. NESSUN context. Più istanze nella stessa
-// tab restano sincronizzate via useSyncExternalStore.
+// Modalità (route-driven via opts.routeKey):
+//   - default: persistenza sessionStorage per-tenant, "Tutte le sedi"
+//     (SCOPE_ALL) ammesso come valore.
+//   - single-site (routeKey ∈ SEDE_SINGLE_SITE_ROUTES): persistenza
+//     localStorage cross-session (key globale, NON tenant-scoped),
+//     SCOPE_ALL NON ammesso (resolver dedicato ritorna sempre un
+//     activityId — eccetto 0-sedi placeholder).
+//
+// Sync intra-tab via subscriber module-level UNICO (`subscribeSedeScope`)
+// — i consumer single-site e default condividono lo stesso pub/sub.
+//
+// NON crea provider. NESSUN context. Più istanze nella stessa tab
+// restano sincronizzate via useSyncExternalStore.
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
@@ -16,12 +25,20 @@ import { useTenantId } from "@/context/useTenantId";
 import { usePermissions } from "@/context/PermissionsContext";
 import { isOwnerOrAdmin } from "@/lib/permissions";
 import type { V2Activity } from "@/types/activity";
+import {
+    SEDE_SINGLE_SITE_ROUTES,
+    type BusinessRouteKey
+} from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
 import { getActivitiesCached, readActivitiesCache } from "./activitiesCache";
 import {
+    SCOPE_ALL,
     readSedeScope,
+    readSedeScopeLocal,
     resolveSedeScope,
+    resolveSedeScopeSingle,
     subscribeSedeScope,
     writeSedeScope,
+    writeSedeScopeLocal,
     type SedeScopeValue
 } from "./sedeScopeStore";
 
@@ -32,10 +49,16 @@ export {
     type SedeScopedRoute
 } from "./sedeScopeStore";
 
+export interface UseSedeScopeOpts {
+    /** Route corrente. Se ∈ `SEDE_SINGLE_SITE_ROUTES` attiva modalità
+     *  single-site (storage localStorage, niente SCOPE_ALL). */
+    routeKey?: BusinessRouteKey;
+}
+
 export interface UseSedeScopeResult {
     /** Valore corrente: `SCOPE_ALL` oppure un `activityId` leggibile. */
     value: SedeScopeValue;
-    /** Setter. Persiste in sessionStorage e notifica gli altri subscriber. */
+    /** Setter. Persiste nello storage di modalità e notifica i subscriber. */
     setValue: (next: SedeScopeValue) => void;
     /** Sedi che l'utente può vedere (owner/admin = tutte, scoped = solo le sue). */
     readableActivities: V2Activity[];
@@ -43,9 +66,12 @@ export interface UseSedeScopeResult {
     isForcedSingleSite: boolean;
 }
 
-export function useSedeScope(): UseSedeScopeResult {
+export function useSedeScope(opts?: UseSedeScopeOpts): UseSedeScopeResult {
     const tenantId = useTenantId();
     const { permissions } = usePermissions();
+
+    const routeKey = opts?.routeKey;
+    const isSingle = routeKey ? SEDE_SINGLE_SITE_ROUTES.has(routeKey) : false;
 
     // Sincrono: se la cache module-level ha già i dati, parti popolato
     // (no loading flash sui mount successivi nella stessa tab).
@@ -92,15 +118,18 @@ export function useSedeScope(): UseSedeScopeResult {
         [readableActivities]
     );
 
-    // External store subscription — re-render quando QUALSIASI tenant
-    // cambia il proprio sedeScope. Filtraggio per tenant via getSnapshot.
+    // External store subscription — riusa lo STESSO pub/sub per entrambe
+    // le modalità. Branch sul getSnapshot in base alla modalità.
     const subscribe = useCallback(
         (cb: () => void) => subscribeSedeScope(cb),
         []
     );
     const getSnapshot = useCallback<() => SedeScopeValue | null>(
-        () => (tenantId ? readSedeScope(tenantId) : null),
-        [tenantId]
+        () => {
+            if (isSingle) return readSedeScopeLocal();
+            return tenantId ? readSedeScope(tenantId) : null;
+        },
+        [tenantId, isSingle]
     );
     const getServerSnapshot = useCallback<() => SedeScopeValue | null>(
         () => null,
@@ -108,17 +137,25 @@ export function useSedeScope(): UseSedeScopeResult {
     );
     const storedValue = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-    const { value, isForcedSingleSite } = useMemo(
-        () => resolveSedeScope({ storedValue, readableActivityIds }),
-        [storedValue, readableActivityIds]
-    );
+    const { value, isForcedSingleSite } = useMemo(() => {
+        const params = { storedValue, readableActivityIds };
+        return isSingle ? resolveSedeScopeSingle(params) : resolveSedeScope(params);
+    }, [storedValue, readableActivityIds, isSingle]);
 
     const setValue = useCallback(
         (next: SedeScopeValue) => {
+            if (isSingle) {
+                // Single-site: ignora un eventuale tentativo di scrivere
+                // SCOPE_ALL (non valido in questa modalità).
+                if (next !== SCOPE_ALL) {
+                    writeSedeScopeLocal(next);
+                }
+                return;
+            }
             if (!tenantId) return;
             writeSedeScope(tenantId, next);
         },
-        [tenantId]
+        [tenantId, isSingle]
     );
 
     return { value, setValue, readableActivities, isForcedSingleSite };
