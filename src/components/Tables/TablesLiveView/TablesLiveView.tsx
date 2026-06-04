@@ -82,6 +82,19 @@ export function TablesLiveView({
     }, []);
 
     const handleTableClick = useCallback((tableId: string) => {
+        // Guard race transizione drawer: se l'utente clicca una card
+        // mentre c'e' una transizione detail->close pendente (timer
+        // armato da un precedente "Chiudi tavolo"), annulla la
+        // transizione. Altrimenti il timer aprirebbe il close drawer
+        // della card precedente SOPRA il detail della card appena
+        // cliccata -> stacking accidentale che il design sequenziale
+        // evita. Niente flag/state extra: il transitionTimerRef esistente
+        // e' fonte di verita' del "pending".
+        if (transitionTimerRef.current !== null) {
+            window.clearTimeout(transitionTimerRef.current);
+            transitionTimerRef.current = null;
+            setTableToClose(null);
+        }
         setDetailTableId(tableId);
         setIsDetailOpen(true);
     }, []);
