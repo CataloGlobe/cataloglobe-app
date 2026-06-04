@@ -1,751 +1,709 @@
 .page {
-    padding: 16px 24px 48px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .lockedWrap {
-    padding: 80px 16px;
+  padding: 80px 16px;
 }
 
 .skeleton {
-    height: 76px;
-    border-radius: 12px;
-    background: var(--color-skeleton, #f3f4f6);
+  height: 76px;
+  border-radius: 12px;
+  background: var(--color-skeleton, #f3f4f6);
 }
 
-/* ── Toolbar (scope picker + tabs) ─────────────────────── */
-
-.toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 16px;
-    padding: 0 0 8px;
-}
-
-.scopeRow {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-}
-
-.scopeLabel {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--color-text-muted, #6b7280);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
-.scopeSelect {
-    padding: 8px 12px;
-    font-size: 14px;
-    font-family: inherit;
-    color: var(--color-text-primary, #111827);
-    background: var(--color-surface, #ffffff);
-    border: 1px solid var(--color-border, #e5e7eb);
-    border-radius: 8px;
-    min-width: 200px;
-    cursor: pointer;
-
-    &:focus {
-        outline: none;
-        border-color: var(--color-accent, #2563eb);
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent, #2563eb) 18%, transparent);
-    }
-}
-
-.tabs {
-    display: flex;
-    gap: 4px;
-    margin-left: auto;
-    border-bottom: 1px solid transparent;
-}
-
-.tabBtn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 4px;
-    margin: 0 8px;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    color: var(--color-text-secondary, #4b5563);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    font-family: inherit;
-    transition: color 0.15s ease, border-color 0.15s ease;
-
-    &:hover:not(.tabBtnActive) {
-        color: var(--color-text-primary, #111827);
-    }
-}
-
-.tabBtnActive {
-    color: var(--color-text-primary, #111827);
-    border-bottom-color: var(--color-text-primary, #111827);
-    font-weight: 600;
-}
-
-.tabBadge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 22px;
-    height: 20px;
-    padding: 0 7px;
-    border-radius: 999px;
-    background: var(--color-accent-soft, #fef3c7);
-    color: var(--color-accent-on-soft, #92400e);
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 1;
+// CTA della header band: altezza armonizzata a --control-height.
+.toolbarCta {
+  box-sizing: border-box;
+  height: var(--control-height, 38px);
 }
 
 /* ── Today bar ─────────────────────────────────────────── */
 
 .todayBar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 16px;
-    background: color-mix(in srgb, var(--color-accent, #2563eb) 6%, var(--color-surface, #ffffff));
-    border: 1px solid color-mix(in srgb, var(--color-accent, #2563eb) 18%, var(--color-border, #e5e7eb));
-    border-radius: 10px;
-    font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: color-mix(
+    in srgb,
+    var(--color-accent, #2563eb) 6%,
+    var(--color-surface, #ffffff)
+  );
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--color-accent, #2563eb) 18%,
+      var(--color-border, #e5e7eb)
+    );
+  border-radius: 10px;
+  font-size: 14px;
 }
 
 .todayBarIcon {
-    flex-shrink: 0;
-    color: var(--color-accent, #2563eb);
-    display: inline-flex;
+  flex-shrink: 0;
+  color: var(--color-accent, #2563eb);
+  display: inline-flex;
 }
 
 .todayBarText {
-    color: var(--color-text-primary, #111827);
+  color: var(--color-text-primary, #111827);
 
-    strong {
-        font-weight: 600;
-    }
+  strong {
+    font-weight: 600;
+  }
 }
 
 .todayBarSeparator {
-    color: var(--color-text-muted, #6b7280);
-    margin: 0 2px;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0 2px;
 }
 
 .todayBarHint {
-    color: var(--color-text-muted, #6b7280);
+  color: var(--color-text-muted, #6b7280);
 }
 
 /* ── Empty state wrap ──────────────────────────────────── */
 
 .emptyState {
-    padding: 64px 16px;
+  padding: 64px 16px;
 }
 
 /* ── Inbox ─────────────────────────────────────────────── */
 
 .inbox {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .inboxSection {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .inboxSectionHeader {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    padding: 0 2px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 2px;
 }
 
 .inboxSectionTitle {
-    margin: 0;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--color-text-primary, #111827);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .inboxSectionCount {
-    font-size: 12px;
-    color: var(--color-text-muted, #6b7280);
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
 }
 
 .inboxSectionHint {
-    margin: 0;
-    font-size: 12px;
-    color: var(--color-text-muted, #6b7280);
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
 }
 
 .cards {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 /* ── Reservation row ───────────────────────────────────── */
 
 .row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: 16px;
-    padding: 14px 16px;
-    background: var(--color-surface, #ffffff);
-    border: 1px solid var(--color-border, #e5e7eb);
-    border-radius: 12px;
-    text-align: left;
-    cursor: pointer;
-    transition: border-color 0.15s ease, transform 0.05s ease;
-    font-family: inherit;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    transform 0.05s ease;
+  font-family: inherit;
 
-    &:hover {
-        border-color: var(--color-border-strong, #d1d5db);
-    }
+  &:hover {
+    border-color: var(--color-border-strong, #d1d5db);
+  }
 
-    &:active {
-        transform: scale(0.998);
-    }
+  &:active {
+    transform: scale(0.998);
+  }
 }
 
 .rowDimmed {
-    @extend .row;
-    opacity: 0.7;
-    background: color-mix(in srgb, var(--color-text-muted, #6b7280) 4%, var(--color-surface, #ffffff));
+  @extend .row;
+  opacity: 0.7;
+  background: color-mix(
+    in srgb,
+    var(--color-text-muted, #6b7280) 4%,
+    var(--color-surface, #ffffff)
+  );
 }
 
 .rowMain {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
 .rowTopLine {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .rowName {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--color-text-primary, #111827);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
 }
 
 .rowMeta {
-    font-size: 13px;
-    color: var(--color-text-secondary, #4b5563);
+  font-size: 13px;
+  color: var(--color-text-secondary, #4b5563);
 }
 
 .rowMetaDim {
-    font-size: 12px;
-    color: var(--color-text-muted, #6b7280);
-    display: flex;
-    align-items: center;
-    gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .rowNoteIcon {
-    display: inline-flex;
-    color: var(--color-text-muted, #6b7280);
+  display: inline-flex;
+  color: var(--color-text-muted, #6b7280);
 }
 
 /* ── Channel mark (online vs manual) ──────────────────── */
 
 .channelMark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--color-text-muted, #6b7280) 8%, var(--color-surface, #ffffff));
-    border: 1px solid var(--color-border, #e5e7eb);
-    color: var(--color-text-secondary, #4b5563);
-    flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: color-mix(
+    in srgb,
+    var(--color-text-muted, #6b7280) 8%,
+    var(--color-surface, #ffffff)
+  );
+  border: 1px solid var(--color-border, #e5e7eb);
+  color: var(--color-text-secondary, #4b5563);
+  flex-shrink: 0;
 }
 
 .channelLegend {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    padding: 0 2px;
-    font-size: 11px;
-    color: var(--color-text-muted, #6b7280);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 2px;
+  font-size: 11px;
+  color: var(--color-text-muted, #6b7280);
 }
 
 .channelLegendItem {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .channelLegendIcon {
-    display: inline-flex;
-    color: var(--color-text-secondary, #4b5563);
+  display: inline-flex;
+  color: var(--color-text-secondary, #4b5563);
 }
 
 .drawerOriginValue {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .rowSitePill {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--color-text-muted, #6b7280) 10%, var(--color-surface, #ffffff));
-    border: 1px solid var(--color-border, #e5e7eb);
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--color-text-secondary, #4b5563);
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--color-text-muted, #6b7280) 10%,
+    var(--color-surface, #ffffff)
+  );
+  border: 1px solid var(--color-border, #e5e7eb);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #4b5563);
 }
 
 .rowRight {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .rowActions {
-    display: flex;
-    gap: 6px;
+  display: flex;
+  gap: 6px;
 }
 
 .actionBtn {
-    padding: 6px 12px;
-    font-size: 13px;
-    font-weight: 500;
-    border-radius: 8px;
-    border: 1px solid var(--color-border, #e5e7eb);
-    background: var(--color-surface, #ffffff);
-    color: var(--color-text-primary, #111827);
-    cursor: pointer;
-    font-family: inherit;
-    transition: background 0.15s ease, border-color 0.15s ease;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text-primary, #111827);
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 
-    &:hover {
-        background: color-mix(in srgb, var(--color-text-muted, #6b7280) 6%, var(--color-surface, #ffffff));
-    }
+  &:hover {
+    background: color-mix(
+      in srgb,
+      var(--color-text-muted, #6b7280) 6%,
+      var(--color-surface, #ffffff)
+    );
+  }
 
-    /* clicks inside the row trigger drawer open; stop propagation in TSX */
+  /* clicks inside the row trigger drawer open; stop propagation in TSX */
 }
 
 .actionBtnPrimary {
-    @extend .actionBtn;
-    background: var(--color-accent, #111827);
-    color: #ffffff;
-    border-color: var(--color-accent, #111827);
+  @extend .actionBtn;
+  background: var(--color-accent, #111827);
+  color: #ffffff;
+  border-color: var(--color-accent, #111827);
 
-    &:hover {
-        background: color-mix(in srgb, #ffffff 8%, var(--color-accent, #111827));
-    }
+  &:hover {
+    background: color-mix(in srgb, #ffffff 8%, var(--color-accent, #111827));
+  }
 }
 
 .actionBtnDanger {
-    @extend .actionBtn;
-    color: #b91c1c;
-    border-color: color-mix(in srgb, #b91c1c 30%, var(--color-border, #e5e7eb));
+  @extend .actionBtn;
+  color: #b91c1c;
+  border-color: color-mix(in srgb, #b91c1c 30%, var(--color-border, #e5e7eb));
 
-    &:hover {
-        background: #fef2f2;
-    }
+  &:hover {
+    background: #fef2f2;
+  }
 }
 
 /* ── Agenda ────────────────────────────────────────────── */
 
 .agenda {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .agendaHeader {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .agendaModeSwitch {
-    display: inline-flex;
-    background: var(--color-surface, #ffffff);
-    border: 1px solid var(--color-border, #e5e7eb);
-    border-radius: 999px;
-    padding: 3px;
+  display: inline-flex;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 999px;
+  padding: 3px;
 }
 
 .agendaModeBtn {
-    padding: 6px 14px;
-    font-size: 13px;
-    font-weight: 500;
-    background: transparent;
-    border: none;
-    border-radius: 999px;
-    color: var(--color-text-secondary, #4b5563);
-    cursor: pointer;
-    font-family: inherit;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  color: var(--color-text-secondary, #4b5563);
+  cursor: pointer;
+  font-family: inherit;
 
-    &:hover:not(.agendaModeBtnActive) {
-        color: var(--color-text-primary, #111827);
-    }
+  &:hover:not(.agendaModeBtnActive) {
+    color: var(--color-text-primary, #111827);
+  }
 }
 
 .agendaModeBtnActive {
-    background: var(--color-text-primary, #111827);
-    color: #ffffff;
+  background: var(--color-text-primary, #111827);
+  color: #ffffff;
 }
 
 .agendaTerminalToggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--color-text-secondary, #4b5563);
-    cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary, #4b5563);
+  cursor: pointer;
 }
 
 .agendaTerminalCheckbox {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--color-accent, #2563eb);
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent, #2563eb);
 }
 
 .agendaDisclaimer {
-    margin: 0;
-    padding: 0 2px;
-    font-size: 12px;
-    color: var(--color-text-muted, #6b7280);
-    font-style: italic;
+  margin: 0;
+  padding: 0 2px;
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  font-style: italic;
 }
 
 .dayGroup {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .dayHeader {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    padding: 0 2px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 2px;
 }
 
 .dayHeaderTitle {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--color-text-primary, #111827);
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
 }
 
 .dayHeaderMeta {
-    font-size: 12px;
-    color: var(--color-text-muted, #6b7280);
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
 }
 
 /* Week strip */
 
 .weekStrip {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
 }
 
 .weekDay {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 6px;
-    background: var(--color-surface, #ffffff);
-    border: 1px solid var(--color-border, #e5e7eb);
-    border-radius: 10px;
-    cursor: pointer;
-    font-family: inherit;
-    transition: border-color 0.15s ease, background 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 
-    &:hover:not(.weekDayActive) {
-        border-color: var(--color-border-strong, #d1d5db);
-    }
+  &:hover:not(.weekDayActive) {
+    border-color: var(--color-border-strong, #d1d5db);
+  }
 }
 
 .weekDayActive {
-    background: var(--color-text-primary, #111827);
-    color: #ffffff;
-    border-color: var(--color-text-primary, #111827);
+  background: var(--color-text-primary, #111827);
+  color: #ffffff;
+  border-color: var(--color-text-primary, #111827);
 }
 
 .weekDayLabel {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: inherit;
-    opacity: 0.7;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: inherit;
+  opacity: 0.7;
 }
 
 .weekDayNum {
-    font-size: 18px;
-    font-weight: 600;
-    color: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  color: inherit;
 }
 
 .weekDayDot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--color-accent, #2563eb);
-    margin-top: -2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-accent, #2563eb);
+  margin-top: -2px;
 }
 
 .weekDayActive .weekDayDot {
-    background: #ffffff;
+  background: #ffffff;
 }
 
 /* Timeline rows */
 
 .timeline {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .timelineRow {
-    display: grid;
-    grid-template-columns: 64px 1fr auto;
-    align-items: center;
-    gap: 14px;
-    padding: 12px 14px;
-    background: var(--color-surface, #ffffff);
-    border: 1px solid var(--color-border, #e5e7eb);
-    border-radius: 10px;
-    cursor: pointer;
-    text-align: left;
-    font-family: inherit;
-    transition: border-color 0.15s ease;
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
 
-    &:hover {
-        border-color: var(--color-border-strong, #d1d5db);
-    }
+  &:hover {
+    border-color: var(--color-border-strong, #d1d5db);
+  }
 }
 
 .timelineRowTerminal {
-    @extend .timelineRow;
-    opacity: 0.6;
-    background: color-mix(in srgb, var(--color-text-muted, #6b7280) 4%, var(--color-surface, #ffffff));
+  @extend .timelineRow;
+  opacity: 0.6;
+  background: color-mix(
+    in srgb,
+    var(--color-text-muted, #6b7280) 4%,
+    var(--color-surface, #ffffff)
+  );
 }
 
 .timelineTime {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--color-text-primary, #111827);
-    font-variant-numeric: tabular-nums;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  font-variant-numeric: tabular-nums;
 }
 
 .timelineMain {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .timelineName {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--color-text-primary, #111827);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
 }
 
 .timelineNote {
-    font-size: 12px;
-    color: var(--color-text-muted, #6b7280);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .timelineMeta {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
 }
 
 .timelineCovers {
-    font-size: 13px;
-    color: var(--color-text-secondary, #4b5563);
+  font-size: 13px;
+  color: var(--color-text-secondary, #4b5563);
 }
 
 /* ── Drawer body ───────────────────────────────────────── */
 
 .drawerBody {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .drawerSection {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .drawerSectionTitle {
-    margin: 0;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--color-text-muted, #6b7280);
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #6b7280);
 }
 
 .drawerKv {
-    display: grid;
-    grid-template-columns: 110px 1fr;
-    gap: 8px 16px;
-    font-size: 14px;
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 8px 16px;
+  font-size: 14px;
 
-    dt {
-        color: var(--color-text-muted, #6b7280);
-        margin: 0;
-    }
+  dt {
+    color: var(--color-text-muted, #6b7280);
+    margin: 0;
+  }
 
-    dd {
-        color: var(--color-text-primary, #111827);
-        margin: 0;
-        word-break: break-word;
-    }
+  dd {
+    color: var(--color-text-primary, #111827);
+    margin: 0;
+    word-break: break-word;
+  }
 }
 
 .drawerNotes {
-    padding: 12px 14px;
-    background: var(--color-surface-sunken, #f9fafb);
-    border-radius: 8px;
-    border: 1px solid var(--color-border, #e5e7eb);
-    font-size: 14px;
-    color: var(--color-text-primary, #111827);
-    white-space: pre-wrap;
+  padding: 12px 14px;
+  background: var(--color-surface-sunken, #f9fafb);
+  border-radius: 8px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  font-size: 14px;
+  color: var(--color-text-primary, #111827);
+  white-space: pre-wrap;
 }
 
 .drawerAggregate {
-    padding: 12px 14px;
-    background: color-mix(in srgb, var(--color-accent, #2563eb) 6%, var(--color-surface, #ffffff));
-    border: 1px solid color-mix(in srgb, var(--color-accent, #2563eb) 18%, var(--color-border, #e5e7eb));
-    border-radius: 8px;
-    font-size: 13px;
-    color: var(--color-text-primary, #111827);
+  padding: 12px 14px;
+  background: color-mix(
+    in srgb,
+    var(--color-accent, #2563eb) 6%,
+    var(--color-surface, #ffffff)
+  );
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--color-accent, #2563eb) 18%,
+      var(--color-border, #e5e7eb)
+    );
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--color-text-primary, #111827);
 }
 
 .drawerHeaderTitle {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .drawerFooter {
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
-    flex-wrap: wrap;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .drawerFooterHint {
-    width: 100%;
-    margin: 0;
-    font-size: 12px;
-    color: var(--color-text-muted, #6b7280);
-    text-align: right;
+  width: 100%;
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  text-align: right;
 }
 
 /* ── Reservation create/edit form ─────────────────────── */
 
 .reservationForm {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .reservationFormRow {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
 .reservationFormField {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .reservationFormLabel {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--color-text-primary, #111827);
-    display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary, #111827);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .reservationFormLabelOptional {
-    font-size: 11px;
-    font-weight: 400;
-    color: var(--color-text-muted, #6b7280);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-text-muted, #6b7280);
 }
 
 .reservationFormTextarea {
-    padding: 10px 12px;
-    font-size: 14px;
-    font-family: inherit;
-    color: var(--color-text-primary, #111827);
-    background: var(--color-surface, #ffffff);
-    border: 1px solid var(--color-border, #e5e7eb);
-    border-radius: 8px;
-    resize: vertical;
-    min-height: 76px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--color-text-primary, #111827);
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  resize: vertical;
+  min-height: 76px;
 
-    &:focus {
-        outline: none;
-        border-color: var(--color-accent, #2563eb);
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent, #2563eb) 18%, transparent);
-    }
+  &:focus {
+    outline: none;
+    border-color: var(--color-accent, #2563eb);
+    box-shadow: 0 0 0 3px
+      color-mix(in srgb, var(--color-accent, #2563eb) 18%, transparent);
+  }
 }
 
 .reservationFormReadonlyField {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 10px 12px;
-    background: var(--color-surface-sunken, #f9fafb);
-    border: 1px solid var(--color-border, #e5e7eb);
-    border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--color-surface-sunken, #f9fafb);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
 }
 
 .reservationFormReadonlyLabel {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--color-text-muted, #6b7280);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted, #6b7280);
 }
 
 .reservationFormReadonlyValue {
-    font-size: 14px;
-    color: var(--color-text-primary, #111827);
+  font-size: 14px;
+  color: var(--color-text-primary, #111827);
 }

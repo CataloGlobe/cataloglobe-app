@@ -86,9 +86,10 @@ interface TabProps<T extends TabsValue> {
     children: React.ReactNode;
     disabled?: boolean;
     disabledTooltip?: React.ReactNode;
+    badge?: React.ReactNode;
 }
 
-function Tab<T extends TabsValue>({ value, children, disabled = false, disabledTooltip }: TabProps<T>) {
+function Tab<T extends TabsValue>({ value, children, disabled = false, disabledTooltip, badge }: TabProps<T>) {
     const { value: active, setValue } = useTabsContext();
     const isActive = active === value;
 
@@ -111,6 +112,9 @@ function Tab<T extends TabsValue>({ value, children, disabled = false, disabledT
             onClick={disabled ? undefined : () => setValue(value)}
         >
             {children}
+            {badge !== undefined && badge !== null && badge !== false && (
+                <span className={styles.tabBadge}>{badge}</span>
+            )}
         </button>
     );
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { CalendarCheck, Clock, Lock, Plus } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -7,6 +8,8 @@ import { usePageHeader } from "@/context/usePageHeader";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
+import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import { listReservations } from "@/services/supabase/reservations";
 import { getActivities } from "@/services/supabase/activities";
 import type { V2Activity } from "@/types/activity";
@@ -41,6 +44,8 @@ export default function Reservations() {
     const tenantId = useTenantId();
     const { showToast } = useToast();
     const { permissions, loading: permissionsLoading } = usePermissions();
+    const sedeScope = useSedeScope();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const canRead = useMemo(
         () => (permissions ? canDoOnAnyActivity(permissions, "reservations.read") : false),
@@ -56,8 +61,22 @@ export default function Reservations() {
     const [activities, setActivities] = useState<V2Activity[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    const [tab, setTab] = useState<TabKey>("inbox");
-    const [scope, setScope] = useState<Scope>("__all__");
+    const initialTab: TabKey = useMemo(() => {
+        const t = searchParams.get("tab");
+        return t === "agenda" ? "agenda" : "inbox";
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    const [tab, setTab] = useState<TabKey>(initialTab);
+    const handleTabChange = useCallback((next: TabKey) => {
+        setTab(next);
+        setSearchParams(prev => {
+            prev.set("tab", next);
+            return prev;
+        }, { replace: true });
+    }, [setSearchParams]);
+
+    // Scope deriva da useSedeScope (navbar). SCOPE_ALL → "__all__" downstream.
+    const scope: Scope = sedeScope.value === SCOPE_ALL ? "__all__" : sedeScope.value;
 
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -75,19 +94,17 @@ export default function Reservations() {
     const pageActions = useMemo(
         () =>
             canCreate ? (
-                <Button variant="primary" leftIcon={<Plus size={16} />} onClick={handleOpenCreate}>
+                <Button
+                    variant="primary"
+                    className={styles.toolbarCta}
+                    leftIcon={<Plus size={16} />}
+                    onClick={handleOpenCreate}
+                >
                     Nuova prenotazione
                 </Button>
             ) : null,
         [canCreate, handleOpenCreate]
     );
-
-    usePageHeader({
-        title: "Prenotazioni",
-        subtitle: "Inbox per le richieste in arrivo, agenda per chi è atteso.",
-        sticky: true,
-        actions: pageActions
-    });
 
     // ── Sites the caller can READ ─────────────────────────────────────
     const readableActivityIds = useMemo(() => {
@@ -112,7 +129,6 @@ export default function Reservations() {
     }, [activities]);
 
     const showSitePill = readableActivities.length > 1 && scope === "__all__";
-    const showScopeSelect = readableActivities.length > 1;
 
     const canManageActivity = useCallback(
         (activityId: string) => {
@@ -151,14 +167,6 @@ export default function Reservations() {
         void loadData();
     }, [permissionsLoading, permissions, canRead, loadData]);
 
-    // Default scope = first readable site (NOT "Tutte") so agenda is usable
-    // immediately for single-site users and meaningful for multi-site too.
-    useEffect(() => {
-        if (readableActivities.length === 0) return;
-        if (scope !== "__all__" && readableActivityIds.has(scope)) return;
-        setScope(readableActivities[0].id);
-    }, [readableActivities, readableActivityIds, scope]);
-
     // ── Deferred commit ───────────────────────────────────────────────
     const { overrides, schedule, cancel } = useDeferredCommit({
         onCommitSuccess: loadData,
@@ -193,6 +201,30 @@ export default function Reservations() {
         () => scopedReservations.filter(r => r.status === "pending"),
         [scopedReservations]
     );
+
+    const headerLeading = useMemo(() => (
+        <Tabs<TabKey>
+            value={tab}
+            onChange={handleTabChange}
+            variant="line"
+        >
+            <Tabs.List>
+                <Tabs.Tab
+                    value="inbox"
+                    badge={pendingInScope.length > 0 ? pendingInScope.length : undefined}
+                >
+                    Da gestire
+                </Tabs.Tab>
+                <Tabs.Tab value="agenda">Agenda</Tabs.Tab>
+            </Tabs.List>
+        </Tabs>
+    ), [tab, handleTabChange, pendingInScope.length]);
+
+    usePageHeader({
+        leading: headerLeading,
+        actions: pageActions,
+        sticky: true
+    });
 
     const handleAction = useCallback(
         (r: V2Reservation, action: DeferredAction) => {
@@ -302,51 +334,6 @@ export default function Reservations() {
     return (
         <>
             <div className={styles.page}>
-                {/* ── Toolbar: scope + tabs ────────────────────────────── */}
-                <div className={styles.toolbar}>
-                    {showScopeSelect && (
-                        <div className={styles.scopeRow}>
-                            <span className={styles.scopeLabel}>Sede</span>
-                            <select
-                                className={styles.scopeSelect}
-                                value={scope}
-                                onChange={e => setScope(e.target.value as Scope)}
-                            >
-                                <option value="__all__">Tutte le sedi</option>
-                                {readableActivities.map(a => (
-                                    <option key={a.id} value={a.id}>
-                                        {a.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-
-                    <div className={styles.tabs} role="tablist">
-                        <button
-                            type="button"
-                            role="tab"
-                            aria-selected={tab === "inbox"}
-                            className={tab === "inbox" ? `${styles.tabBtn} ${styles.tabBtnActive}` : styles.tabBtn}
-                            onClick={() => setTab("inbox")}
-                        >
-                            Da gestire
-                            {pendingInScope.length > 0 && (
-                                <span className={styles.tabBadge}>{pendingInScope.length}</span>
-                            )}
-                        </button>
-                        <button
-                            type="button"
-                            role="tab"
-                            aria-selected={tab === "agenda"}
-                            className={tab === "agenda" ? `${styles.tabBtn} ${styles.tabBtnActive}` : styles.tabBtn}
-                            onClick={() => setTab("agenda")}
-                        >
-                            Agenda
-                        </button>
-                    </div>
-                </div>
-
                 {/* ── Today bar ────────────────────────────────────────── */}
                 {todayItems.length > 0 && (
                     <div className={styles.todayBar}>

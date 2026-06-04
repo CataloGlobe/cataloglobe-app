@@ -31,7 +31,8 @@ export type BusinessRouteKey =
 export const SEDE_NAVBAR_ROUTES = new Set<BusinessRouteKey>([
     "reviews",
     "analytics",
-    "scheduling"
+    "scheduling",
+    "reservations"
 ]);
 
 /** Label IT canonica per ogni voce di sidebar. Per `catalogs`
