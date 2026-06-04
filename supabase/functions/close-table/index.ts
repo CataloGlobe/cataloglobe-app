@@ -86,6 +86,7 @@ interface CloseTableRpcResult {
     closed_groups_count: number;
     closed_orders_count: number;
     cleared_bill_count: number;
+    ended_sessions_count: number;
 }
 
 // ============================================================
@@ -400,7 +401,8 @@ serve(async (req: Request) => {
             resolved_orders_count: result.resolved_orders_count,
             closed_groups_count: result.closed_groups_count,
             closed_orders_count: result.closed_orders_count,
-            cleared_bill_count: result.cleared_bill_count
+            cleared_bill_count: result.cleared_bill_count,
+            ended_sessions_count: result.ended_sessions_count
         });
 
         return jsonResponse(200, {
@@ -409,7 +411,8 @@ serve(async (req: Request) => {
             resolved_orders_count: result.resolved_orders_count,
             closed_groups_count: result.closed_groups_count,
             closed_orders_count: result.closed_orders_count,
-            cleared_bill_count: result.cleared_bill_count
+            cleared_bill_count: result.cleared_bill_count,
+            ended_sessions_count: result.ended_sessions_count
         });
     } catch (e) {
         console.error(
