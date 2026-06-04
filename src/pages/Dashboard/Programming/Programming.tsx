@@ -1063,24 +1063,21 @@ export default function Programming() {
         </div>
     ), [viewMode, searchTerm, ruleTypeFilter, currentTenantId, isCreating, handleCreateRule]);
 
-    const headerLeading = useMemo(() => {
-        if (viewMode !== "list") return undefined;
-        return (
-            <Tabs<RuleTypeFilter>
-                value={ruleTypeFilter}
-                onChange={handleRuleTypeFilterChange}
-                variant="line"
-            >
-                <Tabs.List>
-                    {RULE_TYPE_TAB_OPTIONS.map(option => (
-                        <Tabs.Tab key={option.value} value={option.value}>
-                            {option.label}
-                        </Tabs.Tab>
-                    ))}
-                </Tabs.List>
-            </Tabs>
-        );
-    }, [viewMode, ruleTypeFilter, handleRuleTypeFilterChange]);
+    const headerLeading = useMemo(() => (
+        <Tabs<RuleTypeFilter>
+            value={ruleTypeFilter}
+            onChange={handleRuleTypeFilterChange}
+            variant="line"
+        >
+            <Tabs.List>
+                {RULE_TYPE_TAB_OPTIONS.map(option => (
+                    <Tabs.Tab key={option.value} value={option.value}>
+                        {option.label}
+                    </Tabs.Tab>
+                ))}
+            </Tabs.List>
+        </Tabs>
+    ), [ruleTypeFilter, handleRuleTypeFilterChange]);
 
     usePageHeader({
         leading: headerLeading,
@@ -1297,6 +1294,7 @@ export default function Programming() {
             ) : (
                 <CalendarView
                     rules={rules}
+                    ruleTypeFilter={ruleTypeFilter}
                     onRuleClick={rule =>
                         navigate(
                             rule.rule_type === "featured"

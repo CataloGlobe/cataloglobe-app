@@ -62,53 +62,6 @@
   }
 }
 
-/* ─── Tab bar ────────────────────────────────────────────────── */
-
-.tabBar {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--border, #e2e8f0);
-}
-
-.tab {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.55rem 1rem;
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: none;
-  color: var(--text-muted, #94a3b8);
-  font-size: 0.82rem;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  transition: color 0.12s, border-color 0.12s;
-
-  &:hover {
-    color: var(--text);
-  }
-}
-
-.tabActive {
-  color: var(--text);
-}
-
-.tabBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--border, #e2e8f0);
-  color: #fff;
-  font-size: 0.65rem;
-  font-weight: 700;
-  line-height: 1;
-}
-
 /* ─── Grid ───────────────────────────────────────────────────── */
 
 .calendarGrid {
