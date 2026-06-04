@@ -30,7 +30,8 @@ export type BusinessRouteKey =
  *  Estendere man mano che si migrano altre pagine. */
 export const SEDE_NAVBAR_ROUTES = new Set<BusinessRouteKey>([
     "reviews",
-    "analytics"
+    "analytics",
+    "scheduling"
 ]);
 
 /** Label IT canonica per ogni voce di sidebar. Per `catalogs`

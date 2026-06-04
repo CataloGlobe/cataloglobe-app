@@ -4,24 +4,25 @@ import { Globe, Building2, Users, AlertCircle, FileText, Loader2, Calendar, Chev
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { Button } from "@/components/ui/Button/Button";
-import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import ModalLayout, {
     ModalLayoutContent,
     ModalLayoutFooter,
     ModalLayoutHeader
 } from "@/components/ui/ModalLayout/ModalLayout";
-import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { BulkBar } from "@/components/ui/BulkBar/BulkBar";
 import { usePageHeader } from "@/context/usePageHeader";
 import { Menu } from "@/components/ui/Menu";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch/ToolbarSearch";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
+import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import { supabase } from "@/services/supabase/client";
 import {
     createRuleDraft,
@@ -221,10 +222,11 @@ function RuleBlock({
 
 export default function Programming() {
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const currentTenantId = useTenantId();
     const { selectedTenant } = useTenant();
     const { showToast } = useToast();
+    const sedeScope = useSedeScope();
 
     const [rules, setRules] = useState<LayoutRule[]>([]);
     const [activities, setActivities] = useState<LayoutRuleOption[]>([]);
@@ -242,7 +244,8 @@ export default function Programming() {
 
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
     const [searchTerm, setSearchTerm] = useState("");
-    const [filterActivityId, setFilterActivityId] = useState<string | null>(null);
+    // Filtro sede deriva da useSedeScope (navbar). SCOPE_ALL → nessun filtro.
+    const filterActivityId = sedeScope.value === SCOPE_ALL ? null : sedeScope.value;
     const typeFromUrl = searchParams.get("type") as RuleType | null;
     const [ruleTypeFilter, setRuleTypeFilter] = useState<RuleTypeFilter>(
         typeFromUrl && ["layout", "featured", "price", "visibility", "all"].includes(typeFromUrl)
@@ -250,6 +253,14 @@ export default function Programming() {
             : "layout"
     );
     const [selectedRuleIds, setSelectedRuleIds] = useState<Set<string>>(new Set());
+    const handleRuleTypeFilterChange = useCallback((next: RuleTypeFilter) => {
+        setRuleTypeFilter(next);
+        setSelectedRuleIds(new Set());
+        setSearchParams(prev => {
+            prev.set("type", next);
+            return prev;
+        }, { replace: true });
+    }, [setSearchParams]);
 
     const [simActivityId, setSimActivityId] = useState("");
     const [simDateTime, setSimDateTime] = useState(() => toDateTimeLocalValue(new Date()));
@@ -987,66 +998,61 @@ export default function Programming() {
 
     const headerActions = useMemo(() => (
         <div className={styles.headerActions}>
-            <div className={styles.viewToggle}>
-                <Tooltip content="Vista lista" side="bottom">
-                    <button
-                        type="button"
-                        className={`${styles.viewToggleBtn} ${viewMode === "list" ? styles.viewToggleBtnActive : ""}`}
-                        onClick={() => setViewMode("list")}
-                        aria-label="Vista lista"
-                    >
-                        <List size={16} />
-                    </button>
-                </Tooltip>
-                <Tooltip content="Vista calendario" side="bottom">
-                    <button
-                        type="button"
-                        className={`${styles.viewToggleBtn} ${viewMode === "calendar" ? styles.viewToggleBtnActive : ""}`}
-                        onClick={() => setViewMode("calendar")}
-                        aria-label="Vista calendario"
-                    >
-                        <CalendarDays size={16} />
-                    </button>
-                </Tooltip>
-            </div>
+            {viewMode === "list" && (
+                <ToolbarSearch
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Cerca per nome, tipo, target o id..."
+                />
+            )}
+            <SegmentedControl<"list" | "calendar">
+                value={viewMode}
+                onChange={setViewMode}
+                iconsOnly
+                options={[
+                    { value: "list", label: "Vista lista", icon: <List size={16} /> },
+                    { value: "calendar", label: "Vista calendario", icon: <CalendarDays size={16} /> }
+                ]}
+            />
             <Button
                 variant="secondary"
+                className={styles.toolbarCta}
                 onClick={() => setIsSimulatorDrawerOpen(true)}
                 disabled={!currentTenantId}
             >
                 Simula regole
             </Button>
             {ruleTypeFilter === "all" ? (
-                <div className={styles.newRuleDropdown}>
-                    <Menu
-                        trigger={
-                            <Button
-                                variant="primary"
-                                disabled={!currentTenantId || isCreating}
-                                loading={isCreating}
-                            >
-                                {isCreating ? "Creazione..." : "Nuova regola"}
-                            </Button>
-                        }
-                        align="end"
-                    >
-                        <Menu.Item onSelect={() => void handleCreateRule("layout")}>
-                            Layout
-                        </Menu.Item>
-                        <Menu.Item onSelect={() => void handleCreateRule("featured")}>
-                            In evidenza
-                        </Menu.Item>
-                        <Menu.Item onSelect={() => void handleCreateRule("price")}>
-                            Prezzi
-                        </Menu.Item>
-                        <Menu.Item onSelect={() => void handleCreateRule("visibility")}>
-                            Visibilità
-                        </Menu.Item>
-                    </Menu>
-                </div>
+                <Menu
+                    trigger={
+                        <Button
+                            variant="primary"
+                            className={styles.toolbarCta}
+                            disabled={!currentTenantId || isCreating}
+                            loading={isCreating}
+                        >
+                            {isCreating ? "Creazione..." : "Nuova regola"}
+                        </Button>
+                    }
+                    align="end"
+                >
+                    <Menu.Item onSelect={() => void handleCreateRule("layout")}>
+                        Layout
+                    </Menu.Item>
+                    <Menu.Item onSelect={() => void handleCreateRule("featured")}>
+                        In evidenza
+                    </Menu.Item>
+                    <Menu.Item onSelect={() => void handleCreateRule("price")}>
+                        Prezzi
+                    </Menu.Item>
+                    <Menu.Item onSelect={() => void handleCreateRule("visibility")}>
+                        Visibilità
+                    </Menu.Item>
+                </Menu>
             ) : (
                 <Button
                     variant="primary"
+                    className={styles.toolbarCta}
                     onClick={() => void handleCreateRule()}
                     disabled={!currentTenantId || isCreating}
                     loading={isCreating}
@@ -1055,11 +1061,29 @@ export default function Programming() {
                 </Button>
             )}
         </div>
-    ), [viewMode, ruleTypeFilter, currentTenantId, isCreating, handleCreateRule]);
+    ), [viewMode, searchTerm, ruleTypeFilter, currentTenantId, isCreating, handleCreateRule]);
+
+    const headerLeading = useMemo(() => {
+        if (viewMode !== "list") return undefined;
+        return (
+            <Tabs<RuleTypeFilter>
+                value={ruleTypeFilter}
+                onChange={handleRuleTypeFilterChange}
+                variant="line"
+            >
+                <Tabs.List>
+                    {RULE_TYPE_TAB_OPTIONS.map(option => (
+                        <Tabs.Tab key={option.value} value={option.value}>
+                            {option.label}
+                        </Tabs.Tab>
+                    ))}
+                </Tabs.List>
+            </Tabs>
+        );
+    }, [viewMode, ruleTypeFilter, handleRuleTypeFilterChange]);
 
     usePageHeader({
-        title: "Programmazione",
-        subtitle: "Gestisci le regole del Rule Engine.",
+        leading: headerLeading,
         actions: headerActions,
         sticky: true,
     });
@@ -1067,52 +1091,8 @@ export default function Programming() {
     return (
         <section className={styles.programming}>
             {viewMode === "list" ? (
-                <>
-                    <Tabs<RuleTypeFilter>
-                        value={ruleTypeFilter}
-                        onChange={tab => {
-                            setRuleTypeFilter(tab);
-                            setSelectedRuleIds(new Set());
-                        }}
-                    >
-                        <Tabs.List>
-                            {RULE_TYPE_TAB_OPTIONS.map(option => (
-                                <Tabs.Tab key={option.value} value={option.value}>
-                                    {option.label}
-                                </Tabs.Tab>
-                            ))}
-                        </Tabs.List>
-                    </Tabs>
-
-                    <div className={styles.filterRow}>
-                        <FilterBar
-                            className={styles.filterBarFlex}
-                            search={{
-                                value: searchTerm,
-                                onChange: setSearchTerm,
-                                placeholder: "Cerca per nome, tipo, target o id..."
-                            }}
-                        />
-                        {activities.length > 0 && (
-                            <div className={styles.activityFilterWrapper}>
-                                <select
-                                    className={styles.activityFilterSelect}
-                                    value={filterActivityId ?? ""}
-                                    onChange={e => setFilterActivityId(e.target.value || null)}
-                                    aria-label="Filtra per sede"
-                                >
-                                    <option value="">Tutte le sedi</option>
-                                    {activities.map(a => (
-                                        <option key={a.id} value={a.id}>{a.name}</option>
-                                    ))}
-                                </select>
-                                <span className={styles.activityFilterCaret} aria-hidden="true">▾</span>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className={styles.tableCard}>
-                        <div className={styles.tabDescription}>
+                <div className={styles.tableCard}>
+                    <div className={styles.tabDescription}>
                             <Text variant="body-sm" colorVariant="muted">
                                 {RULE_TYPE_TAB_OPTIONS.find(o => o.value === ruleTypeFilter)?.description}
                             </Text>
@@ -1314,7 +1294,6 @@ export default function Programming() {
                             </div>
                         )}
                     </div>
-                </>
             ) : (
                 <CalendarView
                     rules={rules}

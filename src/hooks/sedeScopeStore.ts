@@ -18,9 +18,11 @@ export const SCOPE_ALL = "__all__" as const;
 
 export type SedeScopeValue = string | typeof SCOPE_ALL;
 
-/** Pagine sede-scoped che consumeranno l'hook. "scheduling" è
- *  ESCLUSO per design (avrà un filtro sede in toolbar, non lo
- *  scope navbar). */
+/** Pagine sede-scoped che consumano l'hook. Contratto stabile per gating
+ *  futuro; il sottoinsieme effettivamente migrato in navbar è in
+ *  `SEDE_NAVBAR_ROUTES` (navbarBreadcrumbRoutes), che include anche
+ *  `scheduling` benché qui non sia presente (preservato per evitare
+ *  breakage del contratto storico). */
 export const SEDE_SCOPED_ROUTES = [
     "orders",
     "reservations",
