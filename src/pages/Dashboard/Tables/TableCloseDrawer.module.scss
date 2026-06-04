@@ -19,3 +19,17 @@
     justify-content: space-between;
     align-items: center;
 }
+
+// Stack azioni full-width per il ramo hasOpenOrders del footer:
+// label lunghe ("Segna tutte come servite e chiudi" / "Annulla tutte e
+// chiudi") affiancate nel drawer 420px si stringono/sbordano. Qui
+// occupiamo il 100% del footer slot di DrawerLayout (il cui parent flex
+// e' justify-content:flex-end), e stack-iamo i 3 bottoni verticalmente
+// con gerarchia top->bottom: primary, danger, ghost.
+.actionsStack {
+    flex: 1 1 auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}

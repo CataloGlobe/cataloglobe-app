@@ -73,17 +73,25 @@ export default function TableCloseDrawer({ open, table, onClose, onConfirm }: Pr
                             Chiudi
                         </Button>
                     ) : hasOpenOrders ? (
-                        // Aperti > 0 → due bottoni di risoluzione bulk + chiusura.
-                        <>
+                        // Aperti > 0 → stack verticale full-width nel footer
+                        // slot di DrawerLayout. Gerarchia top→bottom:
+                        // primary (azione consigliata), danger, ghost (cancel
+                        // drawer). Le label lunghe non si stringono.
+                        <div className={styles.actionsStack}>
                             <Button
-                                variant="secondary"
-                                onClick={onClose}
-                                disabled={isProcessing}
+                                variant="primary"
+                                fullWidth
+                                onClick={() => void handleConfirm("deliver")}
+                                loading={processingAction === "deliver"}
+                                disabled={
+                                    isProcessing && processingAction !== "deliver"
+                                }
                             >
-                                Annulla
+                                Segna tutte come servite e chiudi
                             </Button>
                             <Button
                                 variant="danger"
+                                fullWidth
                                 onClick={() => void handleConfirm("cancel")}
                                 loading={processingAction === "cancel"}
                                 disabled={
@@ -93,16 +101,14 @@ export default function TableCloseDrawer({ open, table, onClose, onConfirm }: Pr
                                 Annulla tutte e chiudi
                             </Button>
                             <Button
-                                variant="primary"
-                                onClick={() => void handleConfirm("deliver")}
-                                loading={processingAction === "deliver"}
-                                disabled={
-                                    isProcessing && processingAction !== "deliver"
-                                }
+                                variant="ghost"
+                                fullWidth
+                                onClick={onClose}
+                                disabled={isProcessing}
                             >
-                                Segna tutte come servite e chiudi
+                                Annulla
                             </Button>
-                        </>
+                        </div>
                     ) : (
                         // Nessun aperto, solo conti da chiudere → chiusura semplice.
                         <>
