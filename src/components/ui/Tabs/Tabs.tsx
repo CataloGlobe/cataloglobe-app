@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import styles from "./Tabs.module.scss";
 
 /* ------------------------------------------------------------------ */
@@ -83,24 +84,40 @@ function TabsList({ children }: TabsListProps) {
 interface TabProps<T extends TabsValue> {
     value: T;
     children: React.ReactNode;
+    disabled?: boolean;
+    disabledTooltip?: React.ReactNode;
 }
 
-function Tab<T extends TabsValue>({ value, children }: TabProps<T>) {
+function Tab<T extends TabsValue>({ value, children, disabled = false, disabledTooltip }: TabProps<T>) {
     const { value: active, setValue } = useTabsContext();
     const isActive = active === value;
 
-    return (
+    const className = [
+        styles.tab,
+        isActive ? styles.active : "",
+        disabled ? styles.disabled : ""
+    ].filter(Boolean).join(" ");
+
+    // Niente attributo `disabled` nativo: Radix Tooltip non rileva hover su
+    // trigger nativamente disabilitato. Usiamo solo `aria-disabled` + guard onClick.
+    const button = (
         <button
             type="button"
             role="tab"
             aria-selected={isActive}
+            aria-disabled={disabled || undefined}
             tabIndex={isActive ? 0 : -1}
-            className={`${styles.tab} ${isActive ? styles.active : ""}`}
-            onClick={() => setValue(value)}
+            className={className}
+            onClick={disabled ? undefined : () => setValue(value)}
         >
             {children}
         </button>
     );
+
+    if (disabled && disabledTooltip) {
+        return <Tooltip content={disabledTooltip}>{button}</Tooltip>;
+    }
+    return button;
 }
 
 /* ------------------------------------------------------------------ */

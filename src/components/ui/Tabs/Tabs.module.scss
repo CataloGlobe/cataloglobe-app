@@ -33,6 +33,17 @@
   color: var(--text);
 }
 
+.tab.disabled,
+.tab[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.tab.disabled:hover,
+.tab[aria-disabled="true"]:hover {
+  color: var(--text-muted);
+}
+
 .tab[aria-selected="true"] {
   color: var(--text);
 }
