@@ -5,6 +5,17 @@
     padding: 32px;
 }
 
+// Footer con bottone primario "Chiudi tavolo" gated da tables.manage.
+// Layout flex con gap coerente al gap default del footer slot di
+// DrawerLayout (12px), justify-content end per allineamento standard.
+.footerActions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+}
+
 .content {
     display: flex;
     flex-direction: column;

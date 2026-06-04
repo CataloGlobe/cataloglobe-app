@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Grid2X2 } from "lucide-react";
 
 import Text from "@/components/ui/Text/Text";
@@ -6,7 +6,11 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 
 import { useToast } from "@/context/Toast/ToastContext";
+import { closeTable } from "@/services/supabase/customerSessions";
 import type { V2TableWithState } from "@/types/orders";
+
+import { TableDetailDrawer } from "@/components/Tables/TableDetailDrawer/TableDetailDrawer";
+import TableCloseDrawer from "@/pages/Dashboard/Tables/TableCloseDrawer";
 
 import { useTablesLiveRealtime } from "./useTablesLiveRealtime";
 import styles from "./TablesLiveView.module.scss";
@@ -14,9 +18,15 @@ import styles from "./TablesLiveView.module.scss";
 export interface TablesLiveViewProps {
     tenantId: string;
     activityId: string;
-    /** Callback su click card. Se omessa, le card non sono cliccabili. */
-    onTableClick?: (tableId: string) => void;
 }
+
+/**
+ * Durata exit-anim del SystemDrawer (motion.div drawer: transition
+ * duration 0.25s). Usata per sequenziare detail → close: chiudiamo il
+ * detail, attendiamo che l'animazione finisca, apriamo il close. NIENTE
+ * stacking. Se SystemDrawer cambia la sua durata, aggiorna qui.
+ */
+const DRAWER_EXIT_DURATION_MS = 250;
 
 type StatusFilter = "all" | "open" | "free" | "maintenance";
 
@@ -38,12 +48,141 @@ function formatElapsed(sessionsCount: number): string {
 
 export function TablesLiveView({
     tenantId,
-    activityId,
-    onTableClick
+    activityId
 }: TablesLiveViewProps) {
     const { showToast } = useToast();
-    const { items, isLoading, error } = useTablesLiveRealtime(tenantId, activityId);
+    const { items, isLoading, error, refetch } = useTablesLiveRealtime(
+        tenantId,
+        activityId
+    );
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+    // ─── Detail drawer (click su card) ─────────────────────────────────
+    const [detailTableId, setDetailTableId] = useState<string | null>(null);
+    const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+    // ─── Close drawer (apertura via "Chiudi tavolo" dal detail) ────────
+    const [tableToClose, setTableToClose] = useState<V2TableWithState | null>(
+        null
+    );
+    const [isCloseOpen, setIsCloseOpen] = useState(false);
+    const [processingClose, setProcessingClose] = useState(false);
+
+    // Cleanup pendente del timer di transizione detail→close: serve a
+    // evitare race su unmount o se l'utente chiude il drawer prima del
+    // setTimeout.
+    const transitionTimerRef = useRef<number | null>(null);
+    useEffect(() => {
+        return () => {
+            if (transitionTimerRef.current !== null) {
+                window.clearTimeout(transitionTimerRef.current);
+                transitionTimerRef.current = null;
+            }
+        };
+    }, []);
+
+    const handleTableClick = useCallback((tableId: string) => {
+        setDetailTableId(tableId);
+        setIsDetailOpen(true);
+    }, []);
+
+    // Detail richiede di aprire il close drawer: sequenza no-stack.
+    // 1. lookup riga V2TableWithState in items[] (zero I/O extra).
+    //    Guard: se non trovata (tavolo rimosso da realtime tra click e
+    //    callback) → toast soft + non aprire il close.
+    // 2. chiudi detail.
+    // 3. attendi DRAWER_EXIT_DURATION_MS (matchato all'exit anim di
+    //    SystemDrawer drawer motion.div) e poi apri close.
+    const handleRequestClose = useCallback(
+        (tableId: string) => {
+            const found = items.find(t => t.id === tableId);
+            if (!found) {
+                showToast({
+                    message: "Tavolo non trovato, ricarica la lista.",
+                    type: "error"
+                });
+                return;
+            }
+            setTableToClose(found);
+            setIsDetailOpen(false);
+            if (transitionTimerRef.current !== null) {
+                window.clearTimeout(transitionTimerRef.current);
+            }
+            transitionTimerRef.current = window.setTimeout(() => {
+                transitionTimerRef.current = null;
+                setIsCloseOpen(true);
+            }, DRAWER_EXIT_DURATION_MS);
+        },
+        [items, showToast]
+    );
+
+    // Identico per logica al pattern di TablesManagement.handleCloseConfirm
+    // (toast intelligente, dual-409, refetch post-success). Duplicato per
+    // ora — debt parcheggiato: estrazione in `useCloseTable` futura.
+    async function handleCloseConfirm(
+        action: "none" | "deliver" | "cancel"
+    ): Promise<void> {
+        if (!tableToClose) return;
+        setProcessingClose(true);
+        try {
+            const result = await closeTable(
+                tableToClose.id,
+                action === "none" ? undefined : action
+            );
+            const parts: string[] = [];
+            if (
+                result.resolved_action === "deliver" &&
+                result.resolved_orders_count > 0
+            ) {
+                const k = result.resolved_orders_count;
+                parts.push(
+                    `${k} ${k === 1 ? "ordine segnato come servito" : "ordini segnati come serviti"}`
+                );
+            } else if (
+                result.resolved_action === "cancel" &&
+                result.resolved_orders_count > 0
+            ) {
+                const k = result.resolved_orders_count;
+                parts.push(
+                    `${k} ${k === 1 ? "ordine annullato" : "ordini annullati"}`
+                );
+            }
+            if (result.closed_groups_count > 0) {
+                const k = result.closed_groups_count;
+                parts.push(`${k} ${k === 1 ? "conto chiuso" : "conti chiusi"}`);
+            }
+            if (result.ended_sessions_count > 0) {
+                const k = result.ended_sessions_count;
+                parts.push(
+                    `${k} ${k === 1 ? "sessione terminata" : "sessioni terminate"}`
+                );
+            }
+            const msg =
+                parts.length === 0
+                    ? "Tavolo chiuso."
+                    : `Tavolo chiuso: ${parts.join(", ")}.`;
+            showToast({ message: msg, type: "success" });
+            setIsCloseOpen(false);
+            setTableToClose(null);
+            await refetch();
+        } catch (err) {
+            if (err instanceof Error && err.message === "TABLE_HAS_OPEN_ORDERS") {
+                showToast({
+                    message:
+                        "Il tavolo ha ordini ancora aperti. Scegli come risolverli (servi o annulla tutto) e ripeti.",
+                    type: "warning"
+                });
+                await refetch();
+                return;
+            }
+            showToast({
+                message: "Errore durante la chiusura del tavolo",
+                type: "error"
+            });
+        } finally {
+            setProcessingClose(false);
+        }
+    }
 
     // Surface caricamento errori (rete, RLS) come toast — silenzia oltre il
     // primo per non spammare durante reconnect cycles.
@@ -168,34 +307,23 @@ export function TablesLiveView({
                                         : t.active_sessions_count > 0
                                           ? "occupied"
                                           : "free";
-                                    const clickable = !!onTableClick;
-                                    const cardClass = `${styles.card} ${styles[`card_${status}`]} ${
-                                        clickable ? styles.cardClickable : ""
-                                    }`;
+                                    // Card sempre cliccabili: il detail
+                                    // drawer e' interno al componente e
+                                    // sempre disponibile.
+                                    const cardClass = `${styles.card} ${styles[`card_${status}`]} ${styles.cardClickable}`;
                                     return (
                                         <article
                                             key={t.id}
                                             className={cardClass}
-                                            role={clickable ? "button" : undefined}
-                                            tabIndex={clickable ? 0 : undefined}
-                                            onClick={
-                                                clickable
-                                                    ? () => onTableClick!(t.id)
-                                                    : undefined
-                                            }
-                                            onKeyDown={
-                                                clickable
-                                                    ? e => {
-                                                          if (
-                                                              e.key === "Enter" ||
-                                                              e.key === " "
-                                                          ) {
-                                                              e.preventDefault();
-                                                              onTableClick!(t.id);
-                                                          }
-                                                      }
-                                                    : undefined
-                                            }
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => handleTableClick(t.id)}
+                                            onKeyDown={e => {
+                                                if (e.key === "Enter" || e.key === " ") {
+                                                    e.preventDefault();
+                                                    handleTableClick(t.id);
+                                                }
+                                            }}
                                         >
                                             <div className={styles.cardHeader}>
                                                 <Text weight={600} className={styles.cardLabel}>
@@ -260,6 +388,29 @@ export function TablesLiveView({
                     ))}
                 </div>
             )}
+
+            <TableDetailDrawer
+                open={isDetailOpen}
+                tenantId={tenantId}
+                activityId={activityId}
+                tableId={detailTableId}
+                onClose={() => {
+                    setIsDetailOpen(false);
+                    setDetailTableId(null);
+                }}
+                onRequestClose={handleRequestClose}
+            />
+
+            <TableCloseDrawer
+                open={isCloseOpen}
+                table={tableToClose}
+                onClose={() => {
+                    if (processingClose) return;
+                    setIsCloseOpen(false);
+                    setTableToClose(null);
+                }}
+                onConfirm={handleCloseConfirm}
+            />
         </div>
     );
 }

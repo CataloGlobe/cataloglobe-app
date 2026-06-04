@@ -23,6 +23,9 @@ import type {
     OrderStatus
 } from "@/types/orders";
 
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnActivity } from "@/lib/permissions";
+
 import styles from "./TableDetailDrawer.module.scss";
 
 interface Props {
@@ -31,6 +34,18 @@ interface Props {
     activityId: string | null;
     tableId: string | null;
     onClose: () => void;
+    /**
+     * Richiesta di apertura "Chiudi tavolo" dal detail. Il parent
+     * (TablesLiveView) si occupa di:
+     *   1. chiudere il detail drawer,
+     *   2. attendere la durata dell'exit anim,
+     *   3. aprire il TableCloseDrawer con la riga V2TableWithState
+     *      letta da items[] (zero I/O extra).
+     * Bottone gated da canDoOnActivity(perms, 'tables.manage', activityId);
+     * se omesso o se l'utente non ha il permesso il bottone non viene
+     * renderizzato.
+     */
+    onRequestClose?: (tableId: string) => void;
 }
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
@@ -101,11 +116,26 @@ export function TableDetailDrawer({
     tenantId,
     activityId,
     tableId,
-    onClose
+    onClose,
+    onRequestClose
 }: Props) {
     const [data, setData] = useState<DetailData | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const { permissions } = usePermissions();
+    // Bottone "Chiudi tavolo" mostrato solo se:
+    // - il parent fornisce il callback (TablesLiveView lo passa, altri
+    //   consumer informativi possono ometterlo),
+    // - l'utente ha il permesso `tables.manage` sull'activity corrente
+    //   (viewer escluso),
+    // - c'e' effettivamente qualcosa da chiudere (gate definito sotto su
+    //   `nothingToClose` derivato dai dati gia' fetchati).
+    const hasClosePermission =
+        !!onRequestClose &&
+        !!activityId &&
+        !!permissions &&
+        canDoOnActivity(permissions, "tables.manage", activityId);
 
     const loadDetail = useCallback(async () => {
         if (!tenantId || !activityId || !tableId) return;
@@ -154,6 +184,16 @@ export function TableDetailDrawer({
         ? data.orders.filter(o => o.status === "delivered")
         : [];
 
+    // "Niente da chiudere" = nessun item che la chiusura tavolo
+    // toccherebbe (no sessioni attive, no order_group aperto, no ordini
+    // non terminali). Su un tavolo cosi' il bottone "Chiudi tavolo" non
+    // viene mostrato — il drawer resta solo informativo.
+    const nothingToClose =
+        !!data &&
+        data.sessions.length === 0 &&
+        data.openGroup === null &&
+        activeOrders.length === 0;
+
     const tableLabel = data?.table.label ?? "Tavolo";
     const zoneName = data?.table.zone_name ?? null;
 
@@ -167,9 +207,23 @@ export function TableDetailDrawer({
                     </Text>
                 }
                 footer={
-                    <Button variant="secondary" onClick={onClose}>
-                        Chiudi
-                    </Button>
+                    hasClosePermission && !nothingToClose && tableId ? (
+                        <div className={styles.footerActions}>
+                            <Button variant="secondary" onClick={onClose}>
+                                Chiudi
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={() => onRequestClose!(tableId)}
+                            >
+                                Chiudi tavolo
+                            </Button>
+                        </div>
+                    ) : (
+                        <Button variant="secondary" onClick={onClose}>
+                            Chiudi
+                        </Button>
+                    )
                 }
             >
                 {isLoading && !data ? (

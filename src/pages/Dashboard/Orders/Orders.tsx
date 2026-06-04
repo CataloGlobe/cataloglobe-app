@@ -7,7 +7,6 @@ import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
-import { TableDetailDrawer } from "@/components/Tables/TableDetailDrawer/TableDetailDrawer";
 
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -97,9 +96,8 @@ export default function Orders() {
     const [isRectifyOpen, setIsRectifyOpen] = useState(false);
     const [orderToRectify, setOrderToRectify] = useState<V2OrderWithItems | null>(null);
 
-    // Table detail drawer (Step 4c — apertura via click su card in tab "Tavoli")
-    const [isTableDetailOpen, setIsTableDetailOpen] = useState(false);
-    const [tableInDetailId, setTableInDetailId] = useState<string | null>(null);
+    // Table detail + close drawer (tab "Tavoli"): ora interni a
+    // TablesLiveView (Step 4c + close-table). Nessuno state qui.
 
     // ── Storico (delivered + cancelled del giorno operativo) ──
     // Niente realtime: vista review, fetch on open + refetch dopo Ripristina.
@@ -688,10 +686,6 @@ export default function Orders() {
                 <TablesLiveView
                     tenantId={tenantId}
                     activityId={selectedActivityId}
-                    onTableClick={tableId => {
-                        setTableInDetailId(tableId);
-                        setIsTableDetailOpen(true);
-                    }}
                 />
             )}
 
@@ -790,17 +784,6 @@ export default function Orders() {
                     setOrderToRectify(null);
                 }}
                 onConfirm={handleRectifyConfirm}
-            />
-
-            <TableDetailDrawer
-                open={isTableDetailOpen}
-                tenantId={tenantId}
-                activityId={selectedActivityId}
-                tableId={tableInDetailId}
-                onClose={() => {
-                    setIsTableDetailOpen(false);
-                    setTableInDetailId(null);
-                }}
             />
         </section>
     );
