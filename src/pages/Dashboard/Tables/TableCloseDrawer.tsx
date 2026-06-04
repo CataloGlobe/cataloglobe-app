@@ -48,8 +48,12 @@ export default function TableCloseDrawer({ open, table, onClose, onConfirm }: Pr
 
     const hasOpenGroups = table.open_groups_count > 0;
     const hasOpenOrders = table.open_orders_count > 0;
+    const hasActiveSessions = table.active_sessions_count > 0;
     const hasCurrentTotal = table.current_total > 0;
-    const nothingToClose = !hasOpenGroups && !hasOpenOrders;
+    // Un tavolo occupato solo per sessione (0 conti, 0 ordini, 1+ sessioni)
+    // deve poter essere chiuso: la chiusura terminera' le sessioni
+    // attive (expire_at = now()) e il tavolo torna Libero.
+    const nothingToClose = !hasOpenGroups && !hasOpenOrders && !hasActiveSessions;
 
     return (
         <SystemDrawer open={open} onClose={onClose} width={420}>
@@ -128,8 +132,8 @@ export default function TableCloseDrawer({ open, table, onClose, onConfirm }: Pr
 
                     {nothingToClose ? (
                         <InlineBanner variant="info">
-                            Questo tavolo non ha conti aperti ne'' ordini in corso.
-                            Non c'e' niente da chiudere.
+                            Questo tavolo non ha conti aperti, ordini in corso ne'
+                            sessioni cliente attive. Non c'e' niente da chiudere.
                         </InlineBanner>
                     ) : (
                         <>
@@ -175,16 +179,18 @@ export default function TableCloseDrawer({ open, table, onClose, onConfirm }: Pr
                                     Ci sono {table.open_orders_count} ordini ancora
                                     aperti (in cucina, pronti o in attesa). Scegli
                                     cosa farne prima di chiudere: segnali tutti come
-                                    serviti, oppure annullali tutti. La risoluzione
-                                    e la chiusura vengono applicate insieme,
+                                    serviti, oppure annullali tutti. La risoluzione,
+                                    la chiusura dei conti e la terminazione delle
+                                    sessioni cliente vengono applicate insieme,
                                     atomicamente.
                                 </InlineBanner>
                             ) : (
                                 <InlineBanner variant="info">
                                     Tutti i conti aperti verranno chiusi. Le sessioni
-                                    cliente attive NON vengono terminate: scadranno
-                                    naturalmente o ripartiranno alla prossima
-                                    scansione del QR.
+                                    cliente attive vengono terminate (expire
+                                    immediato): alla prossima scansione del QR il
+                                    cliente parte da una sessione nuova, senza
+                                    vecchi ordini chiusi al seguito.
                                 </InlineBanner>
                             )}
                         </>

@@ -365,19 +365,30 @@ export function TablesManagement({
                 tableToClose.id,
                 action === "none" ? undefined : action
             );
-            // Toast message variabile per azione di risoluzione.
-            let msg: string;
-            if (result.resolved_action === "deliver") {
+            // Toast message dinamico componendo i counts realmente
+            // significativi (action, conti, sessioni). Evita frasi vuote
+            // tipo "0 conti chiusi" quando l'azione vera era terminare
+            // le sessioni.
+            const parts: string[] = [];
+            if (result.resolved_action === "deliver" && result.resolved_orders_count > 0) {
                 const k = result.resolved_orders_count;
-                msg = `Tavolo chiuso: ${k} ${k === 1 ? "ordine segnato" : "ordini segnati"} come ${k === 1 ? "servito" : "serviti"}.`;
-            } else if (result.resolved_action === "cancel") {
+                parts.push(`${k} ${k === 1 ? "ordine segnato come servito" : "ordini segnati come serviti"}`);
+            } else if (result.resolved_action === "cancel" && result.resolved_orders_count > 0) {
                 const k = result.resolved_orders_count;
-                msg = `Tavolo chiuso: ${k} ${k === 1 ? "ordine annullato" : "ordini annullati"}.`;
-            } else if (result.closed_groups_count === 0) {
-                msg = "Nessun conto aperto da chiudere.";
-            } else {
-                msg = `Tavolo chiuso (${result.closed_groups_count} ${result.closed_groups_count === 1 ? "conto" : "conti"}).`;
+                parts.push(`${k} ${k === 1 ? "ordine annullato" : "ordini annullati"}`);
             }
+            if (result.closed_groups_count > 0) {
+                const k = result.closed_groups_count;
+                parts.push(`${k} ${k === 1 ? "conto chiuso" : "conti chiusi"}`);
+            }
+            if (result.ended_sessions_count > 0) {
+                const k = result.ended_sessions_count;
+                parts.push(`${k} ${k === 1 ? "sessione terminata" : "sessioni terminate"}`);
+            }
+            const msg =
+                parts.length === 0
+                    ? "Tavolo chiuso."
+                    : `Tavolo chiuso: ${parts.join(", ")}.`;
             showToast({ message: msg, type: "success" });
             setIsCloseOpen(false);
             setTableToClose(null);

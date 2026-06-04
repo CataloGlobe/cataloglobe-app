@@ -175,6 +175,11 @@ export type CloseTableOpenOrdersAction = "deliver" | "cancel";
  *   - 'none'    → nessun aperto da risolvere (chiusura semplice).
  *   - 'deliver' | 'cancel' → bulk-resolve eseguito atomicamente con la
  *                 chiusura order_groups via RPC close_table_with_resolution.
+ *
+ * `ended_sessions_count`: numero di customer_sessions del tavolo
+ *   terminate (expires_at impostato a now()) come parte della chiusura
+ *   (migration 20260604100000). Atomicamente con gli altri counts. Il
+ *   tavolo torna "Libero" senza attesa TTL.
  */
 export interface CloseTableResult {
     table_id: string;
@@ -183,6 +188,7 @@ export interface CloseTableResult {
     closed_groups_count: number;
     closed_orders_count: number;
     cleared_bill_count: number;
+    ended_sessions_count: number;
 }
 
 /**
