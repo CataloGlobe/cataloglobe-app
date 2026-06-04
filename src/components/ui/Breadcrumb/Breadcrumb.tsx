@@ -37,7 +37,11 @@ export default function Breadcrumb({ items }: BreadcrumbProps) {
                                 </Link>
                             ) : (
                                 <span
-                                    className={styles.current}
+                                    className={
+                                        isLast
+                                            ? `${styles.current} ${styles.crumbCurrent}`
+                                            : styles.current
+                                    }
                                     aria-current={isLast ? "page" : undefined}
                                 >
                                     {item.icon && !isLast && (

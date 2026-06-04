@@ -1,11 +1,13 @@
 .nav {
   display: flex;
   align-items: center;
-  text-transform: uppercase;
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  color: var(--text, #0f172a);
+  // Stile base: lower-case, no letter-spacing. Foglia = titolo (sotto).
+  // Fallback esplicito su --text-muted: il token non è definito globalmente
+  // (vedi `_theme.scss`) e senza fallback erediterebbe il --text scuro,
+  // perdendo il contrasto antenati vs foglia.
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted, #94a3b8);
 }
 
 .list {
@@ -27,8 +29,9 @@
   align-items: center;
   gap: 8px;
   text-decoration: none;
-  color: inherit;
+  color: var(--text-muted, #94a3b8);
   cursor: pointer;
+  font-weight: 500;
 
   &:hover,
   &:focus-visible {
@@ -39,14 +42,28 @@
   }
 }
 
+// Crumb non-cliccabile (intermedio senza `to`, raro): stile muted come gli
+// antenati. NON viola.
 .current {
   display: flex;
   align-items: center;
   gap: 8px;
   pointer-events: none;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 500;
+}
+
+// Foglia (pagina attiva, ultimo crumb): stile "titolo di pagina".
+// Sovrascrive il muted di `.current` con testo primario + bold + size 16px
+// per stacco visivo netto vs antenati a 14px muted.
+.crumbCurrent {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.2; // evita che il +2px sballi l'altezza navbar
 
   span {
-    color: var(--brand-primary, #6366f1);
+    color: var(--text);
   }
 }
 
@@ -63,10 +80,10 @@
 }
 
 .separator {
-  color: var(--text, #0f172a);
+  color: var(--text-muted, #94a3b8);
   display: flex;
   align-items: center;
   margin: 0 10px;
   font-weight: normal;
-  opacity: 0.6;
+  opacity: 0.7;
 }
