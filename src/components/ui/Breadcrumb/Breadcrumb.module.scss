@@ -17,11 +17,13 @@
   margin: 0;
   padding: 0;
   flex-wrap: wrap; /* Responsive: wrapping on small screens */
+  min-width: 0; // enable ellipsis on flex children (.crumbCurrent)
 }
 
 .listItem {
   display: flex;
   align-items: center;
+  min-width: 0; // enable ellipsis on flex children (.crumbCurrent)
 }
 
 .link {
@@ -42,6 +44,20 @@
   }
 }
 
+// Override sul figlio <Text class="text"> dentro .link: il componente Text
+// applica .color-default (#1f2937), che sovrascrive il color di .link.
+// Forziamo qui muted/brand sul figlio — pattern simmetrico a
+// `.crumbCurrent span { color: var(--text); }` per il leaf.
+.link .text {
+  color: var(--text-muted, #94a3b8);
+  transition: color 0.15s ease;
+}
+
+.link:hover .text,
+.link:focus-visible .text {
+  color: var(--brand-primary, #6366f1);
+}
+
 // Crumb non-cliccabile (intermedio senza `to`, raro): stile muted come gli
 // antenati. NON viola.
 .current {
@@ -53,14 +69,20 @@
   font-weight: 500;
 }
 
-// Foglia (pagina attiva, ultimo crumb): stile "titolo di pagina".
-// Sovrascrive il muted di `.current` con testo primario + bold + size 16px
-// per stacco visivo netto vs antenati a 14px muted.
+// Foglia (pagina attiva, ultimo crumb): variante "gerarchia pulita".
+// Stessa size degli antenati (14px); stacco visivo affidato a colore primario
+// (var(--text)) + font-weight 600. Truncation con ellipsis su nomi lunghi.
 .crumbCurrent {
   color: var(--text);
   font-weight: 600;
-  font-size: 16px;
-  line-height: 1.2; // evita che il +2px sballi l'altezza navbar
+  font-size: 14px;
+  line-height: 1.2;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: bottom;
 
   span {
     color: var(--text);
