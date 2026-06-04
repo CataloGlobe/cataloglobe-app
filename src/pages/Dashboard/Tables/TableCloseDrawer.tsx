@@ -182,13 +182,13 @@ export default function TableCloseDrawer({ open, table, onClose, onConfirm }: Pr
 
                             {hasOpenOrders ? (
                                 <InlineBanner variant="warning">
-                                    Ci sono {table.open_orders_count} ordini ancora
-                                    aperti (in cucina, pronti o in attesa). Scegli
-                                    cosa farne prima di chiudere: segnali tutti come
-                                    serviti, oppure annullali tutti. La risoluzione,
-                                    la chiusura dei conti e la terminazione delle
-                                    sessioni cliente vengono applicate insieme,
-                                    atomicamente.
+                                    {table.open_orders_count === 1
+                                        ? "C'è 1 ordine ancora aperto (in cucina, pronto o in attesa). Scegli cosa farne prima di chiudere: segnalo come servito, oppure annullalo."
+                                        : `Ci sono ${table.open_orders_count} ordini ancora aperti (in cucina, pronti o in attesa). Scegli cosa farne prima di chiudere: segnali tutti come serviti, oppure annullali tutti.`}
+                                    {" "}
+                                    La risoluzione, la chiusura dei conti e la
+                                    terminazione delle sessioni cliente vengono
+                                    applicate insieme, atomicamente.
                                 </InlineBanner>
                             ) : (
                                 <InlineBanner variant="info">
