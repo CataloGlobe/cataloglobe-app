@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Grid2X2 } from "lucide-react";
+import { ChevronRight, Grid2X2 } from "lucide-react";
 
 import Text from "@/components/ui/Text/Text";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -393,6 +393,11 @@ export function TablesLiveView({
                                                     )}
                                                 </div>
                                             )}
+                                            <ChevronRight
+                                                size={16}
+                                                className={styles.cardChevron}
+                                                aria-hidden
+                                            />
                                         </article>
                                     );
                                 })}
