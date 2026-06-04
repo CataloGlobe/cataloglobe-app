@@ -83,8 +83,10 @@ export function NavbarBreadcrumb() {
         return [{ label }];
     }, [registeredItems, routeInfo, catalogLabel]);
 
+    // Sede mostrata SOLO sulla list-root della route (non sui detail).
+    // Es. `/scheduling` → sì; `/scheduling/:ruleId` → no.
     const showSedeSelector = routeInfo.key
-        ? SEDE_NAVBAR_ROUTES.has(routeInfo.key)
+        ? SEDE_NAVBAR_ROUTES.has(routeInfo.key) && !routeInfo.isDetail
         : false;
 
     if (items.length === 0 && !showSedeSelector) return null;
