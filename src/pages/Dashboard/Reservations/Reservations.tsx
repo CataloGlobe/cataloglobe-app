@@ -8,6 +8,8 @@ import { usePageHeader } from "@/context/usePageHeader";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
+import { Select } from "@/components/ui/Select/Select";
+import type { SelectOption } from "@/components/ui/Select/Select";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import { listReservations } from "@/services/supabase/reservations";
@@ -23,6 +25,13 @@ import styles from "./Reservations.module.scss";
 
 type TabKey = "inbox" | "agenda";
 type Scope = string | "__all__";
+type ChannelFilter = "all" | "online" | "manual";
+
+const CHANNEL_OPTIONS: SelectOption[] = [
+    { value: "all", label: "Tutti i canali" },
+    { value: "online", label: "Solo online" },
+    { value: "manual", label: "Solo a mano" }
+];
 
 function todayIsoDate(): string {
     const d = new Date();
@@ -78,6 +87,10 @@ export default function Reservations() {
     // Scope deriva da useSedeScope (navbar). SCOPE_ALL → "__all__" downstream.
     const scope: Scope = sedeScope.value === SCOPE_ALL ? "__all__" : sedeScope.value;
 
+    // Channel filter (toolbar dropdown). Client-side, applied to the in-memory
+    // dataset together with the scope filter. "all" = no narrowing.
+    const [channelFilter, setChannelFilter] = useState<ChannelFilter>("all");
+
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -92,18 +105,28 @@ export default function Reservations() {
     }, []);
 
     const pageActions = useMemo(
-        () =>
-            canCreate ? (
-                <Button
-                    variant="primary"
-                    className={styles.toolbarCta}
-                    leftIcon={<Plus size={16} />}
-                    onClick={handleOpenCreate}
-                >
-                    Nuova prenotazione
-                </Button>
-            ) : null,
-        [canCreate, handleOpenCreate]
+        () => (
+            <div className={styles.toolbarActions}>
+                <Select
+                    containerClassName={styles.toolbarChannelSelect}
+                    value={channelFilter}
+                    onChange={e => setChannelFilter(e.target.value as ChannelFilter)}
+                    aria-label="Filtra per canale"
+                    options={CHANNEL_OPTIONS}
+                />
+                {canCreate && (
+                    <Button
+                        variant="primary"
+                        className={styles.toolbarCta}
+                        leftIcon={<Plus size={16} />}
+                        onClick={handleOpenCreate}
+                    >
+                        Nuova prenotazione
+                    </Button>
+                )}
+            </div>
+        ),
+        [canCreate, channelFilter, handleOpenCreate]
     );
 
     // ── Sites the caller can READ ─────────────────────────────────────
@@ -187,15 +210,16 @@ export default function Reservations() {
         });
     }, [reservations, overrides]);
 
-    // ── Scope filter ──────────────────────────────────────────────────
+    // ── Scope + channel filter ────────────────────────────────────────
     const scopedReservations = useMemo(() => {
         return effectiveReservations.filter(r => {
             // Always gate by read scope (defensive — RLS already filters).
             if (!readableActivityIds.has(r.activity_id)) return false;
-            if (scope === "__all__") return true;
-            return r.activity_id === scope;
+            if (scope !== "__all__" && r.activity_id !== scope) return false;
+            if (channelFilter !== "all" && r.source !== channelFilter) return false;
+            return true;
         });
-    }, [effectiveReservations, readableActivityIds, scope]);
+    }, [effectiveReservations, readableActivityIds, scope, channelFilter]);
 
     const pendingInScope = useMemo(
         () => scopedReservations.filter(r => r.status === "pending"),

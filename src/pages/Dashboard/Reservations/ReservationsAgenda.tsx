@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarRange, Globe, PencilLine } from "lucide-react";
+import { CalendarRange } from "lucide-react";
 import { EmptyState } from "@components/ui/EmptyState/EmptyState";
 import type { V2Reservation } from "@/types/reservation";
 import ChannelMark from "./ChannelMark";
@@ -177,21 +177,6 @@ export default function ReservationsAgenda({
                     Mostra annullate / rifiutate
                 </label>
             )}
-
-            <div className={styles.channelLegend} aria-label="Legenda origine">
-                <span className={styles.channelLegendItem}>
-                    <span className={styles.channelLegendIcon}>
-                        <Globe size={12} strokeWidth={2} aria-hidden />
-                    </span>
-                    online
-                </span>
-                <span className={styles.channelLegendItem}>
-                    <span className={styles.channelLegendIcon}>
-                        <PencilLine size={12} strokeWidth={2} aria-hidden />
-                    </span>
-                    a mano
-                </span>
-            </div>
         </div>
     );
 

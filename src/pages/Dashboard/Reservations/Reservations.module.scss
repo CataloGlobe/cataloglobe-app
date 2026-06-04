@@ -14,6 +14,18 @@
   background: var(--color-skeleton, #f3f4f6);
 }
 
+// Toolbar actions: Select filtro canale + CTA "Nuova prenotazione" allineati.
+.toolbarActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+// Larghezza minima per ospitare "Tutti i canali" / "Solo a mano" senza wrap.
+.toolbarChannelSelect {
+  min-width: 168px;
+}
+
 // CTA della header band: altezza armonizzata a --control-height.
 .toolbarCta {
   box-sizing: border-box;
@@ -191,6 +203,32 @@
 .rowNoteIcon {
   display: inline-flex;
   color: var(--color-text-muted, #6b7280);
+}
+
+/* Inline note row: icon + text muted, ellipsis truncation. Stays under the
+   topline (date · ora · persone) and mirrors how the Agenda timeline shows
+   the same data, so Inbox and Agenda speak the same visual language. */
+.rowNote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.rowNoteIconInline {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.rowNoteText {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── Channel mark (online vs manual) ──────────────────── */

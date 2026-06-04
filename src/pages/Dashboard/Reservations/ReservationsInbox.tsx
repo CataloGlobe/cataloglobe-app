@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import { CalendarCheck, Globe, MessageSquare, PencilLine } from "lucide-react";
+import { CalendarCheck, MessageSquare } from "lucide-react";
 import { EmptyState } from "@components/ui/EmptyState/EmptyState";
+import { Button } from "@/components/ui/Button/Button";
 import type { V2Reservation } from "@/types/reservation";
 import type { DeferredAction } from "./useDeferredCommit";
 import ChannelMark from "./ChannelMark";
@@ -109,16 +110,22 @@ export default function ReservationsInbox({
                             {r.party_size === 1 ? "persona" : "persone"}
                         </span>
                     </div>
-                    <div className={styles.rowMetaDim}>
-                        {r.notes && (
-                            <span className={styles.rowNoteIcon} title="Contiene una nota">
-                                <MessageSquare size={13} strokeWidth={2} />
-                            </span>
-                        )}
-                        {showSitePill && siteName && (
+                    {r.notes && (
+                        <div className={styles.rowNote}>
+                            <MessageSquare
+                                size={13}
+                                strokeWidth={2}
+                                aria-hidden
+                                className={styles.rowNoteIconInline}
+                            />
+                            <span className={styles.rowNoteText}>{r.notes}</span>
+                        </div>
+                    )}
+                    {showSitePill && siteName && (
+                        <div className={styles.rowMetaDim}>
                             <span className={styles.rowSitePill}>{siteName}</span>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
                 <div className={styles.rowRight}>
                     {canManage && (
@@ -126,21 +133,21 @@ export default function ReservationsInbox({
                             className={styles.rowActions}
                             onClick={e => e.stopPropagation()}
                         >
-                            <button
-                                type="button"
-                                className={styles.actionBtnDanger}
+                            <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={() => onAction(r, "decline")}
                             >
                                 Rifiuta
-                            </button>
+                            </Button>
                             {!isStale && (
-                                <button
-                                    type="button"
-                                    className={styles.actionBtnPrimary}
+                                <Button
+                                    variant="primary"
+                                    size="sm"
                                     onClick={() => onAction(r, "confirm")}
                                 >
                                     Conferma
-                                </button>
+                                </Button>
                             )}
                         </div>
                     )}
@@ -151,20 +158,6 @@ export default function ReservationsInbox({
 
     return (
         <div className={styles.inbox}>
-            <div className={styles.channelLegend} aria-label="Legenda origine">
-                <span className={styles.channelLegendItem}>
-                    <span className={styles.channelLegendIcon}>
-                        <Globe size={12} strokeWidth={2} aria-hidden />
-                    </span>
-                    online
-                </span>
-                <span className={styles.channelLegendItem}>
-                    <span className={styles.channelLegendIcon}>
-                        <PencilLine size={12} strokeWidth={2} aria-hidden />
-                    </span>
-                    a mano
-                </span>
-            </div>
             {live.length > 0 && (
                 <section className={styles.inboxSection}>
                     <div className={styles.inboxSectionHeader}>
