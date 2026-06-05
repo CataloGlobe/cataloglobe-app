@@ -213,6 +213,69 @@ $line-indicator-w: 24px;
 }
 
 /* ============================================================ */
+/* Variant: default (flow geometry — drawer/pane, look = line)   */
+/* ============================================================ */
+
+// Stesso linguaggio visivo di `line` (segmento 24px, colori grigi, attivo
+// viola), ma geometria di FLUSSO: niente `height:100%`/`align-self:stretch`
+// perché vive in drawer/pane, non nella banda header sticky.
+.variant_default {
+  .tab {
+    flex: 0 0 auto;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: color 0.15s;
+
+    &::after {
+      // override delle regole globali (`left:0; right:0; height:2px;
+      // background: brand-primary-soft`).
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: -1px;
+      width: $line-indicator-w;
+      height: 2px;
+      background: $line-segment-inactive;
+      border-radius: 3px;
+      transition: background 0.15s, height 0.15s;
+    }
+
+    &:hover {
+      color: var(--text);
+    }
+
+    &:hover::after {
+      background: $line-segment-inactive-hover;
+    }
+
+    &[aria-selected="true"] {
+      color: var(--brand-primary);
+      font-weight: 600;
+    }
+
+    &[aria-selected="true"]::after,
+    &[aria-selected="true"]:hover::after {
+      background: var(--brand-primary);
+      height: 3px;
+    }
+
+    // Neutralizza l'opacity: 0.45 globale e fallback hex su `--text-muted`
+    // (token non definito globalmente — altrimenti cade in inherit scuro).
+    &[aria-disabled="true"],
+    &[aria-disabled="true"]:hover {
+      opacity: 1;
+      color: var(--text-muted, $line-text-disabled);
+    }
+
+    &[aria-disabled="true"]::after,
+    &[aria-disabled="true"]:hover::after {
+      background: $line-segment-disabled;
+    }
+  }
+}
+
+/* ============================================================ */
 /* Variant: secondary (segmented, inset, compact)                */
 /* ============================================================ */
 

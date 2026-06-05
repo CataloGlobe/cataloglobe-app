@@ -50,9 +50,7 @@ export function Tabs<T extends TabsValue>({ value, onChange, variant, children }
         [onChange]
     );
 
-    const rootClassName = variant
-        ? `${styles.root} ${styles[`variant_${variant}`]}`
-        : styles.root;
+    const rootClassName = `${styles.root} ${styles[`variant_${variant ?? "default"}`]}`;
 
     return (
         <TabsContext.Provider value={{ value, setValue, variant }}>
