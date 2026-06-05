@@ -1,3 +1,17 @@
+// Token locali del variant "line".
+// Colori grigi: il tema non espone scala grigia sufficiente, ad-hoc qui.
+$line-segment-inactive: #dbdfe6;
+$line-segment-inactive-hover: #c2c7d0;
+$line-segment-disabled: #edeef1;
+
+// Fallback per `--text-muted` (token non definito globalmente in _theme.scss).
+// Usato solo sul testo della tab disabled, altrimenti `var(--text-muted)`
+// cade in `inherit` e prende il colore scuro dell'header.
+$line-text-disabled: #aab0bb;
+
+// Larghezza fissa del segmento ::after, uguale per tutte le tab.
+$line-indicator-w: 24px;
+
 .root {
   display: flex;
   flex-direction: column;
@@ -148,20 +162,27 @@
     color: var(--text-muted);
     transition: color 0.15s;
 
+    // Segmento per-tab a larghezza fissa, centrato sotto ogni tab.
+    // Stato base inattivo: 2px grigio; attivo: 3px brand; disabled: 2px attenuato.
     &::after {
       content: "";
       position: absolute;
-      left: 8px;
-      right: 8px;
+      left: 50%;
+      transform: translateX(-50%);
       bottom: -1px; // sovrapponi il bordo del PageHeaderSlot
+      width: $line-indicator-w;
       height: 2px;
-      background: transparent;
-      border-radius: 2px 2px 0 0;
-      transition: background 0.15s;
+      background: $line-segment-inactive;
+      border-radius: 2px;
+      transition: background 0.15s, height 0.15s;
     }
 
     &:hover {
       color: var(--text);
+    }
+
+    &:hover::after {
+      background: $line-segment-inactive-hover;
     }
 
     &[aria-selected="true"] {
@@ -169,8 +190,24 @@
       font-weight: 600;
     }
 
-    &[aria-selected="true"]::after {
+    &[aria-selected="true"]::after,
+    &[aria-selected="true"]:hover::after {
       background: var(--brand-primary);
+      height: 3px;
+    }
+
+    // Neutralizza l'opacity: 0.45 globale (sparirebbe il segmento #edeef1).
+    // Forza color esplicito sul testo: `var(--text-muted)` non è definita
+    // globalmente e qui erediterebbe il colore scuro dell'header (BUG fix).
+    &[aria-disabled="true"],
+    &[aria-disabled="true"]:hover {
+      opacity: 1;
+      color: var(--text-muted, $line-text-disabled);
+    }
+
+    &[aria-disabled="true"]::after,
+    &[aria-disabled="true"]:hover::after {
+      background: $line-segment-disabled;
     }
   }
 }
