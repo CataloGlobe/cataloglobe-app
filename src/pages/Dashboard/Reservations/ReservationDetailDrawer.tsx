@@ -1,5 +1,14 @@
 import { useMemo } from "react";
-import { Globe, PencilLine } from "lucide-react";
+import {
+    CalendarDays,
+    Clock,
+    Globe,
+    Mail,
+    MapPin,
+    PencilLine,
+    Phone,
+    Users
+} from "lucide-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
@@ -40,12 +49,16 @@ function statusInfo(status: V2Reservation["status"]): {
 function formatDateIt(isoDate: string): string {
     const [y, m, d] = isoDate.split("-").map(n => parseInt(n, 10));
     const dt = new Date(y, (m ?? 1) - 1, d ?? 1);
-    return new Intl.DateTimeFormat("it-IT", {
+    const raw = new Intl.DateTimeFormat("it-IT", {
         weekday: "long",
         day: "numeric",
         month: "long",
         year: "numeric"
     }).format(dt);
+    // Intl IT renders weekday lowercase ("venerdì 12 giugno 2026"). Capitalize
+    // only the first letter — leaves accented characters and following words
+    // untouched.
+    return raw.length > 0 ? raw.charAt(0).toUpperCase() + raw.slice(1) : raw;
 }
 
 function formatTimeIt(time: string): string {
@@ -165,73 +178,127 @@ export default function ReservationDetailDrawer({
                 footer={footer}
             >
                 <div className={styles.drawerBody}>
-                    <section className={styles.drawerSection}>
-                        <h3 className={styles.drawerSectionTitle}>Quando</h3>
-                        <dl className={styles.drawerKv}>
-                            <dt>Sede</dt>
-                            <dd>{activityName ?? "—"}</dd>
-                            <dt>Data</dt>
-                            <dd>{formatDateIt(reservation.reservation_date)}</dd>
-                            <dt>Ora</dt>
-                            <dd>{formatTimeIt(reservation.reservation_time)}</dd>
-                            <dt>Persone</dt>
-                            <dd>{reservation.party_size}</dd>
-                            <dt>Origine</dt>
-                            <dd>
-                                <span className={styles.drawerOriginValue}>
-                                    {reservation.source === "manual" ? (
-                                        <>
-                                            <PencilLine size={14} strokeWidth={2} aria-hidden />
-                                            Inserita a mano
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Globe size={14} strokeWidth={2} aria-hidden />
-                                            Ricevuta online
-                                        </>
-                                    )}
-                                </span>
-                            </dd>
-                        </dl>
+                    {/* ── Hero: data eroe + meta + sede ─────────────────── */}
+                    <section className={styles.drawerHero}>
+                        <div className={styles.drawerHeroDate}>
+                            <CalendarDays
+                                size={18}
+                                strokeWidth={2}
+                                aria-hidden
+                                className={styles.drawerHeroDateIcon}
+                            />
+                            <span className={styles.drawerHeroDateText}>
+                                {formatDateIt(reservation.reservation_date)}
+                            </span>
+                        </div>
+
+                        <div className={styles.drawerHeroMeta}>
+                            <span className={styles.drawerHeroMetaItem}>
+                                <Clock size={15} strokeWidth={2} aria-hidden />
+                                {formatTimeIt(reservation.reservation_time)}
+                            </span>
+                            <span className={styles.drawerHeroMetaDot} aria-hidden>·</span>
+                            <span className={styles.drawerHeroMetaItem}>
+                                <Users size={15} strokeWidth={2} aria-hidden />
+                                {reservation.party_size}{" "}
+                                {reservation.party_size === 1 ? "persona" : "persone"}
+                            </span>
+                            <span className={styles.drawerHeroMetaDot} aria-hidden>·</span>
+                            <span className={styles.drawerHeroChannel}>
+                                {reservation.source === "manual" ? (
+                                    <>
+                                        <PencilLine size={13} strokeWidth={2} aria-hidden />
+                                        Inserita a mano
+                                    </>
+                                ) : (
+                                    <>
+                                        <Globe size={13} strokeWidth={2} aria-hidden />
+                                        Online
+                                    </>
+                                )}
+                            </span>
+                        </div>
+
+                        <div className={styles.drawerHeroVenue}>
+                            <MapPin size={13} strokeWidth={2} aria-hidden />
+                            {activityName ?? "—"}
+                        </div>
                     </section>
 
+                    {/* ── Cliente ───────────────────────────────────────── */}
                     <section className={styles.drawerSection}>
                         <h3 className={styles.drawerSectionTitle}>Cliente</h3>
-                        <dl className={styles.drawerKv}>
-                            <dt>Nome</dt>
-                            <dd>{reservation.customer_name}</dd>
-                            {reservation.customer_email?.trim() && (
-                                <>
-                                    <dt>Email</dt>
-                                    <dd>
-                                        <a href={`mailto:${reservation.customer_email}`}>
+                        <div className={styles.drawerCustomer}>
+                            <div className={styles.drawerCustomerName}>
+                                {reservation.customer_name}
+                            </div>
+                            <ul className={styles.drawerCustomerList}>
+                                {reservation.customer_email?.trim() && (
+                                    <li className={styles.drawerCustomerItem}>
+                                        <Mail
+                                            size={14}
+                                            strokeWidth={2}
+                                            aria-hidden
+                                            className={styles.drawerCustomerIcon}
+                                        />
+                                        <a
+                                            className={styles.drawerCustomerLink}
+                                            href={`mailto:${reservation.customer_email}`}
+                                        >
                                             {reservation.customer_email}
                                         </a>
-                                    </dd>
-                                </>
-                            )}
-                            <dt>Telefono</dt>
-                            <dd>
-                                <a href={`tel:${reservation.customer_phone}`}>
-                                    {reservation.customer_phone}
-                                </a>
-                            </dd>
-                        </dl>
+                                    </li>
+                                )}
+                                <li className={styles.drawerCustomerItem}>
+                                    <Phone
+                                        size={14}
+                                        strokeWidth={2}
+                                        aria-hidden
+                                        className={styles.drawerCustomerIcon}
+                                    />
+                                    <a
+                                        className={styles.drawerCustomerLink}
+                                        href={`tel:${reservation.customer_phone}`}
+                                    >
+                                        {reservation.customer_phone}
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
                     </section>
 
+                    {/* ── Aggregate callout (solo pending) ──────────────── */}
+                    {reservation.status === "pending" && aggregate && (
+                        <div className={styles.drawerAggregate}>
+                            <Clock
+                                size={16}
+                                strokeWidth={2}
+                                aria-hidden
+                                className={styles.drawerAggregateIcon}
+                            />
+                            <div className={styles.drawerAggregateText}>
+                                Vicino a questo orario (±1h30){" "}
+                                {aggregate.count === 1 ? (
+                                    <>
+                                        c&apos;è <strong>1</strong> prenotazione confermata
+                                    </>
+                                ) : (
+                                    <>
+                                        ci sono <strong>{aggregate.count}</strong>{" "}
+                                        prenotazioni confermate
+                                    </>
+                                )}
+                                , circa <strong>{aggregate.totalCovers}</strong> coperti.
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── Note ──────────────────────────────────────────── */}
                     {reservation.notes && (
                         <section className={styles.drawerSection}>
                             <h3 className={styles.drawerSectionTitle}>Note</h3>
                             <div className={styles.drawerNotes}>{reservation.notes}</div>
                         </section>
-                    )}
-
-                    {reservation.status === "pending" && aggregate && (
-                        <div className={styles.drawerAggregate}>
-                            Per questa fascia (±90 min stessa sede):{" "}
-                            <strong>{aggregate.count}</strong> confermate · ~
-                            <strong>{aggregate.totalCovers}</strong> coperti
-                        </div>
                     )}
                 </div>
             </DrawerLayout>

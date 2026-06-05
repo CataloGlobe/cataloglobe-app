@@ -101,31 +101,33 @@ export default function ReservationsInbox({
                 }}
             >
                 <div className={styles.rowMain}>
-                    <div className={styles.rowTopLine}>
-                        <ChannelMark source={r.source} />
-                        <span className={styles.rowName}>{r.customer_name}</span>
-                        <span className={styles.rowMeta}>
-                            {formatRowDate(r.reservation_date)} ·{" "}
-                            {r.reservation_time.slice(0, 5)} · {r.party_size}{" "}
-                            {r.party_size === 1 ? "persona" : "persone"}
-                        </span>
+                    <ChannelMark source={r.source} />
+                    <div className={styles.rowContent}>
+                        <div className={styles.rowTopLine}>
+                            <span className={styles.rowName}>{r.customer_name}</span>
+                            <span className={styles.rowMeta}>
+                                {formatRowDate(r.reservation_date)} ·{" "}
+                                {r.reservation_time.slice(0, 5)} · {r.party_size}{" "}
+                                {r.party_size === 1 ? "persona" : "persone"}
+                            </span>
+                        </div>
+                        {r.notes && (
+                            <div className={styles.rowNote}>
+                                <MessageSquare
+                                    size={13}
+                                    strokeWidth={2}
+                                    aria-hidden
+                                    className={styles.rowNoteIconInline}
+                                />
+                                <span className={styles.rowNoteText}>{r.notes}</span>
+                            </div>
+                        )}
+                        {showSitePill && siteName && (
+                            <div className={styles.rowMetaDim}>
+                                <span className={styles.rowSitePill}>{siteName}</span>
+                            </div>
+                        )}
                     </div>
-                    {r.notes && (
-                        <div className={styles.rowNote}>
-                            <MessageSquare
-                                size={13}
-                                strokeWidth={2}
-                                aria-hidden
-                                className={styles.rowNoteIconInline}
-                            />
-                            <span className={styles.rowNoteText}>{r.notes}</span>
-                        </div>
-                    )}
-                    {showSitePill && siteName && (
-                        <div className={styles.rowMetaDim}>
-                            <span className={styles.rowSitePill}>{siteName}</span>
-                        </div>
-                    )}
                 </div>
                 <div className={styles.rowRight}>
                     {canManage && (
@@ -160,10 +162,6 @@ export default function ReservationsInbox({
         <div className={styles.inbox}>
             {live.length > 0 && (
                 <section className={styles.inboxSection}>
-                    <div className={styles.inboxSectionHeader}>
-                        <h2 className={styles.inboxSectionTitle}>Da gestire</h2>
-                        <span className={styles.inboxSectionCount}>{live.length}</span>
-                    </div>
                     <div className={styles.cards}>
                         {live.map(r => renderRow(r, false))}
                     </div>
