@@ -117,7 +117,7 @@ export default function TableCloseDrawer({ open, table, onClose, onConfirm }: Pr
                                 Segna tutte come servite e chiudi
                             </Button>
                             <Button
-                                variant="danger"
+                                variant="outline-danger"
                                 fullWidth
                                 onClick={() => void handleConfirm("cancel")}
                                 loading={processingAction === "cancel"}
