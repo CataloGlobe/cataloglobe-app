@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Bell, Grid2X2, Layers, Lock, MoreHorizontal, Plus, QrCode, RefreshCw, RotateCw } from "lucide-react";
+import { Bell, Grid2X2, Layers, MoreHorizontal, Plus, QrCode, RefreshCw, RotateCw } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
@@ -25,7 +25,6 @@ import {
     regenerateTableQrToken,
     updateTable
 } from "@/services/supabase/tables";
-import { closeTable } from "@/services/supabase/customerSessions";
 import type { V2Table, V2TableWithState } from "@/types/orders";
 
 import { ZoneSelectField } from "@/components/Tables/ZoneSelectField/ZoneSelectField";
@@ -34,7 +33,6 @@ import { TableZoneManagementDrawer } from "@/components/Tables/TableZoneManageme
 import BillRequestsDrawer from "@/pages/Dashboard/Tables/BillRequestsDrawer";
 import TableDeleteDrawer from "@/pages/Dashboard/Tables/TableDeleteDrawer";
 import TableRegenerateTokenDrawer from "@/pages/Dashboard/Tables/TableRegenerateTokenDrawer";
-import TableCloseDrawer from "@/pages/Dashboard/Tables/TableCloseDrawer";
 
 import styles from "./TablesManagement.module.scss";
 
@@ -88,9 +86,6 @@ export function TablesManagement({
     const [isRegenOpen, setIsRegenOpen] = useState(false);
     const [itemToRegen, setItemToRegen] = useState<V2Table | null>(null);
 
-    // Close table drawer
-    const [isCloseOpen, setIsCloseOpen] = useState(false);
-    const [tableToClose, setTableToClose] = useState<V2TableWithState | null>(null);
     const [billDrawerTable, setBillDrawerTable] = useState<{ id: string; label: string } | null>(null);
 
     // Zone management drawer
@@ -351,70 +346,6 @@ export function TablesManagement({
         }
     }
 
-    function openClose(item: V2TableWithState) {
-        setTableToClose(item);
-        setIsCloseOpen(true);
-    }
-
-    async function handleCloseConfirm(
-        action: "none" | "deliver" | "cancel"
-    ): Promise<void> {
-        if (!tableToClose) return;
-        try {
-            const result = await closeTable(
-                tableToClose.id,
-                action === "none" ? undefined : action
-            );
-            // Toast message dinamico componendo i counts realmente
-            // significativi (action, conti, sessioni). Evita frasi vuote
-            // tipo "0 conti chiusi" quando l'azione vera era terminare
-            // le sessioni.
-            const parts: string[] = [];
-            if (result.resolved_action === "deliver" && result.resolved_orders_count > 0) {
-                const k = result.resolved_orders_count;
-                parts.push(`${k} ${k === 1 ? "ordine segnato come servito" : "ordini segnati come serviti"}`);
-            } else if (result.resolved_action === "cancel" && result.resolved_orders_count > 0) {
-                const k = result.resolved_orders_count;
-                parts.push(`${k} ${k === 1 ? "ordine annullato" : "ordini annullati"}`);
-            }
-            if (result.closed_groups_count > 0) {
-                const k = result.closed_groups_count;
-                parts.push(`${k} ${k === 1 ? "conto chiuso" : "conti chiusi"}`);
-            }
-            if (result.ended_sessions_count > 0) {
-                const k = result.ended_sessions_count;
-                parts.push(`${k} ${k === 1 ? "sessione terminata" : "sessioni terminate"}`);
-            }
-            const msg =
-                parts.length === 0
-                    ? "Tavolo chiuso."
-                    : `Tavolo chiuso: ${parts.join(", ")}.`;
-            showToast({ message: msg, type: "success" });
-            setIsCloseOpen(false);
-            setTableToClose(null);
-            await loadData();
-        } catch (err) {
-            if (err instanceof Error && err.message === "TABLE_HAS_OPEN_ORDERS") {
-                // Rete di sicurezza: action='none' chiamata su tavolo che ha
-                // aperti (la UI normalmente impedisce il path, ma una race
-                // realtime potrebbe avere portato aperti tra fetch e click).
-                // Aggiorna i dati cosi' il drawer si riapre col gating
-                // corretto (2 bottoni di risoluzione).
-                showToast({
-                    message:
-                        "Il tavolo ha ordini ancora aperti. Scegli come risolverli (servi o annulla tutto) e ripeti.",
-                    type: "warning"
-                });
-                await loadData();
-                return;
-            }
-            showToast({
-                message: "Errore durante la chiusura del tavolo",
-                type: "error"
-            });
-        }
-    }
-
     // ── Columns ──
     const columns: ColumnDefinition<V2TableWithState>[] = [
         {
@@ -535,11 +466,6 @@ export function TablesManagement({
                             label: "Rigenera token QR",
                             icon: RotateCw,
                             onClick: () => openRegen(row)
-                        },
-                        {
-                            label: "Chiudi tavolo",
-                            icon: Lock,
-                            onClick: () => openClose(row)
                         },
                         {
                             label: "Elimina",
@@ -766,16 +692,6 @@ export function TablesManagement({
                     setItemToRegen(null);
                 }}
                 onConfirm={handleRegenerate}
-            />
-
-            <TableCloseDrawer
-                open={isCloseOpen}
-                table={tableToClose}
-                onClose={() => {
-                    setIsCloseOpen(false);
-                    setTableToClose(null);
-                }}
-                onConfirm={handleCloseConfirm}
             />
 
             <BillRequestsDrawer
