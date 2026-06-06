@@ -22,6 +22,14 @@ export interface NotificationsContextType {
     refetch: () => Promise<void>;
 }
 
+// Cap in-memory size of the notifications array. Matches the initial
+// fetch limit in getNotifications(userId). Without this, the realtime
+// onNew handler prepends indefinitely → long sessions accumulate state +
+// DOM in the bell dropdown. Older rows stay in DB and can be retrieved
+// via refetch() or a future pagination API; unreadCount is unaffected
+// (it's a server-side count head, independent of in-memory state).
+const MAX_IN_MEMORY = 50;
+
 export const NotificationsContext = createContext<NotificationsContextType | null>(null);
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
@@ -75,7 +83,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         void init();
 
         const channel = subscribeToNotifications(user.id, (notification) => {
-            setNotifications(prev => [notification, ...prev]);
+            setNotifications(prev => {
+                const next = [notification, ...prev];
+                return next.length > MAX_IN_MEMORY ? next.slice(0, MAX_IN_MEMORY) : next;
+            });
             setUnreadCount(prev => prev + 1);
         });
         channelRef.current = channel;
