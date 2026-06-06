@@ -563,6 +563,90 @@ serve(async (req: Request) => {
             console.error("[submit-reservation] venue alert resolver failed:", mailErr);
         }
 
+        // ── In-app notification fan-out (best-effort) ────────────────────
+        // One row per user with `reservations.manage` on this activity.
+        // Resolution via the SECURITY DEFINER helper
+        // `public.get_users_with_activity_permission(permission, activity)`
+        // (service_role only). Failures NEVER fail the reservation —
+        // the row is already saved and emails were already sent above.
+        try {
+            const { data: recipientIds, error: rpcError } = await supabase.rpc(
+                "get_users_with_activity_permission",
+                {
+                    p_permission_id: "reservations.manage",
+                    p_activity_id: activity.id
+                }
+            );
+
+            if (rpcError) {
+                console.error(
+                    "[submit-reservation] notification recipient lookup failed:",
+                    rpcError
+                );
+            } else {
+                const userIds: string[] = Array.isArray(recipientIds)
+                    ? (recipientIds as unknown[])
+                          .map(v =>
+                              typeof v === "string"
+                                  ? v
+                                  : v && typeof v === "object" && "user_id" in v
+                                      ? String((v as { user_id: unknown }).user_id)
+                                      : ""
+                          )
+                          .filter(v => v.length > 0)
+                    : [];
+
+                if (userIds.length === 0) {
+                    console.log(
+                        `[submit-reservation] no notification recipients (reservation_id=${reservationId}, activity_id=${activity.id}).`
+                    );
+                } else {
+                    const dateIt = formatDateIt(reservationDate);
+                    const timeIt = formatTimeIt(reservationTime);
+                    const message = `${customerName} · ${dateIt} ${timeIt} · ${partySize} p.`;
+                    const data = {
+                        reservation_id: reservationId,
+                        activity_id: activity.id,
+                        activity_name: activity.name,
+                        customer_name: customerName,
+                        customer_email: customerEmail,
+                        customer_phone: customerPhone,
+                        reservation_date: reservationDate,
+                        reservation_time: reservationTime,
+                        party_size: partySize,
+                        source: "online"
+                    };
+
+                    const rows = userIds.map(uid => ({
+                        user_id: uid,
+                        tenant_id: activity.tenant_id,
+                        event_type: "reservation.new",
+                        type: "info",
+                        title: "Nuova prenotazione",
+                        message,
+                        data
+                    }));
+
+                    const { error: insertNotifError } = await supabase
+                        .from("notifications")
+                        .insert(rows);
+
+                    if (insertNotifError) {
+                        console.error(
+                            "[submit-reservation] notification fan-out insert failed:",
+                            insertNotifError
+                        );
+                    } else {
+                        console.log(
+                            `[submit-reservation] notification fan-out (reservation_id=${reservationId}, count=${rows.length}).`
+                        );
+                    }
+                }
+            }
+        } catch (notifErr) {
+            console.error("[submit-reservation] notification fan-out failed:", notifErr);
+        }
+
         return jsonResponse({ success: true, reservation_id: reservationId }, 200);
     } catch (err) {
         console.error("[submit-reservation] error:", err);

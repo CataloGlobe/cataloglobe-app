@@ -1,4 +1,5 @@
 import { Menu } from "lucide-react";
+import { useTenant } from "@/context/useTenant";
 import { HeaderLogo } from "./HeaderLogo";
 import { HeaderTenantSwitcher } from "./HeaderTenantSwitcher";
 import { HeaderNotifications } from "./HeaderNotifications";
@@ -11,6 +12,7 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
+    const { selectedTenantId } = useTenant();
     return (
         <div className={styles.appHeader}>
             <div className={styles.left}>
@@ -30,7 +32,7 @@ export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
                 <NavbarBreadcrumb />
             </div>
             <div className={styles.right}>
-                <HeaderNotifications />
+                <HeaderNotifications scope="tenant" tenantId={selectedTenantId} />
                 <HeaderUserMenu />
             </div>
         </div>

@@ -295,6 +295,148 @@
   color: #94A3B8;
 }
 
+/* ===== Notifications: numeric badge ===== */
+.notifBadge {
+  position: absolute;
+  top: 1px;
+  right: -2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #EF4444;
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #FFFFFF;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* ===== Notifications: dropdown list =====
+   Each item is a plain <button> so it owns its full intrinsic height —
+   bypasses the fixed 32px height that Menu.Item (Radix DropdownMenu.Item)
+   imposes, which was clipping the 3-row content and overlapping items. */
+.notifList {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 420px;
+  overflow-y: auto;
+  min-width: 320px;
+}
+
+.notifItemWrap {
+  margin: 0;
+  padding: 0;
+}
+
+/* Divider between items — only between siblings, not before the first. */
+.notifItemWrap + .notifItemWrap {
+  border-top: 1px solid var(--color-gray-100, #f1f5f9);
+}
+
+.notifItem {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--color-gray-100, #f1f5f9);
+  }
+}
+
+.notifItemUnread {
+  background: color-mix(in srgb, #6366F1 6%, transparent);
+
+  &:hover,
+  &:focus-visible {
+    background: color-mix(in srgb, #6366F1 10%, transparent);
+  }
+}
+
+.notifItemTitleLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.3;
+}
+
+.notifItemTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0F172A;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notifItemUnreadDot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6366F1;
+}
+
+.notifItemMessage {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #475569;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.notifItemTime {
+  display: block;
+  font-size: 11px;
+  line-height: 1.3;
+  color: #94A3B8;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.notifMarkAll {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-top: 1px solid var(--color-gray-100, #f1f5f9);
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6366F1;
+  text-align: center;
+  cursor: pointer;
+  outline: none;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--color-gray-100, #f1f5f9);
+  }
+}
+
 /* ===== User menu trigger ===== */
 .userButton {
   width: 32px;
