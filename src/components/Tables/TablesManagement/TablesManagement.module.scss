@@ -75,6 +75,15 @@
     gap: 2px;
 }
 
+// Cella azioni di riga: icona QR inline (IconButton ghost) prima del kebab
+// (TableRowActions). Allinea a destra come tutte le row-action cells.
+.actionsCell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
 .form {
     display: flex;
     flex-direction: column;
