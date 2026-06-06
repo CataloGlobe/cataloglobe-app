@@ -89,32 +89,6 @@
     padding: 16px;
 }
 
-.toggleRow {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    cursor: pointer;
-    padding: 12px;
-    border: 1px solid var(--border-default, #e1e3e8);
-    border-radius: 8px;
-    transition: border-color 120ms ease;
-
-    &:hover {
-        border-color: var(--border-strong, #c8ccd2);
-    }
-
-    input[type="checkbox"] {
-        margin-top: 3px;
-        cursor: pointer;
-    }
-}
-
-.toggleCopy {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
 .billBadge {
     display: inline-flex;
     align-items: center;

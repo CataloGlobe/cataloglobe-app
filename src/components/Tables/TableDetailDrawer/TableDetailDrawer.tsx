@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { Switch } from "@/components/ui/Switch/Switch";
 import type { StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
 
-import { getTable } from "@/services/supabase/tables";
+import { useToast } from "@/context/Toast/ToastContext";
+
+import { getTable, updateTable } from "@/services/supabase/tables";
 import {
     listActiveSessionsForTable,
     getOpenOrderGroupForTable
@@ -46,6 +49,15 @@ interface Props {
      * renderizzato.
      */
     onRequestClose?: (tableId: string) => void;
+    /**
+     * Notifica al parent che il flag manutenzione del tavolo e' stato
+     * toggleato. Il parent dovrebbe rifare il fetch della lista (es.
+     * `useTablesLiveRealtime.refetch`) per sincronizzare card, filtri e
+     * KPI. `tables` non e' in publication `supabase_realtime`, quindi
+     * il toggle non propaga via realtime ad altri client — refetch
+     * locale solo per il client che esegue il toggle.
+     */
+    onMaintenanceChanged?: (tableId: string) => void;
 }
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
@@ -117,25 +129,31 @@ export function TableDetailDrawer({
     activityId,
     tableId,
     onClose,
-    onRequestClose
+    onRequestClose,
+    onMaintenanceChanged
 }: Props) {
     const [data, setData] = useState<DetailData | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isTogglingMaintenance, setIsTogglingMaintenance] = useState(false);
 
+    const { showToast } = useToast();
     const { permissions } = usePermissions();
-    // Bottone "Chiudi tavolo" mostrato solo se:
-    // - il parent fornisce il callback (TablesLiveView lo passa, altri
-    //   consumer informativi possono ometterlo),
-    // - l'utente ha il permesso `tables.manage` sull'activity corrente
-    //   (viewer escluso),
-    // - c'e' effettivamente qualcosa da chiudere (gate definito sotto su
-    //   `nothingToClose` derivato dai dati gia' fetchati).
-    const hasClosePermission =
-        !!onRequestClose &&
+    // Gate `tables.manage` sull'activity corrente (viewer escluso). Usato
+    // sia per il bottone "Chiudi tavolo" nel footer sia per il toggle
+    // manutenzione nello statusBlock: entrambe sono azioni di scope
+    // operazione tavolo.
+    const canManageTable =
         !!activityId &&
         !!permissions &&
         canDoOnActivity(permissions, "tables.manage", activityId);
+    // Bottone "Chiudi tavolo" mostrato solo se:
+    // - il parent fornisce il callback (TablesLiveView lo passa, altri
+    //   consumer informativi possono ometterlo),
+    // - canManageTable,
+    // - c'e' effettivamente qualcosa da chiudere (gate definito sotto su
+    //   `nothingToClose` derivato dai dati gia' fetchati).
+    const hasClosePermission = canManageTable && !!onRequestClose;
 
     const loadDetail = useCallback(async () => {
         if (!tenantId || !activityId || !tableId) return;
@@ -162,6 +180,36 @@ export function TableDetailDrawer({
             setIsLoading(false);
         }
     }, [tenantId, activityId, tableId]);
+
+    async function handleMaintenanceToggle(next: boolean): Promise<void> {
+        if (!tenantId || !tableId || !data) return;
+        setIsTogglingMaintenance(true);
+        try {
+            const updated = await updateTable(tableId, tenantId, {
+                maintenance_mode: next
+            });
+            // Patch locale on-success: aggiorna badge + Switch senza
+            // attendere refetch (zero flicker). Non e' ottimistica: solo
+            // se la write passa.
+            setData(d =>
+                d ? { ...d, table: { ...d.table, maintenance_mode: updated.maintenance_mode } } : d
+            );
+            showToast({
+                message: next
+                    ? "Tavolo messo in manutenzione"
+                    : "Tavolo riattivato",
+                type: "success"
+            });
+            onMaintenanceChanged?.(tableId);
+        } catch {
+            showToast({
+                message: "Errore durante l'aggiornamento della manutenzione",
+                type: "error"
+            });
+        } finally {
+            setIsTogglingMaintenance(false);
+        }
+    }
 
     // Carica al primo open su un tavolo specifico (e re-carica se cambiano i target).
     useEffect(() => {
@@ -258,6 +306,23 @@ export function TableDetailDrawer({
                                 </Text>
                             )}
                         </div>
+
+                        {canManageTable && (
+                            <div className={styles.maintenanceRow}>
+                                <div className={styles.maintenanceCopy}>
+                                    <Text weight={500}>Manutenzione</Text>
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        I clienti non possono ordinare da questo tavolo
+                                        finché disattivi questa opzione.
+                                    </Text>
+                                </div>
+                                <Switch
+                                    checked={data.table.maintenance_mode}
+                                    onChange={next => void handleMaintenanceToggle(next)}
+                                    disabled={isTogglingMaintenance}
+                                />
+                            </div>
+                        )}
 
                         <section className={styles.section}>
                             <Text variant="body-sm" weight={600} colorVariant="muted">

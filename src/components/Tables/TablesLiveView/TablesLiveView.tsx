@@ -417,6 +417,7 @@ export function TablesLiveView({
                     setDetailTableId(null);
                 }}
                 onRequestClose={handleRequestClose}
+                onMaintenanceChanged={() => void refetch()}
             />
 
             <TableCloseDrawer

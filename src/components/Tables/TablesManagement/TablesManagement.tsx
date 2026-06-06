@@ -71,7 +71,6 @@ export function TablesManagement({
     const [formLabel, setFormLabel] = useState("");
     const [formZoneId, setFormZoneId] = useState<string | null>(null);
     const [formSeats, setFormSeats] = useState<string>("");
-    const [formMaintenanceMode, setFormMaintenanceMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     // Guardrail: true mentre il mini-form "Crea zona" e' aperto. Blocca
     // submit del form tavolo per evitare creazione tavolo con zone_id=null
@@ -180,7 +179,6 @@ export function TablesManagement({
         setFormLabel("");
         setFormZoneId(null);
         setFormSeats("");
-        setFormMaintenanceMode(false);
         setIsCreatingZone(false);
         setIsDrawerOpen(true);
     }
@@ -190,7 +188,6 @@ export function TablesManagement({
         setFormLabel(item.label);
         setFormZoneId(item.zone_id);
         setFormSeats(item.seats?.toString() ?? "");
-        setFormMaintenanceMode(item.maintenance_mode);
         setIsCreatingZone(false);
         setIsDrawerOpen(true);
     }
@@ -236,8 +233,7 @@ export function TablesManagement({
                 await updateTable(editingItem.id, tenantId, {
                     label: formLabel.trim(),
                     zone_id: formZoneId,
-                    seats: seatsParsed ?? null,
-                    maintenance_mode: formMaintenanceMode
+                    seats: seatsParsed ?? null
                 });
                 showToast({ message: "Tavolo aggiornato", type: "success" });
             } else {
@@ -245,8 +241,7 @@ export function TablesManagement({
                     activity_id: activityId,
                     label: formLabel.trim(),
                     zone_id: formZoneId,
-                    seats: seatsParsed,
-                    maintenance_mode: formMaintenanceMode
+                    seats: seatsParsed
                 });
                 showToast({ message: "Tavolo creato", type: "success" });
             }
@@ -656,20 +651,6 @@ export function TablesManagement({
                             onChange={e => setFormSeats(e.target.value)}
                             placeholder="2"
                         />
-                        <label className={styles.toggleRow}>
-                            <input
-                                type="checkbox"
-                                checked={formMaintenanceMode}
-                                onChange={e => setFormMaintenanceMode(e.target.checked)}
-                            />
-                            <span className={styles.toggleCopy}>
-                                <Text weight={500}>Manutenzione</Text>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    I clienti non possono ordinare da questo tavolo finché
-                                    disattivi questa opzione.
-                                </Text>
-                            </span>
-                        </label>
                     </form>
                 </DrawerLayout>
             </SystemDrawer>

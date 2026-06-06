@@ -29,6 +29,27 @@
     flex-wrap: wrap;
 }
 
+// Toggle manutenzione: card simile al pattern checkbox di TablesManagement
+// (border + copy esplicativa + controllo a destra). Visibile solo se
+// canManageTable; nessuno stato disabled visivo separato (lo Switch
+// gestisce il disabled durante l'await dell'update).
+.maintenanceRow {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px;
+    border: 1px solid var(--border-default, #e1e3e8);
+    border-radius: 8px;
+}
+
+.maintenanceCopy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
 .section {
     display: flex;
     flex-direction: column;
