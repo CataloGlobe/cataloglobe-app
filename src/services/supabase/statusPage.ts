@@ -120,15 +120,17 @@ export async function listRecentChecks(
 /**
  * Aggregazione "giorni con problemi" su 90 giorni per il grafico uptime.
  *
- * Implementazione client-side (anziché RPC SQL):
- *   - fetch di tutti i check degli ultimi 90 giorni per il servizio (1 query)
- *   - bucket per giorno (UTC), worst-of-day come stato del giorno
- *   - giorni senza check = "unknown" (non degraded, lo distinguiamo nel
- *     componente UptimeBar — colore neutro)
+ * Aggregazione server-side via RPC `public.get_daily_uptime(p_service_key, p_days)`:
+ * una riga per giorno con dati, `worst` = worst-of-day (up<degraded<down),
+ * `check_count` = numero check del giorno. Giorni senza dati: nessuna riga
+ * dalla RPC → il fill-loop sotto li marca come `unknown` (renderizzato
+ * neutro dal componente UptimeBar).
  *
- * Volume atteso per query: ~64k righe/servizio in 90 giorni (4 servizi ×
- * 720 check/giorno × 90 giorni / 4 servizi). Una sola query con LIMIT su
- * data range va bene; se in futuro diventa lento, RPC SQL `daily_status_summary`.
+ * Migrazione da query client-side: la vecchia SELECT senza LIMIT colpiva il
+ * cap PostgREST (1000 righe) con ORDER BY ASC → solo i ~1.4 giorni piu'
+ * vecchi della finestra finivano nei bucket, il resto della barra appariva
+ * grigio nonostante i check esistessero. Vedi migration
+ * `20260606130000_add_get_daily_uptime_rpc.sql`.
  */
 export type DailyBucket = {
     date: string; // YYYY-MM-DD (UTC)
@@ -136,33 +138,25 @@ export type DailyBucket = {
     checkCount: number;
 };
 
+type DailyUptimeRow = {
+    day: string;
+    worst: CheckStatus;
+    check_count: number;
+};
+
 export async function listDailyUptime(
     serviceKey: ServiceKey,
     days = 90
 ): Promise<DailyBucket[]> {
-    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-    const { data, error } = await supabase
-        .from("status_checks")
-        .select("status, checked_at")
-        .eq("service_key", serviceKey)
-        .gte("checked_at", cutoff)
-        .order("checked_at", { ascending: true });
+    const { data, error } = await supabase.rpc("get_daily_uptime", {
+        p_service_key: serviceKey,
+        p_days: days
+    });
     if (error) throw error;
 
     const byDate = new Map<string, { worst: CheckStatus; checkCount: number }>();
-    const rank: Record<CheckStatus, number> = { up: 0, degraded: 1, down: 2 };
-
-    for (const row of data ?? []) {
-        const d = new Date(row.checked_at);
-        const isoDate = d.toISOString().slice(0, 10);
-        const existing = byDate.get(isoDate);
-        const status = row.status as CheckStatus;
-        if (!existing) {
-            byDate.set(isoDate, { worst: status, checkCount: 1 });
-        } else {
-            existing.checkCount += 1;
-            if (rank[status] > rank[existing.worst]) existing.worst = status;
-        }
+    for (const row of (data ?? []) as DailyUptimeRow[]) {
+        byDate.set(row.day, { worst: row.worst, checkCount: row.check_count });
     }
 
     const buckets: DailyBucket[] = [];
