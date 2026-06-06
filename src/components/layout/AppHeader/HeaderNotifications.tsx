@@ -1,9 +1,10 @@
-import { useMemo } from "react";
-import { Bell, BellOff } from "lucide-react";
+import { useEffect, useMemo, useRef } from "react";
+import { Bell, BellOff, Volume2, VolumeX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Menu } from "@/components/ui/Menu";
 import { useNotifications } from "@/context/useNotifications";
 import type { Notification } from "@/services/supabase/notifications";
+import { useNotificationChime } from "@/hooks/useNotificationChime";
 import { formatRelativeTime } from "@/utils/relativeTime";
 import styles from "./AppHeader.module.scss";
 
@@ -25,6 +26,7 @@ function resolveTargetPath(notification: Notification, fallbackTenantId: string 
 
 export function HeaderNotifications(props: HeaderNotificationsProps) {
     const { notifications, markAsRead } = useNotifications();
+    const { soundEnabled, toggleSound, triggerChime } = useNotificationChime();
     const navigate = useNavigate();
 
     // Scope filter:
@@ -38,6 +40,24 @@ export function HeaderNotifications(props: HeaderNotificationsProps) {
         }
         return notifications.filter(n => n.tenant_id === null);
     }, [notifications, props]);
+
+    // Chime sull'arrivo di NUOVE notifiche nel subset filtrato.
+    // Osserviamo `length` (non `unreadCount`) così il mark-as-read non
+    // triggera il suono. Primo render salta (hasMountedRef): le notifiche
+    // gia' caricate all'apertura della pagina non devono suonare.
+    const hasMountedRef = useRef(false);
+    const lastLengthRef = useRef(scopedNotifications.length);
+    useEffect(() => {
+        if (!hasMountedRef.current) {
+            hasMountedRef.current = true;
+            lastLengthRef.current = scopedNotifications.length;
+            return;
+        }
+        if (scopedNotifications.length > lastLengthRef.current) {
+            triggerChime();
+        }
+        lastLengthRef.current = scopedNotifications.length;
+    }, [scopedNotifications.length, triggerChime]);
 
     const unreadCount = useMemo(
         () => scopedNotifications.reduce((acc, n) => acc + (n.read_at === null ? 1 : 0), 0),
@@ -83,6 +103,47 @@ export function HeaderNotifications(props: HeaderNotificationsProps) {
 
     return (
         <Menu trigger={trigger} align="end">
+            <div className={styles.notifCard}>
+            <div className={styles.notifHeader}>
+                <div className={styles.notifHeaderTitle}>
+                    <Bell size={14} aria-hidden="true" />
+                    <span>Notifiche</span>
+                </div>
+                <label className={styles.notifSoundSwitch}>
+                    {soundEnabled ? (
+                        <Volume2
+                            size={14}
+                            aria-hidden="true"
+                            className={styles.notifSoundSwitchIconOn}
+                        />
+                    ) : (
+                        <VolumeX
+                            size={14}
+                            aria-hidden="true"
+                            className={styles.notifSoundSwitchIconOff}
+                        />
+                    )}
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={soundEnabled}
+                        aria-label={
+                            soundEnabled
+                                ? "Disattiva suono notifiche"
+                                : "Attiva suono notifiche"
+                        }
+                        onClick={toggleSound}
+                        className={
+                            soundEnabled
+                                ? `${styles.notifSoundSwitchTrack} ${styles.notifSoundSwitchTrackOn}`
+                                : styles.notifSoundSwitchTrack
+                        }
+                    >
+                        <span className={styles.notifSoundSwitchKnob} aria-hidden="true" />
+                    </button>
+                </label>
+            </div>
+
             {scopedNotifications.length === 0 ? (
                 <div className={styles.emptyState}>
                     <BellOff size={24} className={styles.emptyStateIcon} aria-hidden="true" />
@@ -137,6 +198,7 @@ export function HeaderNotifications(props: HeaderNotificationsProps) {
                     )}
                 </>
             )}
+            </div>
         </Menu>
     );
 }
