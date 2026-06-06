@@ -79,6 +79,29 @@ export async function clearBillRequest(
 }
 
 /**
+ * Admin clear "Segna conto portato" table-level: azzera `bill_requested_at`
+ * su tutte le sessions attive del tavolo (idempotent). Stessa shape dello
+ * step in close-table RPC e in submit-order. Ritorna il numero di sessions
+ * effettivamente azzerate (per toast / log).
+ */
+export async function clearBillRequestsForTable(
+    tableId: string,
+    tenantId: string
+): Promise<number> {
+    const nowIso = new Date().toISOString();
+    const { data, error } = await supabase
+        .from("customer_sessions")
+        .update({ bill_requested_at: null })
+        .eq("current_table_id", tableId)
+        .eq("tenant_id", tenantId)
+        .gt("expires_at", nowIso)
+        .not("bill_requested_at", "is", null)
+        .select("id");
+    if (error) throw error;
+    return data?.length ?? 0;
+}
+
+/**
  * Admin lista sessions attive con bill_requested_at NOT NULL per un tavolo.
  * Usata da drawer "Risposto" per mostrare chi ha chiamato.
  */

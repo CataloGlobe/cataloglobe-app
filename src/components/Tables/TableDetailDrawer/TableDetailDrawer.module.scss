@@ -50,6 +50,26 @@
     min-width: 0;
 }
 
+// Card "Conto richiesto" table-level: pattern speculare a .maintenanceRow,
+// gated canManageTable + presenza di almeno una sessione attiva con bill
+// flag. Bottone "Segna conto portato" allineato a destra.
+.billRequestRow {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px;
+    border: 1px solid var(--border-default, #e1e3e8);
+    border-radius: 8px;
+}
+
+.billRequestCopy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
 .section {
     display: flex;
     flex-direction: column;

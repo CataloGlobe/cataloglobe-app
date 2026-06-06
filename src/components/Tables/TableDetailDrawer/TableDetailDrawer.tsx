@@ -12,7 +12,11 @@ import type { StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge
 
 import { useToast } from "@/context/Toast/ToastContext";
 
-import { getTable, updateTable } from "@/services/supabase/tables";
+import {
+    getTable,
+    updateTable,
+    clearBillRequestsForTable
+} from "@/services/supabase/tables";
 import {
     listActiveSessionsForTable,
     getOpenOrderGroupForTable
@@ -58,6 +62,14 @@ interface Props {
      * locale solo per il client che esegue il toggle.
      */
     onMaintenanceChanged?: (tableId: string) => void;
+    /**
+     * Notifica al parent che la richiesta di conto del tavolo e' stata
+     * gestita (table-level clear). Il parent dovrebbe rifare il fetch della
+     * lista (es. `useTablesLiveRealtime.refetch`) per sincronizzare card,
+     * filtri e KPI; il realtime via customer_sessions tipicamente arriva
+     * comunque, refetch e' solo allineamento immediato.
+     */
+    onBillCleared?: (tableId: string) => void;
 }
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
@@ -130,12 +142,14 @@ export function TableDetailDrawer({
     tableId,
     onClose,
     onRequestClose,
-    onMaintenanceChanged
+    onMaintenanceChanged,
+    onBillCleared
 }: Props) {
     const [data, setData] = useState<DetailData | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isTogglingMaintenance, setIsTogglingMaintenance] = useState(false);
+    const [isClearingBill, setIsClearingBill] = useState(false);
 
     const { showToast } = useToast();
     const { permissions } = usePermissions();
@@ -208,6 +222,37 @@ export function TableDetailDrawer({
             });
         } finally {
             setIsTogglingMaintenance(false);
+        }
+    }
+
+    async function handleClearBill(): Promise<void> {
+        if (!tenantId || !tableId || !data) return;
+        setIsClearingBill(true);
+        try {
+            await clearBillRequestsForTable(tableId, tenantId);
+            // Patch locale: tutte le sessions del tavolo perdono il flag.
+            // Realtime arrivera' comunque, ma il patch evita flicker del
+            // badge "Conto richiesto" per-session in lista.
+            setData(d =>
+                d
+                    ? {
+                          ...d,
+                          sessions: d.sessions.map(s => ({
+                              ...s,
+                              bill_requested_at: null
+                          }))
+                      }
+                    : d
+            );
+            showToast({ message: "Conto gestito", type: "success" });
+            onBillCleared?.(tableId);
+        } catch {
+            showToast({
+                message: "Errore durante l'aggiornamento della richiesta conto",
+                type: "error"
+            });
+        } finally {
+            setIsClearingBill(false);
         }
     }
 
@@ -323,6 +368,26 @@ export function TableDetailDrawer({
                                 />
                             </div>
                         )}
+
+                        {canManageTable &&
+                            data.sessions.some(s => s.bill_requested_at) && (
+                                <div className={styles.billRequestRow}>
+                                    <div className={styles.billRequestCopy}>
+                                        <Text weight={500}>Conto richiesto</Text>
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Il tavolo ha chiesto il conto.
+                                        </Text>
+                                    </div>
+                                    <Button
+                                        variant="primary"
+                                        size="sm"
+                                        onClick={() => void handleClearBill()}
+                                        loading={isClearingBill}
+                                    >
+                                        Segna conto portato
+                                    </Button>
+                                </div>
+                            )}
 
                         <section className={styles.section}>
                             <Text variant="body-sm" weight={600} colorVariant="muted">
