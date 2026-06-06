@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CalendarCheck, Clock, Lock, Plus } from "lucide-react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -12,6 +13,7 @@ import { Select } from "@/components/ui/Select/Select";
 import type { SelectOption } from "@/components/ui/Select/Select";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
+import { supabase } from "@/services/supabase/client";
 import { listReservations } from "@/services/supabase/reservations";
 import { getActivities } from "@/services/supabase/activities";
 import type { V2Activity } from "@/types/activity";
@@ -189,6 +191,69 @@ export default function Reservations() {
         if (!canRead) return;
         void loadData();
     }, [permissionsLoading, permissions, canRead, loadData]);
+
+    // ── Realtime: live updates for the reservations list ─────────────
+    // Mirrors the pattern in `useActiveOrdersRealtime.ts`:
+    //   - server-side filter narrows event volume to this tenant only;
+    //     RLS SELECT (has_permission('reservations.read', activity_id))
+    //     is the security boundary.
+    //   - debounced refetch (300ms) collapses storms (bulk INSERT, rapid
+    //     UPDATE sequences) into a single network call.
+    //   - loadData identity stays out of the effect deps via loadDataRef
+    //     so the channel does NOT get torn down on unrelated re-renders.
+    //   - SUBSCRIBED → refetch to recover events lost during a (re)connect.
+    const loadDataRef = useRef(loadData);
+    useEffect(() => {
+        loadDataRef.current = loadData;
+    }, [loadData]);
+
+    useEffect(() => {
+        if (!tenantId || permissionsLoading || !permissions || !canRead) return;
+
+        let channel: RealtimeChannel | null = null;
+        let cancelled = false;
+        let debounceId: ReturnType<typeof setTimeout> | null = null;
+
+        const scheduleRefetch = () => {
+            if (cancelled) return;
+            if (debounceId !== null) clearTimeout(debounceId);
+            debounceId = setTimeout(() => {
+                debounceId = null;
+                if (cancelled) return;
+                void loadDataRef.current();
+            }, 300);
+        };
+
+        channel = supabase
+            .channel(`reservations-${tenantId}-${Date.now()}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "reservations",
+                    filter: `tenant_id=eq.${tenantId}`
+                },
+                () => scheduleRefetch()
+            )
+            .subscribe(status => {
+                if (status === "SUBSCRIBED" && !cancelled) {
+                    scheduleRefetch();
+                }
+            });
+
+        return () => {
+            cancelled = true;
+            if (debounceId !== null) {
+                clearTimeout(debounceId);
+                debounceId = null;
+            }
+            if (channel) {
+                void supabase.removeChannel(channel);
+                channel = null;
+            }
+        };
+    }, [tenantId, permissionsLoading, permissions, canRead]);
 
     // ── Deferred commit ───────────────────────────────────────────────
     const { overrides, schedule, cancel } = useDeferredCommit({
