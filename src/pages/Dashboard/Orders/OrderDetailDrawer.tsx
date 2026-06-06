@@ -45,6 +45,8 @@ function statusInfo(status: V2OrderWithItems["status"]): {
             return { variant: "warning", label: "Da prendere" };
         case "acknowledged":
             return { variant: "success", label: "In corso" };
+        case "ready":
+            return { variant: "success", label: "Pronto" };
         case "delivered":
             return { variant: "neutral", label: "Consegnato" };
         case "cancelled":

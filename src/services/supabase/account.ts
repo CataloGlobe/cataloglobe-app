@@ -1,6 +1,6 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
-import { isOwner } from "@/lib/permissions";
+import { workspaceRoleIsOwner as isOwner } from "@/utils/workspaceRole";
 import type { V2Tenant } from "@/types/tenant";
 
 export const DELETED_ACCOUNT_HANDOFF_KEY = "cg_auth_deleted_handoff";

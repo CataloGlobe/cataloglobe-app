@@ -10,9 +10,10 @@
   gap: 1rem;
 }
 
-.tabsContainer {
-  margin-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border, #e5e7eb);
+// CTA della header band: altezza armonizzata a search/segmented via --control-height.
+.toolbarCta {
+  box-sizing: border-box;
+  height: var(--control-height, 38px);
 }
 
 /* ----------------------------------------------------

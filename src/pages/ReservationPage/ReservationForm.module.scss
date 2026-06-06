@@ -1,0 +1,393 @@
+/* =============================================================================
+   ReservationForm — shared form atoms.
+
+   Imported by ReservationForm itself + sections (When/Who/Notes) so atomic
+   field classes stay in one place. Error colors tokenized via --pub-error.
+   ========================================================================== */
+
+.card {
+    background: var(--pub-surface);
+    border: 1px solid var(--pub-surface-border, var(--pub-border));
+    border-radius: var(--pub-radius, 16px);
+    padding: 28px 24px;
+    color: var(--pub-text);
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+    box-shadow: var(--pub-card-shadow, 0 1px 2px rgba(0, 0, 0, 0.04));
+
+    @media (max-width: 520px) {
+        padding: 22px 18px;
+        gap: 22px;
+        border-radius: 14px;
+    }
+}
+
+/* ── Editorial section header (01 / Quando) ────────────────────────────── */
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.sectionHead {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 2px;
+}
+
+.sectionNum {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--pub-text-muted);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.sectionLabel {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--pub-text);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    line-height: 1;
+}
+
+.sectionRule {
+    height: 1px;
+    background: color-mix(in srgb, var(--pub-text) 14%, transparent);
+}
+
+/* ── Row / Field ─────────────────────────────────────────────────────── */
+
+.row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+
+    @media (max-width: 480px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--pub-text);
+    letter-spacing: 0.02em;
+}
+
+.labelHint {
+    color: var(--pub-text-muted);
+    font-weight: 400;
+}
+
+.input,
+.textarea {
+    width: 100%;
+    min-width: 0;
+    padding: 11px 12px;
+    /* 16px floor: iOS Safari auto-zoom kicks in below 16px on focus.
+       Combined with min-width:0, this also keeps native date/time inputs
+       from overflowing the form card on iOS (their intrinsic min-width is
+       auto and refuses to shrink under their content otherwise). */
+    font-size: 16px;
+    font-family: inherit;
+    color: var(--pub-text);
+    background: color-mix(in srgb, var(--pub-text) 3%, var(--pub-surface));
+    border: 1px solid var(--pub-surface-border, var(--pub-border));
+    border-radius: var(--pub-btn-radius, 10px);
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+
+    &:hover:not(:focus):not([aria-invalid="true"]) {
+        border-color: color-mix(in srgb, var(--pub-text) 20%, transparent);
+    }
+
+    &:focus {
+        outline: none;
+        border-color: var(--pub-accent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--pub-accent) 22%, transparent);
+        background: var(--pub-surface);
+    }
+
+    &[aria-invalid="true"] {
+        border-color: var(--pub-error, #d33d3d);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--pub-error, #d33d3d) 16%, transparent);
+    }
+
+    &::placeholder {
+        color: var(--pub-text-muted);
+    }
+
+    /* Dimmed look + not-allowed cursor for inputs disabled by upstream
+       gating (e.g. Ora prima della Data nel form prenotazione). Hover/focus
+       styles are skipped because :disabled already wins specificity-wise. */
+    &:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        background: color-mix(in srgb, var(--pub-text) 2%, var(--pub-surface));
+    }
+}
+
+.textarea {
+    min-height: 92px;
+    resize: vertical;
+    line-height: 1.45;
+}
+
+/* iOS Safari fix: native date/time inputs keep an intrinsic width on their
+   internal "value view" that ignores width:100% + min-width:0 unless the
+   UA appearance is reset. Removing appearance does NOT disable the picker
+   (tap still opens the wheel); it only drops the UA's intrinsic sizing.
+   The custom glyph lives on ::-webkit-calendar-picker-indicator below and
+   stays untouched. */
+.input[type="date"],
+.input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+    /* Empty native date/time inputs collapse to ~24px once UA appearance is
+       removed because the value-view has no content. Match the natural
+       height of a text input (padding 11×2 + font-size 16 × line-height 1.2
+       + border 1×2 ≈ 43.2 → 44px) so empty + filled render identically. */
+    min-height: 44px;
+    line-height: 1.2;
+}
+
+/* Internal value-view spacing reset — keeps "GG/MM/AAAA" / "--:--" centered
+   on the input padding instead of carrying an inherited left margin that
+   pushes the cursor + glyph past the right edge of the card. */
+.input[type="date"]::-webkit-date-and-time-value,
+.input[type="time"]::-webkit-date-and-time-value {
+    margin: 0;
+    text-align: left;
+}
+
+/* Native WebKit calendar/clock indicator replaced with a custom Lucide-style
+   glyph mask tinted by --pub-surface-text. Solid CSS solution: zero JS,
+   automatically follows brand contrast (dark card ⇒ light glyph; light card
+   ⇒ dark glyph). Click target is preserved → UA still opens the native picker.
+   Firefox has no equivalent pseudo and renders the input without indicator. */
+.input[type="date"]::-webkit-calendar-picker-indicator,
+.input[type="time"]::-webkit-calendar-picker-indicator {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    margin-right: 0;
+    padding: 0;
+    cursor: pointer;
+    background-color: var(--pub-surface-text);
+    opacity: 0.72;
+    transition: opacity 0.15s ease;
+}
+
+.input[type="date"]::-webkit-calendar-picker-indicator {
+    -webkit-mask: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M8%202v4'/%3E%3Cpath%20d='M16%202v4'/%3E%3Crect%20x='3'%20y='4'%20width='18'%20height='18'%20rx='2'/%3E%3Cpath%20d='M3%2010h18'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M8%202v4'/%3E%3Cpath%20d='M16%202v4'/%3E%3Crect%20x='3'%20y='4'%20width='18'%20height='18'%20rx='2'/%3E%3Cpath%20d='M3%2010h18'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.input[type="time"]::-webkit-calendar-picker-indicator {
+    -webkit-mask: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Ccircle%20cx='12'%20cy='12'%20r='10'/%3E%3Cpath%20d='M12%206v6l4%202'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Ccircle%20cx='12'%20cy='12'%20r='10'/%3E%3Cpath%20d='M12%206v6l4%202'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.input[type="date"]:hover::-webkit-calendar-picker-indicator,
+.input[type="time"]:hover::-webkit-calendar-picker-indicator,
+.input[type="date"]:focus::-webkit-calendar-picker-indicator,
+.input[type="time"]:focus::-webkit-calendar-picker-indicator {
+    opacity: 1;
+}
+
+.fieldError {
+    font-size: 12px;
+    color: var(--pub-error, #d33d3d);
+    line-height: 1.3;
+}
+
+/* "Aperto 12:00–15:00, 19:00–23:00" — sub-message under the date/time row
+   that surfaces the valid windows for the selected day. Pure info, never an
+   error; rendered as a muted helper line (icon + text) with no frame so it
+   does not read as a third field next to Data / Ora. */
+.slotsHint {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0 0;
+    padding: 0;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--pub-text-muted);
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    font-variant-numeric: tabular-nums;
+
+    svg {
+        flex-shrink: 0;
+        opacity: 0.85;
+    }
+}
+
+.notesCount {
+    font-size: 11px;
+    color: var(--pub-text-muted);
+    text-align: right;
+    margin-top: -2px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Party-size pills ────────────────────────────────────────────────── */
+
+.party {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.partyPills {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+
+    @media (max-width: 520px) {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+.pill {
+    appearance: none;
+    -webkit-appearance: none;
+    padding: 11px 0;
+    min-height: 44px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pub-text);
+    background: color-mix(in srgb, var(--pub-text) 4%, var(--pub-surface));
+    border: 1px solid var(--pub-surface-border, var(--pub-border));
+    border-radius: var(--pub-btn-radius, 10px);
+    cursor: pointer;
+    font-family: inherit;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
+
+    &:hover:not(:disabled):not(.pillActive) {
+        background: color-mix(in srgb, var(--pub-text) 8%, var(--pub-surface));
+        border-color: color-mix(in srgb, var(--pub-text) 22%, transparent);
+    }
+
+    &:active:not(:disabled) {
+        transform: scale(0.97);
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--pub-accent) 26%, transparent);
+        border-color: var(--pub-accent);
+    }
+}
+
+.pillActive {
+    background: var(--pub-accent);
+    color: var(--pub-cta-text);
+    border-color: var(--pub-accent);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--pub-accent) 28%, transparent);
+}
+
+.partyPlus {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 2px;
+}
+
+/* ── Submit / error banner / privacy ─────────────────────────────────── */
+
+.submitRow {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.submit {
+    width: 100%;
+    padding: 14px 18px;
+    min-height: 50px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--pub-cta-text);
+    background: var(--pub-cta-bg, var(--pub-accent));
+    border: none;
+    border-radius: var(--pub-btn-radius, 10px);
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 2px 12px color-mix(in srgb, var(--pub-accent) 24%, transparent);
+    transition: opacity 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+
+    &:hover:not(:disabled) {
+        opacity: 0.94;
+    }
+
+    &:active:not(:disabled) {
+        transform: scale(0.99);
+    }
+
+    &:disabled {
+        cursor: progress;
+        opacity: 0.85;
+    }
+}
+
+.spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid color-mix(in srgb, currentColor 28%, transparent);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: rspin 0.7s linear infinite;
+}
+
+@keyframes rspin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.bannerError {
+    padding: 12px 14px;
+    border-radius: var(--pub-btn-radius, 10px);
+    font-size: 13px;
+    line-height: 1.45;
+    background: color-mix(in srgb, var(--pub-error, #d33d3d) 10%, var(--pub-surface));
+    color: var(--pub-error, #d33d3d);
+    border: 1px solid color-mix(in srgb, var(--pub-error, #d33d3d) 28%, transparent);
+}
+
+.privacy {
+    font-size: 12px;
+    color: var(--pub-text-muted);
+    text-align: center;
+    line-height: 1.5;
+    margin: 0;
+
+    a {
+        color: inherit;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+}

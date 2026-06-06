@@ -1,0 +1,116 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+// Toolbar di sezione: filtro SX, cluster azioni DX (search · refresh · altro · CTA).
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.actionsCluster {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    flex-wrap: wrap;
+
+    @media (max-width: 767px) {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+// Bottoni allineati al cluster: --control-height + box-sizing border-box.
+.toolbarCta {
+    box-sizing: border-box;
+    height: var(--control-height, 38px);
+}
+
+// Dropdown "Altro" — pattern coerente con TableRowActions.
+.dropdownContent {
+    min-width: 200px;
+    background: var(--card-bg, #FFFFFF);
+    border: 1px solid var(--border, #E5E7EB);
+    border-radius: 10px;
+    padding: 6px 0;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+    z-index: 50;
+}
+
+.dropdownItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    font-size: 13.5px;
+    color: var(--text, #0F172A);
+    cursor: pointer;
+    outline: none;
+    user-select: none;
+
+    &[data-highlighted] {
+        background: var(--hover-bg, #F8FAFC);
+    }
+
+    &[data-disabled] {
+        opacity: 0.5;
+        pointer-events: none;
+    }
+}
+
+.labelCell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+}
+
+.billBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 4px 10px;
+    background: color-mix(in srgb, #ef4444 12%, transparent);
+    color: #dc2626;
+    border: 1px solid color-mix(in srgb, #ef4444 30%, transparent);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    align-self: flex-start;
+
+    &:hover {
+        background: color-mix(in srgb, #ef4444 20%, transparent);
+    }
+}
+
+.billBadgeCount {
+    background: #dc2626;
+    color: #ffffff;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 11px;
+    min-width: 16px;
+    text-align: center;
+    font-weight: 700;
+}

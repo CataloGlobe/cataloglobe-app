@@ -1,64 +1,5 @@
 // ============================================================
-// LEGACY API — deprecated, will be removed in Fase 5 cleanup.
-//
-// The 3-role enum ("owner" | "admin" | "member") predates the
-// activity-scoped permission model introduced in Fase 2. Helpers
-// here are kept to avoid breaking the 9 existing callers while
-// the new permission library is rolled out incrementally.
-//
-// New code MUST use the UserPermissions-based helpers in the
-// section below.
-// ============================================================
-
-/**
- * @deprecated Use {@link UserRole} (5 valori) e {@link UserPermissions}.
- * Enum legacy 3-ruoli. `member` non è più valido lato DB post-Fase 2:
- * i ruoli activity-scoped (manager/staff/viewer) hanno
- * `tenant_memberships.role = NULL`, quindi user_tenants_view.user_role
- * ritorna NULL per loro.
- */
-export type Role = "owner" | "admin" | "member";
-
-/**
- * @deprecated Use {@link isOwner} overload con `UserPermissions` per nuovo code.
- * Legacy: matcha la stringa 'owner' contro un input role.
- */
-export function isOwner(role: Role | string | null | undefined): boolean;
-/**
- * Nuovo: true se `perms.role === 'owner'`.
- */
-export function isOwner(perms: UserPermissions): boolean;
-export function isOwner(input: Role | string | UserPermissions | null | undefined): boolean {
-    if (input == null) return false;
-    if (typeof input === "string") return input === "owner";
-    return input.role === "owner";
-}
-
-/**
- * @deprecated Legacy. Per nuovo code usare `perms.role === 'admin'` direttamente.
- */
-export function isAdmin(role: Role | string | null | undefined): boolean {
-    return role === "admin";
-}
-
-/**
- * @deprecated Legacy. `member` non esiste più come ruolo DB. Per nuovo code
- * differenziare manager/staff/viewer esplicitamente via `perms.role`.
- */
-export function isMember(role: Role | string | null | undefined): boolean {
-    return role === "member";
-}
-
-/**
- * @deprecated Use {@link isOwnerOrAdmin} con `UserPermissions`.
- * True if role is owner or admin.
- */
-export function canManage(role: Role | string | null | undefined): boolean {
-    return role === "owner" || role === "admin";
-}
-
-// ============================================================
-// NEW API — activity-aware permissions (post-Fase 2)
+// Activity-aware permissions library (post-Fase 2).
 //
 // Source of truth: RPC `public.get_my_permissions(p_tenant_id)`.
 // Vedi `src/services/supabase/permissions.ts` per il fetch e
@@ -67,6 +8,9 @@ export function canManage(role: Role | string | null | undefined): boolean {
 // Le funzioni qui sono pure (no side effects, no async). Devono
 // replicare ESATTAMENTE le verifiche backend RPC; ogni divergenza
 // è un bug.
+//
+// Per scope workspace (lista tenant fuori PermissionsProvider) usare
+// `src/utils/workspaceRole.ts` (literal compare su tenant.user_role).
 // ============================================================
 
 export type UserRole = "owner" | "admin" | "manager" | "staff" | "viewer";
@@ -79,6 +23,11 @@ export interface UserPermissions {
     activityIds: string[];
     /** Set di permission_id che il role ha grantati via role_permissions. */
     permissions: Set<string>;
+}
+
+/** True se `perms.role === 'owner'`. */
+export function isOwner(perms: UserPermissions): boolean {
+    return perms.role === "owner";
 }
 
 // ----------------------------------------------------------------------------

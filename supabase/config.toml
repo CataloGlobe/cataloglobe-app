@@ -119,6 +119,18 @@ verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/submit-review/index.ts"
 
+[functions.submit-reservation]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/submit-reservation/index.ts"
+
+[functions.respond-reservation]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/respond-reservation/index.ts"
+
 [functions.search-google-places]
 enabled = true
 verify_jwt = false
@@ -185,6 +197,12 @@ verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/acknowledge-order/index.ts"
 
+[functions.mark-order-ready]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/mark-order-ready/index.ts"
+
 [functions.deliver-order]
 enabled = true
 verify_jwt = false
@@ -196,6 +214,48 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/cancel-order-admin/index.ts"
+
+[functions.restore-order]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/restore-order/index.ts"
+
+[functions.unacknowledge-order]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/unacknowledge-order/index.ts"
+
+[functions.unready-order]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/unready-order/index.ts"
+
+[functions.undeliver-to-ready]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/undeliver-to-ready/index.ts"
+
+[functions.uncancel-to-submitted]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/uncancel-to-submitted/index.ts"
+
+[functions.uncancel-to-acknowledged]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/uncancel-to-acknowledged/index.ts"
+
+[functions.uncancel-to-ready]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/uncancel-to-ready/index.ts"
 
 [functions.rectify-order]
 enabled = true

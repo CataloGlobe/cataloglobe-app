@@ -3,19 +3,103 @@
     flex-direction: column;
     gap: 16px;
     padding: 16px;
+    min-height: 100%;
 }
 
-.stats {
+// Spacer in fondo al ramo azionabile: spinge tutto il recap top-aligned
+// e mantiene un void controllato sopra al footer, invece di lasciare
+// l'intero blocco galleggiare al centro/alto in modo disorganico.
+.spacer {
+    flex: 1 1 auto;
+}
+
+// Pannello recap: hero totale + chip count + divider + banner.
+// Sostituisce le vecchie statRow sparse (key:value) con una gerarchia
+// visiva: numero grande in cima, contesto operativo a chip sotto, banner
+// contestuale che chiude.
+.recap {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px;
+    gap: 12px;
+    padding: 16px;
     background: var(--surface-muted, #f4f5f7);
     border-radius: 8px;
 }
 
-.statRow {
+.hero {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding-bottom: 4px;
+}
+
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.chip {
+    display: inline-flex;
     align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+    color: var(--text-default, #1a1a1a);
+    line-height: 1;
+}
+
+.chipIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chip-neutral {
+    // baseline: tono neutro su superficie chiara.
+}
+
+.chip-warning {
+    // ordini aperti: segnale primario del recap, deve risaltare.
+    background: var(--warning-bg, #fff4e5);
+    border-color: var(--warning-border, #ffc580);
+    color: var(--warning-fg, #8a4b00);
+
+    .chipIcon {
+        color: var(--warning-fg, #8a4b00);
+    }
+}
+
+.chip-brand {
+    // "conto richiesto": il cliente sta chiedendo attenzione, accento brand.
+    background: var(--brand-bg, #eaf2ff);
+    border-color: var(--brand-border, #99c2ff);
+    color: var(--brand-fg, #1f4fbf);
+
+    .chipIcon {
+        color: var(--brand-fg, #1f4fbf);
+    }
+}
+
+.divider {
+    height: 1px;
+    background: var(--border, rgba(0, 0, 0, 0.08));
+    margin: 2px 0;
+}
+
+// Stack azioni full-width per il ramo hasOpenOrders del footer:
+// label lunghe ("Segna tutte come servite e chiudi" / "Annulla tutte e
+// chiudi") affiancate nel drawer 420px si stringono/sbordano. Qui
+// occupiamo il 100% del footer slot di DrawerLayout (il cui parent flex
+// e' justify-content:flex-end), e stack-iamo i 3 bottoni verticalmente
+// con gerarchia top->bottom: primary, danger, ghost.
+.actionsStack {
+    flex: 1 1 auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }

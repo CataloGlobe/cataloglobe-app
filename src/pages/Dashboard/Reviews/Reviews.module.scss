@@ -15,10 +15,24 @@
     animation: fadeIn 0.25s ease both;
 }
 
-/* ── Header action ──────────────────────────────────── */
+/* ── Header band: cluster actions ─────────────────────── */
+/* Select periodo + ordinamento allineati a --control-height (38px).
+   Width fissa per leggibilità del cluster nella banda. */
 
-.activitySelectContainer {
-    min-width: 180px;
+.toolbarPeriod {
+    width: 180px;
+    flex: 0 0 auto;
+}
+
+.toolbarSort {
+    width: 160px;
+    flex: 0 0 auto;
+}
+
+.toolbarSelectInner {
+    box-sizing: border-box;
+    height: var(--control-height, 38px);
+    line-height: 1;
 }
 
 /* ── Stats block ─────────────────────────────────────── */
@@ -144,38 +158,6 @@
 .distCount {
     text-align: right;
     font-variant-numeric: tabular-nums;
-}
-
-/* ── Toolbar ─────────────────────────────────────────── */
-
-.toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.toolbarRight {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.toolbarSelect {
-    width: 180px;
-    flex-shrink: 0;
-}
-
-.toolbarSelectNarrow {
-    width: 160px;
-    flex-shrink: 0;
-}
-
-.toolbarSearch {
-    width: 180px;
-    flex-shrink: 0;
 }
 
 /* ── Custom date range ───────────────────────────────── */
@@ -325,19 +307,8 @@
         height: 1px;
     }
 
-    .toolbar {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .toolbarRight {
-        width: 100%;
-        flex-direction: column;
-    }
-
-    .toolbarSelect,
-    .toolbarSelectNarrow,
-    .toolbarSearch {
+    .toolbarPeriod,
+    .toolbarSort {
         width: 100%;
     }
 

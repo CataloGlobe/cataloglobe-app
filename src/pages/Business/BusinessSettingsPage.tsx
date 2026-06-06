@@ -4,7 +4,9 @@ import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import Text from "@/components/ui/Text/Text";
 import { usePageHeader } from "@/context/usePageHeader";
-import { isOwner } from "@/lib/permissions";
+import { canDoOnTenant } from "@/lib/permissions";
+import { usePermissions } from "@/context/PermissionsContext";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Button } from "@/components/ui/Button/Button";
 import { FileInput } from "@/components/ui/Input/FileInput";
@@ -17,7 +19,10 @@ import { SUBTYPE_LABELS, DEFAULT_SUBTYPE } from "@/constants/verticalTypes";
 import styles from "./BusinessSettingsPage.module.scss";
 
 export default function BusinessSettingsPage() {
-    const { selectedTenant, loading, userRole, refreshTenants } = useTenant();
+    const { selectedTenant, loading, refreshTenants } = useTenant();
+    const { permissions, loading: permissionsLoading } = usePermissions();
+    const canManageTenant = permissions ? canDoOnTenant(permissions, "tenant.manage") : false;
+    const canDeleteTenant = permissions ? canDoOnTenant(permissions, "tenant.delete") : false;
     const { showToast } = useToast();
 
     const [name, setName] = useState("");
@@ -111,14 +116,14 @@ export default function BusinessSettingsPage() {
 
     if (loading || !selectedTenant) return null;
 
-    if (!isOwner(userRole)) {
+    if (!permissionsLoading && permissions && !canManageTenant) {
         return (
             <div className={styles.page}>
                 <div className={styles.emptyWrap}>
                     <EmptyState
                         icon={<Lock size={40} strokeWidth={1.5} />}
-                        title="Solo il proprietario può modificare queste impostazioni"
-                        description="Le impostazioni dell'attività riguardano l'identità e la configurazione dell'azienda. Per modifiche, contatta il proprietario."
+                        title="Non hai accesso alle impostazioni"
+                        description="Le impostazioni dell'attività sono riservate a proprietario e amministratori. Contatta un amministratore se hai bisogno di apportare modifiche."
                     />
                 </div>
             </div>
@@ -127,8 +132,8 @@ export default function BusinessSettingsPage() {
 
     return (
         <div className={styles.page}>
-            {/* Section 1 — Business info (owner only) */}
-            {isOwner(userRole) && (
+            {/* Section 1 — Business info (owner + admin via tenant.manage) */}
+            {canManageTenant && (
                 <div className={styles.section}>
                     <Text variant="title-sm" weight={600}>
                         Informazioni attività
@@ -166,8 +171,8 @@ export default function BusinessSettingsPage() {
                 </div>
             )}
 
-            {/* Section 2 — Logo (owner only) */}
-            {isOwner(userRole) && (
+            {/* Section 2 — Logo (owner + admin via tenant.manage) */}
+            {canManageTenant && (
                 <div className={styles.section}>
                     <Text variant="title-sm" weight={600}>
                         Identità visiva
@@ -212,12 +217,18 @@ export default function BusinessSettingsPage() {
                 </div>
             )}
 
-            {/* Section 3 — Danger zone (owner only) */}
-            {isOwner(userRole) && (
+            {/* Section 3 — Danger zone */}
+            {canManageTenant && (
                 <div className={`${styles.section} ${styles.dangerSection}`}>
                     <Text variant="title-sm" weight={600}>
                         Zona pericolosa
                     </Text>
+
+                    {!canDeleteTenant && (
+                        <InlineBanner variant="info">
+                            Solo il proprietario può eliminare l&apos;azienda.
+                        </InlineBanner>
+                    )}
 
                     <div className={styles.dangerRow}>
                         <div>
@@ -229,7 +240,11 @@ export default function BusinessSettingsPage() {
                                 Potrai ripristinarla entro 30 giorni.
                             </Text>
                         </div>
-                        <Button variant="danger" onClick={() => setDeleteDialogOpen(true)}>
+                        <Button
+                            variant="danger"
+                            onClick={() => setDeleteDialogOpen(true)}
+                            disabled={!canDeleteTenant}
+                        >
                             Elimina attività
                         </Button>
                     </div>

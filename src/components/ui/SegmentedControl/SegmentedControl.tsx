@@ -66,6 +66,11 @@ export function SegmentedControl<T extends string | number>({
                         type="button"
                         role="radio"
                         aria-checked={isActive}
+                        // In iconsOnly mode il testo non è renderizzato → senza
+                        // aria-label il pulsante avrebbe nome accessibile vuoto.
+                        // Il `title` fornisce anche tooltip nativo on-hover.
+                        aria-label={iconsOnly ? opt.label : undefined}
+                        title={iconsOnly ? opt.label : undefined}
                         className={styles.item}
                         onClick={() => {
                             setHasInteracted(true);

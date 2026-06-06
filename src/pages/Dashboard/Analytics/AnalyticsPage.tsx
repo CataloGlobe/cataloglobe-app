@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FileDown } from "lucide-react";
+import { Download } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
-import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
-import { getActivities } from "@/services/supabase/activities";
+import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import {
     getPageViewsTrend,
     getTopViewedProducts,
@@ -29,13 +28,10 @@ import {
     type FeaturedPerformanceData,
     type DateRange
 } from "@/services/supabase/analytics";
-import type { V2Activity } from "@/types/activity";
 import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import { Select } from "@/components/ui/Select/Select";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import AnalyticsFilters from "./components/AnalyticsFilters";
 import { buildXlsxWorkbook, downloadXlsx, type XlsxSection } from "./utils/exportXlsx";
 import { getPreviousRange, getPreviousPeriodLabel, type PeriodKey } from "./utils/periodComparison";
 import OverviewCards from "./components/OverviewCards";
@@ -74,12 +70,13 @@ function periodToDateRange(period: PeriodKey): DateRange {
 
 export default function AnalyticsPage() {
     const tenantId = useTenantId();
-    const { selectedTenant } = useTenant();
     const { showToast } = useToast();
 
     // ── Filtri ───────────────────────────────────────────────────────────
-    const [activities, setActivities] = useState<V2Activity[]>([]);
-    const [selectedActivityId, setSelectedActivityId] = useState("all");
+    // Sede attiva: dalla navbar via useSedeScope. SCOPE_ALL → "tutte le sedi"
+    // (passare `undefined` come activityId ai service analytics).
+    const { value: scopeValue, readableActivities } = useSedeScope();
+    const selectedActivityId = scopeValue === SCOPE_ALL ? "all" : scopeValue;
     const [period, setPeriod] = useState<PeriodKey>("7d");
 
     // ── Confronto periodo precedente ─────────────────────────────────────
@@ -105,14 +102,6 @@ export default function AnalyticsPage() {
     const [featuredPerf, setFeaturedPerf] = useState<FeaturedPerformanceData[]>([]);
 
     const [isLoading, setIsLoading] = useState(true);
-
-    // ── Load activities (una volta) ──────────────────────────────────────
-    useEffect(() => {
-        if (!tenantId) return;
-        getActivities(tenantId)
-            .then(setActivities)
-            .catch(() => {});
-    }, [tenantId]);
 
     // ── Load analytics data ──────────────────────────────────────────────
     const loadData = useCallback(async () => {
@@ -276,7 +265,7 @@ export default function AnalyticsPage() {
         const sedeSlug =
             selectedActivityId === "all"
                 ? "tutte-le-sedi"
-                : (activities.find(a => a.id === selectedActivityId)?.slug ?? selectedActivityId);
+                : (readableActivities.find(a => a.id === selectedActivityId)?.slug ?? selectedActivityId);
         const periodoLabel: Record<PeriodKey, string> = {
             today: "oggi",
             "7d": "7-giorni",
@@ -302,47 +291,40 @@ export default function AnalyticsPage() {
         socialClicks,
         hourlyData,
         selectedActivityId,
-        activities,
+        readableActivities,
         period
     ]);
 
+    // Selettore sede vive nella navbar (SedeScopeSelect). Nella banda:
+    // periodo a sinistra (leading), Esporta a destra (actions).
+    const leading = useMemo(() => (
+        <SegmentedControl
+            value={period}
+            onChange={setPeriod}
+            options={[
+                { value: "today", label: "Oggi" },
+                { value: "7d", label: "7 giorni" },
+                { value: "30d", label: "30 giorni" },
+                { value: "90d", label: "90 giorni" },
+                { value: "all", label: "Tutto" }
+            ]}
+        />
+    ), [period]);
+
     const headerActions = useMemo(() => (
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-            <Select
-                value={selectedActivityId}
-                onChange={e => setSelectedActivityId(e.target.value)}
-                options={[
-                    { value: "all", label: "Tutte le sedi" },
-                    ...activities.map(a => ({ value: a.id, label: a.name }))
-                ]}
-                containerClassName={styles.activitySelectContainer}
-            />
-            <SegmentedControl
-                value={period}
-                onChange={setPeriod}
-                options={[
-                    { value: "today", label: "Oggi" },
-                    { value: "7d", label: "7 giorni" },
-                    { value: "30d", label: "30 giorni" },
-                    { value: "90d", label: "90 giorni" },
-                    { value: "all", label: "Tutto" }
-                ]}
-            />
-            <Button
-                variant="outline"
-                size="sm"
-                leftIcon={<FileDown size={14} />}
-                disabled={isLoading || isEmpty}
-                onClick={handleExportXlsx}
-            >
-                Esporta Excel
-            </Button>
-        </div>
-    ), [selectedActivityId, activities, period, isLoading, isEmpty, handleExportXlsx]);
+        <Button
+            variant="outline"
+            leftIcon={<Download size={16} />}
+            disabled={isLoading || isEmpty}
+            onClick={handleExportXlsx}
+            className={styles.toolbarCta}
+        >
+            Esporta Excel
+        </Button>
+    ), [isLoading, isEmpty, handleExportXlsx]);
 
     usePageHeader({
-        title: "Analitiche",
-        subtitle: "Monitora le performance delle tue sedi.",
+        leading,
         actions: headerActions,
         sticky: true,
     });

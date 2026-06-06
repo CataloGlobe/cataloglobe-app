@@ -2,9 +2,10 @@ import { useCallback, useMemo, useState, useEffect } from "react";
 import { usePageHeader } from "@/context/usePageHeader";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
-import FilterBar from "@/components/ui/FilterBar/FilterBar";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { Pencil, Trash2, Layers } from "lucide-react";
+import { Pencil, Trash2, Layers, LayoutGrid, List as ListIcon } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -41,10 +42,10 @@ export default function Highlights() {
         return saved === "list" ? "list" : "grid";
     });
 
-    const handleViewChange = (v: "list" | "grid") => {
+    const handleViewChange = useCallback((v: "list" | "grid") => {
         setViewMode(v);
         localStorage.setItem("featuredContents_viewMode", v);
-    };
+    }, []);
 
     // Delete state
     const [deleteTarget, setDeleteTarget] = useState<FeaturedContentWithProducts | null>(null);
@@ -83,10 +84,31 @@ export default function Highlights() {
     }, [canEdit, showToast]);
 
     const headerActions = useMemo(() => (
-        <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
-            Crea contenuto
-        </Button>
-    ), [handleCreate, canEdit]);
+        <>
+            <ToolbarSearch
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Cerca per titolo..."
+            />
+            <SegmentedControl<"list" | "grid">
+                iconsOnly
+                value={viewMode}
+                onChange={handleViewChange}
+                options={[
+                    { value: "grid", icon: <LayoutGrid size={16} />, label: "Vista griglia" },
+                    { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
+                ]}
+            />
+            <Button
+                variant="primary"
+                onClick={handleCreate}
+                disabled={!canEdit}
+                className={styles.toolbarCta}
+            >
+                Crea contenuto
+            </Button>
+        </>
+    ), [handleCreate, canEdit, searchQuery, viewMode, handleViewChange]);
 
     usePageHeader({
         title: "Contenuti in evidenza",
@@ -219,18 +241,6 @@ export default function Highlights() {
     return (
         <>
             <div className={styles.wrapper}>
-                <FilterBar
-                    search={{
-                        value: searchQuery,
-                        onChange: setSearchQuery,
-                        placeholder: "Cerca per titolo..."
-                    }}
-                    view={{
-                        value: viewMode,
-                        onChange: handleViewChange
-                    }}
-                />
-
                 <div className={styles.tableCard}>
                     {loading ? (
                         <div className={styles.loadingState}>

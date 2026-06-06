@@ -2,14 +2,18 @@
   width: 100%;
 }
 
+// Wrapper contenuto pagina: nessun padding-block — il ritmo verticale
+// navbar→banda→contenuto deriva da un'unica sorgente (`MainLayout .content`,
+// padding 24px). Coerente con Products e le altre pagine post-rollout.
 .content {
-  padding-block: var(--spacing-6, 24px);
   background-color: var(--color-gray-50);
-  min-height: calc(100vh - 61px);
 }
 
-.filterBar {
-  margin-bottom: var(--spacing-6, 24px);
+// CTA della header band: altezza armonizzata a search/toggle via
+// --control-height. Button md (32px) → 38px in toolbar.
+.toolbarCta {
+  box-sizing: border-box;
+  height: var(--control-height, 38px);
 }
 
 .catalogsGrid {

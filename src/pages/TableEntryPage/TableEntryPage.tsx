@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { resolveTable } from "@/services/supabase/customerSessions";
 import { saveCustomerSession } from "@/services/customer/customerSessionStorage";
+import { getOrCreateDeviceId } from "@/services/customer/deviceId";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import { ResolveTableOrderingUnavailableError } from "@/types/orders";
 import type { OrderingStateReason } from "@/types/orders";
@@ -18,18 +19,31 @@ export default function TableEntryPage() {
     const navigate = useNavigate();
     const [state, setState] = useState<PageState>({ status: "loading" });
 
+    // Guard contro double-invoke dell'effect (StrictMode dev, suspense
+    // rimount). La protezione vera contro session duplicate e' lato server
+    // (Edge resolve-table riconosce device_id), ma questo guard evita
+    // anche la chiamata di rete extra in dev. Belt-and-braces.
+    const calledRef = useRef(false);
+
     useEffect(() => {
         if (!qrToken) {
             setState({ status: "error", message: "Codice QR non valido" });
             return;
         }
+        if (calledRef.current) return;
+        calledRef.current = true;
 
-        let cancelled = false;
-
+        // Niente flag `cancelled` qui: il useRef guard garantisce che
+        // bootstrap parta UNA sola volta in tutto il ciclo di vita della
+        // pagina. Aggiungere un `cancelled` con cleanup darebbe il bug
+        // opposto in StrictMode: Run 1 partirebbe, lo StrictMode cleanup
+        // setterebbe cancelled=true, Run 2 verrebbe bloccata dal useRef
+        // e la Run 1 risolverebbe per poi auto-bailare prima di
+        // saveCustomerSession + navigate → loading infinito.
         async function bootstrap() {
             try {
-                const result = await resolveTable(qrToken!);
-                if (cancelled) return;
+                const deviceId = getOrCreateDeviceId();
+                const result = await resolveTable(qrToken!, { deviceId });
 
                 saveCustomerSession({
                     jwt: result.jwt,
@@ -45,8 +59,6 @@ export default function TableEntryPage() {
 
                 navigate(`/${result.activity.slug}`, { replace: true });
             } catch (err) {
-                if (cancelled) return;
-
                 // 423 ORDERING_UNAVAILABLE: discrimina canViewMenu + reason.
                 // - canViewMenu=true:
                 //     * ordering_disabled → redirect pulito a /:slug.
@@ -101,10 +113,6 @@ export default function TableEntryPage() {
         }
 
         void bootstrap();
-
-        return () => {
-            cancelled = true;
-        };
     }, [qrToken, navigate]);
 
     if (state.status === "loading") {

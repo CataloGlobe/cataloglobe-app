@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
-import { Card } from "@/components/ui/Card/Card";
 import { Button } from "@/components/ui/Button/Button";
 import { useToast } from "@/context/Toast/ToastContext";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
@@ -60,7 +59,23 @@ export default function FeaturedContentDetailPage() {
     const [content, setContent] = useState<FeaturedContentWithProducts | null>(null);
     const [loading, setLoading] = useState(true);
     const [pageError, setPageError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"info" | "products">("info");
+
+    type FeaturedDetailTab = "info" | "products";
+    const [searchParams, setSearchParams] = useSearchParams();
+    const initialTab: FeaturedDetailTab = useMemo(() => {
+        const t = searchParams.get("tab");
+        return t === "products" ? "products" : "info";
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    const [activeTab, setActiveTab] = useState<FeaturedDetailTab>(initialTab);
+
+    const handleTabChange = useCallback((next: FeaturedDetailTab) => {
+        setActiveTab(next);
+        setSearchParams(prev => {
+            prev.set("tab", next);
+            return prev;
+        }, { replace: true });
+    }, [setSearchParams]);
 
     // Drawer open states
     const [isIdentityDrawerOpen, setIsIdentityDrawerOpen] = useState(false);
@@ -144,10 +159,58 @@ export default function FeaturedContentDetailPage() {
 
     useBreadcrumbItems(breadcrumbItems);
 
+    const productsEnabled = !loading && content?.pricing_mode !== "none";
+
+    // Se l'utente atterra con ?tab=products ma il tipo non supporta prodotti,
+    // ripristina la tab Info e ripulisci ?tab=.
+    useEffect(() => {
+        if (!productsEnabled && activeTab === "products") {
+            setActiveTab("info");
+            setSearchParams(prev => {
+                prev.delete("tab");
+                return prev;
+            }, { replace: true });
+        }
+    }, [productsEnabled, activeTab, setSearchParams]);
+
+    const addProductTriggerRef = useRef<(() => void) | null>(null);
+
+    const leading = useMemo(() => (
+        <Tabs<FeaturedDetailTab>
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="line"
+        >
+            <Tabs.List>
+                <Tabs.Tab value="info">Informazioni</Tabs.Tab>
+                <Tabs.Tab
+                    value="products"
+                    disabled={!productsEnabled}
+                    disabledTooltip="Seleziona il tipo Promo o Bundle"
+                >
+                    Prodotti inclusi
+                </Tabs.Tab>
+            </Tabs.List>
+        </Tabs>
+    ), [activeTab, handleTabChange, productsEnabled]);
+
+    const actions = useMemo(() => {
+        if (activeTab !== "products" || !productsEnabled) return undefined;
+        return (
+            <Button
+                variant="primary"
+                className={styles.toolbarCta}
+                onClick={() => addProductTriggerRef.current?.()}
+                disabled={!canEdit}
+            >
+                + Aggiungi prodotto
+            </Button>
+        );
+    }, [activeTab, productsEnabled, canEdit]);
+
     usePageHeader({
-        title: loading
-            ? "Caricamento..."
-            : (content?.internal_name || "Senza nome interno"),
+        leading,
+        actions,
         sticky: true,
     });
 
@@ -168,7 +231,7 @@ export default function FeaturedContentDetailPage() {
     }
 
     const renderInfoCard = () => (
-        <Card>
+        <>
             {/* ── Identità ────────────────────────────────── */}
             <div className={styles.block}>
                 <div className={styles.blockHeaderRow}>
@@ -327,47 +390,29 @@ export default function FeaturedContentDetailPage() {
                     <span className={styles.roValueEmpty}>Nessuna CTA configurata</span>
                 )}
             </div>
-        </Card>
+        </>
     );
 
     return (
         <div className={styles.wrapper}>
-            <Tabs
-                value={activeTab}
-                onChange={(v: "info" | "products") => setActiveTab(v)}
-            >
-                <Tabs.List>
-                    <Tabs.Tab value="info">Informazioni</Tabs.Tab>
-                    <Tabs.Tab value="products">Prodotti inclusi</Tabs.Tab>
-                </Tabs.List>
+            {activeTab === "info" && renderInfoCard()}
 
-                <Tabs.Panel value="info">{renderInfoCard()}</Tabs.Panel>
-
-                <Tabs.Panel value="products">
-                    {content?.pricing_mode === "none" ? (
-                        <Card>
-                            <div className={styles.productsEmptyState}>
-                                <Text colorVariant="muted">
-                                    Seleziona il tipo &quot;Promo&quot; o &quot;Bundle&quot; per
-                                    associare prodotti a questo contenuto.
-                                </Text>
-                            </div>
-                        </Card>
-                    ) : (
-                        <ProductsManagerCard
-                            featuredId={featuredId as string}
-                            pricingMode={content?.pricing_mode ?? "none"}
-                            showOriginalTotal={content?.show_original_total ?? false}
-                            onOpenProductPicker={(linkedIds, onApply) => {
-                                setLinkedProductIds(linkedIds);
-                                setPendingSelectedProductIds(linkedIds);
-                                onApplyProductsRef.current = onApply;
-                                setIsProductPickerOpen(true);
-                            }}
-                        />
-                    )}
-                </Tabs.Panel>
-            </Tabs>
+            {activeTab === "products" && productsEnabled && (
+                <ProductsManagerCard
+                    featuredId={featuredId as string}
+                    pricingMode={content?.pricing_mode ?? "none"}
+                    showOriginalTotal={content?.show_original_total ?? false}
+                    onOpenProductPicker={(linkedIds, onApply) => {
+                        setLinkedProductIds(linkedIds);
+                        setPendingSelectedProductIds(linkedIds);
+                        onApplyProductsRef.current = onApply;
+                        setIsProductPickerOpen(true);
+                    }}
+                    onRegisterAddTrigger={trigger => {
+                        addProductTriggerRef.current = trigger;
+                    }}
+                />
+            )}
 
             {/* ── Section drawers ──────────────────────────── */}
             {content && tenantId && (

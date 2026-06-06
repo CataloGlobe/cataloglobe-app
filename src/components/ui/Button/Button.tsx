@@ -2,7 +2,13 @@ import React, { forwardRef } from "react";
 import Text from "../Text/Text";
 import styles from "./Button.module.scss";
 
-type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger";
+type ButtonVariant =
+    | "primary"
+    | "secondary"
+    | "outline"
+    | "outline-danger"
+    | "ghost"
+    | "danger";
 type ButtonSize = "sm" | "md" | "lg";
 
 interface BaseProps {

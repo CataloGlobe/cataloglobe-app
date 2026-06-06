@@ -33,6 +33,13 @@ export interface V2Activity {
     fees_public: boolean;
     hours_public: boolean;
     ordering_enabled: boolean;
+    enable_reservations: boolean;
+    /**
+     * Lista di email destinatarie degli avvisi nuova prenotazione per la sede.
+     * Quando vuota, l'Edge Function `submit-reservation` ricade sull'email
+     * dell'owner del tenant. Sostituisce `email_public` come sorgente.
+     */
+    reservation_notification_emails: string[];
     qr_fg_color: string | null;
     qr_bg_color: string | null;
     google_review_url: string | null;

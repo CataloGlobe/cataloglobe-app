@@ -5,11 +5,20 @@
   padding-bottom: 40px;
 }
 
+// CTA della header band: altezza armonizzata a search/segmented via --control-height.
+.toolbarCta {
+  box-sizing: border-box;
+  height: var(--control-height, 38px);
+}
+
 .block {
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding: 20px 24px;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border);
+  border-radius: 12px;
 }
 
 .blockTitle {
@@ -44,11 +53,6 @@
   aspect-ratio: 16 / 9;
   object-fit: cover;
   display: block;
-}
-
-.productsEmptyState {
-  padding: 32px 24px;
-  text-align: center;
 }
 
 /* ── Read-only info layout ───────────────────────────── */

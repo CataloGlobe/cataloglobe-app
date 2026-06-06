@@ -2,10 +2,6 @@
 
 .container {
   background-color: var(--color-gray-50);
-
-  > div {
-    margin-top: 12px;
-  }
 }
 
 .content {
@@ -13,16 +9,12 @@
   margin: 0 auto;
 }
 
-.filterRow {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-}
-
-.filterBar {
-  flex: 1;
+// CTA della header band: altezza armonizzata a search/toggle via
+// --control-height (definita in `_theme.scss`). Button md ha 32px
+// nativi → `height` esplicita lo allinea a 38.
+.toolbarCta {
+  box-sizing: border-box;
+  height: var(--control-height, 38px);
 }
 
 .loadingState,

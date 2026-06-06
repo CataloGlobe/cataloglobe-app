@@ -1,0 +1,81 @@
+/* =============================================================================
+   ReservationPage — page shell.
+
+   Header is full-bleed; body content is centered in a max-width container with
+   side padding. Uses the contrast-aware --pub-* tokens applied by
+   PublicThemeScope. Plain (non-branded) states reuse AppLoader / can't access
+   tokens, so they get a neutral fallback wrapper.
+   ========================================================================== */
+
+.page {
+    min-height: 100vh;
+    background-color: var(--pub-bg);
+    background-image: var(--pub-bg-pattern, none);
+    background-size: var(--pub-bg-pattern-size, auto);
+    color: var(--pub-bg-text);
+    font-family: var(--pub-font-family, system-ui, sans-serif);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Body container — centered, max-width, generous bottom padding. */
+.body {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 28px 16px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+
+    @media (max-width: 520px) {
+        padding: 20px 14px 64px;
+    }
+}
+
+/* Tagline between header and form card. Short, brand-aware. */
+.tagline {
+    margin: 0 auto 6px;
+    max-width: 420px;
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--pub-bg-text-secondary);
+}
+
+/* State wrapper used by inactive / disabled / not-found / network-error.
+   not-found / network-error render OUTSIDE PublicThemeScope (no brand yet),
+   so we also expose neutral fallbacks for --pub-* via a defensive root. */
+.stateWrapper {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+/* Neutral page used for not-found / network-error (no brand resolved). */
+.neutralPage {
+    --pub-bg: #f5f5f4;
+    --pub-bg-text: #1f2937;
+    --pub-bg-text-secondary: #6b7280;
+    --pub-bg-text-muted: #9ca3af;
+    --pub-surface: #ffffff;
+    --pub-surface-border: #e5e7eb;
+    --pub-text: #1f2937;
+    --pub-text-secondary: #4b5563;
+    --pub-text-muted: #9ca3af;
+    --pub-accent: #d4a373;
+    --pub-cta-bg: #1f2937;
+    --pub-cta-text: #ffffff;
+    --pub-radius: 16px;
+    --pub-btn-radius: 10px;
+    --pub-border: #e5e7eb;
+
+    min-height: 100vh;
+    background: var(--pub-bg);
+    color: var(--pub-bg-text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px 16px 80px;
+}

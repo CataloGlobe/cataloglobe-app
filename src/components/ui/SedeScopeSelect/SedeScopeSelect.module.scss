@@ -1,0 +1,125 @@
+// ============================================================
+// SedeScopeSelect — pill + dropdown.
+//
+// Valori mirror di `.tenantButton`/`.tenantList`/`.tenantRow` in
+// `AppHeader.module.scss` per coerenza visiva tra tenant switcher
+// e sede selector in navbar (stessa famiglia di componenti).
+// Nessun mixin condiviso per ora — se servirà a una terza pill,
+// si estrae allora.
+// ============================================================
+
+.wrap {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  // Stesso right-padding del tenant (8px); left allineato col tenant
+  // (4px) lasciando spazio simmetrico.
+  padding: 4px 8px;
+  // Altezza pari al `.tenantButton`: Avatar sm 22px + padding 4*2 +
+  // border 1*2 = 32px. Qui niente avatar → fissa `min-height` per
+  // evitare collasso del contenuto.
+  min-height: 32px;
+  border-radius: 8px;
+  border: 1px solid #E5E7EB;
+  background: #FFFFFF;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  min-width: 0;
+  font-family: inherit;
+
+  &:hover {
+    background: #F8FAFC;
+    border-color: #D1D5DB;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #A5B4FC;
+    outline-offset: 2px;
+  }
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0F172A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  // Range coerente con `.tenantName` (max 180px), con un min per
+  // evitare pill troppo compresse quando i nomi sono corti.
+  min-width: 80px;
+  max-width: 180px;
+}
+
+.chevron {
+  color: #64748B;
+  flex-shrink: 0;
+}
+
+// ===== Dropdown (mirror di `.tenantList` / `.tenantRow`) =====
+
+.list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 240px;
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  padding: 6px 0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  z-index: 50;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  color: #0F172A;
+  transition: background 0.1s;
+
+  &:hover {
+    background: #F8FAFC;
+  }
+
+  &:focus-visible {
+    outline: none;
+    background: #F1F5F9;
+  }
+}
+
+.checkSlot {
+  width: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6366F1;
+}
+
+.rowName {
+  font-size: 13.5px;
+  font-weight: 400;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowName[data-active="true"] {
+  font-weight: 500;
+}

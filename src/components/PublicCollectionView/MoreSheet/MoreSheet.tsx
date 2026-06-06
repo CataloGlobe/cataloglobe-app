@@ -1,4 +1,4 @@
-import { ChevronRight, Filter, Info } from "lucide-react";
+import { CalendarCheck, ChevronRight, Filter, Info } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import Text from "@components/ui/Text/Text";
@@ -9,6 +9,12 @@ type Props = {
     onClose: () => void;
     onOpenAllergens: () => void;
     onOpenInfo: () => void;
+    /**
+     * Callback "Prenota un tavolo". Quando undefined la voce non viene
+     * renderizzata. Il caller (CollectionView) lo passa solo se la sede ha
+     * `enable_reservations === true` AND lo slug è disponibile.
+     */
+    onOpenReservation?: () => void;
     allergensCount: number;
     hasAllergensInCatalog: boolean;
     hasInfo: boolean;
@@ -28,6 +34,7 @@ export default function MoreSheet({
     onClose,
     onOpenAllergens,
     onOpenInfo,
+    onOpenReservation,
     allergensCount,
     hasAllergensInCatalog,
     hasInfo,
@@ -88,6 +95,28 @@ export default function MoreSheet({
                         <ChevronRight size={16} strokeWidth={2} className={styles.chevron} aria-hidden />
                     )}
                 </button>
+
+                {onOpenReservation && (
+                    <button
+                        type="button"
+                        className={styles.item}
+                        onClick={() => {
+                            onClose();
+                            // Navigation unmounts the sheet anyway, so no exit
+                            // animation delay is needed here.
+                            onOpenReservation();
+                        }}
+                    >
+                        <span className={styles.iconWrap} aria-hidden>
+                            <CalendarCheck size={18} strokeWidth={2} />
+                        </span>
+                        <span className={styles.text}>
+                            <span className={styles.itemLabel}>Prenota un tavolo</span>
+                            <span className={styles.itemSubtitle}>Richiedi un tavolo online</span>
+                        </span>
+                        <ChevronRight size={16} strokeWidth={2} className={styles.chevron} aria-hidden />
+                    </button>
+                )}
 
                 {hasInfo && (
                     <button

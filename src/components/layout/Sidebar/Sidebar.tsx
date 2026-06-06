@@ -5,8 +5,8 @@ import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import {
     LayoutDashboard,
     Store,
-    Grid2X2,
     ClipboardList,
+    CalendarCheck,
     Settings,
     Calendar,
     BookOpen,
@@ -27,7 +27,12 @@ import {
 } from "lucide-react";
 import styles from "./Sidebar.module.scss";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
-import { useTenant } from "@/context/useTenant";
+import { usePermissions } from "@/context/PermissionsContext";
+import {
+    canDoOnTenant,
+    canDoOnAnyActivity,
+    type UserPermissions
+} from "@/lib/permissions";
 import { SIDEBAR_COLLAPSED, SIDEBAR_EXPANDED } from "@/constants/layout";
 
 interface NavItem {
@@ -35,6 +40,8 @@ interface NavItem {
     label: string;
     icon: React.ReactNode;
     end?: boolean;
+    /** Permission check. Se undefined → sempre visibile. */
+    permission?: (perms: UserPermissions) => boolean;
 }
 
 interface NavGroup {
@@ -61,41 +68,54 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
             title: "Operatività",
             icon: <Briefcase size={12} />,
             items: [
-                { to: `${b}/locations`, label: "Sedi", icon: <Store size={18} /> },
-                { to: `${b}/tables`, label: "Tavoli", icon: <Grid2X2 size={18} /> },
-                { to: `${b}/orders`, label: "Ordini", icon: <ClipboardList size={18} /> },
-                { to: `${b}/scheduling`, label: "Programmazione", icon: <Calendar size={18} /> }
+                { to: `${b}/locations`, label: "Sedi", icon: <Store size={18} />,
+                  permission: perms => canDoOnAnyActivity(perms, "activity.read") },
+                { to: `${b}/orders`, label: "Ordini", icon: <ClipboardList size={18} />,
+                  permission: perms => canDoOnAnyActivity(perms, "orders.read") },
+                { to: `${b}/reservations`, label: "Prenotazioni", icon: <CalendarCheck size={18} />,
+                  permission: perms => canDoOnAnyActivity(perms, "reservations.read") },
+                { to: `${b}/scheduling`, label: "Programmazione", icon: <Calendar size={18} />,
+                  permission: perms => canDoOnAnyActivity(perms, "scheduling.read") }
             ]
         },
         {
             title: "Contenuti",
             icon: <FolderOpen size={12} />,
             items: [
-                { to: `${b}/catalogs`, label: catalogLabel, icon: <BookOpen size={18} /> },
-                { to: `${b}/products`, label: "Prodotti", icon: <Archive size={18} /> },
+                { to: `${b}/catalogs`, label: catalogLabel, icon: <BookOpen size={18} />,
+                  permission: perms => canDoOnTenant(perms, "catalogs.read") },
+                { to: `${b}/products`, label: "Prodotti", icon: <Archive size={18} />,
+                  permission: perms => canDoOnTenant(perms, "products.read") },
                 {
                     to: `${b}/featured`,
                     label: "Contenuti in evidenza",
-                    icon: <Layers size={18} />
+                    icon: <Layers size={18} />,
+                    permission: perms => canDoOnAnyActivity(perms, "featured.read")
                 },
-                { to: `${b}/styles`, label: "Stili", icon: <Palette size={18} /> },
-                { to: `${b}/languages`, label: "Lingue", icon: <Languages size={18} /> }
+                { to: `${b}/styles`, label: "Stili", icon: <Palette size={18} />,
+                  permission: perms => canDoOnTenant(perms, "styles.read") },
+                { to: `${b}/languages`, label: "Lingue", icon: <Languages size={18} />,
+                  permission: perms => canDoOnTenant(perms, "catalogs.read") }
             ]
         },
         {
             title: "Insight",
             icon: <TrendingUp size={12} />,
             items: [
-                { to: `${b}/analytics`, label: "Analitiche", icon: <BarChart3 size={18} /> },
-                { to: `${b}/reviews`, label: "Recensioni", icon: <MessageSquare size={18} /> }
+                { to: `${b}/analytics`, label: "Analitiche", icon: <BarChart3 size={18} />,
+                  permission: perms => canDoOnAnyActivity(perms, "analytics.read") },
+                { to: `${b}/reviews`, label: "Recensioni", icon: <MessageSquare size={18} />,
+                  permission: perms => canDoOnAnyActivity(perms, "reviews.read") }
             ]
         },
         {
             title: "Sistema",
             icon: <Cpu size={12} />,
             items: [
-                { to: `${b}/team`, label: "Team", icon: <Users size={18} /> },
-                { to: `${b}/subscription`, label: "Abbonamento", icon: <CreditCard size={18} /> },
+                { to: `${b}/team`, label: "Team", icon: <Users size={18} />,
+                  permission: perms => canDoOnTenant(perms, "team.read") },
+                { to: `${b}/subscription`, label: "Abbonamento", icon: <CreditCard size={18} />,
+                  permission: perms => canDoOnTenant(perms, "billing.read") },
                 {
                     to: `${b}/settings`,
                     label: "Impostazioni",
@@ -124,15 +144,20 @@ export default function Sidebar({
 }: SidebarProps) {
     const { businessId = "" } = useParams<{ businessId: string }>();
     const { catalogLabel } = useVerticalConfig();
-    const { userRole } = useTenant();
+    const { permissions } = usePermissions();
     const allGroups = buildGroups(businessId, catalogLabel);
-    const groups = allGroups.map(group => ({
-        ...group,
-        items: group.items.filter(item => {
-            if (item.to.endsWith("/subscription") && userRole === "member") return false;
-            return true;
-        })
-    }));
+    // Filtra voci per permission: se permissions non ancora caricate, mostra
+    // tutte (default ottimistico). Una volta caricate, applica gating.
+    const groups = allGroups
+        .map(group => ({
+            ...group,
+            items: group.items.filter(item => {
+                if (!item.permission) return true; // sempre visibile
+                if (!permissions) return true;     // loading: ottimistico
+                return item.permission(permissions);
+            })
+        }))
+        .filter(group => group.items.length > 0);
 
     return (
         <>

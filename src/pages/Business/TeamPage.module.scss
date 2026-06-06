@@ -1,22 +1,9 @@
+// Wrapper di pagina: nessun padding/margin verticale aggiuntivo —
+// il ritmo navbar→banda→contenuto deriva da `MainLayout .content` (24px).
 .page {
   display: flex;
   flex-direction: column;
   gap: 2rem;
-}
-
-.cardHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-bottom: 1.25rem;
-  margin-bottom: 0.5rem;
-}
-
-.cardHeaderText {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
 }
 
 .statusCell {
@@ -79,17 +66,20 @@
   min-height: 50vh;
 }
 
-.filterBarWrapper {
-  margin-bottom: 1rem;
+// Header band: filtro Ruolo compatto accanto a search.
+.toolbarFilter {
+  width: 160px;
+  flex: 0 0 auto;
 }
 
-.filterControls {
-  display: flex;
-  gap: 1rem;
+.toolbarFilterSelect {
+  box-sizing: border-box;
+  height: var(--control-height, 38px);
+  line-height: 1;
+}
 
-  // Each Select fills available space equally
-  > * {
-    flex: 1;
-    min-width: 140px;
-  }
+// CTA della header band: altezza armonizzata a search/toggle/select.
+.toolbarCta {
+  box-sizing: border-box;
+  height: var(--control-height, 38px);
 }

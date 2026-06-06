@@ -9,6 +9,7 @@ import type {
 
 /**
  * Lista tavoli attivi (non soft-deleted) di una sede, ordinati per label ASC.
+ * JOIN su table_zones per esporre `zone_name` (null se nessuna zona assegnata).
  */
 export async function listTables(
     tenantId: string,
@@ -16,13 +17,26 @@ export async function listTables(
 ): Promise<V2Table[]> {
     const { data, error } = await supabase
         .from("tables")
-        .select("*")
+        .select("*, zone:table_zones!tables_zone_id_fkey(name)")
         .eq("tenant_id", tenantId)
         .eq("activity_id", activityId)
         .is("deleted_at", null)
         .order("label", { ascending: true });
     if (error) throw error;
-    return data ?? [];
+    return (data ?? []).map(mapJoinedRowToV2Table);
+}
+
+// supabase-js tipizza la relation come array o oggetto a seconda del JOIN;
+// table_zones e' FK 1:1 (zone_id NULL o singolo id) → object o null.
+type JoinedZone = { name: string } | { name: string }[] | null;
+
+function mapJoinedRowToV2Table(row: Record<string, unknown> & { zone?: JoinedZone }): V2Table {
+    const { zone, ...rest } = row;
+    const zoneObj = Array.isArray(zone) ? zone[0] : zone;
+    return {
+        ...(rest as Omit<V2Table, "zone_name">),
+        zone_name: zoneObj?.name ?? null
+    } as V2Table;
 }
 
 /**
@@ -98,14 +112,14 @@ export async function listBillRequestsForTable(
 export async function getTable(id: string, tenantId: string): Promise<V2Table> {
     const { data, error } = await supabase
         .from("tables")
-        .select("*")
+        .select("*, zone:table_zones!tables_zone_id_fkey(name)")
         .eq("id", id)
         .eq("tenant_id", tenantId)
         .is("deleted_at", null)
         .maybeSingle();
     if (error) throw error;
     if (!data) throw new Error("TABLE_NOT_FOUND");
-    return data;
+    return mapJoinedRowToV2Table(data);
 }
 
 /**
@@ -118,7 +132,7 @@ export async function createTable(
         activity_id: string;
         label: string;
         seats?: number;
-        zone?: string;
+        zone_id?: string | null;
         maintenance_mode?: boolean;
     }
 ): Promise<V2Table> {
@@ -127,14 +141,14 @@ export async function createTable(
         activity_id: data.activity_id,
         label: data.label,
         seats: data.seats,
-        zone: data.zone,
+        zone_id: data.zone_id ?? null,
         maintenance_mode: data.maintenance_mode
     };
 
     const { data: inserted, error } = await supabase
         .from("tables")
         .insert([payload])
-        .select()
+        .select("*, zone:table_zones!tables_zone_id_fkey(name)")
         .single();
 
     if (error) {
@@ -146,7 +160,7 @@ export async function createTable(
         }
         throw error;
     }
-    return inserted;
+    return mapJoinedRowToV2Table(inserted);
 }
 
 /**
@@ -164,7 +178,7 @@ export async function updateTable(
         .eq("id", id)
         .eq("tenant_id", tenantId)
         .is("deleted_at", null)
-        .select()
+        .select("*, zone:table_zones!tables_zone_id_fkey(name)")
         .single();
 
     if (error) {
@@ -176,7 +190,7 @@ export async function updateTable(
         }
         throw error;
     }
-    return data;
+    return mapJoinedRowToV2Table(data);
 }
 
 /**
@@ -212,10 +226,10 @@ export async function regenerateTableQrToken(
         .eq("id", id)
         .eq("tenant_id", tenantId)
         .is("deleted_at", null)
-        .select()
+        .select("*, zone:table_zones!tables_zone_id_fkey(name)")
         .single();
     if (error) throw error;
-    return data;
+    return mapJoinedRowToV2Table(data);
 }
 
 /**

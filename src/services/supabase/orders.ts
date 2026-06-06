@@ -33,8 +33,16 @@ import type {
     GetOrdersForSessionResult,
     CancelOrderCustomerResult,
     AcknowledgeOrderResult,
+    MarkOrderReadyResult,
     DeliverOrderResult,
     CancelOrderAdminResult,
+    RestoreOrderResult,
+    UnacknowledgeOrderResult,
+    UnreadyOrderResult,
+    UndeliverToReadyResult,
+    UncancelToSubmittedResult,
+    UncancelToAcknowledgedResult,
+    UncancelToReadyResult,
     RectifyOrderResult,
     RectifyOrderItem,
     V2Order,
@@ -350,8 +358,33 @@ export async function acknowledgeOrder(
 }
 
 /**
- * Transizione acknowledged → delivered. Optimistic locking via expected_version.
- * Stesso mapping errori di acknowledgeOrder.
+ * Transizione acknowledged → ready. Optimistic locking via expected_version.
+ * Stesso mapping errori di acknowledgeOrder. Mirror 1:1 dell'Edge Function
+ * `mark-order-ready` (Step 4a), che usa `performAdminOrderTransition` con
+ * `source_status='acknowledged' → target_status='ready'` e popola `ready_at`.
+ */
+export async function markOrderReady(
+    orderId: string,
+    expectedVersion: number
+): Promise<MarkOrderReadyResult> {
+    const { data, error } = await supabase.functions.invoke<MarkOrderReadyResult>(
+        "mark-order-ready",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione (acknowledged|ready) → delivered. Optimistic locking via
+ * expected_version. Stesso mapping errori di acknowledgeOrder. Lato server
+ * `deliver-order` accetta entrambi gli stati sorgente (Step 4a) cosi i
+ * workflow che saltano lo step "ready" continuano a funzionare.
  */
 export async function deliverOrder(
     orderId: string,
@@ -401,6 +434,169 @@ export async function cancelOrderAdmin(
     const { data, error } = await supabase.functions.invoke<CancelOrderAdminResult>(
         "cancel-order-admin",
         { body }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione delivered → acknowledged (ripristino post-servito).
+ * Optimistic locking via expected_version. Mirror 1:1 dell'Edge Function
+ * `restore-order` (Step 5a): resetta `delivered_at` + `ready_at` a null,
+ * nessun timestamp dedicato di ripristino. Stesso mapping errori di
+ * acknowledgeOrder.
+ */
+export async function restoreOrder(
+    orderId: string,
+    expectedVersion: number
+): Promise<RestoreOrderResult> {
+    const { data, error } = await supabase.functions.invoke<RestoreOrderResult>(
+        "restore-order",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione acknowledged → submitted ("Rimetti in Nuove"). Optimistic
+ * locking via expected_version. Mirror 1:1 dell'Edge Function
+ * `unacknowledge-order`: azzera `acknowledged_at`. Stesso mapping
+ * errori di acknowledgeOrder.
+ */
+export async function unacknowledgeOrder(
+    orderId: string,
+    expectedVersion: number
+): Promise<UnacknowledgeOrderResult> {
+    const { data, error } = await supabase.functions.invoke<UnacknowledgeOrderResult>(
+        "unacknowledge-order",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione ready → acknowledged ("Rimetti in lavorazione"). Optimistic
+ * locking via expected_version. Mirror 1:1 dell'Edge Function
+ * `unready-order`: azzera `ready_at`, NON tocca `acknowledged_at`.
+ * Stesso mapping errori di acknowledgeOrder.
+ */
+export async function unreadyOrder(
+    orderId: string,
+    expectedVersion: number
+): Promise<UnreadyOrderResult> {
+    const { data, error } = await supabase.functions.invoke<UnreadyOrderResult>(
+        "unready-order",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione delivered → ready (undo "Servita" quando l'ordine
+ * veniva dalla colonna Pronte). Optimistic locking via
+ * expected_version. Mirror 1:1 dell'Edge Function `undeliver-to-ready`:
+ * azzera `delivered_at`, lascia `ready_at` intatto. Stesso mapping
+ * errori di acknowledgeOrder.
+ */
+export async function undeliverToReady(
+    orderId: string,
+    expectedVersion: number
+): Promise<UndeliverToReadyResult> {
+    const { data, error } = await supabase.functions.invoke<UndeliverToReadyResult>(
+        "undeliver-to-ready",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione cancelled → submitted (undo immediato di "Elimina" su
+ * un ordine che era in stato submitted). Optimistic locking via
+ * expected_version. Azzera cancelled_at/by/reason. Stesso mapping
+ * errori di acknowledgeOrder.
+ */
+export async function uncancelToSubmitted(
+    orderId: string,
+    expectedVersion: number
+): Promise<UncancelToSubmittedResult> {
+    const { data, error } = await supabase.functions.invoke<UncancelToSubmittedResult>(
+        "uncancel-to-submitted",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione cancelled → acknowledged (undo immediato di "Elimina" su
+ * un ordine che era in stato acknowledged). Optimistic locking via
+ * expected_version. Azzera cancelled_at/by/reason; acknowledged_at
+ * resta popolato.
+ */
+export async function uncancelToAcknowledged(
+    orderId: string,
+    expectedVersion: number
+): Promise<UncancelToAcknowledgedResult> {
+    const { data, error } = await supabase.functions.invoke<UncancelToAcknowledgedResult>(
+        "uncancel-to-acknowledged",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
+    );
+
+    if (error) {
+        throwMappedTransitionError(await parseInvokeError(error));
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
+ * Transizione cancelled → ready (undo immediato di "Elimina" su un
+ * ordine che era in stato ready). Optimistic locking via
+ * expected_version. Azzera cancelled_at/by/reason; acknowledged_at e
+ * ready_at restano popolati.
+ */
+export async function uncancelToReady(
+    orderId: string,
+    expectedVersion: number
+): Promise<UncancelToReadyResult> {
+    const { data, error } = await supabase.functions.invoke<UncancelToReadyResult>(
+        "uncancel-to-ready",
+        { body: { order_id: orderId, expected_version: expectedVersion } }
     );
 
     if (error) {
@@ -659,4 +855,109 @@ export function subscribeToSessionOrders(
         );
         return null;
     }
+}
+
+// ─── KPI helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Inizio della giornata operativa "oggi" come ISO timestamp.
+ * Server-side via RPC `get_operative_day_start()` (DST-aware Europe/Rome,
+ * migration 20260601150000). TODO multi-region: parametrizzare il timezone
+ * via `activities.iana_timezone` nella RPC.
+ */
+export async function fetchOperativeDayStartIso(): Promise<string> {
+    const { data, error } = await supabase.rpc("get_operative_day_start");
+    if (error) throw error;
+    if (typeof data !== "string") {
+        throw new Error("get_operative_day_start returned non-string");
+    }
+    return data;
+}
+
+/**
+ * Conta ordini con `submitted_at >= start_of_today_Europe/Rome`. Per KPI bar.
+ * Non scarica row dati, usa COUNT lato Postgres.
+ */
+export async function getOrdersCountToday(
+    tenantId: string,
+    activityId: string
+): Promise<number> {
+    const fromIso = await fetchOperativeDayStartIso();
+    const { count, error } = await supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .eq("activity_id", activityId)
+        .gte("submitted_at", fromIso);
+    if (error) throw error;
+    return count ?? 0;
+}
+
+/**
+ * Lista ordini con `status='delivered' AND delivered_at >= start_of_today`.
+ * Per KPI tempo medio + count "servite oggi". Non include items (overhead inutile).
+ */
+export async function getOrdersServedToday(
+    tenantId: string,
+    activityId: string
+): Promise<V2Order[]> {
+    const fromIso = await fetchOperativeDayStartIso();
+    const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("activity_id", activityId)
+        .eq("status", "delivered")
+        .gte("delivered_at", fromIso);
+    if (error) throw error;
+    return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(row => ({
+        ...row,
+        total_amount: Number(row.total_amount)
+    })) as unknown as V2Order[];
+}
+
+/**
+ * Storico ordini della giornata operativa per una sede: delivered + cancelled
+ * con timestamp di uscita >= start_of_today (Europe/Rome, DST-aware via RPC).
+ *
+ * Filtra esplicitamente tenant_id + activity_id oltre alla RLS, in modo che
+ * un bug futuro nelle policy non possa esporre storico cross-tenant o cross-
+ * activity (defense in depth).
+ *
+ * Ordinamento: `updated_at DESC` — coincide con `delivered_at` per ordini
+ * serviti e con `cancelled_at` per ordini annullati (parent di rettifiche
+ * non viene mutato; rectify-order crea una nuova riga `is_rectification`).
+ *
+ * Include items (il drawer dettaglio li richiede). Limite alto (200) per
+ * coprire la giornata operativa di una singola sede.
+ */
+export async function listOrdersHistoryToday(
+    tenantId: string,
+    activityId: string
+): Promise<V2OrderWithItems[]> {
+    const fromIso = await fetchOperativeDayStartIso();
+    const { data, error } = await supabase
+        .from("orders")
+        .select("*, items:order_items(*)")
+        .eq("tenant_id", tenantId)
+        .eq("activity_id", activityId)
+        .or(
+            `and(status.eq.delivered,delivered_at.gte.${fromIso}),` +
+                `and(status.eq.cancelled,cancelled_at.gte.${fromIso})`
+        )
+        .order("updated_at", { ascending: false })
+        .limit(200);
+    if (error) throw error;
+    return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(row => {
+        const rawItems = row.items as V2OrderItem[] | undefined;
+        return {
+            ...row,
+            total_amount: Number(row.total_amount),
+            items: (rawItems ?? []).map(item => ({
+                ...item,
+                unit_price_snapshot: Number(item.unit_price_snapshot),
+                line_total: Number(item.line_total)
+            }))
+        } as unknown as V2OrderWithItems;
+    });
 }

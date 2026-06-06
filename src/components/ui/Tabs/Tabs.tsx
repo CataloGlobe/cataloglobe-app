@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import styles from "./Tabs.module.scss";
 
 /* ------------------------------------------------------------------ */
@@ -6,6 +7,7 @@ import styles from "./Tabs.module.scss";
 /* ------------------------------------------------------------------ */
 
 export type TabsValue = string | number;
+export type TabsVariant = "primary" | "secondary" | "line";
 
 /**
  * Context NON generico
@@ -13,6 +15,7 @@ export type TabsValue = string | number;
 interface TabsContextValue {
     value: TabsValue;
     setValue: (value: TabsValue) => void;
+    variant?: TabsVariant;
 }
 
 const TabsContext = createContext<TabsContextValue | null>(null);
@@ -32,10 +35,11 @@ function useTabsContext() {
 interface TabsProps<T extends TabsValue> {
     value: T;
     onChange: (value: T) => void;
+    variant?: TabsVariant;
     children: React.ReactNode;
 }
 
-export function Tabs<T extends TabsValue>({ value, onChange, children }: TabsProps<T>) {
+export function Tabs<T extends TabsValue>({ value, onChange, variant, children }: TabsProps<T>) {
     /**
      * Wrapper che rende onChange compatibile con TabsValue
      */
@@ -46,9 +50,11 @@ export function Tabs<T extends TabsValue>({ value, onChange, children }: TabsPro
         [onChange]
     );
 
+    const rootClassName = `${styles.root} ${styles[`variant_${variant ?? "default"}`]}`;
+
     return (
-        <TabsContext.Provider value={{ value, setValue }}>
-            <div className={styles.root}>{children}</div>
+        <TabsContext.Provider value={{ value, setValue, variant }}>
+            <div className={rootClassName}>{children}</div>
         </TabsContext.Provider>
     );
 }
@@ -76,24 +82,44 @@ function TabsList({ children }: TabsListProps) {
 interface TabProps<T extends TabsValue> {
     value: T;
     children: React.ReactNode;
+    disabled?: boolean;
+    disabledTooltip?: React.ReactNode;
+    badge?: React.ReactNode;
 }
 
-function Tab<T extends TabsValue>({ value, children }: TabProps<T>) {
+function Tab<T extends TabsValue>({ value, children, disabled = false, disabledTooltip, badge }: TabProps<T>) {
     const { value: active, setValue } = useTabsContext();
     const isActive = active === value;
 
-    return (
+    const className = [
+        styles.tab,
+        isActive ? styles.active : "",
+        disabled ? styles.disabled : ""
+    ].filter(Boolean).join(" ");
+
+    // Niente attributo `disabled` nativo: Radix Tooltip non rileva hover su
+    // trigger nativamente disabilitato. Usiamo solo `aria-disabled` + guard onClick.
+    const button = (
         <button
             type="button"
             role="tab"
             aria-selected={isActive}
+            aria-disabled={disabled || undefined}
             tabIndex={isActive ? 0 : -1}
-            className={`${styles.tab} ${isActive ? styles.active : ""}`}
-            onClick={() => setValue(value)}
+            className={className}
+            onClick={disabled ? undefined : () => setValue(value)}
         >
             {children}
+            {badge !== undefined && badge !== null && badge !== false && (
+                <span className={styles.tabBadge}>{badge}</span>
+            )}
         </button>
     );
+
+    if (disabled && disabledTooltip) {
+        return <Tooltip content={disabledTooltip}>{button}</Tooltip>;
+    }
+    return button;
 }
 
 /* ------------------------------------------------------------------ */

@@ -3,12 +3,14 @@ import { usePageHeader } from "@/context/usePageHeader";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
-import FilterBar from "@/components/ui/FilterBar/FilterBar";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { Card } from "@/components/ui/Card/Card";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconPalette, IconShieldCheck } from "@tabler/icons-react";
+import { LayoutGrid, List as ListIcon } from "lucide-react";
 import { TableRowActions, type TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
 import styles from "./Styles.module.scss";
 
@@ -147,10 +149,31 @@ export default function Styles() {
     }, [canEdit, showToast]);
 
     const headerActions = useMemo(() => (
-        <Button variant="primary" onClick={handleCreateClick} disabled={!canEdit}>
-            Crea stile
-        </Button>
-    ), [handleCreateClick, canEdit]);
+        <>
+            <ToolbarSearch
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Cerca stili..."
+            />
+            <SegmentedControl<"list" | "grid">
+                iconsOnly
+                value={viewMode}
+                onChange={handleViewModeChange}
+                options={[
+                    { value: "grid", icon: <LayoutGrid size={16} />, label: "Vista griglia" },
+                    { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
+                ]}
+            />
+            <Button
+                variant="primary"
+                onClick={handleCreateClick}
+                disabled={!canEdit}
+                className={styles.toolbarCta}
+            >
+                Crea stile
+            </Button>
+        </>
+    ), [handleCreateClick, canEdit, searchQuery, viewMode, handleViewModeChange]);
 
     usePageHeader({
         title: "Stili",
@@ -313,21 +336,6 @@ export default function Styles() {
     return (
         <section className={styles.container}>
             <div className={styles.content}>
-                <div className={styles.filterBarRow}>
-                    <FilterBar
-                        search={{
-                            value: searchQuery,
-                            onChange: setSearchQuery,
-                            placeholder: "Cerca stili..."
-                        }}
-                        view={{
-                            value: viewMode,
-                            onChange: handleViewModeChange
-                        }}
-                        className={styles.filterBar}
-                    />
-                </div>
-
                 {isLoading ? (
                     <Card className={styles.tableCard} noHoverLift>{loadingState}</Card>
                 ) : filteredStyles.length === 0 ? (

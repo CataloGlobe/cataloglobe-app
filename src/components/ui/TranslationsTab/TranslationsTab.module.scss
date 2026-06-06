@@ -6,6 +6,11 @@
   padding: 16px;
 }
 
+// Variante senza inset, per call site che gestisce lo spacing esterno.
+.gridFlush {
+  padding: 0;
+}
+
 // Card pattern duplicato da SchedaTab.module.scss — convenzione progetto.
 .card {
   display: flex;

@@ -1,20 +1,47 @@
 import { useState } from "react";
-import { Clock } from "lucide-react";
+import {
+    AlertCircle,
+    Clock,
+    MoreVertical,
+    Edit3,
+    Eye,
+    Trash2,
+    CheckCheck,
+    CornerUpLeft
+} from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import type { StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
+import { Menu } from "@/components/ui/Menu/Menu";
 import { formatRelativeTime } from "@/utils/relativeTime";
-import type { V2OrderWithItems } from "@/types/orders";
+import type { V2OrderItem, V2OrderWithItems } from "@/types/orders";
 import styles from "./OrderCard.module.scss";
 
 interface Props {
     order: V2OrderWithItems;
     onAcknowledge: (order: V2OrderWithItems) => Promise<void>;
+    /**
+     * Optional. When provided and the order is in `acknowledged`, the
+     * primary CTA becomes "Pronto" (mark-order-ready) and the deliver CTA
+     * is demoted to a secondary "Servito direttamente" affordance for
+     * workflows that skip the explicit ready step. When omitted, the
+     * legacy behaviour applies: primary "Consegna" on acknowledged.
+     */
+    onMarkReady?: (order: V2OrderWithItems) => Promise<void>;
     onDeliver: (order: V2OrderWithItems) => Promise<void>;
     onCancel: (order: V2OrderWithItems) => void;
     onRectify: (order: V2OrderWithItems) => void;
     onViewDetail: (order: V2OrderWithItems) => void;
+    /**
+     * Optional. Disponibile su status `acknowledged`: "Rimetti in Nuove"
+     * (acknowledged → submitted). Quando omesso, la voce e' nascosta.
+     */
+    onUnacknowledge?: (order: V2OrderWithItems) => Promise<void>;
+    /**
+     * Optional. Disponibile su status `ready`: "Rimetti in lavorazione"
+     * (ready → acknowledged). Quando omesso, la voce e' nascosta.
+     */
+    onUnready?: (order: V2OrderWithItems) => Promise<void>;
     tableLabel: string;
     tableZone: string | null;
 }
@@ -24,62 +51,84 @@ const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
     currency: "EUR"
 });
 
+const ITEMS_PREVIEW_LIMIT = 3;
+
 function formatEur(n: number): string {
     return CURRENCY_FORMATTER.format(n);
 }
 
-function statusVariantAndLabel(status: V2OrderWithItems["status"]): {
-    variant: StatusBadgeVariant;
-    label: string;
-} {
+function statusLabel(status: V2OrderWithItems["status"]): string {
     switch (status) {
         case "submitted":
-            return { variant: "warning", label: "Da prendere" };
+            return "Nuova";
         case "acknowledged":
-            return { variant: "success", label: "In corso" };
+            return "In lavorazione";
+        case "ready":
+            return "Pronta";
         case "delivered":
-            return { variant: "neutral", label: "Consegnato" };
+            return "Servita";
         case "cancelled":
-            return { variant: "neutral", label: "Cancellato" };
+            return "Annullata";
     }
+}
+
+/**
+ * Compone i modifier reali di un item (primary_option + addons).
+ * Ritorna null se l'item non ha modifier — il consumer salta la riga
+ * corsivo invece di mostrare una stringa vuota.
+ */
+function formatItemModifiers(item: V2OrderItem): string | null {
+    const parts: string[] = [];
+    if (item.options_snapshot.primary_option) {
+        parts.push(item.options_snapshot.primary_option.value_name);
+    }
+    for (const addon of item.options_snapshot.addons) {
+        parts.push(addon.value_name);
+    }
+    if (parts.length === 0) return null;
+    return parts.join(", ");
 }
 
 export default function OrderCard({
     order,
     onAcknowledge,
+    onMarkReady,
     onDeliver,
     onCancel,
     onRectify,
     onViewDetail,
+    onUnacknowledge,
+    onUnready,
     tableLabel,
     tableZone
 }: Props) {
     const [isProcessing, setIsProcessing] = useState(false);
+    const [itemsExpanded, setItemsExpanded] = useState(false);
 
-    async function handleAck() {
+    async function runPrimary(action: () => Promise<void>) {
         setIsProcessing(true);
         try {
-            await onAcknowledge(order);
+            await action();
         } finally {
             setIsProcessing(false);
         }
     }
 
-    async function handleDel() {
-        setIsProcessing(true);
-        try {
-            await onDeliver(order);
-        } finally {
-            setIsProcessing(false);
-        }
-    }
+    const items = order.items ?? [];
+    const hasOverflow = items.length > ITEMS_PREVIEW_LIMIT;
+    const visibleItems = itemsExpanded || !hasOverflow ? items : items.slice(0, ITEMS_PREVIEW_LIMIT);
+    const overflowCount = items.length - ITEMS_PREVIEW_LIMIT;
 
-    const { variant, label } = statusVariantAndLabel(order.status);
+    const trimmedOrderNotes = order.notes?.trim();
+    const hasOrderNotes = !!trimmedOrderNotes;
+
+    // Rettifica/Modifica voce disponibile solo se l'ordine NON e' gia' un
+    // ordine di storno (l'Edge rifiuta rectify su rectify con INVALID_PARENT).
+    const canRectify = !order.is_rectification;
 
     return (
         <div className={styles.card} data-status={order.status}>
             <div className={styles.header}>
-                <StatusBadge variant={variant} label={label} />
                 <div className={styles.tableInfo}>
                     <Text weight={600}>{tableLabel}</Text>
                     {tableZone && (
@@ -89,49 +138,55 @@ export default function OrderCard({
                         </Text>
                     )}
                 </div>
-                <div className={styles.timeStamp}>
-                    <Clock size={14} />
-                    <Text variant="body-sm" colorVariant="muted">
-                        {formatRelativeTime(order.submitted_at)}
-                    </Text>
+                <div className={styles.headerRight}>
+                    <StatusBadge variant="neutral" label={statusLabel(order.status)} />
+                    <span className={styles.timeStamp}>
+                        <Clock size={14} />
+                        <Text variant="body-sm" colorVariant="muted">
+                            {formatRelativeTime(order.submitted_at)}
+                        </Text>
+                    </span>
                 </div>
             </div>
-
-            {order.customer_name_snapshot && (
-                <div className={styles.customer}>
-                    <Text variant="body-sm" colorVariant="muted">
-                        Cliente:
-                    </Text>
-                    <Text weight={500}>{order.customer_name_snapshot}</Text>
-                </div>
-            )}
 
             <div className={styles.items}>
-                {(order.items ?? []).map(item => (
-                    <div key={item.id} className={styles.itemRow}>
-                        <span className={styles.itemQty}>{item.quantity}x</span>
-                        <span className={styles.itemName}>
-                            {item.product_name_snapshot}
-                            {item.options_snapshot.primary_option && (
-                                <Text variant="body-sm" colorVariant="muted">
-                                    {" "}
-                                    ({item.options_snapshot.primary_option.value_name})
-                                </Text>
-                            )}
-                        </span>
-                        <span className={styles.itemPrice}>
-                            {formatEur(item.line_total)}
-                        </span>
-                    </div>
-                ))}
+                {visibleItems.map(item => {
+                    const modifiers = formatItemModifiers(item);
+                    const itemNotes = item.item_notes?.trim();
+                    return (
+                        <div key={item.id} className={styles.itemRow}>
+                            <span className={styles.itemQty}>{item.quantity}×</span>
+                            <div className={styles.itemBody}>
+                                <span className={styles.itemName}>
+                                    {item.product_name_snapshot}
+                                </span>
+                                {modifiers && (
+                                    <span className={styles.itemModifiers}>{modifiers}</span>
+                                )}
+                                {itemNotes && (
+                                    <span className={styles.itemNotes}>“{itemNotes}”</span>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+                {hasOverflow && (
+                    <button
+                        type="button"
+                        className={styles.expander}
+                        onClick={() => setItemsExpanded(prev => !prev)}
+                    >
+                        {itemsExpanded
+                            ? "Mostra meno"
+                            : `+${overflowCount} ${overflowCount === 1 ? "piatto" : "piatti"}`}
+                    </button>
+                )}
             </div>
 
-            {order.notes && (
-                <div className={styles.notes}>
-                    <Text variant="body-sm" colorVariant="muted">
-                        Note:
-                    </Text>
-                    <Text variant="body-sm">{order.notes}</Text>
+            {hasOrderNotes && (
+                <div className={styles.orderNotes}>
+                    <AlertCircle size={14} className={styles.orderNotesIcon} />
+                    <Text variant="body-sm">{trimmedOrderNotes}</Text>
                 </div>
             )}
 
@@ -140,56 +195,103 @@ export default function OrderCard({
                 <Text weight={600}>{formatEur(order.total_amount)}</Text>
             </div>
 
-            <div className={styles.actions}>
-                <div className={styles.actionsLeft}>
-                    {order.status === "submitted" && (
-                        <>
-                            <Button
-                                variant="primary"
-                                onClick={handleAck}
-                                loading={isProcessing}
-                            >
-                                Conferma
-                            </Button>
-                            <Button
-                                variant="secondary"
-                                onClick={() => onCancel(order)}
-                                disabled={isProcessing}
-                            >
-                                Cancella
-                            </Button>
-                        </>
+            <div className={styles.footer}>
+                <Menu
+                    align="start"
+                    side="top"
+                    trigger={
+                        <button
+                            type="button"
+                            className={styles.menuTrigger}
+                            aria-label="Altre azioni"
+                            disabled={isProcessing}
+                        >
+                            <MoreVertical size={18} />
+                        </button>
+                    }
+                >
+                    {canRectify && (
+                        <Menu.Item icon={Edit3} onSelect={() => onRectify(order)}>
+                            Rettifica
+                        </Menu.Item>
                     )}
                     {order.status === "acknowledged" && (
-                        <>
-                            <Button
-                                variant="primary"
-                                onClick={handleDel}
-                                loading={isProcessing}
-                            >
-                                Consegna
-                            </Button>
-                            <Button
-                                variant="secondary"
-                                onClick={() => onCancel(order)}
-                                disabled={isProcessing}
-                            >
-                                Cancella
-                            </Button>
-                        </>
-                    )}
-                    {order.status === "delivered" && !order.is_rectification && (
-                        <Button
-                            variant="secondary"
-                            onClick={() => onRectify(order)}
+                        <Menu.Item
+                            icon={CheckCheck}
+                            onSelect={() => void runPrimary(() => onDeliver(order))}
                         >
-                            Rettifica
-                        </Button>
+                            Servito direttamente
+                        </Menu.Item>
                     )}
-                </div>
-                <Button variant="secondary" onClick={() => onViewDetail(order)}>
-                    Vedi dettaglio
-                </Button>
+                    {order.status === "acknowledged" && onUnacknowledge && (
+                        <Menu.Item
+                            icon={CornerUpLeft}
+                            onSelect={() => void runPrimary(() => onUnacknowledge(order))}
+                        >
+                            Rimetti in Nuove
+                        </Menu.Item>
+                    )}
+                    {order.status === "ready" && onUnready && (
+                        <Menu.Item
+                            icon={CornerUpLeft}
+                            onSelect={() => void runPrimary(() => onUnready(order))}
+                        >
+                            Rimetti in lavorazione
+                        </Menu.Item>
+                    )}
+                    <Menu.Item icon={Eye} onSelect={() => onViewDetail(order)}>
+                        Vedi dettaglio
+                    </Menu.Item>
+                    <Menu.Separator />
+                    <Menu.Item
+                        icon={Trash2}
+                        variant="destructive"
+                        onSelect={() => onCancel(order)}
+                    >
+                        Elimina comanda
+                    </Menu.Item>
+                </Menu>
+
+                {order.status === "submitted" && (
+                    <Button
+                        className={`${styles.primaryCta} ${styles.ctaSubmitted}`}
+                        variant="primary"
+                        onClick={() => void runPrimary(() => onAcknowledge(order))}
+                        loading={isProcessing}
+                    >
+                        Conferma
+                    </Button>
+                )}
+                {order.status === "acknowledged" && onMarkReady && (
+                    <Button
+                        className={`${styles.primaryCta} ${styles.ctaAcknowledged}`}
+                        variant="primary"
+                        onClick={() => void runPrimary(() => onMarkReady(order))}
+                        loading={isProcessing}
+                    >
+                        Pronto
+                    </Button>
+                )}
+                {order.status === "acknowledged" && !onMarkReady && (
+                    <Button
+                        className={`${styles.primaryCta} ${styles.ctaReady}`}
+                        variant="primary"
+                        onClick={() => void runPrimary(() => onDeliver(order))}
+                        loading={isProcessing}
+                    >
+                        Consegna
+                    </Button>
+                )}
+                {order.status === "ready" && (
+                    <Button
+                        className={`${styles.primaryCta} ${styles.ctaReady}`}
+                        variant="primary"
+                        onClick={() => void runPrimary(() => onDeliver(order))}
+                        loading={isProcessing}
+                    >
+                        Servita
+                    </Button>
+                )}
             </div>
         </div>
     );

@@ -272,7 +272,7 @@ serve(async (req: Request) => {
 
         const ACTIVITY_SELECT =
             "id, tenant_id, name, slug, cover_image, status, inactive_reason, " +
-            "ordering_enabled, " +
+            "ordering_enabled, enable_reservations, " +
             "address, street_number, postal_code, city, province, " +
             "instagram, instagram_public, facebook, facebook_public, " +
             "whatsapp, whatsapp_public, website, website_public, " +
@@ -333,6 +333,7 @@ serve(async (req: Request) => {
             status: activity.status,
             inactive_reason: activity.inactive_reason,
             ordering_enabled: activity.ordering_enabled ?? true,
+            enable_reservations: activity.enable_reservations ?? false,
             address: activity.address ?? null,
             street_number: activity.street_number ?? null,
             postal_code: activity.postal_code ?? null,
@@ -397,15 +398,15 @@ serve(async (req: Request) => {
         const [resolved, tenantInfo, hoursResult, closuresResult, tenantBaseResult] = await Promise.all([
             resolveActivityCatalogs(supabase, activity.id, simulatedAt, activity.tenant_id),
             supabase.rpc("get_tenant_public_info", { p_tenant_id: activity.tenant_id }),
-            activity.hours_public
+            (activity.hours_public || activity.enable_reservations)
                 ? supabase
                       .from("activity_hours")
-                      .select("day_of_week, slot_index, opens_at, closes_at, is_closed")
+                      .select("day_of_week, slot_index, opens_at, closes_at, closes_next_day, is_closed")
                       .eq("activity_id", activity.id)
                       .order("day_of_week", { ascending: true })
                       .order("slot_index", { ascending: true })
                 : Promise.resolve({ data: null, error: null }),
-            activity.hours_public
+            (activity.hours_public || activity.enable_reservations)
                 ? (() => {
                       const now = new Date();
                       const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(now);

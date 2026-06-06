@@ -1,0 +1,109 @@
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+}
+
+// Footer con bottone primario "Chiudi tavolo" gated da tables.manage.
+// Layout flex con gap coerente al gap default del footer slot di
+// DrawerLayout (12px), justify-content end per allineamento standard.
+.footerActions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.statusBlock {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+// Toggle manutenzione: card simile al pattern checkbox di TablesManagement
+// (border + copy esplicativa + controllo a destra). Visibile solo se
+// canManageTable; nessuno stato disabled visivo separato (lo Switch
+// gestisce il disabled durante l'await dell'update).
+.maintenanceRow {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px;
+    border: 1px solid var(--border-default, #e1e3e8);
+    border-radius: 8px;
+}
+
+.maintenanceCopy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sessionsList,
+.ordersList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sessionRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    background: var(--surface-elevated, #ffffff);
+    border: 1px solid var(--border-default, #e1e3e8);
+    border-radius: 8px;
+}
+
+.sessionMain {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.sessionTime {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.orderRow {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--surface-elevated, #ffffff);
+    border: 1px solid var(--border-default, #e1e3e8);
+    border-radius: 8px;
+}
+
+.orderMeta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}

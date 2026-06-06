@@ -1,0 +1,107 @@
+/* =============================================================================
+   MultiEmailInput — chip-style multi-value email input.
+   Theming follows the surrounding form fields (border / focus accent) so it
+   integrates cleanly into any settings panel.
+   ========================================================================== */
+
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+
+    &[data-disabled="true"] {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+}
+
+.field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    min-height: 42px;
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 8px;
+    cursor: text;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &:focus-within {
+        border-color: var(--color-accent, #6366f1);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent, #6366f1) 18%, transparent);
+    }
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 4px 4px 10px;
+    background: color-mix(in srgb, var(--color-accent, #6366f1) 10%, transparent);
+    color: var(--color-text, #111827);
+    border-radius: 999px;
+    font-size: 13px;
+    line-height: 1.2;
+    max-width: 100%;
+}
+
+.chipText {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 280px;
+}
+
+.chipRemove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    transition: background 0.12s ease;
+
+    &:hover {
+        background: color-mix(in srgb, currentColor 14%, transparent);
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.4;
+    }
+}
+
+.input {
+    flex: 1 1 160px;
+    min-width: 140px;
+    padding: 4px 2px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--color-text, #111827);
+    background: transparent;
+    border: none;
+    outline: none;
+    line-height: 1.4;
+
+    &::placeholder {
+        color: var(--color-text-muted, #9ca3af);
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+    }
+}
+
+.error {
+    font-size: 12px;
+    color: var(--color-error, #dc2626);
+    line-height: 1.3;
+}

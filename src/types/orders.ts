@@ -1,5 +1,7 @@
-// V2Table — riga grezza della tabella `public.tables`.
-// Nel service queries `deleted_at` è sempre null (filtrato).
+// V2Table — riga della tabella `public.tables` arricchita con `zone_name`
+// (JOIN su table_zones nei service). Nel service queries `deleted_at` e' sempre
+// null (filtrato). `zone_name` e' popolato lato service via select relation
+// hint Supabase; e' `null` se il tavolo non ha zona assegnata.
 export interface V2Table {
     id: string;
     tenant_id: string;
@@ -7,7 +9,8 @@ export interface V2Table {
     label: string;
     qr_token: string;
     seats: number | null;
-    zone: string | null;
+    zone_id: string | null;
+    zone_name: string | null;
     maintenance_mode: boolean;
     deleted_at: string | null;
     created_at: string;
@@ -15,25 +18,48 @@ export interface V2Table {
 }
 
 // V2TableInsert — payload per INSERT. Esclude colonne con DEFAULT o gestite dal DB.
-// `qr_token` è DEFAULT gen_random_uuid(); `id`/`created_at`/`updated_at`/`deleted_at`
-// sono pure DEFAULT o gestite dal DB.
+// `qr_token` e' DEFAULT gen_random_uuid(); `id`/`created_at`/`updated_at`/`deleted_at`
+// sono DEFAULT o gestite dal DB. `zone_id` opzionale: null = nessuna zona.
 export interface V2TableInsert {
     tenant_id: string;
     activity_id: string;
     label: string;
     seats?: number | null;
-    zone?: string | null;
+    zone_id?: string | null;
     maintenance_mode?: boolean;
 }
 
 // V2TableUpdate — payload per UPDATE. Solo campi mutabili dall'admin.
-// `qr_token` NON è qui (usare `regenerateTableQrToken` dedicato).
+// `qr_token` NON e' qui (usare `regenerateTableQrToken` dedicato).
 // `tenant_id` e `activity_id` NON modificabili (un tavolo non cambia sede).
 export interface V2TableUpdate {
     label?: string;
     seats?: number | null;
-    zone?: string | null;
+    zone_id?: string | null;
     maintenance_mode?: boolean;
+}
+
+// V2TableZone — riga di public.table_zones (γ-lite). UNIQUE (activity_id, name).
+// FK su tables.zone_id ON DELETE SET NULL.
+export interface V2TableZone {
+    id: string;
+    tenant_id: string;
+    activity_id: string;
+    name: string;
+    sort_order: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface V2TableZoneInsert {
+    activity_id: string;
+    name: string;
+    sort_order?: number;
+}
+
+export interface V2TableZoneUpdate {
+    name?: string;
+    sort_order?: number;
 }
 
 // ─── Customer Sessions ──────────────────────────────────────────────────────
@@ -134,12 +160,45 @@ export interface ResolveTableResult {
 }
 
 /**
+ * Azione di risoluzione bulk degli ordini aperti
+ * (submitted+acknowledged+ready) alla chiusura tavolo.
+ *   - 'deliver' → tutti gli aperti diventano delivered.
+ *   - 'cancel'  → tutti gli aperti diventano cancelled (cancelled_by=admin,
+ *                 cancellation_reason="Chiusura tavolo").
+ */
+export type CloseTableOpenOrdersAction = "deliver" | "cancel";
+
+/**
  * Response dell'Edge Function close-table.
+ *
+ * `resolved_action`:
+ *   - 'none'    → nessun aperto da risolvere (chiusura semplice).
+ *   - 'deliver' | 'cancel' → bulk-resolve eseguito atomicamente con la
+ *                 chiusura order_groups via RPC close_table_with_resolution.
+ *
+ * `ended_sessions_count`: numero di customer_sessions del tavolo
+ *   terminate (expires_at impostato a now()) come parte della chiusura
+ *   (migration 20260604100000). Atomicamente con gli altri counts. Il
+ *   tavolo torna "Libero" senza attesa TTL.
  */
 export interface CloseTableResult {
     table_id: string;
+    resolved_action: "none" | CloseTableOpenOrdersAction;
+    resolved_orders_count: number;
     closed_groups_count: number;
     closed_orders_count: number;
+    cleared_bill_count: number;
+    ended_sessions_count: number;
+}
+
+/**
+ * Shape dei `details` su Error.message === "TABLE_HAS_OPEN_ORDERS"
+ * thrown da closeTable() quando si chiama senza `action` su un tavolo
+ * che ha ordini aperti. Il caller usa `open_orders_count` per gating
+ * UI dei bottoni "Segna come servite" / "Annulla tutte".
+ */
+export interface CloseTableHasOpenOrdersErrorDetails {
+    open_orders_count: number;
 }
 
 // ─── Product Availability ──────────────────────────────────────────────────
@@ -172,15 +231,22 @@ export interface V2ProductAvailabilityOverride {
 export type ProductAvailabilityScope = "daily" | "indefinite";
 
 // V2TableWithState — riga della view `public.v_tables_with_state`
-// (migration 20260519180000). Estende V2Table con i 4 aggregati derivati
-// runtime da `customer_sessions` / `orders` / `order_groups`.
+// (migration 20260519180000 base; 20260603120000 aggiunge open_orders_count).
+// Estende V2Table con gli aggregati derivati runtime da
+// `customer_sessions` / `orders` / `order_groups`.
 //
 // `current_total` è NUMERIC lato Postgres (supabase-js lo serializza come
 // stringa): il service `listTablesWithState` lo normalizza a number prima
 // di ritornarlo, quindi qui è tipato `number`.
+//
+// `pending_orders_count` e `open_orders_count` hanno semantica DIVERSA:
+//   - pending: submitted + acknowledged (UI "in cucina o da consegnare").
+//   - open: submitted + acknowledged + ready (UI "aperti", base per gate
+//     di close-table con risoluzione bulk).
 export interface V2TableWithState extends V2Table {
     active_sessions_count: number;
     pending_orders_count: number;
+    open_orders_count: number;
     open_groups_count: number;
     current_total: number;
     /** Count sessions attive con bill_requested_at NOT NULL su questo tavolo. */
@@ -192,6 +258,7 @@ export interface V2TableWithState extends V2Table {
 export type OrderStatus =
     | "submitted"
     | "acknowledged"
+    | "ready"
     | "delivered"
     | "cancelled";
 
@@ -216,6 +283,7 @@ export interface V2Order {
     version: number;
     submitted_at: string;
     acknowledged_at: string | null;
+    ready_at: string | null;
     delivered_at: string | null;
     cancelled_at: string | null;
     cancelled_by: CancelledBy | null;
@@ -358,6 +426,13 @@ export interface AcknowledgeOrderResult {
     acknowledged_at: string;
 }
 
+export interface MarkOrderReadyResult {
+    order_id: string;
+    status: "ready";
+    version: number;
+    ready_at: string;
+}
+
 export interface DeliverOrderResult {
     order_id: string;
     status: "delivered";
@@ -372,6 +447,105 @@ export interface CancelOrderAdminResult {
     cancelled_at: string;
     cancelled_by: "admin";
     cancellation_reason: string | null;
+}
+
+/**
+ * Result di restoreOrder. Mirror dell'Edge Function `restore-order`
+ * (delivered → acknowledged). Nessun timestamp dedicato per la transizione
+ * di ripristino; `delivered_at` + `ready_at` tornano a null perche' la
+ * giornata operativa di "servito" e' annullata.
+ */
+export interface RestoreOrderResult {
+    order_id: string;
+    status: "acknowledged";
+    version: number;
+    delivered_at: null;
+    ready_at: null;
+}
+
+/**
+ * Result di unacknowledgeOrder. Mirror dell'Edge Function
+ * `unacknowledge-order` (acknowledged → submitted, "Rimetti in Nuove").
+ * `acknowledged_at` viene azzerato per riportare l'ordine allo stato
+ * pre-conferma.
+ */
+export interface UnacknowledgeOrderResult {
+    order_id: string;
+    status: "submitted";
+    version: number;
+    acknowledged_at: null;
+}
+
+/**
+ * Result di unreadyOrder. Mirror dell'Edge Function `unready-order`
+ * (ready → acknowledged, "Rimetti in lavorazione"). `ready_at` viene
+ * azzerato; `acknowledged_at` NON viene toccato perche' l'ordine torna
+ * proprio nello stato `acknowledged` raggiunto in precedenza.
+ */
+export interface UnreadyOrderResult {
+    order_id: string;
+    status: "acknowledged";
+    version: number;
+    ready_at: null;
+}
+
+/**
+ * Result di undeliverToReady. Mirror dell'Edge Function
+ * `undeliver-to-ready` (delivered → ready). Usata come undo di
+ * "Servita" quando l'ordine veniva dalla colonna Pronte; `delivered_at`
+ * viene azzerato, `ready_at` resta popolato (l'ordine torna proprio
+ * nello stato `ready` raggiunto in precedenza).
+ */
+export interface UndeliverToReadyResult {
+    order_id: string;
+    status: "ready";
+    version: number;
+    delivered_at: null;
+}
+
+/**
+ * Result di uncancelToSubmitted. Mirror dell'Edge Function
+ * `uncancel-to-submitted` (cancelled → submitted). Undo immediato di
+ * "Elimina" quando l'ordine era stato cancellato dallo stato submitted.
+ * Azzera i metadati di cancellazione.
+ */
+export interface UncancelToSubmittedResult {
+    order_id: string;
+    status: "submitted";
+    version: number;
+    cancelled_at: null;
+    cancelled_by: null;
+    cancellation_reason: null;
+}
+
+/**
+ * Result di uncancelToAcknowledged. Mirror dell'Edge Function
+ * `uncancel-to-acknowledged` (cancelled → acknowledged). Undo immediato
+ * quando l'ordine era stato cancellato da acknowledged; `acknowledged_at`
+ * resta popolato (stato originale ripristinato).
+ */
+export interface UncancelToAcknowledgedResult {
+    order_id: string;
+    status: "acknowledged";
+    version: number;
+    cancelled_at: null;
+    cancelled_by: null;
+    cancellation_reason: null;
+}
+
+/**
+ * Result di uncancelToReady. Mirror dell'Edge Function
+ * `uncancel-to-ready` (cancelled → ready). Undo immediato quando
+ * l'ordine era stato cancellato da ready; `acknowledged_at` e `ready_at`
+ * restano popolati (stato originale ripristinato).
+ */
+export interface UncancelToReadyResult {
+    order_id: string;
+    status: "ready";
+    version: number;
+    cancelled_at: null;
+    cancelled_by: null;
+    cancellation_reason: null;
 }
 
 export interface RectifyOrderResult {

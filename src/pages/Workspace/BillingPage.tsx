@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { usePageHeader } from "@/context/usePageHeader";
-import { isOwner } from "@/lib/permissions";
+import { workspaceRoleIsOwner as isOwner } from "@/utils/workspaceRole";
 import Text from "@/components/ui/Text/Text";
 import { Badge, type BadgeVariant } from "@/components/ui/Badge/Badge";
 import { useAuth } from "@/context/useAuth";

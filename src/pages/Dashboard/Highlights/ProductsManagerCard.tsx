@@ -1,5 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Card } from "@/components/ui/Card/Card";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -45,6 +44,8 @@ interface ProductsManagerCardProps {
         linkedIds: string[],
         onApply: (productIds: string[]) => Promise<void>
     ) => void;
+    // Pubblica un trigger "apri picker prodotti" verso il parent (CTA in banda).
+    onRegisterAddTrigger?: (trigger: () => void) => void;
 }
 
 function formatPrice(price: number): string {
@@ -79,13 +80,13 @@ export default function ProductsManagerCard({
     featuredId,
     pricingMode,
     showOriginalTotal,
-    onOpenProductPicker
+    onOpenProductPicker,
+    onRegisterAddTrigger
 }: ProductsManagerCardProps) {
     const { showToast } = useToast();
     const tenantId = useTenantId();
 
     const [loading, setLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
     const [products, setProducts] = useState<FeaturedContentProductRow[]>([]);
     const [editingProduct, setEditingProduct] = useState<V2Product | null>(null);
     const [isSavingEditProduct, setIsSavingEditProduct] = useState(false);
@@ -111,15 +112,12 @@ export default function ProductsManagerCard({
     const handleDelete = async (dbId: string) => {
         if (!tenantId) return;
         try {
-            setIsSaving(true);
             await deleteFeaturedContentProduct(dbId, tenantId);
             showToast({ type: "success", message: "Prodotto rimosso." });
             await loadProducts();
         } catch (err) {
             console.error(err);
             showToast({ type: "error", message: "Errore nella rimozione del prodotto." });
-        } finally {
-            setIsSaving(false);
         }
     };
 
@@ -181,6 +179,7 @@ export default function ProductsManagerCard({
         })
     );
 
+    const handleOpenAddModalRef = useRef<() => void>(() => {});
     const handleOpenAddModal = () => {
         if (!onOpenProductPicker) return;
 
@@ -204,7 +203,6 @@ export default function ProductsManagerCard({
                 );
 
                 try {
-                    setIsSaving(true);
                     await syncFeaturedContentProducts(
                         featuredId,
                         tenantId,
@@ -222,12 +220,17 @@ export default function ProductsManagerCard({
                         type: "error",
                         message: "Errore durante il salvataggio dei prodotti."
                     });
-                } finally {
-                    setIsSaving(false);
                 }
             }
         );
     };
+
+    handleOpenAddModalRef.current = handleOpenAddModal;
+
+    useEffect(() => {
+        if (!onRegisterAddTrigger) return;
+        onRegisterAddTrigger(() => handleOpenAddModalRef.current?.());
+    }, [onRegisterAddTrigger]);
 
     const showPriceColumn =
         pricingMode === "per_item" || (pricingMode === "bundle" && showOriginalTotal);
@@ -354,74 +357,47 @@ export default function ProductsManagerCard({
 
     return (
         <>
-        <Card noHoverLift>
-            <div style={{ display: "flex", flexDirection: "column" }}>
-                <div
-                    style={{
-                        padding: "24px",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        gap: "12px"
-                    }}
-                >
-                    <Text variant="title-sm" weight={600}>
-                        Prodotti inclusi
-                    </Text>
-                    <Button
-                        variant="primary"
-                        onClick={handleOpenAddModal}
-                        disabled={isSaving}
-                    >
-                        + Aggiungi prodotto
-                    </Button>
+            {loading ? (
+                <div style={{ padding: "24px", textAlign: "center" }}>
+                    <Text colorVariant="muted">Caricamento prodotti inclusi...</Text>
                 </div>
-
-                {loading ? (
-                    <div style={{ padding: "24px", textAlign: "center" }}>
-                        <Text colorVariant="muted">Caricamento prodotti inclusi...</Text>
-                    </div>
-                ) : (
-                    <div style={{ padding: "0 24px 24px 24px" }}>
-                        <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            onDragEnd={handleDragEnd}
-                        >
-                            <SortableContext
-                                items={products.map(product => product.id)}
-                                strategy={verticalListSortingStrategy}
-                            >
-                                <DataTable<FeaturedContentProductRow>
-                                    data={products}
-                                    columns={columns}
-                                    emptyState={{
-                                        title: "Nessun prodotto associato a questo contenuto.",
-                                        action: (
-                                            <Button
-                                                variant="primary"
-                                                onClick={handleOpenAddModal}
-                                            >
-                                                Aggiungi il primo prodotto
-                                            </Button>
-                                        )
-                                    }}
-                                    rowWrapper={(row, rowData) => (
-                                        <SortableDataTableRow
-                                            key={rowData.id}
-                                            id={rowData.id}
-                                            draggingOpacity={0.55}
-                                        >
-                                            {row}
-                                        </SortableDataTableRow>
-                                    )}
-                                />
-                            </SortableContext>
-                        </DndContext>
-                    </div>
-                )}
-            </div>
-        </Card>
+            ) : (
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                >
+                    <SortableContext
+                        items={products.map(product => product.id)}
+                        strategy={verticalListSortingStrategy}
+                    >
+                        <DataTable<FeaturedContentProductRow>
+                            data={products}
+                            columns={columns}
+                            emptyState={{
+                                title: "Nessun prodotto associato a questo contenuto.",
+                                action: (
+                                    <Button
+                                        variant="primary"
+                                        onClick={handleOpenAddModal}
+                                    >
+                                        Aggiungi il primo prodotto
+                                    </Button>
+                                )
+                            }}
+                            rowWrapper={(row, rowData) => (
+                                <SortableDataTableRow
+                                    key={rowData.id}
+                                    id={rowData.id}
+                                    draggingOpacity={0.55}
+                                >
+                                    {row}
+                                </SortableDataTableRow>
+                            )}
+                        />
+                    </SortableContext>
+                </DndContext>
+            )}
 
         <SystemDrawer open={Boolean(editingProduct)} onClose={() => setEditingProduct(null)} width={520}>
             <DrawerLayout

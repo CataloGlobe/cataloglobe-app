@@ -62,6 +62,13 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                         )}
                     </div>
                 )}
+                <div className={styles.statusBadgeOverlay}>
+                    {business.status === "inactive" ? (
+                        <StatusBadge variant="neutral" label="Sospesa" />
+                    ) : (
+                        <StatusBadge variant="success" label="Pubblicata" />
+                    )}
+                </div>
             </div>
 
             <div className={styles.cardContent}>
@@ -70,9 +77,6 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                         <Text as="h3" variant="title-sm" weight={700} className={styles.entityName}>
                             {business.name}
                         </Text>
-                        {business.status === "inactive" && (
-                            <StatusBadge variant="neutral" label="Sospesa" />
-                        )}
                         <DropdownMenu.Root>
                             <DropdownMenu.Trigger asChild>
                                 <button

@@ -1,0 +1,1029 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lockedWrap {
+  padding: 80px 16px;
+}
+
+.skeleton {
+  height: 76px;
+  border-radius: 12px;
+  background: var(--color-skeleton, #f3f4f6);
+}
+
+// Toolbar actions: Select filtro canale + CTA "Nuova prenotazione" allineati.
+.toolbarActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+// Larghezza minima per ospitare "Tutti i canali" / "Solo a mano" senza wrap.
+.toolbarChannelSelect {
+  min-width: 168px;
+}
+
+// CTA della header band: altezza armonizzata a --control-height.
+.toolbarCta {
+  box-sizing: border-box;
+  height: var(--control-height, 38px);
+}
+
+/* ── Today bar ─────────────────────────────────────────── */
+
+.todayBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: color-mix(
+    in srgb,
+    var(--color-accent, #2563eb) 6%,
+    var(--color-surface, #ffffff)
+  );
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--color-accent, #2563eb) 18%,
+      var(--color-border, #e5e7eb)
+    );
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.todayBarIcon {
+  flex-shrink: 0;
+  color: var(--color-accent, #2563eb);
+  display: inline-flex;
+}
+
+.todayBarText {
+  color: var(--color-text-primary, #111827);
+
+  strong {
+    font-weight: 600;
+  }
+}
+
+.todayBarSeparator {
+  color: var(--color-text-muted, #6b7280);
+  margin: 0 2px;
+}
+
+.todayBarHint {
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* ── Empty state wrap ──────────────────────────────────── */
+
+.emptyState {
+  padding: 64px 16px;
+}
+
+/* ── Inbox ─────────────────────────────────────────────── */
+
+.inbox {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.inboxSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inboxSectionHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 2px;
+}
+
+.inboxSectionTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.inboxSectionCount {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.inboxSectionHint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Reservation row ───────────────────────────────────── */
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    transform 0.05s ease;
+  font-family: inherit;
+
+  &:hover {
+    border-color: var(--color-border-strong, #d1d5db);
+  }
+
+  &:active {
+    transform: scale(0.998);
+  }
+}
+
+.rowDimmed {
+  @extend .row;
+  opacity: 0.7;
+  background: color-mix(
+    in srgb,
+    var(--color-text-muted, #6b7280) 4%,
+    var(--color-surface, #ffffff)
+  );
+}
+
+/* Two-column flex: [ChannelMark 34px] [content]. The content column owns
+   the title line + note + site pill, so the note indents under the name
+   and not under the channel icon. */
+.rowMain {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.rowContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Pixel-exact line-height on the title row so the gap title→note is driven
+   ONLY by .rowNote { margin-top }. Without this, the 15px name + 13px meta
+   inherit body line-height (~1.5) → box ~22.5px, while Agenda title row at
+   14px name renders ~21px → 1.5px visible mismatch. 22px line-height makes
+   both tabs identical (paired with .timelineTitleLine below). */
+.rowTopLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 22px;
+  flex-wrap: wrap;
+}
+
+.rowName {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+}
+
+.rowMeta {
+  font-size: 13px;
+  color: var(--color-text-secondary, #4b5563);
+}
+
+.rowMetaDim {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Inline note row: icon + text muted, ellipsis truncation. Shared between
+   Inbox and Agenda · Giorni so the two tabs speak the same visual language.
+   margin-top: 8px gives the note breathing room from the title line. */
+.rowNote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.rowNoteIconInline {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.rowNoteText {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Channel mark (online vs manual) ──────────────────── */
+
+.channelMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: color-mix(
+    in srgb,
+    var(--color-text-muted, #6b7280) 8%,
+    var(--color-surface, #ffffff)
+  );
+  border: 1px solid var(--color-border, #e5e7eb);
+  color: var(--color-text-secondary, #4b5563);
+  flex-shrink: 0;
+}
+
+/* Plain variant: inline icon, no frame. Used in Agenda · Giorni where time
+   is the hero and the channel reads as a small muted signal. */
+.channelMarkPlain {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted, #6b7280);
+  flex-shrink: 0;
+}
+
+.rowSitePill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--color-text-muted, #6b7280) 10%,
+    var(--color-surface, #ffffff)
+  );
+  border: 1px solid var(--color-border, #e5e7eb);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #4b5563);
+}
+
+.rowRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.rowActions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ── Agenda ────────────────────────────────────────────── */
+
+.agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.agendaHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.agendaDisclaimer {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  font-style: italic;
+}
+
+.dayGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dayHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 2px;
+}
+
+.dayHeaderTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+}
+
+.dayHeaderMeta {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* Timeline rows */
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timelineRow {
+  display: grid;
+  grid-template-columns: 58px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+
+  &:hover {
+    border-color: var(--color-border-strong, #d1d5db);
+  }
+}
+
+.timelineRowTerminal {
+  @extend .timelineRow;
+  opacity: 0.6;
+  background: color-mix(
+    in srgb,
+    var(--color-text-muted, #6b7280) 4%,
+    var(--color-surface, #ffffff)
+  );
+}
+
+.timelineTime {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  font-variant-numeric: tabular-nums;
+}
+
+.timelineMain {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+/* Title line: plain channel mark + name + " · N persone" muted suffix. Pixel
+   line-height matches `.rowTopLine` so the gap title→note is identical to
+   Inbox and driven ONLY by the shared `.rowNote { margin-top }`. */
+.timelineTitleLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 22px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.timelineName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+}
+
+.timelineNameMeta {
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.timelineMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.timelineCovers {
+  font-size: 13px;
+  color: var(--color-text-secondary, #4b5563);
+}
+
+/* ── Week navigator: unified bordered block ──────────────
+   [Oggi] · hairline · ◀ · date · ▶
+   The Today segment appears only when weekOffset !== 0, and the divider
+   sits ONLY after the Today segment so arrows hug the date label. */
+
+.weekNav {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  height: 34px;
+  padding: 2px;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Today segment — first child when present, ghost button inside the block. */
+.weekNavToday {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: color-mix(
+      in srgb,
+      var(--color-text-muted, #6b7280) 8%,
+      var(--color-surface, #ffffff)
+    );
+  }
+}
+
+/* Hairline divider between Today segment and arrows. */
+.weekNavDivider {
+  flex-shrink: 0;
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 4px;
+  background: var(--color-border, #e5e7eb);
+}
+
+/* Ghost arrow buttons (no individual borders, hover bg only). */
+.weekNavArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 100%;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--color-text-secondary, #4b5563);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: color-mix(
+      in srgb,
+      var(--color-text-muted, #6b7280) 8%,
+      var(--color-surface, #ffffff)
+    );
+    color: var(--color-text-primary, #111827);
+  }
+}
+
+.weekNavLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 110px;
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Annullate toggle: compact inline role="switch" ──────── */
+
+.agendaTerminalSwitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary, #4b5563);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Hide the native checkbox; visuals live on the track + thumb spans. */
+.agendaTerminalSwitchInput {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+  margin: 0;
+}
+
+.agendaTerminalSwitchTrack {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--color-text-muted, #6b7280) 25%,
+    var(--color-surface, #ffffff)
+  );
+  border: 1px solid var(--color-border, #e5e7eb);
+  flex-shrink: 0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.agendaTerminalSwitchThumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px
+    color-mix(in srgb, var(--color-text-muted, #6b7280) 30%, transparent);
+  transition: transform 0.18s ease;
+}
+
+.agendaTerminalSwitchInput:checked + .agendaTerminalSwitchTrack {
+  background: var(--brand-primary, #6366f1);
+  border-color: var(--brand-primary, #6366f1);
+
+  .agendaTerminalSwitchThumb {
+    transform: translateX(14px);
+  }
+}
+
+.agendaTerminalSwitchInput:focus-visible + .agendaTerminalSwitchTrack {
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--brand-primary, #6366f1) 24%, transparent);
+}
+
+.agendaTerminalSwitchLabel {
+  font-size: 13px;
+  color: var(--color-text-secondary, #4b5563);
+  line-height: 1;
+}
+
+/* ── Week GRID (7 colonne Lun→Dom) ──────────────────────── */
+
+.weekGridWrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.weekGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(110px, 1fr));
+  gap: 8px;
+  min-width: 100%;
+}
+
+.weekCol {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.weekColHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 6px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--color-surface, #ffffff);
+}
+
+.weekColHeaderToday {
+  background: var(--color-text-primary, #111827);
+  border-color: var(--color-text-primary, #111827);
+  color: #ffffff;
+}
+
+.weekColLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.weekColNum {
+  font-size: 17px;
+  font-weight: 600;
+  color: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.weekColBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 80px;
+  padding: 4px 0;
+}
+
+.weekColEmpty {
+  font-size: 14px;
+  color: color-mix(in srgb, var(--color-text-muted, #6b7280) 60%, transparent);
+  text-align: center;
+  padding-top: 12px;
+}
+
+.weekChip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.25;
+  min-width: 0;
+  transition:
+    filter 0.15s ease,
+    transform 0.1s ease;
+
+  &:hover {
+    filter: brightness(0.97);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  /* Tone palette mirrors StatusBadge: success / warning / neutral. */
+  &[data-tone="confirmed"] {
+    background: #d1fae5;
+    color: #065f46;
+    border-color: color-mix(in srgb, #065f46 18%, transparent);
+  }
+
+  &[data-tone="pending"] {
+    background: var(--color-warning-100, #fef3c7);
+    color: var(--color-warning-700, #b45309);
+    border-color: color-mix(
+      in srgb,
+      var(--color-warning-700, #b45309) 20%,
+      transparent
+    );
+  }
+
+  &[data-tone="terminal"] {
+    background: #f3f4f6;
+    color: #6b7280;
+    border-color: color-mix(in srgb, #6b7280 18%, transparent);
+    opacity: 0.75;
+  }
+}
+
+.weekChipTime {
+  font-weight: 700;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.weekChipName {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Drawer body ───────────────────────────────────────── */
+
+.drawerBody {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.drawerSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drawerSectionTitle {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.drawerNotes {
+  padding: 12px 14px;
+  background: var(--color-surface-sunken, #f9fafb);
+  border-radius: 8px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  font-size: 14px;
+  color: var(--color-text-primary, #111827);
+  white-space: pre-wrap;
+}
+
+/* ── Hero block: date + meta + venue ───────────────────── */
+
+.drawerHero {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
+.drawerHeroDate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  line-height: 1.3;
+}
+
+.drawerHeroDateIcon {
+  color: var(--brand-primary, #6366f1);
+  flex-shrink: 0;
+}
+
+.drawerHeroDateText {
+  /* Hairline scaling for long IT dates without forcing two lines. */
+  letter-spacing: -0.005em;
+}
+
+.drawerHeroMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14.5px;
+  color: var(--color-text-secondary, #4b5563);
+  flex-wrap: wrap;
+  line-height: 1.3;
+}
+
+.drawerHeroMetaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+
+  svg {
+    color: var(--color-text-muted, #6b7280);
+  }
+}
+
+.drawerHeroMetaDot {
+  color: var(--color-text-muted, #6b7280);
+  font-weight: 500;
+}
+
+/* Compact channel chip used inside the hero meta line. */
+.drawerHeroChannel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--color-text-muted, #6b7280) 8%,
+    var(--color-surface, #ffffff)
+  );
+  border: 1px solid var(--color-border, #e5e7eb);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #4b5563);
+  white-space: nowrap;
+}
+
+.drawerHeroVenue {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* ── Customer section ──────────────────────────────────── */
+
+.drawerCustomer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.drawerCustomerName {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  line-height: 1.3;
+}
+
+.drawerCustomerList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.drawerCustomerItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary, #4b5563);
+}
+
+.drawerCustomerIcon {
+  color: var(--color-text-muted, #6b7280);
+  flex-shrink: 0;
+}
+
+.drawerCustomerLink {
+  color: var(--brand-primary, #6366f1);
+  text-decoration: none;
+  word-break: break-word;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* ── Aggregate callout: soft indigo card ──────────────── */
+
+.drawerAggregate {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: color-mix(
+    in srgb,
+    var(--brand-primary, #6366f1) 7%,
+    var(--color-surface, #ffffff)
+  );
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--brand-primary, #6366f1) 22%,
+      var(--color-border, #e5e7eb)
+    );
+  border-radius: 10px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--color-text-primary, #111827);
+}
+
+.drawerAggregateIcon {
+  flex-shrink: 0;
+  color: var(--brand-primary, #6366f1);
+  margin-top: 1px;
+}
+
+.drawerAggregateText {
+  flex: 1 1 auto;
+  min-width: 0;
+
+  strong {
+    font-weight: 600;
+    color: var(--brand-primary, #6366f1);
+  }
+}
+
+.drawerHeaderTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.drawerFooter {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.drawerFooterHint {
+  width: 100%;
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  text-align: right;
+}
+
+/* ── Reservation create/edit form ─────────────────────── */
+
+.reservationForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.reservationFormRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.reservationFormField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reservationFormLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary, #111827);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.reservationFormLabelOptional {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.reservationFormTextarea {
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--color-text-primary, #111827);
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  resize: vertical;
+  min-height: 76px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-accent, #2563eb);
+    box-shadow: 0 0 0 3px
+      color-mix(in srgb, var(--color-accent, #2563eb) 18%, transparent);
+  }
+}
+
+.reservationFormReadonlyField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--color-surface-sunken, #f9fafb);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+}
+
+.reservationFormReadonlyLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.reservationFormReadonlyValue {
+  font-size: 14px;
+  color: var(--color-text-primary, #111827);
+}

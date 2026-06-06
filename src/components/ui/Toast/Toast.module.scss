@@ -13,6 +13,7 @@
 
 /* Base toast */
 .toast {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -124,4 +125,41 @@
 
 .toastLeaving {
   animation: toast-slide-out 0.25s ease-in forwards;
+}
+
+/* Barra countdown sotto al toast con azione: si svuota linearmente lungo
+ * la durata di auto-dismiss. Pausa su hover via classe paused (JS sospende
+ * anche il timer di dismiss per restare sincronizzato). Colore neutro su
+ * tinta semitrasparente del bianco per coerenza con tutte le varianti
+ * (background tinto della variante). */
+@keyframes toast-progress-shrink {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.toastProgress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.85);
+  transform-origin: left;
+  transform: scaleX(1);
+  animation: toast-progress-shrink var(--toast-progress-duration, 4000ms) linear forwards;
+}
+
+.toastProgressPaused {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toastProgress {
+    animation: none;
+    transform: scaleX(0);
+  }
 }

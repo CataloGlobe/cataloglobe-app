@@ -142,7 +142,9 @@ async function _fetchTableRaw(
     const { data, error } = await supabase
         .from("tables")
         .select(
-            "id, tenant_id, activity_id, label, zone, maintenance_mode, " +
+            "id, tenant_id, activity_id, label, maintenance_mode, " +
+            "zone_id, " +
+            "zone_data:table_zones!tables_zone_id_fkey(name), " +
             "activities!inner(slug)"
         )
         .eq("qr_token", qrToken)
@@ -159,18 +161,22 @@ async function _fetchTableRaw(
         tenant_id: string;
         activity_id: string;
         label: string;
-        zone: string | null;
         maintenance_mode: boolean;
+        zone_id: string | null;
+        zone_data: { name: string } | { name: string }[] | null;
         activities: { slug: string } | { slug: string }[];
     };
     const act = Array.isArray(row.activities) ? row.activities[0] : row.activities;
+    const zoneObj = Array.isArray(row.zone_data) ? row.zone_data[0] : row.zone_data;
     return {
         table_id: row.id,
         tenant_id: row.tenant_id,
         activity_id: row.activity_id,
         activity_slug: act?.slug ?? "",
         label: row.label,
-        zone: row.zone,
+        // Alias backward-compat: payload customer espone `zone` come stringa-o-null.
+        // Customer localStorage e ResolveTableResult.table.zone preservati.
+        zone: zoneObj?.name ?? null,
         maintenance_mode: row.maintenance_mode
     };
 }
@@ -178,10 +184,13 @@ async function _fetchTableRaw(
 async function _resolveOrCreateSession(
     supabase: SupabaseClient,
     table: TableInfo,
-    existingSessionId: string | null
+    existingSessionId: string | null,
+    deviceId: string | null
 ): Promise<{ session: CustomerSessionRow; isNew: boolean }> {
     const newExpiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString();
+    const nowIso = new Date().toISOString();
 
+    // ── 1) explicit reuse by existing_session_id (legacy, esplicito) ──
     if (existingSessionId) {
         const { data: existing, error: selErr } = await supabase
             .from("customer_sessions")
@@ -210,7 +219,7 @@ async function _resolveOrCreateSession(
                 .update({
                     activity_id: table.activity_id,
                     current_table_id: table.table_id,
-                    last_activity_at: new Date().toISOString(),
+                    last_activity_at: nowIso,
                     expires_at: newExpiresAt
                 })
                 .eq("id", existingSessionId)
@@ -226,17 +235,71 @@ async function _resolveOrCreateSession(
             }
             return { session: updated as CustomerSessionRow, isNew: false };
         }
-        // Fall through to creation when not reusable.
+        // Fall through quando non riusabile.
     }
+
+    // ── 2) reuse-by-device per (device_id, tenant_id) attiva ──
+    // tenant_id viene SEMPRE dal tavolo risolto server-side: il client non
+    // puo' forzare cross-tenant via device_id. expires_at > now() filtrato
+    // qui runtime (l'index su (device_id, tenant_id) e' semplice, no partial).
+    if (deviceId) {
+        const { data: byDevice, error: devErr } = await supabase
+            .from("customer_sessions")
+            .select(
+                "id, tenant_id, activity_id, current_table_id, order_group_id, " +
+                "customer_name, first_seen_at, last_activity_at, expires_at, " +
+                "created_at, updated_at"
+            )
+            .eq("device_id", deviceId)
+            .eq("tenant_id", table.tenant_id)
+            .gt("expires_at", nowIso)
+            .order("last_activity_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (devErr) {
+            throw new Error(`customer_sessions device lookup failed: ${devErr.message}`);
+        }
+
+        if (byDevice) {
+            const { data: updated, error: updErr } = await supabase
+                .from("customer_sessions")
+                .update({
+                    activity_id: table.activity_id,
+                    current_table_id: table.table_id,
+                    last_activity_at: nowIso,
+                    expires_at: newExpiresAt
+                })
+                .eq("id", (byDevice as CustomerSessionRow).id)
+                .select(
+                    "id, tenant_id, activity_id, current_table_id, order_group_id, " +
+                    "customer_name, first_seen_at, last_activity_at, expires_at, " +
+                    "created_at, updated_at"
+                )
+                .single();
+
+            if (updErr) {
+                throw new Error(`customer_sessions update failed: ${updErr.message}`);
+            }
+            return { session: updated as CustomerSessionRow, isNew: false };
+        }
+        // Fall through quando nessuna session attiva su (device_id, tenant_id).
+    }
+
+    // ── 3) INSERT nuova session (con device_id se fornito) ──
+    // Se device_id e' null/assente, il DEFAULT gen_random_uuid() della
+    // colonna assegna un UUID distinto: nessuna collisione lato server.
+    const insertPayload: Record<string, unknown> = {
+        tenant_id: table.tenant_id,
+        activity_id: table.activity_id,
+        current_table_id: table.table_id,
+        expires_at: newExpiresAt
+    };
+    if (deviceId) insertPayload.device_id = deviceId;
 
     const { data: created, error: insErr } = await supabase
         .from("customer_sessions")
-        .insert({
-            tenant_id: table.tenant_id,
-            activity_id: table.activity_id,
-            current_table_id: table.table_id,
-            expires_at: newExpiresAt
-        })
+        .insert(insertPayload)
         .select(
             "id, tenant_id, activity_id, current_table_id, order_group_id, " +
             "customer_name, first_seen_at, last_activity_at, expires_at, " +
@@ -386,6 +449,14 @@ serve(async (req: Request) => {
     const rawExisting = (body as { existing_session_id?: unknown })?.existing_session_id;
     const existingSessionId = _isUuid(rawExisting) ? rawExisting : null;
 
+    // device_id: random UUID lato client (localStorage) per idempotency.
+    // Validato in formato UUID per evitare valori arbitrari (lunghezza,
+    // controllo charset) — i client legittimi generano sempre UUID v4.
+    // Se assente o malformato → null → INSERT con DEFAULT gen_random_uuid()
+    // a livello DB (backward-compat con client vecchi).
+    const rawDevice = (body as { device_id?: unknown })?.device_id;
+    const deviceId = _isUuid(rawDevice) ? rawDevice : null;
+
     // ── Build service-role client ──
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
         auth: { persistSession: false, autoRefreshToken: false }
@@ -429,7 +500,12 @@ serve(async (req: Request) => {
         }
 
         // ── Resolve or create session ──
-        const { session } = await _resolveOrCreateSession(supabase, table, existingSessionId);
+        const { session } = await _resolveOrCreateSession(
+            supabase,
+            table,
+            existingSessionId,
+            deviceId
+        );
 
         // Defensive: session must reflect the scanned table.
         if (session.current_table_id !== table.table_id) {

@@ -233,6 +233,13 @@ type PublicBusiness = {
      * pre-Fix 1 puo non avere il campo — consumer usa fallback `?? true`.
      */
     ordering_enabled: boolean;
+    /**
+     * Reservation form opt-in per-sede. Quando `true`, la route `/:slug/prenota`
+     * renderizza il form; quando `false`, mostra lo stato "reservations-disabled".
+     * Backward compat: payload stale (Redis/localStorage) pre-deploy non ha il
+     * campo → fallback `?? false` lato consumer (sede deve esplicitamente abilitarle).
+     */
+    enable_reservations: boolean;
     address: string | null;
     street_number: string | null;
     postal_code: string | null;
@@ -251,6 +258,15 @@ type PublicBusiness = {
     email_public: string | null;
     email_public_visible: boolean;
     google_review_url: string | null;
+    /**
+     * Toggle del proprietario per esporre gli orari di apertura nel footer
+     * della pagina menu. Quando `false`, il blocco PublicOpeningHours non
+     * viene renderizzato anche se `opening_hours` arriva nel payload (la
+     * resolve-public-catalog espone gli orari anche con `enable_reservations`
+     * attivo per consentire la validazione del form prenotazione, ma il menu
+     * deve continuare a rispettare la scelta di nascondere).
+     */
+    hours_public: boolean;
     payment_methods: string[];
     services: string[];
     fees: ActivityFee[];
@@ -536,13 +552,23 @@ export default function PublicCollectionPage() {
 
             const isStale = opts.fromCache || opts.source === "stale";
 
+            // Honor business.hours_public for the menu page rendering. The
+            // resolve-public-catalog edge function ships opening_hours +
+            // upcoming_closures whenever (hours_public || enable_reservations)
+            // is true so the public reservation form can validate against the
+            // schedule. The menu, however, must NOT surface those when the
+            // venue opted to hide them via hours_public=false.
+            const menuHoursVisible = business.hours_public === true;
+            const menuOpeningHours = menuHoursVisible ? opening_hours : undefined;
+            const menuUpcomingClosures = menuHoursVisible ? upcoming_closures : undefined;
+
             setState({
                 status: "ready",
                 business,
                 resolved,
                 tenantLogoUrl,
-                openingHours: opening_hours,
-                upcomingClosures: upcoming_closures,
+                openingHours: menuOpeningHours,
+                upcomingClosures: menuUpcomingClosures,
                 allergens,
                 effectiveLanguage: effectiveLang,
                 baseLanguage: baseLang,
@@ -856,6 +882,8 @@ export default function PublicCollectionPage() {
                 style={collectionStyle}
                 mode="public"
                 activityId={business.id}
+                slug={business.slug}
+                enableReservations={business.enable_reservations}
                 tenantLogoUrl={tenantLogoUrl}
                 activityAddress={(() => {
                     const street = [business.address, business.street_number]

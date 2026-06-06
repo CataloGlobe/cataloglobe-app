@@ -23,6 +23,14 @@
   gap: 1rem;
 }
 
+// CTA della header band (Esporta): altezza armonizzata al cluster via
+// --control-height. Stessa famiglia/size dei Button outline di Catalogs
+// ("Importa con AI") — nessuna size compressa.
+.toolbarCta {
+  box-sizing: border-box;
+  height: var(--control-height, 38px);
+}
+
 .headerTop {
   display: flex;
   flex-direction: column;

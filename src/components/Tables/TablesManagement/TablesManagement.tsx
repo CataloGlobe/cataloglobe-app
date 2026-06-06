@@ -1,56 +1,51 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Grid2X2, RefreshCw, QrCode, RotateCw, Lock, Bell } from "lucide-react";
-import BillRequestsDrawer from "./BillRequestsDrawer";
+import { Bell, Grid2X2, Layers, MoreHorizontal, Plus, QrCode, RotateCw } from "lucide-react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
-import { usePageHeader } from "@/context/usePageHeader";
-import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 
-import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 
 import {
-    listTablesWithState,
     createTable,
-    updateTable,
     deleteTable,
     generateTableQrsPdf,
-    regenerateTableQrToken
+    listTablesWithState,
+    regenerateTableQrToken,
+    updateTable
 } from "@/services/supabase/tables";
 import type { V2Table, V2TableWithState } from "@/types/orders";
 
-import { getActivities } from "@/services/supabase/activities";
-import type { V2Activity } from "@/types/activity";
+import { ZoneSelectField } from "@/components/Tables/ZoneSelectField/ZoneSelectField";
+import { TableZoneManagementDrawer } from "@/components/Tables/TableZoneManagementDrawer/TableZoneManagementDrawer";
 
-import { closeTable } from "@/services/supabase/customerSessions";
+import BillRequestsDrawer from "@/pages/Dashboard/Tables/BillRequestsDrawer";
+import TableDeleteDrawer from "@/pages/Dashboard/Tables/TableDeleteDrawer";
+import TableRegenerateTokenDrawer from "@/pages/Dashboard/Tables/TableRegenerateTokenDrawer";
 
-import TableDeleteDrawer from "./TableDeleteDrawer";
-import TableRegenerateTokenDrawer from "./TableRegenerateTokenDrawer";
-import TableCloseDrawer from "./TableCloseDrawer";
-import styles from "./Tables.module.scss";
+import styles from "./TablesManagement.module.scss";
 
-type StatusFilter = "all" | "free" | "occupied" | "maintenance";
+export interface TablesManagementProps {
+    tenantId: string;
+    activityId: string;
+    /** Se false: bottoni create/edit disabilitati con tooltip prerequisito. */
+    orderingEnabled: boolean;
+}
 
-const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR"
-});
-
-export default function Tables() {
-    const tenantId = useTenantId();
+export function TablesManagement({
+    tenantId,
+    activityId,
+    orderingEnabled
+}: TablesManagementProps) {
     const { showToast } = useToast();
-
-    // Activity selection
-    const [activities, setActivities] = useState<V2Activity[]>([]);
-    const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
 
     // Data
     const [items, setItems] = useState<V2TableWithState[]>([]);
@@ -58,18 +53,20 @@ export default function Tables() {
 
     // Filters
     const [searchQuery, setSearchQuery] = useState("");
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
-    // Drawer Create/Edit (inline)
+    // Drawer Create/Edit
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<V2Table | null>(null);
     const [formLabel, setFormLabel] = useState("");
-    const [formZone, setFormZone] = useState("");
+    const [formZoneId, setFormZoneId] = useState<string | null>(null);
     const [formSeats, setFormSeats] = useState<string>("");
-    const [formMaintenanceMode, setFormMaintenanceMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    // Guardrail: true mentre il mini-form "Crea zona" e' aperto. Blocca
+    // submit del form tavolo per evitare creazione tavolo con zone_id=null
+    // quando l'utente sta ancora compilando la nuova zona.
+    const [isCreatingZone, setIsCreatingZone] = useState(false);
 
-    // Delete
+    // Delete drawer
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<V2Table | null>(null);
 
@@ -77,80 +74,69 @@ export default function Tables() {
     const [isRegenOpen, setIsRegenOpen] = useState(false);
     const [itemToRegen, setItemToRegen] = useState<V2Table | null>(null);
 
-    // Close table drawer
-    const [isCloseOpen, setIsCloseOpen] = useState(false);
-    const [tableToClose, setTableToClose] = useState<V2TableWithState | null>(null);
     const [billDrawerTable, setBillDrawerTable] = useState<{ id: string; label: string } | null>(null);
 
-    // QR generation flags (per disabilitazione bottoni durante async)
+    // Zone management drawer
+    const [isZoneDrawerOpen, setIsZoneDrawerOpen] = useState(false);
+    // Bumped quando zone cambiano fuori dal dropdown → forza reload del select via key remount.
+    const [zoneReloadKey, setZoneReloadKey] = useState(0);
+
+    // QR generation flags
     const [isGeneratingQrAll, setIsGeneratingQrAll] = useState(false);
     const [generatingQrTableId, setGeneratingQrTableId] = useState<string | null>(null);
 
     // Bulk selection
     const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
 
-    // ── Activities load (once on mount per tenant) ──
-    const loadActivities = useCallback(async () => {
-        if (!tenantId) return;
-        try {
-            const data = await getActivities(tenantId);
-            setActivities(data);
-            setSelectedActivityId(prev => prev ?? (data.length > 0 ? data[0].id : null));
-        } catch {
-            showToast({ message: "Impossibile caricare le sedi", type: "error" });
-        }
-    }, [tenantId, showToast]);
-
-    useEffect(() => {
-        loadActivities();
-    }, [loadActivities]);
-
-    // ── Tables load (on tenant or activity change) ──
     const loadData = useCallback(async () => {
-        if (!tenantId || !selectedActivityId) {
+        if (!tenantId || !activityId) {
             setItems([]);
             setIsLoading(false);
             return;
         }
         setIsLoading(true);
         try {
-            const data = await listTablesWithState(tenantId, selectedActivityId);
+            const data = await listTablesWithState(tenantId, activityId);
             setItems(data);
         } catch {
             showToast({ message: "Impossibile caricare i tavoli", type: "error" });
         } finally {
             setIsLoading(false);
         }
-    }, [tenantId, selectedActivityId, showToast]);
+    }, [tenantId, activityId, showToast]);
 
     useEffect(() => {
-        loadData();
+        void loadData();
     }, [loadData]);
 
-    const handleBulkDelete = useCallback(async (ids: string[]) => {
-        if (!tenantId || ids.length === 0) return;
-        const results = await Promise.allSettled(
-            ids.map(id => deleteTable(id, tenantId))
-        );
-        const failed = results.filter(r => r.status === "rejected").length;
-        const ok = results.length - failed;
-        if (ok > 0) {
-            showToast({
-                message: ok === 1 ? "1 tavolo eliminato" : `${ok} tavoli eliminati`,
-                type: "success"
-            });
-        }
-        if (failed > 0) {
-            showToast({
-                message: failed === 1
-                    ? "1 tavolo non eliminato"
-                    : `${failed} tavoli non eliminati`,
-                type: "error"
-            });
-        }
-        setSelectedTableIds([]);
-        await loadData();
-    }, [tenantId, showToast, loadData]);
+    const handleBulkDelete = useCallback(
+        async (ids: string[]) => {
+            if (!tenantId || ids.length === 0) return;
+            const results = await Promise.allSettled(
+                ids.map(id => deleteTable(id, tenantId))
+            );
+            const failed = results.filter(r => r.status === "rejected").length;
+            const ok = results.length - failed;
+            if (ok > 0) {
+                showToast({
+                    message: ok === 1 ? "1 tavolo eliminato" : `${ok} tavoli eliminati`,
+                    type: "success"
+                });
+            }
+            if (failed > 0) {
+                showToast({
+                    message:
+                        failed === 1
+                            ? "1 tavolo non eliminato"
+                            : `${failed} tavoli non eliminati`,
+                    type: "error"
+                });
+            }
+            setSelectedTableIds([]);
+            await loadData();
+        },
+        [tenantId, showToast, loadData]
+    );
 
     // ── Filtering ──
     const filteredItems = useMemo(() => {
@@ -160,38 +146,28 @@ export default function Tables() {
             result = result.filter(
                 t =>
                     t.label.toLowerCase().includes(q) ||
-                    (t.zone?.toLowerCase() ?? "").includes(q)
+                    (t.zone_name?.toLowerCase() ?? "").includes(q)
             );
         }
-        if (statusFilter !== "all") {
-            result = result.filter(t => {
-                if (statusFilter === "maintenance") return t.maintenance_mode;
-                if (statusFilter === "occupied")
-                    return t.active_sessions_count > 0 && !t.maintenance_mode;
-                if (statusFilter === "free")
-                    return t.active_sessions_count === 0 && !t.maintenance_mode;
-                return true;
-            });
-        }
         return result;
-    }, [items, searchQuery, statusFilter]);
+    }, [items, searchQuery]);
 
     // ── Handlers ──
     function openCreate() {
         setEditingItem(null);
         setFormLabel("");
-        setFormZone("");
+        setFormZoneId(null);
         setFormSeats("");
-        setFormMaintenanceMode(false);
+        setIsCreatingZone(false);
         setIsDrawerOpen(true);
     }
 
     function openEdit(item: V2Table) {
         setEditingItem(item);
         setFormLabel(item.label);
-        setFormZone(item.zone ?? "");
+        setFormZoneId(item.zone_id);
         setFormSeats(item.seats?.toString() ?? "");
-        setFormMaintenanceMode(item.maintenance_mode);
+        setIsCreatingZone(false);
         setIsDrawerOpen(true);
     }
 
@@ -202,7 +178,15 @@ export default function Tables() {
 
     async function handleSave(e: React.FormEvent) {
         e.preventDefault();
-        if (!tenantId || !selectedActivityId) return;
+        if (isCreatingZone) {
+            showToast({
+                message:
+                    "Conferma o annulla la creazione zona prima di salvare il tavolo",
+                type: "error"
+            });
+            return;
+        }
+        if (!tenantId || !activityId) return;
         if (!formLabel.trim()) {
             showToast({ message: "Il nome del tavolo è obbligatorio", type: "error" });
             return;
@@ -227,18 +211,16 @@ export default function Tables() {
             if (editingItem) {
                 await updateTable(editingItem.id, tenantId, {
                     label: formLabel.trim(),
-                    zone: formZone.trim() || null,
-                    seats: seatsParsed ?? null,
-                    maintenance_mode: formMaintenanceMode
+                    zone_id: formZoneId,
+                    seats: seatsParsed ?? null
                 });
                 showToast({ message: "Tavolo aggiornato", type: "success" });
             } else {
                 await createTable(tenantId, {
-                    activity_id: selectedActivityId,
+                    activity_id: activityId,
                     label: formLabel.trim(),
-                    zone: formZone.trim() || undefined,
-                    seats: seatsParsed,
-                    maintenance_mode: formMaintenanceMode
+                    zone_id: formZoneId,
+                    seats: seatsParsed
                 });
                 showToast({ message: "Tavolo creato", type: "success" });
             }
@@ -271,7 +253,6 @@ export default function Tables() {
         }
     }
 
-    // Trigger download del blob PDF lato browser.
     function downloadPdfBlob(blob: Blob, filename: string) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -284,19 +265,15 @@ export default function Tables() {
     }
 
     async function handleGenerateQrAll() {
-        if (!selectedActivityId || isGeneratingQrAll) return;
+        if (!activityId || isGeneratingQrAll) return;
         setIsGeneratingQrAll(true);
         try {
-            const blob = await generateTableQrsPdf(selectedActivityId);
-            const activity = activities.find(a => a.id === selectedActivityId);
-            const filename = `qr-codes-${activity?.slug ?? selectedActivityId}.pdf`;
-            downloadPdfBlob(blob, filename);
+            const blob = await generateTableQrsPdf(activityId);
+            downloadPdfBlob(blob, `qr-codes-${activityId}.pdf`);
             showToast({ message: "PDF QR generato", type: "success" });
         } catch (err) {
             const msg =
-                err instanceof Error
-                    ? err.message
-                    : "Errore nella generazione del PDF";
+                err instanceof Error ? err.message : "Errore nella generazione del PDF";
             showToast({ message: msg, type: "error" });
         } finally {
             setIsGeneratingQrAll(false);
@@ -304,18 +281,15 @@ export default function Tables() {
     }
 
     async function handleGenerateQrSingle(table: V2Table) {
-        if (!selectedActivityId || generatingQrTableId !== null) return;
+        if (!activityId || generatingQrTableId !== null) return;
         setGeneratingQrTableId(table.id);
         try {
-            const blob = await generateTableQrsPdf(selectedActivityId, [table.id]);
-            const filename = `qr-${table.label}.pdf`;
-            downloadPdfBlob(blob, filename);
+            const blob = await generateTableQrsPdf(activityId, [table.id]);
+            downloadPdfBlob(blob, `qr-${table.label}.pdf`);
             showToast({ message: "PDF QR generato", type: "success" });
         } catch (err) {
             const msg =
-                err instanceof Error
-                    ? err.message
-                    : "Errore nella generazione del PDF";
+                err instanceof Error ? err.message : "Errore nella generazione del PDF";
             showToast({ message: msg, type: "error" });
         } finally {
             setGeneratingQrTableId(null);
@@ -346,42 +320,6 @@ export default function Tables() {
         }
     }
 
-    function openClose(item: V2TableWithState) {
-        setTableToClose(item);
-        setIsCloseOpen(true);
-    }
-
-    async function handleCloseConfirm() {
-        if (!tableToClose) return;
-        try {
-            const result = await closeTable(tableToClose.id);
-            const msg =
-                result.closed_groups_count === 0
-                    ? "Nessun conto aperto da chiudere"
-                    : `Tavolo chiuso (${result.closed_groups_count} ${result.closed_groups_count === 1 ? "conto" : "conti"}, ${result.closed_orders_count} ${result.closed_orders_count === 1 ? "ordine" : "ordini"})`;
-            showToast({ message: msg, type: "success" });
-            setIsCloseOpen(false);
-            setTableToClose(null);
-            await loadData();
-        } catch (err) {
-            if (err instanceof Error && err.message === "TABLE_HAS_OPEN_ORDERS") {
-                showToast({
-                    message:
-                        "Il tavolo ha ordini non ancora consegnati. Completa o cancella quegli ordini prima di chiudere il tavolo.",
-                    type: "error"
-                });
-                setIsCloseOpen(false);
-                setTableToClose(null);
-                await loadData();
-                return;
-            }
-            showToast({
-                message: "Errore durante la chiusura del tavolo",
-                type: "error"
-            });
-        }
-    }
-
     // ── Columns ──
     const columns: ColumnDefinition<V2TableWithState>[] = [
         {
@@ -394,11 +332,6 @@ export default function Tables() {
                     <Text variant="body-sm" weight={600}>
                         {row.label}
                     </Text>
-                    {row.zone && (
-                        <Text variant="body-sm" colorVariant="muted">
-                            {row.zone}
-                        </Text>
-                    )}
                     {row.bill_requested_count > 0 && (
                         <button
                             type="button"
@@ -422,6 +355,20 @@ export default function Tables() {
             )
         },
         {
+            id: "zone",
+            header: "Zona",
+            width: "1fr",
+            accessor: row => row.zone_name,
+            cell: (_v, row) =>
+                row.zone_name ? (
+                    <Text variant="body-sm">{row.zone_name}</Text>
+                ) : (
+                    <Text variant="body-sm" colorVariant="muted">
+                        —
+                    </Text>
+                )
+        },
+        {
             id: "seats",
             header: "Posti",
             width: "80px",
@@ -429,57 +376,6 @@ export default function Tables() {
             cell: (_v, row) => (
                 <Text variant="body-sm" colorVariant="muted">
                     {row.seats ?? "—"}
-                </Text>
-            )
-        },
-        {
-            id: "status",
-            header: "Stato",
-            width: "140px",
-            accessor: row => {
-                if (row.maintenance_mode) return "maintenance";
-                if (row.active_sessions_count > 0) return "occupied";
-                return "free";
-            },
-            cell: (_v, row) => {
-                if (row.maintenance_mode) {
-                    return <StatusBadge variant="warning" label="Manutenzione" />;
-                }
-                if (row.active_sessions_count > 0) {
-                    return <StatusBadge variant="success" label="Occupato" />;
-                }
-                return <StatusBadge variant="neutral" label="Libero" />;
-            }
-        },
-        {
-            id: "sessions",
-            header: "Sessioni",
-            width: "100px",
-            accessor: row => row.active_sessions_count,
-            cell: (_v, row) => (
-                <Text variant="body-sm">{row.active_sessions_count}</Text>
-            )
-        },
-        {
-            id: "open_groups",
-            header: "Conti",
-            width: "120px",
-            accessor: row => row.open_groups_count,
-            cell: (_v, row) => (
-                <Text variant="body-sm">{row.open_groups_count}</Text>
-            )
-        },
-        {
-            id: "current_total",
-            header: "Totale",
-            width: "140px",
-            align: "right",
-            accessor: row => row.current_total,
-            cell: (_v, row) => (
-                <Text variant="body-sm" weight={row.current_total > 0 ? 600 : 400}>
-                    {row.current_total > 0
-                        ? CURRENCY_FORMATTER.format(row.current_total)
-                        : "—"}
                 </Text>
             )
         },
@@ -506,11 +402,6 @@ export default function Tables() {
                             onClick: () => openRegen(row)
                         },
                         {
-                            label: "Chiudi tavolo",
-                            icon: Lock,
-                            onClick: () => openClose(row)
-                        },
-                        {
                             label: "Elimina",
                             variant: "destructive",
                             onClick: () => openDelete(row),
@@ -522,111 +413,72 @@ export default function Tables() {
         }
     ];
 
-    const hasFiltersActive = searchQuery.trim().length > 0 || statusFilter !== "all";
-
-    const headerActions = useMemo(() => (
-        <div className={styles.headerActions}>
-            <Button
-                variant="secondary"
-                leftIcon={<RefreshCw size={16} />}
-                onClick={loadData}
-                disabled={!selectedActivityId || isLoading}
-            >
-                Aggiorna
-            </Button>
-            <Button
-                variant="secondary"
-                leftIcon={<QrCode size={16} />}
-                onClick={handleGenerateQrAll}
-                loading={isGeneratingQrAll}
-                disabled={!selectedActivityId || items.length === 0}
-            >
-                Genera QR
-            </Button>
-            <Button
-                variant="primary"
-                leftIcon={<Plus size={16} />}
-                onClick={openCreate}
-                disabled={!selectedActivityId}
-            >
-                Nuovo tavolo
-            </Button>
-        </div>
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    ), [loadData, selectedActivityId, isLoading, isGeneratingQrAll, items.length]);
-
-    usePageHeader({
-        title: "Tavoli",
-        subtitle: "Gestisci i tavoli delle tue sedi e monitora lo stato live.",
-        actions: headerActions,
-        sticky: true,
-    });
+    const hasFiltersActive = searchQuery.trim().length > 0;
 
     return (
         <section className={styles.container}>
-            {activities.length > 1 && (
-                <div className={styles.activitySelector}>
-                    <label htmlFor="activity-select" className={styles.activitySelectorLabel}>
-                        Sede:
-                    </label>
-                    <select
-                        id="activity-select"
-                        className={styles.activitySelect}
-                        value={selectedActivityId ?? ""}
-                        onChange={e => setSelectedActivityId(e.target.value || null)}
-                    >
-                        {activities.map(a => (
-                            <option key={a.id} value={a.id}>
-                                {a.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-            )}
-
             <div className={styles.content}>
-                <FilterBar
-                    search={{
-                        value: searchQuery,
-                        onChange: setSearchQuery,
-                        placeholder: "Cerca per nome o zona..."
-                    }}
-                />
-
-                <div className={styles.statusFilter} role="tablist">
-                    {(
-                        [
-                            { value: "all", label: "Tutti" },
-                            { value: "free", label: "Liberi" },
-                            { value: "occupied", label: "Occupati" },
-                            { value: "maintenance", label: "Manutenzione" }
-                        ] as Array<{ value: StatusFilter; label: string }>
-                    ).map(opt => (
-                        <button
-                            key={opt.value}
-                            type="button"
-                            role="tab"
-                            aria-selected={statusFilter === opt.value}
-                            className={
-                                statusFilter === opt.value
-                                    ? styles.statusButtonActive
-                                    : styles.statusButton
-                            }
-                            onClick={() => setStatusFilter(opt.value)}
+                {/* Toolbar di sezione: cluster DX (search + altro + CTA). */}
+                <div className={styles.toolbar}>
+                    <div className={styles.actionsCluster}>
+                        <ToolbarSearch
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="Cerca per nome o zona..."
+                        />
+                        <DropdownMenu.Root>
+                            <DropdownMenu.Trigger asChild>
+                                <Button
+                                    variant="outline"
+                                    leftIcon={<MoreHorizontal size={16} />}
+                                    disabled={!activityId}
+                                    className={styles.toolbarCta}
+                                    aria-label="Altre azioni"
+                                >
+                                    Altro
+                                </Button>
+                            </DropdownMenu.Trigger>
+                            <DropdownMenu.Portal>
+                                <DropdownMenu.Content
+                                    className={styles.dropdownContent}
+                                    align="end"
+                                    sideOffset={6}
+                                >
+                                    <DropdownMenu.Item
+                                        className={styles.dropdownItem}
+                                        onSelect={() => setIsZoneDrawerOpen(true)}
+                                        disabled={!activityId}
+                                    >
+                                        <Layers size={14} />
+                                        <span>Gestisci zone</span>
+                                    </DropdownMenu.Item>
+                                    <DropdownMenu.Item
+                                        className={styles.dropdownItem}
+                                        onSelect={() => void handleGenerateQrAll()}
+                                        disabled={!activityId || items.length === 0 || isGeneratingQrAll}
+                                    >
+                                        <QrCode size={14} />
+                                        <span>{isGeneratingQrAll ? "Generazione..." : "Genera QR"}</span>
+                                    </DropdownMenu.Item>
+                                </DropdownMenu.Content>
+                            </DropdownMenu.Portal>
+                        </DropdownMenu.Root>
+                        <Button
+                            variant="primary"
+                            leftIcon={<Plus size={16} />}
+                            onClick={openCreate}
+                            disabled={!activityId || !orderingEnabled}
+                            className={styles.toolbarCta}
                         >
-                            {opt.label}
-                        </button>
-                    ))}
+                            Nuovo tavolo
+                        </Button>
+                    </div>
                 </div>
 
                 {!isLoading && filteredItems.length === 0 ? (
                     <EmptyState
                         icon={<Grid2X2 size={40} strokeWidth={1.5} />}
-                        title={
-                            items.length === 0
-                                ? "Nessun tavolo"
-                                : "Nessun risultato"
-                        }
+                        title={items.length === 0 ? "Nessun tavolo" : "Nessun risultato"}
                         description={
                             items.length === 0
                                 ? "Crea il primo tavolo per iniziare a ricevere ordinazioni."
@@ -635,7 +487,7 @@ export default function Tables() {
                                   : "Nessun tavolo da mostrare."
                         }
                         action={
-                            items.length === 0 && selectedActivityId ? (
+                            items.length === 0 && activityId && orderingEnabled ? (
                                 <Button variant="primary" onClick={openCreate}>
                                     Nuovo tavolo
                                 </Button>
@@ -658,7 +510,10 @@ export default function Tables() {
             {/* Drawer Create/Edit */}
             <SystemDrawer
                 open={isDrawerOpen}
-                onClose={() => setIsDrawerOpen(false)}
+                onClose={() => {
+                    setIsDrawerOpen(false);
+                    setIsCreatingZone(false);
+                }}
                 width={480}
             >
                 <DrawerLayout
@@ -671,7 +526,10 @@ export default function Tables() {
                         <>
                             <Button
                                 variant="secondary"
-                                onClick={() => setIsDrawerOpen(false)}
+                                onClick={() => {
+                                    setIsDrawerOpen(false);
+                                    setIsCreatingZone(false);
+                                }}
                                 disabled={isSaving}
                             >
                                 Annulla
@@ -695,11 +553,15 @@ export default function Tables() {
                             onChange={e => setFormLabel(e.target.value)}
                             placeholder="es. T1, Tavolo 5, Sala A-3"
                         />
-                        <TextInput
+                        <ZoneSelectField
+                            // key remount per forzare refresh lista zone post-CRUD drawer.
+                            key={`zone-select-${zoneReloadKey}`}
+                            tenantId={tenantId}
+                            activityId={activityId}
+                            value={formZoneId}
+                            onChange={setFormZoneId}
+                            onModeChange={m => setIsCreatingZone(m === "create")}
                             label="Zona (opzionale)"
-                            value={formZone}
-                            onChange={e => setFormZone(e.target.value)}
-                            placeholder="es. Sala interna, Dehor, Sala A"
                         />
                         <TextInput
                             label="Posti (opzionale)"
@@ -709,20 +571,6 @@ export default function Tables() {
                             onChange={e => setFormSeats(e.target.value)}
                             placeholder="2"
                         />
-                        <label className={styles.toggleRow}>
-                            <input
-                                type="checkbox"
-                                checked={formMaintenanceMode}
-                                onChange={e => setFormMaintenanceMode(e.target.checked)}
-                            />
-                            <span className={styles.toggleCopy}>
-                                <Text weight={500}>Manutenzione</Text>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    I clienti non possono ordinare da questo tavolo finché
-                                    disattivi questa opzione.
-                                </Text>
-                            </span>
-                        </label>
                     </form>
                 </DrawerLayout>
             </SystemDrawer>
@@ -747,22 +595,23 @@ export default function Tables() {
                 onConfirm={handleRegenerate}
             />
 
-            <TableCloseDrawer
-                open={isCloseOpen}
-                table={tableToClose}
-                onClose={() => {
-                    setIsCloseOpen(false);
-                    setTableToClose(null);
-                }}
-                onConfirm={handleCloseConfirm}
-            />
-
             <BillRequestsDrawer
                 isOpen={billDrawerTable !== null}
                 onClose={() => setBillDrawerTable(null)}
                 tableId={billDrawerTable?.id ?? null}
                 tableLabel={billDrawerTable?.label ?? ""}
                 onSuccess={loadData}
+            />
+
+            <TableZoneManagementDrawer
+                isOpen={isZoneDrawerOpen}
+                onClose={() => setIsZoneDrawerOpen(false)}
+                onZonesChanged={() => {
+                    setZoneReloadKey(k => k + 1);
+                    void loadData();
+                }}
+                tenantId={tenantId}
+                activityId={activityId}
             />
         </section>
     );

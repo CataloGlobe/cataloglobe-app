@@ -443,3 +443,42 @@
     justify-content: flex-end;
     width: 100%;
 }
+
+/* Margin wrapper for the inline note shown under the "Accetta prenotazioni"
+   Switch when the venue has no opening hours configured. */
+.reservationsHoursNote {
+    margin-top: 12px;
+}
+
+/* Per-site notification recipients field (chip multi-email) shown under the
+   reservations toggle when activity.enable_reservations === true. */
+.reservationsEmailsField {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-border, #e5e7eb);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.reservationsEmailsHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.reservationsEmailsLabel {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text, #111827);
+    line-height: 1.3;
+}
+
+.reservationsEmailsNote {
+    margin: 2px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--color-text-muted, #6b7280);
+}

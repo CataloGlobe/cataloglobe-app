@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus, Search } from "lucide-react";
 import type {
@@ -577,6 +578,11 @@ type Props = {
     reviewsProps?: ReviewsViewProps;
     /** ID della sede — usato come chiave sessionStorage per la selezione prodotti. */
     activityId?: string;
+    /** Slug della sede pubblica. Quando presente abilita la navigazione a
+     *  /:slug/prenota dal MoreSheet (se anche enableReservations === true). */
+    slug?: string;
+    /** Quando true, il MoreSheet espone la voce "Prenota un tavolo". */
+    enableReservations?: boolean;
     /** Metodi di pagamento accettati (visibili se non vuoti). */
     paymentMethods?: string[];
     /** Servizi offerti dalla sede (visibili se non vuoti). */
@@ -645,8 +651,11 @@ export default function CollectionView({
     allergens,
     catalogCharacteristics,
     orderingActive = false,
-    orderingMaintenance = null
+    orderingMaintenance = null,
+    slug,
+    enableReservations = false
 }: Props) {
+    const navigate = useNavigate();
     // Maintenance scoperto runtime via 423 ORDERING_UNAVAILABLE su submit
     // (Strict + Reactive: il cliente lo apprende solo al tentativo). Solo
     // OrderingSheet usa effectiveMaintenance per banner inline + submit
@@ -2297,6 +2306,11 @@ export default function CollectionView({
                     onClose={() => setIsMoreSheetOpen(false)}
                     onOpenAllergens={() => setIsAllergensFilterOpen(true)}
                     onOpenInfo={() => setIsInfoSheetOpen(true)}
+                    onOpenReservation={
+                        enableReservations && slug
+                            ? () => navigate(`/${slug}/prenota`)
+                            : undefined
+                    }
                     allergensCount={allergenFilterIds.length}
                     hasAllergensInCatalog={allergensInCatalog.length > 0}
                     hasInfo={hasAnyInfo}

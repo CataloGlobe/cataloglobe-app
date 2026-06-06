@@ -1,5 +1,5 @@
 import { LayoutDashboard, Settings, LogOut, CreditCard, Trash2, Pencil } from "lucide-react";
-import { isOwner as roleIsOwner, isMember as roleIsMember } from "@/lib/permissions";
+import { workspaceRoleIsOwner, workspaceRoleIsScoped } from "@/utils/workspaceRole";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import type { TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
 import type { V2Tenant } from "@/types/tenant";
@@ -48,8 +48,8 @@ export default function BusinessCard({ tenant, locationCount, productCount, cata
         ?? VERTICAL_LABELS[tenant.vertical_type]
         ?? tenant.vertical_type;
     const { bg, text } = avatarColors(tenant.name);
-    const isOwner = roleIsOwner(tenant.user_role);
-    const isMember = roleIsMember(tenant.user_role);
+    const isOwner = workspaceRoleIsOwner(tenant.user_role);
+    const isMember = workspaceRoleIsScoped(tenant.user_role);
     const isActivated = !!tenant.stripe_subscription_id;
 
     const handleCardClick = () => {

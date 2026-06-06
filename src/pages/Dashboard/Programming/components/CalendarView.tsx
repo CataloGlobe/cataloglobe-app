@@ -5,6 +5,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { LayoutRule, RuleType } from "@services/supabase/layoutScheduling";
 import styles from "./CalendarView.module.scss";
 
+export type CalendarRuleTypeFilter = RuleType | "all";
+
 /* ─── Constants ──────────────────────────────────────────────── */
 
 const TOTAL_MINUTES = 24 * 60;
@@ -34,7 +36,6 @@ const TYPE_COLOR: Record<RuleType, string> = {
 
 const TYPE_ORDER: RuleType[] = ["layout", "featured", "price", "visibility"];
 
-type ActiveFilter = RuleType | "all";
 
 /* ─── Types ──────────────────────────────────────────────────── */
 
@@ -303,12 +304,13 @@ function renderBlock(
 
 export interface CalendarViewProps {
     rules: LayoutRule[];
+    ruleTypeFilter: CalendarRuleTypeFilter;
     onRuleClick?: (rule: LayoutRule) => void;
 }
 
-export function CalendarView({ rules, onRuleClick }: CalendarViewProps) {
+export function CalendarView({ rules, ruleTypeFilter, onRuleClick }: CalendarViewProps) {
     const [weekOffset, setWeekOffset] = useState(0);
-    const [activeType, setActiveType] = useState<ActiveFilter>("layout");
+    const activeType = ruleTypeFilter;
 
     // Week dates
     const weekDates = useMemo(() => {
@@ -341,20 +343,6 @@ export function CalendarView({ rules, onRuleClick }: CalendarViewProps) {
         () => resolveTimeSegments(allBlocks),
         [allBlocks]
     );
-
-    // Winner count per type (unique rule IDs across resolved segments)
-    const winnerCountByType = useMemo(() => {
-        const counts: Record<RuleType, Set<string>> = {
-            layout: new Set(),
-            featured: new Set(),
-            price: new Set(),
-            visibility: new Set()
-        };
-        for (const b of resolvedBlocks) {
-            counts[b.rule.rule_type].add(b.rule.id);
-        }
-        return counts;
-    }, [resolvedBlocks]);
 
     // Current time marker
     const nowMins = today.getHours() * 60 + today.getMinutes();
@@ -402,55 +390,6 @@ export function CalendarView({ rules, onRuleClick }: CalendarViewProps) {
                     aria-label="Settimana successiva"
                 >
                     <ChevronRight size={16} />
-                </button>
-            </div>
-
-            {/* ── Tab bar ─────────────────────────────────── */}
-            <div className={styles.tabBar}>
-                {TYPE_ORDER.map(type => {
-                    const isActive = activeType === type;
-                    const count = winnerCountByType[type].size;
-
-                    return (
-                        <button
-                            key={type}
-                            type="button"
-                            className={`${styles.tab} ${isActive ? styles.tabActive : ""}`}
-                            style={
-                                isActive
-                                    ? { borderBottomColor: TYPE_COLOR[type] }
-                                    : undefined
-                            }
-                            onClick={() => setActiveType(type)}
-                        >
-                            {TYPE_LABEL[type]}
-                            {count > 0 && (
-                                <span
-                                    className={styles.tabBadge}
-                                    style={
-                                        isActive
-                                            ? { background: TYPE_COLOR[type] }
-                                            : undefined
-                                    }
-                                >
-                                    {count}
-                                </span>
-                            )}
-                        </button>
-                    );
-                })}
-
-                <button
-                    type="button"
-                    className={`${styles.tab} ${isAll ? styles.tabActive : ""}`}
-                    style={
-                        isAll
-                            ? { borderBottomColor: "var(--text, #334155)" }
-                            : undefined
-                    }
-                    onClick={() => setActiveType("all")}
-                >
-                    Tutte
                 </button>
             </div>
 
