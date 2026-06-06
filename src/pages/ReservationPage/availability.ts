@@ -1,3 +1,4 @@
+import { addDays } from "@/utils/dateLocal";
 import type {
     OpeningHoursEntry,
     UpcomingClosure
@@ -36,12 +37,6 @@ export function parseLocalDate(iso: string): Date | null {
 // JS getDay() returns 0=Sun..6=Sat; mondayIndex = (getDay() + 6) % 7.
 export function mondayWeekday(date: Date): number {
     return (date.getDay() + 6) % 7;
-}
-
-function addDays(date: Date, n: number): Date {
-    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    d.setDate(d.getDate() + n);
-    return d;
 }
 
 function toIsoLocal(date: Date): string {

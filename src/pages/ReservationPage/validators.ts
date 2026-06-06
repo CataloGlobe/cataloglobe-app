@@ -1,3 +1,4 @@
+import { todayIsoDate } from "@/utils/dateLocal";
 import type { FormFields } from "./types";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -9,10 +10,9 @@ const PHONE_ALLOWED_CHARS_RE = /^[+\d\s\-().]+$/;
 const MIN_PHONE_DIGITS = 7;
 const MAX_PHONE_DIGITS = 20;
 
-export function todayIsoDate(): string {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+// Re-export so existing consumers (`./ReservationForm.tsx`) keep their
+// current import path without churn.
+export { todayIsoDate };
 
 // Snap "HH:MM" to the nearest quarter-hour (0/15/30/45). Used at change/blur
 // of the native time input because `step={900}` is not enforced on iOS —

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { CalendarRange, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { EmptyState } from "@components/ui/EmptyState/EmptyState";
+import { addDays, todayIsoDate } from "@/utils/dateLocal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
 import type { V2Reservation } from "@/types/reservation";
@@ -20,12 +21,7 @@ type ViewMode = "days" | "week";
 
 const TERMINAL = new Set<V2Reservation["status"]>(["declined", "cancelled"]);
 
-// ── Date helpers (local to this view, no UTC drift) ─────────────────────────
-
-function todayIsoDate(): string {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+// ── Date helpers (local to this view; shared primitives in @utils/dateLocal)
 
 function isoDateOf(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -34,12 +30,6 @@ function isoDateOf(d: Date): string {
 function parseLocalDate(iso: string): Date {
     const [y, m, d] = iso.split("-").map(n => parseInt(n, 10));
     return new Date(y, (m ?? 1) - 1, d ?? 1);
-}
-
-function addDays(d: Date, n: number): Date {
-    const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    out.setDate(out.getDate() + n);
-    return out;
 }
 
 /** Monday of the ISO-style week (Mon..Sun) containing `d`. */

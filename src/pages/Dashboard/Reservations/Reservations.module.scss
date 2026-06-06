@@ -218,11 +218,6 @@
   gap: 6px;
 }
 
-.rowNoteIcon {
-  display: inline-flex;
-  color: var(--color-text-muted, #6b7280);
-}
-
 /* Inline note row: icon + text muted, ellipsis truncation. Shared between
    Inbox and Agenda · Giorni so the two tabs speak the same visual language.
    margin-top: 8px gives the note breathing room from the title line. */
@@ -279,32 +274,6 @@
   flex-shrink: 0;
 }
 
-.channelLegend {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 2px;
-  font-size: 11px;
-  color: var(--color-text-muted, #6b7280);
-}
-
-.channelLegendItem {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.channelLegendIcon {
-  display: inline-flex;
-  color: var(--color-text-secondary, #4b5563);
-}
-
-.drawerOriginValue {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .rowSitePill {
   display: inline-flex;
   align-items: center;
@@ -333,52 +302,6 @@
   gap: 6px;
 }
 
-.actionBtn {
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 500;
-  border-radius: 8px;
-  border: 1px solid var(--color-border, #e5e7eb);
-  background: var(--color-surface, #ffffff);
-  color: var(--color-text-primary, #111827);
-  cursor: pointer;
-  font-family: inherit;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
-
-  &:hover {
-    background: color-mix(
-      in srgb,
-      var(--color-text-muted, #6b7280) 6%,
-      var(--color-surface, #ffffff)
-    );
-  }
-
-  /* clicks inside the row trigger drawer open; stop propagation in TSX */
-}
-
-.actionBtnPrimary {
-  @extend .actionBtn;
-  background: var(--color-accent, #111827);
-  color: #ffffff;
-  border-color: var(--color-accent, #111827);
-
-  &:hover {
-    background: color-mix(in srgb, #ffffff 8%, var(--color-accent, #111827));
-  }
-}
-
-.actionBtnDanger {
-  @extend .actionBtn;
-  color: #b91c1c;
-  border-color: color-mix(in srgb, #b91c1c 30%, var(--color-border, #e5e7eb));
-
-  &:hover {
-    background: #fef2f2;
-  }
-}
-
 /* ── Agenda ────────────────────────────────────────────── */
 
 .agenda {
@@ -392,21 +315,6 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-}
-
-.agendaTerminalToggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--color-text-secondary, #4b5563);
-  cursor: pointer;
-}
-
-.agendaTerminalCheckbox {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--color-accent, #2563eb);
 }
 
 .agendaDisclaimer {
@@ -440,66 +348,6 @@
 .dayHeaderMeta {
   font-size: 12px;
   color: var(--color-text-muted, #6b7280);
-}
-
-/* Week strip */
-
-.weekStrip {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-}
-
-.weekDay {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 6px;
-  background: var(--color-surface, #ffffff);
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 10px;
-  cursor: pointer;
-  font-family: inherit;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
-
-  &:hover:not(.weekDayActive) {
-    border-color: var(--color-border-strong, #d1d5db);
-  }
-}
-
-.weekDayActive {
-  background: var(--color-text-primary, #111827);
-  color: #ffffff;
-  border-color: var(--color-text-primary, #111827);
-}
-
-.weekDayLabel {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: inherit;
-  opacity: 0.7;
-}
-
-.weekDayNum {
-  font-size: 18px;
-  font-weight: 600;
-  color: inherit;
-}
-
-.weekDayDot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--color-accent, #2563eb);
-  margin-top: -2px;
-}
-
-.weekDayActive .weekDayDot {
-  background: #ffffff;
 }
 
 /* Timeline rows */
@@ -901,24 +749,6 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-text-muted, #6b7280);
-}
-
-.drawerKv {
-  display: grid;
-  grid-template-columns: 110px 1fr;
-  gap: 8px 16px;
-  font-size: 14px;
-
-  dt {
-    color: var(--color-text-muted, #6b7280);
-    margin: 0;
-  }
-
-  dd {
-    color: var(--color-text-primary, #111827);
-    margin: 0;
-    word-break: break-word;
-  }
 }
 
 .drawerNotes {

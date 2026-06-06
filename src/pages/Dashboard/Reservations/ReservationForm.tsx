@@ -5,6 +5,7 @@ import { DateInput } from "@/components/ui/Input/DateInput";
 import { TimeInput } from "@/components/ui/Input/TimeInput";
 import { Select } from "@/components/ui/Select/Select";
 import { useToast } from "@/context/Toast/ToastContext";
+import { todayIsoDate } from "@/utils/dateLocal";
 import {
     createReservation,
     updateReservation
@@ -29,11 +30,6 @@ interface ReservationFormProps {
     entityData?: V2Reservation;
     onSuccess: () => void | Promise<void>;
     onSavingChange: (saving: boolean) => void;
-}
-
-function todayIsoDate(): string {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function normalizeTime(value: string): string {

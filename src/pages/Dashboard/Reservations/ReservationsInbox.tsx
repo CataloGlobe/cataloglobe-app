@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { CalendarCheck, MessageSquare } from "lucide-react";
 import { EmptyState } from "@components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
+import { todayIsoDate } from "@/utils/dateLocal";
 import type { V2Reservation } from "@/types/reservation";
 import type { DeferredAction } from "./useDeferredCommit";
 import ChannelMark from "./ChannelMark";
@@ -20,11 +21,6 @@ interface Props {
     onOpenDetail: (r: V2Reservation) => void;
     /** Inline action — caller schedules deferred commit + shows undo toast. */
     onAction: (r: V2Reservation, action: DeferredAction) => void;
-}
-
-function todayIsoDate(): string {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function formatRowDate(isoDate: string): string {
