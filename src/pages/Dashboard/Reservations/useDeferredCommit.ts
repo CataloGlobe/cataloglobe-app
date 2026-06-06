@@ -52,8 +52,14 @@ export function useDeferredCommit({
     );
     const pendingRef = useRef<Map<string, PendingCommit>>(new Map());
 
-    // Keep latest callbacks in refs so unmount-cleanup always commits with
-    // current handlers (otherwise it'd use stale closures).
+    // Mount guard. Set to false from the unmount cleanup so any in-flight
+    // commit that resolves after the component left the tree skips the
+    // setState + caller callbacks (no React "set state on unmounted" warning,
+    // no ghost refetch via onSuccess → loadData).
+    const isMountedRef = useRef(true);
+
+    // Keep latest callbacks in refs so commitNow always reads fresh handlers
+    // (otherwise it'd use stale closures).
     const onSuccessRef = useRef(onCommitSuccess);
     const onErrorRef = useRef(onCommitError);
     useEffect(() => {
@@ -78,6 +84,10 @@ export function useDeferredCommit({
             pendingRef.current.delete(id);
             try {
                 await respondReservation(id, pending.action);
+                // If the component unmounted while the request was in
+                // flight, drop setState + onSuccess (would refetch a page
+                // that no longer exists).
+                if (!isMountedRef.current) return;
                 removeOverride(id);
                 await onSuccessRef.current();
             } catch (err) {
@@ -98,6 +108,15 @@ export function useDeferredCommit({
                     message = "Sessione scaduta. Accedi di nuovo.";
                 } else {
                     message = e.message || "Errore durante l'operazione.";
+                }
+                // Same unmount guard for the error path: no toast on a
+                // page that left the tree.
+                if (!isMountedRef.current) {
+                    console.error(
+                        "[useDeferredCommit] commit failed after unmount:",
+                        err
+                    );
+                    return;
                 }
                 removeOverride(id);
                 onErrorRef.current(id, message);
@@ -148,15 +167,30 @@ export function useDeferredCommit({
         [removeOverride]
     );
 
-    // Flush all pending commits on unmount.
+    // Flush all pending commits on unmount: the user already issued the
+    // confirm/decline/cancel action; navigating away must not lose the
+    // DB write. Fire-and-forget the edge function call ONLY — no setState,
+    // no onSuccess/onError callbacks (the component left the tree, the
+    // caller's `loadData` would now refetch on a page that no longer
+    // exists). Errors during the unmount flush are swallowed and logged.
     useEffect(() => {
-        const pending = pendingRef.current;
         return () => {
-            for (const id of Array.from(pending.keys())) {
-                void commitNow(id);
+            isMountedRef.current = false;
+            const pending = pendingRef.current;
+            for (const [, p] of pending) {
+                window.clearTimeout(p.timerId);
+                void respondReservation(p.reservationId, p.action).catch(
+                    err => {
+                        console.error(
+                            "[useDeferredCommit] unmount-flush commit failed:",
+                            err
+                        );
+                    }
+                );
             }
+            pending.clear();
         };
-    }, [commitNow]);
+    }, []);
 
     return { overrides, schedule, cancel };
 }

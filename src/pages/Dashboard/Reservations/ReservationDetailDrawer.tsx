@@ -14,9 +14,13 @@ import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
+import { addDays } from "@/utils/dateLocal";
 import type { V2Reservation } from "@/types/reservation";
 import type { DeferredAction } from "./useDeferredCommit";
 import styles from "./Reservations.module.scss";
+
+const AGGREGATE_WINDOW_MINUTES = 90;
+const MINUTES_PER_DAY = 1440;
 
 interface Props {
     open: boolean;
@@ -65,10 +69,20 @@ function formatTimeIt(time: string): string {
     return time.slice(0, 5);
 }
 
-function timeWindowMinutes(time: string): { start: number; end: number } {
+function timeToMinutes(time: string): number {
     const [hh, mm] = time.slice(0, 5).split(":").map(n => parseInt(n, 10));
-    const center = hh * 60 + mm;
-    return { start: center - 90, end: center + 90 };
+    return hh * 60 + mm;
+}
+
+/** Parse "YYYY-MM-DD" with LOCAL fields — no UTC drift. */
+function parseLocalDate(iso: string): Date {
+    const [y, m, d] = iso.split("-").map(n => parseInt(n, 10));
+    return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
+
+/** Reformat a local Date as "YYYY-MM-DD". */
+function isoDateOf(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export default function ReservationDetailDrawer({
@@ -81,18 +95,29 @@ export default function ReservationDetailDrawer({
     onAction,
     onEdit
 }: Props) {
-    // Aggregate "±90 min same site, confirmed only", excluding current row.
+    // Aggregate "±AGGREGATE_WINDOW_MINUTES same site, confirmed only",
+    // excluding self. Window is evaluated on a continuous-minute axis across
+    // 3 adjacent dates (D-1, D, D+1) so a slot near midnight correctly
+    // includes its counterpart on the neighbouring day (e.g. 23:30 vs 00:30).
     const aggregate = useMemo(() => {
         if (!reservation) return null;
-        const win = timeWindowMinutes(reservation.reservation_time);
+        const centerDate = parseLocalDate(reservation.reservation_date);
+        const centerMinutes = timeToMinutes(reservation.reservation_time);
+        const dayByIso = new Map<string, number>([
+            [isoDateOf(addDays(centerDate, -1)), -1],
+            [isoDateOf(centerDate), 0],
+            [isoDateOf(addDays(centerDate, +1)), +1]
+        ]);
         const sameSlot = allReservations.filter(r => {
             if (r.id === reservation.id) return false;
             if (r.status !== "confirmed") return false;
             if (r.activity_id !== reservation.activity_id) return false;
-            if (r.reservation_date !== reservation.reservation_date) return false;
-            const [hh, mm] = r.reservation_time.slice(0, 5).split(":").map(n => parseInt(n, 10));
-            const t = hh * 60 + mm;
-            return t >= win.start && t <= win.end;
+            const dayDiff = dayByIso.get(r.reservation_date);
+            if (dayDiff === undefined) return false;
+            const candMinutes = timeToMinutes(r.reservation_time);
+            const offset =
+                dayDiff * MINUTES_PER_DAY + (candMinutes - centerMinutes);
+            return Math.abs(offset) <= AGGREGATE_WINDOW_MINUTES;
         });
         return {
             count: sameSlot.length,
