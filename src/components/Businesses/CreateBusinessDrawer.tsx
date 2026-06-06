@@ -99,12 +99,12 @@ export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantDat
             localStorage.setItem(STORAGE_KEY, data.id);
 
             try {
-                const checkoutUrl = await createCheckoutSession(
-                    data.id,
-                    `${window.location.origin}/business/${data.id}/overview`,
-                    `${window.location.origin}/workspace`,
-                    seats
-                );
+                const checkoutUrl = await createCheckoutSession({
+                    tenantId: data.id,
+                    successUrl: `${window.location.origin}/business/${data.id}/overview`,
+                    cancelUrl: `${window.location.origin}/workspace`,
+                    quantity: seats
+                });
                 window.location.href = checkoutUrl;
             } catch {
                 window.location.href = `/business/${data.id}/subscription`;

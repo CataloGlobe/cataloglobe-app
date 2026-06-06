@@ -28,12 +28,12 @@ export function ActivationRequired() {
     const handleCheckout = async () => {
         setLoading(true);
         try {
-            const url = await createCheckoutSession(
-                selectedTenant.id,
-                `${window.location.origin}/business/${selectedTenant.id}/overview`,
-                `${window.location.origin}/business/${selectedTenant.id}/subscription`,
-                seats
-            );
+            const url = await createCheckoutSession({
+                tenantId: selectedTenant.id,
+                successUrl: `${window.location.origin}/business/${selectedTenant.id}/overview`,
+                cancelUrl: `${window.location.origin}/business/${selectedTenant.id}/subscription`,
+                quantity: seats
+            });
             window.location.href = url;
         } catch {
             showToast({ message: "Errore nell'avvio del checkout. Riprova.", type: "error" });

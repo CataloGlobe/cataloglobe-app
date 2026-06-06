@@ -210,11 +210,11 @@ export default function WorkspacePage() {
 
     const handleCheckout = async (id: string) => {
         try {
-            const url = await createCheckoutSession(
-                id,
-                `${window.location.origin}/business/${id}/overview`,
-                `${window.location.origin}/workspace`
-            );
+            const url = await createCheckoutSession({
+                tenantId: id,
+                successUrl: `${window.location.origin}/business/${id}/overview`,
+                cancelUrl: `${window.location.origin}/workspace`
+            });
             window.location.href = url;
         } catch {
             showToast({ message: "Errore nell'avvio del checkout. Riprova.", type: "error" });

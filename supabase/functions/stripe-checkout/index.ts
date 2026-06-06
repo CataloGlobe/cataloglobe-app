@@ -10,9 +10,22 @@ const corsHeaders = {
     "Content-Type": "application/json"
 };
 
+const ALLOWED_PLAN_CODES = new Set(["base", "pro"]);
+const DEFAULT_PLAN_CODE = "pro";
+const MAX_SELF_SERVICE_SEATS = 5;
+
 function json(status: number, body: Record<string, unknown>) {
     return new Response(JSON.stringify(body), { status, headers: corsHeaders });
 }
+
+type CheckoutBody = {
+    tenantId?: string;
+    successUrl?: string;
+    cancelUrl?: string;
+    quantity?: number;
+    planCode?: string;
+    promotionCode?: string;
+};
 
 serve(async req => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -23,9 +36,9 @@ serve(async req => {
         const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
         const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
         const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
-        const STRIPE_PRICE_ID = Deno.env.get("STRIPE_PRICE_ID");
+        const STRIPE_PRICE_ID_FALLBACK = Deno.env.get("STRIPE_PRICE_ID");
 
-        if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !STRIPE_SECRET_KEY || !STRIPE_PRICE_ID) {
+        if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !STRIPE_SECRET_KEY) {
             console.error("stripe-checkout: Missing env vars");
             return json(500, { error: "server_misconfigured" });
         }
@@ -50,7 +63,7 @@ serve(async req => {
         }
 
         // --- Parse body ---
-        let payload: { tenantId?: string; successUrl?: string; cancelUrl?: string; quantity?: number } | null = null;
+        let payload: CheckoutBody | null = null;
         try {
             payload = await req.json();
         } catch {
@@ -60,10 +73,25 @@ serve(async req => {
         const tenantId = payload?.tenantId?.trim();
         if (!tenantId) return json(400, { error: "missing_tenant_id" });
 
-        const quantity = Math.max(1, Math.min(25, Math.floor(Number(payload?.quantity) || 1)));
+        const quantity = Math.max(
+            1,
+            Math.min(MAX_SELF_SERVICE_SEATS, Math.floor(Number(payload?.quantity) || 1))
+        );
 
-        const successUrl = payload?.successUrl || `${SUPABASE_URL.replace(".supabase.co", "")}/workspace/billing?session=success`;
-        const cancelUrl = payload?.cancelUrl || `${SUPABASE_URL.replace(".supabase.co", "")}/workspace/billing?session=cancel`;
+        const rawPlanCode = (payload?.planCode ?? "").trim().toLowerCase();
+        const planCode = rawPlanCode === "" ? DEFAULT_PLAN_CODE : rawPlanCode;
+        if (!ALLOWED_PLAN_CODES.has(planCode)) {
+            return json(400, { error: "invalid_plan_code" });
+        }
+
+        const promotionCodeInput = payload?.promotionCode?.trim() ?? "";
+
+        const successUrl =
+            payload?.successUrl ||
+            `${SUPABASE_URL.replace(".supabase.co", "")}/workspace/billing?session=success`;
+        const cancelUrl =
+            payload?.cancelUrl ||
+            `${SUPABASE_URL.replace(".supabase.co", "")}/workspace/billing?session=cancel`;
 
         // --- Ownership check ---
         const { data: tenantData, error: tenantError } = await supabaseUser
@@ -86,6 +114,63 @@ serve(async req => {
         const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-04-30.basil" });
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+        // --- Resolve price_id from plans.stripe_price_id (fallback env) ---
+        const { data: planRow, error: planError } = await supabaseAdmin
+            .from("plans")
+            .select("code, stripe_price_id")
+            .eq("code", planCode)
+            .maybeSingle();
+
+        if (planError) {
+            console.error(`stripe-checkout: plans lookup failed for ${planCode}:`, planError);
+            return json(500, { error: "plan_lookup_failed" });
+        }
+
+        let resolvedPriceId: string | null = null;
+        if (planRow?.stripe_price_id && planRow.stripe_price_id.trim() !== "") {
+            resolvedPriceId = planRow.stripe_price_id.trim();
+        } else if (STRIPE_PRICE_ID_FALLBACK) {
+            console.warn(
+                `stripe-checkout: plans.${planCode}.stripe_price_id missing — falling back to STRIPE_PRICE_ID env var`
+            );
+            resolvedPriceId = STRIPE_PRICE_ID_FALLBACK;
+        }
+
+        if (!resolvedPriceId) {
+            console.error(
+                `stripe-checkout: no price_id resolvable for plan ${planCode} (DB null + no env fallback)`
+            );
+            return json(500, { error: "plan_not_configured" });
+        }
+
+        // --- Resolve promotion code (auto-detect: promo_ id vs human code) ---
+        let resolvedPromotionId: string | null = null;
+        if (promotionCodeInput !== "") {
+            try {
+                if (promotionCodeInput.startsWith("promo_")) {
+                    const promo = await stripe.promotionCodes.retrieve(promotionCodeInput);
+                    if (!promo || !promo.active) {
+                        return json(400, { error: "promo_code_invalid" });
+                    }
+                    resolvedPromotionId = promo.id;
+                } else {
+                    const list = await stripe.promotionCodes.list({
+                        code: promotionCodeInput,
+                        active: true,
+                        limit: 1
+                    });
+                    if (!list.data || list.data.length === 0) {
+                        return json(400, { error: "promo_code_invalid" });
+                    }
+                    resolvedPromotionId = list.data[0].id;
+                }
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                console.warn(`stripe-checkout: promo code lookup failed: ${message}`);
+                return json(400, { error: "promo_code_invalid" });
+            }
+        }
+
         // Create or reuse Stripe Customer
         let stripeCustomerId = tenantData.stripe_customer_id;
 
@@ -107,21 +192,41 @@ serve(async req => {
             }
         }
 
-        // Create Checkout Session with per-seat quantity
-        const session = await stripe.checkout.sessions.create({
+        // --- Build Checkout Session params ---
+        const sessionMetadata: Record<string, string> = {
+            tenant_id: tenantId,
+            plan_code: planCode
+        };
+        const subscriptionMetadata: Record<string, string> = {
+            tenant_id: tenantId,
+            plan_code: planCode
+        };
+        if (resolvedPromotionId) {
+            sessionMetadata.promotion_code_id = resolvedPromotionId;
+            subscriptionMetadata.promotion_code_id = resolvedPromotionId;
+        }
+
+        const sessionParams: Stripe.Checkout.SessionCreateParams = {
             mode: "subscription",
             customer: stripeCustomerId,
-            line_items: [{ price: STRIPE_PRICE_ID, quantity }],
+            line_items: [{ price: resolvedPriceId, quantity }],
             subscription_data: {
-                trial_period_days: 30,
-                metadata: { tenant_id: tenantId }
+                metadata: subscriptionMetadata
             },
-            metadata: { tenant_id: tenantId },
+            metadata: sessionMetadata,
             success_url: successUrl,
             cancel_url: cancelUrl
-        });
+        };
 
-        console.log(`stripe-checkout: Session ${session.id} created for tenant ${tenantId}`);
+        if (resolvedPromotionId) {
+            sessionParams.discounts = [{ promotion_code: resolvedPromotionId }];
+        }
+
+        const session = await stripe.checkout.sessions.create(sessionParams);
+
+        console.log(
+            `stripe-checkout: Session ${session.id} created for tenant ${tenantId} (plan=${planCode}, qty=${quantity}, promo=${resolvedPromotionId ?? "none"})`
+        );
 
         return json(200, { checkout_url: session.url });
     } catch (err) {

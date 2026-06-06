@@ -1,19 +1,30 @@
 import { supabase } from "@/services/supabase/client";
 
+export type PlanCode = "base" | "pro";
+
+export type CreateCheckoutSessionInput = {
+    tenantId: string;
+    successUrl?: string;
+    cancelUrl?: string;
+    quantity?: number;
+    planCode?: PlanCode;
+    promotionCode?: string;
+};
+
 /**
  * Calls the stripe-checkout Edge Function.
  * Returns the Stripe Checkout URL to redirect the user to.
- *
- * @param quantity — number of seats (locations). Defaults to 1.
  */
-export async function createCheckoutSession(
-    tenantId: string,
-    successUrl?: string,
-    cancelUrl?: string,
-    quantity: number = 1
-): Promise<string> {
+export async function createCheckoutSession(input: CreateCheckoutSessionInput): Promise<string> {
     const { data, error } = await supabase.functions.invoke("stripe-checkout", {
-        body: { tenantId, successUrl, cancelUrl, quantity }
+        body: {
+            tenantId: input.tenantId,
+            successUrl: input.successUrl,
+            cancelUrl: input.cancelUrl,
+            quantity: input.quantity ?? 1,
+            planCode: input.planCode,
+            promotionCode: input.promotionCode
+        }
     });
 
     if (error) throw error;

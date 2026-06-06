@@ -91,11 +91,11 @@ export default function SubscriptionPage() {
     const handleCheckout = async () => {
         setCheckoutLoading(true);
         try {
-            const url = await createCheckoutSession(
-                selectedTenant.id,
-                `${window.location.origin}/business/${selectedTenant.id}/subscription?session=success`,
-                `${window.location.origin}/business/${selectedTenant.id}/subscription?session=cancel`
-            );
+            const url = await createCheckoutSession({
+                tenantId: selectedTenant.id,
+                successUrl: `${window.location.origin}/business/${selectedTenant.id}/subscription?session=success`,
+                cancelUrl: `${window.location.origin}/business/${selectedTenant.id}/subscription?session=cancel`
+            });
             window.location.href = url;
         } catch {
             showToast({ message: "Errore nell'avvio del checkout. Riprova.", type: "error" });

@@ -20,11 +20,11 @@ export default function ActivateTrial() {
         if (!tenantId) return;
         setLoading(true);
         try {
-            const url = await createCheckoutSession(
+            const url = await createCheckoutSession({
                 tenantId,
-                `${window.location.origin}/business/${tenantId}/overview`,
-                `${window.location.origin}/onboarding/activate-trial?tenantId=${tenantId}`
-            );
+                successUrl: `${window.location.origin}/business/${tenantId}/overview`,
+                cancelUrl: `${window.location.origin}/onboarding/activate-trial?tenantId=${tenantId}`
+            });
             window.location.href = url;
         } catch {
             showToast({ message: "Errore nell'avvio del checkout. Riprova.", type: "error" });
