@@ -7,6 +7,7 @@ import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import BusinessCard from "@/components/Businesses/BusinessCard";
 import { CreateBusinessDrawer } from "@/components/Businesses/CreateBusinessDrawer";
+import { CreateBusinessWizard } from "@/components/Businesses/CreateBusinessWizard/CreateBusinessWizard";
 import { InviteModal, PendingInviteData } from "@/components/Businesses/InviteModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { DeleteTenantDialog } from "@/components/Businesses/DeleteTenantDialog";
@@ -431,12 +432,16 @@ export default function WorkspacePage() {
                 )}
             </div>
 
+            <CreateBusinessWizard
+                open={drawerOpen}
+                onClose={() => setDrawerOpen(false)}
+            />
+
             <CreateBusinessDrawer
-                open={drawerOpen || editTarget !== null}
-                onClose={() => { setDrawerOpen(false); setEditTarget(null); }}
-                mode={editTarget ? "edit" : "create"}
-                tenantData={editTarget ?? undefined}
-                onSuccess={editTarget ? handleEditSuccess : undefined}
+                open={editTarget !== null}
+                onClose={() => setEditTarget(null)}
+                tenantData={editTarget}
+                onSuccess={handleEditSuccess}
             />
 
             <ConfirmDialog
