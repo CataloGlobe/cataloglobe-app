@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@services/supabase/client";
 import { AuthContext } from "./AuthContextBase";
+import { runWithRetry, withTimeout } from "./authRetry";
 import type { User } from "@supabase/supabase-js";
 
-async function withTimeout<T>(p: Promise<T>, ms = 4000): Promise<T> {
-    return await Promise.race([
-        p,
-        new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))
-    ]);
-}
+// Budget e timeout. Single source of truth — i 4s singolo-shot pre-fix
+// facevano scattare lo schermo bloccante al primo blip Wi-Fi.
+const TOTAL_BUDGET_MS = 14_000;
+const GET_USER_TIMEOUT_MS = 4_000;
+const SELECT_TIMEOUT_MS = 5_000;
+const OTP_BACKOFF_MS = [0, 800] as const; // 2 tentativi: immediato + retry
+const JITTER_MS = 150;
 
 type OtpCheckReason = "bootstrap" | "refresh" | "force";
 
@@ -19,9 +21,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [otpVerified, setOtpVerified] = useState(false);
     const [otpLoading, setOtpLoading] = useState(true); // bootstrap
     const [otpRefreshing, setOtpRefreshing] = useState(false); // refresh background
-    // True quando la query di check OTP ha fallito per errore (rete/postgrest).
+    // True quando la query di check OTP ha fallito DOPO aver esaurito i retry
+    // (o quando il budget si è esaurito prima di poter completare la select).
     // Distingue "non sappiamo" da "non verificato" → ProtectedRoute non
-    // rediriga a /verify-otp (che genererebbe un send-otp non richiesto).
+    // rediriga a /verify-otp (che farebbe partire un send-otp non richiesto).
     const [otpCheckFailed, setOtpCheckFailed] = useState(false);
 
     // evita race condition tra chiamate multiple
@@ -30,51 +33,87 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function checkOtpForUser(reason: OtpCheckReason = "bootstrap") {
         const reqId = ++otpReqIdRef.current;
 
-        if (reason === "bootstrap") {
-            setOtpLoading(true);
-        } else {
-            setOtpRefreshing(true);
-        }
+        if (reason === "bootstrap") setOtpLoading(true);
+        else setOtpRefreshing(true);
+
+        const t0 = Date.now();
+        const retryOpts = {
+            schedule: OTP_BACKOFF_MS,
+            totalBudgetMs: TOTAL_BUDGET_MS,
+            startedAt: t0,
+            jitterMs: JITTER_MS
+        };
 
         try {
-            const { data: userData } = await withTimeout(supabase.auth.getUser(), 4000);
-            const userId = userData.user?.id;
-
-            if (!userId) {
-                if (reqId === otpReqIdRef.current && reason === "bootstrap") {
-                    setOtpVerified(false);
-                }
-                return;
-            }
-
-            // Lookup keyed on user_id with TTL filter (migration 20260508005454).
-            // Replaces the old session_id-based lookup which desynced on every
-            // Supabase JWT rotation.
-            const nowIso = new Date().toISOString();
-            const { data, error } = await withTimeout(
-                (async () =>
-                    await supabase
-                        .from("otp_user_verifications")
-                        .select("user_id")
-                        .eq("user_id", userId)
-                        .gt("expires_at", nowIso)
-                        .maybeSingle())(),
-                4000
+            // ── getUser con retry ────────────────────────────────────────
+            // throw esplicito su error: senza, AuthRetryableFetchError /
+            // network error verrebbe scambiato per "nessuna sessione" e
+            // farebbe scattare un redirect/send-otp spurio.
+            const userRes = await runWithRetry<string | null>(
+                async () => {
+                    const { data, error } = await supabase.auth.getUser();
+                    if (error) throw error;
+                    return data.user?.id ?? null;
+                },
+                { ...retryOpts, perAttemptTimeoutMs: GET_USER_TIMEOUT_MS }
             );
+            if (reqId !== otpReqIdRef.current) return;
 
-            if (reqId !== otpReqIdRef.current) return; // risposta vecchia → ignora
-
-            if (error) {
-                console.error("[otp] check failed:", error);
-                // Errore di rete/postgrest: NON sappiamo se l'utente è
-                // verificato. Non flippare otpVerified — preserva lo stato.
-                // ProtectedRoute mostrerà OtpCheckErrorScreen invece di
-                // rediriggere a /verify-otp (che farebbe partire send-otp).
+            if (!userRes.ok) {
+                console.error(
+                    "[otp] getUser failed (budgetExhausted=%s, attempts=%d):",
+                    userRes.budgetExhausted,
+                    userRes.attempts,
+                    userRes.error
+                );
                 setOtpCheckFailed(true);
                 return;
             }
 
-            // Success: clear eventuale flag di errore precedente.
+            const userId = userRes.value;
+            if (!userId) {
+                // Auth getUser è riuscita e ha restituito nessun utente →
+                // sessione davvero assente (non è un blip). Solo qui è safe
+                // sbattere a un /verify-otp / /login.
+                if (reason === "bootstrap") setOtpVerified(false);
+                return;
+            }
+
+            // ── SELECT su otp_user_verifications con retry ───────────────
+            // Lookup keyed on user_id with TTL filter (migration
+            // 20260508005454). Replaces the old session_id-based lookup which
+            // desynced on every Supabase JWT rotation.
+            const nowIso = new Date().toISOString();
+            const selectRes = await runWithRetry<{ user_id: string } | null>(
+                async () => {
+                    const res = await supabase
+                        .from("otp_user_verifications")
+                        .select("user_id")
+                        .eq("user_id", userId)
+                        .gt("expires_at", nowIso)
+                        .maybeSingle();
+                    if (res.error) throw res.error;
+                    return (res.data as { user_id: string } | null) ?? null;
+                },
+                { ...retryOpts, perAttemptTimeoutMs: SELECT_TIMEOUT_MS }
+            );
+            if (reqId !== otpReqIdRef.current) return;
+
+            if (!selectRes.ok) {
+                // Include il caso "budget esaurito durante getUser → select
+                // mai partita" (selectRes.attempts === 0, budgetExhausted=true):
+                // trattato come check fallito, NON come "utente non verificato".
+                console.error(
+                    "[otp] check failed (budgetExhausted=%s, attempts=%d):",
+                    selectRes.budgetExhausted,
+                    selectRes.attempts,
+                    selectRes.error
+                );
+                setOtpCheckFailed(true);
+                return;
+            }
+
+            const data = selectRes.value;
             setOtpCheckFailed(false);
 
             if (reason === "bootstrap" || reason === "force") {
@@ -98,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         async function init() {
             try {
-                const { data } = await withTimeout(supabase.auth.getUser(), 4000);
+                const { data } = await withTimeout(supabase.auth.getUser(), GET_USER_TIMEOUT_MS);
                 if (cancelled) return;
 
                 setUser(data.user ?? null);
@@ -128,6 +167,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (cancelled) return;
 
             if (event === "SIGNED_OUT") {
+                // Invalida eventuale retry in-flight.
+                otpReqIdRef.current++;
                 setUser(null);
                 setOtpVerified(false);
                 setOtpLoading(false);
@@ -162,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.warn("[AUTH] delete_my_otp_verification failed", err);
         }
 
+        otpReqIdRef.current++;
         await supabase.auth.signOut();
         setUser(null);
         setOtpVerified(false);
