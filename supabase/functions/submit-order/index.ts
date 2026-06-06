@@ -545,6 +545,40 @@ serve(async (req: Request) => {
             });
         }
 
+        // ── Invalidate any pending "bill request" on the table ──
+        // Submitting a new order implies the table is no longer "ready to
+        // pay". Clear bill_requested_at on every active session at the same
+        // table so the customer pill disappears and the admin badge updates
+        // via realtime (customer_sessions is in supabase_realtime). Scoped
+        // to (current_table_id, tenant_id) defense-in-depth, restricted to
+        // sessions still active and already flagged. Idempotent and
+        // non-blocking: errors are logged, the order remains committed.
+        if (validated.table_id) {
+            const nowIso = new Date().toISOString();
+            const { data: cleared, error: clearErr } = await supabase
+                .from("customer_sessions")
+                .update({ bill_requested_at: null })
+                .eq("current_table_id", validated.table_id)
+                .eq("tenant_id", validated.tenant_id)
+                .gt("expires_at", nowIso)
+                .not("bill_requested_at", "is", null)
+                .select("id");
+            if (clearErr) {
+                console.error(
+                    "[submit-order] bill_requested_at clear failed:",
+                    clearErr.message,
+                    { customerSessionId, table_id: validated.table_id }
+                );
+            } else if (cleared && cleared.length > 0) {
+                console.log("[submit-order] bill_requested_cleared", {
+                    event: "bill_requested_cleared",
+                    customer_session_id: customerSessionId,
+                    table_id: validated.table_id,
+                    cleared_sessions_count: cleared.length
+                });
+            }
+        }
+
         // ── Success ──
         console.log("[submit-order] order_submitted", {
             event: "order_submitted",
