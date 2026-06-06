@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Bell, Grid2X2, Layers, MoreHorizontal, Plus, QrCode, RefreshCw, RotateCw } from "lucide-react";
+import { Bell, Grid2X2, Layers, MoreHorizontal, Plus, QrCode, RotateCw } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
@@ -8,12 +8,9 @@ import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
-import { IconButton } from "@/components/ui/Button/IconButton";
-import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 
 import { useToast } from "@/context/Toast/ToastContext";
 
@@ -36,13 +33,6 @@ import TableRegenerateTokenDrawer from "@/pages/Dashboard/Tables/TableRegenerate
 
 import styles from "./TablesManagement.module.scss";
 
-type StatusFilter = "all" | "free" | "occupied" | "maintenance";
-
-const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR"
-});
-
 export interface TablesManagementProps {
     tenantId: string;
     activityId: string;
@@ -63,7 +53,6 @@ export function TablesManagement({
 
     // Filters
     const [searchQuery, setSearchQuery] = useState("");
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
     // Drawer Create/Edit
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -160,18 +149,8 @@ export function TablesManagement({
                     (t.zone_name?.toLowerCase() ?? "").includes(q)
             );
         }
-        if (statusFilter !== "all") {
-            result = result.filter(t => {
-                if (statusFilter === "maintenance") return t.maintenance_mode;
-                if (statusFilter === "occupied")
-                    return t.active_sessions_count > 0 && !t.maintenance_mode;
-                if (statusFilter === "free")
-                    return t.active_sessions_count === 0 && !t.maintenance_mode;
-                return true;
-            });
-        }
         return result;
-    }, [items, searchQuery, statusFilter]);
+    }, [items, searchQuery]);
 
     // ── Handlers ──
     function openCreate() {
@@ -392,55 +371,6 @@ export function TablesManagement({
             )
         },
         {
-            id: "status",
-            header: "Stato",
-            width: "140px",
-            accessor: row => {
-                if (row.maintenance_mode) return "maintenance";
-                if (row.active_sessions_count > 0) return "occupied";
-                return "free";
-            },
-            cell: (_v, row) => {
-                if (row.maintenance_mode) {
-                    return <StatusBadge variant="warning" label="Manutenzione" />;
-                }
-                if (row.active_sessions_count > 0) {
-                    return <StatusBadge variant="success" label="Occupato" />;
-                }
-                return <StatusBadge variant="neutral" label="Libero" />;
-            }
-        },
-        {
-            id: "sessions",
-            header: "Sessioni",
-            width: "100px",
-            accessor: row => row.active_sessions_count,
-            cell: (_v, row) => (
-                <Text variant="body-sm">{row.active_sessions_count}</Text>
-            )
-        },
-        {
-            id: "open_groups",
-            header: "Conti",
-            width: "120px",
-            accessor: row => row.open_groups_count,
-            cell: (_v, row) => <Text variant="body-sm">{row.open_groups_count}</Text>
-        },
-        {
-            id: "current_total",
-            header: "Totale",
-            width: "140px",
-            align: "right",
-            accessor: row => row.current_total,
-            cell: (_v, row) => (
-                <Text variant="body-sm" weight={row.current_total > 0 ? 600 : 400}>
-                    {row.current_total > 0
-                        ? CURRENCY_FORMATTER.format(row.current_total)
-                        : "—"}
-                </Text>
-            )
-        },
-        {
             id: "actions",
             header: "",
             width: "56px",
@@ -474,37 +404,18 @@ export function TablesManagement({
         }
     ];
 
-    const hasFiltersActive = searchQuery.trim().length > 0 || statusFilter !== "all";
+    const hasFiltersActive = searchQuery.trim().length > 0;
 
     return (
         <section className={styles.container}>
             <div className={styles.content}>
-                {/* Toolbar di sezione: filtro SX · cluster DX (search + refresh + altro + CTA) */}
+                {/* Toolbar di sezione: cluster DX (search + altro + CTA). */}
                 <div className={styles.toolbar}>
-                    <SegmentedControl<StatusFilter>
-                        value={statusFilter}
-                        onChange={setStatusFilter}
-                        options={[
-                            { value: "all", label: "Tutti" },
-                            { value: "free", label: "Liberi" },
-                            { value: "occupied", label: "Occupati" },
-                            { value: "maintenance", label: "Manutenzione" }
-                        ]}
-                    />
                     <div className={styles.actionsCluster}>
                         <ToolbarSearch
                             value={searchQuery}
                             onChange={setSearchQuery}
                             placeholder="Cerca per nome o zona..."
-                        />
-                        <IconButton
-                            icon={<RefreshCw size={16} />}
-                            aria-label="Aggiorna"
-                            title="Aggiorna"
-                            variant="outline"
-                            onClick={loadData}
-                            disabled={!activityId || isLoading}
-                            className={styles.toolbarIconBtn}
                         />
                         <DropdownMenu.Root>
                             <DropdownMenu.Trigger asChild>

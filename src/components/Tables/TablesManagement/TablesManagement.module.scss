@@ -37,13 +37,6 @@
     height: var(--control-height, 38px);
 }
 
-.toolbarIconBtn {
-    box-sizing: border-box;
-    width: var(--control-height, 38px);
-    height: var(--control-height, 38px);
-    min-width: var(--control-height, 38px);
-}
-
 // Dropdown "Altro" — pattern coerente con TableRowActions.
 .dropdownContent {
     min-width: 200px;
