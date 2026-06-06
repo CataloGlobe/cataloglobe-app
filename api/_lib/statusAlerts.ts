@@ -1,23 +1,32 @@
 /**
- * Sistema di alert email per la status page.
+ * Sistema di alert email per la status page — con isteresi + raggruppamento.
  *
- * Politica anti-spam (vedi spec §4):
- *   - Email solo su CAMBIO di stato persistente per il servizio.
- *   - "Cambio di stato" = `currentStatus !== last_notified_status` (campo
- *     persistito su `status_service_state`).
- *   - Eccezione: se `last_notified_status` è NULL (primo check di sempre per
- *     quel servizio) NON si manda email per `up` (sarebbe rumore); si
- *     manda solo se il primo check è già `degraded` o `down`.
+ * Politica (post audit #3, 2026-06-06):
+ *   - Email solo per cambi di stato CONFERMATI su 2 check consecutivi.
+ *     Un singolo down isolato fra due up NON manda email. Un flapping
+ *     `up→down→up→down` rapido NON manda email. Soglia anti-rumore.
+ *   - UNA email per ciclo cron che aggrega tutti i servizi cambiati.
+ *     Se 4 servizi vanno giù insieme → 1 sola mail, non 4.
  *
- * Mailer: Resend via REST API diretta (`POST https://api.resend.com/emails`).
- * Niente SDK npm — coerente con il vincolo "no new npm deps" di CLAUDE.md.
+ * Isteresi (`decideAlertWithHysteresis`):
+ *   - Entry-into-down: cur='down' AND previousObservedStatus='down' AND
+ *     last_notified_status != 'down'.
+ *   - Recovery: cur != 'down' AND previousObservedStatus != 'down' (non null)
+ *     AND last_notified_status == 'down'.
+ *   - up <-> degraded: silent in entrambe le direzioni.
+ *   - Bootstrap (no row precedente per il service): silent. Servono 2 check
+ *     per confermare uno stato. 4 minuti di latenza accettati come tradeoff
+ *     vs falsi positivi al freddo.
  *
- * Sender identity: `CataloGlobe <noreply@cataloglobe.com>` (riutilizza il
- * dominio già verificato in Resend e usato da `send-otp`, `send-tenant-invite`,
- * `join-waitlist`). Vedi `src/config/company.ts` → COMPANY.email.sender.
+ * Mailer: Resend via REST API diretta (no SDK npm, vincolo CLAUDE.md).
+ * Sender: `CataloGlobe <noreply@cataloglobe.com>` (riutilizza dominio già
+ * verificato in Resend, allineato a send-otp / send-tenant-invite /
+ * join-waitlist; vedi `src/config/company.ts` → COMPANY.email.sender).
  *
- * Destinatario: env `MONITORING_ALERT_EMAIL` (default
- * `lorenzo.calzi@cataloglobe.com` per fail-safe ma DEVE essere settata).
+ * Env vars consumate dal dispatch:
+ *   - RESEND_API_KEY           chiave API Resend (server-side)
+ *   - MONITORING_ALERT_EMAIL   destinatario singolo (es. ops inbox)
+ * Il SENDER è hardcoded sopra per allineamento con gli altri mailer.
  */
 
 import type { CheckResult, CheckStatus, ServiceKey } from "./statusServices.js";
@@ -43,32 +52,52 @@ export type AlertDecision = {
     currentStatus: CheckStatus;
 };
 
-export function decideAlert(
-    current: CheckResult,
-    state: ServiceStateRow | null
-): AlertDecision {
-    const previous = (state?.last_notified_status ?? null) as CheckStatus | null;
+export type PendingAlert = {
+    serviceKey: ServiceKey;
+    currentStatus: CheckStatus;
+    previousNotifiedStatus: CheckStatus | null;
+    responseTimeMs: number | null;
+    error: string | null;
+};
 
-    // Politica anti-spam: email solo per transizioni che coinvolgono `down`.
-    //   - nessun cambio → no
-    //   - currentStatus === down → email (è andato giù, o primo check già down)
-    //   - previousStatus === down → email (recovery da down)
-    //   - up ↔ degraded (entrambe direzioni) → no (rumore cold start)
-    //   - bootstrap up | degraded → no (solo down al primo check notifica)
+/**
+ * Decisione alert con isteresi a 2 check consecutivi (stateless).
+ *
+ * `previousObservedStatus` = status del check PRECEDENTE in `status_checks`
+ * (cioè la riga immediatamente prima della current, non quella appena
+ * inserita). Va letto dal runner prima del persist.
+ *
+ * Confronto fatto su `last_notified_status` (non `last_status`): se un
+ * dispatch precedente è fallito, `last_notified_status` non avanza e la
+ * decisione corrente continua a considerare la transizione "non ancora
+ * notificata" → l'alert viene ritentato al check successivo.
+ */
+export function decideAlertWithHysteresis(
+    current: CheckResult,
+    state: ServiceStateRow | null,
+    previousObservedStatus: CheckStatus | null
+): AlertDecision {
+    const prevNotified = (state?.last_notified_status ?? null) as CheckStatus | null;
+    const confirmedDown =
+        current.status === "down" && previousObservedStatus === "down";
+    const confirmedClear =
+        current.status !== "down" &&
+        previousObservedStatus !== null &&
+        previousObservedStatus !== "down";
+
     let shouldNotify: boolean;
-    if (previous === current.status) {
-        shouldNotify = false;
-    } else if (current.status === "down") {
+    if (prevNotified !== "down" && confirmedDown) {
         shouldNotify = true;
-    } else if (previous === "down") {
+    } else if (prevNotified === "down" && confirmedClear) {
         shouldNotify = true;
     } else {
         shouldNotify = false;
     }
+
     return {
         serviceKey: current.serviceKey,
         shouldNotify,
-        previousNotifiedStatus: previous,
+        previousNotifiedStatus: prevNotified,
         currentStatus: current.status
     };
 }
@@ -79,33 +108,48 @@ function statusLabel(s: CheckStatus): string {
     return "DOWN";
 }
 
-function buildSubject(serviceKey: ServiceKey, status: CheckStatus): string {
-    return `[CataloGlobe] ${SERVICE_LABELS[serviceKey]} è ${statusLabel(status)}`;
+function summarizeCounts(items: PendingAlert[]): string {
+    const counts: Record<CheckStatus, number> = { up: 0, degraded: 0, down: 0 };
+    for (const it of items) counts[it.currentStatus] += 1;
+    const parts: string[] = [];
+    if (counts.down) parts.push(`${counts.down} DOWN`);
+    if (counts.up) parts.push(`${counts.up} OPERATIVO`);
+    if (counts.degraded) parts.push(`${counts.degraded} DEGRADATO`);
+    return parts.join(", ");
 }
 
-function buildBody(args: {
-    serviceKey: ServiceKey;
-    currentStatus: CheckStatus;
-    previousStatus: CheckStatus | null;
-    error: string | null;
-    responseTimeMs: number | null;
+function buildGroupedSubject(items: PendingAlert[]): string {
+    if (items.length === 1) {
+        const it = items[0];
+        return `[CataloGlobe] ${SERVICE_LABELS[it.serviceKey]} è ${statusLabel(it.currentStatus)}`;
+    }
+    return `[CataloGlobe] Stato servizi cambiato — ${summarizeCounts(items)}`;
+}
+
+function buildGroupedBody(args: {
+    items: PendingAlert[];
     statusPageUrl: string;
     checkedAt: string;
 }): string {
-    const lines: string[] = [
-        `Servizio: ${SERVICE_LABELS[args.serviceKey]}`,
-        `Stato attuale: ${statusLabel(args.currentStatus)}`,
-        `Stato precedente: ${args.previousStatus ? statusLabel(args.previousStatus) : "—"}`,
-        `Timestamp: ${args.checkedAt}`
-    ];
-    if (args.responseTimeMs !== null && args.responseTimeMs !== undefined) {
-        lines.push(`Tempo risposta: ${args.responseTimeMs} ms`);
-    }
-    if (args.error) {
-        lines.push(`Errore: ${args.error}`);
+    const lines: string[] = [];
+    lines.push(`Cambi stato rilevati alle ${args.checkedAt}:`);
+    lines.push("");
+    for (const it of args.items) {
+        const prev = it.previousNotifiedStatus
+            ? statusLabel(it.previousNotifiedStatus)
+            : "—";
+        lines.push(
+            `• ${SERVICE_LABELS[it.serviceKey]}: ${prev} → ${statusLabel(it.currentStatus)}`
+        );
+        const detailParts: string[] = [];
+        if (it.responseTimeMs !== null && it.responseTimeMs !== undefined) {
+            detailParts.push(`Risposta ${it.responseTimeMs} ms`);
+        }
+        if (it.error) detailParts.push(`Errore: ${it.error}`);
+        if (detailParts.length) lines.push(`    ${detailParts.join(" · ")}`);
     }
     lines.push("");
-    lines.push(`Verifica: ${args.statusPageUrl}`);
+    lines.push(`Status page: ${args.statusPageUrl}`);
     return lines.join("\n");
 }
 
@@ -141,27 +185,27 @@ async function sendResendEmail(args: {
     }
 }
 
-export async function dispatchAlert(args: {
-    check: CheckResult;
-    previousNotifiedStatus: CheckStatus | null;
+/**
+ * Invio UNA sola email che aggrega tutti i `items` cambiati nel ciclo cron
+ * corrente. Ritorna `{sent:true}` solo se Resend ritorna 2xx. Su failure
+ * il caller deve loggare l'errore e NON aggiornare `last_notified_*` —
+ * la transizione resterà "non notificata" e verrà ritentata al prossimo
+ * ciclo (idempotente: la decisione si basa sul DB, non sulla memoria).
+ */
+export async function dispatchGroupedAlert(args: {
+    items: PendingAlert[];
     statusPageUrl: string;
     checkedAt: string;
 }): Promise<{ sent: boolean; error?: string }> {
+    if (args.items.length === 0) return { sent: false };
     const apiKey = process.env.RESEND_API_KEY;
     const to = process.env.MONITORING_ALERT_EMAIL;
-    if (!apiKey) {
-        return { sent: false, error: "Missing RESEND_API_KEY env var" };
-    }
-    if (!to) {
-        return { sent: false, error: "Missing MONITORING_ALERT_EMAIL env var" };
-    }
-    const subject = buildSubject(args.check.serviceKey, args.check.status);
-    const text = buildBody({
-        serviceKey: args.check.serviceKey,
-        currentStatus: args.check.status,
-        previousStatus: args.previousNotifiedStatus,
-        error: args.check.error,
-        responseTimeMs: args.check.responseTimeMs,
+    if (!apiKey) return { sent: false, error: "Missing RESEND_API_KEY env var" };
+    if (!to) return { sent: false, error: "Missing MONITORING_ALERT_EMAIL env var" };
+
+    const subject = buildGroupedSubject(args.items);
+    const text = buildGroupedBody({
+        items: args.items,
         statusPageUrl: args.statusPageUrl,
         checkedAt: args.checkedAt
     });

@@ -8,31 +8,43 @@ import {
     type ServiceKey
 } from "../_lib/statusServices.js";
 import {
-    decideAlert,
-    dispatchAlert,
+    decideAlertWithHysteresis,
+    dispatchGroupedAlert,
+    type PendingAlert,
     type ServiceStateRow
 } from "../_lib/statusAlerts.js";
-import { pgrest } from "../_lib/statusSupabase.js";
+import { pgrest, readPreviousObservation } from "../_lib/statusSupabase.js";
 
 /**
  * Cron: `*\/2 * * * *` — esegue health-check su 4 servizi.
  *
- * Pipeline:
+ * Pipeline (post audit #3, 2026-06-06 — isteresi + grouped email):
  *   1. Auth: `Authorization: Bearer <CRON_SECRET>` (Vercel cron lo manda
  *      automaticamente quando CRON_SECRET è settato nel project).
- *   2. Esegue runAllChecks() in parallelo.
- *   3. Per ogni risultato:
- *        a. INSERT in status_checks (storico append-only).
- *        b. SELECT su status_service_state per il service_key.
- *        c. Confronta last_notified_status con current → decideAlert().
- *        d. Se shouldNotify, manda email via Resend.
- *        e. UPSERT su status_service_state (last_status, last_check_at,
- *           e — se inviata email — last_notified_status/last_notified_at).
- *   4. Risposta JSON con summary dei 4 check (utile per curl manuale).
+ *   2. Esegue runAllChecks() in parallelo (timeout 10s per probe).
+ *   3. Per ogni risultato (in serie, perché ogni step legge/scrive DB):
+ *        a. SELECT status dell'ULTIMA riga in status_checks per il service
+ *           (= previousObservedStatus, prima del persist corrente).
+ *        b. INSERT in status_checks (storico append-only, raw — la riga
+ *           riflette il singolo check, NON applica isteresi).
+ *        c. SELECT su status_service_state per il service_key
+ *           (= last_notified_status).
+ *        d. decideAlertWithHysteresis(c, state, prevObserved):
+ *             shouldNotify true SOLO se 2 check consecutivi confermano
+ *             entry-into-down o recovery. Singolo blip / flapping silent.
+ *        e. Se shouldNotify → accumula in pending[].
+ *   4. UNA dispatchGroupedAlert() per ciclo se pending.length > 0
+ *      (1 email Resend con tutti i servizi cambiati). Su failure:
+ *      console.error con status+errore esatto (mai swallow silenzioso).
+ *   5. Per ogni servizio: UPSERT su status_service_state.
+ *      `last_notified_*` aggiornato solo se groupSent && service ∈ pending.
+ *      Se groupSent=false: last_notified_* resta intatto → retry al prossimo
+ *      ciclo (idempotente, niente perdita di transizioni).
+ *   6. Risposta JSON con summary dei 4 check (utile per curl manuale).
  *
- * Best-effort: i fallimenti su scritture (PostgREST, email Resend) NON
- * fanno fallire l'intero cron — vengono loggati. Vercel ha già un retry
- * automatico sui cron failed, ma ri-eseguire status-check è benigno.
+ * Best-effort: i fallimenti su scritture DB / Resend vengono loggati ma
+ * non fanno fallire l'intero cron. Vercel ha retry automatico sui cron
+ * failed e ri-eseguire status-check è benigno.
  */
 
 const STATUS_PAGE_PATHS = ["/status"];
@@ -150,6 +162,7 @@ type CronSummary = {
         alertSent: boolean;
         alertError?: string;
     }>;
+    alertError?: string;
 };
 
 export default async function handler(
@@ -175,48 +188,93 @@ export default async function handler(
     const validKeys = new Set<string>(SERVICE_KEYS);
     const filteredChecks = checks.filter((c) => validKeys.has(c.serviceKey));
 
-    const summary: CronSummary["results"] = [];
+    const pending: PendingAlert[] = [];
+    const stateContext: Array<{
+        check: CheckResult;
+        previousState: ServiceStateRow | null;
+    }> = [];
 
     for (const c of filteredChecks) {
+        // 1. ULTIMA riga precedente per service (PRIMA del persist corrente).
+        const prevObservedRaw = await readPreviousObservation(c.serviceKey);
+        const prevObserved = prevObservedRaw as CheckStatus | null;
+        // 2. Persist riga raw del check corrente.
         await persistCheckRow(c, checkedAt);
+        // 3. Stato di notifica corrente.
         const previousState = await readServiceState(c.serviceKey);
-        const decision = decideAlert(c, previousState);
-
-        let alertSent = false;
-        let alertError: string | undefined;
+        // 4. Decisione con isteresi a 2 consecutivi.
+        const decision = decideAlertWithHysteresis(c, previousState, prevObserved);
         if (decision.shouldNotify) {
-            const dispatch = await dispatchAlert({
-                check: c,
+            pending.push({
+                serviceKey: c.serviceKey,
+                currentStatus: c.status,
                 previousNotifiedStatus: decision.previousNotifiedStatus,
-                statusPageUrl,
-                checkedAt
+                responseTimeMs: c.responseTimeMs,
+                error: c.error
             });
-            alertSent = dispatch.sent;
-            if (!dispatch.sent) alertError = dispatch.error;
         }
+        stateContext.push({ check: c, previousState });
+    }
 
+    // 5. UNA email grouped per ciclo, solo se ci sono pending.
+    let groupSent = false;
+    let groupError: string | undefined;
+    if (pending.length > 0) {
+        const result = await dispatchGroupedAlert({
+            items: pending,
+            statusPageUrl,
+            checkedAt
+        });
+        groupSent = result.sent;
+        if (!result.sent) {
+            groupError = result.error;
+            // Visibilità fallimenti dispatch: log strutturato → Vercel logs.
+            // Senza questo, una Resend rotta passerebbe silenziosa (bug
+            // originale che ha portato a `last_notified_status=null` su 3/4
+            // servizi nonostante eventi di down in storia).
+            console.error(
+                JSON.stringify({
+                    event: "status_alert_dispatch_failed",
+                    pendingCount: pending.length,
+                    services: pending.map((p) => p.serviceKey),
+                    error: groupError ?? "unknown"
+                })
+            );
+        }
+    }
+
+    // 6. Upsert state per OGNI servizio. notifiedNow vero solo se
+    // groupSent && service nel batch pending.
+    const pendingSet = new Set(pending.map((p) => p.serviceKey));
+    const summary: CronSummary["results"] = [];
+    for (const ctx of stateContext) {
+        const inPending = pendingSet.has(ctx.check.serviceKey);
+        const notifiedNow = groupSent && inPending;
         await upsertServiceState({
-            serviceKey: c.serviceKey,
-            currentStatus: c.status,
-            previousState,
+            serviceKey: ctx.check.serviceKey,
+            currentStatus: ctx.check.status,
+            previousState: ctx.previousState,
             checkedAt,
-            notifiedNow: alertSent
+            notifiedNow
         });
-
-        summary.push({
-            serviceKey: c.serviceKey,
-            status: c.status,
-            responseTimeMs: c.responseTimeMs,
-            error: c.error,
-            alertSent,
-            ...(alertError ? { alertError } : {})
-        });
+        const row: CronSummary["results"][number] = {
+            serviceKey: ctx.check.serviceKey,
+            status: ctx.check.status,
+            responseTimeMs: ctx.check.responseTimeMs,
+            error: ctx.check.error,
+            alertSent: notifiedNow
+        };
+        if (inPending && !groupSent && groupError) {
+            row.alertError = groupError;
+        }
+        summary.push(row);
     }
 
     const body: CronSummary = {
         event: "status_check_cron",
         checkedAt,
-        results: summary
+        results: summary,
+        ...(groupError ? { alertError: groupError } : {})
     };
     console.log(JSON.stringify(body));
     res.setHeader("Cache-Control", "no-store");
