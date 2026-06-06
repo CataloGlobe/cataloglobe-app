@@ -1,6 +1,6 @@
 .slot {
-  background: #FFFFFF;
-  border-bottom: 1px solid #E5E7EB;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
   // Verticale 0: le sezioni interne (leading + actions) gestiscono
   // il proprio padding-y così che la riga tab underline possa estendersi
   // fino al bordo inferiore della banda.
@@ -9,7 +9,7 @@
   // Le pagine con actions a 38px raggiungono già 62 via `.actions { padding: 12px 0 }`;
   // le pagine con solo leading (es. dettaglio sede) ottengono qui la stessa altezza
   // così l'header è coerente cross-pagina e i tab underline restano a filo del bordo.
-  min-height: 62px;
+  min-height: 57px;
   display: flex;
   align-items: stretch;
   gap: 12px;
@@ -48,7 +48,7 @@
   margin-left: auto;
   // Padding-y interno: ricrea lo spazio verticale per actions-only pages
   // (es. Menù) mantenendo la banda della stessa altezza di prima.
-  padding: 12px 0;
+  // padding: 12px 0;
 
   @media (max-width: 767px) {
     margin-left: 0;

@@ -15,9 +15,11 @@
 
   font-size: 0.95rem;
   border-radius: 8px;
-  border: 1.5px solid var(--border, #cbd5e1);
+  border: 1px solid var(--border, #cbd5e1);
 
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 
   &:focus-visible {
     outline: none;

@@ -14,7 +14,11 @@
   user-select: none;
   text-decoration: none;
 
-  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 
   &:focus-visible {
     outline: none;
@@ -75,7 +79,7 @@
 
 .variant-outline {
   background-color: transparent;
-  border: 2px solid var(--brand-primary);
+  border: 1px solid var(--brand-primary);
 
   span {
     color: var(--brand-primary);
