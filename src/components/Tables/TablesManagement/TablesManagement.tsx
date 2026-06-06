@@ -332,11 +332,6 @@ export function TablesManagement({
                     <Text variant="body-sm" weight={600}>
                         {row.label}
                     </Text>
-                    {row.zone_name && (
-                        <Text variant="body-sm" colorVariant="muted">
-                            {row.zone_name}
-                        </Text>
-                    )}
                     {row.bill_requested_count > 0 && (
                         <button
                             type="button"
@@ -358,6 +353,20 @@ export function TablesManagement({
                     )}
                 </div>
             )
+        },
+        {
+            id: "zone",
+            header: "Zona",
+            width: "1fr",
+            accessor: row => row.zone_name,
+            cell: (_v, row) =>
+                row.zone_name ? (
+                    <Text variant="body-sm">{row.zone_name}</Text>
+                ) : (
+                    <Text variant="body-sm" colorVariant="muted">
+                        —
+                    </Text>
+                )
         },
         {
             id: "seats",
