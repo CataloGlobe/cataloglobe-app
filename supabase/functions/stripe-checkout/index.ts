@@ -48,7 +48,6 @@ serve(async req => {
         const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
         const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
         const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
-        const STRIPE_PRICE_ID_FALLBACK = Deno.env.get("STRIPE_PRICE_ID");
 
         if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !STRIPE_SECRET_KEY) {
             console.error("stripe-checkout: Missing env vars");
@@ -126,7 +125,7 @@ serve(async req => {
         const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-04-30.basil" });
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-        // --- Resolve price_id from plans.stripe_price_id (fallback env) ---
+        // --- Resolve price_id from plans.stripe_price_id (DB-driven, single source of truth) ---
         const { data: planRow, error: planError } = await supabaseAdmin
             .from("plans")
             .select("code, stripe_price_id")
@@ -138,19 +137,10 @@ serve(async req => {
             return json(req, 500, { error: "plan_lookup_failed" });
         }
 
-        let resolvedPriceId: string | null = null;
-        if (planRow?.stripe_price_id && planRow.stripe_price_id.trim() !== "") {
-            resolvedPriceId = planRow.stripe_price_id.trim();
-        } else if (STRIPE_PRICE_ID_FALLBACK) {
-            console.warn(
-                `stripe-checkout: plans.${planCode}.stripe_price_id missing — falling back to STRIPE_PRICE_ID env var`
-            );
-            resolvedPriceId = STRIPE_PRICE_ID_FALLBACK;
-        }
-
+        const resolvedPriceId = planRow?.stripe_price_id?.trim();
         if (!resolvedPriceId) {
             console.error(
-                `stripe-checkout: no price_id resolvable for plan ${planCode} (DB null + no env fallback)`
+                `stripe-checkout: plans.${planCode}.stripe_price_id is NULL or empty — DB misconfigured`
             );
             return json(req, 500, { error: "plan_not_configured" });
         }
