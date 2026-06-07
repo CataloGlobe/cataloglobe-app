@@ -33,7 +33,6 @@ const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "prima
 
 const CHANGE_PLAN_EMAIL = "support@cataloglobe.com";
 const FALLBACK_MAX_SEATS = 5;
-const IVA_NOTE = "IVA esclusa — vedi fatture per importo reale";
 
 function formatEuro(value: number): string {
     return `€${value.toFixed(2).replace(".", ",")}`;
@@ -277,9 +276,6 @@ export default function SubscriptionPage() {
                         <Text variant="title-sm" weight={700}>
                             {formatEuro(currentPricing.subtotal)}/mese
                         </Text>
-                        <Text variant="caption" colorVariant="muted" className={styles.priceCaption}>
-                            {IVA_NOTE}
-                        </Text>
                     </div>
                 </div>
             </div>
@@ -513,9 +509,6 @@ export default function SubscriptionPage() {
                                             {diffLabel}
                                         </span>
                                     )}
-                                    <Text variant="caption" colorVariant="muted">
-                                        {IVA_NOTE}
-                                    </Text>
                                 </div>
                             )}
                         </form>
@@ -541,7 +534,7 @@ export default function SubscriptionPage() {
                         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                             <Text variant="body">
                                 Stai aggiornando il tuo piano da <strong>{paidSeats}</strong> a <strong>{newSeats}</strong> sed{newSeats === 1 ? "e" : "i"}.
-                                Il nuovo costo sarà <strong>{formatEuro(newPricing.subtotal)}/mese</strong> (IVA esclusa).
+                                Il nuovo costo sarà <strong>{formatEuro(newPricing.subtotal)}/mese</strong>.
                             </Text>
                             <Text variant="body-sm" colorVariant="muted">
                                 {newSeats > paidSeats

@@ -40,7 +40,6 @@ const STEPS = [
     { n: 3 as const, label: "Riepilogo e pagamento" },
 ];
 
-const IVA_RATE = 0.22;
 const DEFAULT_PLAN: PlanCode = "pro";
 
 export function CreateBusinessWizard({ open, onClose, mode = "create", existingTenant = null }: CreateBusinessWizardProps) {
@@ -142,9 +141,6 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
     const maxSelfServiceSeats = selectedPlan?.max_self_service_seats ?? 5;
     const discountPercent = selectedPlan?.volume_discount_percent ?? 10;
     const overLimit = seats > maxSelfServiceSeats;
-
-    const ivaAmount = breakdown.subtotal * IVA_RATE;
-    const totalWithIva = breakdown.subtotal + ivaAmount;
 
     const canProceedFromStep1 = name.trim().length >= 2;
     const canProceedFromStep2 = !!selectedPlan && seats >= 1 && !overLimit;
@@ -354,8 +350,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                         name={name}
                         plan={selectedPlan}
                         breakdown={breakdown}
-                        ivaAmount={ivaAmount}
-                        totalWithIva={totalWithIva}
+                        total={breakdown.subtotal}
                         discountPercent={discountPercent}
                         promotionCode={promotionCode}
                         onPromotionCodeChange={value => {

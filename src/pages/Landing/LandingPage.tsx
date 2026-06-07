@@ -660,7 +660,6 @@ function Pricing() {
                             <span className={s.calcBold}>Esempio:</span> 7 sedi → 3×€39 + 4×€29 ={" "}
                             <span className={s.calcAccent}>€233/mese</span>
                         </span>
-                        <span className={s.calcNote}>· IVA inclusa</span>
                     </div>
                 </Animate>
 

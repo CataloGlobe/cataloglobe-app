@@ -99,7 +99,7 @@ export const INCLUDED_FEATURES: string[] = [
 export const FAQ_ITEMS: FaqItem[] = [
     {
         q: 'Quanto costa?',
-        a: "Configuri tutto gratis. Paghi solo quando attivi una sede: €39/sede/mese per le prime 3, €29 dalla 4ª alla 10ª, €19 dall'11ª alla 25ª. IVA inclusa, nessun costo nascosto.",
+        a: "Configuri tutto gratis. Paghi solo quando attivi una sede: €39/sede/mese per le prime 3, €29 dalla 4ª alla 10ª, €19 dall'11ª alla 25ª. Nessun costo nascosto.",
     },
     {
         q: 'Funziona anche con una sola sede?',
