@@ -165,7 +165,7 @@ export async function createTable(
         label: data.label,
         seats: data.seats,
         zone_id: data.zone_id ?? null,
-        maintenance_mode: data.maintenance_mode
+        maintenance_mode: data.maintenance_mode ?? false
     };
 
     const { data: inserted, error } = await supabase
