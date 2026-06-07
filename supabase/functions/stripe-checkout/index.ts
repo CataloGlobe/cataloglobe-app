@@ -3,19 +3,31 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
 
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Content-Type": "application/json"
-};
+const ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "https://staging.cataloglobe.com",
+    "https://cataloglobe.com",
+    "https://www.cataloglobe.com",
+];
+
+function corsHeaders(req: Request): Record<string, string> {
+    const origin = req.headers.get("origin") ?? "";
+    const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : "";
+    return {
+        "Access-Control-Allow-Origin": allowed,
+        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Vary": "Origin",
+        "Content-Type": "application/json"
+    };
+}
 
 const ALLOWED_PLAN_CODES = new Set(["base", "pro"]);
 const DEFAULT_PLAN_CODE = "pro";
 const MAX_SELF_SERVICE_SEATS = 5;
 
-function json(status: number, body: Record<string, unknown>) {
-    return new Response(JSON.stringify(body), { status, headers: corsHeaders });
+function json(req: Request, status: number, body: Record<string, unknown>) {
+    return new Response(JSON.stringify(body), { status, headers: corsHeaders(req) });
 }
 
 type CheckoutBody = {
@@ -28,8 +40,8 @@ type CheckoutBody = {
 };
 
 serve(async req => {
-    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-    if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
+    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
+    if (req.method !== "POST") return json(req, 405, { error: "method_not_allowed" });
 
     try {
         const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -40,13 +52,13 @@ serve(async req => {
 
         if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !STRIPE_SECRET_KEY) {
             console.error("stripe-checkout: Missing env vars");
-            return json(500, { error: "server_misconfigured" });
+            return json(req, 500, { error: "server_misconfigured" });
         }
 
         // --- Auth ---
         const authHeader = req.headers.get("Authorization");
         if (!authHeader?.startsWith("Bearer ")) {
-            return json(401, { error: "unauthorized" });
+            return json(req, 401, { error: "unauthorized" });
         }
 
         const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -59,7 +71,7 @@ serve(async req => {
 
         if (authError || !userId) {
             console.error(`stripe-checkout: Auth failed: ${authError?.message || "no user"}`);
-            return json(401, { error: "unauthorized" });
+            return json(req, 401, { error: "unauthorized" });
         }
 
         // --- Parse body ---
@@ -67,11 +79,11 @@ serve(async req => {
         try {
             payload = await req.json();
         } catch {
-            return json(400, { error: "invalid_json" });
+            return json(req, 400, { error: "invalid_json" });
         }
 
         const tenantId = payload?.tenantId?.trim();
-        if (!tenantId) return json(400, { error: "missing_tenant_id" });
+        if (!tenantId) return json(req, 400, { error: "missing_tenant_id" });
 
         const quantity = Math.max(
             1,
@@ -81,7 +93,7 @@ serve(async req => {
         const rawPlanCode = (payload?.planCode ?? "").trim().toLowerCase();
         const planCode = rawPlanCode === "" ? DEFAULT_PLAN_CODE : rawPlanCode;
         if (!ALLOWED_PLAN_CODES.has(planCode)) {
-            return json(400, { error: "invalid_plan_code" });
+            return json(req, 400, { error: "invalid_plan_code" });
         }
 
         const promotionCodeInput = payload?.promotionCode?.trim() ?? "";
@@ -102,12 +114,12 @@ serve(async req => {
 
         if (tenantError || !tenantData) {
             console.error("stripe-checkout: Tenant not found or not accessible");
-            return json(403, { error: "forbidden" });
+            return json(req, 403, { error: "forbidden" });
         }
 
         if (tenantData.owner_user_id !== userId) {
             console.warn(`stripe-checkout: User ${userId} is not owner of tenant ${tenantId}`);
-            return json(403, { error: "forbidden" });
+            return json(req, 403, { error: "forbidden" });
         }
 
         // --- Stripe ---
@@ -123,7 +135,7 @@ serve(async req => {
 
         if (planError) {
             console.error(`stripe-checkout: plans lookup failed for ${planCode}:`, planError);
-            return json(500, { error: "plan_lookup_failed" });
+            return json(req, 500, { error: "plan_lookup_failed" });
         }
 
         let resolvedPriceId: string | null = null;
@@ -140,7 +152,7 @@ serve(async req => {
             console.error(
                 `stripe-checkout: no price_id resolvable for plan ${planCode} (DB null + no env fallback)`
             );
-            return json(500, { error: "plan_not_configured" });
+            return json(req, 500, { error: "plan_not_configured" });
         }
 
         // --- Resolve promotion code (auto-detect: promo_ id vs human code) ---
@@ -150,7 +162,7 @@ serve(async req => {
                 if (promotionCodeInput.startsWith("promo_")) {
                     const promo = await stripe.promotionCodes.retrieve(promotionCodeInput);
                     if (!promo || !promo.active) {
-                        return json(400, { error: "promo_code_invalid" });
+                        return json(req, 400, { error: "promo_code_invalid" });
                     }
                     resolvedPromotionId = promo.id;
                 } else {
@@ -160,14 +172,14 @@ serve(async req => {
                         limit: 1
                     });
                     if (!list.data || list.data.length === 0) {
-                        return json(400, { error: "promo_code_invalid" });
+                        return json(req, 400, { error: "promo_code_invalid" });
                     }
                     resolvedPromotionId = list.data[0].id;
                 }
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
                 console.warn(`stripe-checkout: promo code lookup failed: ${message}`);
-                return json(400, { error: "promo_code_invalid" });
+                return json(req, 400, { error: "promo_code_invalid" });
             }
         }
 
@@ -188,7 +200,7 @@ serve(async req => {
 
             if (updateErr) {
                 console.error("stripe-checkout: Failed to save stripe_customer_id:", updateErr);
-                return json(500, { error: "db_update_failed" });
+                return json(req, 500, { error: "db_update_failed" });
             }
         }
 
@@ -228,10 +240,10 @@ serve(async req => {
             `stripe-checkout: Session ${session.id} created for tenant ${tenantId} (plan=${planCode}, qty=${quantity}, promo=${resolvedPromotionId ?? "none"})`
         );
 
-        return json(200, { checkout_url: session.url });
+        return json(req, 200, { checkout_url: session.url });
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error("stripe-checkout: Unhandled error:", message);
-        return json(500, { error: "checkout_failed", detail: message });
+        return json(req, 500, { error: "checkout_failed", detail: message });
     }
 });

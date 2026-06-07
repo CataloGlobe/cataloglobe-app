@@ -3,15 +3,12 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
 
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Content-Type": "application/json"
-};
+// Note: this endpoint is called server-to-server by Stripe. CORS headers
+// not needed — never call from a browser.
+const jsonHeaders = { "Content-Type": "application/json" };
 
 function json(status: number, body: Record<string, unknown>) {
-    return new Response(JSON.stringify(body), { status, headers: corsHeaders });
+    return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
 }
 
 /**
@@ -99,7 +96,7 @@ function mapStripeStatus(stripeStatus: string): string {
 }
 
 serve(async req => {
-    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+    // Stripe sends only POST; no OPTIONS preflight needed (server-to-server).
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
     let event: Stripe.Event | undefined;
