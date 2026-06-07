@@ -21,9 +21,10 @@ serve(async req => {
     try {
         const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
         const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+        const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
         const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
 
-        if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !STRIPE_SECRET_KEY) {
+        if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !STRIPE_SECRET_KEY) {
             console.error("stripe-update-seats: Missing env vars");
             return json(500, { error: "server_misconfigured" });
         }
@@ -57,14 +58,14 @@ serve(async req => {
         if (!tenantId) return json(400, { error: "missing_tenant_id" });
 
         const newQuantity = Math.floor(Number(payload?.quantity) || 0);
-        if (newQuantity < 1 || newQuantity > 25) {
-            return json(400, { error: "invalid_quantity", detail: "Quantity must be between 1 and 25." });
+        if (newQuantity < 1) {
+            return json(400, { error: "invalid_quantity", detail: "Quantity must be at least 1." });
         }
 
-        // --- Ownership check ---
+        // --- Ownership check (also reads plan for cap lookup) ---
         const { data: tenantData, error: tenantError } = await supabaseUser
             .from("tenants")
-            .select("id, owner_user_id, stripe_subscription_id")
+            .select("id, owner_user_id, stripe_subscription_id, plan")
             .eq("id", tenantId)
             .maybeSingle();
 
@@ -78,6 +79,26 @@ serve(async req => {
 
         if (!tenantData.stripe_subscription_id) {
             return json(400, { error: "no_subscription", detail: "Tenant has no active subscription." });
+        }
+
+        // --- Resolve max_self_service_seats from plans table (service-role read) ---
+        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const { data: planRow, error: planErr } = await supabaseAdmin
+            .from("plans")
+            .select("max_self_service_seats")
+            .eq("code", tenantData.plan)
+            .maybeSingle();
+
+        if (planErr || !planRow) {
+            console.error(`stripe-update-seats: plans lookup failed for ${tenantData.plan}:`, planErr);
+            return json(500, { error: "plan_lookup_failed" });
+        }
+
+        if (newQuantity > planRow.max_self_service_seats) {
+            return json(400, {
+                error: "invalid_quantity",
+                detail: `Max ${planRow.max_self_service_seats} seats for plan ${tenantData.plan}.`
+            });
         }
 
         // --- Update Stripe subscription quantity ---

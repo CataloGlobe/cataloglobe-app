@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useToast } from "@/context/Toast/ToastContext";
 import { createCheckoutSession, createPortalSession, updateSeats } from "@/services/supabase/billing";
 import { getActivityCount } from "@/services/supabase/activities";
-import { calculatePrice, formatPrice, MAX_SEATS } from "@/utils/pricing";
+import { getPlanByCode } from "@/services/supabase/plans";
+import { calculateGraduatedFromPlan } from "@/utils/pricing";
 import { canDoOnTenant } from "@/lib/permissions";
 import { usePermissions } from "@/context/PermissionsContext";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -19,7 +19,8 @@ import { SeatsInput } from "@/components/ui/SeatsInput/SeatsInput";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 
-import { ExternalLink, CreditCard, Shield, MapPin, Settings2, Lock, Info } from "lucide-react";
+import { ExternalLink, CreditCard, Shield, MapPin, Settings2, Lock, Info, Sparkles, Mail } from "lucide-react";
+import type { Plan } from "@/types/plan";
 import styles from "./SubscriptionPage.module.scss";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "primary" | "warning" | "danger" }> = {
@@ -30,9 +31,16 @@ const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "prima
     suspended: { label: "Sospeso",   variant: "danger" }
 };
 
+const CHANGE_PLAN_EMAIL = "support@cataloglobe.com";
+const FALLBACK_MAX_SEATS = 5;
+const IVA_NOTE = "IVA esclusa — vedi fatture per importo reale";
+
+function formatEuro(value: number): string {
+    return `€${value.toFixed(2).replace(".", ",")}`;
+}
+
 export default function SubscriptionPage() {
     const tenantId = useTenantId();
-    const navigate = useNavigate();
     const { selectedTenant, loading, refreshTenants } = useTenant();
     const { permissions, loading: permissionsLoading } = usePermissions();
     const canReadBilling = permissions ? canDoOnTenant(permissions, "billing.read") : false;
@@ -48,6 +56,7 @@ export default function SubscriptionPage() {
     const [seatsDrawerStep, setSeatsDrawerStep] = useState<"edit" | "confirm">("edit");
     const [newSeats, setNewSeats] = useState(1);
     const [updatingSeats, setUpdatingSeats] = useState(false);
+    const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
 
     const loadActivityCount = useCallback(async () => {
         if (!tenantId) return;
@@ -58,6 +67,16 @@ export default function SubscriptionPage() {
 
     useEffect(() => { loadActivityCount(); }, [loadActivityCount]);
 
+    useEffect(() => {
+        if (!selectedTenant?.plan) return;
+        getPlanByCode(selectedTenant.plan)
+            .then(setCurrentPlan)
+            .catch(err => {
+                console.error("[SubscriptionPage] plan lookup failed:", err);
+                setCurrentPlan(null);
+            });
+    }, [selectedTenant?.plan]);
+
     usePageHeader({
         title: "Abbonamento",
         subtitle: !canReadBilling
@@ -65,6 +84,19 @@ export default function SubscriptionPage() {
             : "Gestisci il piano e il metodo di pagamento della tua attività.",
         sticky: true,
     });
+
+    const paidSeats = selectedTenant?.paid_seats ?? 0;
+    const maxSeats = currentPlan?.max_self_service_seats ?? FALLBACK_MAX_SEATS;
+
+    const currentPricing = useMemo(() => {
+        if (!currentPlan) return { lines: [], subtotal: 0, fullPrice: 0, discountedPrice: 0 };
+        return calculateGraduatedFromPlan(currentPlan, paidSeats);
+    }, [currentPlan, paidSeats]);
+
+    const newPricing = useMemo(() => {
+        if (!currentPlan) return { lines: [], subtotal: 0, fullPrice: 0, discountedPrice: 0 };
+        return calculateGraduatedFromPlan(currentPlan, newSeats);
+    }, [currentPlan, newSeats]);
 
     if (loading || !selectedTenant) return null;
 
@@ -83,16 +115,29 @@ export default function SubscriptionPage() {
     }
 
     const statusInfo = STATUS_CONFIG[status ?? ""] ?? { label: status, variant: "secondary" as const };
-    const paidSeats = selectedTenant.paid_seats;
     const usagePercent = paidSeats > 0 ? Math.min(100, Math.round((activityCount / paidSeats) * 100)) : 0;
-    const currentPricing = calculatePrice(paidSeats);
-    const overLimit = newSeats > MAX_SEATS;
+    const overLimit = newSeats > maxSeats;
+    const isTerminal = status === "canceled" || status === "suspended";
+    const isFounder = selectedTenant.is_founder === true;
+    const planName = currentPlan?.name ?? "—";
+
+    const renewalDateText = (() => {
+        if (status === "trialing") {
+            if (trialDaysLeft !== null) {
+                return `${formatDate(selectedTenant.trial_until)} (${trialDaysLeft} giorn${trialDaysLeft === 1 ? "o" : "i"})`;
+            }
+            return "Periodo di prova attivo";
+        }
+        return formatDate(selectedTenant.current_period_end ?? null);
+    })();
 
     const handleCheckout = async () => {
         setCheckoutLoading(true);
         try {
             const url = await createCheckoutSession({
                 tenantId: selectedTenant.id,
+                planCode: selectedTenant.plan,
+                quantity: paidSeats > 0 ? paidSeats : 1,
                 successUrl: `${window.location.origin}/business/${selectedTenant.id}/subscription?session=success`,
                 cancelUrl: `${window.location.origin}/business/${selectedTenant.id}/subscription?session=cancel`
             });
@@ -154,16 +199,12 @@ export default function SubscriptionPage() {
         }
     };
 
-    const formatDate = (iso: string | null) => {
-        if (!iso) return "—";
-        return new Date(iso).toLocaleDateString("it-IT", {
-            day: "numeric",
-            month: "long",
-            year: "numeric"
-        });
-    };
-
-    const newPricing = calculatePrice(newSeats);
+    const seatsDiff = newPricing.subtotal - currentPricing.subtotal;
+    const diffLabel = seatsDiff > 0
+        ? `+${formatEuro(seatsDiff)}/mese`
+        : seatsDiff < 0
+            ? `−${formatEuro(Math.abs(seatsDiff))}/mese`
+            : "Nessuna variazione di prezzo";
 
     return (
         <div className={styles.page}>
@@ -201,9 +242,12 @@ export default function SubscriptionPage() {
                         <Text variant="caption" colorVariant="muted">
                             Piano
                         </Text>
-                        <Text variant="title-sm" weight={700}>
-                            Pro
-                        </Text>
+                        <span className={styles.planLabelRow}>
+                            <Text variant="title-sm" weight={700}>
+                                {planName}
+                            </Text>
+                            {isFounder && <Badge variant="primary">Founder</Badge>}
+                        </span>
                     </div>
 
                     <div className={styles.summaryItem}>
@@ -222,12 +266,7 @@ export default function SubscriptionPage() {
                             {status === "trialing" ? "Fine prova" : "Prossimo rinnovo"}
                         </Text>
                         <Text variant="title-sm" weight={700}>
-                            {status === "trialing"
-                                ? (trialDaysLeft !== null
-                                    ? `${formatDate(selectedTenant.trial_until)} (${trialDaysLeft} giorn${trialDaysLeft === 1 ? "o" : "i"})`
-                                    : "Periodo di prova attivo")
-                                : "—"
-                            }
+                            {renewalDateText}
                         </Text>
                     </div>
 
@@ -236,11 +275,47 @@ export default function SubscriptionPage() {
                             Prezzo attuale
                         </Text>
                         <Text variant="title-sm" weight={700}>
-                            &euro;{currentPricing.total}/mese
+                            {formatEuro(currentPricing.subtotal)}/mese
+                        </Text>
+                        <Text variant="caption" colorVariant="muted" className={styles.priceCaption}>
+                            {IVA_NOTE}
                         </Text>
                     </div>
                 </div>
             </div>
+
+            {/* --- Change plan contact (no self-service) --- */}
+            {canManageBilling && !isTerminal && (
+                <div className={styles.contactRow}>
+                    <Text variant="body-sm" colorVariant="muted">
+                        Vuoi cambiare piano? Contattaci e troveremo la soluzione migliore.
+                    </Text>
+                    <Button
+                        as="a"
+                        href={`mailto:${CHANGE_PLAN_EMAIL}?subject=${encodeURIComponent("Cambio piano CataloGlobe")}`}
+                        variant="secondary"
+                        size="sm"
+                        leftIcon={<Mail size={14} />}
+                    >
+                        Scrivici
+                    </Button>
+                </div>
+            )}
+
+            {/* --- Founder banner (only when not founder) --- */}
+            {!isFounder && !isTerminal && (
+                <div className={styles.founderBanner}>
+                    <span className={styles.founderIcon} aria-hidden>
+                        <Sparkles size={18} />
+                    </span>
+                    <div className={styles.founderContent}>
+                        <span className={styles.founderTitle}>Sei tra i primi 20 clienti?</span>
+                        <span className={styles.founderBody}>
+                            Abbiamo condizioni speciali per chi sceglie CataloGlobe in fase early. Contattaci per scoprirle.
+                        </span>
+                    </div>
+                </div>
+            )}
 
             {/* --- Seat usage --- */}
             <div className={styles.section}>
@@ -257,7 +332,7 @@ export default function SubscriptionPage() {
                             {activityCount} / {paidSeats} sed{paidSeats === 1 ? "e" : "i"} utilizzat{activityCount === 1 ? "a" : "e"}
                         </Text>
                         <Text variant="caption" colorVariant="muted">
-                            Sedi incluse nel piano: {paidSeats}
+                            Sedi pagate sul piano {planName}: {paidSeats}
                         </Text>
                     </div>
 
@@ -270,13 +345,13 @@ export default function SubscriptionPage() {
 
                     {activityCount >= paidSeats && paidSeats > 0 && (
                         <InlineBanner variant="warning">
-                            {canManageBilling
+                            {canManageBilling && !isTerminal
                                 ? "Hai raggiunto il limite. Modifica il numero di sedi per espandere il piano."
                                 : "Hai raggiunto il limite. Solo il proprietario può modificare il numero di sedi."}
                         </InlineBanner>
                     )}
 
-                    {canManageBilling && (
+                    {canManageBilling && !isTerminal && (
                         <Button
                             variant="secondary"
                             onClick={handleOpenSeatsDrawer}
@@ -305,8 +380,7 @@ export default function SubscriptionPage() {
                                 Attiva il tuo abbonamento
                             </Text>
                             <Text variant="body-sm" colorVariant="muted">
-                                Inserisci un metodo di pagamento per continuare dopo il periodo di prova.
-                                Non verrai addebitato fino alla fine del trial.
+                                Inserisci un metodo di pagamento per continuare. Non verrai addebitato fino alla fine dell&apos;eventuale periodo di prova.
                             </Text>
                         </div>
                         <Button
@@ -364,8 +438,8 @@ export default function SubscriptionPage() {
             </div>
             )}
 
-            {/* --- Modify seats drawer (2-step, manage billing) --- */}
-            {canManageBilling && (
+            {/* --- Modify seats drawer (2-step, manage billing, only when not terminal) --- */}
+            {canManageBilling && !isTerminal && (
             <SystemDrawer
                 open={seatsDrawerOpen}
                 onClose={() => { setSeatsDrawerOpen(false); setSeatsDrawerStep("edit"); }}
@@ -387,7 +461,7 @@ export default function SubscriptionPage() {
                                     variant="primary"
                                     type="submit"
                                     form="update-seats-form"
-                                    disabled={newSeats === paidSeats || newSeats < 1 || newSeats < activityCount}
+                                    disabled={newSeats === paidSeats || newSeats < 1 || newSeats < activityCount || overLimit}
                                 >
                                     Aggiorna sedi
                                 </Button>
@@ -400,7 +474,7 @@ export default function SubscriptionPage() {
                             style={{ display: "flex", flexDirection: "column", gap: "20px" }}
                         >
                             <Text variant="body-sm" colorVariant="muted">
-                                Attualmente hai <strong>{activityCount}</strong> sed{activityCount === 1 ? "e" : "i"} attiv{activityCount === 1 ? "a" : "e"} e <strong>{paidSeats}</strong> inclus{paidSeats === 1 ? "a" : "e"} nel piano.
+                                Attualmente hai <strong>{activityCount}</strong> sed{activityCount === 1 ? "e" : "i"} attiv{activityCount === 1 ? "a" : "e"} e <strong>{paidSeats}</strong> pagat{paidSeats === 1 ? "a" : "e"} sul piano {planName}.
                             </Text>
 
                             <SeatsInput
@@ -408,30 +482,40 @@ export default function SubscriptionPage() {
                                 value={newSeats}
                                 onChange={setNewSeats}
                                 min={Math.max(1, activityCount)}
-                                max={MAX_SEATS}
+                                max={maxSeats}
                             />
 
                             {newSeats < activityCount ? (
-                                <div style={{ background: "#fef2f2", borderRadius: "8px", padding: "10px 12px" }}>
-                                    <Text variant="body-sm" style={{ color: "#dc2626" }}>
-                                        Non puoi ridurre a {newSeats} — hai {activityCount} sedi attive.
-                                    </Text>
+                                <div className={styles.drawerError}>
+                                    Non puoi ridurre a {newSeats} — hai {activityCount} sedi attive.
                                 </div>
                             ) : (
-                                <div style={{ background: "var(--hover-bg, #f1f5f9)", borderRadius: "8px", padding: "10px 12px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                                    <Text variant="body-sm" weight={600}>
-                                        {formatPrice(newSeats)}
-                                    </Text>
+                                <div className={styles.drawerBreakdown}>
+                                    {newPricing.lines.map(line => (
+                                        <div key={line.seat} className={styles.drawerBreakdownRow}>
+                                            <span>
+                                                {line.seat === 1 ? "1ª sede" : `${line.seat}ª sede`}
+                                                {line.discounted && currentPlan && (
+                                                    <span style={{ marginLeft: 6, color: "#047857", fontSize: 11, fontWeight: 600 }}>
+                                                        −{currentPlan.volume_discount_percent}%
+                                                    </span>
+                                                )}
+                                            </span>
+                                            <span>{formatEuro(line.unitPrice)}</span>
+                                        </div>
+                                    ))}
+                                    <div className={styles.drawerBreakdownRow} style={{ borderTop: "1px solid var(--border, #e5e7eb)", paddingTop: 6, marginTop: 4, fontWeight: 700, color: "var(--text, #0f172a)" }}>
+                                        <span>Totale mensile</span>
+                                        <span>{formatEuro(newPricing.subtotal)}</span>
+                                    </div>
                                     {newSeats !== paidSeats && (
-                                        <Text variant="caption" colorVariant="muted">
-                                            {newPricing.total > currentPricing.total
-                                                ? `+€${newPricing.total - currentPricing.total}/mese`
-                                                : newPricing.total < currentPricing.total
-                                                    ? `−€${currentPricing.total - newPricing.total}/mese`
-                                                    : "Nessuna variazione di prezzo"
-                                            }
-                                        </Text>
+                                        <span className={`${styles.drawerBreakdownDiff} ${seatsDiff > 0 ? styles.drawerBreakdownDiffPositive : styles.drawerBreakdownDiffNegative}`}>
+                                            {diffLabel}
+                                        </span>
                                     )}
+                                    <Text variant="caption" colorVariant="muted">
+                                        {IVA_NOTE}
+                                    </Text>
                                 </div>
                             )}
                         </form>
@@ -457,7 +541,7 @@ export default function SubscriptionPage() {
                         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                             <Text variant="body">
                                 Stai aggiornando il tuo piano da <strong>{paidSeats}</strong> a <strong>{newSeats}</strong> sed{newSeats === 1 ? "e" : "i"}.
-                                Il nuovo costo sarà <strong>€{newPricing.total}/mese</strong>.
+                                Il nuovo costo sarà <strong>{formatEuro(newPricing.subtotal)}/mese</strong> (IVA esclusa).
                             </Text>
                             <Text variant="body-sm" colorVariant="muted">
                                 {newSeats > paidSeats
@@ -472,4 +556,13 @@ export default function SubscriptionPage() {
             )}
         </div>
     );
+}
+
+function formatDate(iso: string | null): string {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("it-IT", {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+    });
 }

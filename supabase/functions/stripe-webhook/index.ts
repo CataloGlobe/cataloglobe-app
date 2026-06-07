@@ -58,6 +58,21 @@ function getSubscriptionQuantity(subscription: Stripe.Subscription): number {
 }
 
 /**
+ * Extract a validated plan_code from subscription metadata.
+ * Returns null if missing or not in the allowed set — caller MUST skip the
+ * `plan` update in that case to avoid poisoning the tenants row.
+ */
+const ALLOWED_PLAN_CODES = new Set(["base", "pro"]);
+function getSubscriptionPlanCode(subscription: Stripe.Subscription): string | null {
+    const code = subscription.metadata?.plan_code?.toLowerCase();
+    return code && ALLOWED_PLAN_CODES.has(code) ? code : null;
+}
+
+function toIsoTimestamp(seconds: number | null | undefined): string | null {
+    return seconds ? new Date(seconds * 1000).toISOString() : null;
+}
+
+/**
  * Map Stripe subscription status to our DB status values.
  * Stripe statuses: trialing, active, past_due, canceled, incomplete, incomplete_expired, unpaid, paused
  * Our statuses:    trialing, active, past_due, suspended, canceled
@@ -152,34 +167,46 @@ serve(async req => {
                     break;
                 }
 
-                // Fetch subscription to get quantity (paid_seats) and trial_end
+                // Fetch subscription to get quantity (paid_seats), trial_end, period_end, plan_code
                 let paidSeats = 1;
                 let trialUntil: string | null = null;
+                let currentPeriodEnd: string | null = null;
+                let planCode: string | null = null;
                 try {
                     const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
                     paidSeats = getSubscriptionQuantity(sub);
-                    if (sub.trial_end) {
-                        trialUntil = new Date(sub.trial_end * 1000).toISOString();
-                    }
+                    trialUntil = toIsoTimestamp(sub.trial_end);
+                    currentPeriodEnd = toIsoTimestamp(sub.current_period_end);
+                    planCode = getSubscriptionPlanCode(sub);
                 } catch (err) {
-                    console.warn("stripe-webhook: Could not retrieve subscription for quantity/trial_end:", err.message);
+                    console.warn("stripe-webhook: Could not retrieve subscription on checkout:", err.message);
                 }
+
+                // Fallback to session metadata for plan_code if subscription metadata missing
+                if (!planCode) {
+                    const sessionPlan = session.metadata?.plan_code?.toLowerCase();
+                    if (sessionPlan && ALLOWED_PLAN_CODES.has(sessionPlan)) planCode = sessionPlan;
+                }
+
+                const updates: Record<string, unknown> = {
+                    stripe_customer_id: stripeCustomerId,
+                    stripe_subscription_id: stripeSubscriptionId,
+                    subscription_status: "trialing",
+                    paid_seats: paidSeats,
+                    trial_until: trialUntil,
+                    current_period_end: currentPeriodEnd
+                };
+                if (planCode) updates.plan = planCode;
 
                 const { error } = await admin
                     .from("tenants")
-                    .update({
-                        stripe_customer_id: stripeCustomerId,
-                        stripe_subscription_id: stripeSubscriptionId,
-                        subscription_status: "trialing",
-                        paid_seats: paidSeats,
-                        trial_until: trialUntil
-                    })
+                    .update(updates)
                     .eq("id", tenantId);
 
                 if (error) {
                     console.error("stripe-webhook: Failed to update tenant on checkout:", error.message);
                 } else {
-                    console.log(`stripe-webhook: Tenant ${tenantId} linked to subscription ${stripeSubscriptionId} (${paidSeats} seats)`);
+                    console.log(`stripe-webhook: Tenant ${tenantId} linked to subscription ${stripeSubscriptionId} (plan=${planCode ?? "unchanged"}, seats=${paidSeats}, period_end=${currentPeriodEnd ?? "null"})`);
                 }
                 break;
             }
@@ -189,18 +216,22 @@ serve(async req => {
                 const stripeCustomerId = subscription.customer as string;
                 const newStatus = mapStripeStatus(subscription.status);
                 const paidSeats = getSubscriptionQuantity(subscription);
-                const trialUntil = subscription.trial_end
-                    ? new Date(subscription.trial_end * 1000).toISOString()
-                    : null;
+                const trialUntil = toIsoTimestamp(subscription.trial_end);
+                const currentPeriodEnd = toIsoTimestamp(subscription.current_period_end);
+                const planCode = getSubscriptionPlanCode(subscription);
 
-                const result = await updateTenantStatus(admin, stripeCustomerId, {
+                const updates: Record<string, unknown> = {
                     subscription_status: newStatus,
                     paid_seats: paidSeats,
-                    trial_until: trialUntil
-                });
+                    trial_until: trialUntil,
+                    current_period_end: currentPeriodEnd
+                };
+                if (planCode) updates.plan = planCode;
+
+                const result = await updateTenantStatus(admin, stripeCustomerId, updates);
 
                 if (result.ok && result.rowsAffected > 0) {
-                    console.log(`stripe-webhook: Subscription updated → status=${newStatus}, seats=${paidSeats} for customer ${stripeCustomerId} (event ${event.id})`);
+                    console.log(`stripe-webhook: Subscription updated → status=${newStatus}, plan=${planCode ?? "unchanged"}, seats=${paidSeats}, period_end=${currentPeriodEnd ?? "null"} for customer ${stripeCustomerId} (event ${event.id})`);
                 } else if (result.ok && result.rowsAffected === 0) {
                     console.warn(`stripe-webhook: NO TENANT MATCHED customer ${stripeCustomerId} for event ${event.id} (${event.type}). Possibile causa: evento da ambiente diverso o tenant eliminato.`);
                 }
@@ -212,7 +243,8 @@ serve(async req => {
                 const stripeCustomerId = subscription.customer as string;
 
                 const result = await updateTenantStatus(admin, stripeCustomerId, {
-                    subscription_status: "canceled"
+                    subscription_status: "canceled",
+                    current_period_end: null
                 });
 
                 if (result.ok && result.rowsAffected > 0) {

@@ -1,6 +1,6 @@
 import type { VerticalType, BusinessSubtype } from "@/constants/verticalTypes";
 
-export type PlanCode = "pro";
+export type PlanCode = "base" | "pro";
 
 export type SubscriptionStatus = "trialing" | "active" | "past_due" | "suspended" | "canceled";
 
@@ -19,6 +19,8 @@ export interface V2Tenant {
     stripe_customer_id: string | null;
     stripe_subscription_id: string | null;
     paid_seats: number;
+    is_founder?: boolean | null;
+    current_period_end?: string | null;
 
     // --- Campi legali/fiscali (migration 20260518095654_add_legal_fields_to_tenants) ---
     legal_name?: string | null;

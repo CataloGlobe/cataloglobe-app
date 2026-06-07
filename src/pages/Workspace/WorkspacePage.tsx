@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
@@ -21,7 +21,6 @@ import {
 import type { DeletedTenant } from "@/services/supabase/tenants";
 import type { V2Tenant } from "@/types/tenant";
 import { Button } from "@/components/ui/Button/Button";
-import { createCheckoutSession } from "@/services/supabase/billing";
 import { listMyPendingInvites } from "@/services/supabase/team";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./WorkspacePage.module.scss";
@@ -40,7 +39,9 @@ function countByTenant(rows: { tenant_id: string }[] | null): Record<string, num
 export default function WorkspacePage() {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { showToast } = useToast();
+    const resumeId = searchParams.get("resume");
 
     const [tenants, setTenants] = useState<V2Tenant[]>([]);
     const [loading, setLoading] = useState(true);
@@ -206,20 +207,26 @@ export default function WorkspacePage() {
     };
 
     const handleActivate = (id: string) => {
-        navigate(`/business/${id}/subscription`);
+        setSearchParams({ resume: id });
     };
 
-    const handleCheckout = async (id: string) => {
-        try {
-            const url = await createCheckoutSession({
-                tenantId: id,
-                successUrl: `${window.location.origin}/business/${id}/overview`,
-                cancelUrl: `${window.location.origin}/workspace`
-            });
-            window.location.href = url;
-        } catch {
-            showToast({ message: "Errore nell'avvio del checkout. Riprova.", type: "error" });
-        }
+    const handleCheckout = (id: string) => {
+        setSearchParams({ resume: id });
+    };
+
+    const resumeTenant = useMemo(() => {
+        if (!resumeId) return null;
+        const found = tenants.find(t => t.id === resumeId) ?? null;
+        // Guard: ignore resume for tenants that are already activated (defensive
+        // against manually-crafted URLs).
+        if (found && found.stripe_subscription_id) return null;
+        return found;
+    }, [resumeId, tenants]);
+
+    const closeResumeWizard = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete("resume");
+        setSearchParams(next, { replace: true });
     };
 
     const getDaysLeft = (deletedAt: string): number => {
@@ -435,6 +442,13 @@ export default function WorkspacePage() {
             <CreateBusinessWizard
                 open={drawerOpen}
                 onClose={() => setDrawerOpen(false)}
+            />
+
+            <CreateBusinessWizard
+                open={resumeTenant !== null}
+                onClose={closeResumeWizard}
+                mode="resume"
+                existingTenant={resumeTenant}
             />
 
             <CreateBusinessDrawer

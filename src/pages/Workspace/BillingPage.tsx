@@ -32,6 +32,10 @@ function getTrialDaysLeft(trialUntil: string | null): number | null {
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
+function capitalize(s: string): string {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export default function BillingPage() {
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -44,7 +48,7 @@ export default function BillingPage() {
         setLoading(true);
         const { data } = await supabase
             .from("user_tenants_view")
-            .select("id, owner_user_id, name, vertical_type, business_subtype, created_at, user_role, logo_url, plan, subscription_status, trial_until, stripe_customer_id, stripe_subscription_id, paid_seats")
+            .select("id, owner_user_id, name, vertical_type, business_subtype, created_at, user_role, logo_url, plan, subscription_status, trial_until, stripe_customer_id, stripe_subscription_id, paid_seats, is_founder, current_period_end")
             .order("created_at", { ascending: true });
         const tenantList = (data as V2Tenant[]) ?? [];
         setTenants(tenantList);
@@ -107,7 +111,7 @@ export default function BillingPage() {
                                                 {tenant.name}
                                             </Text>
                                             <Text variant="caption" colorVariant="muted">
-                                                Piano Pro · {usedSeats}/{tenant.paid_seats} sed{tenant.paid_seats === 1 ? "e" : "i"}
+                                                Piano {capitalize(tenant.plan)} · {usedSeats}/{tenant.paid_seats} sed{tenant.paid_seats === 1 ? "e" : "i"}
                                                 {!tenantIsOwner && " · Membro"}
                                             </Text>
                                         </div>
