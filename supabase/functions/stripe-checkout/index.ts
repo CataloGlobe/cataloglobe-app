@@ -227,7 +227,11 @@ serve(async req => {
             },
             metadata: sessionMetadata,
             success_url: successUrl,
-            cancel_url: cancelUrl
+            cancel_url: cancelUrl,
+            automatic_tax: { enabled: true },
+            billing_address_collection: "required",
+            customer_update: { address: "auto", name: "auto" },
+            tax_id_collection: { enabled: true }
         };
 
         if (resolvedPromotionId) {
