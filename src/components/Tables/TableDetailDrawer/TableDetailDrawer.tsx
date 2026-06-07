@@ -33,6 +33,8 @@ import type {
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnActivity } from "@/lib/permissions";
 
+import { deriveTableStatus } from "@/utils/tableState";
+
 import styles from "./TableDetailDrawer.module.scss";
 
 interface Props {
@@ -337,13 +339,27 @@ export function TableDetailDrawer({
                 ) : data ? (
                     <div className={styles.content}>
                         <div className={styles.statusBlock}>
-                            {data.table.maintenance_mode ? (
-                                <StatusBadge variant="warning" label="Manutenzione" />
-                            ) : data.sessions.length > 0 ? (
-                                <StatusBadge variant="success" label="Occupato" />
-                            ) : (
-                                <StatusBadge variant="neutral" label="Libero" />
-                            )}
+                            {(() => {
+                                // I dati del drawer arrivano da fetch puntuali
+                                // (sessions / activeOrders / openGroup), non
+                                // dalla view aggregata. Costruiamo il Pick
+                                // minimo per riusare il predicato categorico
+                                // (deriveTableStatus) e restare allineati a
+                                // TablesLiveView / OrdersKpiBar.
+                                const status = deriveTableStatus({
+                                    maintenance_mode: data.table.maintenance_mode,
+                                    active_sessions_count: data.sessions.length,
+                                    open_orders_count: activeOrders.length,
+                                    open_groups_count: data.openGroup ? 1 : 0
+                                });
+                                if (status === "maintenance") {
+                                    return <StatusBadge variant="warning" label="Manutenzione" />;
+                                }
+                                if (status === "occupied") {
+                                    return <StatusBadge variant="success" label="Occupato" />;
+                                }
+                                return <StatusBadge variant="neutral" label="Libero" />;
+                            })()}
                             {data.table.seats != null && (
                                 <Text variant="body-sm" colorVariant="muted">
                                     {data.table.seats}{" "}

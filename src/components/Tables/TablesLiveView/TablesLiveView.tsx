@@ -12,6 +12,8 @@ import type { V2TableWithState } from "@/types/orders";
 import { TableDetailDrawer } from "@/components/Tables/TableDetailDrawer/TableDetailDrawer";
 import TableCloseDrawer from "@/pages/Dashboard/Tables/TableCloseDrawer";
 
+import { deriveTableStatus } from "@/utils/tableState";
+
 import { useTablesLiveRealtime } from "./useTablesLiveRealtime";
 import styles from "./TablesLiveView.module.scss";
 
@@ -213,26 +215,27 @@ export function TablesLiveView({
     const filtered = useMemo(() => {
         if (statusFilter === "all") return items;
         return items.filter(t => {
-            if (statusFilter === "maintenance") return t.maintenance_mode;
-            if (statusFilter === "open")
-                return t.active_sessions_count > 0 && !t.maintenance_mode;
-            if (statusFilter === "free")
-                return t.active_sessions_count === 0 && !t.maintenance_mode;
+            const s = deriveTableStatus(t);
+            if (statusFilter === "maintenance") return s === "maintenance";
+            if (statusFilter === "open") return s === "occupied";
+            if (statusFilter === "free") return s === "free";
             return true;
         });
     }, [items, statusFilter]);
 
     const summary = useMemo(() => {
-        const open = items.filter(
-            t => t.active_sessions_count > 0 && !t.maintenance_mode
-        ).length;
-        const free = items.filter(
-            t => t.active_sessions_count === 0 && !t.maintenance_mode
-        ).length;
-        const seats = items.reduce(
-            (acc, t) => acc + (t.seats ?? 0) * (t.active_sessions_count > 0 ? 1 : 0),
-            0
-        );
+        let open = 0;
+        let free = 0;
+        let seats = 0;
+        for (const t of items) {
+            const s = deriveTableStatus(t);
+            if (s === "occupied") {
+                open += 1;
+                seats += t.seats ?? 0;
+            } else if (s === "free") {
+                free += 1;
+            }
+        }
         return { open, free, seats };
     }, [items]);
 
@@ -315,11 +318,7 @@ export function TablesLiveView({
                             </header>
                             <div className={styles.cardsGrid}>
                                 {group.tables.map(t => {
-                                    const status = t.maintenance_mode
-                                        ? "maintenance"
-                                        : t.active_sessions_count > 0
-                                          ? "occupied"
-                                          : "free";
+                                    const status = deriveTableStatus(t);
                                     // Card sempre cliccabili: il detail
                                     // drawer e' interno al componente e
                                     // sempre disponibile.
