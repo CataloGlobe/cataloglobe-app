@@ -183,6 +183,9 @@ export interface SubmitReservationResult {
  *   ACTIVITY_NOT_FOUND       → 404, slug non risolto
  *   ACTIVITY_NOT_ACTIVE      → 409, sede sospesa
  *   RESERVATIONS_DISABLED    → 409, sede ha enable_reservations=false
+ *   CAPACITY_FULL            → 409, capienza superata con overbooking_form='hard'
+ *                             (details.capacity, details.peak_with_candidate,
+ *                              details.duration_minutes disponibili)
  *   INVALID_DATE / DATE_IN_PAST / INVALID_TIME / INVALID_EMAIL /
  *   INVALID_PARTY_SIZE / NOTES_TOO_LONG / INVALID_PAYLOAD → 400
  *   SERVER_ERROR             → 500 / network / fallback
@@ -198,20 +201,24 @@ export async function submitReservation(
     if (error) {
         let code = "SERVER_ERROR";
         let message: string | undefined;
+        let details: unknown;
         if (error instanceof FunctionsHttpError) {
             try {
                 const body = (await error.context.clone().json()) as {
                     error_code?: unknown;
                     message?: unknown;
+                    details?: unknown;
                 };
                 if (typeof body?.error_code === "string") code = body.error_code;
                 if (typeof body?.message === "string") message = body.message;
+                details = body?.details;
             } catch {
                 // body not JSON → keep defaults
             }
         }
         const err = new Error(message ?? code);
-        (err as unknown as { code: string }).code = code;
+        (err as Error & { code?: string; details?: unknown }).code = code;
+        (err as Error & { code?: string; details?: unknown }).details = details;
         throw err;
     }
 

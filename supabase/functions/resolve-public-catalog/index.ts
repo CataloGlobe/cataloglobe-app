@@ -246,7 +246,24 @@ serve(async (req: Request) => {
         return new Response("ok", { headers: corsHeaders });
     }
 
+    // Keep-warm probe. Header `x-warmup: 1` triggers an early-return that
+    // exercises Deno module load plus the Supabase client constructor
+    // without any DB call. The structured log lets get_logs separate
+    // warmup pings from real invocations during pre-post analysis.
+    if (req.headers.get("x-warmup") === "1") {
+        const _warm = createClient(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+        console.log(JSON.stringify({ event: "resolve_invocation", mode: "warmup" }));
+        return new Response(
+            JSON.stringify({ warmup: "ok" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" } }
+        );
+    }
+
     try {
+        console.log(JSON.stringify({ event: "resolve_invocation", mode: "live" }));
         const { slug, simulate, lang } = await req.json() as {
             slug?: string;
             simulate?: string;

@@ -280,3 +280,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/generate-table-qrs/index.ts"
+
+[functions.submit-order-admin]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/submit-order-admin/index.ts"

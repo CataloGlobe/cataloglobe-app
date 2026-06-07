@@ -70,6 +70,17 @@ function toIsoTimestamp(seconds: number | null | undefined): string | null {
 }
 
 /**
+ * Read `current_period_end` from the subscription. In recent Stripe API
+ * versions (2024+) the top-level field has been moved to the item level;
+ * we prefer the item value and fall back to the top-level for older payloads.
+ */
+function getSubscriptionCurrentPeriodEnd(subscription: Stripe.Subscription): string | null {
+    const itemEnd = subscription.items?.data?.[0]?.current_period_end;
+    if (itemEnd) return toIsoTimestamp(itemEnd);
+    return toIsoTimestamp(subscription.current_period_end);
+}
+
+/**
  * Map Stripe subscription status to our DB status values.
  * Stripe statuses: trialing, active, past_due, canceled, incomplete, incomplete_expired, unpaid, paused
  * Our statuses:    trialing, active, past_due, suspended, canceled
@@ -164,16 +175,18 @@ serve(async req => {
                     break;
                 }
 
-                // Fetch subscription to get quantity (paid_seats), trial_end, period_end, plan_code
+                // Fetch subscription to get status, quantity (paid_seats), trial_end, period_end, plan_code
                 let paidSeats = 1;
+                let subscriptionStatus = "trialing"; // safe default if retrieve fails
                 let trialUntil: string | null = null;
                 let currentPeriodEnd: string | null = null;
                 let planCode: string | null = null;
                 try {
                     const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
                     paidSeats = getSubscriptionQuantity(sub);
+                    subscriptionStatus = mapStripeStatus(sub.status);
                     trialUntil = toIsoTimestamp(sub.trial_end);
-                    currentPeriodEnd = toIsoTimestamp(sub.current_period_end);
+                    currentPeriodEnd = getSubscriptionCurrentPeriodEnd(sub);
                     planCode = getSubscriptionPlanCode(sub);
                 } catch (err) {
                     console.warn("stripe-webhook: Could not retrieve subscription on checkout:", err.message);
@@ -188,7 +201,7 @@ serve(async req => {
                 const updates: Record<string, unknown> = {
                     stripe_customer_id: stripeCustomerId,
                     stripe_subscription_id: stripeSubscriptionId,
-                    subscription_status: "trialing",
+                    subscription_status: subscriptionStatus,
                     paid_seats: paidSeats,
                     trial_until: trialUntil,
                     current_period_end: currentPeriodEnd
@@ -203,7 +216,7 @@ serve(async req => {
                 if (error) {
                     console.error("stripe-webhook: Failed to update tenant on checkout:", error.message);
                 } else {
-                    console.log(`stripe-webhook: Tenant ${tenantId} linked to subscription ${stripeSubscriptionId} (plan=${planCode ?? "unchanged"}, seats=${paidSeats}, period_end=${currentPeriodEnd ?? "null"})`);
+                    console.log(`stripe-webhook: Tenant ${tenantId} linked to subscription ${stripeSubscriptionId} (plan=${planCode ?? "unchanged"}, status=${subscriptionStatus}, seats=${paidSeats}, period_end=${currentPeriodEnd ?? "null"})`);
                 }
                 break;
             }
@@ -214,7 +227,7 @@ serve(async req => {
                 const newStatus = mapStripeStatus(subscription.status);
                 const paidSeats = getSubscriptionQuantity(subscription);
                 const trialUntil = toIsoTimestamp(subscription.trial_end);
-                const currentPeriodEnd = toIsoTimestamp(subscription.current_period_end);
+                const currentPeriodEnd = getSubscriptionCurrentPeriodEnd(subscription);
                 const planCode = getSubscriptionPlanCode(subscription);
 
                 const updates: Record<string, unknown> = {

@@ -14,13 +14,15 @@ import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
-import { addDays } from "@/utils/dateLocal";
+import {
+    canAccept,
+    type CapacityReservation
+} from "@/utils/reservationCapacity";
 import type { V2Reservation } from "@/types/reservation";
 import type { DeferredAction } from "./useDeferredCommit";
 import styles from "./Reservations.module.scss";
 
-const AGGREGATE_WINDOW_MINUTES = 90;
-const MINUTES_PER_DAY = 1440;
+const DEFAULT_DURATION_MINUTES = 120;
 
 interface Props {
     open: boolean;
@@ -28,8 +30,12 @@ interface Props {
     /** Reservation as currently rendered (with optimistic override applied if any). */
     reservation: V2Reservation | null;
     activityName: string | null;
-    /** Same-list reservations (with overrides applied) for the ±90min aggregate. */
+    /** Same-list reservations (with overrides applied) for the peak engine. */
     allReservations: V2Reservation[];
+    /** Sede capienza coperti (NULL = nessun limite configurato). */
+    activityCapacity: number | null;
+    /** Durata standard del tavolo (minuti). Fallback 120 se non passata. */
+    activityDurationMinutes?: number;
     /** True if the caller has reservations.manage on this reservation's activity. */
     canManage: boolean;
     /** Deferred-commit dispatcher (caller closes drawer + shows undo toast). */
@@ -69,61 +75,54 @@ function formatTimeIt(time: string): string {
     return time.slice(0, 5);
 }
 
-function timeToMinutes(time: string): number {
-    const [hh, mm] = time.slice(0, 5).split(":").map(n => parseInt(n, 10));
-    return hh * 60 + mm;
-}
-
-/** Parse "YYYY-MM-DD" with LOCAL fields — no UTC drift. */
-function parseLocalDate(iso: string): Date {
-    const [y, m, d] = iso.split("-").map(n => parseInt(n, 10));
-    return new Date(y, (m ?? 1) - 1, d ?? 1);
-}
-
-/** Reformat a local Date as "YYYY-MM-DD". */
-function isoDateOf(d: Date): string {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 export default function ReservationDetailDrawer({
     open,
     onClose,
     reservation,
     activityName,
     allReservations,
+    activityCapacity,
+    activityDurationMinutes,
     canManage,
     onAction,
     onEdit
 }: Props) {
-    // Aggregate "±AGGREGATE_WINDOW_MINUTES same site, confirmed only",
-    // excluding self. Window is evaluated on a continuous-minute axis across
-    // 3 adjacent dates (D-1, D, D+1) so a slot near midnight correctly
-    // includes its counterpart on the neighbouring day (e.g. 23:30 vs 00:30).
-    const aggregate = useMemo(() => {
+    const durationMin = activityDurationMinutes ?? DEFAULT_DURATION_MINUTES;
+
+    // Peak concurrent covers in the window [start, start+duration), via the
+    // shared capacity engine. Counts pending + confirmed for THIS activity;
+    // self is excluded by id so the candidate isn't double-counted (the
+    // reservation we're looking at is the "candidate" of canAccept).
+    //
+    // When `activityCapacity` is NULL the callout still shows the peak but
+    // without the "/ capienza" comparison.
+    const capacityCallout = useMemo(() => {
         if (!reservation) return null;
-        const centerDate = parseLocalDate(reservation.reservation_date);
-        const centerMinutes = timeToMinutes(reservation.reservation_time);
-        const dayByIso = new Map<string, number>([
-            [isoDateOf(addDays(centerDate, -1)), -1],
-            [isoDateOf(centerDate), 0],
-            [isoDateOf(addDays(centerDate, +1)), +1]
-        ]);
-        const sameSlot = allReservations.filter(r => {
-            if (r.id === reservation.id) return false;
-            if (r.status !== "confirmed") return false;
-            if (r.activity_id !== reservation.activity_id) return false;
-            const dayDiff = dayByIso.get(r.reservation_date);
-            if (dayDiff === undefined) return false;
-            const candMinutes = timeToMinutes(r.reservation_time);
-            const offset =
-                dayDiff * MINUTES_PER_DAY + (candMinutes - centerMinutes);
-            return Math.abs(offset) <= AGGREGATE_WINDOW_MINUTES;
-        });
+        const rows: CapacityReservation[] = allReservations.map(r => ({
+            id: r.id,
+            activity_id: r.activity_id,
+            reservation_date: r.reservation_date,
+            reservation_time: r.reservation_time,
+            party_size: r.party_size,
+            status: r.status
+        }));
+        const result = canAccept(
+            { capacity: activityCapacity, durationMin },
+            rows,
+            {
+                id: reservation.id,
+                activity_id: reservation.activity_id,
+                reservation_date: reservation.reservation_date,
+                reservation_time: reservation.reservation_time,
+                party_size: reservation.party_size
+            }
+        );
         return {
-            count: sameSlot.length,
-            totalCovers: sameSlot.reduce((s, r) => s + r.party_size, 0)
+            peak: result.peakWithCandidate,
+            capacity: activityCapacity,
+            durationMin
         };
-    }, [reservation, allReservations]);
+    }, [reservation, allReservations, activityCapacity, durationMin]);
 
     if (!reservation) {
         return (
@@ -292,8 +291,15 @@ export default function ReservationDetailDrawer({
                         </div>
                     </section>
 
-                    {/* ── Aggregate callout (solo pending) ──────────────── */}
-                    {reservation.status === "pending" && aggregate && (
+                    {/* ── Capacity callout (solo pending) ────────────────
+                         Mostra il PICCO concorrente di coperti nella finestra
+                         [orario, orario+durata) calcolato dal motore di
+                         capacità condiviso. Quando la capienza è impostata,
+                         compara picco vs capienza con colore semaforo
+                         (verde <80%, ambra 80-100%, rosso >100%). Senza
+                         capienza, callout informativo "X coperti nella
+                         finestra di Y minuti". */}
+                    {reservation.status === "pending" && capacityCallout && (
                         <div className={styles.drawerAggregate}>
                             <Clock
                                 size={16}
@@ -302,18 +308,30 @@ export default function ReservationDetailDrawer({
                                 className={styles.drawerAggregateIcon}
                             />
                             <div className={styles.drawerAggregateText}>
-                                Vicino a questo orario (±1h30){" "}
-                                {aggregate.count === 1 ? (
+                                {capacityCallout.capacity !== null ? (
                                     <>
-                                        c&apos;è <strong>1</strong> prenotazione confermata
+                                        Picco previsto in finestra ±{capacityCallout.durationMin} min:{" "}
+                                        <strong
+                                            style={{
+                                                color:
+                                                    capacityCallout.peak > capacityCallout.capacity
+                                                        ? "#b91c1c"
+                                                        : capacityCallout.peak / capacityCallout.capacity >= 0.8
+                                                            ? "#b45309"
+                                                            : "#15803d"
+                                            }}
+                                        >
+                                            {capacityCallout.peak} / {capacityCallout.capacity}
+                                        </strong>{" "}
+                                        coperti.
                                     </>
                                 ) : (
                                     <>
-                                        ci sono <strong>{aggregate.count}</strong>{" "}
-                                        prenotazioni confermate
+                                        Circa <strong>{capacityCallout.peak}</strong>{" "}
+                                        coperti nella finestra di {capacityCallout.durationMin}{" "}
+                                        min. Capienza non impostata.
                                     </>
                                 )}
-                                , circa <strong>{aggregate.totalCovers}</strong> coperti.
                             </div>
                         </div>
                     )}

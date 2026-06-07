@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 import Text from "@/components/ui/Text/Text";
 import type { V2Order, V2TableWithState } from "@/types/orders";
+import { deriveTableStatus } from "@/utils/tableState";
 
 import styles from "./OrdersKpiBar.module.scss";
 
@@ -30,10 +31,7 @@ export function OrdersKpiBar({
     ordersServedToday
 }: OrdersKpiBarProps) {
     const tablesOpen = useMemo(
-        () =>
-            tables.filter(
-                t => t.active_sessions_count > 0 && !t.maintenance_mode
-            ).length,
+        () => tables.filter(t => deriveTableStatus(t) === "occupied").length,
         [tables]
     );
     const tablesPending = useMemo(

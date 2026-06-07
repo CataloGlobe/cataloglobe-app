@@ -9,13 +9,22 @@ import type { V2Activity } from "@/types/activity";
 
 const FORM_ID = "reservation-form";
 
+export interface ManageableActivityCapacity
+    extends Pick<V2Activity, "id" | "name"> {
+    reservation_capacity: number | null;
+    reservation_duration_minutes: number;
+}
+
 interface Props {
     open: boolean;
     onClose: () => void;
     mode: "create" | "edit";
     tenantId: string;
-    /** Sedi gestibili dal caller (filtrate da `reservations.manage`). */
-    manageableActivities: Array<Pick<V2Activity, "id" | "name">>;
+    /** Sedi gestibili dal caller (filtrate da `reservations.manage`),
+     *  arricchite con i campi capacità per il warning over-capacity. */
+    manageableActivities: ManageableActivityCapacity[];
+    /** Prenotazioni correnti del tenant (per calcolare il picco). */
+    allReservations: V2Reservation[];
     /** Riga corrente in edit mode. */
     selectedReservation?: V2Reservation;
     onSuccess: () => void | Promise<void>;
@@ -27,6 +36,7 @@ export default function ReservationCreateEditDrawer({
     mode,
     tenantId,
     manageableActivities,
+    allReservations,
     selectedReservation,
     onSuccess
 }: Props) {
@@ -75,6 +85,7 @@ export default function ReservationCreateEditDrawer({
                     mode={mode}
                     tenantId={tenantId}
                     manageableActivities={manageableActivities}
+                    allReservations={allReservations}
                     entityData={selectedReservation}
                     onSuccess={handleSuccess}
                     onSavingChange={setIsSaving}

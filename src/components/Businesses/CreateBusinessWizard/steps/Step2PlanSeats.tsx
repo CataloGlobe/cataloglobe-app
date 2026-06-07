@@ -140,10 +140,7 @@ export function Step2PlanSeats({
                         ))}
                         <div className={styles.breakdownTotalRow}>
                             <span>Totale mensile</span>
-                            <span>
-                                {formatEuro(breakdown.subtotal)}
-                                <span className={styles.breakdownTotalSuffix}>+ IVA</span>
-                            </span>
+                            <span>{formatEuro(breakdown.subtotal)}</span>
                         </div>
                     </div>
                 )}

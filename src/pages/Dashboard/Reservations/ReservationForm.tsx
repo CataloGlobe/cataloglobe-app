@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { DateInput } from "@/components/ui/Input/DateInput";
@@ -10,6 +10,10 @@ import {
     createReservation,
     updateReservation
 } from "@/services/supabase/reservations";
+import {
+    canAccept,
+    type CapacityReservation
+} from "@/utils/reservationCapacity";
 import type { V2Reservation } from "@/types/reservation";
 import type { V2Activity } from "@/types/activity";
 import styles from "./Reservations.module.scss";
@@ -17,6 +21,8 @@ import styles from "./Reservations.module.scss";
 interface FormActivity {
     id: V2Activity["id"];
     name: V2Activity["name"];
+    reservation_capacity: number | null;
+    reservation_duration_minutes: number;
 }
 
 interface ReservationFormProps {
@@ -26,6 +32,8 @@ interface ReservationFormProps {
     /** Sedi su cui il caller ha `reservations.manage`. In create mode: usate
      *  per popolare il Select. In edit mode: solo per risolvere il nome. */
     manageableActivities: FormActivity[];
+    /** Prenotazioni del tenant (per il warning over-capacity). */
+    allReservations: V2Reservation[];
     /** Riga corrente in edit mode. */
     entityData?: V2Reservation;
     onSuccess: () => void | Promise<void>;
@@ -43,6 +51,7 @@ export function ReservationForm({
     mode,
     tenantId,
     manageableActivities,
+    allReservations,
     entityData,
     onSuccess,
     onSavingChange
@@ -89,10 +98,59 @@ export function ReservationForm({
         }
     }, [isEditing, entityData]);
 
-    const activityName =
-        manageableActivities.find(a => a.id === activityId)?.name ?? null;
+    const activeActivity = useMemo(
+        () => manageableActivities.find(a => a.id === activityId) ?? null,
+        [manageableActivities, activityId]
+    );
+    const activityName = activeActivity?.name ?? null;
 
     const onlyOneActivity = manageableActivities.length === 1;
+
+    // Non-blocking over-capacity warning. The admin can always save (operator
+    // invariant). The warning only renders when capacity is configured AND
+    // the candidate would push the peak above it. Skips computation when
+    // any required field is missing/malformed.
+    const overCapacityWarning = useMemo<string | null>(() => {
+        if (!activeActivity) return null;
+        const cap = activeActivity.reservation_capacity;
+        if (cap === null) return null;
+        const dur = activeActivity.reservation_duration_minutes ?? 120;
+        const partyNum = parseInt(partySize, 10);
+        if (!Number.isFinite(partyNum) || partyNum <= 0) return null;
+        const trimmedDate = reservationDate.trim();
+        const trimmedTime = reservationTime.trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) return null;
+        if (!/^\d{2}:\d{2}/.test(trimmedTime)) return null;
+        const rows: CapacityReservation[] = allReservations.map(r => ({
+            id: r.id,
+            activity_id: r.activity_id,
+            reservation_date: r.reservation_date,
+            reservation_time: r.reservation_time,
+            party_size: r.party_size,
+            status: r.status
+        }));
+        const result = canAccept(
+            { capacity: cap, durationMin: dur },
+            rows,
+            {
+                id: entityData?.id,
+                activity_id: activeActivity.id,
+                reservation_date: trimmedDate,
+                reservation_time:
+                    trimmedTime.length === 5 ? `${trimmedTime}:00` : trimmedTime,
+                party_size: partyNum
+            }
+        );
+        if (result.ok) return null;
+        return `Questa prenotazione porta a ${result.peakWithCandidate} / ${cap} coperti, oltre la capienza. Salvabile, ma in overbooking.`;
+    }, [
+        activeActivity,
+        allReservations,
+        entityData?.id,
+        reservationDate,
+        reservationTime,
+        partySize
+    ]);
 
     const validate = (): boolean => {
         let ok = true;
@@ -285,6 +343,24 @@ export function ReservationForm({
                     rows={3}
                 />
             </div>
+
+            {overCapacityWarning && (
+                <p
+                    role="alert"
+                    style={{
+                        margin: 0,
+                        padding: "10px 12px",
+                        borderRadius: 8,
+                        background: "rgba(245, 158, 11, 0.08)",
+                        border: "1px solid rgba(245, 158, 11, 0.4)",
+                        color: "#92400e",
+                        fontSize: 13,
+                        lineHeight: 1.4
+                    }}
+                >
+                    {overCapacityWarning}
+                </p>
+            )}
         </form>
     );
 }

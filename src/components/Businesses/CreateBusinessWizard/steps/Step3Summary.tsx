@@ -8,8 +8,7 @@ interface Step3SummaryProps {
     name: string;
     plan: Plan;
     breakdown: GraduatedBreakdown;
-    ivaAmount: number;
-    totalWithIva: number;
+    total: number;
     discountPercent: number;
     promotionCode: string;
     onPromotionCodeChange: (value: string) => void;
@@ -27,8 +26,7 @@ export function Step3Summary({
     name,
     plan,
     breakdown,
-    ivaAmount,
-    totalWithIva,
+    total,
     discountPercent,
     promotionCode,
     onPromotionCodeChange,
@@ -76,17 +74,9 @@ export function Step3Summary({
                     </div>
 
                     <div className={styles.summaryTotals}>
-                        <div className={styles.summaryTotalsRow}>
-                            <span>Subtotale</span>
-                            <span>{formatEuro(breakdown.subtotal)}</span>
-                        </div>
-                        <div className={styles.summaryTotalsRow}>
-                            <span>IVA (22%)</span>
-                            <span>{formatEuro(ivaAmount)}</span>
-                        </div>
                         <div className={styles.summaryGrandRow}>
                             <span>Totale mensile</span>
-                            <span>{formatEuro(totalWithIva)}</span>
+                            <span>{formatEuro(total)}</span>
                         </div>
                     </div>
                 </div>

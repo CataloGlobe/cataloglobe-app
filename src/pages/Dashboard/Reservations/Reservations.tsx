@@ -159,7 +159,15 @@ export default function Reservations() {
     );
 
     const manageableActivities = useMemo(
-        () => activities.filter(a => canManageActivity(a.id)).map(a => ({ id: a.id, name: a.name })),
+        () =>
+            activities
+                .filter(a => canManageActivity(a.id))
+                .map(a => ({
+                    id: a.id,
+                    name: a.name,
+                    reservation_capacity: a.reservation_capacity ?? null,
+                    reservation_duration_minutes: a.reservation_duration_minutes ?? 120
+                })),
         [activities, canManageActivity]
     );
 
@@ -301,6 +309,14 @@ export default function Reservations() {
         [selectedId, effectiveReservations]
     );
 
+    const selectedActivity = useMemo(
+        () =>
+            selectedReservation
+                ? activities.find(a => a.id === selectedReservation.activity_id) ?? null
+                : null,
+        [selectedReservation, activities]
+    );
+
     // ── Today bar ─────────────────────────────────────────────────────
     const today = todayIsoDate();
     const todayItems = useMemo(
@@ -434,6 +450,10 @@ export default function Reservations() {
                         : null
                 }
                 allReservations={effectiveReservations}
+                activityCapacity={selectedActivity?.reservation_capacity ?? null}
+                activityDurationMinutes={
+                    selectedActivity?.reservation_duration_minutes ?? undefined
+                }
                 canManage={
                     selectedReservation ? canManageActivity(selectedReservation.activity_id) : false
                 }
@@ -454,6 +474,7 @@ export default function Reservations() {
                     mode={createEditMode}
                     tenantId={tenantId}
                     manageableActivities={manageableActivities}
+                    allReservations={effectiveReservations}
                     selectedReservation={editingReservation ?? undefined}
                     onSuccess={handleCreateEditSuccess}
                 />
