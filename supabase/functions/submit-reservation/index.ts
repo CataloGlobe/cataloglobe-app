@@ -3,6 +3,19 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@4";
 import { COMPANY, getEmailFooterHtml, getEmailFooterText } from "../_shared/company-config.ts";
+import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+
+// ── Rate limit policy ───────────────────────────────────────────────────────
+// Public endpoint (verify_jwt=false) → abuse vector for spam emails / DB
+// rows / venue inbox flooding. Two parallel buckets:
+//   1. per-slug: protects a single venue from a targeted flood.
+//   2. per-IP:   protects against an attacker cycling many slugs.
+// Both must pass; slug check runs first (more restrictive → fail-fast).
+
+const RATE_LIMIT_SLUG_PER_MIN = 15;
+const RATE_LIMIT_SLUG_WINDOW_SECONDS = 60;
+const RATE_LIMIT_IP_PER_HOUR = 40;
+const RATE_LIMIT_IP_WINDOW_SECONDS = 3600;
 
 // =============================================================================
 // submit-reservation
@@ -47,10 +60,16 @@ const ERROR_MESSAGES: Record<string, string> = {
     ACTIVITY_NOT_FOUND:        "Sede non trovata",
     ACTIVITY_NOT_ACTIVE:       "La sede non è attualmente disponibile",
     RESERVATIONS_DISABLED:     "La sede non accetta prenotazioni online",
+    RATE_LIMITED:              "Troppe richieste. Riprova più tardi.",
     SERVER_ERROR:              "Errore durante l'invio della richiesta"
 };
 
-function errorResponse(code: string, status: number, details?: Record<string, unknown>): Response {
+function errorResponse(
+    code: string,
+    status: number,
+    details?: Record<string, unknown>,
+    extraHeaders?: Record<string, string>
+): Response {
     const message = ERROR_MESSAGES[code] ?? "Si è verificato un errore";
     return new Response(
         JSON.stringify({
@@ -59,8 +78,27 @@ function errorResponse(code: string, status: number, details?: Record<string, un
             message,
             ...(details ? { details } : {})
         }),
-        { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+            status,
+            headers: {
+                ...corsHeaders,
+                "Content-Type": "application/json",
+                ...(extraHeaders ?? {})
+            }
+        }
     );
+}
+
+// Extract the client IP from the standard Edge runtime headers. Same pattern
+// used by submit-review. Fallback "unknown" pools all unidentifiable callers
+// into a single bucket — acceptable for low-frequency abuse.
+function extractClientIp(req: Request): string {
+    const xff = req.headers.get("x-forwarded-for") ?? "";
+    const first = xff.split(",")[0]?.trim();
+    if (first && first.length > 0) return first;
+    const real = req.headers.get("x-real-ip");
+    if (real && real.trim().length > 0) return real.trim();
+    return "unknown";
 }
 
 function jsonResponse(body: Record<string, unknown>, status: number): Response {
@@ -382,6 +420,34 @@ serve(async (req: Request) => {
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
         );
 
+        // ── Rate limit (slug-first, then IP) ────────────────────────
+        // Fail-closed (same pattern as resolve-table): RPC failure
+        // bubbles up to the outer catch and surfaces as 500. Limit hit
+        // → 429 with Retry-After header. No DB row, no email.
+        const clientIp = extractClientIp(req);
+        try {
+            await checkRateLimit(supabase, {
+                key: `submit-reservation:slug:${slug}`,
+                limit: RATE_LIMIT_SLUG_PER_MIN,
+                windowSeconds: RATE_LIMIT_SLUG_WINDOW_SECONDS
+            });
+            await checkRateLimit(supabase, {
+                key: `submit-reservation:ip:${clientIp}`,
+                limit: RATE_LIMIT_IP_PER_HOUR,
+                windowSeconds: RATE_LIMIT_IP_WINDOW_SECONDS
+            });
+        } catch (rlErr) {
+            if (rlErr instanceof RateLimitExceededError) {
+                return errorResponse(
+                    "RATE_LIMITED",
+                    429,
+                    { retry_after_seconds: rlErr.retryAfterSeconds },
+                    { "Retry-After": String(rlErr.retryAfterSeconds) }
+                );
+            }
+            throw rlErr;
+        }
+
         // ── Resolve slug → activity (server-side; tenant_id NEVER from body)
         const { data: activity, error: activityError } = await supabase
             .from("activities")
@@ -400,7 +466,8 @@ serve(async (req: Request) => {
             return errorResponse("RESERVATIONS_DISABLED", 409);
         }
 
-        // ── Insert reservation (status='pending', server-derived tenant_id) ──
+        // ── Insert reservation (status='pending', source='online',
+        //    server-derived tenant_id) ─────────────────────────────────
         const { data: inserted, error: insertError } = await supabase
             .from("reservations")
             .insert({
@@ -413,7 +480,8 @@ serve(async (req: Request) => {
                 customer_email: customerEmail,
                 customer_phone: customerPhone,
                 notes,
-                status: "pending"
+                status: "pending",
+                source: "online"
             })
             .select("id")
             .single();
@@ -493,6 +561,90 @@ serve(async (req: Request) => {
             }
         } catch (mailErr) {
             console.error("[submit-reservation] venue alert resolver failed:", mailErr);
+        }
+
+        // ── In-app notification fan-out (best-effort) ────────────────────
+        // One row per user with `reservations.manage` on this activity.
+        // Resolution via the SECURITY DEFINER helper
+        // `public.get_users_with_activity_permission(permission, activity)`
+        // (service_role only). Failures NEVER fail the reservation —
+        // the row is already saved and emails were already sent above.
+        try {
+            const { data: recipientIds, error: rpcError } = await supabase.rpc(
+                "get_users_with_activity_permission",
+                {
+                    p_permission_id: "reservations.manage",
+                    p_activity_id: activity.id
+                }
+            );
+
+            if (rpcError) {
+                console.error(
+                    "[submit-reservation] notification recipient lookup failed:",
+                    rpcError
+                );
+            } else {
+                const userIds: string[] = Array.isArray(recipientIds)
+                    ? (recipientIds as unknown[])
+                          .map(v =>
+                              typeof v === "string"
+                                  ? v
+                                  : v && typeof v === "object" && "user_id" in v
+                                      ? String((v as { user_id: unknown }).user_id)
+                                      : ""
+                          )
+                          .filter(v => v.length > 0)
+                    : [];
+
+                if (userIds.length === 0) {
+                    console.log(
+                        `[submit-reservation] no notification recipients (reservation_id=${reservationId}, activity_id=${activity.id}).`
+                    );
+                } else {
+                    const dateIt = formatDateIt(reservationDate);
+                    const timeIt = formatTimeIt(reservationTime);
+                    const message = `${customerName} · ${dateIt} ${timeIt} · ${partySize} p.`;
+                    const data = {
+                        reservation_id: reservationId,
+                        activity_id: activity.id,
+                        activity_name: activity.name,
+                        customer_name: customerName,
+                        customer_email: customerEmail,
+                        customer_phone: customerPhone,
+                        reservation_date: reservationDate,
+                        reservation_time: reservationTime,
+                        party_size: partySize,
+                        source: "online"
+                    };
+
+                    const rows = userIds.map(uid => ({
+                        user_id: uid,
+                        tenant_id: activity.tenant_id,
+                        event_type: "reservation.new",
+                        type: "info",
+                        title: "Nuova prenotazione",
+                        message,
+                        data
+                    }));
+
+                    const { error: insertNotifError } = await supabase
+                        .from("notifications")
+                        .insert(rows);
+
+                    if (insertNotifError) {
+                        console.error(
+                            "[submit-reservation] notification fan-out insert failed:",
+                            insertNotifError
+                        );
+                    } else {
+                        console.log(
+                            `[submit-reservation] notification fan-out (reservation_id=${reservationId}, count=${rows.length}).`
+                        );
+                    }
+                }
+            }
+        } catch (notifErr) {
+            console.error("[submit-reservation] notification fan-out failed:", notifErr);
         }
 
         return jsonResponse({ success: true, reservation_id: reservationId }, 200);

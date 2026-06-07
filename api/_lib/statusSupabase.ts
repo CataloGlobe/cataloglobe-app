@@ -84,6 +84,31 @@ export async function pgrest<T = unknown>(
 }
 
 /**
+ * Legge lo status dell'ULTIMA riga in `status_checks` per il servizio
+ * dato. Usato dal cron `status-check` per implementare l'isteresi a 2
+ * check consecutivi: questa funzione va chiamata PRIMA di `persistCheckRow`
+ * così la riga corrente non si autorefenzia. Indice usato:
+ * `status_checks_service_time_idx (service_key, checked_at DESC)`.
+ *
+ * Fail-open: in caso di errore PostgREST ritorna `null` (= "nessun
+ * precedente"). Conseguenza: l'isteresi tratterà il check come bootstrap
+ * e resterà silent. È preferibile alla failure rumorosa: meglio una
+ * mail in meno per blip di rete che N mail spurie.
+ */
+export async function readPreviousObservation(
+    serviceKey: string
+): Promise<string | null> {
+    const res = await pgrest<{ status: string }[]>("status_checks", {
+        query:
+            `select=status&service_key=eq.${encodeURIComponent(serviceKey)}` +
+            `&order=checked_at.desc&limit=1`
+    });
+    if (!res.ok) return null;
+    const rows = Array.isArray(res.data) ? res.data : [];
+    return rows[0]?.status ?? null;
+}
+
+/**
  * Probe banale del database via PostgREST.
  *
  * Bersaglio: `tenants` con `select=id&limit=1`. Riprova:

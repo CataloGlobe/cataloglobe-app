@@ -20,7 +20,7 @@
 
 .separator {
   font-size: 18px;
-  color: #E5E7EB;
+  color: #e5e7eb;
   font-weight: 300;
   user-select: none;
   margin: 0 -2px;
@@ -29,7 +29,7 @@
 .greeting {
   font-size: 13px;
   font-weight: 600;
-  color: #0F172A;
+  color: #0f172a;
   white-space: nowrap;
 
   @media (max-width: 767px) {
@@ -53,11 +53,11 @@
   flex-shrink: 0;
 
   &:hover {
-    background: #F8FAFC;
+    background: #f8fafc;
   }
 
   &:focus-visible {
-    outline: 2px solid #A5B4FC;
+    outline: 2px solid #a5b4fc;
     outline-offset: 2px;
   }
 }
@@ -96,11 +96,11 @@
   transition: background 0.1s;
 
   &:hover {
-    background: #F8FAFC;
+    background: #f8fafc;
   }
 
   &:focus-visible {
-    outline: 2px solid #A5B4FC;
+    outline: 2px solid #a5b4fc;
     outline-offset: 2px;
   }
 }
@@ -124,19 +124,21 @@
   gap: 8px;
   padding: 4px 8px 4px 4px;
   border-radius: 8px;
-  border: 1px solid #E5E7EB;
-  background: #FFFFFF;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
   cursor: pointer;
-  transition: background 0.1s, border-color 0.1s;
+  transition:
+    background 0.1s,
+    border-color 0.1s;
   min-width: 0;
 
   &:hover {
-    background: #F8FAFC;
-    border-color: #D1D5DB;
+    background: #f8fafc;
+    border-color: #d1d5db;
   }
 
   &:focus-visible {
-    outline: 2px solid #A5B4FC;
+    outline: 2px solid #a5b4fc;
     outline-offset: 2px;
   }
 }
@@ -144,7 +146,7 @@
 .tenantName {
   font-size: 13px;
   font-weight: 600;
-  color: #0F172A;
+  color: #0f172a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -152,7 +154,7 @@
 }
 
 .tenantChevron {
-  color: #64748B;
+  color: #64748b;
   flex-shrink: 0;
 }
 
@@ -162,8 +164,8 @@
   top: calc(100% + 6px);
   left: 0;
   min-width: 240px;
-  background: #FFFFFF;
-  border: 1px solid #E5E7EB;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 6px 0;
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
@@ -174,7 +176,7 @@
   padding: 8px 14px 6px;
   font-size: 10px;
   font-weight: 700;
-  color: #94A3B8;
+  color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -190,16 +192,16 @@
   cursor: pointer;
   font-family: inherit;
   text-align: left;
-  color: #0F172A;
+  color: #0f172a;
   transition: background 0.1s;
 
   &:hover {
-    background: #F8FAFC;
+    background: #f8fafc;
   }
 
   &:focus-visible {
     outline: none;
-    background: #F1F5F9;
+    background: #f1f5f9;
   }
 }
 
@@ -209,7 +211,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6366F1;
+  color: #6366f1;
 }
 
 .tenantRowName {
@@ -228,7 +230,7 @@
 
 .tenantListDivider {
   height: 1px;
-  background: #F1F2F4;
+  background: #f1f2f4;
   margin: 6px 12px;
 }
 
@@ -240,20 +242,22 @@
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: #64748B;
+  color: #64748b;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.1s, color 0.1s;
+  transition:
+    background 0.1s,
+    color 0.1s;
 
   &:hover {
-    background: #F8FAFC;
-    color: #0F172A;
+    background: #f8fafc;
+    color: #0f172a;
   }
 
   &:focus-visible {
-    outline: 2px solid #A5B4FC;
+    outline: 2px solid #a5b4fc;
     outline-offset: 2px;
   }
 }
@@ -265,8 +269,8 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #EF4444;
-  border: 2px solid #FFFFFF;
+  background: #ef4444;
+  border: 2px solid #ffffff;
 }
 
 .emptyState {
@@ -275,24 +279,271 @@
   align-items: center;
   gap: 6px;
   padding: 28px 32px;
-  color: #64748B;
+  color: #64748b;
   text-align: center;
   min-width: 240px;
 }
 
 .emptyStateIcon {
-  color: #94A3B8;
+  color: #94a3b8;
 }
 
 .emptyStateText {
   font-size: 13px;
   font-weight: 600;
-  color: #0F172A;
+  color: #0f172a;
 }
 
 .emptyStateSub {
   font-size: 12px;
-  color: #94A3B8;
+  color: #94a3b8;
+}
+
+/* ===== Notifications: numeric badge ===== */
+.notifBadge {
+  position: absolute;
+  top: 1px;
+  right: -2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* ===== Notifications: dropdown list =====
+   Each item is a plain <button> so it owns its full intrinsic height —
+   bypasses the fixed 32px height that Menu.Item (Radix DropdownMenu.Item)
+   imposes, which was clipping the 3-row content and overlapping items. */
+.notifList {
+  list-style: none;
+  margin: 0;
+  max-height: 420px;
+  overflow-y: auto;
+  min-width: 320px;
+}
+
+.notifItemWrap {
+  margin: 0;
+  padding: 0;
+}
+
+/* Divider between items — only between siblings, not before the first. */
+.notifItemWrap + .notifItemWrap {
+  border-top: 1px solid var(--color-gray-100, #f1f5f9);
+}
+
+.notifItem {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--color-gray-100, #f1f5f9);
+  }
+}
+
+.notifItemUnread {
+  background: color-mix(in srgb, #6366f1 6%, transparent);
+
+  &:hover,
+  &:focus-visible {
+    background: color-mix(in srgb, #6366f1 10%, transparent);
+  }
+}
+
+.notifItemTitleLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.3;
+}
+
+.notifItemTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notifItemUnreadDot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6366f1;
+}
+
+.notifItemMessage {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #475569;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.notifItemTime {
+  display: block;
+  font-size: 11px;
+  line-height: 1.3;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+/* Wrapper card del dropdown notifiche.
+   Menu (Radix Content) ha padding interno 6px + border-radius 12px:
+   margin negativo assorbe il padding cosi' il wrapper riempie tutto lo
+   spazio interno, e overflow:hidden ritaglia header/footer/hover agli
+   angoli tondi. Applicato SOLO al dropdown notifiche (non al Menu
+   condiviso). La lista interna mantiene il suo overflow-y:auto. */
+.notifCard {
+  margin: -6px;
+  border-radius: var(--radius-md, 12px);
+  overflow: hidden;
+}
+
+/* Header del dropdown: titolo "Notifiche" + switch suono.
+   Sempre visibile (anche con empty state); divider sotto. */
+.notifHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--color-gray-50, #f8fafc);
+  border-bottom: 1px solid var(--color-gray-100, #f1f5f9);
+}
+
+.notifHeaderTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+
+  svg {
+    color: #6366f1;
+    flex-shrink: 0;
+  }
+}
+
+/* Switch suono: icona + track+knob. Coerente con lo switch "Annullate"
+   dell'agenda. */
+.notifSoundSwitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.notifSoundSwitchIconOn {
+  color: #6366f1;
+  flex-shrink: 0;
+}
+
+.notifSoundSwitchIconOff {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.notifSoundSwitchTrack {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--color-gray-200, #e2e8f0);
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--color-text-muted, #6b7280) 22%,
+    var(--color-surface, #ffffff)
+  );
+  cursor: pointer;
+  outline: none;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+  flex-shrink: 0;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in srgb, #6366f1 24%, transparent);
+  }
+}
+
+.notifSoundSwitchTrackOn {
+  background: #6366f1;
+  border-color: #6366f1;
+}
+
+.notifSoundSwitchKnob {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.18);
+  transition: transform 0.2s ease;
+}
+
+.notifSoundSwitchTrackOn .notifSoundSwitchKnob {
+  transform: translateX(14px);
+}
+
+/* Footer: solo "Segna tutte come lette" full-width, visibile quando
+   ci sono notifiche non lette. */
+.notifMarkAll {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-top: 1px solid var(--color-gray-100, #f1f5f9);
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6366f1;
+  text-align: center;
+  cursor: pointer;
+  outline: none;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--color-gray-100, #f1f5f9);
+  }
 }
 
 /* ===== User menu trigger ===== */
@@ -310,11 +561,11 @@
   transition: background 0.1s;
 
   &:hover {
-    background: #F8FAFC;
+    background: #f8fafc;
   }
 
   &:focus-visible {
-    outline: 2px solid #A5B4FC;
+    outline: 2px solid #a5b4fc;
     outline-offset: 2px;
   }
 }
@@ -325,14 +576,14 @@
   gap: 2px;
   padding: 6px 10px 10px;
   min-width: 220px;
-  border-bottom: 1px solid #F1F2F4;
+  border-bottom: 1px solid #f1f2f4;
   margin-bottom: 4px;
 }
 
 .userName {
   font-size: 13px;
   font-weight: 600;
-  color: #0F172A;
+  color: #0f172a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -340,7 +591,7 @@
 
 .userEmail {
   font-size: 12px;
-  color: #64748B;
+  color: #64748b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

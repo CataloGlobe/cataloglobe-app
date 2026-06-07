@@ -164,6 +164,17 @@ export default function OrderingSheet({
             .reduce((sum, o) => sum + (o.total_amount ?? 0), 0);
     }, [orders]);
 
+    // Gate "Chiedi il conto": vietato finche' c'e' anche un solo ordine in
+    // preparazione (submitted o acknowledged). Ready/delivered non bloccano:
+    // ready = uscito dalla cucina, delivered = servito al tavolo.
+    const hasInProgressOrders = useMemo(
+        () =>
+            orders.some(
+                o => o.status === "submitted" || o.status === "acknowledged"
+            ),
+        [orders]
+    );
+
     const showBillBlock = activeTab === "orders" && tableTotal > 0;
 
     const loadOrders = useCallback(async () => {
@@ -549,7 +560,7 @@ export default function OrderingSheet({
                         {showBillBlock && (
                             <div className={styles.billBlock}>
                                 <div className={styles.billHeader}>
-                                    <span className={styles.billLabel}>Totale al tavolo</span>
+                                    <span className={styles.billLabel}>Il tuo conto</span>
                                     <span className={styles.billAmount}>
                                         {new Intl.NumberFormat("it-IT", {
                                             style: "currency",
@@ -562,6 +573,10 @@ export default function OrderingSheet({
                                     <div className={styles.billRequested}>
                                         <span className={styles.billRequestedDot} aria-hidden="true" />
                                         <span>Conto richiesto. Lo staff sta arrivando.</span>
+                                    </div>
+                                ) : hasInProgressOrders ? (
+                                    <div className={styles.billHint}>
+                                        Hai ancora ordini in preparazione — potrai chiedere il conto quando saranno pronti.
                                     </div>
                                 ) : (
                                     <button

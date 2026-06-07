@@ -9,7 +9,8 @@ type ProtectedRouteProps = {
 };
 
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-    const { user, loading, otpVerified, otpLoading, otpRefreshing, otpCheckFailed } = useAuth();
+    const { user, loading, otpVerified, otpLoading, otpRefreshing, otpCheckFailed, forceOtpCheck } =
+        useAuth();
     const location = useLocation();
 
     // Bootstrap auth
@@ -30,9 +31,9 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
     // Errore di rete sulla query di check OTP: non sappiamo se l'utente è
     // verificato. Non rediriggere a /verify-otp (che farebbe partire un
-    // send-otp non richiesto). Mostra schermata con retry esplicito.
+    // send-otp non richiesto). Retry in-place senza perdere lo stato SPA.
     if (otpCheckFailed) {
-        return <OtpCheckErrorScreen />;
+        return <OtpCheckErrorScreen onRetry={forceOtpCheck} />;
     }
 
     if (!otpVerified && !otpRefreshing) {

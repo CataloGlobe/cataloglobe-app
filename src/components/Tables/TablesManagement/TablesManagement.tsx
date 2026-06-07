@@ -8,7 +8,9 @@ import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 
@@ -30,6 +32,7 @@ import { TableZoneManagementDrawer } from "@/components/Tables/TableZoneManageme
 import BillRequestsDrawer from "@/pages/Dashboard/Tables/BillRequestsDrawer";
 import TableDeleteDrawer from "@/pages/Dashboard/Tables/TableDeleteDrawer";
 import TableRegenerateTokenDrawer from "@/pages/Dashboard/Tables/TableRegenerateTokenDrawer";
+import TableQrPreviewDrawer from "@/pages/Dashboard/Tables/TableQrPreviewDrawer";
 
 import styles from "./TablesManagement.module.scss";
 
@@ -84,6 +87,10 @@ export function TablesManagement({
     // QR generation flags
     const [isGeneratingQrAll, setIsGeneratingQrAll] = useState(false);
     const [generatingQrTableId, setGeneratingQrTableId] = useState<string | null>(null);
+
+    // QR preview drawer (anteprima interna del QR + link tavolo)
+    const [qrPreviewTableId, setQrPreviewTableId] = useState<string | null>(null);
+    const [isQrPreviewDownloadingPdf, setIsQrPreviewDownloadingPdf] = useState(false);
 
     // Bulk selection
     const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
@@ -301,6 +308,45 @@ export function TablesManagement({
         setIsRegenOpen(true);
     }
 
+    function openQrPreview(item: V2TableWithState) {
+        setQrPreviewTableId(item.id);
+    }
+
+    // Selected table re-derivata da items[] per essere resiliente a refetch
+    // post-regenerate-token: se il qr_token della riga cambia mentre il drawer
+    // e' aperto, il QR mostrato si aggiorna automaticamente.
+    const qrPreviewTable = useMemo(
+        () =>
+            qrPreviewTableId ? items.find(t => t.id === qrPreviewTableId) ?? null : null,
+        [items, qrPreviewTableId]
+    );
+
+    // URL pubblico tavolo: route client `/t/:qrToken` (vedi App.tsx).
+    // Pattern protocol/host coerente con ActivitySettingsTab (VITE_PUBLIC_DOMAIN
+    // override per env, fallback su window.location.host).
+    const qrPreviewUrl = useMemo(() => {
+        if (!qrPreviewTable) return null;
+        const domain = import.meta.env.VITE_PUBLIC_DOMAIN || window.location.host;
+        const protocol = window.location.protocol;
+        return `${protocol}//${domain}/t/${qrPreviewTable.qr_token}`;
+    }, [qrPreviewTable]);
+
+    async function handleQrPreviewDownloadPdf(): Promise<void> {
+        if (!qrPreviewTable || !activityId || isQrPreviewDownloadingPdf) return;
+        setIsQrPreviewDownloadingPdf(true);
+        try {
+            const blob = await generateTableQrsPdf(activityId, [qrPreviewTable.id]);
+            downloadPdfBlob(blob, `qr-${qrPreviewTable.label}.pdf`);
+            showToast({ message: "PDF QR generato", type: "success" });
+        } catch (err) {
+            const msg =
+                err instanceof Error ? err.message : "Errore nella generazione del PDF";
+            showToast({ message: msg, type: "error" });
+        } finally {
+            setIsQrPreviewDownloadingPdf(false);
+        }
+    }
+
     async function handleRegenerate() {
         if (!itemToRegen || !tenantId) return;
         try {
@@ -382,33 +428,43 @@ export function TablesManagement({
         {
             id: "actions",
             header: "",
-            width: "56px",
+            width: "104px",
             align: "right",
             cell: (_v, row) => (
-                <TableRowActions
-                    actions={[
-                        { label: "Modifica", onClick: () => openEdit(row) },
-                        {
-                            label:
-                                generatingQrTableId === row.id
-                                    ? "Generazione..."
-                                    : "Genera QR",
-                            icon: QrCode,
-                            onClick: () => handleGenerateQrSingle(row)
-                        },
-                        {
-                            label: "Rigenera token QR",
-                            icon: RotateCw,
-                            onClick: () => openRegen(row)
-                        },
-                        {
-                            label: "Elimina",
-                            variant: "destructive",
-                            onClick: () => openDelete(row),
-                            separator: true
-                        }
-                    ]}
-                />
+                <div className={styles.actionsCell}>
+                    <Tooltip content="Anteprima QR">
+                        <IconButton
+                            icon={<QrCode size={16} />}
+                            aria-label="Anteprima QR"
+                            variant="ghost"
+                            onClick={() => openQrPreview(row)}
+                        />
+                    </Tooltip>
+                    <TableRowActions
+                        actions={[
+                            { label: "Modifica", onClick: () => openEdit(row) },
+                            {
+                                label:
+                                    generatingQrTableId === row.id
+                                        ? "Generazione..."
+                                        : "Genera QR",
+                                icon: QrCode,
+                                onClick: () => handleGenerateQrSingle(row)
+                            },
+                            {
+                                label: "Rigenera token QR",
+                                icon: RotateCw,
+                                onClick: () => openRegen(row)
+                            },
+                            {
+                                label: "Elimina",
+                                variant: "destructive",
+                                onClick: () => openDelete(row),
+                                separator: true
+                            }
+                        ]}
+                    />
+                </div>
             )
         }
     ];
@@ -593,6 +649,15 @@ export function TablesManagement({
                     setItemToRegen(null);
                 }}
                 onConfirm={handleRegenerate}
+            />
+
+            <TableQrPreviewDrawer
+                open={qrPreviewTableId !== null}
+                table={qrPreviewTable}
+                qrUrl={qrPreviewUrl}
+                onClose={() => setQrPreviewTableId(null)}
+                onDownloadPdf={handleQrPreviewDownloadPdf}
+                isDownloadingPdf={isQrPreviewDownloadingPdf}
             />
 
             <BillRequestsDrawer

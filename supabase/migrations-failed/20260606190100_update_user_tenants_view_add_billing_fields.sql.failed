@@ -1,0 +1,128 @@
+BEGIN;
+
+-- =============================================================================
+-- Update user_tenants_view + get_user_tenants() to expose current_period_end
+-- =============================================================================
+-- Baseline (pg_get_viewdef snapshot pre-migration):
+--   SELECT id, name, vertical_type, business_subtype, created_at, owner_user_id,
+--          user_role, logo_url, plan, subscription_status, trial_until,
+--          stripe_customer_id, stripe_subscription_id, paid_seats, is_founder
+--   FROM get_user_tenants();
+--
+-- This migration keeps EVERY existing column intact and only APPENDS
+-- `current_period_end` to both the RETURNS TABLE list and the SELECT body.
+-- Order preserved: new column appended at the end (avoids breaking ordinal
+-- expectations of any external consumers).
+--
+-- Rebuild strategy: function CREATE OR REPLACE (signature change forces DROP
+-- of dependent view via CASCADE; recreated identically with new column).
+-- =============================================================================
+
+-- Drop view to let us change function signature (RETURNS TABLE columns)
+DROP VIEW IF EXISTS public.user_tenants_view CASCADE;
+
+-- Recreate function with extra column appended
+CREATE OR REPLACE FUNCTION public.get_user_tenants()
+RETURNS TABLE(
+    id                     uuid,
+    name                   text,
+    vertical_type          text,
+    business_subtype       text,
+    created_at             timestamptz,
+    owner_user_id          uuid,
+    user_role              text,
+    logo_url               text,
+    plan                   text,
+    subscription_status    text,
+    trial_until            timestamptz,
+    stripe_customer_id     text,
+    stripe_subscription_id text,
+    paid_seats             integer,
+    is_founder             boolean,
+    current_period_end     timestamptz
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public', 'auth'
+AS $$
+    SELECT
+        t.id,
+        t.name,
+        t.vertical_type,
+        t.business_subtype,
+        t.created_at,
+        t.owner_user_id,
+        CASE
+            WHEN t.owner_user_id = auth.uid() THEN 'owner'
+            WHEN tm.role IS NOT NULL          THEN tm.role
+            ELSE NULL
+        END AS user_role,
+        t.logo_url,
+        t.plan,
+        t.subscription_status,
+        t.trial_until,
+        t.stripe_customer_id,
+        t.stripe_subscription_id,
+        t.paid_seats,
+        t.is_founder,
+        t.current_period_end
+    FROM public.tenants t
+    LEFT JOIN public.tenant_memberships tm
+        ON  tm.tenant_id = t.id
+        AND tm.user_id   = auth.uid()
+        AND tm.status    = 'active'
+    WHERE t.deleted_at IS NULL
+      AND (
+          t.owner_user_id = auth.uid()
+          OR tm.user_id IS NOT NULL
+      )
+$$;
+
+-- Recreate view exposing every column (identical to baseline + new column)
+CREATE VIEW public.user_tenants_view AS
+    SELECT
+        id,
+        name,
+        vertical_type,
+        business_subtype,
+        created_at,
+        owner_user_id,
+        user_role,
+        logo_url,
+        plan,
+        subscription_status,
+        trial_until,
+        stripe_customer_id,
+        stripe_subscription_id,
+        paid_seats,
+        is_founder,
+        current_period_end
+    FROM public.get_user_tenants();
+
+GRANT SELECT ON public.user_tenants_view TO authenticated;
+
+-- Validation
+DO $$
+DECLARE
+    col_count integer;
+BEGIN
+    SELECT COUNT(*) INTO col_count
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name   = 'user_tenants_view'
+      AND column_name IN (
+          'id','name','vertical_type','business_subtype','created_at',
+          'owner_user_id','user_role','logo_url','plan','subscription_status',
+          'trial_until','stripe_customer_id','stripe_subscription_id',
+          'paid_seats','is_founder','current_period_end'
+      );
+
+    IF col_count = 16 THEN
+        RAISE NOTICE 'OK: user_tenants_view exposes all 16 expected columns.';
+    ELSE
+        RAISE EXCEPTION 'FAIL: only %/16 expected columns found on user_tenants_view.', col_count;
+    END IF;
+END $$;
+
+COMMIT;

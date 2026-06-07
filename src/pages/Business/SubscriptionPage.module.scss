@@ -115,6 +115,111 @@
     }
 }
 
+// Plan label row (name + Founder badge)
+.planLabelRow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.priceCaption {
+    margin-top: 2px;
+}
+
+// Founder banner (non-founder only — soft gradient)
+.founderBanner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    background-image: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.08));
+}
+
+.founderIcon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background-color: rgba(99, 102, 241, 0.15);
+    color: var(--brand-primary, #6366f1);
+}
+
+.founderContent {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.founderTitle {
+    color: var(--text, #0f172a);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.founderBody {
+    color: #475569;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+// Change plan contact row
+.contactRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 10px;
+    background-color: var(--hover-bg, #f8fafc);
+    flex-wrap: wrap;
+}
+
+// Drawer breakdown box (modify seats)
+.drawerBreakdown {
+    background: var(--hover-bg, #f1f5f9);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.drawerBreakdownRow {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #334155;
+}
+
+.drawerBreakdownDiff {
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.drawerBreakdownDiffPositive {
+    color: #b45309;
+}
+
+.drawerBreakdownDiffNegative {
+    color: #047857;
+}
+
+.drawerError {
+    background: #fef2f2;
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: #dc2626;
+    font-size: 13px;
+}
+
 @media (max-width: 640px) {
     .summaryGrid {
         grid-template-columns: 1fr;

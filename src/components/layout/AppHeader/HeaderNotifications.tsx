@@ -1,38 +1,203 @@
-import { Bell, BellOff } from "lucide-react";
+import { useEffect, useMemo, useRef } from "react";
+import { Bell, BellOff, Volume2, VolumeX } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Menu } from "@/components/ui/Menu";
+import { useNotifications } from "@/context/useNotifications";
+import type { Notification } from "@/services/supabase/notifications";
+import { useNotificationChime } from "@/hooks/useNotificationChime";
+import { formatRelativeTime } from "@/utils/relativeTime";
 import styles from "./AppHeader.module.scss";
 
-interface Notification {
-    id: string;
-    text: string;
-    sub?: string;
-    time: string;
-    unread: boolean;
-    category: "order" | "review" | "team" | "billing";
+type HeaderNotificationsProps =
+    | { scope: "tenant"; tenantId: string | null }
+    | { scope: "account" };
+
+// Best-effort deep link from notification → page.
+// Today: reservation.new → admin Reservations inbox for the tenant.
+// (Single-reservation deep link is out of scope: the inbox surfaces the new row.)
+function resolveTargetPath(notification: Notification, fallbackTenantId: string | null): string | null {
+    if (notification.event_type === "reservation.new") {
+        const tenantId =
+            notification.tenant_id ?? fallbackTenantId;
+        if (tenantId) return `/business/${tenantId}/reservations`;
+    }
+    return null;
 }
 
-const NOTIFICATIONS: Notification[] = [];
+export function HeaderNotifications(props: HeaderNotificationsProps) {
+    const { notifications, markAsRead } = useNotifications();
+    const { soundEnabled, toggleSound, triggerChime } = useNotificationChime();
+    const navigate = useNavigate();
 
-export function HeaderNotifications() {
-    const hasUnread = NOTIFICATIONS.some(n => n.unread);
+    // Scope filter:
+    //   tenant  → notifiche del tenant corrente (sezione business).
+    //   account → notifiche account-level (tenant_id NULL).
+    const scopedNotifications = useMemo(() => {
+        if (props.scope === "tenant") {
+            const tid = props.tenantId;
+            if (!tid) return [];
+            return notifications.filter(n => n.tenant_id === tid);
+        }
+        return notifications.filter(n => n.tenant_id === null);
+    }, [notifications, props]);
+
+    // Chime sull'arrivo di NUOVE notifiche nel subset filtrato.
+    // Osserviamo `length` (non `unreadCount`) così il mark-as-read non
+    // triggera il suono. Primo render salta (hasMountedRef): le notifiche
+    // gia' caricate all'apertura della pagina non devono suonare.
+    const hasMountedRef = useRef(false);
+    const lastLengthRef = useRef(scopedNotifications.length);
+    useEffect(() => {
+        if (!hasMountedRef.current) {
+            hasMountedRef.current = true;
+            lastLengthRef.current = scopedNotifications.length;
+            return;
+        }
+        if (scopedNotifications.length > lastLengthRef.current) {
+            triggerChime();
+        }
+        lastLengthRef.current = scopedNotifications.length;
+    }, [scopedNotifications.length, triggerChime]);
+
+    const unreadCount = useMemo(
+        () => scopedNotifications.reduce((acc, n) => acc + (n.read_at === null ? 1 : 0), 0),
+        [scopedNotifications]
+    );
+
+    const hasUnreadInScope = unreadCount > 0;
+
+    const handleSelect = (n: Notification) => {
+        if (n.read_at === null) {
+            void markAsRead(n.id);
+        }
+        const fallbackTenantId = props.scope === "tenant" ? props.tenantId : null;
+        const path = resolveTargetPath(n, fallbackTenantId);
+        if (path) navigate(path);
+    };
+
+    const handleMarkAllInScope = () => {
+        // Itera SOLO le non-lette del contesto corrente. Mai cross-tenant.
+        for (const n of scopedNotifications) {
+            if (n.read_at === null) void markAsRead(n.id);
+        }
+    };
 
     const trigger = (
         <button
             type="button"
             className={styles.notifButton}
-            aria-label={hasUnread ? "Notifiche, ci sono novità" : "Notifiche"}
+            aria-label={
+                hasUnreadInScope
+                    ? `Notifiche, ${unreadCount} non lette`
+                    : "Notifiche"
+            }
         >
             <Bell size={17} />
-            {hasUnread && <span className={styles.notifDot} aria-hidden="true" />}
+            {hasUnreadInScope && (
+                <span className={styles.notifBadge} aria-hidden="true">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+            )}
         </button>
     );
 
     return (
         <Menu trigger={trigger} align="end">
-            <div className={styles.emptyState}>
-                <BellOff size={24} className={styles.emptyStateIcon} aria-hidden="true" />
-                <div className={styles.emptyStateText}>Nessuna notifica</div>
-                <div className={styles.emptyStateSub}>Le notifiche appariranno qui</div>
+            <div className={styles.notifCard}>
+            <div className={styles.notifHeader}>
+                <div className={styles.notifHeaderTitle}>
+                    <Bell size={14} aria-hidden="true" />
+                    <span>Notifiche</span>
+                </div>
+                <label className={styles.notifSoundSwitch}>
+                    {soundEnabled ? (
+                        <Volume2
+                            size={14}
+                            aria-hidden="true"
+                            className={styles.notifSoundSwitchIconOn}
+                        />
+                    ) : (
+                        <VolumeX
+                            size={14}
+                            aria-hidden="true"
+                            className={styles.notifSoundSwitchIconOff}
+                        />
+                    )}
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={soundEnabled}
+                        aria-label={
+                            soundEnabled
+                                ? "Disattiva suono notifiche"
+                                : "Attiva suono notifiche"
+                        }
+                        onClick={toggleSound}
+                        className={
+                            soundEnabled
+                                ? `${styles.notifSoundSwitchTrack} ${styles.notifSoundSwitchTrackOn}`
+                                : styles.notifSoundSwitchTrack
+                        }
+                    >
+                        <span className={styles.notifSoundSwitchKnob} aria-hidden="true" />
+                    </button>
+                </label>
+            </div>
+
+            {scopedNotifications.length === 0 ? (
+                <div className={styles.emptyState}>
+                    <BellOff size={24} className={styles.emptyStateIcon} aria-hidden="true" />
+                    <div className={styles.emptyStateText}>Nessuna notifica</div>
+                    <div className={styles.emptyStateSub}>Le notifiche appariranno qui</div>
+                </div>
+            ) : (
+                <>
+                    <ul className={styles.notifList}>
+                        {scopedNotifications.map(n => (
+                            <li key={n.id} className={styles.notifItemWrap}>
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelect(n)}
+                                    className={
+                                        n.read_at === null
+                                            ? `${styles.notifItem} ${styles.notifItemUnread}`
+                                            : styles.notifItem
+                                    }
+                                >
+                                    <span className={styles.notifItemTitleLine}>
+                                        <span className={styles.notifItemTitle}>
+                                            {n.title ?? "Notifica"}
+                                        </span>
+                                        {n.read_at === null && (
+                                            <span
+                                                className={styles.notifItemUnreadDot}
+                                                aria-label="Non letta"
+                                            />
+                                        )}
+                                    </span>
+                                    {n.message && (
+                                        <span className={styles.notifItemMessage}>
+                                            {n.message}
+                                        </span>
+                                    )}
+                                    <span className={styles.notifItemTime}>
+                                        {formatRelativeTime(n.created_at)}
+                                    </span>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                    {hasUnreadInScope && (
+                        <button
+                            type="button"
+                            onClick={handleMarkAllInScope}
+                            className={styles.notifMarkAll}
+                        >
+                            Segna tutte come lette
+                        </button>
+                    )}
+                </>
+            )}
             </div>
         </Menu>
     );

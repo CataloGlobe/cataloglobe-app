@@ -1,123 +1,59 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/services/supabase/client";
-import { useAuth } from "@/context/useAuth";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { SeatsInput } from "@/components/ui/SeatsInput/SeatsInput";
-import { Select } from "@/components/ui/Select/Select";
 import { Button } from "@/components/ui/Button/Button";
 import { FileInput } from "@/components/ui/Input/FileInput";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
-import { uploadTenantLogo, updateTenantLogoUrl, updateTenantName, getTenantLogoPublicUrl } from "@/services/supabase/tenants";
-import { createCheckoutSession } from "@/services/supabase/billing";
+import {
+    uploadTenantLogo,
+    updateTenantLogoUrl,
+    updateTenantName,
+    getTenantLogoPublicUrl,
+} from "@/services/supabase/tenants";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
-import { formatPrice, MAX_SEATS } from "@/utils/pricing";
 
-import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
-import { SUBTYPE_OPTIONS, SUBTYPE_LABELS, DEFAULT_SUBTYPE, type BusinessSubtype } from "@/constants/verticalTypes";
+import { SUBTYPE_LABELS, DEFAULT_SUBTYPE, type BusinessSubtype } from "@/constants/verticalTypes";
 
 interface CreateBusinessDrawerProps {
     open: boolean;
     onClose: () => void;
-    mode?: "create" | "edit";
-    tenantData?: { id: string; name: string; logo_url?: string | null; business_subtype?: BusinessSubtype | null };
+    tenantData: {
+        id: string;
+        name: string;
+        logo_url?: string | null;
+        business_subtype?: BusinessSubtype | null;
+    } | null;
     onSuccess?: () => void;
 }
 
-export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantData, onSuccess }: CreateBusinessDrawerProps) {
-    const { user } = useAuth();
+/**
+ * Edit-only drawer for an existing tenant (rename + change logo).
+ * Creation flow lives in CreateBusinessWizard.
+ */
+export function CreateBusinessDrawer({ open, onClose, tenantData, onSuccess }: CreateBusinessDrawerProps) {
     const { showToast } = useToast();
 
     const [name, setName] = useState("");
-    const [subtype, setSubtype] = useState<BusinessSubtype>(DEFAULT_SUBTYPE);
     const [logoFile, setLogoFile] = useState<File | null>(null);
-    const [seats, setSeats] = useState(1);
     const [submitting, setSubmitting] = useState(false);
 
-    // Sync state when drawer opens
     useEffect(() => {
-        if (!open) return;
-        if (mode === "edit" && tenantData) {
-            setName(tenantData.name);
-            setLogoFile(null);
-            setSubmitting(false);
-        } else if (mode === "create") {
-            setName("");
-            setSubtype(DEFAULT_SUBTYPE);
-            setLogoFile(null);
-            setSeats(1);
-            setSubmitting(false);
-        }
-    }, [open, mode, tenantData?.id]);
+        if (!open || !tenantData) return;
+        setName(tenantData.name);
+        setLogoFile(null);
+        setSubmitting(false);
+    }, [open, tenantData?.id]);
 
     const handleClose = () => {
         if (submitting) return;
         setName("");
-        setSubtype(DEFAULT_SUBTYPE);
         setLogoFile(null);
-        setSeats(1);
         onClose();
     };
 
-    const handleCreateSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!name.trim()) {
-            showToast({ type: "error", message: "Il nome dell'attività è obbligatorio", duration: 3000 });
-            return;
-        }
-
-        if (!user) return;
-
-        try {
-            setSubmitting(true);
-
-            const { data, error } = await supabase
-                .from("tenants")
-                .insert({ owner_user_id: user.id, name: name.trim(), vertical_type: "food_beverage", business_subtype: subtype })
-                .select("id")
-                .single();
-
-            if (error) throw error;
-
-            if (logoFile) {
-                try {
-                    const compressed = await compressImage(logoFile, COMPRESS_PROFILES.logo);
-                    const logoPath = await uploadTenantLogo(data.id, compressed);
-                    await updateTenantLogoUrl(data.id, logoPath);
-                } catch (logoErr) {
-                    console.error("[CreateBusinessDrawer] logo upload failed:", logoErr);
-                    showToast({
-                        type: "warning",
-                        message: "Attività creata, ma non è stato possibile caricare il logo. Puoi riprovare dalle impostazioni dell'attività.",
-                    });
-                }
-            }
-
-            localStorage.setItem(STORAGE_KEY, data.id);
-
-            try {
-                const checkoutUrl = await createCheckoutSession(
-                    data.id,
-                    `${window.location.origin}/business/${data.id}/overview`,
-                    `${window.location.origin}/workspace`,
-                    seats
-                );
-                window.location.href = checkoutUrl;
-            } catch {
-                window.location.href = `/business/${data.id}/subscription`;
-            }
-        } catch (err) {
-            console.error("[CreateBusinessDrawer] creation failed:", err);
-            showToast({ type: "error", message: "Errore durante la creazione dell'attività" });
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    const handleEditSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!name.trim()) {
@@ -156,15 +92,15 @@ export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantDat
         }
     };
 
-    const isEdit = mode === "edit";
-    const formId = isEdit ? "edit-business-form" : "create-business-form";
+    const formId = "edit-business-form";
+    const subtype = tenantData?.business_subtype ?? DEFAULT_SUBTYPE;
 
     return (
         <SystemDrawer open={open} onClose={handleClose} width={480}>
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={700}>
-                        {isEdit ? "Modifica attività" : "Crea attività"}
+                        Modifica attività
                     </Text>
                 }
                 footer={
@@ -177,16 +113,15 @@ export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantDat
                             type="submit"
                             form={formId}
                             loading={submitting}
-                            disabled={!isEdit && seats > MAX_SEATS}
                         >
-                            {isEdit ? "Salva modifiche" : "Crea attività"}
+                            Salva modifiche
                         </Button>
                     </>
                 }
             >
                 <form
                     id={formId}
-                    onSubmit={isEdit ? handleEditSubmit : handleCreateSubmit}
+                    onSubmit={handleSubmit}
                     style={{ display: "flex", flexDirection: "column", gap: "20px" }}
                 >
                     <TextInput
@@ -198,40 +133,28 @@ export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantDat
                         required
                     />
 
-                    {isEdit && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                            <Text variant="body-sm" weight={500}>Tipo di attività</Text>
-                            <span style={{
-                                background: "#f1f5f9",
-                                color: "#475569",
-                                fontSize: "11px",
-                                fontWeight: 500,
-                                borderRadius: "4px",
-                                padding: "1px 8px",
-                                lineHeight: 1.6,
-                                whiteSpace: "nowrap",
-                                display: "inline-block",
-                                width: "fit-content",
-                            }}>
-                                {SUBTYPE_LABELS[tenantData?.business_subtype ?? DEFAULT_SUBTYPE]}
-                            </span>
-                            <span style={{ fontSize: "12px", color: "var(--text-muted, #94a3b8)" }}>
-                                Il tipo di attività non può essere modificato dopo la creazione
-                            </span>
-                        </div>
-                    )}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <Text variant="body-sm" weight={500}>Tipo di attività</Text>
+                        <span style={{
+                            background: "#f1f5f9",
+                            color: "#475569",
+                            fontSize: "11px",
+                            fontWeight: 500,
+                            borderRadius: "4px",
+                            padding: "1px 8px",
+                            lineHeight: 1.6,
+                            whiteSpace: "nowrap",
+                            display: "inline-block",
+                            width: "fit-content",
+                        }}>
+                            {SUBTYPE_LABELS[subtype]}
+                        </span>
+                        <span style={{ fontSize: "12px", color: "var(--text-muted, #94a3b8)" }}>
+                            Il tipo di attività non può essere modificato dopo la creazione
+                        </span>
+                    </div>
 
-                    {!isEdit && (
-                        <Select
-                            label="Tipo di attività"
-                            value={subtype}
-                            onChange={e => setSubtype(e.target.value as BusinessSubtype)}
-                            options={SUBTYPE_OPTIONS}
-                            disabled={submitting}
-                        />
-                    )}
-
-                    {isEdit && tenantData?.logo_url && !logoFile && (
+                    {tenantData?.logo_url && !logoFile && (
                         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                             <Text variant="body-sm" weight={600}>Logo attuale</Text>
                             <img
@@ -243,31 +166,12 @@ export function CreateBusinessDrawer({ open, onClose, mode = "create", tenantDat
                     )}
 
                     <FileInput
-                        label={isEdit ? "Cambia logo (opzionale)" : "Logo (opzionale)"}
+                        label="Cambia logo (opzionale)"
                         accept="image/png,image/jpeg,image/webp"
                         helperText="PNG, JPG o WEBP, max 5MB."
                         maxSizeMb={5}
                         onChange={setLogoFile}
                     />
-
-                    {!isEdit && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                            <SeatsInput
-                                label="Quante sedi ha la tua attività?"
-                                value={seats}
-                                onChange={setSeats}
-                                min={1}
-                                max={MAX_SEATS}
-                                disabled={submitting}
-                            />
-
-                            <div style={{ background: "var(--hover-bg, #f1f5f9)", borderRadius: "8px", padding: "10px 12px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                                <Text variant="body-sm" weight={600}>
-                                    {formatPrice(seats)} · Primi 30 giorni gratuiti
-                                </Text>
-                            </div>
-                        </div>
-                    )}
                 </form>
             </DrawerLayout>
         </SystemDrawer>

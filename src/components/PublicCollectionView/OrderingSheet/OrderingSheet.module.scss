@@ -701,6 +701,15 @@
     font-weight: 500;
 }
 
+.billHint {
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.04);
+    color: var(--pub-muted, #6b7280);
+    border-radius: var(--pub-btn-radius, 8px);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
 .billRequestedDot {
     width: 8px;
     height: 8px;

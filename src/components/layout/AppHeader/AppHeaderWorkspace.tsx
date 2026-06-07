@@ -53,7 +53,7 @@ export function AppHeaderWorkspace({ onOpenMobileSidebar }: AppHeaderWorkspacePr
                 )}
             </div>
             <div className={styles.right}>
-                <HeaderNotifications />
+                <HeaderNotifications scope="account" />
                 <HeaderUserMenu />
             </div>
         </div>
