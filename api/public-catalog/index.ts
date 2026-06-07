@@ -125,6 +125,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
     }
 
+    // Keep-warm forward. Query `?warmup=1` pings the upstream Supabase Edge
+    // Function with header `x-warmup: 1` so it can early-return. No Redis,
+    // no slug validation, no retry, no normalized error mapping. The branch
+    // exists solely to keep this Node lambda and the downstream Deno isolate
+    // hot, driven by api/cron/warmup-public-catalog.
+    if (req.query.warmup === "1") {
+        const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? "";
+        const supabaseKey = process.env.SUPABASE_ANON_KEY
+            ?? process.env.VITE_SUPABASE_ANON_KEY
+            ?? process.env.SUPABASE_SERVICE_ROLE_KEY
+            ?? "";
+        if (!supabaseUrl || !supabaseKey) {
+            res.setHeader("Cache-Control", "no-store");
+            res.setHeader("X-Cataloglobe-Warmup", "missing-env");
+            res.status(500).json({ warmup: "failed", reason: "missing-env" });
+            return;
+        }
+        const upstreamStart = Date.now();
+        let upstreamOk = false;
+        let upstreamStatus = 0;
+        try {
+            const upstream = await fetch(
+                `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/resolve-public-catalog`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${supabaseKey}`,
+                        apikey: supabaseKey,
+                        "x-warmup": "1"
+                    },
+                    body: "{}"
+                }
+            );
+            upstreamStatus = upstream.status;
+            upstreamOk = upstream.ok;
+        } catch {
+            upstreamOk = false;
+        }
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("X-Cataloglobe-Warmup", upstreamOk ? "ok" : "failed");
+        res.status(upstreamOk ? 200 : 502).json({
+            warmup: upstreamOk ? "ok" : "failed",
+            upstreamStatus,
+            durationMs: Date.now() - upstreamStart
+        });
+        return;
+    }
+
     const slug = typeof req.query.slug === "string" ? req.query.slug.trim() : "";
     const langRaw = typeof req.query.lang === "string" ? req.query.lang.trim() : "";
 
