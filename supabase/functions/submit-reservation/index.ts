@@ -60,6 +60,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     ACTIVITY_NOT_FOUND:        "Sede non trovata",
     ACTIVITY_NOT_ACTIVE:       "La sede non è attualmente disponibile",
     RESERVATIONS_DISABLED:     "La sede non accetta prenotazioni online",
+    CAPACITY_FULL:             "Non ci sono più posti per l'orario scelto",
     RATE_LIMITED:              "Troppe richieste. Riprova più tardi.",
     SERVER_ERROR:              "Errore durante l'invio della richiesta"
 };
@@ -106,6 +107,106 @@ function jsonResponse(body: Record<string, unknown>, status: number): Response {
         status,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
+}
+
+// --- Capacity engine (SYNC: src/utils/reservationCapacity.ts) ---------------
+// Deno port. Keep behavior identical to the FE module. If you change one,
+// update the other in the same commit.
+
+const CAP_MINUTES_PER_DAY = 1440;
+const CAP_ACTIVE_STATUSES = new Set(["pending", "confirmed"]);
+
+function capParseLocalDate(iso: string): Date | null {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    if (!m) return null;
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const d = Number(m[3]);
+    if (!y || !mo || !d) return null;
+    return new Date(y, mo - 1, d);
+}
+
+function capTimeToMin(t: string): number {
+    const m = /^(\d{2}):(\d{2})/.exec(t);
+    if (!m) return Number.NaN;
+    const hh = Number(m[1]);
+    const mm = Number(m[2]);
+    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return Number.NaN;
+    return hh * 60 + mm;
+}
+
+function capDiffDays(target: Date, ref: Date): number {
+    const ms = target.getTime() - ref.getTime();
+    return Math.round(ms / (1000 * 60 * 60 * 24));
+}
+
+function capToRelMin(date: string, time: string, ref: Date): number {
+    const d = capParseLocalDate(date);
+    if (!d) return Number.NaN;
+    const off = capDiffDays(d, ref);
+    if (off < -1 || off > 1) return Number.NaN;
+    const m = capTimeToMin(time);
+    if (Number.isNaN(m)) return Number.NaN;
+    return off * CAP_MINUTES_PER_DAY + m;
+}
+
+function capPeakWithCandidate(rows, cand, durationMin) {
+    if (durationMin <= 0) return 0;
+    const ref = capParseLocalDate(cand.reservation_date);
+    if (!ref) return 0;
+    const candStart = capToRelMin(cand.reservation_date, cand.reservation_time, ref);
+    if (Number.isNaN(candStart)) return 0;
+    const candEnd = candStart + durationMin;
+
+    const candId = cand.id ?? "__candidate__";
+    const filtered = rows
+        .filter(r => r.activity_id === cand.activity_id && r.id !== candId)
+        .concat([{
+            id: candId,
+            activity_id: cand.activity_id,
+            reservation_date: cand.reservation_date,
+            reservation_time: cand.reservation_time,
+            party_size: cand.party_size,
+            status: "pending"
+        }]);
+
+    const events = [];
+    for (const r of filtered) {
+        if (!CAP_ACTIVE_STATUSES.has(r.status)) continue;
+        if (r.party_size <= 0) continue;
+        const start = capToRelMin(r.reservation_date, r.reservation_time, ref);
+        if (Number.isNaN(start)) continue;
+        const end = start + durationMin;
+        events.push({ t: start, delta: r.party_size, order: 0 });
+        events.push({ t: end, delta: -r.party_size, order: 1 });
+    }
+    events.sort((a, b) => (a.t - b.t) || (b.order - a.order));
+
+    let level = 0;
+    let peak = 0;
+    let baselineLocked = false;
+    for (const ev of events) {
+        if (ev.t < candStart) { level += ev.delta; continue; }
+        if (ev.t === candStart && ev.order === 1) { level += ev.delta; continue; }
+        if (!baselineLocked) { peak = level; baselineLocked = true; }
+        if (ev.t >= candEnd) break;
+        level += ev.delta;
+        if (level > peak) peak = level;
+    }
+    if (!baselineLocked) peak = level;
+    return Math.max(0, peak);
+}
+
+function capAdjacentDates(isoDate) {
+    const d = capParseLocalDate(isoDate);
+    if (!d) return null;
+    const prev = new Date(d);
+    prev.setDate(prev.getDate() - 1);
+    const next = new Date(d);
+    next.setDate(next.getDate() + 1);
+    const fmt = (x) =>
+        `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+    return { prev: fmt(prev), next: fmt(next) };
 }
 
 // --- Validation helpers ------------------------------------------------------
@@ -451,7 +552,12 @@ serve(async (req: Request) => {
         // ── Resolve slug → activity (server-side; tenant_id NEVER from body)
         const { data: activity, error: activityError } = await supabase
             .from("activities")
-            .select("id, tenant_id, name, slug, status, enable_reservations, reservation_notification_emails")
+            .select(
+                "id, tenant_id, name, slug, status, enable_reservations, " +
+                "reservation_notification_emails, reservation_capacity, " +
+                "reservation_duration_minutes, reservation_confirmation_mode, " +
+                "reservation_overbooking_form"
+            )
             .eq("slug", slug)
             .maybeSingle();
 
@@ -464,6 +570,65 @@ serve(async (req: Request) => {
         }
         if (activity.enable_reservations !== true) {
             return errorResponse("RESERVATIONS_DISABLED", 409);
+        }
+
+        // ── Capacity gate (Step 1: continua + manuale + hard|soft) ──────
+        // Schema invariants (CHECK): reservation_capacity > 0 or NULL,
+        // reservation_duration_minutes in [15..600], modes constrained to
+        // {turni|continua} × {manuale|auto} × {hard|soft}.
+        //
+        // capacity = NULL → no gate (V0 behavior; admin hasn't configured it).
+        // Step 1 wires only the "manuale" matrix row. If a future migration
+        // toggles confirmation_mode=auto without Step 3 deployed, this code
+        // falls through to the manuale path with a TODO marker — never crash,
+        // never silently auto-confirm.
+        //
+        // Engine source-of-truth: src/utils/reservationCapacity.ts. The Deno
+        // port above must stay in sync.
+        const reservationCapacity = activity.reservation_capacity ?? null;
+        const reservationDurationMinutes =
+            typeof activity.reservation_duration_minutes === "number"
+                ? activity.reservation_duration_minutes
+                : 120;
+        const overbookingForm = activity.reservation_overbooking_form === "soft" ? "soft" : "hard";
+        // TODO Step 3: branch on confirmation_mode === "auto" to auto-confirm.
+        // For now any value behaves as "manuale".
+
+        if (reservationCapacity !== null) {
+            const adj = capAdjacentDates(reservationDate);
+            if (!adj) {
+                // Defensive: malformed date that passed earlier regex check.
+                return errorResponse("INVALID_DATE", 400);
+            }
+            const { data: nearbyRows, error: nearbyError } = await supabase
+                .from("reservations")
+                .select("id, activity_id, reservation_date, reservation_time, party_size, status")
+                .eq("activity_id", activity.id)
+                .in("reservation_date", [adj.prev, reservationDate, adj.next])
+                .in("status", ["pending", "confirmed"]);
+
+            if (nearbyError) throw nearbyError;
+
+            const peak = capPeakWithCandidate(
+                nearbyRows ?? [],
+                {
+                    activity_id: activity.id,
+                    reservation_date: reservationDate,
+                    reservation_time: reservationTime,
+                    party_size: partySize
+                },
+                reservationDurationMinutes
+            );
+
+            if (peak > reservationCapacity && overbookingForm === "hard") {
+                return errorResponse("CAPACITY_FULL", 409, {
+                    capacity: reservationCapacity,
+                    peak_with_candidate: peak,
+                    duration_minutes: reservationDurationMinutes
+                });
+            }
+            // soft over-capacity → fall through, insert as pending. The peak
+            // is informative only.
         }
 
         // ── Insert reservation (status='pending', source='online',

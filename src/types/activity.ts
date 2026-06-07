@@ -40,6 +40,24 @@ export interface V2Activity {
      * dell'owner del tenant. Sostituisce `email_public` come sorgente.
      */
     reservation_notification_emails: string[];
+    /**
+     * Capacità coperti per la finestra di prenotazione. NULL = nessun limite
+     * (comportamento V0). Usato da `submit-reservation` per il gate
+     * pubblico e dall'UI admin per il callout "picco previsto / capienza".
+     */
+    reservation_capacity: number | null;
+    /** Durata standard del tavolo in minuti (default 120, range 15-600). */
+    reservation_duration_minutes: number;
+    /** Step 1: solo `continua` cablata. `turni` riservata a Step 2. */
+    reservation_availability_mode: "continua" | "turni";
+    /** Step 1: solo `manuale` cablata. `auto` riservata a Step 3. */
+    reservation_confirmation_mode: "manuale" | "auto";
+    /**
+     * Cosa fa l'Edge `submit-reservation` quando si supera la capienza:
+     *   - `hard` → rifiuta con 409 `CAPACITY_FULL` (default).
+     *   - `soft` → insert `pending`, capienza solo informativa.
+     */
+    reservation_overbooking_form: "hard" | "soft";
     qr_fg_color: string | null;
     qr_bg_color: string | null;
     google_review_url: string | null;

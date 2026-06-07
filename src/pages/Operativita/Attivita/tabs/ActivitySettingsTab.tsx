@@ -10,6 +10,7 @@ import { QRCodeSVG } from "qrcode.react";
 import {
     AlertTriangle,
     Check,
+    ChevronDown,
     Copy,
     Download,
     ExternalLink,
@@ -23,6 +24,7 @@ import {
 import { Button, Card, InlineBanner, MultiEmailInput } from "@/components/ui";
 import UIText from "@/components/ui/Text/Text";
 import { Switch } from "@/components/ui/Switch/Switch";
+import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { Menu } from "@/components/ui/Menu";
 import ModalLayout, {
     ModalLayoutContent,
@@ -102,6 +104,56 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
     const reservationEmails: string[] =
         activity.reservation_notification_emails ?? [];
     const [isUpdatingEmails, setIsUpdatingEmails] = useState(false);
+
+    // ── Capacity & availability draft state (Step 1 wires only:
+    //    capacity, duration_minutes, overbooking_form) ───────────────────────
+    type CapacityDraft = {
+        capacity: string;            // text input → empty string = "no limit"
+        durationMinutes: string;     // text input, defaults to 120
+        overbookingForm: "hard" | "soft";
+    };
+    const savedCapacity: CapacityDraft = useMemo(() => ({
+        capacity: activity.reservation_capacity == null
+            ? ""
+            : String(activity.reservation_capacity),
+        durationMinutes: String(activity.reservation_duration_minutes ?? 120),
+        overbookingForm: activity.reservation_overbooking_form ?? "hard"
+    }), [
+        activity.reservation_capacity,
+        activity.reservation_duration_minutes,
+        activity.reservation_overbooking_form
+    ]);
+    const [capacityDraft, setCapacityDraft] = useState<CapacityDraft>(savedCapacity);
+    const [isCapacityOpen, setIsCapacityOpen] = useState(false);
+    const [isSavingCapacity, setIsSavingCapacity] = useState(false);
+    const lastSavedCapacityRef = useRef<CapacityDraft>(savedCapacity);
+
+    // Re-sync draft when the saved row changes externally (parent reload),
+    // but preserve the user's dirty draft. Same pattern as payments/services.
+    useEffect(() => {
+        const newSaved = savedCapacity;
+        const prevSaved = lastSavedCapacityRef.current;
+        if (
+            newSaved.capacity === prevSaved.capacity &&
+            newSaved.durationMinutes === prevSaved.durationMinutes &&
+            newSaved.overbookingForm === prevSaved.overbookingForm
+        ) {
+            return;
+        }
+        setCapacityDraft(prev => {
+            const isDraftEqualToOldSaved =
+                prev.capacity === prevSaved.capacity &&
+                prev.durationMinutes === prevSaved.durationMinutes &&
+                prev.overbookingForm === prevSaved.overbookingForm;
+            return isDraftEqualToOldSaved ? newSaved : prev;
+        });
+        lastSavedCapacityRef.current = newSaved;
+    }, [savedCapacity]);
+
+    const isCapacityDirty =
+        capacityDraft.capacity !== savedCapacity.capacity ||
+        capacityDraft.durationMinutes !== savedCapacity.durationMinutes ||
+        capacityDraft.overbookingForm !== savedCapacity.overbookingForm;
     // Team members loaded lazily (only when reservations are enabled AND the
     // user holds `team.read`). Owner email surfaces here for the auto-fill
     // on toggle-activation and for the "+ Aggiungi dal team" quick-pick.
@@ -510,6 +562,53 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
             showToast
         ]
     );
+
+    const saveCapacity = useCallback(async () => {
+        // Parse + validate locally (CHECK constraints mirror these). Empty
+        // capacity string → NULL (no limit). Duration must stay in 15..600.
+        const trimmedCapacity = capacityDraft.capacity.trim();
+        let capacityValue: number | null = null;
+        if (trimmedCapacity.length > 0) {
+            const parsed = parseInt(trimmedCapacity, 10);
+            if (!Number.isFinite(parsed) || parsed <= 0) {
+                showToast({
+                    message: "La capienza deve essere un numero maggiore di zero.",
+                    type: "error"
+                });
+                return;
+            }
+            capacityValue = parsed;
+        }
+        const durationParsed = parseInt(capacityDraft.durationMinutes.trim(), 10);
+        if (!Number.isFinite(durationParsed) || durationParsed < 15 || durationParsed > 600) {
+            showToast({
+                message: "La durata deve essere compresa tra 15 e 600 minuti.",
+                type: "error"
+            });
+            return;
+        }
+        setIsSavingCapacity(true);
+        try {
+            await updateActivity(activity.id, tenantId, {
+                reservation_capacity: capacityValue,
+                reservation_duration_minutes: durationParsed,
+                reservation_overbooking_form: capacityDraft.overbookingForm
+            });
+            await onReload();
+            showToast({ message: "Capacità salvata.", type: "success" });
+        } catch {
+            showToast({
+                message: "Impossibile salvare le impostazioni di capacità.",
+                type: "error"
+            });
+        } finally {
+            setIsSavingCapacity(false);
+        }
+    }, [activity.id, tenantId, capacityDraft, onReload, showToast]);
+
+    const cancelCapacity = useCallback(() => {
+        setCapacityDraft(savedCapacity);
+    }, [savedCapacity]);
 
     const handleEnableReservationsToggle = useCallback(
         async (checked: boolean) => {
@@ -1078,6 +1177,159 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                             ? `Se lasci vuoto, gli avvisi andranno a ${ownerEmail} (proprietario dell'azienda).`
                                             : "Se lasci vuoto, gli avvisi andranno all'email del proprietario dell'azienda."}
                                     </p>
+                                )}
+                            </div>
+                        )}
+
+                        {activity.enable_reservations && (
+                            <div className={styles.capacitySection}>
+                                <button
+                                    type="button"
+                                    className={styles.capacityHeader}
+                                    onClick={() => setIsCapacityOpen(open => !open)}
+                                    aria-expanded={isCapacityOpen}
+                                >
+                                    <span className={styles.capacityTitle}>
+                                        Capacità e disponibilità
+                                    </span>
+                                    <ChevronDown
+                                        size={16}
+                                        className={`${styles.capacityChevron} ${
+                                            isCapacityOpen ? styles.capacityChevronOpen : ""
+                                        }`}
+                                    />
+                                </button>
+                                {isCapacityOpen && (
+                                    <div className={styles.capacityBody}>
+                                        <div className={styles.capacityRow}>
+                                            <div className={styles.capacityField}>
+                                                <NumberInput
+                                                    label="Capienza (coperti)"
+                                                    placeholder="Es. 40"
+                                                    min={1}
+                                                    value={capacityDraft.capacity}
+                                                    onChange={e =>
+                                                        setCapacityDraft(d => ({
+                                                            ...d,
+                                                            capacity: e.target.value
+                                                        }))
+                                                    }
+                                                    disabled={isSavingCapacity}
+                                                />
+                                                {capacityDraft.capacity.trim() === "" && (
+                                                    <p className={styles.capacityHint}>
+                                                        Senza capienza impostata, le prenotazioni online non hanno limiti.
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className={styles.capacityField}>
+                                                <NumberInput
+                                                    label="Durata media tavolo (minuti)"
+                                                    placeholder="120"
+                                                    min={15}
+                                                    max={600}
+                                                    value={capacityDraft.durationMinutes}
+                                                    onChange={e =>
+                                                        setCapacityDraft(d => ({
+                                                            ...d,
+                                                            durationMinutes: e.target.value
+                                                        }))
+                                                    }
+                                                    disabled={isSavingCapacity}
+                                                />
+                                                <p className={styles.capacityHint}>
+                                                    Durata occupazione tipica di un tavolo. Default 120.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className={styles.capacityField}>
+                                            <span className={styles.capacityLabel}>
+                                                Quando è pieno
+                                            </span>
+                                            <div className={styles.capacityRadioGroup}>
+                                                <label
+                                                    className={`${styles.capacityRadio} ${
+                                                        capacityDraft.overbookingForm === "hard"
+                                                            ? styles.capacityRadioSelected
+                                                            : ""
+                                                    }`}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="reservation_overbooking_form"
+                                                        value="hard"
+                                                        className={styles.capacityRadioInput}
+                                                        checked={capacityDraft.overbookingForm === "hard"}
+                                                        onChange={() =>
+                                                            setCapacityDraft(d => ({
+                                                                ...d,
+                                                                overbookingForm: "hard"
+                                                            }))
+                                                        }
+                                                        disabled={isSavingCapacity}
+                                                    />
+                                                    <span className={styles.capacityRadioText}>
+                                                        <span className={styles.capacityRadioLabel}>
+                                                            Blocca nuove prenotazioni online
+                                                        </span>
+                                                        <span className={styles.capacityRadioDescription}>
+                                                            Il modulo rifiuta gli orari saturi. L'admin può comunque inserirle a mano.
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                                <label
+                                                    className={`${styles.capacityRadio} ${
+                                                        capacityDraft.overbookingForm === "soft"
+                                                            ? styles.capacityRadioSelected
+                                                            : ""
+                                                    }`}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="reservation_overbooking_form"
+                                                        value="soft"
+                                                        className={styles.capacityRadioInput}
+                                                        checked={capacityDraft.overbookingForm === "soft"}
+                                                        onChange={() =>
+                                                            setCapacityDraft(d => ({
+                                                                ...d,
+                                                                overbookingForm: "soft"
+                                                            }))
+                                                        }
+                                                        disabled={isSavingCapacity}
+                                                    />
+                                                    <span className={styles.capacityRadioText}>
+                                                        <span className={styles.capacityRadioLabel}>
+                                                            Accetta come richiesta da approvare
+                                                        </span>
+                                                        <span className={styles.capacityRadioDescription}>
+                                                            Le richieste oltre la capienza arrivano comunque, in attesa.
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        {isCapacityDirty && (
+                                            <div className={styles.capacityActions}>
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={cancelCapacity}
+                                                    disabled={isSavingCapacity}
+                                                >
+                                                    Annulla
+                                                </Button>
+                                                <Button
+                                                    variant="primary"
+                                                    size="sm"
+                                                    onClick={saveCapacity}
+                                                    loading={isSavingCapacity}
+                                                >
+                                                    Salva
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         )}
