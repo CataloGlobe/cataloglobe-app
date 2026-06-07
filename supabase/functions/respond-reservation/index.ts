@@ -28,11 +28,26 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS"
-};
+// Allowlist mirrors stripe-checkout / stripe-update-seats (admin-only entry
+// points). `respond-reservation` is dashboard-only: no public/preview origin
+// expected. Browser blocks the response when Origin isn't echoed back.
+const ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "https://staging.cataloglobe.com",
+    "https://cataloglobe.com",
+    "https://www.cataloglobe.com"
+];
+
+function corsHeaders(req: Request): Record<string, string> {
+    const origin = req.headers.get("origin") ?? "";
+    const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : "";
+    return {
+        "Access-Control-Allow-Origin": allowed,
+        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Vary": "Origin"
+    };
+}
 
 const ERROR_MESSAGES: Record<string, string> = {
     METHOD_NOT_ALLOWED:      "Metodo non consentito",
@@ -44,7 +59,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     SERVER_ERROR:            "Errore durante l'elaborazione della richiesta"
 };
 
-function errorResponse(code: string, status: number, details?: Record<string, unknown>): Response {
+function errorResponse(req: Request, code: string, status: number, details?: Record<string, unknown>): Response {
     const message = ERROR_MESSAGES[code] ?? "Si è verificato un errore";
     return new Response(
         JSON.stringify({
@@ -53,14 +68,14 @@ function errorResponse(code: string, status: number, details?: Record<string, un
             message,
             ...(details ? { details } : {})
         }),
-        { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
     );
 }
 
-function jsonResponse(body: Record<string, unknown>, status: number): Response {
+function jsonResponse(req: Request, body: Record<string, unknown>, status: number): Response {
     return new Response(JSON.stringify(body), {
         status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        headers: { ...corsHeaders(req), "Content-Type": "application/json" }
     });
 }
 
@@ -195,16 +210,16 @@ function buildOutcomeEmail(args: OutcomeEmailArgs): { subject: string; html: str
 
 serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
-        return new Response("ok", { headers: corsHeaders });
+        return new Response("ok", { headers: corsHeaders(req) });
     }
     if (req.method !== "POST") {
-        return errorResponse("METHOD_NOT_ALLOWED", 405);
+        return errorResponse(req, "METHOD_NOT_ALLOWED", 405);
     }
 
     // ── Auth ────────────────────────────────────────────────────────
     const jwt = extractBearerJwt(req);
     if (!jwt) {
-        return errorResponse("UNAUTHORIZED", 401);
+        return errorResponse(req, "UNAUTHORIZED", 401);
     }
 
     // user-scoped client: anon key + caller JWT in Authorization header.
@@ -218,7 +233,7 @@ serve(async (req: Request) => {
     // tampered or expired tokens before any DB round-trip.
     const { data: userData, error: userErr } = await supabaseUser.auth.getUser(jwt);
     if (userErr || !userData?.user?.id) {
-        return errorResponse("UNAUTHORIZED", 401);
+        return errorResponse(req, "UNAUTHORIZED", 401);
     }
 
     // ── Body validation ────────────────────────────────────────────
@@ -226,17 +241,17 @@ serve(async (req: Request) => {
     try {
         body = (await req.json()) as Record<string, unknown>;
     } catch {
-        return errorResponse("INVALID_PAYLOAD", 400);
+        return errorResponse(req, "INVALID_PAYLOAD", 400);
     }
 
     const reservationId = typeof body.reservation_id === "string" ? body.reservation_id.trim() : "";
     if (!reservationId || !UUID_RE.test(reservationId)) {
-        return errorResponse("INVALID_PAYLOAD", 400, { field: "reservation_id" });
+        return errorResponse(req, "INVALID_PAYLOAD", 400, { field: "reservation_id" });
     }
 
     const action = typeof body.action === "string" ? body.action.trim() : "";
     if (action !== "confirm" && action !== "decline" && action !== "cancel") {
-        return errorResponse("INVALID_ACTION", 400);
+        return errorResponse(req, "INVALID_ACTION", 400);
     }
     const newStatus = ACTION_TO_STATUS[action as Action];
 
@@ -265,15 +280,15 @@ serve(async (req: Request) => {
 
         if (selectErr) {
             console.error("[respond-reservation] select error:", selectErr);
-            return errorResponse("SERVER_ERROR", 500);
+            return errorResponse(req, "SERVER_ERROR", 500);
         }
 
         if (!current) {
-            return errorResponse("RESERVATION_NOT_FOUND", 404);
+            return errorResponse(req, "RESERVATION_NOT_FOUND", 404);
         }
 
         if (current.status !== expectedFrom) {
-            return errorResponse("INVALID_TRANSITION", 409, {
+            return errorResponse(req, "INVALID_TRANSITION", 409, {
                 current_status: current.status,
                 expected_status: expectedFrom,
                 action
@@ -294,20 +309,17 @@ serve(async (req: Request) => {
             // RLS denials on UPDATE typically surface as 0 rows; a real error
             // here means DB/transport issue.
             console.error("[respond-reservation] update error:", updateErr);
-            return errorResponse("SERVER_ERROR", 500);
+            return errorResponse(req, "SERVER_ERROR", 500);
         }
 
         if (!updated) {
-            // Two possible reasons we reach here:
-            //  - missing `reservations.manage` (visible via SELECT, not via UPDATE)
-            //  - concurrent admin already transitioned the row (race)
-            // We can't distinguish without an extra round-trip; respond 409 so
-            // the UI can refetch and show the current state.
-            return errorResponse("INVALID_TRANSITION", 409, {
-                current_status: "unknown",
+            // Either missing `reservations.manage` (row visible via SELECT but
+            // not updatable) or a concurrent admin already transitioned the
+            // row. We don't disclose which: the UI refetches and renders the
+            // current state regardless.
+            return errorResponse(req, "INVALID_TRANSITION", 409, {
                 expected_status: expectedFrom,
-                action,
-                reason: "race_or_no_manage"
+                action
             });
         }
 
@@ -352,11 +364,12 @@ serve(async (req: Request) => {
         }
 
         return jsonResponse(
+            req,
             { success: true, reservation_id: updated.id, status: updated.status },
             200
         );
     } catch (err) {
         console.error("[respond-reservation] error:", err);
-        return errorResponse("SERVER_ERROR", 500);
+        return errorResponse(req, "SERVER_ERROR", 500);
     }
 });
