@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { AlertCircle, ClipboardList, RefreshCw, Volume2, VolumeX } from "lucide-react";
+import { AlertCircle, ClipboardList, Plus, RefreshCw, Volume2, VolumeX } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
@@ -40,8 +40,13 @@ import OrderCancelDrawer from "./OrderCancelDrawer";
 import OrderRectifyDrawer from "./OrderRectifyDrawer";
 import OrderHistoryRow from "./OrderHistoryRow";
 import OrdersKanban from "./OrdersKanban";
+import { CreateOrderDrawer } from "./CreateOrderDrawer/CreateOrderDrawer";
 import { useActiveOrdersRealtime } from "./hooks/useActiveOrdersRealtime";
 import { useNewOrderAlert } from "./hooks/useNewOrderAlert";
+
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnActivity } from "@/lib/permissions";
+
 import styles from "./Orders.module.scss";
 
 type MainTab = "comande" | "tavoli" | "storico";
@@ -95,6 +100,17 @@ export default function Orders() {
     // Rectify drawer
     const [isRectifyOpen, setIsRectifyOpen] = useState(false);
     const [orderToRectify, setOrderToRectify] = useState<V2OrderWithItems | null>(null);
+
+    // Create order drawer (entry "Crea ordine" da headerActions)
+    const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
+
+    // Permessi per gating "Crea ordine": stesso hook usato dalla Sidebar
+    // (PermissionsContext, montato dentro /business/:businessId/*).
+    const { permissions } = usePermissions();
+    const canCreateOrder =
+        !!selectedActivityId &&
+        !!permissions &&
+        canDoOnActivity(permissions, "orders.manage", selectedActivityId);
 
     // Table detail + close drawer (tab "Tavoli"): ora interni a
     // TablesLiveView (Step 4c + close-table). Nessuno state qui.
@@ -185,6 +201,16 @@ export default function Orders() {
     const headerActions = useMemo(
         () => (
             <div className={styles.headerActions}>
+                {canCreateOrder && (
+                    <Button
+                        variant="primary"
+                        className={styles.toolbarCta}
+                        leftIcon={<Plus size={16} />}
+                        onClick={() => setIsCreateOrderOpen(true)}
+                    >
+                        Crea ordine
+                    </Button>
+                )}
                 <Button
                     variant="secondary"
                     className={styles.toolbarCta}
@@ -214,7 +240,7 @@ export default function Orders() {
                 </button>
             </div>
         ),
-        [selectedActivityId, refreshAll, isLoadingOrders, soundEnabled, toggleSound]
+        [canCreateOrder, selectedActivityId, refreshAll, isLoadingOrders, soundEnabled, toggleSound]
     );
 
     const headerLeading = useMemo(() => (
@@ -784,6 +810,14 @@ export default function Orders() {
                     setOrderToRectify(null);
                 }}
                 onConfirm={handleRectifyConfirm}
+            />
+
+            <CreateOrderDrawer
+                open={isCreateOrderOpen}
+                tenantId={tenantId}
+                activityId={selectedActivityId}
+                onClose={() => setIsCreateOrderOpen(false)}
+                onSubmitted={refreshAll}
             />
         </section>
     );
