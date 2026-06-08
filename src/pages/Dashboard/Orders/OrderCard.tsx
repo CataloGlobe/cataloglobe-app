@@ -7,7 +7,8 @@ import {
     Eye,
     Trash2,
     CheckCheck,
-    CornerUpLeft
+    CornerUpLeft,
+    User
 } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
@@ -140,6 +141,24 @@ export default function OrderCard({
                 </div>
                 <div className={styles.headerRight}>
                     <StatusBadge variant="neutral" label={statusLabel(order.status)} />
+                    {order.created_by_user_id != null ? (
+                        <span
+                            className={styles.attributionStaff}
+                            aria-label="Comanda inserita dallo staff"
+                        >
+                            <span className={styles.attributionIcon} aria-hidden>
+                                <User size={12} />
+                            </span>
+                            Staff
+                        </span>
+                    ) : (
+                        <span
+                            className={styles.attributionCustomer}
+                            aria-label="Comanda inviata dal cliente"
+                        >
+                            Cliente
+                        </span>
+                    )}
                     <span className={styles.timeStamp}>
                         <Clock size={14} />
                         <Text variant="body-sm" colorVariant="muted">

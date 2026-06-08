@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock } from "lucide-react";
+import { Clock, User } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -70,10 +70,22 @@ export default function OrderHistoryRow({
                         </Text>
                     )}
                 </div>
-                {order.customer_name_snapshot && (
-                    <Text variant="body-sm" colorVariant="muted">
-                        {order.customer_name_snapshot}
-                    </Text>
+                {order.created_by_user_id != null ? (
+                    <span
+                        className={styles.attributionStaff}
+                        aria-label="Comanda inserita dallo staff"
+                    >
+                        <span className={styles.attributionIcon} aria-hidden>
+                            <User size={12} />
+                        </span>
+                        Staff
+                    </span>
+                ) : (
+                    order.customer_name_snapshot && (
+                        <Text variant="body-sm" colorVariant="muted">
+                            {order.customer_name_snapshot}
+                        </Text>
+                    )
                 )}
             </div>
 
