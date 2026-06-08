@@ -164,6 +164,30 @@ $footer-padding-x-expanded: $scroll-padding-x + $nav-padding-x + $item-padding-x
   transition: opacity 0.08s ease, max-width 0.22s ease, margin-inline-start 0.22s ease;
 }
 
+/* Lock icon next to a feature-locked nav item label.
+   Color follows the link (currentColor) and is softened with opacity,
+   so it reads as a discreet hint — not a noisy badge.
+   Mirrors `.label` collapse behaviour so it hides when sidebar collapses. */
+.lockIndicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-inline-start: 8px;
+  flex-shrink: 0;
+  color: currentColor;
+  opacity: 0.55;
+  max-width: 16px;
+  overflow: hidden;
+  transition: opacity 0.16s ease 0.06s, max-width 0.22s ease, margin-inline-start 0.22s ease;
+}
+
+.sidebar[data-collapsed="true"] .lockIndicator {
+  opacity: 0;
+  max-width: 0;
+  margin-inline-start: 0;
+  transition: opacity 0.08s ease, max-width 0.22s ease, margin-inline-start 0.22s ease;
+}
+
 /* ===== Active item: light bg + left vertical rail ===== */
 .active {
   background: var(--brand-primary-soft);

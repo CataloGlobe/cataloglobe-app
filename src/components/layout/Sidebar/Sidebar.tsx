@@ -22,6 +22,7 @@ import {
     Archive,
     CreditCard,
     Languages,
+    Lock,
     PanelLeftClose,
     PanelLeftOpen
 } from "lucide-react";
@@ -33,6 +34,7 @@ import {
     canDoOnAnyActivity,
     type UserPermissions
 } from "@/lib/permissions";
+import { usePlanFeatures, type PlanFeature } from "@/lib/planFeatures";
 import { SIDEBAR_COLLAPSED, SIDEBAR_EXPANDED } from "@/constants/layout";
 
 interface NavItem {
@@ -42,6 +44,13 @@ interface NavItem {
     end?: boolean;
     /** Permission check. Se undefined → sempre visibile. */
     permission?: (perms: UserPermissions) => boolean;
+    /**
+     * Feature gate (plan-based). When set and the current plan does NOT
+     * include the feature, the item remains VISIBLE and CLICKABLE with a
+     * "Pro" badge — the destination page itself shows the locked state.
+     * Different from `permission`, which HIDES the item.
+     */
+    requiresFeature?: PlanFeature;
 }
 
 interface NavGroup {
@@ -71,9 +80,11 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
                 { to: `${b}/locations`, label: "Sedi", icon: <Store size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "activity.read") },
                 { to: `${b}/orders`, label: "Ordini", icon: <ClipboardList size={18} />,
-                  permission: perms => canDoOnAnyActivity(perms, "orders.read") },
+                  permission: perms => canDoOnAnyActivity(perms, "orders.read"),
+                  requiresFeature: "table_ordering" },
                 { to: `${b}/reservations`, label: "Prenotazioni", icon: <CalendarCheck size={18} />,
-                  permission: perms => canDoOnAnyActivity(perms, "reservations.read") },
+                  permission: perms => canDoOnAnyActivity(perms, "reservations.read"),
+                  requiresFeature: "table_reservation" },
                 { to: `${b}/scheduling`, label: "Programmazione", icon: <Calendar size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "scheduling.read") }
             ]
@@ -145,6 +156,7 @@ export default function Sidebar({
     const { businessId = "" } = useParams<{ businessId: string }>();
     const { catalogLabel } = useVerticalConfig();
     const { permissions } = usePermissions();
+    const { hasFeature } = usePlanFeatures();
     const allGroups = buildGroups(businessId, catalogLabel);
     // Filtra voci per permission: se permissions non ancora caricate, mostra
     // tutte (default ottimistico). Una volta caricate, applica gating.
@@ -197,7 +209,9 @@ export default function Sidebar({
                                     aria-label={group.title ?? undefined}
                                 >
                                     <ul className={styles.list}>
-                                        {group.items.map(link => (
+                                        {group.items.map(link => {
+                                            const isLocked = !!link.requiresFeature && !hasFeature(link.requiresFeature);
+                                            return (
                                             <li key={link.to}>
                                                 <NavLink
                                                     to={link.to}
@@ -214,7 +228,7 @@ export default function Sidebar({
                                                 >
                                                     {!isMobile && collapsed ? (
                                                         <Tooltip
-                                                            content={link.label}
+                                                            content={isLocked ? `${link.label} · Pro` : link.label}
                                                             side="right"
                                                             sideOffset={28}
                                                         >
@@ -231,9 +245,19 @@ export default function Sidebar({
                                                     <span className={styles.label}>
                                                         {link.label}
                                                     </span>
+
+                                                    {isLocked && (
+                                                        <span
+                                                            className={styles.lockIndicator}
+                                                            aria-label="Funzione del piano Pro"
+                                                        >
+                                                            <Lock size={14} strokeWidth={1.5} />
+                                                        </span>
+                                                    )}
                                                 </NavLink>
                                             </li>
-                                        ))}
+                                            );
+                                        })}
                                     </ul>
                                 </div>
                             </Fragment>
