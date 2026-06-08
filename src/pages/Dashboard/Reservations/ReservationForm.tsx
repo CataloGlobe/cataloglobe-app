@@ -1,21 +1,27 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type FormEvent, useEffect, useMemo, useState } from "react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
-import { DateInput } from "@/components/ui/Input/DateInput";
-import { TimeInput } from "@/components/ui/Input/TimeInput";
 import { Select } from "@/components/ui/Select/Select";
 import { useToast } from "@/context/Toast/ToastContext";
-import { todayIsoDate } from "@/utils/dateLocal";
 import {
     createReservation,
     updateReservation
 } from "@/services/supabase/reservations";
+import { listActivityHours } from "@/services/supabase/activityHours";
+import { listActivityClosures } from "@/services/supabase/activityClosures";
 import {
     canAccept,
     type CapacityReservation
 } from "@/utils/reservationCapacity";
+import { todayIsoDate } from "@/utils/dateLocal";
+import type {
+    OpeningHoursEntry,
+    UpcomingClosure
+} from "@pages/ReservationPage/availability";
 import type { V2Reservation } from "@/types/reservation";
 import type { V2Activity } from "@/types/activity";
+import AdminReservationDatePicker from "./components/AdminReservationDatePicker";
+import AdminReservationTimePicker from "./components/AdminReservationTimePicker";
 import styles from "./Reservations.module.scss";
 
 interface FormActivity {
@@ -45,6 +51,16 @@ function normalizeTime(value: string): string {
     const trimmed = value.length === 5 ? `${value}:00` : value;
     return trimmed;
 }
+
+// Inline error style for the field-level error span next to the admin
+// pickers. Kept inline (no addition to Reservations.module.scss in this
+// scope) and tokenized so dark theme + brand re-skins keep working.
+const fieldErrorStyle: CSSProperties = {
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 1.3,
+    color: "var(--color-red-900, #450a0a)"
+};
 
 export function ReservationForm({
     formId,
@@ -84,6 +100,15 @@ export function ReservationForm({
     const [activityError, setActivityError] = useState<string>();
     const [emailError, setEmailError] = useState<string>();
 
+    // Venue opening hours + closures fetched on-demand per activity. Used to
+    // populate the time-of-day grid in AdminReservationTimePicker. Fetch is
+    // best-effort: on failure the picker falls back to the free-form input
+    // (operator can still complete the reservation).
+    const [hours, setHours] = useState<OpeningHoursEntry[]>([]);
+    const [closures, setClosures] = useState<UpcomingClosure[]>([]);
+    const [hoursLoading, setHoursLoading] = useState<boolean>(false);
+    const [hoursError, setHoursError] = useState<string | undefined>(undefined);
+
     // Re-sync stato se il drawer viene riusato con un'entita' diversa.
     useEffect(() => {
         if (isEditing && entityData) {
@@ -97,6 +122,66 @@ export function ReservationForm({
             setNotes(entityData.notes ?? "");
         }
     }, [isEditing, entityData]);
+
+    // Fetch hours + closures for the selected activity. Triggered on mount
+    // (with default activity) and whenever the operator changes the venue
+    // dropdown. V2ActivityHours and V2ActivityClosure are structural supersets
+    // of OpeningHoursEntry and UpcomingClosure respectively (extra metadata
+    // fields like id/tenant_id), so a thin field-pick mapping yields the
+    // exact shape the picker logic expects.
+    useEffect(() => {
+        if (!tenantId || !activityId) {
+            setHours([]);
+            setClosures([]);
+            setHoursError(undefined);
+            setHoursLoading(false);
+            return;
+        }
+        let cancelled = false;
+        setHoursLoading(true);
+        setHoursError(undefined);
+        Promise.all([
+            listActivityHours(activityId, tenantId),
+            listActivityClosures(activityId, tenantId)
+        ])
+            .then(([rawHours, rawClosures]) => {
+                if (cancelled) return;
+                setHours(
+                    rawHours.map(h => ({
+                        day_of_week: h.day_of_week,
+                        slot_index: h.slot_index,
+                        opens_at: h.opens_at,
+                        closes_at: h.closes_at,
+                        is_closed: h.is_closed,
+                        closes_next_day: h.closes_next_day
+                    }))
+                );
+                setClosures(
+                    rawClosures.map(c => ({
+                        closure_date: c.closure_date,
+                        end_date: c.end_date,
+                        label: c.label,
+                        is_closed: c.is_closed,
+                        slots: c.slots
+                    }))
+                );
+            })
+            .catch(err => {
+                if (cancelled) return;
+                console.error("[ReservationForm] hours/closures fetch failed:", err);
+                setHours([]);
+                setClosures([]);
+                setHoursError(
+                    "Orari sede non disponibili. Puoi inserire l'orario manualmente."
+                );
+            })
+            .finally(() => {
+                if (!cancelled) setHoursLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [tenantId, activityId]);
 
     const activeActivity = useMemo(
         () => manageableActivities.find(a => a.id === activityId) ?? null,
@@ -260,7 +345,15 @@ export function ReservationForm({
                     label="Sede"
                     required
                     value={activityId}
-                    onChange={e => setActivityId(e.target.value)}
+                    onChange={e => {
+                        const next = e.target.value;
+                        if (next === activityId) return;
+                        setActivityId(next);
+                        // Reset time when venue changes: the periods grid is
+                        // computed from the new venue's hours/closures, so a
+                        // previously-picked time may no longer match a slot.
+                        if (reservationTime) setReservationTime("");
+                    }}
                     disabled={onlyOneActivity}
                     error={activityError}
                     options={[
@@ -272,22 +365,49 @@ export function ReservationForm({
                 />
             )}
 
-            <div className={styles.reservationFormRow}>
-                <DateInput
-                    label="Data"
-                    required
+            <div className={styles.reservationFormField}>
+                <span className={styles.reservationFormLabel}>Data</span>
+                <AdminReservationDatePicker
                     value={reservationDate}
-                    min={isEditing ? undefined : todayIsoDate()}
-                    onChange={e => setReservationDate(e.target.value)}
-                    error={dateError}
+                    onChange={iso => {
+                        if (iso === reservationDate) return;
+                        setReservationDate(iso);
+                        // Reset time on date change for the same reason as
+                        // above — keeps the picker's value coherent with the
+                        // freshly-computed period grid.
+                        if (reservationTime) setReservationTime("");
+                    }}
+                    hours={hours}
+                    closures={closures}
+                    allowPast={isEditing}
+                    invalid={Boolean(dateError)}
+                    errorId={dateError ? `${formId}-date-error` : undefined}
                 />
-                <TimeInput
-                    label="Ora"
-                    required
+                {dateError && (
+                    <span id={`${formId}-date-error`} style={fieldErrorStyle}>
+                        {dateError}
+                    </span>
+                )}
+            </div>
+
+            <div className={styles.reservationFormField}>
+                <span className={styles.reservationFormLabel}>Ora</span>
+                <AdminReservationTimePicker
                     value={reservationTime}
-                    onChange={e => setReservationTime(e.target.value)}
-                    error={timeError}
+                    onChange={setReservationTime}
+                    date={reservationDate}
+                    hours={hours}
+                    closures={closures}
+                    loading={hoursLoading}
+                    error={hoursError}
+                    invalid={Boolean(timeError)}
+                    errorId={timeError ? `${formId}-time-error` : undefined}
                 />
+                {timeError && (
+                    <span id={`${formId}-time-error`} style={fieldErrorStyle}>
+                        {timeError}
+                    </span>
+                )}
             </div>
 
             <NumberInput

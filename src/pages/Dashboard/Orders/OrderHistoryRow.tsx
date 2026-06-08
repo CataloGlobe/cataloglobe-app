@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock } from "lucide-react";
+import { Clock, User } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -12,6 +12,12 @@ interface Props {
     order: V2OrderWithItems;
     tableLabel: string;
     tableZone: string | null;
+    /**
+     * Mappa `user_id → display_name` per risolvere il nome dell'operatore
+     * sulla pill "Staff" quando `order.created_by_user_id` e' valorizzato.
+     * Lookup mancante → fallback label "Staff" senza nome.
+     */
+    operatorNames?: Map<string, string>;
     onRestore: (order: V2OrderWithItems) => Promise<void>;
     onViewDetail: (order: V2OrderWithItems) => void;
 }
@@ -37,6 +43,7 @@ export default function OrderHistoryRow({
     order,
     tableLabel,
     tableZone,
+    operatorNames,
     onRestore,
     onViewDetail
 }: Props) {
@@ -70,10 +77,37 @@ export default function OrderHistoryRow({
                         </Text>
                     )}
                 </div>
-                {order.customer_name_snapshot && (
-                    <Text variant="body-sm" colorVariant="muted">
-                        {order.customer_name_snapshot}
-                    </Text>
+                {order.created_by_user_id != null ? (() => {
+                    const operatorName = operatorNames?.get(order.created_by_user_id);
+                    const titleText = operatorName ?? "Comanda staff";
+                    const ariaText = operatorName
+                        ? `Comanda inserita da ${operatorName}`
+                        : "Comanda inserita dallo staff";
+                    return (
+                        <span
+                            className={styles.attributionStaff}
+                            title={titleText}
+                            aria-label={ariaText}
+                        >
+                            <User size={12} aria-hidden />
+                        </span>
+                    );
+                })() : (
+                    <span
+                        className={styles.attributionCustomer}
+                        title={
+                            order.customer_name_snapshot
+                                ? `Comanda cliente · ${order.customer_name_snapshot}`
+                                : "Comanda cliente"
+                        }
+                        aria-label={
+                            order.customer_name_snapshot
+                                ? `Comanda inviata dal cliente ${order.customer_name_snapshot}`
+                                : "Comanda inviata dal cliente"
+                        }
+                    >
+                        <User size={12} aria-hidden />
+                    </span>
                 )}
             </div>
 

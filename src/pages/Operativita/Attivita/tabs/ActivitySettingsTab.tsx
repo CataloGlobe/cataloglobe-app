@@ -16,10 +16,12 @@ import {
     FileText,
     Image as ImageIcon,
     Link as LinkIcon,
+    Lock,
     Palette,
     Plus,
     Trash2
 } from "lucide-react";
+import { usePlanFeatures } from "@/lib/planFeatures";
 import { Button, Card, InlineBanner, MultiEmailInput } from "@/components/ui";
 import UIText from "@/components/ui/Text/Text";
 import { Switch } from "@/components/ui/Switch/Switch";
@@ -98,6 +100,14 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
     const { permissions } = usePermissions();
     const canReadTeam = permissions ? canDoOnTenant(permissions, "team.read") : false;
     const navigate = useNavigate();
+
+    // Plan-based feature gating (UX only — real enforcement is server-side via
+    // plans.features_json / activity_has_feature). When the tenant's plan does
+    // not include a feature, the related toggle is disabled and locked; the
+    // saved DB value is NOT mutated.
+    const { hasFeature } = usePlanFeatures();
+    const isOrderingLocked = !hasFeature("table_ordering");
+    const isReservationsLocked = !hasFeature("table_reservation");
 
     // ── Reservation alert recipients state ──────────────────────────────────
     const reservationEmails: string[] =
@@ -1093,6 +1103,7 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                         <Switch
                             checked={activity.ordering_enabled}
                             onChange={handleOrderingEnabledToggle}
+                            disabled={isOrderingLocked}
                             label="Ordinazioni QR abilitate"
                             description={
                                 activity.ordering_enabled
@@ -1100,6 +1111,12 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                     : "I clienti vedono il menu in sola lettura. Il tasto Invia ordine e' disabilitato. Riattiva quando vuoi accettare nuovamente ordini al tavolo."
                             }
                         />
+                        {isOrderingLocked && (
+                            <div className={styles.lockedFeatureCaption}>
+                                <Lock size={14} strokeWidth={1.5} />
+                                <span>Disponibile con il piano Pro</span>
+                            </div>
+                        )}
                     </div>
                 </Card>
 
@@ -1117,6 +1134,7 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                         <Switch
                             checked={activity.enable_reservations}
                             onChange={handleEnableReservationsToggle}
+                            disabled={isReservationsLocked}
                             label="Accetta prenotazioni"
                             description={
                                 activity.enable_reservations
@@ -1124,6 +1142,12 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                     : "Il modulo di prenotazione e' nascosto dalla pagina pubblica. Riattiva quando vuoi tornare a ricevere richieste."
                             }
                         />
+                        {isReservationsLocked && (
+                            <div className={styles.lockedFeatureCaption}>
+                                <Lock size={14} strokeWidth={1.5} />
+                                <span>Disponibile con il piano Pro</span>
+                            </div>
+                        )}
                         {activity.enable_reservations &&
                             !isHoursLoading &&
                             !hours.some(h => !h.is_closed && h.opens_at && h.closes_at) && (

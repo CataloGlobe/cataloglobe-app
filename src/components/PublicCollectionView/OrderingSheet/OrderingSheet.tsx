@@ -7,9 +7,9 @@ import OrderStatusStepper from "./OrderStatusStepper";
 import ItemNoteEditor from "./ItemNoteEditor";
 import OrderNoteEditor from "./OrderNoteEditor";
 import { getOrdersForSession, cancelOrderCustomer, subscribeToSessionOrders } from "@/services/supabase/orders";
-import { requestBill, subscribeToCustomerSession } from "@/services/supabase/customerSessions";
+import { requestBill } from "@/services/supabase/customerSessions";
 import { useCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
-import type { SessionOrderSummary, V2CustomerSession } from "@/types/orders";
+import type { SessionOrderSummary } from "@/types/orders";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import styles from "./OrderingSheet.module.scss";
 
@@ -101,6 +101,13 @@ interface OrderingSheetProps {
      */
     maintenance?: { reason: OrderingStateReason; message: string } | null;
 
+    /**
+     * Bill state — controllato dal parent (CollectionView) che mantiene la
+     * subscription customer_sessions always-on. Sincronizzato via prop.
+     */
+    billRequestedAt: string | null;
+    onBillRequestedAtChange: (next: string | null) => void;
+
     onSessionExpired?: () => void;
     ordersRefreshKey?: number;
 }
@@ -125,6 +132,8 @@ export default function OrderingSheet({
     onSubmitOrder,
     isSubmitting = false,
     maintenance = null,
+    billRequestedAt,
+    onBillRequestedAtChange,
     onSessionExpired,
     ordersRefreshKey
 }: OrderingSheetProps) {
@@ -137,8 +146,7 @@ export default function OrderingSheet({
     const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
     const [processingCancelId, setProcessingCancelId] = useState<string | null>(null);
 
-    // Bill request state — sync iniziale dal context, poi Realtime su customer_sessions
-    const [billRequestedAt, setBillRequestedAt] = useState<string | null>(null);
+    // Bill request state — `billRequestedAt` controllato dal parent.
     const [isRequestingBill, setIsRequestingBill] = useState(false);
     const [billError, setBillError] = useState<string | null>(null);
 
@@ -187,7 +195,7 @@ export default function OrderingSheet({
         try {
             const data = await getOrdersForSession(session.jwt);
             setOrders(data.orders);
-            setBillRequestedAt(data.bill_requested_at);
+            onBillRequestedAtChange(data.bill_requested_at);
         } catch (err) {
             if (err instanceof Error) {
                 if (err.message.toLowerCase().includes("scaduta")) {
@@ -202,7 +210,7 @@ export default function OrderingSheet({
         } finally {
             setIsLoadingOrders(false);
         }
-    }, [session, clear, onSessionExpired]);
+    }, [session, clear, onSessionExpired, onBillRequestedAtChange]);
 
     const handleCancelConfirm = useCallback(
         async (orderId: string) => {
@@ -297,30 +305,8 @@ export default function OrderingSheet({
         };
     }, [isOpen, activeTab, session?.jwt, loadOrders, clear, onSessionExpired]);
 
-    // Realtime subscribe a customer_sessions per propagare bill_requested_at
-    // change quando admin fa "Risposto" o close-table clear implicit.
-    useEffect(() => {
-        const jwt = session?.jwt;
-        if (!isOpen || activeTab !== "orders" || !jwt) return;
-
-        let channel: RealtimeChannel | null = null;
-        channel = subscribeToCustomerSession(jwt, {
-            onUpdate: (updatedSession: V2CustomerSession) => {
-                setBillRequestedAt(updatedSession.bill_requested_at ?? null);
-            },
-            onError: err => {
-                const msg = err.message.toLowerCase();
-                if (msg.includes("token") || msg.includes("jwt") || msg.includes("auth")) {
-                    clear();
-                    onSessionExpired?.();
-                }
-            }
-        });
-
-        return () => {
-            channel?.unsubscribe();
-        };
-    }, [isOpen, activeTab, session?.jwt, clear, onSessionExpired]);
+    // Sub customer_sessions lifted al parent (CollectionView) per garantire
+    // always-on anche con sheet chiusa (es. chiusura tavolo durante browsing).
 
     // Handler "Chiedi il conto"
     const handleRequestBill = useCallback(async () => {
@@ -329,7 +315,7 @@ export default function OrderingSheet({
         setBillError(null);
         try {
             const result = await requestBill(session.jwt);
-            setBillRequestedAt(result.bill_requested_at);
+            onBillRequestedAtChange(result.bill_requested_at);
         } catch (err) {
             if (err instanceof Error) {
                 if (err.message.toLowerCase().includes("scaduta")) {
@@ -344,7 +330,7 @@ export default function OrderingSheet({
         } finally {
             setIsRequestingBill(false);
         }
-    }, [session?.jwt, clear, onSessionExpired]);
+    }, [session?.jwt, clear, onSessionExpired, onBillRequestedAtChange]);
 
     return (
         <PublicSheet
@@ -361,6 +347,7 @@ export default function OrderingSheet({
                                 type="button"
                                 className={styles.clearBtn}
                                 onClick={onClear}
+                                disabled={maintenance != null}
                             >
                                 Svuota
                             </button>
@@ -447,6 +434,7 @@ export default function OrderingSheet({
                                                                 type="button"
                                                                 className={styles.editLink}
                                                                 onClick={() => onEditItem(index, item)}
+                                                                disabled={maintenance != null}
                                                             >
                                                                 {t("selection.edit")}
                                                             </button>
@@ -473,6 +461,7 @@ export default function OrderingSheet({
                                                             ? t("selection.remove_aria")
                                                             : t("selection.decrease_aria")
                                                     }
+                                                    disabled={maintenance != null}
                                                 >
                                                     {item.qty === 1 ? (
                                                         <Trash2 size={13} strokeWidth={2} />
@@ -486,6 +475,7 @@ export default function OrderingSheet({
                                                     className={styles.qtyBtn}
                                                     onClick={() => onUpdateQty(index, item.qty + 1)}
                                                     aria-label={t("selection.increase_aria")}
+                                                    disabled={maintenance != null}
                                                 >
                                                     <Plus size={13} strokeWidth={2} />
                                                 </button>
@@ -583,7 +573,7 @@ export default function OrderingSheet({
                                         type="button"
                                         className={styles.billCta}
                                         onClick={handleRequestBill}
-                                        disabled={isRequestingBill}
+                                        disabled={isRequestingBill || maintenance != null}
                                     >
                                         {isRequestingBill ? "Invio..." : "Chiedi il conto"}
                                     </button>

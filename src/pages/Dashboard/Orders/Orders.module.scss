@@ -4,6 +4,18 @@
   gap: 16px;
 }
 
+/* Full-page locked state (feature-gated). Mirrors the centering pattern
+   used by TeamPage `.lockedWrap`: flex-grow + flex-centered + min-height
+   so the EmptyState (Lock + title + description + CTA) sits at the visual
+   centre of the available area when the PageHeaderSlot is empty. */
+.lockedWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+}
+
 .headerActions {
   display: flex;
   gap: 12px;

@@ -60,6 +60,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     ACTIVITY_NOT_FOUND:        "Sede non trovata",
     ACTIVITY_NOT_ACTIVE:       "La sede non è attualmente disponibile",
     RESERVATIONS_DISABLED:     "La sede non accetta prenotazioni online",
+    FEATURE_NOT_AVAILABLE:     "Le prenotazioni non sono disponibili per questa attività",
     CAPACITY_FULL:             "Non ci sono più posti per l'orario scelto",
     RATE_LIMITED:              "Troppe richieste. Riprova più tardi.",
     SERVER_ERROR:              "Errore durante l'invio della richiesta"
@@ -520,6 +521,20 @@ serve(async (req: Request) => {
         }
         if (activity.enable_reservations !== true) {
             return errorResponse("RESERVATIONS_DISABLED", 409);
+        }
+
+        // ── Plan-based feature gate ───────────────────────────────────
+        // Belt-and-suspenders with the BEFORE INSERT trigger on `reservations`
+        // that raises FEATURE_NOT_AVAILABLE; this pre-check turns the would-be
+        // DB error into a clean codified response. Fail-closed: any non-true
+        // result (false, null, RPC error) blocks the request.
+        const { data: hasReservationFeature, error: featErr } = await supabase
+            .rpc("activity_has_feature", {
+                p_activity_id: activity.id,
+                p_feature_id: "table_reservation"
+            });
+        if (featErr || hasReservationFeature !== true) {
+            return errorResponse("FEATURE_NOT_AVAILABLE", 409);
         }
 
         // ── Atomic capacity gate + insert (Step 3) ─────────────────────

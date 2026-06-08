@@ -464,12 +464,21 @@ serve(async (req: Request) => {
         // Intercept maintenance mode mid-session: cliente con session valida
         // ma tenant scaduto / activity inactive / ordering_enabled=false /
         // table.maintenance_mode=true → 423 ORDERING_UNAVAILABLE con reason.
+        // Feature-not-available (piano senza table_ordering) → 423
+        // FEATURE_NOT_AVAILABLE: surface a clean codified error before the
+        // BEFORE INSERT trigger on orders would raise it.
         const state = await checkOrderingState(supabase, {
             tenantId: diag.tenantId,
             activityId: diag.activityId,
             tableId: diag.tableId
         });
         if (!state.ok) {
+            if (state.reason === "feature_not_available") {
+                return jsonResponse(423, {
+                    code: "FEATURE_NOT_AVAILABLE",
+                    message: "Gli ordini al tavolo non sono disponibili per questa attivita'."
+                });
+            }
             return jsonResponse(423, {
                 code: "ORDERING_UNAVAILABLE",
                 reason: state.reason,

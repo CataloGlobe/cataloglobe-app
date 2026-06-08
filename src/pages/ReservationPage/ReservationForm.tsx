@@ -6,8 +6,8 @@ import {
 } from "@/services/supabase/reservations";
 import type { FieldErrors, FormFields, Phase } from "./types";
 import { EMPTY_FORM } from "./types";
-import { todayIsoDate, validateField } from "./validators";
-import { availabilityErrors, slotsLabelForDate } from "./availability";
+import { snapTimeToQuarter, validateField } from "./validators";
+import { availabilityErrors } from "./availability";
 import type { OpeningHoursEntry, UpcomingClosure } from "./availability";
 import WhenSection from "./WhenSection";
 import WhoSection from "./WhoSection";
@@ -46,17 +46,11 @@ export default function ReservationForm({
     } | null>(null);
     const [phase, setPhase] = useState<Phase>("form");
 
-    const minDate = useMemo(() => todayIsoDate(), []);
-
     // Reactive availability validation against activity_hours / activity_closures.
     // Disabled when hours is empty (no schedule configured → free-form behavior).
     const availability = useMemo(
         () => availabilityErrors(form.reservation_date, form.reservation_time, hours, closures),
         [form.reservation_date, form.reservation_time, hours, closures]
-    );
-    const slotsLabel = useMemo(
-        () => slotsLabelForDate(form.reservation_date, hours, closures),
-        [form.reservation_date, hours, closures]
     );
 
     // Merge availability errors with format-level fieldErrors.
@@ -135,11 +129,16 @@ export default function ReservationForm({
 
             setSubmitError(null);
             setPhase("submitting");
+            // Defensive snap at submit time. The picker emits canonical
+            // 15-minute slots, but autofill / programmatic value setters
+            // could still land on non-quarter times — normalize before
+            // sending the payload.
+            const normalizedTime = snapTimeToQuarter(form.reservation_time.trim());
             try {
                 const result = await submitReservation({
                     slug,
                     reservation_date: form.reservation_date.trim(),
-                    reservation_time: form.reservation_time.trim(),
+                    reservation_time: normalizedTime,
                     party_size: Number(form.party_size),
                     customer_name: form.customer_name.trim(),
                     customer_email: form.customer_email.trim(),
@@ -164,10 +163,12 @@ export default function ReservationForm({
 
                 if (code === "CAPACITY_FULL") {
                     // Inline error on the time field. Keep the form filled —
-                    // the user only needs to pick a different time.
+                    // the user only needs to pick a different time. Snapshot
+                    // uses the normalized time so the inline error matches
+                    // even if snap altered the value at submit.
                     setCapacityFullSnapshot({
                         date: form.reservation_date.trim(),
-                        time: form.reservation_time.trim()
+                        time: normalizedTime
                     });
                     setSubmitError(null);
                     setPhase("form");
@@ -201,8 +202,8 @@ export default function ReservationForm({
                     party_size: form.party_size
                 }}
                 errors={effectiveErrors}
-                minDate={minDate}
-                slotsLabel={slotsLabel}
+                hours={hours}
+                closures={closures}
                 onChange={handleChange}
                 onBlur={handleBlur}
             />

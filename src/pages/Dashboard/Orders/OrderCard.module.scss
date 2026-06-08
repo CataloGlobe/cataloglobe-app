@@ -49,6 +49,34 @@
     color: var(--text-muted, #6b6f76);
 }
 
+// Attribuzione (staff vs cliente): icon-only badge per non spezzare
+// l'header. Il nome operatore arriva via `title`/`aria-label` (hover +
+// screen reader). Il dettaglio ordine espone il nome completo.
+.attribution {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    flex-shrink: 0;
+}
+
+.attributionStaff {
+    composes: attribution;
+    background-color: var(--brand-primary-soft, rgba(99, 102, 241, 0.1));
+    color: var(--brand-primary, #6366f1);
+    border-color: var(--brand-primary-soft-hover, rgba(99, 102, 241, 0.15));
+}
+
+.attributionCustomer {
+    composes: attribution;
+    background-color: var(--surface-muted, #f4f5f7);
+    color: var(--text-muted, #6b6f76);
+    border-color: var(--border-default, #e1e3e8);
+}
+
 .items {
     display: flex;
     flex-direction: column;

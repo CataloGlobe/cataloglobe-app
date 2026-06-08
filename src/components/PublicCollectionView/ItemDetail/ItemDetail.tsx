@@ -29,6 +29,12 @@ type Props = {
     submitLabel?: string;
     /** Se false, non mostra né immagine né placeholder. Default: true. */
     showImage?: boolean;
+    /**
+     * Se true: ordinazione sospesa (es. tavolo chiuso o table_maintenance).
+     * La CTA resta visibile ma disabilitata, etichetta sostituita con
+     * "Ordinazioni sospese". Il dettaglio prodotto resta leggibile.
+     */
+    orderingDisabled?: boolean;
 };
 
 export default function ItemDetail({
@@ -40,7 +46,8 @@ export default function ItemDetail({
     initialFormat,
     initialAddons,
     submitLabel,
-    showImage = true
+    showImage = true,
+    orderingDisabled = false
 }: Props) {
     const { t } = useTranslation("public");
     const submitLabelResolved = submitLabel ?? t("item_detail.submit_default");
@@ -489,10 +496,12 @@ export default function ItemDetail({
                     <button
                         type="button"
                         className={styles.addToSelectionBtn}
-                        disabled={isAddDisabled}
-                        onClick={handleAddToSelection}
+                        disabled={isAddDisabled || orderingDisabled}
+                        onClick={orderingDisabled ? undefined : handleAddToSelection}
                     >
-                        {isAddDisabled ? (
+                        {orderingDisabled ? (
+                            "Ordinazioni sospese"
+                        ) : isAddDisabled ? (
                             t("item_detail.format_required")
                         ) : (
                             <>

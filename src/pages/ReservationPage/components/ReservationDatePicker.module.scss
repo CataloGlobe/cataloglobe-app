@@ -1,0 +1,219 @@
+/* =============================================================================
+   ReservationDatePicker — month header + horizontal day carousel.
+   All colors via --pub-* tokens (PublicThemeScope). No hardcoded hex.
+   ========================================================================== */
+
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    /* min-width: 0 lets a flex/grid child shrink below its intrinsic
+       content size; without it the wrapper would grow to the strip's
+       total width (90 days × 62px) and break out of the form card,
+       which in turn prevents the strip from showing a scrollbar. */
+    min-width: 0;
+    width: 100%;
+    background: color-mix(in srgb, var(--pub-text) 3%, var(--pub-surface));
+    border: 1px solid var(--pub-surface-border, var(--pub-border));
+    border-radius: var(--pub-radius, 14px);
+    padding: 10px 12px 12px;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+
+    &[data-invalid="true"] {
+        border-color: var(--pub-error, #d33d3d);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--pub-error, #d33d3d) 16%, transparent);
+    }
+}
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+
+.header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 6px;
+}
+
+.navBtn {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--pub-btn-radius, 8px);
+    color: var(--pub-text);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+    &:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--pub-text) 8%, transparent);
+        border-color: color-mix(in srgb, var(--pub-text) 14%, transparent);
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--pub-accent) 26%, transparent);
+    }
+
+    &:disabled {
+        color: var(--pub-text-muted);
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+}
+
+.monthLabel {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--pub-text);
+    letter-spacing: 0.01em;
+    line-height: 1.1;
+    text-transform: capitalize;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Day strip ───────────────────────────────────────────────────────── */
+
+.strip {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0 6px;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--pub-text) 22%, transparent) transparent;
+
+    &::-webkit-scrollbar {
+        height: 6px;
+    }
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: color-mix(in srgb, var(--pub-text) 22%, transparent);
+        border-radius: 3px;
+    }
+}
+
+.cell {
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    scroll-snap-align: start;
+}
+
+.dayBtn {
+    position: relative;
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    flex-shrink: 0;
+    width: 52px;
+    min-width: 52px;
+    min-height: 62px;
+    padding: 8px 4px;
+    font-family: inherit;
+    background: color-mix(in srgb, var(--pub-text) 4%, var(--pub-surface));
+    color: var(--pub-text);
+    border: 1px solid var(--pub-surface-border, var(--pub-border));
+    border-radius: var(--pub-btn-radius, 10px);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
+
+    &:hover:not(:disabled):not([data-selected="true"]) {
+        background: color-mix(in srgb, var(--pub-text) 9%, var(--pub-surface));
+        border-color: color-mix(in srgb, var(--pub-text) 22%, transparent);
+    }
+
+    &:active:not(:disabled) {
+        transform: scale(0.97);
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--pub-accent) 26%, transparent);
+        border-color: var(--pub-accent);
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        color: var(--pub-text-muted);
+        background: transparent;
+        border-color: color-mix(in srgb, var(--pub-text) 8%, transparent);
+
+        .weekday,
+        .dayNum {
+            opacity: 0.55;
+        }
+    }
+
+    &[data-selected="true"] {
+        background: var(--pub-cta-bg, var(--pub-accent));
+        color: var(--pub-cta-text);
+        border-color: var(--pub-cta-bg, var(--pub-accent));
+        box-shadow: 0 2px 8px color-mix(in srgb, var(--pub-accent) 28%, transparent);
+    }
+}
+
+.weekday {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1;
+    color: var(--pub-text-muted);
+
+    .dayBtn[data-selected="true"] & {
+        color: var(--pub-cta-text);
+        opacity: 0.85;
+    }
+}
+
+.dayNum {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.todayDot {
+    position: absolute;
+    bottom: 6px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--pub-accent);
+
+    .dayBtn[data-selected="true"] & {
+        background: var(--pub-cta-text);
+        opacity: 0.9;
+    }
+}
+
+.emptyMonth {
+    margin: 0;
+    padding: 14px 4px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--pub-text-muted);
+}

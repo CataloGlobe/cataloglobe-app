@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -48,8 +48,10 @@ import type { Allergen } from "@/services/supabase/allergens";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
 import { submitOrder, getOrdersForSession } from "@/services/supabase/orders";
+import { subscribeToCustomerSession } from "@/services/supabase/customerSessions";
 import { useOptionalCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
 import type { OrderItemRequest, SubmitOrderResult, OrderingStateReason } from "@/types/orders";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { ClipboardList, AlertCircle } from "lucide-react";
 const OrderConfirmationSheet = lazy(() => import("../OrderConfirmationSheet/OrderConfirmationSheet"));
 
@@ -186,52 +188,79 @@ function getDisplayPrice(opts: {
     return { type: "none" };
 }
 
+// Build a synthetic CollectionViewSectionItem for a variant. Variants inherit
+// allergens, characteristics, ingredients and notes from the parent so the
+// detail sheet and analytics see the same metadata. Stable identity is
+// guaranteed by variantItemsCache upstream so React.memo on the row works.
+function buildVariantItem(
+    parent: CollectionViewSectionItem,
+    variant: NonNullable<CollectionViewSectionItem["variants"]>[number]
+): CollectionViewSectionItem {
+    return {
+        id: variant.id,
+        name: variant.name,
+        parentSelected: true,
+        price: variant.price ?? null,
+        original_price: variant.original_price ?? null,
+        from_price: variant.from_price ?? null,
+        image: variant.image ?? null,
+        description: variant.description ?? null,
+        ...(variant.optionGroups && variant.optionGroups.length > 0
+            ? { optionGroups: variant.optionGroups }
+            : {}),
+        ...(parent.characteristics && parent.characteristics.length > 0
+            ? { characteristics: parent.characteristics }
+            : {}),
+        ...(parent.allergens && parent.allergens.length > 0
+            ? { allergens: parent.allergens }
+            : {}),
+        ...(parent.ingredients && parent.ingredients.length > 0
+            ? { ingredients: parent.ingredients }
+            : {}),
+        ...(parent.notes && parent.notes.length > 0
+            ? { notes: parent.notes }
+            : {})
+    };
+}
+
 // ─── ProductRow — shared layout for parent products and variants ──────────────
 
 type ProductRowProps = {
-    name: string;
-    fromPrice?: number | null;
-    price?: number | null;
-    effectivePrice?: number | null;
-    originalPrice?: number | null;
-    description?: string | null;
-    image?: string | null;
+    item: CollectionViewSectionItem;
     showImage: boolean;
     imageRight?: boolean;
     cardLayout?: "list" | "grid";
     mode: "public" | "preview";
-    onClick: (e: React.MouseEvent) => void;
-    optionGroups?: CollectionViewSectionItem["optionGroups"];
-    attributes?: CollectionViewSectionItem["attributes"];
-    allergens?: ResolvedAllergen[];
-    characteristics?: ResolvedCharacteristic[];
-    onAddToSelection?: () => void;
+    onClick: (item: CollectionViewSectionItem) => void;
+    onAdd: (item: CollectionViewSectionItem) => void;
+    orderingEnabled: boolean;
     selectionQty?: number;
 };
 
-function ProductRow({
-    name,
-    fromPrice,
-    price,
-    effectivePrice,
-    originalPrice,
-    description,
-    image,
+function ProductRowInner({
+    item,
     showImage,
     imageRight = false,
     cardLayout = "list",
     mode,
     onClick,
-    optionGroups,
-    attributes,
-    allergens,
-    characteristics,
-    onAddToSelection,
+    onAdd,
+    orderingEnabled,
     selectionQty = 0
 }: ProductRowProps) {
-    const hasConfigurations = optionGroups?.some(g => g.group_kind === "ADDON") ?? false;
+    const {
+        name,
+        from_price: fromPrice,
+        price,
+        effective_price: effectivePrice,
+        original_price: originalPrice,
+        description,
+        image,
+        optionGroups,
+        allergens,
+        characteristics
+    } = item;
     const { t } = useTranslation("public");
-    const hasAttributes = (attributes?.length ?? 0) > 0;
     const hasAllergens = (allergens?.length ?? 0) > 0;
     const MAX_ALLERGEN_EMOJIS = 6;
     const visibleAllergens = hasAllergens ? allergens!.slice(0, MAX_ALLERGEN_EMOJIS) : [];
@@ -248,13 +277,18 @@ function ProductRow({
 
     // ── Fade-in immagine prodotto ─────────────────────────────────────────
     const [imgLoaded, setImgLoaded] = useState(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { setImgLoaded(false); }, [image]);
+
+    const handleRootClick = () => onClick(item);
+    const handleAddBtnClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onAdd(item);
+    };
 
     return (
         <div
             className={`${styles.productRow} ${imageRight ? styles.productRowImageRight : ""}`}
-            onClick={onClick}
+            onClick={handleRootClick}
         >
             {showImage && (
                 <div className={styles.rowImageWrapper}>
@@ -278,17 +312,13 @@ function ProductRow({
                             onLoad={() => setImgLoaded(true)}
                         />
                     )}
-                    {/* Bottone overlay: solo in Card·Grid, sovrapposto all'immagine */}
-                    {cardLayout === "grid" && onAddToSelection && (
+                    {cardLayout === "grid" && orderingEnabled && (
                         <button
                             type="button"
                             className={[styles.addBtnOverlay, selectionQty > 0 ? styles.addBtnOverlayActive : ""]
                                 .filter(Boolean)
                                 .join(" ")}
-                            onClick={e => {
-                                e.stopPropagation();
-                                onAddToSelection();
-                            }}
+                            onClick={handleAddBtnClick}
                             aria-label={t("selection.add_aria")}
                         >
                             <Plus size={16} strokeWidth={2.5} />
@@ -377,17 +407,13 @@ function ProductRow({
                     </div>
                 )}
             </div>
-            {/* Bottone standard: Card·List, o Card·Grid senza immagine */}
-            {(cardLayout !== "grid" || !showImage) && onAddToSelection && (
+            {(cardLayout !== "grid" || !showImage) && orderingEnabled && (
                 <button
                     type="button"
                     className={[styles.addBtn, selectionQty > 0 ? styles.addBtnActive : ""]
                         .filter(Boolean)
                         .join(" ")}
-                    onClick={e => {
-                        e.stopPropagation();
-                        onAddToSelection();
-                    }}
+                    onClick={handleAddBtnClick}
                     aria-label={t("selection.add_aria")}
                 >
                     <Plus size={16} strokeWidth={2.5} />
@@ -398,35 +424,35 @@ function ProductRow({
     );
 }
 
+const ProductRow = memo(ProductRowInner);
+
 // ─── ProductCompactRow — text-only compact-style product row ─────────────────
 
 type ProductCompactRowProps = {
-    name: string;
-    fromPrice?: number | null;
-    price?: number | null;
-    effectivePrice?: number | null;
-    originalPrice?: number | null;
-    description?: string | null;
-    onClick: (e: React.MouseEvent) => void;
-    allergens?: ResolvedAllergen[];
-    characteristics?: ResolvedCharacteristic[];
-    onAddToSelection?: () => void;
+    item: CollectionViewSectionItem;
+    onClick: (item: CollectionViewSectionItem) => void;
+    onAdd: (item: CollectionViewSectionItem) => void;
+    orderingEnabled: boolean;
     selectionQty?: number;
 };
 
-function ProductCompactRow({
-    name,
-    fromPrice,
-    price,
-    effectivePrice,
-    originalPrice,
-    description,
+function ProductCompactRowInner({
+    item,
     onClick,
-    allergens,
-    characteristics,
-    onAddToSelection,
+    onAdd,
+    orderingEnabled,
     selectionQty = 0
 }: ProductCompactRowProps) {
+    const {
+        name,
+        from_price: fromPrice,
+        price,
+        effective_price: effectivePrice,
+        original_price: originalPrice,
+        description,
+        allergens,
+        characteristics
+    } = item;
     const { t } = useTranslation("public");
     const hasAllergens = (allergens?.length ?? 0) > 0;
     const MAX_ALLERGEN_ICONS = 6;
@@ -442,8 +468,14 @@ function ProductCompactRow({
     );
     const dp = getDisplayPrice({ fromPrice, price, effectivePrice, originalPrice });
 
+    const handleRootClick = () => onClick(item);
+    const handleAddBtnClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onAdd(item);
+    };
+
     return (
-        <div className={styles.compactRow} onClick={onClick}>
+        <div className={styles.compactRow} onClick={handleRootClick}>
             <div className={styles.compactRowBody}>
                 <div className={styles.compactNameRow}>
                     <span className={styles.compactName}>{name}</span>
@@ -459,16 +491,13 @@ function ProductCompactRow({
                             </span>
                         </span>
                     )}
-                    {onAddToSelection && (
+                    {orderingEnabled && (
                         <button
                             type="button"
                             className={[styles.addBtnOutline, selectionQty > 0 ? styles.addBtnOutlineActive : ""]
                                 .filter(Boolean)
                                 .join(" ")}
-                            onClick={e => {
-                                e.stopPropagation();
-                                onAddToSelection();
-                            }}
+                            onClick={handleAddBtnClick}
                             aria-label={t("selection.add_aria")}
                         >
                             <Plus size={14} strokeWidth={2.5} />
@@ -511,6 +540,8 @@ function ProductCompactRow({
         </div>
     );
 }
+
+const ProductCompactRow = memo(ProductCompactRowInner);
 
 // ─── Hub tab views ────────────────────────────────────────────────────────────
 
@@ -667,11 +698,15 @@ export default function CollectionView({
     const effectiveMaintenance = orderingMaintenance ?? discoveredMaintenance;
 
     // Reason "silenziosi": ordering_disabled = feature non disponibile per il
-    // cliente (no banner, no FAB). Altri reason "rumorosi" (table_maintenance)
-    // mostrano comunque banner sticky + nascondono FAB.
+    // cliente (no banner, no FAB). Altri reason "rumorosi" (table_maintenance,
+    // table_closed) mostrano comunque banner sticky + nascondono FAB.
     const SILENT_MAINTENANCE_REASONS = new Set<OrderingStateReason>([
         "ordering_disabled"
     ]);
+    // Per ItemDetail: disabled visibile (NON nascosto) quando reason non e' silent.
+    const itemDetailOrderingDisabled =
+        effectiveMaintenance != null &&
+        !SILENT_MAINTENANCE_REASONS.has(effectiveMaintenance.reason);
     const shouldShowStickyBanner =
         orderingMaintenance != null &&
         !SILENT_MAINTENANCE_REASONS.has(orderingMaintenance.reason);
@@ -849,6 +884,29 @@ export default function CollectionView({
         return map;
     }, [selection]);
 
+    // Pre-baked synthetic variant items. Stable identity per parent+variant pair
+    // across renders, so React.memo on the row sees the same `item` reference
+    // until displaySectionGroups itself changes.
+    const variantItemsCache = useMemo(() => {
+        const map = new Map<string, CollectionViewSectionItem>();
+        for (const group of displaySectionGroups) {
+            for (const section of [group.root, ...group.children]) {
+                for (const item of section.items) {
+                    if (!item.variants || item.variants.length === 0) continue;
+                    for (const v of item.variants) {
+                        map.set(`${item.id}__${v.id}`, buildVariantItem(item, v));
+                    }
+                }
+            }
+        }
+        return map;
+    }, [displaySectionGroups]);
+
+    const orderingEnabled = useMemo(
+        () => activeTab === "menu" && !orderingEntryHidden,
+        [activeTab, orderingEntryHidden]
+    );
+
     // Array piatto di tutte le sezioni (L1+L2+L3) — usato da SearchOverlay
     const sections = useMemo(
         () => sectionGroups.flatMap(g => [g.root, ...g.children]),
@@ -972,6 +1030,48 @@ export default function CollectionView({
             message: "La sessione è scaduta. Scansiona di nuovo il QR.",
         });
     }, []);
+
+    // Bill state — single source of truth a livello CollectionView per
+    // garantire che la subscription customer_sessions sia always-on
+    // (OrderingSheet e' montato solo a sheet aperta).
+    const [billRequestedAt, setBillRequestedAt] = useState<string | null>(null);
+
+    // Realtime subscribe customer_sessions: single channel always-on quando
+    // JWT presente. Propaga:
+    //   - bill_requested_at (admin "Risposto" / close-table clear implicit)
+    //   - expires_at <= now() → maintenance "table_closed" (close_table_with_resolution v2)
+    // RLS server-side filtra eventi alla sola sessione customer corrente.
+    const customerSessionClear = customerSession?.clear;
+    useEffect(() => {
+        const jwt = customerSession?.session?.jwt;
+        if (!jwt) return;
+
+        let channel: RealtimeChannel | null = null;
+        channel = subscribeToCustomerSession(jwt, {
+            onUpdate: updatedSession => {
+                setBillRequestedAt(updatedSession.bill_requested_at ?? null);
+                const expiresAt = updatedSession.expires_at;
+                if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
+                    // Idempotente: setta solo se nessun maintenance gia attivo.
+                    setDiscoveredMaintenance(prev => prev ?? {
+                        reason: "table_closed",
+                        message:
+                            "Il servizio a questo tavolo è terminato. Per ordinare, chiedi al personale o riscansiona il codice QR."
+                    });
+                }
+            },
+            onError: err => {
+                const msg = err.message.toLowerCase();
+                if (msg.includes("token") || msg.includes("jwt") || msg.includes("auth")) {
+                    customerSessionClear?.();
+                }
+            }
+        });
+
+        return () => {
+            channel?.unsubscribe();
+        };
+    }, [customerSession?.session?.jwt, customerSessionClear]);
 
     const openOrdering = useCallback(() => {
         setActiveOrderingTab(selectionCount > 0 ? "cart" : "orders");
@@ -1177,6 +1277,24 @@ export default function CollectionView({
             addToSelection(id, name, basePrice);
         }
     }, [addToSelection]);
+
+    // Stable row handlers. Both rows (parent and variant) receive a synthetic
+    // CollectionViewSectionItem and route through these two callbacks. Stable
+    // identity preserves React.memo on the row.
+    const handleRowClick = useCallback(
+        (item: CollectionViewSectionItem) => openItemDetail(item),
+        [openItemDetail]
+    );
+    const handleRowAdd = useCallback(
+        (item: CollectionViewSectionItem) => handleAddClick(
+            item.id,
+            item.name,
+            item.effective_price ?? item.price ?? 0,
+            item.optionGroups,
+            () => openItemDetail(item)
+        ),
+        [handleAddClick, openItemDetail]
+    );
 
     const isProgrammaticScrollRef = useRef(false);
     const programmaticScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1586,57 +1704,22 @@ export default function CollectionView({
                             {item.parentSelected &&
                                 (style.productStyle === "compact" ? (
                                     <ProductCompactRow
-                                        name={item.name}
-                                        fromPrice={item.from_price}
-                                        price={item.price}
-                                        effectivePrice={item.effective_price}
-                                        originalPrice={item.original_price}
-                                        description={item.description}
-                                        onClick={() => openItemDetail(item)}
-                                        allergens={item.allergens}
-                                        characteristics={item.characteristics}
-                                        onAddToSelection={
-                                            activeTab === "menu" && !orderingEntryHidden
-                                                ? () => handleAddClick(
-                                                      item.id,
-                                                      item.name,
-                                                      item.effective_price ?? item.price ?? 0,
-                                                      item.optionGroups,
-                                                      () => openItemDetail(item)
-                                                  )
-                                                : undefined
-                                        }
+                                        item={item}
+                                        onClick={handleRowClick}
+                                        onAdd={handleRowAdd}
+                                        orderingEnabled={orderingEnabled}
                                         selectionQty={selectionMap[item.id]}
                                     />
                                 ) : (
                                     <ProductRow
-                                        name={item.name}
-                                        fromPrice={item.from_price}
-                                        price={item.price}
-                                        effectivePrice={item.effective_price}
-                                        originalPrice={item.original_price}
-                                        description={item.description}
-                                        image={item.image}
+                                        item={item}
                                         showImage={style.cardTemplate !== "no-image"}
                                         imageRight={style.cardTemplate === "right"}
                                         cardLayout={style.cardLayout ?? "list"}
                                         mode={mode}
-                                        onClick={() => openItemDetail(item)}
-                                        optionGroups={item.optionGroups}
-                                        attributes={item.attributes}
-                                        allergens={item.allergens}
-                                        characteristics={item.characteristics}
-                                        onAddToSelection={
-                                            activeTab === "menu" && !orderingEntryHidden
-                                                ? () => handleAddClick(
-                                                      item.id,
-                                                      item.name,
-                                                      item.effective_price ?? item.price ?? 0,
-                                                      item.optionGroups,
-                                                      () => openItemDetail(item)
-                                                  )
-                                                : undefined
-                                        }
+                                        onClick={handleRowClick}
+                                        onAdd={handleRowAdd}
+                                        orderingEnabled={orderingEnabled}
                                         selectionQty={selectionMap[item.id]}
                                     />
                                 ))}
@@ -1652,161 +1735,33 @@ export default function CollectionView({
                                         )}
                                     </div>
 
-                                    {item.variants!.map(v =>
-                                        style.productStyle === "compact" ? (
+                                    {item.variants!.map(v => {
+                                        const variantItem = variantItemsCache.get(`${item.id}__${v.id}`);
+                                        if (!variantItem) return null;
+                                        return style.productStyle === "compact" ? (
                                             <ProductCompactRow
                                                 key={v.id}
-                                                name={v.name}
-                                                price={v.price}
-                                                originalPrice={v.original_price}
-                                                fromPrice={v.from_price}
-                                                description={v.description}
-                                                onClick={e => {
-                                                    e.stopPropagation();
-                                                    openItemDetail({
-                                                        id: v.id,
-                                                        name: v.name,
-                                                        parentSelected: true,
-                                                        price: v.price ?? null,
-                                                        original_price: v.original_price ?? null,
-                                                        from_price: v.from_price ?? null,
-                                                        image: v.image ?? null,
-                                                        description: v.description ?? null,
-                                                        ...(v.optionGroups && v.optionGroups.length > 0
-                                                            ? { optionGroups: v.optionGroups }
-                                                            : {}),
-                                                        ...(item.characteristics && item.characteristics.length > 0
-                                                            ? { characteristics: item.characteristics }
-                                                            : {}),
-                                                        ...(item.allergens && item.allergens.length > 0
-                                                            ? { allergens: item.allergens }
-                                                            : {}),
-                                                        ...(item.ingredients && item.ingredients.length > 0
-                                                            ? { ingredients: item.ingredients }
-                                                            : {}),
-                                                        ...(item.notes && item.notes.length > 0
-                                                            ? { notes: item.notes }
-                                                            : {})
-                                                    });
-                                                }}
-                                                onAddToSelection={
-                                                    activeTab === "menu" && !orderingEntryHidden
-                                                        ? () => handleAddClick(
-                                                              v.id,
-                                                              v.name,
-                                                              v.price ?? 0,
-                                                              v.optionGroups,
-                                                              () => openItemDetail({
-                                                                  id: v.id,
-                                                                  name: v.name,
-                                                                  parentSelected: true,
-                                                                  price: v.price ?? null,
-                                                                  original_price: v.original_price ?? null,
-                                                                  from_price: v.from_price ?? null,
-                                                                  image: v.image ?? null,
-                                                                  description: v.description ?? null,
-                                                                  ...(v.optionGroups && v.optionGroups.length > 0
-                                                                      ? { optionGroups: v.optionGroups }
-                                                                      : {}),
-                                                                  ...(item.characteristics && item.characteristics.length > 0
-                                                                      ? { characteristics: item.characteristics }
-                                                                      : {}),
-                                                                  ...(item.allergens && item.allergens.length > 0
-                                                                      ? { allergens: item.allergens }
-                                                                      : {}),
-                                                                  ...(item.ingredients && item.ingredients.length > 0
-                                                                      ? { ingredients: item.ingredients }
-                                                                      : {}),
-                                                                  ...(item.notes && item.notes.length > 0
-                                                                      ? { notes: item.notes }
-                                                                      : {})
-                                                              })
-                                                          )
-                                                        : undefined
-                                                }
+                                                item={variantItem}
+                                                onClick={handleRowClick}
+                                                onAdd={handleRowAdd}
+                                                orderingEnabled={orderingEnabled}
                                                 selectionQty={selectionMap[v.id]}
                                             />
                                         ) : (
                                             <ProductRow
                                                 key={v.id}
-                                                name={v.name}
-                                                price={v.price}
-                                                originalPrice={v.original_price}
-                                                fromPrice={v.from_price}
-                                                description={v.description}
-                                                image={v.image}
+                                                item={variantItem}
                                                 showImage={style.cardTemplate !== "no-image"}
                                                 imageRight={style.cardTemplate === "right"}
                                                 cardLayout={style.cardLayout ?? "list"}
                                                 mode={mode}
-                                                optionGroups={v.optionGroups}
-                                                onClick={e => {
-                                                    e.stopPropagation();
-                                                    openItemDetail({
-                                                        id: v.id,
-                                                        name: v.name,
-                                                        parentSelected: true,
-                                                        price: v.price ?? null,
-                                                        original_price: v.original_price ?? null,
-                                                        from_price: v.from_price ?? null,
-                                                        image: v.image ?? null,
-                                                        description: v.description ?? null,
-                                                        ...(v.optionGroups && v.optionGroups.length > 0
-                                                            ? { optionGroups: v.optionGroups }
-                                                            : {}),
-                                                        ...(item.characteristics && item.characteristics.length > 0
-                                                            ? { characteristics: item.characteristics }
-                                                            : {}),
-                                                        ...(item.allergens && item.allergens.length > 0
-                                                            ? { allergens: item.allergens }
-                                                            : {}),
-                                                        ...(item.ingredients && item.ingredients.length > 0
-                                                            ? { ingredients: item.ingredients }
-                                                            : {}),
-                                                        ...(item.notes && item.notes.length > 0
-                                                            ? { notes: item.notes }
-                                                            : {})
-                                                    });
-                                                }}
-                                                onAddToSelection={
-                                                    activeTab === "menu" && !orderingEntryHidden
-                                                        ? () => handleAddClick(
-                                                              v.id,
-                                                              v.name,
-                                                              v.price ?? 0,
-                                                              v.optionGroups,
-                                                              () => openItemDetail({
-                                                                  id: v.id,
-                                                                  name: v.name,
-                                                                  parentSelected: true,
-                                                                  price: v.price ?? null,
-                                                                  original_price: v.original_price ?? null,
-                                                                  from_price: v.from_price ?? null,
-                                                                  image: v.image ?? null,
-                                                                  description: v.description ?? null,
-                                                                  ...(v.optionGroups && v.optionGroups.length > 0
-                                                                      ? { optionGroups: v.optionGroups }
-                                                                      : {}),
-                                                                  ...(item.characteristics && item.characteristics.length > 0
-                                                                      ? { characteristics: item.characteristics }
-                                                                      : {}),
-                                                                  ...(item.allergens && item.allergens.length > 0
-                                                                      ? { allergens: item.allergens }
-                                                                      : {}),
-                                                                  ...(item.ingredients && item.ingredients.length > 0
-                                                                      ? { ingredients: item.ingredients }
-                                                                      : {}),
-                                                                  ...(item.notes && item.notes.length > 0
-                                                                      ? { notes: item.notes }
-                                                                      : {})
-                                                              })
-                                                          )
-                                                        : undefined
-                                                }
+                                                onClick={handleRowClick}
+                                                onAdd={handleRowAdd}
+                                                orderingEnabled={orderingEnabled}
                                                 selectionQty={selectionMap[v.id]}
                                             />
-                                        )
-                                    )}
+                                        );
+                                    })}
                                 </>
                             )}
                         </article>
@@ -2147,14 +2102,19 @@ export default function CollectionView({
                                             }}
                                             mode={mode}
                                             showImage={style.productStyle !== "compact" && style.cardTemplate !== "no-image"}
-                                            onAddToSelection={mode === "public" && activeTab === "menu" && !orderingEntryHidden
-                                                ? (editingSelectionIndex !== null
-                                                    ? handleUpdateSelection
-                                                    : (productId, productName, basePrice, format, addons) => {
-                                                        addToSelection(productId, productName, basePrice, format, addons);
-                                                        setSelectedItem(null);
-                                                    })
-                                                : undefined
+                                            orderingDisabled={itemDetailOrderingDisabled}
+                                            onAddToSelection={
+                                                mode === "public" &&
+                                                activeTab === "menu" &&
+                                                (orderingActive || itemDetailOrderingDisabled) &&
+                                                !(effectiveMaintenance != null && SILENT_MAINTENANCE_REASONS.has(effectiveMaintenance.reason))
+                                                    ? (editingSelectionIndex !== null
+                                                        ? handleUpdateSelection
+                                                        : (productId, productName, basePrice, format, addons) => {
+                                                            addToSelection(productId, productName, basePrice, format, addons);
+                                                            setSelectedItem(null);
+                                                        })
+                                                    : undefined
                                             }
                                             initialFormat={editingSelectionIndex !== null
                                                 ? selection[editingSelectionIndex]?.selectedFormat
@@ -2366,6 +2326,8 @@ export default function CollectionView({
                         }
                         isSubmitting={isSubmittingOrder}
                         maintenance={effectiveMaintenance}
+                        billRequestedAt={billRequestedAt}
+                        onBillRequestedAtChange={setBillRequestedAt}
                         onSessionExpired={handleSessionExpired}
                         ordersRefreshKey={ordersRefreshKey}
                     />

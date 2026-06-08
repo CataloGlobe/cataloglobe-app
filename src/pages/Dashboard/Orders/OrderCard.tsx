@@ -7,11 +7,11 @@ import {
     Eye,
     Trash2,
     CheckCheck,
-    CornerUpLeft
+    CornerUpLeft,
+    User
 } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { Menu } from "@/components/ui/Menu/Menu";
 import { formatRelativeTime } from "@/utils/relativeTime";
 import type { V2OrderItem, V2OrderWithItems } from "@/types/orders";
@@ -44,6 +44,12 @@ interface Props {
     onUnready?: (order: V2OrderWithItems) => Promise<void>;
     tableLabel: string;
     tableZone: string | null;
+    /**
+     * Mappa `user_id → display_name` per risolvere il nome dell'operatore
+     * sulla pill "Staff" quando `order.created_by_user_id` e' valorizzato.
+     * Lookup mancante → fallback label "Staff" senza nome.
+     */
+    operatorNames?: Map<string, string>;
 }
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
@@ -55,21 +61,6 @@ const ITEMS_PREVIEW_LIMIT = 3;
 
 function formatEur(n: number): string {
     return CURRENCY_FORMATTER.format(n);
-}
-
-function statusLabel(status: V2OrderWithItems["status"]): string {
-    switch (status) {
-        case "submitted":
-            return "Nuova";
-        case "acknowledged":
-            return "In lavorazione";
-        case "ready":
-            return "Pronta";
-        case "delivered":
-            return "Servita";
-        case "cancelled":
-            return "Annullata";
-    }
 }
 
 /**
@@ -100,7 +91,8 @@ export default function OrderCard({
     onUnacknowledge,
     onUnready,
     tableLabel,
-    tableZone
+    tableZone,
+    operatorNames
 }: Props) {
     const [isProcessing, setIsProcessing] = useState(false);
     const [itemsExpanded, setItemsExpanded] = useState(false);
@@ -139,7 +131,30 @@ export default function OrderCard({
                     )}
                 </div>
                 <div className={styles.headerRight}>
-                    <StatusBadge variant="neutral" label={statusLabel(order.status)} />
+                    {order.created_by_user_id != null ? (() => {
+                        const operatorName = operatorNames?.get(order.created_by_user_id);
+                        const titleText = operatorName ?? "Comanda staff";
+                        const ariaText = operatorName
+                            ? `Comanda inserita da ${operatorName}`
+                            : "Comanda inserita dallo staff";
+                        return (
+                            <span
+                                className={styles.attributionStaff}
+                                title={titleText}
+                                aria-label={ariaText}
+                            >
+                                <User size={12} aria-hidden />
+                            </span>
+                        );
+                    })() : (
+                        <span
+                            className={styles.attributionCustomer}
+                            title="Comanda cliente"
+                            aria-label="Comanda inviata dal cliente"
+                        >
+                            <User size={12} aria-hidden />
+                        </span>
+                    )}
                     <span className={styles.timeStamp}>
                         <Clock size={14} />
                         <Text variant="body-sm" colorVariant="muted">

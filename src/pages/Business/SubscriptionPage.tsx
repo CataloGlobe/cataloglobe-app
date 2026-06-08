@@ -19,7 +19,7 @@ import { SeatsInput } from "@/components/ui/SeatsInput/SeatsInput";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 
-import { ExternalLink, CreditCard, Shield, MapPin, Settings2, Lock, Info, Sparkles, Mail } from "lucide-react";
+import { ExternalLink, CreditCard, Shield, MapPin, Settings2, Lock, Info, Mail } from "lucide-react";
 import type { Plan } from "@/types/plan";
 import styles from "./SubscriptionPage.module.scss";
 
@@ -295,21 +295,6 @@ export default function SubscriptionPage() {
                     >
                         Scrivici
                     </Button>
-                </div>
-            )}
-
-            {/* --- Founder banner (only when not founder) --- */}
-            {!isFounder && !isTerminal && (
-                <div className={styles.founderBanner}>
-                    <span className={styles.founderIcon} aria-hidden>
-                        <Sparkles size={18} />
-                    </span>
-                    <div className={styles.founderContent}>
-                        <span className={styles.founderTitle}>Sei tra i primi 20 clienti?</span>
-                        <span className={styles.founderBody}>
-                            Abbiamo condizioni speciali per chi sceglie CataloGlobe in fase early. Contattaci per scoprirle.
-                        </span>
-                    </div>
                 </div>
             )}
 

@@ -1,16 +1,20 @@
+import { useMemo } from "react";
 import PartySizePicker from "./PartySizePicker";
+import ReservationDatePicker from "./components/ReservationDatePicker";
+import ReservationTimePicker from "./components/ReservationTimePicker";
+import { getReservationPeriodsForDate } from "./utils/reservationSlots";
+import type {
+    OpeningHoursEntry,
+    UpcomingClosure
+} from "./availability";
 import type { FieldErrors, FormFields } from "./types";
-import { CalendarIcon, ClockIcon } from "./icons";
-import { snapTimeToQuarter } from "./validators";
 import styles from "./ReservationForm.module.scss";
 
 type Props = {
     values: Pick<FormFields, "reservation_date" | "reservation_time" | "party_size">;
     errors: FieldErrors;
-    minDate: string;
-    /** "Aperto 12:00–15:00, 19:00–23:00" — empty string when no schedule
-     *  available, day fully closed, or hours not configured for the venue. */
-    slotsLabel: string;
+    hours: OpeningHoursEntry[];
+    closures: UpcomingClosure[];
     onChange: (name: keyof FormFields, value: string) => void;
     onBlur: (name: keyof FormFields) => void;
 };
@@ -18,11 +22,54 @@ type Props = {
 export default function WhenSection({
     values,
     errors,
-    minDate,
-    slotsLabel,
+    hours,
+    closures,
     onChange,
     onBlur
 }: Props) {
+    // Build the period groups for the picker. Recomputed when the selected
+    // date changes or the upstream hours/closures change.
+    // `getReservationPeriodsForDate` still routes through the unchanged slot
+    // generator (overnight rule, 15-min step, past/available state); only
+    // the grouping differs — slots are bucketed by time-of-day period
+    // (Notte / Mattina / Pranzo / Pomeriggio / Sera) instead of by raw
+    // opening range. The time picker stays mode-agnostic.
+    const servicePeriods = useMemo(() => {
+        if (!values.reservation_date) return [];
+        return getReservationPeriodsForDate(
+            values.reservation_date,
+            hours,
+            closures,
+            new Date()
+        );
+    }, [values.reservation_date, hours, closures]);
+
+    const handleDateChange = (iso: string) => {
+        if (iso === values.reservation_date) return;
+        onChange("reservation_date", iso);
+        // Clear the time when the date changes: prevents an orphan time
+        // value that would survive into a day whose service blocks no
+        // longer contain it.
+        if (values.reservation_time) {
+            onChange("reservation_time", "");
+        }
+        // No synchronous onBlur call here: with a discrete picker "blur"
+        // has no semantic meaning, and invoking validateField inside the
+        // same React tick as onChange would read a stale `form` from the
+        // parent's closure and falsely flag the just-picked value as
+        // empty. Submit-time validation + reactive availabilityErrors
+        // still cover all real failure modes.
+    };
+
+    const handleTimeChange = (time: string) => {
+        onChange("reservation_time", time);
+        // See note in handleDateChange — onBlur removed to avoid stale
+        // closure validation on the first selection.
+    };
+
+    const dateInvalid = Boolean(errors.reservation_date);
+    const timeInvalid = Boolean(errors.reservation_time);
+
     return (
         <section className={styles.section} aria-labelledby="sec-quando">
             <div className={styles.sectionHead}>
@@ -31,98 +78,44 @@ export default function WhenSection({
                 <span className={styles.sectionRule} aria-hidden="true" />
             </div>
 
-            <div className={styles.row}>
-                <div className={styles.field}>
-                    <label htmlFor="reservation_date" className={styles.label}>
-                        Data
-                    </label>
-                    <input
-                        id="reservation_date"
-                        type="date"
-                        required
-                        className={styles.input}
-                        value={values.reservation_date}
-                        min={minDate}
-                        onChange={e => {
-                            const next = e.target.value;
-                            onChange("reservation_date", next);
-                            // Clear time when date is removed: prevents an
-                            // orphan time value that bypasses availability
-                            // validation (which is gated on date presence).
-                            if (!next && values.reservation_time) {
-                                onChange("reservation_time", "");
-                            }
-                        }}
-                        onBlur={() => onBlur("reservation_date")}
-                        aria-invalid={errors.reservation_date ? "true" : undefined}
-                        aria-describedby={
-                            errors.reservation_date ? "err-reservation_date" : undefined
-                        }
-                    />
-                    {errors.reservation_date && (
-                        <span id="err-reservation_date" className={styles.fieldError}>
-                            {errors.reservation_date}
-                        </span>
-                    )}
-                </div>
-
-                <div className={styles.field}>
-                    <label htmlFor="reservation_time" className={styles.label}>
-                        Ora
-                    </label>
-                    <input
-                        id="reservation_time"
-                        type="time"
-                        required
-                        step={900}
-                        disabled={!values.reservation_date}
-                        className={styles.input}
-                        value={values.reservation_time}
-                        onChange={e => {
-                            const raw = e.target.value;
-                            onChange(
-                                "reservation_time",
-                                raw ? snapTimeToQuarter(raw) : ""
-                            );
-                        }}
-                        onBlur={() => {
-                            // Defensive snap on blur: catches programmatic
-                            // value changes (autofill, scripted setters) and
-                            // any browser that emits non-quarter values
-                            // without firing change.
-                            const current = values.reservation_time;
-                            if (current) {
-                                const snapped = snapTimeToQuarter(current);
-                                if (snapped !== current) {
-                                    onChange("reservation_time", snapped);
-                                }
-                            }
-                            onBlur("reservation_time");
-                        }}
-                        aria-invalid={errors.reservation_time ? "true" : undefined}
-                        aria-describedby={
-                            errors.reservation_time ? "err-reservation_time" : undefined
-                        }
-                    />
-                    {errors.reservation_time && (
-                        <span id="err-reservation_time" className={styles.fieldError}>
-                            {errors.reservation_time}
-                        </span>
-                    )}
-                </div>
+            <div className={styles.field}>
+                <span id="lbl-reservation_date" className={styles.label}>
+                    Data
+                </span>
+                <ReservationDatePicker
+                    value={values.reservation_date}
+                    onChange={handleDateChange}
+                    hours={hours}
+                    closures={closures}
+                    invalid={dateInvalid}
+                    errorId={dateInvalid ? "err-reservation_date" : undefined}
+                />
+                {errors.reservation_date && (
+                    <span id="err-reservation_date" className={styles.fieldError}>
+                        {errors.reservation_date}
+                    </span>
+                )}
             </div>
 
-            {!values.reservation_date ? (
-                <p className={styles.slotsHint} aria-live="polite">
-                    <CalendarIcon size={14} />
-                    <span>Scegli prima la data</span>
-                </p>
-            ) : slotsLabel ? (
-                <p className={styles.slotsHint} aria-live="polite">
-                    <ClockIcon size={14} />
-                    <span>{slotsLabel}</span>
-                </p>
-            ) : null}
+            <div className={styles.field}>
+                <span id="lbl-reservation_time" className={styles.label}>
+                    Ora
+                </span>
+                <ReservationTimePicker
+                    value={values.reservation_time}
+                    onChange={handleTimeChange}
+                    periods={servicePeriods}
+                    disabled={!values.reservation_date}
+                    disabledMessage="Scegli prima la data."
+                    invalid={timeInvalid}
+                    errorId={timeInvalid ? "err-reservation_time" : undefined}
+                />
+                {errors.reservation_time && (
+                    <span id="err-reservation_time" className={styles.fieldError}>
+                        {errors.reservation_time}
+                    </span>
+                )}
+            </div>
 
             <PartySizePicker
                 value={values.party_size}

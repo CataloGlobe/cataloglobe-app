@@ -94,7 +94,8 @@ export type OrderingStateReason =
     | "activity_inactive"
     | "ordering_disabled"
     | "table_maintenance"
-    | "table_deleted";
+    | "table_deleted"
+    | "table_closed";
 
 /**
  * Payload di errore 423 da resolve-table. `canViewMenu=true` significa che
@@ -292,6 +293,13 @@ export interface V2Order {
     total_amount: number;
     currency: string;
     resolved_schedule_id: string | null;
+    /**
+     * Operatore che ha creato l'ordine manualmente da admin (FK auth.users,
+     * ON DELETE SET NULL). NULL = ordine creato dal cliente via QR. Valorizzato
+     * = ordine "staff" inserito via Edge `submit-order-admin` (stamp best-effort).
+     * Migration: 20260607131833_orders_add_created_by_user_id.
+     */
+    created_by_user_id: string | null;
     created_at: string;
     updated_at: string;
 }

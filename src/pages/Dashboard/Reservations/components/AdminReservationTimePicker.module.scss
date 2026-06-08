@@ -1,0 +1,264 @@
+/* =============================================================================
+   AdminReservationTimePicker — period segmented + 15' slot grid + free input.
+   Dashboard design system (--color-* / --brand-primary). No --pub-* tokens.
+   Permissive: no past/soldout state, every slot is selectable, free input
+   always available as an escape hatch.
+   ========================================================================== */
+
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    width: 100%;
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 10px;
+    padding: 12px;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &[data-invalid="true"] {
+        border-color: var(--color-red-200, #fecdd3);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-red-200, #fecdd3) 50%, transparent);
+    }
+}
+
+.placeholder {
+    margin: 0;
+    padding: 14px 6px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--color-text-muted, #6b7280);
+    line-height: 1.45;
+}
+
+.errorHint {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--color-warning-700, #b45309);
+    background: color-mix(
+        in srgb,
+        var(--color-warning-100, #fef3c7) 80%,
+        transparent
+    );
+    border: 1px solid
+        color-mix(
+            in srgb,
+            var(--color-warning-700, #b45309) 28%,
+            transparent
+        );
+}
+
+/* ── Segmented period selector (local, token-based) ──────────────────── */
+
+.segmented {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 4px;
+    background: var(--hover-bg, #f1f5f9);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-text-muted, #6b7280) 35%, transparent)
+        transparent;
+
+    &::-webkit-scrollbar {
+        height: 5px;
+    }
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: color-mix(in srgb, var(--color-text-muted, #6b7280) 35%, transparent);
+        border-radius: 3px;
+    }
+}
+
+.segment {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: 1 0 auto;
+    flex-shrink: 0;
+    padding: 6px 14px;
+    min-height: 30px;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--color-text-muted, #6b7280);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    line-height: 1.1;
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+
+    &:hover:not([data-active="true"]) {
+        color: var(--color-text-primary, #111827);
+        background: var(--color-surface, #ffffff);
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px
+            color-mix(in srgb, var(--brand-primary, #6366f1) 24%, transparent);
+        border-color: var(--brand-primary, #6366f1);
+    }
+
+    &[data-active="true"] {
+        color: var(--color-surface, #ffffff);
+        background: var(--brand-primary, #6366f1);
+        border-color: var(--brand-primary, #6366f1);
+        box-shadow: 0 1px 4px
+            color-mix(in srgb, var(--brand-primary, #6366f1) 24%, transparent);
+    }
+}
+
+/* ── Slot grid ───────────────────────────────────────────────────────── */
+
+.grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.cell {
+    display: contents;
+}
+
+.slotBtn {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    min-height: 38px;
+    padding: 5px 6px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary, #111827);
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 8px;
+    cursor: pointer;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+        transform 0.12s ease;
+
+    &:hover:not([data-selected="true"]) {
+        background: var(--hover-bg, #f1f5f9);
+        border-color: var(--color-border-strong, #d1d5db);
+    }
+
+    &:active {
+        transform: scale(0.97);
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px
+            color-mix(in srgb, var(--brand-primary, #6366f1) 24%, transparent);
+        border-color: var(--brand-primary, #6366f1);
+    }
+
+    &[data-selected="true"] {
+        background: var(--brand-primary, #6366f1);
+        color: var(--color-surface, #ffffff);
+        border-color: var(--brand-primary, #6366f1);
+        box-shadow: 0 2px 8px
+            color-mix(in srgb, var(--brand-primary, #6366f1) 28%, transparent);
+    }
+}
+
+/* ── Free-form escape (Altro orario…) ────────────────────────────────── */
+
+.customRow {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 4px;
+    border-top: 1px dashed var(--color-border, #e5e7eb);
+    margin-top: 2px;
+}
+
+.customToggle {
+    appearance: none;
+    -webkit-appearance: none;
+    align-self: flex-start;
+    padding: 4px 0;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--brand-primary, #6366f1);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    line-height: 1.2;
+    text-decoration: none;
+    transition: color 0.15s ease;
+
+    &:hover {
+        color: var(--brand-primary-hover, #4648c6);
+        text-decoration: underline;
+    }
+
+    &:focus-visible {
+        outline: none;
+        text-decoration: underline;
+        box-shadow: 0 0 0 3px
+            color-mix(in srgb, var(--brand-primary, #6366f1) 22%, transparent);
+        border-radius: 4px;
+    }
+}
+
+.customField {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.customInput {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 140px;
+    max-width: 100%;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--color-text-primary, #111827);
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 8px;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &:hover:not(:focus) {
+        border-color: var(--color-border-strong, #d1d5db);
+    }
+
+    &:focus {
+        outline: none;
+        border-color: var(--brand-primary, #6366f1);
+        box-shadow: 0 0 0 3px
+            color-mix(in srgb, var(--brand-primary, #6366f1) 22%, transparent);
+    }
+}
+
+.customHelp {
+    font-size: 11px;
+    color: var(--color-text-muted, #6b7280);
+    line-height: 1.3;
+}
