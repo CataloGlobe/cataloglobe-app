@@ -18,18 +18,40 @@ function formatEur(n: number): string {
     return CURRENCY_FORMATTER.format(n);
 }
 
+/**
+ * Normalizza una stringa per match accent-insensitive. NFD decomposes
+ * caratteri accentati in base + combining marks; il regex rimuove i
+ * marks (range U+0300-U+036F). Output lowercased.
+ */
+function normalizeForMatch(s: string): string {
+    return s
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .toLowerCase()
+        .trim();
+}
+
 export interface ProductPickerProps {
     catalog: ResolvedCatalog;
     expandedProductId: string | null;
     onExpand: (productId: string | null) => void;
     renderConfigurator: (product: ResolvedProduct) => React.ReactNode;
+    /**
+     * Free-text di ricerca. Vuoto / undefined → lista per categoria
+     * attiva (comportamento base). Valore non vuoto → lista flat
+     * cross-categoria filtrata per name (case + accent insensitive,
+     * solo `name` per ora). In modalita' ricerca le pills categorie
+     * vengono attenuate e ignorate dalla selezione.
+     */
+    query?: string;
 }
 
 export function ProductPicker({
     catalog,
     expandedProductId,
     onExpand,
-    renderConfigurator
+    renderConfigurator,
+    query
 }: ProductPickerProps) {
     const categories = useMemo<ResolvedCategory[]>(() => {
         return (catalog.categories ?? []).filter(
@@ -41,10 +63,39 @@ export function ProductPicker({
         categories[0]?.id ?? null
     );
 
+    const trimmedQuery = (query ?? "").trim();
+    const isSearching = trimmedQuery.length > 0;
+
+    // Lista flat di TUTTI i prodotti visibili cross-categoria; usata in
+    // modalita' ricerca. Memo per stabilita' (ricalcolata solo se il
+    // catalogo cambia).
+    const allVisibleProducts = useMemo<
+        Array<{ category: ResolvedCategory; product: ResolvedProduct }>
+    >(() => {
+        const out: Array<{ category: ResolvedCategory; product: ResolvedProduct }> = [];
+        for (const c of catalog.categories ?? []) {
+            for (const p of c.products ?? []) {
+                if (p.is_visible === false) continue;
+                out.push({ category: c, product: p });
+            }
+        }
+        return out;
+    }, [catalog.categories]);
+
+    const matchedProducts = useMemo<
+        Array<{ category: ResolvedCategory; product: ResolvedProduct }>
+    >(() => {
+        if (!isSearching) return [];
+        const needle = normalizeForMatch(trimmedQuery);
+        return allVisibleProducts.filter(
+            ({ product }) => normalizeForMatch(product.name).includes(needle)
+        );
+    }, [allVisibleProducts, isSearching, trimmedQuery]);
+
     const activeCategory =
         categories.find(c => c.id === activeCategoryId) ?? categories[0];
 
-    if (!activeCategory) {
+    if (!activeCategory && !isSearching) {
         return (
             <div className={styles.wrapper}>
                 <div className={styles.emptyHint}>
@@ -56,43 +107,57 @@ export function ProductPicker({
         );
     }
 
-    const visibleProducts = (activeCategory.products ?? []).filter(
-        p => p.is_visible !== false
-    );
+    const productsToRender: Array<{ category?: ResolvedCategory; product: ResolvedProduct }> =
+        isSearching
+            ? matchedProducts.map(({ category, product }) => ({ category, product }))
+            : (activeCategory?.products ?? [])
+                  .filter(p => p.is_visible !== false)
+                  .map(p => ({ product: p }));
 
     return (
         <div className={styles.wrapper}>
-            <div className={styles.categoryPills} role="tablist">
-                {categories.map(c => (
-                    <button
-                        key={c.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={activeCategory.id === c.id}
-                        className={
-                            activeCategory.id === c.id
-                                ? styles.pillActive
-                                : styles.pill
-                        }
-                        onClick={() => {
-                            setActiveCategoryId(c.id);
-                            onExpand(null);
-                        }}
-                    >
-                        {c.name}
-                    </button>
-                ))}
+            <div
+                className={styles.categoryPills}
+                role="tablist"
+                aria-disabled={isSearching}
+            >
+                {categories.map(c => {
+                    const isActive = !isSearching && activeCategory?.id === c.id;
+                    const className = isSearching
+                        ? styles.pillDisabled
+                        : isActive
+                          ? styles.pillActive
+                          : styles.pill;
+                    return (
+                        <button
+                            key={c.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={isActive}
+                            disabled={isSearching}
+                            className={className}
+                            onClick={() => {
+                                setActiveCategoryId(c.id);
+                                onExpand(null);
+                            }}
+                        >
+                            {c.name}
+                        </button>
+                    );
+                })}
             </div>
 
             <div className={styles.productsList}>
-                {visibleProducts.length === 0 ? (
+                {productsToRender.length === 0 ? (
                     <div className={styles.emptyHint}>
                         <Text colorVariant="muted">
-                            Nessun prodotto disponibile in questa categoria.
+                            {isSearching
+                                ? "Nessun prodotto trovato per la ricerca."
+                                : "Nessun prodotto disponibile in questa categoria."}
                         </Text>
                     </div>
                 ) : (
-                    visibleProducts.map(p => {
+                    productsToRender.map(({ category, product: p }) => {
                         const isExpanded = expandedProductId === p.id;
                         const hasFromPrice = p.from_price != null && p.price == null;
                         const priceLabel = hasFromPrice
@@ -110,9 +175,9 @@ export function ProductPicker({
                                 >
                                     <div className={styles.productMain}>
                                         <span className={styles.productName}>{p.name}</span>
-                                        {p.description && (
-                                            <Text variant="body-sm" colorVariant="muted">
-                                                {p.description}
+                                        {isSearching && category && (
+                                            <Text variant="caption" colorVariant="muted">
+                                                {category.name}
                                             </Text>
                                         )}
                                     </div>

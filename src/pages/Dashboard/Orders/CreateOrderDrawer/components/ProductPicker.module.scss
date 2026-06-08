@@ -40,6 +40,13 @@
     color: #ffffff;
 }
 
+.pillDisabled {
+    composes: pill;
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 .productsList {
     display: flex;
     flex-direction: column;

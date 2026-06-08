@@ -1,27 +1,29 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ShoppingCart, AlertCircle } from "lucide-react";
+import { ShoppingCart, AlertCircle, ChevronUp, ChevronDown } from "lucide-react";
 
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { SearchInput } from "@/components/ui/Input/SearchInput";
 
 import { useToast } from "@/context/Toast/ToastContext";
 
 import { submitOrderAdmin } from "@/services/supabase/orders";
 import { resolveActivityCatalogs } from "@/services/supabase/resolveActivityCatalogs";
+import { listTablesWithState } from "@/services/supabase/tables";
 import type {
     ResolvedCollections,
     ResolvedProduct,
     ResolvedCatalog
 } from "@/services/supabase/resolveActivityCatalogs";
-import type { OrderItemRequest } from "@/types/orders";
+import type { OrderItemRequest, V2TableWithState } from "@/types/orders";
 
 import { ProductPicker } from "./components/ProductPicker";
 import { ItemConfigurator } from "./components/ItemConfigurator";
 import { CartSummary } from "./components/CartSummary";
-import { TablePicker } from "./components/TablePicker";
+import { TableSelect, type SelectedTable } from "./components/TableSelect";
 
 import styles from "./CreateOrderDrawer.module.scss";
 
@@ -47,11 +49,6 @@ export interface SelectionItem {
     item_notes?: string;
 }
 
-interface SelectedTable {
-    id: string;
-    label: string;
-}
-
 export interface CreateOrderDrawerProps {
     open: boolean;
     tenantId: string | null;
@@ -59,10 +56,9 @@ export interface CreateOrderDrawerProps {
     onClose: () => void;
     onSubmitted?: () => void;
     /**
-     * Tavolo pre-selezionato (opzionale). Se passato all'apertura del
-     * drawer, il picker viene saltato e si entra direttamente in step
-     * "build". Pensato per shortcut futuri (es. CTA dentro un drawer
-     * tavolo-specifico). Senza valore: il drawer parte dal picker.
+     * Tavolo pre-selezionato (opzionale). Se passato, la <select>
+     * tavolo viene preimpostata all'apertura del drawer. Pensato per
+     * shortcut futuri (CTA da contesto tavolo-specifico).
      */
     initialTableId?: string;
     initialTableLabel?: string;
@@ -75,7 +71,11 @@ type CatalogState =
     | { kind: "empty" }
     | { kind: "error"; message: string };
 
-type Step = "pick-table" | "build";
+interface TablesState {
+    items: V2TableWithState[];
+    isLoading: boolean;
+    error: string | null;
+}
 
 const FORM_ID = "create-comanda-form";
 
@@ -89,79 +89,95 @@ export function CreateOrderDrawer({
     initialTableLabel
 }: CreateOrderDrawerProps) {
     const { showToast } = useToast();
-    const [step, setStep] = useState<Step>(
-        initialTableId ? "build" : "pick-table"
-    );
+
     const [selectedTable, setSelectedTable] = useState<SelectedTable | null>(
         initialTableId
             ? { id: initialTableId, label: initialTableLabel ?? "Tavolo" }
             : null
     );
     const [catalogState, setCatalogState] = useState<CatalogState>({ kind: "idle" });
+    const [tablesState, setTablesState] = useState<TablesState>({
+        items: [],
+        isLoading: false,
+        error: null
+    });
     const [selection, setSelection] = useState<SelectionItem[]>([]);
     const [orderNote, setOrderNote] = useState<string>("");
     const [configuringProductId, setConfiguringProductId] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [searchQuery, setSearchQuery] = useState<string>("");
+    const [isStickyExpanded, setIsStickyExpanded] = useState<boolean>(false);
 
-    const loadCatalog = useCallback(async () => {
-        if (!activityId) return;
+    const loadAll = useCallback(async () => {
+        if (!tenantId || !activityId) return;
         setCatalogState({ kind: "loading" });
-        try {
-            const resolved: ResolvedCollections = await resolveActivityCatalogs(activityId);
+        setTablesState({ items: [], isLoading: true, error: null });
+
+        // Catalogo + tavoli in parallelo: indipendenti, riducono attesa.
+        const [catalogResult, tablesResult] = await Promise.allSettled([
+            resolveActivityCatalogs(activityId),
+            listTablesWithState(tenantId, activityId)
+        ]);
+
+        if (catalogResult.status === "fulfilled") {
+            const resolved: ResolvedCollections = catalogResult.value;
             const catalog = resolved.catalog;
             if (!catalog || !catalog.categories || catalog.categories.length === 0) {
                 setCatalogState({ kind: "empty" });
-                return;
+            } else {
+                setCatalogState({ kind: "ready", catalog });
             }
-            setCatalogState({ kind: "ready", catalog });
-        } catch (err) {
+        } else {
+            const err = catalogResult.reason;
             setCatalogState({
                 kind: "error",
                 message:
-                    err instanceof Error
-                        ? err.message
-                        : "Errore caricamento catalogo"
+                    err instanceof Error ? err.message : "Errore caricamento catalogo"
             });
         }
-    }, [activityId]);
+
+        if (tablesResult.status === "fulfilled") {
+            setTablesState({ items: tablesResult.value, isLoading: false, error: null });
+        } else {
+            const err = tablesResult.reason;
+            setTablesState({
+                items: [],
+                isLoading: false,
+                error: err instanceof Error ? err.message : "Errore caricamento tavoli"
+            });
+        }
+    }, [tenantId, activityId]);
 
     useEffect(() => {
         if (!open) {
             // Reset completo on close
-            setStep(initialTableId ? "build" : "pick-table");
             setSelectedTable(
                 initialTableId
                     ? { id: initialTableId, label: initialTableLabel ?? "Tavolo" }
                     : null
             );
             setCatalogState({ kind: "idle" });
+            setTablesState({ items: [], isLoading: false, error: null });
             setSelection([]);
             setOrderNote("");
             setConfiguringProductId(null);
             setIsSubmitting(false);
+            setSearchQuery("");
+            setIsStickyExpanded(false);
             return;
         }
-        // Catalogo è activity-level: lo precarica in background appena il drawer
-        // apre, indipendentemente dallo step. Quando l'utente sceglie il
-        // tavolo, lo step "build" lo trova già pronto.
-        void loadCatalog();
-    }, [open, initialTableId, initialTableLabel, loadCatalog]);
+        void loadAll();
+    }, [open, initialTableId, initialTableLabel, loadAll]);
 
     const total = useMemo(
         () => selection.reduce((acc, s) => acc + s.unitPrice * s.qty, 0),
         [selection]
     );
 
-    function handleSelectTable(table: SelectedTable): void {
-        setSelectedTable(table);
-        setStep("build");
-    }
-
-    function handleChangeTable(): void {
-        // Mantiene il carrello: l'utente cambia il tavolo destinazione,
-        // non la composizione dell'ordine.
-        setStep("pick-table");
-    }
+    const itemsCount = useMemo(
+        () => selection.reduce((acc, s) => acc + s.qty, 0),
+        [selection]
+    );
 
     function handleAddToCart(item: SelectionItem): void {
         setSelection(prev => [...prev, item]);
@@ -237,16 +253,66 @@ export function CreateOrderDrawer({
         }
     }
 
-    const headerLabel =
-        step === "build" && selectedTable
-            ? `Crea comanda · ${selectedTable.label}`
-            : "Crea comanda · scegli tavolo";
+    const headerLabel = "Crea ordine";
+    const canSubmit = selection.length > 0 && !isSubmitting && !!selectedTable;
 
-    const canSubmit =
-        step === "build" && selection.length > 0 && !isSubmitting && !!selectedTable;
+    const renderMenuBody = () => {
+        if (catalogState.kind === "loading") {
+            return (
+                <div className={styles.loading}>
+                    <Text colorVariant="muted">Caricamento catalogo...</Text>
+                </div>
+            );
+        }
+        if (catalogState.kind === "error") {
+            return (
+                <div className={styles.errorBlock}>
+                    <EmptyState
+                        icon={<AlertCircle size={40} strokeWidth={1.5} />}
+                        title="Errore"
+                        description={catalogState.message}
+                        action={
+                            <Button variant="secondary" onClick={() => void loadAll()}>
+                                Riprova
+                            </Button>
+                        }
+                    />
+                </div>
+            );
+        }
+        if (catalogState.kind === "empty") {
+            return (
+                <div className={styles.errorBlock}>
+                    <EmptyState
+                        icon={<ShoppingCart size={40} strokeWidth={1.5} />}
+                        title="Nessun catalogo attivo"
+                        description="Non c'e' un catalogo attivo in questo momento per la sede selezionata."
+                    />
+                </div>
+            );
+        }
+        if (catalogState.kind === "ready") {
+            return (
+                <ProductPicker
+                    catalog={catalogState.catalog}
+                    expandedProductId={configuringProductId}
+                    onExpand={setConfiguringProductId}
+                    query={searchQuery}
+                    renderConfigurator={(product: ResolvedProduct) => (
+                        <ItemConfigurator
+                            product={product}
+                            onCancel={() => setConfiguringProductId(null)}
+                            onAdd={handleAddToCart}
+                        />
+                    )}
+                />
+            );
+        }
+        return null;
+    };
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={720}>
+        <SystemDrawer open={open} onClose={onClose} width={960}>
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>
@@ -254,48 +320,34 @@ export function CreateOrderDrawer({
                     </Text>
                 }
                 footer={
-                    step === "build" ? (
-                        <div className={styles.footerActions}>
-                            <div className={styles.footerTotalBlock}>
-                                <Text
-                                    variant="caption"
-                                    colorVariant="muted"
-                                    className={styles.footerTotalLabel}
-                                >
-                                    Totale
-                                </Text>
-                                <Text
-                                    variant="title-sm"
-                                    weight={700}
-                                    className={styles.footerTotalValue}
-                                >
-                                    {formatEur(total)}
-                                </Text>
-                            </div>
-                            <div className={styles.footerButtons}>
-                                <Button
-                                    variant="secondary"
-                                    onClick={onClose}
-                                    disabled={isSubmitting}
-                                >
-                                    Annulla
-                                </Button>
-                                <Button
-                                    variant="primary"
-                                    type="submit"
-                                    form={FORM_ID}
-                                    loading={isSubmitting}
-                                    disabled={!canSubmit}
-                                >
-                                    Invia comanda
-                                </Button>
-                            </div>
+                    <div className={styles.drawerFooter}>
+                        <div className={styles.drawerFooterTotalBlock}>
+                            <span className={styles.drawerFooterTotalLabel}>
+                                Totale
+                            </span>
+                            <span className={styles.drawerFooterTotalValue}>
+                                {formatEur(total)}
+                            </span>
                         </div>
-                    ) : (
-                        <Button variant="secondary" onClick={onClose}>
-                            Annulla
-                        </Button>
-                    )
+                        <div className={styles.drawerFooterActions}>
+                            <Button
+                                variant="secondary"
+                                onClick={onClose}
+                                disabled={isSubmitting}
+                            >
+                                Annulla
+                            </Button>
+                            <Button
+                                variant="primary"
+                                type="submit"
+                                form={FORM_ID}
+                                loading={isSubmitting}
+                                disabled={!canSubmit}
+                            >
+                                Invia comanda
+                            </Button>
+                        </div>
+                    </div>
                 }
             >
                 {!tenantId || !activityId ? (
@@ -306,91 +358,60 @@ export function CreateOrderDrawer({
                             description="Seleziona una sede per registrare una comanda."
                         />
                     </div>
-                ) : step === "pick-table" ? (
-                    <div className={styles.content}>
-                        <TablePicker
-                            tenantId={tenantId}
-                            activityId={activityId}
-                            onSelect={handleSelectTable}
-                        />
-                    </div>
                 ) : (
                     <form
                         id={FORM_ID}
+                        className={styles.shell}
                         onSubmit={e => {
                             e.preventDefault();
                             void handleSubmit();
                         }}
                     >
-                        <div className={styles.content}>
-                            {selectedTable && (
-                                <div className={styles.tableBanner}>
-                                    <div className={styles.tableBannerLabel}>
-                                        <span className={styles.tableBannerCaption}>
-                                            Tavolo
-                                        </span>
-                                        <span className={styles.tableBannerValue}>
-                                            {selectedTable.label}
-                                        </span>
+                        <div className={styles.topBand}>
+                            <div className={styles.topBandRow}>
+                                <div className={styles.topBandCol}>
+                                    <TableSelect
+                                        tables={tablesState.items}
+                                        isLoading={tablesState.isLoading}
+                                        error={tablesState.error}
+                                        value={selectedTable?.id ?? null}
+                                        onChange={setSelectedTable}
+                                    />
+                                </div>
+                                <div className={styles.topBandCol}>
+                                    <SearchInput
+                                        value={searchQuery}
+                                        onChange={e => setSearchQuery(e.target.value)}
+                                        placeholder="Cerca prodotto..."
+                                        allowClear
+                                        onClear={() => setSearchQuery("")}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={styles.body}>
+                            <div className={styles.menuPanel}>{renderMenuBody()}</div>
+
+                            <aside
+                                className={styles.orderPanel}
+                                aria-label="Pannello ordine"
+                            >
+                                <div className={styles.orderPanelHeader}>
+                                    <div className={styles.orderPanelHeaderCaption}>
+                                        Tavolo
                                     </div>
-                                    <button
-                                        type="button"
-                                        className={styles.changeTableButton}
-                                        onClick={handleChangeTable}
-                                    >
-                                        Cambia tavolo
-                                    </button>
+                                    {selectedTable ? (
+                                        <div className={styles.orderPanelHeaderValue}>
+                                            {selectedTable.label}
+                                        </div>
+                                    ) : (
+                                        <div className={styles.orderPanelHeaderEmpty}>
+                                            Nessun tavolo selezionato
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-
-                            {catalogState.kind === "loading" && (
-                                <div className={styles.loading}>
-                                    <Text colorVariant="muted">Caricamento catalogo...</Text>
-                                </div>
-                            )}
-
-                            {catalogState.kind === "error" && (
-                                <div className={styles.errorBlock}>
-                                    <EmptyState
-                                        icon={<AlertCircle size={40} strokeWidth={1.5} />}
-                                        title="Errore"
-                                        description={catalogState.message}
-                                        action={
-                                            <Button
-                                                variant="secondary"
-                                                onClick={() => void loadCatalog()}
-                                            >
-                                                Riprova
-                                            </Button>
-                                        }
-                                    />
-                                </div>
-                            )}
-
-                            {catalogState.kind === "empty" && (
-                                <div className={styles.errorBlock}>
-                                    <EmptyState
-                                        icon={<ShoppingCart size={40} strokeWidth={1.5} />}
-                                        title="Nessun catalogo attivo"
-                                        description="Non c'e' un catalogo attivo in questo momento per la sede selezionata."
-                                    />
-                                </div>
-                            )}
-
-                            {catalogState.kind === "ready" && (
-                                <>
-                                    <ProductPicker
-                                        catalog={catalogState.catalog}
-                                        expandedProductId={configuringProductId}
-                                        onExpand={setConfiguringProductId}
-                                        renderConfigurator={(product: ResolvedProduct) => (
-                                            <ItemConfigurator
-                                                product={product}
-                                                onCancel={() => setConfiguringProductId(null)}
-                                                onAdd={handleAddToCart}
-                                            />
-                                        )}
-                                    />
+                                <div className={styles.orderPanelBody}>
                                     <CartSummary
                                         items={selection}
                                         total={total}
@@ -399,7 +420,48 @@ export function CreateOrderDrawer({
                                         onUpdateQty={handleUpdateQty}
                                         onRemove={handleRemoveItem}
                                     />
-                                </>
+                                </div>
+                            </aside>
+                        </div>
+
+                        {/* Sticky cart bar (mobile / 1-col layout): info +
+                            espansione carrello. Submit vive nel footer del
+                            drawer, qui niente bottone per evitare doppione. */}
+                        <div className={styles.stickyBar}>
+                            <button
+                                type="button"
+                                className={styles.stickyHeader}
+                                onClick={() => setIsStickyExpanded(v => !v)}
+                                aria-expanded={isStickyExpanded}
+                            >
+                                <div className={styles.stickyLeft}>
+                                    <span className={styles.stickyCount}>
+                                        {itemsCount}{" "}
+                                        {itemsCount === 1 ? "articolo" : "articoli"}
+                                    </span>
+                                    <span className={styles.stickyTotal}>
+                                        {formatEur(total)}
+                                    </span>
+                                </div>
+                                <div className={styles.stickyRight}>
+                                    {isStickyExpanded ? (
+                                        <ChevronDown size={18} />
+                                    ) : (
+                                        <ChevronUp size={18} />
+                                    )}
+                                </div>
+                            </button>
+                            {isStickyExpanded && (
+                                <div className={styles.stickyExpansion}>
+                                    <CartSummary
+                                        items={selection}
+                                        total={total}
+                                        orderNote={orderNote}
+                                        onOrderNoteChange={setOrderNote}
+                                        onUpdateQty={handleUpdateQty}
+                                        onRemove={handleRemoveItem}
+                                    />
+                                </div>
                             )}
                         </div>
                     </form>
