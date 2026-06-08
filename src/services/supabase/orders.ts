@@ -696,6 +696,90 @@ export async function rectifyOrder(
     return data;
 }
 
+/**
+ * Submit di una comanda manuale inserita da un operatore admin (es. cameriere)
+ * su un tavolo specifico. Mirror della pipeline customer `submitOrder` con auth
+ * Supabase user standard invece di JWT customer custom.
+ *
+ * `tenant_id` e `activity_id` vengono derivati lato server dal `table_id` —
+ * il client passa solo il `table_id`.
+ *
+ * Throws (validation client):
+ *   "EMPTY_CART" se items.length === 0
+ *
+ * Throws (Edge):
+ *   400 INVALID_REQUEST     → "Richiesta non valida"
+ *   401 UNAUTHORIZED        → "Sessione scaduta, accedi di nuovo"
+ *   403 FORBIDDEN           → "Non hai i permessi per registrare comande su questa sede"
+ *   404 TABLE_NOT_FOUND     → "Tavolo non trovato"
+ *   409 GROUP_CONFLICT      → "Conflitto sul gruppo ordine, riprova"
+ *   422 INVALID_ITEMS       → throw Error("INVALID_ITEMS") con extension `details`
+ *                             (InvalidItemsErrorDetails)
+ *   423 ORDERING_UNAVAILABLE → throw Error(rawMessage) con extension `code` +
+ *                              `reason` (subscription_inactive | tenant_deleted |
+ *                              activity_inactive | table_maintenance | table_deleted)
+ *   429 RATE_LIMITED        → "Troppe richieste, riprova tra un momento"
+ *   500                     → "Errore del server"
+ */
+export async function submitOrderAdmin(
+    tableId: string,
+    items: OrderItemRequest[],
+    notes?: string,
+    customerLabel?: string
+): Promise<SubmitOrderResult> {
+    if (items.length === 0) {
+        throw new Error("EMPTY_CART");
+    }
+
+    const body: Record<string, unknown> = {
+        table_id: tableId,
+        items,
+        notes: notes ?? null,
+        customer_label: customerLabel ?? null
+    };
+
+    const { data, error } = await supabase.functions.invoke<SubmitOrderResult>(
+        "submit-order-admin",
+        { body }
+    );
+
+    if (error) {
+        const { status, code, details, rawMessage, reason } = await parseInvokeError(error);
+
+        if (status === 400) throw new Error("Richiesta non valida");
+        if (status === 401) {
+            throw new Error("Sessione scaduta, accedi di nuovo");
+        }
+        if (status === 403) {
+            throw new Error("Non hai i permessi per registrare comande su questa sede");
+        }
+        if (status === 404 && code === "TABLE_NOT_FOUND") {
+            throw new Error("Tavolo non trovato");
+        }
+        if (status === 409 && code === "GROUP_CONFLICT") {
+            throw new Error("Conflitto sul gruppo ordine, riprova");
+        }
+        if (status === 422 && code === "INVALID_ITEMS") {
+            const err = new Error("INVALID_ITEMS");
+            (err as Error & { details?: unknown }).details = details;
+            throw err;
+        }
+        if (status === 423 && code === "ORDERING_UNAVAILABLE") {
+            const err = new Error(rawMessage ?? "ORDERING_UNAVAILABLE");
+            (err as Error & { code?: string; reason?: string }).code = "ORDERING_UNAVAILABLE";
+            (err as Error & { code?: string; reason?: string }).reason = reason;
+            throw err;
+        }
+        if (status === 429) {
+            throw new Error("Troppe richieste, riprova tra un momento");
+        }
+        throw new Error("Errore del server");
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // INTERNAL HELPERS
 // ═══════════════════════════════════════════════════════════════
