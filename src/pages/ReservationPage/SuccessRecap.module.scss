@@ -35,6 +35,17 @@
         0 4px 18px color-mix(in srgb, var(--pub-accent) 20%, transparent);
 }
 
+/* Confirmed variant — positive/success tone. We keep the accent halo for
+   brand continuity, but the inner fill swaps to a green-tinted tone so the
+   user reads "approvata" at a glance, distinct from the pending pulse. */
+.iconConfirmed {
+    background: color-mix(in srgb, #22c55e 26%, var(--pub-surface));
+    color: #15803d;
+    box-shadow:
+        0 0 0 8px color-mix(in srgb, #22c55e 10%, transparent),
+        0 4px 18px color-mix(in srgb, #22c55e 22%, transparent);
+}
+
 .title {
     margin: 0;
     font-size: 24px;
@@ -114,6 +125,18 @@
     background: var(--pub-accent);
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--pub-accent) 22%, transparent);
     animation: pulse 1.8s ease-in-out infinite;
+}
+
+/* Confirmed pill — green tone, no pulse (the reservation is already
+   final, no waiting state to communicate). */
+.statusLineConfirmed {
+    background: color-mix(in srgb, #22c55e 14%, transparent);
+}
+
+.statusDotConfirmed {
+    background: #22c55e;
+    box-shadow: 0 0 0 4px color-mix(in srgb, #22c55e 24%, transparent);
+    animation: none;
 }
 
 @keyframes pulse {

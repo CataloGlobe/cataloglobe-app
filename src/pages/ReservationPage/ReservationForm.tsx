@@ -1,6 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { submitReservation } from "@/services/supabase/reservations";
+import {
+    submitReservation,
+    type SubmitReservationStatus
+} from "@/services/supabase/reservations";
 import type { FieldErrors, FormFields, Phase } from "./types";
 import { EMPTY_FORM } from "./types";
 import { todayIsoDate, validateField } from "./validators";
@@ -23,7 +26,7 @@ type Props = {
     slug: string;
     hours: OpeningHoursEntry[];
     closures: UpcomingClosure[];
-    onSuccess: (snapshot: FormFields) => void;
+    onSuccess: (snapshot: FormFields, status: SubmitReservationStatus) => void;
     onResolveErrorCode: (code: SubmitErrorCode) => void;
 };
 
@@ -133,7 +136,7 @@ export default function ReservationForm({
             setSubmitError(null);
             setPhase("submitting");
             try {
-                await submitReservation({
+                const result = await submitReservation({
                     slug,
                     reservation_date: form.reservation_date.trim(),
                     reservation_time: form.reservation_time.trim(),
@@ -143,7 +146,7 @@ export default function ReservationForm({
                     customer_phone: form.customer_phone.trim(),
                     ...(form.notes.trim() ? { notes: form.notes.trim() } : {})
                 });
-                onSuccess(form);
+                onSuccess(form, result.status);
                 setPhase("success");
             } catch (err) {
                 const errorObj = err as Error & { code?: string };

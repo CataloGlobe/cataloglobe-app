@@ -745,7 +745,13 @@ serve(async (req: Request) => {
             console.error("[submit-reservation] notification fan-out failed:", notifErr);
         }
 
-        return jsonResponse({ success: true, reservation_id: reservationId }, 200);
+        // The client renders different success copy based on `status`:
+        //   'confirmed' → "Prenotazione confermata!" + Confermata pill
+        //   'pending'   → "Richiesta inviata!" + In attesa pill
+        return jsonResponse(
+            { success: true, reservation_id: reservationId, status: placementStatus },
+            200
+        );
     } catch (err) {
         console.error("[submit-reservation] error:", err);
         return errorResponse("SERVER_ERROR", 500);

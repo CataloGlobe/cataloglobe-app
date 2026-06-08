@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { CheckIcon } from "./icons";
+import type { SubmitReservationStatus } from "@/services/supabase/reservations";
 import type { FormFields } from "./types";
 import styles from "./SuccessRecap.module.scss";
 
@@ -7,6 +8,9 @@ type Props = {
     slug: string;
     brandName: string;
     snapshot: FormFields;
+    /** Risultato della submit. `confirmed` = auto-confermata dalla sede;
+     *  `pending` = in attesa di approvazione admin (comportamento V0). */
+    status: SubmitReservationStatus;
 };
 
 function formatDateIt(iso: string): string {
@@ -32,20 +36,45 @@ function formatParty(value: string): string {
     return n === 1 ? "1 persona" : `${n} persone`;
 }
 
-export default function SuccessRecap({ slug, brandName, snapshot }: Props) {
+interface OutcomeCopy {
+    title: string;
+    lead: string;
+    pill: string;
+}
+
+const OUTCOME: Record<SubmitReservationStatus, OutcomeCopy> = {
+    confirmed: {
+        title: "Prenotazione confermata!",
+        lead: "La tua prenotazione è confermata. Ti abbiamo inviato l'email di conferma.",
+        pill: "Confermata"
+    },
+    pending: {
+        title: "Richiesta inviata!",
+        lead:
+            "Riceverai una conferma via email non appena la sede approverà la prenotazione.",
+        pill: "In attesa di conferma del locale"
+    }
+};
+
+export default function SuccessRecap({ slug, brandName, snapshot, status }: Props) {
     const dateLabel = formatDateIt(snapshot.reservation_date);
     const dateCapitalized = dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1);
+    const copy = OUTCOME[status];
 
     return (
         <div className={styles.card}>
-            <div className={styles.icon}>
+            <div
+                className={
+                    status === "confirmed"
+                        ? `${styles.icon} ${styles.iconConfirmed}`
+                        : styles.icon
+                }
+            >
                 <CheckIcon size={30} />
             </div>
 
-            <h1 className={styles.title}>Richiesta inviata!</h1>
-            <p className={styles.lead}>
-                Riceverai una conferma via email non appena la sede approverà la prenotazione.
-            </p>
+            <h1 className={styles.title}>{copy.title}</h1>
+            <p className={styles.lead}>{copy.lead}</p>
 
             <div className={styles.recap}>
                 <div className={styles.row}>
@@ -72,9 +101,22 @@ export default function SuccessRecap({ slug, brandName, snapshot }: Props) {
                 </div>
             </div>
 
-            <span className={styles.statusLine}>
-                <span className={styles.statusDot} aria-hidden="true" />
-                In attesa di conferma del locale
+            <span
+                className={
+                    status === "confirmed"
+                        ? `${styles.statusLine} ${styles.statusLineConfirmed}`
+                        : styles.statusLine
+                }
+            >
+                <span
+                    className={
+                        status === "confirmed"
+                            ? `${styles.statusDot} ${styles.statusDotConfirmed}`
+                            : styles.statusDot
+                    }
+                    aria-hidden="true"
+                />
+                {copy.pill}
             </span>
 
             <Link to={`/${slug}`} className={styles.cta}>
