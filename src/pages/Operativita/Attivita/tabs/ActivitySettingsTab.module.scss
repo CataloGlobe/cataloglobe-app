@@ -499,6 +499,12 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 12px;
+    /* Anchor both columns at the row top so the helper text under
+       "Durata media tavolo" can extend downwards without pushing the
+       Durata input down to match the (sometimes shorter) Capienza cell.
+       Without this, default grid `stretch` lets renderers center the
+       intrinsic content of each cell within the unified row height. */
+    align-items: start;
 
     @media (max-width: 640px) {
         grid-template-columns: minmax(0, 1fr);
@@ -509,6 +515,9 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    /* Belt-and-suspenders: even when the parent stretches a cell,
+       stack children from the top so label + input align across columns. */
+    justify-content: flex-start;
 }
 
 /* Vertical breathing between the capacity blocks rendered as siblings
@@ -522,6 +531,16 @@
 
 .capacityField + .capacityField {
     margin-top: 18px;
+}
+
+/* Reset the sibling spacing for `.capacityField` cells nested inside the
+   `.capacityRow` grid (Capienza + Durata). Without this reset the
+   adjacent-sibling rule above pushes Durata down by 18px and breaks the
+   horizontal alignment of label + input across the two columns. Grid's
+   own `gap: 12px` already handles inter-column spacing. */
+.capacityRow .capacityField,
+.capacityRow .capacityField + .capacityField {
+    margin-top: 0;
 }
 
 .capacityLabel {
