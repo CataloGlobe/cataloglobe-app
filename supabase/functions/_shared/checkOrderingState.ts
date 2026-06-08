@@ -15,6 +15,8 @@
 //   - tenant_deleted:        tenant.deleted_at IS NOT NULL (o riga assente)
 //   - activity_inactive:     activity.status != 'active' (o riga assente)
 //   - ordering_disabled:     activity.ordering_enabled = false
+//   - feature_not_available: piano del tenant non include 'table_ordering'
+//                             (RPC activity_has_feature, fail-closed su NULL/errore)
 //   - table_maintenance:     table.maintenance_mode = true
 //   - table_deleted:         table.deleted_at IS NOT NULL (o riga assente)
 //
@@ -28,6 +30,7 @@ export type OrderingStateReason =
     | "tenant_deleted"
     | "activity_inactive"
     | "ordering_disabled"
+    | "feature_not_available"
     | "table_maintenance"
     | "table_deleted";
 
@@ -85,6 +88,20 @@ export async function checkOrderingState(
         return { ok: false, reason: "ordering_disabled" };
     }
 
+    // ── Plan-based feature gate ──
+    // Fail-closed: any non-true result (false, null, RPC error) blocks ordering.
+    // Belt-and-suspenders with the BEFORE INSERT trigger on `orders` that raises
+    // FEATURE_NOT_AVAILABLE; this pre-check turns the would-be DB error into a
+    // clean, codified response for the customer.
+    const { data: hasOrderingFeature, error: featErr } = await supabase
+        .rpc("activity_has_feature", {
+            p_activity_id: params.activityId,
+            p_feature_id: "table_ordering"
+        });
+    if (featErr || hasOrderingFeature !== true) {
+        return { ok: false, reason: "feature_not_available" };
+    }
+
     // ── Table (opzionale) ──
     if (params.tableId) {
         const { data: table, error: tabErr } = await supabase
@@ -119,6 +136,8 @@ export function orderingStateMessage(reason: OrderingStateReason): string {
             return "L'ordinazione tramite QR non e' al momento disponibile. Chiedi allo staff.";
         case "ordering_disabled":
             return "Il ristorante ha temporaneamente sospeso le ordinazioni tramite QR. Per favore, chiedi allo staff per ordinare.";
+        case "feature_not_available":
+            return "Gli ordini al tavolo non sono disponibili per questa attivita'. Chiedi allo staff per ordinare.";
         case "table_maintenance":
             return "Questo tavolo non e' al momento disponibile per le ordinazioni. Chiedi allo staff.";
         case "table_deleted":
@@ -128,9 +147,12 @@ export function orderingStateMessage(reason: OrderingStateReason): string {
 
 /**
  * Quali reason consentono di mostrare comunque il menu (catalog read-only)?
- * - ordering_disabled / table_maintenance: sede operativa, solo ordini QR bloccati
+ * - ordering_disabled / table_maintenance / feature_not_available:
+ *   sede operativa, solo ordini QR bloccati → menu in sola lettura
  * - tutti gli altri: nascondere il menu (sede non agibile)
  */
 export function shouldShowCatalogReadOnly(reason: OrderingStateReason): boolean {
-    return reason === "ordering_disabled" || reason === "table_maintenance";
+    return reason === "ordering_disabled"
+        || reason === "table_maintenance"
+        || reason === "feature_not_available";
 }
