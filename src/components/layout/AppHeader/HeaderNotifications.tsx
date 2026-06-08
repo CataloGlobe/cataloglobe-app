@@ -13,10 +13,15 @@ type HeaderNotificationsProps =
     | { scope: "account" };
 
 // Best-effort deep link from notification → page.
-// Today: reservation.new → admin Reservations inbox for the tenant.
-// (Single-reservation deep link is out of scope: the inbox surfaces the new row.)
+// Both `reservation.new` (pending awaiting admin) and
+// `reservation.auto_confirmed` (auto-confirm path) route to the same
+// admin Reservations inbox for the tenant. Single-reservation deep link
+// is out of scope: the inbox surfaces the row.
 function resolveTargetPath(notification: Notification, fallbackTenantId: string | null): string | null {
-    if (notification.event_type === "reservation.new") {
+    if (
+        notification.event_type === "reservation.new" ||
+        notification.event_type === "reservation.auto_confirmed"
+    ) {
         const tenantId =
             notification.tenant_id ?? fallbackTenantId;
         if (tenantId) return `/business/${tenantId}/reservations`;
