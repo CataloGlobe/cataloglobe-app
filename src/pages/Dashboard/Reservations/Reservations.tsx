@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { CalendarCheck, Clock, Lock, Plus } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
+import { usePlanFeatures } from "@/lib/planFeatures";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
 import { Select } from "@/components/ui/Select/Select";
@@ -49,6 +50,9 @@ const ACTION_LABEL: Record<DeferredAction, string> = {
 export default function Reservations() {
     const tenantId = useTenantId();
     const { showToast } = useToast();
+    const navigate = useNavigate();
+    const { businessId = "" } = useParams<{ businessId: string }>();
+    const { hasFeature } = usePlanFeatures();
     const { permissions, loading: permissionsLoading } = usePermissions();
     const sedeScope = useSedeScope();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -257,11 +261,19 @@ export default function Reservations() {
         </Tabs>
     ), [tab, handleTabChange, pendingInScope.length]);
 
-    usePageHeader({
-        leading: headerLeading,
-        actions: pageActions,
-        sticky: true
-    });
+    // Plan gate (computed early; the actual lock screen render is below,
+    // after all hooks, to respect the Rules of Hooks).
+    const isLocked = !hasFeature("table_reservation");
+
+    // When locked, pass null so the PageHeaderSlot stays empty (toolbar/tab
+    // are owned by MainLayout via context, not by this component's render).
+    const headerConfig = useMemo(
+        () => isLocked
+            ? null
+            : { leading: headerLeading, actions: pageActions, sticky: true },
+        [isLocked, headerLeading, pageActions]
+    );
+    usePageHeader(headerConfig);
 
     const handleAction = useCallback(
         (r: V2Reservation, action: DeferredAction) => {
@@ -348,6 +360,29 @@ export default function Reservations() {
     }, [todayItems]);
 
     // ── Render ────────────────────────────────────────────────────────
+
+    // Plan gate render: feature "table_reservation" is Pro-only. Blocks all
+    // roles before the permission gate. Real enforcement is server-side via
+    // plans.features_json / activity_has_feature.
+    if (isLocked) {
+        return (
+            <div className={styles.lockedWrap}>
+                <EmptyState
+                    icon={<Lock size={40} strokeWidth={1.5} />}
+                    title="Le prenotazioni sono una funzione Pro"
+                    description="Accetta richieste di prenotazione tavolo dalla pagina pubblica e gestiscile da qui. Disponibile con il piano Pro."
+                    action={
+                        <Button
+                            variant="primary"
+                            onClick={() => navigate(`/business/${businessId}/subscription`)}
+                        >
+                            Passa a Pro
+                        </Button>
+                    }
+                />
+            </div>
+        );
+    }
 
     if (!permissionsLoading && permissions && !canRead) {
         return (

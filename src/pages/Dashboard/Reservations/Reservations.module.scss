@@ -4,8 +4,16 @@
   gap: 16px;
 }
 
+/* Full-page locked state. Used both by the feature gate (plan-based) and
+   the permission gate (role-based) so both render with the same centered
+   layout. Mirrors the pattern from TeamPage `.lockedWrap`. */
 .lockedWrap {
-  padding: 80px 16px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  padding: 24px 16px;
 }
 
 .skeleton {
