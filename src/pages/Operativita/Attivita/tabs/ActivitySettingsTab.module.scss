@@ -511,6 +511,19 @@
     gap: 4px;
 }
 
+/* Vertical breathing between the capacity blocks rendered as siblings
+   inside the accordion content. Sibling selectors avoid touching the
+   accordion markup. The first sibling after the capacity inputs row gets
+   extra space (transition between numeric inputs and radio groups), the
+   second radio block gets the standard inter-group spacing. */
+.capacityRow + .capacityField {
+    margin-top: 20px;
+}
+
+.capacityField + .capacityField {
+    margin-top: 18px;
+}
+
 .capacityLabel {
     font-size: 12px;
     font-weight: 600;
@@ -525,10 +538,19 @@
     margin: 0;
 }
 
+/* Two-column grid for the radio options ("Quando è pieno" / "Modalità di
+   conferma"). Equal-height cells via grid's default stretch. Collapses to
+   a single column on the same narrow breakpoint as `.capacityRow` for
+   layout coherence. */
 .capacityRadioGroup {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+    align-items: stretch;
+
+    @media (max-width: 640px) {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 .capacityRadio {
@@ -536,10 +558,15 @@
     align-items: flex-start;
     gap: 8px;
     cursor: pointer;
-    padding: 8px 10px;
+    padding: 10px 12px;
     border: 1px solid var(--color-border, #e5e7eb);
     border-radius: 8px;
     transition: border-color 0.15s ease, background 0.15s ease;
+    /* Stretch to fill the grid row so paired cards share the same height
+       even when descriptions have different line counts. Content stays
+       anchored at the top via the existing `align-items: flex-start`. */
+    height: 100%;
+    box-sizing: border-box;
 }
 
 .capacityRadio:hover {
