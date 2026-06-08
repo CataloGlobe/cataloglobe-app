@@ -35,16 +35,14 @@
     min-width: 0;
 }
 
-// Pill attribuzione staff: priorità su customer_name_snapshot.
+// Attribuzione icon-only (staff vs cliente). Nome completo nel dettaglio.
 .attribution {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
     border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.4;
     border: 1px solid transparent;
     flex-shrink: 0;
 }
@@ -56,10 +54,11 @@
     border-color: var(--brand-primary-soft-hover, rgba(99, 102, 241, 0.15));
 }
 
-.attributionIcon {
-    display: inline-flex;
-    align-items: center;
-    flex-shrink: 0;
+.attributionCustomer {
+    composes: attribution;
+    background-color: var(--surface-muted, #f4f5f7);
+    color: var(--text-muted, #6b6f76);
+    border-color: var(--border-default, #e1e3e8);
 }
 
 .tableInfo {

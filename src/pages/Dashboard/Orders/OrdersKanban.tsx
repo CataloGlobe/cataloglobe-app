@@ -25,6 +25,12 @@ import styles from "./OrdersKanban.module.scss";
 interface Props {
     orders: V2OrderWithItems[];
     tables: V2Table[];
+    /**
+     * Mappa `user_id → display_name` (owner + active members). Propagata 1:1
+     * a OrderCard per risolvere `order.created_by_user_id` nella pill staff.
+     * Map vuota = fallback "Staff" generico.
+     */
+    operatorNames?: Map<string, string>;
     isLoading: boolean;
     error: string | null;
     onRetry: () => void;
@@ -65,6 +71,7 @@ const COLUMNS: ColumnDef[] = [
 export default function OrdersKanban({
     orders,
     tables,
+    operatorNames,
     isLoading,
     error,
     onRetry,
@@ -166,6 +173,7 @@ export default function OrdersKanban({
                                             order={order}
                                             tableLabel={table?.label ?? "?"}
                                             tableZone={table?.zone_name ?? null}
+                                            operatorNames={operatorNames}
                                             onAcknowledge={onAcknowledge}
                                             onMarkReady={onMarkReady}
                                             onDeliver={onDeliver}

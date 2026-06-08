@@ -63,3 +63,40 @@ export async function listMyPendingInvites(): Promise<PendingInviteRow[]> {
     if (error) throw error;
     return (data as PendingInviteRow[]) ?? [];
 }
+
+/**
+ * Mappa `user_id → display_name` per owner + membri attivi del tenant.
+ *
+ * Wrapper su RPC `public.get_tenant_member_names(p_tenant_id)` (migration
+ * 20260608164213). Gated lato server su membership (qualsiasi ruolo: owner /
+ * admin / manager / staff / viewer). Usata per attribuire le comande manuali
+ * all'operatore sulla board Ordini.
+ *
+ * Behaviour anti-crash: in caso di errore RPC (RPC non ancora applicata in un
+ * ambiente, 401/403, network, schema mismatch) ritorna una Map vuota. Il caller
+ * UI fa fallback al label generico "Staff" senza rompere il render.
+ *
+ * Filtra `display_name` null/vuoti (caller deve poter fare `.get(id) ?? "Staff"`
+ * senza dover ri-controllare il valore restituito).
+ */
+export async function getTenantMemberNames(
+    tenantId: string
+): Promise<Map<string, string>> {
+    type Row = { user_id: string | null; display_name: string | null };
+    const { data, error } = await supabase.rpc("get_tenant_member_names", {
+        p_tenant_id: tenantId
+    });
+    if (error) {
+        console.warn("[getTenantMemberNames] RPC error:", error.message);
+        return new Map();
+    }
+    const rows = (data ?? []) as Row[];
+    const out = new Map<string, string>();
+    for (const row of rows) {
+        if (!row.user_id) continue;
+        const name = row.display_name?.trim();
+        if (!name) continue;
+        out.set(row.user_id, name);
+    }
+    return out;
+}

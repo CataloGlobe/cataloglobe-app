@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { AlertCircle, ClipboardList, Plus, RefreshCw, Volume2, VolumeX } from "lucide-react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { AlertCircle, ClipboardList, Lock, Plus, RefreshCw, Volume2, VolumeX } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
@@ -11,6 +11,7 @@ import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveVie
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
+import { usePlanFeatures } from "@/lib/planFeatures";
 
 import {
     acknowledgeOrder,
@@ -33,6 +34,7 @@ import type {
 } from "@/types/orders";
 
 import { listTables } from "@/services/supabase/tables";
+import { getTenantMemberNames } from "@/services/supabase/team";
 import type { V2Table } from "@/types/orders";
 
 import OrderDetailDrawer from "./OrderDetailDrawer";
@@ -54,6 +56,9 @@ type MainTab = "comande" | "tavoli" | "storico";
 export default function Orders() {
     const tenantId = useTenantId();
     const { showToast } = useToast();
+    const navigate = useNavigate();
+    const { businessId = "" } = useParams<{ businessId: string }>();
+    const { hasFeature } = usePlanFeatures();
     const [searchParams, setSearchParams] = useSearchParams();
 
     // Sede in modalità single-site: viene dal selettore navbar
@@ -80,6 +85,13 @@ export default function Orders() {
 
     // Data
     const [tables, setTables] = useState<V2Table[]>([]);
+
+    // Attribuzione operatore: user_id → display_name. Fetch UNA volta per
+    // tenantId (membri del tenant cambiano raramente, no realtime). Map
+    // vuota in caso di errore RPC → fallback "Staff" sulla pill.
+    const [operatorNames, setOperatorNames] = useState<Map<string, string>>(
+        () => new Map()
+    );
 
     // Storico (delivered + cancelled della giornata operativa)
     const [historyOrders, setHistoryOrders] = useState<V2OrderWithItems[]>([]);
@@ -178,6 +190,23 @@ export default function Orders() {
         void loadTables();
     }, [loadTables]);
 
+    // Fetch nomi operatori una volta per tenant. Cancellation via flag locale
+    // per evitare setState dopo unmount o swap tenantId rapido.
+    useEffect(() => {
+        if (!tenantId) {
+            setOperatorNames(new Map());
+            return;
+        }
+        let cancelled = false;
+        void (async () => {
+            const map = await getTenantMemberNames(tenantId);
+            if (!cancelled) setOperatorNames(map);
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [tenantId]);
+
     // Reset filtro tavolo al cambio sede: il tableFilter potrebbe contenere
     // un table_id non piu' valido nella nuova sede, nascondendo silenziosamente
     // tutte le comande (kanban vuoto senza messaggio).
@@ -257,11 +286,19 @@ export default function Orders() {
         </Tabs>
     ), [mainTab, handleTabChange]);
 
-    usePageHeader({
-        leading: headerLeading,
-        actions: headerActions,
-        sticky: true
-    });
+    // Plan gate (computed early; the actual lock screen render is below,
+    // after all hooks, to respect the Rules of Hooks).
+    const isLocked = !hasFeature("table_ordering");
+
+    // When locked, pass null so the PageHeaderSlot stays empty (toolbar/tab
+    // are owned by MainLayout via context, not by this component's render).
+    const headerConfig = useMemo(
+        () => isLocked
+            ? null
+            : { leading: headerLeading, actions: headerActions, sticky: true },
+        [isLocked, headerLeading, headerActions]
+    );
+    usePageHeader(headerConfig);
 
     // ── Filtering (client-side: solo tableId) ──
     const filteredOrders = useMemo(() => {
@@ -660,6 +697,29 @@ export default function Orders() {
         }
     }
 
+    // Plan gate render: feature "table_ordering" is Pro-only. Blocks all
+    // roles before the permission gate. Real enforcement is server-side via
+    // plans.features_json / activity_has_feature.
+    if (isLocked) {
+        return (
+            <div className={styles.lockedWrap}>
+                <EmptyState
+                    icon={<Lock size={40} strokeWidth={1.5} />}
+                    title="Gli ordini al tavolo sono una funzione Pro"
+                    description="Ricevi e gestisci gli ordini inviati dai clienti via QR. Disponibile con il piano Pro."
+                    action={
+                        <Button
+                            variant="primary"
+                            onClick={() => navigate(`/business/${businessId}/subscription`)}
+                        >
+                            Passa a Pro
+                        </Button>
+                    }
+                />
+            </div>
+        );
+    }
+
     return (
         <section className={styles.container}>
             {mainTab === "comande" && (
@@ -691,6 +751,7 @@ export default function Orders() {
                         <OrdersKanban
                             orders={filteredOrders}
                             tables={tables}
+                            operatorNames={operatorNames}
                             isLoading={isLoadingOrders}
                             error={ordersError}
                             onRetry={() => void refetchOrders()}
@@ -759,6 +820,7 @@ export default function Orders() {
                                     tableZone={
                                         tables.find(t => t.id === o.table_id)?.zone_name ?? null
                                     }
+                                    operatorNames={operatorNames}
                                     onRestore={handleRestore}
                                     onViewDetail={handleViewDetail}
                                 />
@@ -777,6 +839,7 @@ export default function Orders() {
                 tableZone={
                     tables.find(t => t.id === orderInDetail?.table_id)?.zone_name ?? null
                 }
+                operatorNames={operatorNames}
                 onClose={() => {
                     setIsDetailOpen(false);
                     setOrderInDetail(null);

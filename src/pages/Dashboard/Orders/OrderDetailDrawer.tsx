@@ -12,6 +12,14 @@ interface Props {
     order: V2OrderWithItems | null;
     tableLabel: string;
     tableZone: string | null;
+    /**
+     * Mappa `user_id → display_name` (owner + active members) per risolvere
+     * il nome operatore nella riga "Creata da" quando
+     * `order.created_by_user_id` è valorizzato. Map vuota / lookup mancante →
+     * fallback "Staff". Per ordini staff il `customer_name_snapshot`
+     * ("Comanda manuale") viene soppresso: è un placeholder, non un cliente.
+     */
+    operatorNames?: Map<string, string>;
     onClose: () => void;
 }
 
@@ -59,6 +67,7 @@ export default function OrderDetailDrawer({
     order,
     tableLabel,
     tableZone,
+    operatorNames,
     onClose
 }: Props) {
     if (!order) {
@@ -118,15 +127,26 @@ export default function OrderDetailDrawer({
                         </Text>
                     </div>
 
-                    {order.customer_name_snapshot && (
+                    {order.created_by_user_id != null ? (
                         <div className={styles.metaRow}>
                             <Text variant="body-sm" colorVariant="muted">
-                                Cliente:
+                                Creata da:
                             </Text>
                             <Text variant="body-sm" weight={500}>
-                                {order.customer_name_snapshot}
+                                {operatorNames?.get(order.created_by_user_id) ?? "Staff"}
                             </Text>
                         </div>
+                    ) : (
+                        order.customer_name_snapshot && (
+                            <div className={styles.metaRow}>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    Cliente:
+                                </Text>
+                                <Text variant="body-sm" weight={500}>
+                                    {order.customer_name_snapshot}
+                                </Text>
+                            </div>
+                        )
                     )}
 
                     {order.is_rectification && (
