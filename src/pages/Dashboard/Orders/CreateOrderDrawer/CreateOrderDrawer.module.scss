@@ -1,0 +1,88 @@
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+}
+
+.loading,
+.errorBlock {
+    padding: 32px 16px;
+    text-align: center;
+}
+
+.tableBanner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--brand-primary, #6366f1);
+    background-color: var(--brand-primary-soft, rgba(99, 102, 241, 0.08));
+    border-radius: 10px;
+}
+
+.tableBannerLabel {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.tableBannerCaption {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11px;
+    color: var(--text-muted, #6b6f76);
+    font-weight: 600;
+}
+
+.tableBannerValue {
+    font-weight: 600;
+    color: var(--text-primary, #1a1d21);
+}
+
+.changeTableButton {
+    border: none;
+    background: transparent;
+    color: var(--brand-primary, #6366f1);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.changeTableButton:hover {
+    background-color: rgba(99, 102, 241, 0.12);
+}
+
+.footerActions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+}
+
+.footerTotalBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.footerTotalLabel {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.footerTotalValue {
+    font-variant-numeric: tabular-nums;
+}
+
+.footerButtons {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}

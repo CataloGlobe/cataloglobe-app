@@ -1,0 +1,94 @@
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.loading,
+.errorBlock {
+    padding: 24px 8px;
+    text-align: center;
+}
+
+.zoneSection {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.zoneHeader {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.zoneName {
+    font-weight: 600;
+    color: var(--text-primary, #1a1d21);
+}
+
+.zoneCount {
+    color: var(--text-muted, #6b6f76);
+    font-size: 12px;
+}
+
+.cardsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--color-border, #e2e8f0);
+    border-radius: 10px;
+    background: var(--color-surface, #ffffff);
+    cursor: pointer;
+    transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+}
+
+.card:hover {
+    border-color: var(--brand-primary, #6366f1);
+    background-color: var(--brand-primary-soft, rgba(99, 102, 241, 0.06));
+    transform: translateY(-1px);
+}
+
+.card:focus-visible {
+    outline: 2px solid var(--brand-primary, #6366f1);
+    outline-offset: 2px;
+}
+
+.cardOccupied {
+    composes: card;
+    border-color: var(--color-green-200, #bbf7d0);
+    background-color: var(--color-green-50, #f0fdf4);
+}
+
+.cardOccupied:hover {
+    border-color: var(--brand-primary, #6366f1);
+    background-color: var(--brand-primary-soft, rgba(99, 102, 241, 0.08));
+}
+
+.cardHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.cardLabel {
+    font-weight: 600;
+    color: var(--text-primary, #1a1d21);
+}
+
+.cardMeta {
+    color: var(--text-muted, #6b6f76);
+    font-size: 12px;
+}
