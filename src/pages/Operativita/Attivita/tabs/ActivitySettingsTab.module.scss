@@ -593,3 +593,17 @@
     line-height: 1.4;
     color: var(--color-text-muted, #6b7280);
 }
+
+/* Caption rendered under a Pro-only Switch when the tenant's plan does not
+   include the feature. Lock icon uses currentColor + opacity, no hex hardcoded;
+   matches the language of the muted lock indicator in the Sidebar. */
+.lockedFeatureCaption {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--color-text-muted, #6b7280);
+    opacity: 0.85;
+}
