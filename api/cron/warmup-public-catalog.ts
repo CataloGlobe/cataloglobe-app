@@ -24,6 +24,7 @@ type WarmupOutcome = "ok" | "failed";
 
 type CronSummary = {
     event: "warmup_public_catalog_cron";
+    target: string;
     warmup: WarmupOutcome;
     upstreamStatus: number;
     durationMs: number;
@@ -38,9 +39,25 @@ function isAuthorized(req: VercelRequest): boolean {
     return header === `Bearer ${secret}`;
 }
 
-function resolveTargetUrl(): string {
+// Target priority:
+//   1. WARMUP_TARGET_BASE_URL env (explicit override, e.g. public domain).
+//   2. Inbound request host header. x-forwarded-host wins over host because
+//      the Vercel proxy rewrites host while preserving the public domain
+//      on x-forwarded-host. This makes the self-call hit the same public
+//      domain the cron itself was invoked on, dodging Deployment Protection
+//      on the bare .vercel.app URL.
+//   3. VERCEL_URL env (fallback to the deployment domain).
+//   4. Relative path (last resort; fetch will reject without a base).
+function resolveTargetUrl(req: VercelRequest): string {
     const explicit = process.env.WARMUP_TARGET_BASE_URL;
     if (explicit) return `${explicit.replace(/\/+$/, "")}/api/public-catalog?warmup=1`;
+
+    const forwarded = req.headers["x-forwarded-host"];
+    const inboundHost = Array.isArray(forwarded)
+        ? forwarded[0]
+        : forwarded ?? req.headers.host;
+    if (inboundHost) return `https://${inboundHost}/api/public-catalog?warmup=1`;
+
     const vercelHost = process.env.VERCEL_URL;
     if (vercelHost) return `https://${vercelHost}/api/public-catalog?warmup=1`;
     return "/api/public-catalog?warmup=1";
@@ -60,7 +77,7 @@ export default async function handler(
         return;
     }
 
-    const target = resolveTargetUrl();
+    const target = resolveTargetUrl(req);
     const startedAt = Date.now();
     let ok = false;
     let upstreamStatus = 0;
@@ -75,6 +92,7 @@ export default async function handler(
 
     const body: CronSummary = {
         event: "warmup_public_catalog_cron",
+        target,
         warmup: ok ? "ok" : "failed",
         upstreamStatus,
         durationMs: Date.now() - startedAt,
