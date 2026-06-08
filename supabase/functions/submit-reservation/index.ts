@@ -109,106 +109,6 @@ function jsonResponse(body: Record<string, unknown>, status: number): Response {
     });
 }
 
-// --- Capacity engine (SYNC: src/utils/reservationCapacity.ts) ---------------
-// Deno port. Keep behavior identical to the FE module. If you change one,
-// update the other in the same commit.
-
-const CAP_MINUTES_PER_DAY = 1440;
-const CAP_ACTIVE_STATUSES = new Set(["pending", "confirmed"]);
-
-function capParseLocalDate(iso: string): Date | null {
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-    if (!m) return null;
-    const y = Number(m[1]);
-    const mo = Number(m[2]);
-    const d = Number(m[3]);
-    if (!y || !mo || !d) return null;
-    return new Date(y, mo - 1, d);
-}
-
-function capTimeToMin(t: string): number {
-    const m = /^(\d{2}):(\d{2})/.exec(t);
-    if (!m) return Number.NaN;
-    const hh = Number(m[1]);
-    const mm = Number(m[2]);
-    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return Number.NaN;
-    return hh * 60 + mm;
-}
-
-function capDiffDays(target: Date, ref: Date): number {
-    const ms = target.getTime() - ref.getTime();
-    return Math.round(ms / (1000 * 60 * 60 * 24));
-}
-
-function capToRelMin(date: string, time: string, ref: Date): number {
-    const d = capParseLocalDate(date);
-    if (!d) return Number.NaN;
-    const off = capDiffDays(d, ref);
-    if (off < -1 || off > 1) return Number.NaN;
-    const m = capTimeToMin(time);
-    if (Number.isNaN(m)) return Number.NaN;
-    return off * CAP_MINUTES_PER_DAY + m;
-}
-
-function capPeakWithCandidate(rows, cand, durationMin) {
-    if (durationMin <= 0) return 0;
-    const ref = capParseLocalDate(cand.reservation_date);
-    if (!ref) return 0;
-    const candStart = capToRelMin(cand.reservation_date, cand.reservation_time, ref);
-    if (Number.isNaN(candStart)) return 0;
-    const candEnd = candStart + durationMin;
-
-    const candId = cand.id ?? "__candidate__";
-    const filtered = rows
-        .filter(r => r.activity_id === cand.activity_id && r.id !== candId)
-        .concat([{
-            id: candId,
-            activity_id: cand.activity_id,
-            reservation_date: cand.reservation_date,
-            reservation_time: cand.reservation_time,
-            party_size: cand.party_size,
-            status: "pending"
-        }]);
-
-    const events = [];
-    for (const r of filtered) {
-        if (!CAP_ACTIVE_STATUSES.has(r.status)) continue;
-        if (r.party_size <= 0) continue;
-        const start = capToRelMin(r.reservation_date, r.reservation_time, ref);
-        if (Number.isNaN(start)) continue;
-        const end = start + durationMin;
-        events.push({ t: start, delta: r.party_size, order: 0 });
-        events.push({ t: end, delta: -r.party_size, order: 1 });
-    }
-    events.sort((a, b) => (a.t - b.t) || (b.order - a.order));
-
-    let level = 0;
-    let peak = 0;
-    let baselineLocked = false;
-    for (const ev of events) {
-        if (ev.t < candStart) { level += ev.delta; continue; }
-        if (ev.t === candStart && ev.order === 1) { level += ev.delta; continue; }
-        if (!baselineLocked) { peak = level; baselineLocked = true; }
-        if (ev.t >= candEnd) break;
-        level += ev.delta;
-        if (level > peak) peak = level;
-    }
-    if (!baselineLocked) peak = level;
-    return Math.max(0, peak);
-}
-
-function capAdjacentDates(isoDate) {
-    const d = capParseLocalDate(isoDate);
-    if (!d) return null;
-    const prev = new Date(d);
-    prev.setDate(prev.getDate() - 1);
-    const next = new Date(d);
-    next.setDate(next.getDate() + 1);
-    const fmt = (x) =>
-        `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
-    return { prev: fmt(prev), next: fmt(next) };
-}
-
 // --- Validation helpers ------------------------------------------------------
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -439,6 +339,54 @@ function buildVenueAlertEmail(args: {
     return { subject, html, text };
 }
 
+// Auto-confirmation customer email. Mirrors the "confirm" branch of
+// respond-reservation's `buildOutcomeEmail` (we don't import to avoid
+// touching that file). Both functions speak Italian and use the same
+// CataloGlobe footer.
+function buildCustomerAutoConfirmedEmail(args: {
+    activityName: string;
+    date: string;
+    time: string;
+    partySize: number;
+    customerName: string;
+}): { subject: string; html: string; text: string } {
+    const { activityName, date, time, partySize, customerName } = args;
+    const eActivityName = escapeHtml(activityName);
+    const eCustomerName = escapeHtml(customerName);
+    const dateIt = formatDateIt(date);
+    const timeIt = formatTimeIt(time);
+    const eDate = escapeHtml(dateIt);
+    const eTime = escapeHtml(timeIt);
+    const reason = reservationReceiptReason(activityName);
+    const subject = `Prenotazione confermata — ${activityName}`;
+    const html = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
+    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
+        <h1 style="margin:0 0 16px;font-size:22px;color:#111827">Prenotazione confermata</h1>
+        <p style="margin:0 0 8px;font-size:15px;color:#374151">Ciao ${eCustomerName},</p>
+        <p style="margin:0 0 16px;font-size:15px;color:#374151">
+            Buone notizie! La tua prenotazione presso <strong>${eActivityName}</strong> è stata <strong>confermata</strong>. Ti aspettiamo.
+        </p>
+        <div style="margin:0 0 24px;padding:16px;background:#f3f4f6;border-radius:8px">
+            <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Dettagli</p>
+            <p style="margin:0;font-size:15px;color:#111827"><strong>Data:</strong> ${eDate}</p>
+            <p style="margin:0;font-size:15px;color:#111827"><strong>Ora:</strong> ${eTime}</p>
+            <p style="margin:0;font-size:15px;color:#111827"><strong>Persone:</strong> ${partySize}</p>
+        </div>
+        ${getEmailFooterHtml(reason)}
+    </div>
+</div>`;
+    const text =
+        `Ciao ${customerName},\n\n` +
+        `Buone notizie! La tua prenotazione presso ${activityName} è stata confermata. Ti aspettiamo.\n\n` +
+        `Dettagli\n` +
+        `Data: ${dateIt}\n` +
+        `Ora: ${timeIt}\n` +
+        `Persone: ${partySize}\n\n` +
+        `${getEmailFooterText(reason)}`;
+    return { subject, html, text };
+}
+
 // --- Handler -----------------------------------------------------------------
 
 serve(async (req: Request) => {
@@ -550,13 +498,15 @@ serve(async (req: Request) => {
         }
 
         // ── Resolve slug → activity (server-side; tenant_id NEVER from body)
+        // The select keeps `reservation_notification_emails` for the venue
+        // alert recipient resolver. Capacity/duration/mode columns are NOT
+        // read here anymore — the RPC `place_online_reservation` owns the
+        // capacity decision under its advisory lock (single source of truth).
         const { data: activity, error: activityError } = await supabase
             .from("activities")
             .select(
                 "id, tenant_id, name, slug, status, enable_reservations, " +
-                "reservation_notification_emails, reservation_capacity, " +
-                "reservation_duration_minutes, reservation_confirmation_mode, " +
-                "reservation_overbooking_form"
+                "reservation_notification_emails"
             )
             .eq("slug", slug)
             .maybeSingle();
@@ -572,96 +522,69 @@ serve(async (req: Request) => {
             return errorResponse("RESERVATIONS_DISABLED", 409);
         }
 
-        // ── Capacity gate (Step 1: continua + manuale + hard|soft) ──────
-        // Schema invariants (CHECK): reservation_capacity > 0 or NULL,
-        // reservation_duration_minutes in [15..600], modes constrained to
-        // {turni|continua} × {manuale|auto} × {hard|soft}.
+        // ── Atomic capacity gate + insert (Step 3) ─────────────────────
+        // One RPC under pg_advisory_xact_lock → no two concurrent submits
+        // can both confirm into the same slot. The RPC encapsulates the
+        // capacity engine that previously lived in this file as a Deno port.
         //
-        // capacity = NULL → no gate (V0 behavior; admin hasn't configured it).
-        // Step 1 wires only the "manuale" matrix row. If a future migration
-        // toggles confirmation_mode=auto without Step 3 deployed, this code
-        // falls through to the manuale path with a TODO marker — never crash,
-        // never silently auto-confirm.
-        //
-        // Engine source-of-truth: src/utils/reservationCapacity.ts. The Deno
-        // port above must stay in sync.
-        const reservationCapacity = activity.reservation_capacity ?? null;
-        const reservationDurationMinutes =
-            typeof activity.reservation_duration_minutes === "number"
-                ? activity.reservation_duration_minutes
-                : 120;
-        const overbookingForm = activity.reservation_overbooking_form === "soft" ? "soft" : "hard";
-        // TODO Step 3: branch on confirmation_mode === "auto" to auto-confirm.
-        // For now any value behaves as "manuale".
-
-        if (reservationCapacity !== null) {
-            const adj = capAdjacentDates(reservationDate);
-            if (!adj) {
-                // Defensive: malformed date that passed earlier regex check.
-                return errorResponse("INVALID_DATE", 400);
-            }
-            const { data: nearbyRows, error: nearbyError } = await supabase
-                .from("reservations")
-                .select("id, activity_id, reservation_date, reservation_time, party_size, status")
-                .eq("activity_id", activity.id)
-                .in("reservation_date", [adj.prev, reservationDate, adj.next])
-                .in("status", ["pending", "confirmed"]);
-
-            if (nearbyError) throw nearbyError;
-
-            const peak = capPeakWithCandidate(
-                nearbyRows ?? [],
-                {
-                    activity_id: activity.id,
-                    reservation_date: reservationDate,
-                    reservation_time: reservationTime,
-                    party_size: partySize
-                },
-                reservationDurationMinutes
-            );
-
-            if (peak > reservationCapacity && overbookingForm === "hard") {
-                return errorResponse("CAPACITY_FULL", 409, {
-                    capacity: reservationCapacity,
-                    peak_with_candidate: peak,
-                    duration_minutes: reservationDurationMinutes
-                });
-            }
-            // soft over-capacity → fall through, insert as pending. The peak
-            // is informative only.
-        }
-
-        // ── Insert reservation (status='pending', source='online',
-        //    server-derived tenant_id) ─────────────────────────────────
-        const { data: inserted, error: insertError } = await supabase
-            .from("reservations")
-            .insert({
-                tenant_id: activity.tenant_id,
-                activity_id: activity.id,
-                reservation_date: reservationDate,
-                reservation_time: reservationTime,
-                party_size: partySize,
-                customer_name: customerName,
-                customer_email: customerEmail,
-                customer_phone: customerPhone,
-                notes,
-                status: "pending",
-                source: "online"
+        // Return contract (single row):
+        //   status='confirmed' → auto-confirmed (auto + capacity set + under)
+        //   status='pending'   → admin will decide (manuale, or auto+soft over)
+        //   status='full'      → caller surfaces 409 CAPACITY_FULL
+        const { data: placement, error: placementError } = await supabase
+            .rpc("place_online_reservation", {
+                p_activity_id:      activity.id,
+                p_reservation_date: reservationDate,
+                p_reservation_time: reservationTime,
+                p_party_size:       partySize,
+                p_customer_name:    customerName,
+                p_customer_email:   customerEmail,
+                p_customer_phone:   customerPhone,
+                p_notes:            notes,
+                p_source:           "online"
             })
-            .select("id")
             .single();
 
-        if (insertError) throw insertError;
-        const reservationId = inserted.id;
+        if (placementError) throw placementError;
+        if (!placement) {
+            console.error("[submit-reservation] RPC returned no row");
+            return errorResponse("SERVER_ERROR", 500);
+        }
+
+        const placementStatus = placement.status as "confirmed" | "pending" | "full";
+        const placementPeak = placement.peak as number | null;
+        const placementCapacity = placement.capacity as number | null;
+
+        if (placementStatus === "full") {
+            return errorResponse("CAPACITY_FULL", 409, {
+                capacity: placementCapacity,
+                peak_with_candidate: placementPeak
+            });
+        }
+
+        const reservationId = placement.reservation_id as string;
+        const isAutoConfirmed = placementStatus === "confirmed";
 
         // ── Best-effort emails (failures NEVER fail the reservation) ─────────
-        const customerEmailBody = buildCustomerReceiptEmail({
-            activityName: activity.name,
-            date: reservationDate,
-            time: reservationTime,
-            partySize,
-            customerName
-        });
+        // Auto-confirmed path uses the "Prenotazione confermata" template,
+        // mirrors the wording of respond-reservation's confirm outcome. The
+        // standard "Richiesta ricevuta" receipt covers the pending path
+        // (manuale or auto+soft-over).
+        const customerEmailBody = isAutoConfirmed
+            ? buildCustomerAutoConfirmedEmail({
+                  activityName: activity.name,
+                  date: reservationDate,
+                  time: reservationTime,
+                  partySize,
+                  customerName
+              })
+            : buildCustomerReceiptEmail({
+                  activityName: activity.name,
+                  date: reservationDate,
+                  time: reservationTime,
+                  partySize,
+                  customerName
+              });
 
         // Customer receipt
         try {
@@ -782,12 +705,22 @@ serve(async (req: Request) => {
                         source: "online"
                     };
 
+                    // Auto-confirmed → dedicated event_type + label so the
+                    // bell + the dashboard deep-link can branch if needed.
+                    // Fan-out destinations and message body are identical.
+                    const eventType = isAutoConfirmed
+                        ? "reservation.auto_confirmed"
+                        : "reservation.new";
+                    const notificationTitle = isAutoConfirmed
+                        ? "Prenotazione confermata (auto)"
+                        : "Nuova prenotazione";
+
                     const rows = userIds.map(uid => ({
                         user_id: uid,
                         tenant_id: activity.tenant_id,
-                        event_type: "reservation.new",
+                        event_type: eventType,
                         type: "info",
-                        title: "Nuova prenotazione",
+                        title: notificationTitle,
                         message,
                         data
                     }));
@@ -812,7 +745,13 @@ serve(async (req: Request) => {
             console.error("[submit-reservation] notification fan-out failed:", notifErr);
         }
 
-        return jsonResponse({ success: true, reservation_id: reservationId }, 200);
+        // The client renders different success copy based on `status`:
+        //   'confirmed' → "Prenotazione confermata!" + Confermata pill
+        //   'pending'   → "Richiesta inviata!" + In attesa pill
+        return jsonResponse(
+            { success: true, reservation_id: reservationId, status: placementStatus },
+            200
+        );
     } catch (err) {
         console.error("[submit-reservation] error:", err);
         return errorResponse("SERVER_ERROR", 500);

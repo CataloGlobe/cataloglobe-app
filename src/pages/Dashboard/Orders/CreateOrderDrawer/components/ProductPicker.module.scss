@@ -1,0 +1,123 @@
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.categoryPills {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.pill {
+    border: 1px solid var(--color-border, #e2e8f0);
+    background: var(--color-surface, #ffffff);
+    color: var(--text-primary, #1a1d21);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.pill:hover {
+    background-color: var(--brand-primary-soft, rgba(99, 102, 241, 0.1));
+    border-color: var(--brand-primary, #6366f1);
+}
+
+.pillActive {
+    composes: pill;
+    background-color: var(--brand-primary, #6366f1);
+    border-color: var(--brand-primary, #6366f1);
+    color: #ffffff;
+}
+
+.pillActive:hover {
+    background-color: var(--brand-primary-hover, #4648c6);
+    border-color: var(--brand-primary-hover, #4648c6);
+    color: #ffffff;
+}
+
+.pillDisabled {
+    composes: pill;
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.productsList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.productRow {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--color-border, #e2e8f0);
+    border-radius: 10px;
+    background: var(--color-surface, #ffffff);
+    overflow: hidden;
+}
+
+.productHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: background-color 120ms ease;
+    text-align: left;
+    border: none;
+    background: transparent;
+    width: 100%;
+    font: inherit;
+    color: inherit;
+}
+
+.productHeader:hover {
+    background-color: var(--brand-primary-soft, rgba(99, 102, 241, 0.06));
+}
+
+.productHeader[aria-expanded="true"] {
+    background-color: var(--brand-primary-soft, rgba(99, 102, 241, 0.08));
+}
+
+.productMain {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.productName {
+    font-weight: 500;
+    color: var(--text-primary, #1a1d21);
+}
+
+.productPrice {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary, #1a1d21);
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.productPriceMuted {
+    composes: productPrice;
+    color: var(--text-muted, #6b6f76);
+    font-weight: 500;
+}
+
+.expansion {
+    border-top: 1px solid var(--color-border, #e2e8f0);
+    padding: 14px;
+    background-color: var(--surface-muted, #fafbfc);
+}
+
+.emptyHint {
+    padding: 14px;
+    text-align: center;
+}

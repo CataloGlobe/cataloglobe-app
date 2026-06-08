@@ -1,0 +1,149 @@
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.groupTitle {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted, #6b6f76);
+    font-weight: 600;
+}
+
+.groupTitleHint {
+    margin-left: 8px;
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+    font-size: 11px;
+}
+
+.optionRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border, #e2e8f0);
+    border-radius: 8px;
+    background: var(--color-surface, #ffffff);
+    cursor: pointer;
+    transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.optionRow:hover {
+    border-color: var(--brand-primary, #6366f1);
+}
+
+.optionRowActive {
+    composes: optionRow;
+    border-color: var(--brand-primary, #6366f1);
+    background-color: var(--brand-primary-soft, rgba(99, 102, 241, 0.08));
+}
+
+.optionLabel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    color: var(--text-primary, #1a1d21);
+    font-weight: 500;
+}
+
+.optionInput {
+    accent-color: var(--brand-primary, #6366f1);
+    flex-shrink: 0;
+}
+
+.optionPrice {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted, #6b6f76);
+    flex-shrink: 0;
+    font-size: 13px;
+}
+
+.qtyBlock {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.qtyStepper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.qtyButton {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border, #e2e8f0);
+    background: var(--color-surface, #ffffff);
+    color: var(--text-primary, #1a1d21);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.qtyButton:hover {
+    border-color: var(--brand-primary, #6366f1);
+    color: var(--brand-primary, #6366f1);
+}
+
+.qtyButton:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.qtyValue {
+    min-width: 24px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--text-primary, #1a1d21);
+}
+
+.noteInput {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid var(--color-border, #e2e8f0);
+    border-radius: 8px;
+    background: var(--color-surface, #ffffff);
+    color: var(--text-primary, #1a1d21);
+    font-family: inherit;
+    font-size: 13px;
+    resize: vertical;
+    min-height: 56px;
+}
+
+.noteInput:focus {
+    outline: none;
+    border-color: var(--brand-primary, #6366f1);
+    box-shadow: 0 0 0 3px var(--brand-primary-soft, rgba(99, 102, 241, 0.15));
+}
+
+.noteHint {
+    display: flex;
+    justify-content: flex-end;
+    font-size: 11px;
+    color: var(--text-muted, #6b6f76);
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 4px;
+}

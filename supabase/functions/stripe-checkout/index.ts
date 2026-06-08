@@ -218,9 +218,12 @@ serve(async req => {
             metadata: sessionMetadata,
             success_url: successUrl,
             cancel_url: cancelUrl,
-            automatic_tax: { enabled: true },
+            // Disabled: forfettario regime, no VAT applied. See LICENSE/README
+            automatic_tax: { enabled: false },
             billing_address_collection: "required",
             customer_update: { address: "auto", name: "auto" },
+            // Kept: B2B customers can enter P.IVA so invoices are billed to the
+            // right entity. Forfettario invoices stay VAT-less either way.
             tax_id_collection: { enabled: true }
         };
 

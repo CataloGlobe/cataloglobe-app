@@ -4,6 +4,7 @@ import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import { usePageHead } from "@/hooks/usePageHead";
 import { fetchPublicCatalog } from "@/services/publicCatalog/fetchPublicCatalog";
+import type { SubmitReservationStatus } from "@/services/supabase/reservations";
 import type { ResolvedStyle } from "@/types/resolvedCollections";
 import ReservationHeader from "./ReservationHeader";
 import ReservationForm from "./ReservationForm";
@@ -21,6 +22,7 @@ export default function ReservationPage() {
     const { slug } = useParams<{ slug: string }>();
     const [resolve, setResolve] = useState<ResolveState>({ status: "loading" });
     const [successSnapshot, setSuccessSnapshot] = useState<FormFields | null>(null);
+    const [successStatus, setSuccessStatus] = useState<SubmitReservationStatus>("pending");
 
     useEffect(() => {
         let cancelled = false;
@@ -87,9 +89,13 @@ export default function ReservationPage() {
         };
     }, [slug]);
 
-    const handleSuccess = useCallback((snapshot: FormFields) => {
-        setSuccessSnapshot(snapshot);
-    }, []);
+    const handleSuccess = useCallback(
+        (snapshot: FormFields, status: SubmitReservationStatus) => {
+            setSuccessSnapshot(snapshot);
+            setSuccessStatus(status);
+        },
+        []
+    );
 
     // Document <title>: aligned with the public menu's pattern via
     // usePageHead — venue name first, descriptor after (matches
@@ -228,6 +234,7 @@ export default function ReservationPage() {
                             slug={slug}
                             brandName={brand.brandName}
                             snapshot={successSnapshot}
+                            status={successStatus}
                         />
                     )}
                 </div>

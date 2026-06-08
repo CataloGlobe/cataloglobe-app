@@ -88,7 +88,9 @@
 }
 
 .body {
-    padding: 0 20px 16px;
+    // 6px padding-top creates breathing room between the header and the first
+    // form row (otherwise field labels read as glued to the title above).
+    padding: 6px 20px 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;

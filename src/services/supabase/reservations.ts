@@ -170,9 +170,15 @@ export interface SubmitReservationInput {
     notes?: string;
 }
 
+export type SubmitReservationStatus = "pending" | "confirmed";
+
 export interface SubmitReservationResult {
     success: true;
     reservation_id: string;
+    /** Status risolto dalla RPC `place_online_reservation` (Step 3).
+     *  - `confirmed` → auto-conferma (sede in modalità auto + capienza ok).
+     *  - `pending`   → in attesa di gestione admin (default + soft-over). */
+    status: SubmitReservationStatus;
 }
 
 /**

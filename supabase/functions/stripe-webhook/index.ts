@@ -208,13 +208,19 @@ serve(async req => {
                 };
                 if (planCode) updates.plan = planCode;
 
-                const { error } = await admin
+                const { error, count } = await admin
                     .from("tenants")
-                    .update(updates)
+                    .update(updates, { count: "exact" })
                     .eq("id", tenantId);
 
                 if (error) {
                     console.error("stripe-webhook: Failed to update tenant on checkout:", error.message);
+                } else if (count === null) {
+                    // PostgREST did not return a row count. Cannot confirm whether
+                    // the tenant row matched; treat as suspect, not as success.
+                    console.warn(`stripe-webhook: UPDATE on tenant ${tenantId} returned NULL row count for event ${event.id} (${event.type}). Cannot verify match.`);
+                } else if (count === 0) {
+                    console.warn(`stripe-webhook: NO TENANT MATCHED id ${tenantId} for event ${event.id} (${event.type}). Possible cause: stale tenant_id metadata or tenant deleted.`);
                 } else {
                     console.log(`stripe-webhook: Tenant ${tenantId} linked to subscription ${stripeSubscriptionId} (plan=${planCode ?? "unchanged"}, status=${subscriptionStatus}, seats=${paidSeats}, period_end=${currentPeriodEnd ?? "null"})`);
                 }

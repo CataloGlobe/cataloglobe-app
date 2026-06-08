@@ -484,42 +484,15 @@
 }
 
 // ── Capacity & availability accordion ───────────────────────────────────────
+// Wrapper aligns ConfigAccordionSection (its header/body have a built-in 20px
+// horizontal padding) with the parent Card's inline 24px gutter. Negative
+// horizontal margin pulls it edge-to-edge of the Card body; the hairline
+// above mirrors the .reservationsEmailsField separator above it.
 
-.capacitySection {
-    margin-top: 16px;
+.capacityAccordionWrap {
+    margin: 16px -24px 0;
     padding-top: 16px;
-    border-top: 1px solid var(--color-border, #e5e7eb);
-}
-
-.capacityHeader {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    cursor: pointer;
-    user-select: none;
-}
-
-.capacityTitle {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--color-text, #111827);
-}
-
-.capacityChevron {
-    transition: transform 0.18s ease;
-    color: var(--color-text-muted, #6b7280);
-}
-
-.capacityChevronOpen {
-    transform: rotate(180deg);
-}
-
-.capacityBody {
-    margin-top: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+    border-top: 1px solid #F3F4F6;
 }
 
 .capacityRow {
@@ -574,12 +547,33 @@
 }
 
 .capacityRadioSelected {
-    border-color: var(--color-primary, #2563eb);
-    background: rgba(37, 99, 235, 0.04);
+    border-color: #6366F1;
+    background: rgba(99, 102, 241, 0.06);
+}
+
+.capacityRadioDisabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.capacityRadioDisabled:hover {
+    border-color: var(--color-border, #e5e7eb);
 }
 
 .capacityRadioInput {
     margin-top: 2px;
+    accent-color: #6366F1;
+}
+
+.capacityAutoWarning {
+    margin-top: 4px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    color: #92400e;
+    font-size: 12px;
+    line-height: 1.45;
 }
 
 .capacityRadioText {
@@ -598,12 +592,4 @@
     font-size: 12px;
     line-height: 1.4;
     color: var(--color-text-muted, #6b7280);
-}
-
-.capacityActions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    padding-top: 4px;
 }

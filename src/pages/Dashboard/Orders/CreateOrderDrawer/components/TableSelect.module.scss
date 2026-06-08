@@ -1,0 +1,34 @@
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+// Padding / border / font-size identici a `.input` di SearchInput
+// (src/components/ui/Input/TextInput.module.scss) per match al pixel
+// quando i due controlli condividono la stessa riga in topBandRow.
+.select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.62rem 0.85rem;
+    border: 1.5px solid var(--border, #cbd5e1);
+    border-radius: 8px;
+    background: var(--card-bg, #ffffff);
+    color: var(--text, #0f172a);
+    font: inherit;
+    font-size: 0.95rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.select:focus-visible {
+    outline: none;
+    border-color: var(--brand-primary, #6366f1);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+.select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
