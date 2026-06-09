@@ -9,8 +9,7 @@ import {
     PAIN_ROWS,
     HOW_STEPS,
     DEMOS,
-    PRICING_TIERS,
-    INCLUDED_FEATURES,
+    PRICING_PLANS,
     FAQ_ITEMS,
     type Demo
 } from "./landingData";
@@ -617,89 +616,78 @@ function Pricing() {
                     <span className={s.sectionLabel}>Prezzi</span>
                 </Animate>
                 <Animate delay={0.04}>
-                    <h2 className={s.pricingH2}>Più sedi attivi, meno paghi.</h2>
+                    <h2 className={s.pricingH2}>Due piani, un prezzo per sede.</h2>
                 </Animate>
                 <Animate delay={0.08}>
                     <p className={s.pricingSub}>
-                        Configura tutto gratis — paghi solo quando attivi una sede. Prezzi graduali:
-                        ogni fascia paga il suo prezzo.
+                        Base o Pro, a seconda di cosa ti serve. Dal 2° locale ogni sede costa il
+                        10% in meno.
                     </p>
                 </Animate>
 
                 <Animate delay={0.12}>
-                    <div className={s.tiersGrid}>
-                        {PRICING_TIERS.map((tier, i) => (
+                    <div className={s.plansGrid}>
+                        {PRICING_PLANS.map(plan => (
                             <div
-                                key={i}
-                                className={`${s.tierCard} ${tier.popular ? s.tierCardPopular : ""}`}
+                                key={plan.key}
+                                className={`${s.planCard} ${plan.popular ? s.planCardPopular : ""}`}
                             >
-                                {tier.popular && <div className={s.popularBadge}>Più scelto</div>}
-                                <div>
-                                    <span className={s.tierRange}>{tier.range}</span>{" "}
-                                    <span className={s.tierLabel}>{tier.label}</span>
+                                <div className={s.planHead}>
+                                    <span className={s.planName}>{plan.name}</span>
+                                    <span className={s.planPrice}>{plan.priceLabel}</span>
+                                    <span className={s.planDiscount}>{plan.discountNote}</span>
                                 </div>
-                                {tier.price ? (
-                                    <>
-                                        <div className={s.tierPrice}>€{tier.price}</div>
-                                        <div className={s.tierUnit}>/sede/mese</div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className={s.tierCustom}>Su misura</div>
-                                        <div className={s.tierUnit}>Contattaci</div>
-                                    </>
+
+                                {plan.featuresIntro && (
+                                    <p className={s.planFeaturesIntro}>{plan.featuresIntro}</p>
                                 )}
+
+                                <ul className={s.planFeatures}>
+                                    {plan.features.map((feat, i) => (
+                                        <li key={i} className={s.planFeatureItem}>
+                                            <span className={s.planFeatureCheck}>
+                                                <svg
+                                                    width="10"
+                                                    height="10"
+                                                    viewBox="0 0 10 10"
+                                                    fill="none"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d="M2 5.2L4.2 7.4L8 3"
+                                                        stroke="#6366F1"
+                                                        strokeWidth="1.6"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    />
+                                                </svg>
+                                            </span>
+                                            <span className={s.planFeatureText}>{feat}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+
+                                <a
+                                    href="#waitlist"
+                                    className={s.planCta}
+                                    onClick={e => {
+                                        e.preventDefault();
+                                        document
+                                            .getElementById("waitlist")
+                                            ?.scrollIntoView({ behavior: "smooth" });
+                                    }}
+                                >
+                                    Richiedi accesso
+                                </a>
                             </div>
                         ))}
                     </div>
                 </Animate>
 
-                <Animate delay={0.16}>
-                    <div className={s.calcCard}>
-                        <span>
-                            <span className={s.calcBold}>Esempio:</span> 7 sedi → 3×€39 + 4×€29 ={" "}
-                            <span className={s.calcAccent}>€233/mese</span>
-                        </span>
-                    </div>
-                </Animate>
-
-                <Animate delay={0.2}>
-                    <div className={s.includesCard}>
-                        <p className={s.includesTitle}>Tutto incluso in ogni piano:</p>
-                        <div className={s.includesGrid}>
-                            {INCLUDED_FEATURES.map((feat, i) => (
-                                <div key={i} className={s.includesItem}>
-                                    <div className={s.includesCheck}>
-                                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                            <path
-                                                d="M2 5.2L4.2 7.4L8 3"
-                                                stroke="#6366F1"
-                                                strokeWidth="1.6"
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                            />
-                                        </svg>
-                                    </div>
-                                    <span className={s.includesText}>{feat}</span>
-                                </div>
-                            ))}
-                        </div>
-                        <a
-                            href="#waitlist"
-                            className={s.pricingCta}
-                            onClick={e => {
-                                e.preventDefault();
-                                document
-                                    .getElementById("waitlist")
-                                    ?.scrollIntoView({ behavior: "smooth" });
-                            }}
-                        >
-                            Inizia gratis — 3 mesi inclusi
-                        </a>
-                        <p className={s.pricingCtaNote}>
-                            I primi clienti beta non pagano per 3 mesi · Nessuna carta richiesta
-                        </p>
-                    </div>
+                <Animate delay={0.18}>
+                    <p className={s.plansCap}>
+                        Fino a 5 sedi in self-service. Oltre, prezzo su misura — contattaci.
+                    </p>
                 </Animate>
             </div>
         </section>

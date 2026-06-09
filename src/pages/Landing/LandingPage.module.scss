@@ -1119,30 +1119,29 @@ $text-muted: #9895a8;
     margin-bottom: 48px;
 }
 
-.tiersGrid {
+.plansGrid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 24px;
+    align-items: stretch;
 
-    @media (max-width: 768px) {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    @media (max-width: 480px) {
+    @media (max-width: 640px) {
         grid-template-columns: 1fr;
+        gap: 16px;
     }
 }
 
-.tierCard {
-    padding: 28px 20px;
+.planCard {
+    display: flex;
+    flex-direction: column;
+    padding: 32px 28px;
     border-radius: 16px;
     background: #fff;
     border: 1px solid $slate-border;
     box-shadow: 0 2px 8px rgba(12, 10, 29, 0.03);
-    transition: all 0.3s ease;
-    position: relative;
-    cursor: default;
+    text-align: left;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 
     &:hover {
         transform: translateY(-4px);
@@ -1151,116 +1150,70 @@ $text-muted: #9895a8;
     }
 }
 
-.tierCardPopular {
-    padding: 32px 20px;
+.planCardPopular {
     border: 2px solid $indigo;
-    box-shadow: 0 12px 40px rgba(99, 102, 241, 0.12);
+    box-shadow:
+        0 0 0 4px rgba(99, 102, 241, 0.08),
+        0 12px 40px rgba(99, 102, 241, 0.12);
 
     &:hover {
         border-color: $indigo;
     }
 }
 
-.popularBadge {
-    position: absolute;
-    top: -11px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: $indigo;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 3px 12px;
-    border-radius: 100px;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-
-.tierRange {
-    font-size: 22px;
-    font-weight: 800;
-    color: $dark;
-}
-
-.tierLabel {
-    font-size: 13px;
-    font-weight: 600;
-    color: $text-mid;
-    margin-bottom: 12px;
-}
-
-.tierPrice {
-    font-size: 40px;
-    font-weight: 800;
-    color: $dark;
-    letter-spacing: -1.5px;
-    margin-bottom: 4px;
-}
-
-.tierUnit {
-    font-size: 12.5px;
-    color: $text-muted;
-}
-
-.tierCustom {
-    font-size: 22px;
-    font-weight: 700;
-    color: $indigo;
-    padding: 8px 0 4px;
-}
-
-.calcCard {
-    background: #fff;
-    border-radius: 10px;
-    padding: 14px 20px;
-    border: 1px solid $slate-border;
-    margin-bottom: 40px;
+.planHead {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    font-size: 13px;
-    color: $text-mid;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 24px;
 }
 
-.calcBold { color: $dark; font-weight: 700; }
-.calcAccent { color: $indigo; font-weight: 700; }
-
-.includesCard {
-    background: #fff;
-    border-radius: 16px;
-    padding: 32px 36px;
-    border: 1px solid $slate-border;
-    text-align: left;
-}
-
-.includesTitle {
+.planName {
     font-size: 14px;
     font-weight: 700;
+    color: $text-mid;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+
+.planPrice {
+    font-size: clamp(24px, 2.4vw, 28px);
+    font-weight: 800;
     color: $dark;
-    margin-bottom: 20px;
+    letter-spacing: -0.8px;
+    line-height: 1.2;
 }
 
-.includesGrid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px 24px;
-    margin-bottom: 28px;
-
-    @media (max-width: 640px) {
-        grid-template-columns: 1fr;
-    }
+.planDiscount {
+    font-size: 12.5px;
+    color: $text-muted;
+    line-height: 1.4;
 }
 
-.includesItem {
+.planFeaturesIntro {
+    font-size: 13px;
+    font-weight: 700;
+    color: $dark;
+    margin: 0 0 12px;
+}
+
+.planFeatures {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+}
+
+.planFeatureItem {
     display: flex;
     align-items: flex-start;
     gap: 10px;
 }
 
-.includesCheck {
+.planFeatureCheck {
     width: 18px;
     height: 18px;
     border-radius: 5px;
@@ -1272,34 +1225,36 @@ $text-muted: #9895a8;
     justify-content: center;
 }
 
-.includesText {
+.planFeatureText {
     font-size: 13.5px;
     color: $text;
-    line-height: 1.4;
+    line-height: 1.45;
 }
 
-.pricingCta {
+.planCta {
     display: inline-block;
+    align-self: stretch;
+    text-align: center;
     background: $dark;
     color: #fff;
-    padding: 13px 36px;
+    padding: 13px 24px;
     border-radius: 10px;
     text-decoration: none;
     font-size: 15px;
     font-weight: 600;
     box-shadow: 0 4px 16px rgba(12, 10, 29, 0.12);
     transition: transform 0.2s;
+    margin-top: auto;
 
     &:hover {
         transform: translateY(-2px);
     }
 }
 
-.pricingCtaNote {
-    font-size: 12px;
+.plansCap {
+    font-size: 13px;
     color: $text-muted;
-    margin-top: 12px;
-    margin-bottom: 0;
+    margin: 20px 0 0;
 }
 
 // ─── FAQ ──────────────────────────────────────────────
