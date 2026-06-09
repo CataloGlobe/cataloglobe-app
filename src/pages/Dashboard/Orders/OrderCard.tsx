@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
     AlertCircle,
     Clock,
     MoreVertical,
     Edit3,
     Eye,
+    Printer,
     Trash2,
     CheckCheck,
     CornerUpLeft,
@@ -12,9 +13,11 @@ import {
 } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import { Menu } from "@/components/ui/Menu/Menu";
 import { formatRelativeTime } from "@/utils/relativeTime";
 import type { V2OrderItem, V2OrderWithItems } from "@/types/orders";
+import PrintReceipt from "./PrintReceipt";
 import styles from "./OrderCard.module.scss";
 
 interface Props {
@@ -32,6 +35,7 @@ interface Props {
     onCancel: (order: V2OrderWithItems) => void;
     onRectify: (order: V2OrderWithItems) => void;
     onViewDetail: (order: V2OrderWithItems) => void;
+    onPrint?: (order: V2OrderWithItems) => void;
     /**
      * Optional. Disponibile su status `acknowledged`: "Rimetti in Nuove"
      * (acknowledged → submitted). Quando omesso, la voce e' nascosta.
@@ -88,6 +92,7 @@ export default function OrderCard({
     onCancel,
     onRectify,
     onViewDetail,
+    onPrint,
     onUnacknowledge,
     onUnready,
     tableLabel,
@@ -96,6 +101,18 @@ export default function OrderCard({
 }: Props) {
     const [isProcessing, setIsProcessing] = useState(false);
     const [itemsExpanded, setItemsExpanded] = useState(false);
+    const printRef = useRef<HTMLDivElement>(null);
+
+    function handlePrint() {
+        if (onPrint) {
+            onPrint(order);
+        } else if (printRef.current) {
+            // Fallback: self-contained print when no parent handler is wired
+            printRef.current.setAttribute("data-printing", "true");
+            window.print();
+            printRef.current.removeAttribute("data-printing");
+        }
+    }
 
     async function runPrimary(action: () => Promise<void>) {
         setIsProcessing(true);
@@ -257,6 +274,11 @@ export default function OrderCard({
                     <Menu.Item icon={Eye} onSelect={() => onViewDetail(order)}>
                         Vedi dettaglio
                     </Menu.Item>
+                    {order.status !== "cancelled" && (
+                        <Menu.Item icon={Printer} onSelect={handlePrint}>
+                            Stampa
+                        </Menu.Item>
+                    )}
                     <Menu.Separator />
                     <Menu.Item
                         icon={Trash2}
@@ -266,6 +288,17 @@ export default function OrderCard({
                         Elimina comanda
                     </Menu.Item>
                 </Menu>
+
+                {order.status === "submitted" && (
+                    <IconButton
+                        icon={<Printer size={16} />}
+                        aria-label="Stampa"
+                        variant="secondary"
+                        className={styles.footerIconBtn}
+                        onClick={handlePrint}
+                        disabled={isProcessing}
+                    />
+                )}
 
                 {order.status === "submitted" && (
                     <Button
@@ -308,6 +341,17 @@ export default function OrderCard({
                     </Button>
                 )}
             </div>
+
+            {/* Fallback receipt for self-contained print (when onPrint is not wired) */}
+            {!onPrint && order.status !== "cancelled" && (
+                <PrintReceipt
+                    ref={printRef}
+                    order={order}
+                    tableLabel={tableLabel}
+                    tableZone={tableZone}
+                    operatorNames={operatorNames}
+                />
+            )}
         </div>
     );
 }

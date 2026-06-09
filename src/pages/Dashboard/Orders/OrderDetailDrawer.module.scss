@@ -140,3 +140,11 @@
 .timelineMeta {
     color: var(--text-muted, #6b6f76);
 }
+
+.footerActions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    width: 100%;
+}
