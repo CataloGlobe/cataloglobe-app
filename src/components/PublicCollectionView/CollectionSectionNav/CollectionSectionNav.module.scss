@@ -126,6 +126,7 @@
   background: transparent;
   color: var(--pub-bg-text-secondary);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 
   border-radius: var(--pub-radius, 999px);
 
@@ -136,6 +137,11 @@
 
   &:focus-visible {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--pub-primary) 35%, transparent);
+  }
+
+  &:active {
+    transform: scale(var(--pub-press-scale, 0.96));
+    transition: transform 0.05s ease-out;
   }
 
   &[data-active="true"] {
