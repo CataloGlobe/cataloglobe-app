@@ -200,6 +200,11 @@ async function _validateUserJwt(
     return { kind: "ok", userId: data.user.id, supabaseUser };
 }
 
+// TODO FIX-3: _isMemberOfTenant is duplicated here and in
+// submit-order-admin, close-table, toggle-product-availability,
+// generate-table-qrs. Extract to _shared/membershipCheck.ts and add a
+// companion _hasPermission(client, perm, activityId?) helper that wraps
+// has_permission RPC. All 5 copies use get_my_tenant_ids() correctly.
 async function _isMemberOfTenant(
     supabaseUser: SupabaseClient,
     tenantId: string

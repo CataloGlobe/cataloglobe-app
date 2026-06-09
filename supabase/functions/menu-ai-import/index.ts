@@ -168,12 +168,12 @@ serve(async (req: Request) => {
 
         const token = authHeader.replace("Bearer ", "");
 
-        const supabase = createClient(
+        const supabaseAdmin = createClient(
             Deno.env.get("SUPABASE_URL")!,
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
         );
 
-        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
         if (authError || !user) {
             return jsonError("Token non valido o scaduto", 401);
         }
@@ -186,18 +186,24 @@ serve(async (req: Request) => {
             return jsonError("tenant_id è obbligatorio", 400);
         }
 
-        // ── Tenant access check ───────────────────────────────────
-        const { data: membership, error: memberError } = await supabase
-            .from("tenant_memberships")
-            .select("id")
-            .eq("user_id", user.id)
-            .eq("tenant_id", tenant_id)
-            .limit(1)
-            .maybeSingle();
-
-        if (memberError) throw memberError;
-
-        if (!membership) {
+        // ── Permission check (canonical — handles owner via owner_user_id) ────
+        // has_permission_any_activity checks the specific tenant; owner is
+        // resolved via tenants.owner_user_id without requiring a
+        // tenant_memberships row (owner has none post-Fase 5.B.2).
+        // Gate: catalogs.write (tenant scope) — granted to owner + admin only.
+        // Behaviour change vs old check: manager/staff/viewer are now denied
+        // (correct — they lack catalogs.write in role_permissions regardless).
+        const supabaseUser = createClient(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_ANON_KEY")!,
+            { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false, autoRefreshToken: false } }
+        );
+        const { data: hasPerm, error: permError } = await supabaseUser.rpc("has_permission_any_activity", {
+            p_permission_id: "catalogs.write",
+            p_tenant_id: tenant_id
+        });
+        if (permError) throw permError;
+        if (!hasPerm) {
             return jsonError("Accesso al tenant non autorizzato", 403);
         }
 
