@@ -166,7 +166,7 @@ function Navbar() {
                         document.getElementById("waitlist")?.scrollIntoView({ behavior: "smooth" });
                     }}
                 >
-                    Prova gratis
+                    Richiedi accesso
                 </a>
             </div>
         </nav>
@@ -208,7 +208,7 @@ function Hero() {
                                     ?.scrollIntoView({ behavior: "smooth" });
                             }}
                         >
-                            Inizia gratis
+                            Richiedi accesso
                         </a>
                         <a
                             href={`mailto:${COMPANY.contact.info}?subject=Richiesta%20demo%20CataloGlobe`}
