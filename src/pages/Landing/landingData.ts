@@ -16,10 +16,13 @@ export interface Demo {
     screenshot: string;
 }
 
-export interface PricingTier {
-    range: string;
-    label: string;
-    price: string | null;
+export interface PricingPlan {
+    key: 'base' | 'pro';
+    name: string;
+    priceLabel: string;
+    discountNote: string;
+    featuresIntro?: string;
+    features: string[];
     popular: boolean;
 }
 
@@ -80,14 +83,7 @@ export const DEMOS: Demo[] = [
     },
 ];
 
-export const PRICING_TIERS: PricingTier[] = [
-    { range: '1–3', label: 'sedi', price: '39', popular: false },
-    { range: '4–10', label: 'sedi', price: '29', popular: true },
-    { range: '11–25', label: 'sedi', price: '19', popular: false },
-    { range: '26+', label: 'sedi', price: null, popular: false },
-];
-
-export const INCLUDED_FEATURES: string[] = [
+const BASE_FEATURES: string[] = [
     'Menu con scheduling automatico',
     'Hub pubblico (Menu · Recensioni · Promo)',
     'Review Guard con routing per stelle',
@@ -96,10 +92,30 @@ export const INCLUDED_FEATURES: string[] = [
     'Stili e temi con versionamento',
 ];
 
+export const PRICING_PLANS: PricingPlan[] = [
+    {
+        key: 'base',
+        name: 'Base',
+        priceLabel: '€39/sede/mese',
+        discountNote: 'dal 2° locale −10% · €35,10/sede · IVA inclusa',
+        features: BASE_FEATURES,
+        popular: false,
+    },
+    {
+        key: 'pro',
+        name: 'Pro',
+        priceLabel: '€59/sede/mese',
+        discountNote: 'dal 2° locale −10% · €53,10/sede · IVA inclusa',
+        featuresIntro: 'Tutto del piano Base, più:',
+        features: ['Ordini al tavolo via QR', 'Prenotazioni tavolo'],
+        popular: true,
+    },
+];
+
 export const FAQ_ITEMS: FaqItem[] = [
     {
         q: 'Quanto costa?',
-        a: "Configuri tutto gratis. Paghi solo quando attivi una sede: €39/sede/mese per le prime 3, €29 dalla 4ª alla 10ª, €19 dall'11ª alla 25ª. Nessun costo nascosto.",
+        a: 'Due piani per sede: Base €39/mese, Pro €59/mese (IVA inclusa). Dal 2° locale ogni sede costa il 10% in meno (€35,10 Base, €53,10 Pro). Fino a 5 sedi in self-service; oltre, prezzo su misura.',
     },
     {
         q: 'Funziona anche con una sola sede?',
@@ -114,7 +130,7 @@ export const FAQ_ITEMS: FaqItem[] = [
         a: 'Ogni azienda è isolata a livello di database con policy di sicurezza PostgreSQL. Nessun dato può trapelare tra tenant.',
     },
     {
-        q: 'Posso provare senza impegno?',
-        a: "Sì. I clienti beta ricevono 3 mesi gratuiti. La carta viene registrata all'attivazione ma non addebitata durante il trial.",
+        q: 'Come funziona durante la beta?',
+        a: "L'accesso è su richiesta. Scegli Base o Pro e paghi per ogni sede che attivi, dal 2° locale −10%.",
     },
 ];

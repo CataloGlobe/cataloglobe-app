@@ -25,6 +25,11 @@ export interface V2Reservation {
     notes: string | null;
     status: ReservationStatus;
     source: ReservationSource;
+    // Stamped by DB DEFAULT auth.uid() on INSERT (migration
+    // 20260609100000). Resolves to the operator's user id for `source =
+    // "manual"` inserts and to NULL for online inserts (RPC runs as
+    // service_role). Read-only from the frontend perspective.
+    created_by_user_id: string | null;
     created_at: string;
     updated_at: string;
 }

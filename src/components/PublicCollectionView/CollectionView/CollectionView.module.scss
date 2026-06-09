@@ -1,5 +1,12 @@
 @use "@styles/variables" as *;
 
+/* Token press condiviso dai target tappabili della pagina pubblica.
+   Definito a :root cosi cascada anche fuori da .page (es. PublicCollectionHeader,
+   CollectionSectionNav). I :active referenziano con fallback per sicurezza. */
+:global(:root) {
+  --pub-press-scale: 0.96;
+}
+
 /* ----------------------------------------------------
    PAGE
 ---------------------------------------------------- */
@@ -23,9 +30,7 @@
 }
 
 .maintenanceBanner {
-  position: sticky;
-  top: 0;
-  z-index: 50;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -240,10 +245,15 @@
   gap: 0.5rem;
   padding: 0.875rem 0;
   cursor: pointer;
-  transition: opacity 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.12s ease, background 0.05s ease-out;
 
   &:hover {
     opacity: 0.75;
+  }
+
+  &:active {
+    background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-bg));
   }
 }
 
@@ -375,10 +385,16 @@
   gap: 1rem;
   padding: 1rem;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   transition: background 0.12s ease;
 
   &:hover {
     background: color-mix(in srgb, var(--pub-text) 4%, var(--pub-surface));
+  }
+
+  &:active {
+    background: color-mix(in srgb, var(--pub-text) 8%, var(--pub-surface));
+    transition: background 0.05s ease-out;
   }
 }
 
@@ -756,7 +772,7 @@
   }
 
   &:active {
-    transform: scale(0.95);
+    transform: scale(var(--pub-press-scale, 0.96));
   }
 
   &.valutaFabVisible {
@@ -770,7 +786,7 @@
     }
 
     &:active {
-      transform: scale(0.95);
+      transform: scale(var(--pub-press-scale, 0.96));
     }
 
     /* Mostra il testo quando il FAB è visibile e non collassato */
@@ -847,6 +863,11 @@
     outline: 2px solid var(--pub-primary, #333);
     outline-offset: 2px;
   }
+
+  &:active {
+    transform: scale(var(--pub-press-scale, 0.96));
+    transition: transform 0.05s ease-out;
+  }
 }
 
 .addBtnActive {
@@ -896,6 +917,11 @@
     outline: 2px solid var(--pub-primary, #333);
     outline-offset: 2px;
   }
+
+  &:active {
+    transform: scale(var(--pub-press-scale, 0.96));
+    transition: transform 0.05s ease-out;
+  }
 }
 
 .addBtnOverlayActive {
@@ -943,6 +969,11 @@
   &:focus-visible {
     outline: 2px solid var(--pub-primary, #333);
     outline-offset: 2px;
+  }
+
+  &:active {
+    transform: scale(var(--pub-press-scale, 0.96));
+    transition: transform 0.05s ease-out;
   }
 }
 

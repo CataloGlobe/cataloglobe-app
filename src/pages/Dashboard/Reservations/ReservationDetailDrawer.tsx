@@ -7,6 +7,7 @@ import {
     MapPin,
     PencilLine,
     Phone,
+    User,
     Users
 } from "lucide-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
@@ -30,6 +31,10 @@ interface Props {
     /** Reservation as currently rendered (with optimistic override applied if any). */
     reservation: V2Reservation | null;
     activityName: string | null;
+    /** Tenant-scoped user_id → display name map fetched once by the parent
+     *  via `get_tenant_member_names`. Used to attribute manual reservations
+     *  to the operator. Optional: missing/empty map → "Staff" fallback. */
+    operatorNames?: Map<string, string>;
     /** Same-list reservations (with overrides applied) for the peak engine. */
     allReservations: V2Reservation[];
     /** Sede capienza coperti (NULL = nessun limite configurato). */
@@ -80,6 +85,7 @@ export default function ReservationDetailDrawer({
     onClose,
     reservation,
     activityName,
+    operatorNames,
     allReservations,
     activityCapacity,
     activityDurationMinutes,
@@ -241,6 +247,28 @@ export default function ReservationDetailDrawer({
                                     </>
                                 )}
                             </span>
+                            {reservation.source === "manual" &&
+                                reservation.created_by_user_id && (
+                                    <>
+                                        <span
+                                            className={styles.drawerHeroMetaDot}
+                                            aria-hidden
+                                        >
+                                            ·
+                                        </span>
+                                        <span className={styles.drawerHeroMetaItem}>
+                                            <User
+                                                size={13}
+                                                strokeWidth={2}
+                                                aria-hidden
+                                            />
+                                            Creata da{" "}
+                                            {operatorNames?.get(
+                                                reservation.created_by_user_id
+                                            ) ?? "Staff"}
+                                        </span>
+                                    </>
+                                )}
                         </div>
 
                         <div className={styles.drawerHeroVenue}>
