@@ -16,6 +16,7 @@ import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import { todayIsoDate } from "@/utils/dateLocal";
 import { listReservations } from "@/services/supabase/reservations";
 import { getActivities } from "@/services/supabase/activities";
+import { getTenantMemberNames } from "@/services/supabase/team";
 import type { V2Activity } from "@/types/activity";
 import type { V2Reservation } from "@/types/reservation";
 import ReservationDetailDrawer from "./ReservationDetailDrawer";
@@ -69,6 +70,14 @@ export default function Reservations() {
 
     const [reservations, setReservations] = useState<V2Reservation[]>([]);
     const [activities, setActivities] = useState<V2Activity[]>([]);
+    // Tenant-scoped map (user_id → display name) used to attribute manual
+    // reservations to the operator who created them. Mirrors the pattern in
+    // Orders.tsx. Fetched once per tenant via the SECURITY DEFINER RPC
+    // `get_tenant_member_names` — failure resolves to an empty map and the
+    // drawer falls back to a generic "Staff" label.
+    const [operatorNames, setOperatorNames] = useState<Map<string, string>>(
+        () => new Map()
+    );
     const [isLoading, setIsLoading] = useState(true);
 
     const initialTab: TabKey = useMemo(() => {
@@ -180,12 +189,14 @@ export default function Reservations() {
         if (!tenantId) return;
         setIsLoading(true);
         try {
-            const [rows, acts] = await Promise.all([
+            const [rows, acts, names] = await Promise.all([
                 listReservations(tenantId),
-                getActivities(tenantId)
+                getActivities(tenantId),
+                getTenantMemberNames(tenantId)
             ]);
             setReservations(rows);
             setActivities(acts);
+            setOperatorNames(names);
         } catch {
             showToast({ message: "Errore nel caricamento delle prenotazioni.", type: "error" });
         } finally {
@@ -484,6 +495,7 @@ export default function Reservations() {
                         ? activityNames.get(selectedReservation.activity_id) ?? null
                         : null
                 }
+                operatorNames={operatorNames}
                 allReservations={effectiveReservations}
                 activityCapacity={selectedActivity?.reservation_capacity ?? null}
                 activityDurationMinutes={
