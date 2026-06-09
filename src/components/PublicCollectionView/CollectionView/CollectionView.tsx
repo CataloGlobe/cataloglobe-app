@@ -708,8 +708,8 @@ export default function CollectionView({
         effectiveMaintenance != null &&
         !SILENT_MAINTENANCE_REASONS.has(effectiveMaintenance.reason);
     const shouldShowStickyBanner =
-        orderingMaintenance != null &&
-        !SILENT_MAINTENANCE_REASONS.has(orderingMaintenance.reason);
+        effectiveMaintenance != null &&
+        !SILENT_MAINTENANCE_REASONS.has(effectiveMaintenance.reason);
     // Nascondi entry point ordering (FAB) per:
     //   - URL-param maintenance (table_maintenance)
     //   - Cliente entrato via /:slug diretto senza sessione QR (no
@@ -1783,14 +1783,14 @@ export default function CollectionView({
             {/* Maintenance banner: ordering sospeso o tavolo in manutenzione.
                 Soppresso per reason silenziosi (es. ordering_disabled = feature
                 non disponibile per il cliente). */}
-            {shouldShowStickyBanner && orderingMaintenance && (
+            {shouldShowStickyBanner && effectiveMaintenance && (
                 <div
                     className={styles.maintenanceBanner}
                     role="status"
                     aria-live="polite"
                 >
                     <AlertCircle size={14} aria-hidden="true" />
-                    <span>{orderingMaintenance.message}</span>
+                    <span>{effectiveMaintenance.message}</span>
                 </div>
             )}
 

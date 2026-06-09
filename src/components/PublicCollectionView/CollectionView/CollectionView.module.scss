@@ -23,9 +23,7 @@
 }
 
 .maintenanceBanner {
-  position: sticky;
-  top: 0;
-  z-index: 50;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
