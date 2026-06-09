@@ -1035,3 +1035,26 @@
   font-size: 14px;
   color: var(--color-text-primary, #111827);
 }
+
+/* Over-capacity callout shown under the admin reservation form. Tokenized
+   amber: bg + border derive from --color-warning-500 at low opacity, text
+   from --color-warning-700 (closest theme token to the prior #92400e). */
+.capacityWarning {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-warning-500) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning-500) 40%, transparent);
+  color: var(--color-warning-700);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Field-level error caption rendered under the admin date/time pickers.
+   Uses --color-red-900 (theme token, exact match for the prior #450a0a). */
+.fieldError {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--color-red-900);
+}

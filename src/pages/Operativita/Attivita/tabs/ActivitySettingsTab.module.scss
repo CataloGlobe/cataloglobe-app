@@ -611,13 +611,17 @@
     accent-color: #6366F1;
 }
 
+/* Tokenized amber callout matching `.capacityWarning` in
+   Reservations.module.scss. bg + border = --color-warning-500 at low
+   opacity; text = --color-warning-700 (closest theme token to the
+   previous #92400e). */
 .capacityAutoWarning {
     margin-top: 4px;
     padding: 10px 12px;
     border-radius: 8px;
-    background: rgba(245, 158, 11, 0.08);
-    border: 1px solid rgba(245, 158, 11, 0.4);
-    color: #92400e;
+    background: color-mix(in srgb, var(--color-warning-500) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-warning-500) 40%, transparent);
+    color: var(--color-warning-700);
     font-size: 12px;
     line-height: 1.45;
 }

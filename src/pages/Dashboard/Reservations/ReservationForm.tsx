@@ -1,4 +1,4 @@
-import { type CSSProperties, type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { Select } from "@/components/ui/Select/Select";
@@ -51,16 +51,6 @@ function normalizeTime(value: string): string {
     const trimmed = value.length === 5 ? `${value}:00` : value;
     return trimmed;
 }
-
-// Inline error style for the field-level error span next to the admin
-// pickers. Kept inline (no addition to Reservations.module.scss in this
-// scope) and tokenized so dark theme + brand re-skins keep working.
-const fieldErrorStyle: CSSProperties = {
-    marginTop: 4,
-    fontSize: 12,
-    lineHeight: 1.3,
-    color: "var(--color-red-900, #450a0a)"
-};
 
 export function ReservationForm({
     formId,
@@ -384,7 +374,7 @@ export function ReservationForm({
                     errorId={dateError ? `${formId}-date-error` : undefined}
                 />
                 {dateError && (
-                    <span id={`${formId}-date-error`} style={fieldErrorStyle}>
+                    <span id={`${formId}-date-error`} className={styles.fieldError}>
                         {dateError}
                     </span>
                 )}
@@ -404,7 +394,7 @@ export function ReservationForm({
                     errorId={timeError ? `${formId}-time-error` : undefined}
                 />
                 {timeError && (
-                    <span id={`${formId}-time-error`} style={fieldErrorStyle}>
+                    <span id={`${formId}-time-error`} className={styles.fieldError}>
                         {timeError}
                     </span>
                 )}
@@ -465,19 +455,7 @@ export function ReservationForm({
             </div>
 
             {overCapacityWarning && (
-                <p
-                    role="alert"
-                    style={{
-                        margin: 0,
-                        padding: "10px 12px",
-                        borderRadius: 8,
-                        background: "rgba(245, 158, 11, 0.08)",
-                        border: "1px solid rgba(245, 158, 11, 0.4)",
-                        color: "#92400e",
-                        fontSize: 13,
-                        lineHeight: 1.4
-                    }}
-                >
+                <p role="alert" className={styles.capacityWarning}>
                     {overCapacityWarning}
                 </p>
             )}
