@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
 import {
     loadCustomerSession,
     clearCustomerSession,
@@ -61,13 +61,16 @@ export function CustomerSessionProvider({ activityId, children }: ProviderProps)
         [activityId, refresh]
     );
 
-    const value: CustomerSessionContextValue = {
-        session,
-        isActive: session !== null,
-        clear,
-        refresh,
-        setCustomerName,
-    };
+    const value = useMemo<CustomerSessionContextValue>(
+        () => ({
+            session,
+            isActive: session !== null,
+            clear,
+            refresh,
+            setCustomerName,
+        }),
+        [session, clear, refresh, setCustomerName]
+    );
 
     return (
         <CustomerSessionContext.Provider value={value}>
