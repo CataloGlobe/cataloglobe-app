@@ -130,7 +130,7 @@ export const FAQ_ITEMS: FaqItem[] = [
         a: 'Ogni azienda è isolata a livello di database con policy di sicurezza PostgreSQL. Nessun dato può trapelare tra tenant.',
     },
     {
-        q: 'Posso provare senza impegno?',
-        a: "Sì. I clienti beta ricevono 3 mesi gratuiti. La carta viene registrata all'attivazione ma non addebitata durante il trial.",
+        q: 'Come funziona durante la beta?',
+        a: "L'accesso è su richiesta. Scegli Base o Pro e paghi per ogni sede che attivi, dal 2° locale −10%.",
     },
 ];

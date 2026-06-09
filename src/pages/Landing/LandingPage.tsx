@@ -183,7 +183,7 @@ function Hero() {
                 <div className={s.heroContent}>
                     <div className={s.heroBadge}>
                         <span className={s.badgeDot} />
-                        <span className={s.badgeText}>Beta aperta — 3 mesi gratis</span>
+                        <span className={s.badgeText}>Beta aperta</span>
                     </div>
 
                     <h1 className={s.heroH1}>
@@ -219,7 +219,7 @@ function Hero() {
                     </div>
 
                     <p className={s.heroSubtext}>
-                        Nessuna carta di credito · Configura tutto gratis · Paghi solo se vai live
+                        Richiedi l'accesso alla beta — posti limitati.
                     </p>
                 </div>
 
