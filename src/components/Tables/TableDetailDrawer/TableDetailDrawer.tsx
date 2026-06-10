@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Clock, BellRing } from "lucide-react";
+import { Clock, BellRing, X } from "lucide-react";
 
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
@@ -33,7 +33,7 @@ import type {
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnActivity } from "@/lib/permissions";
 
-import { deriveTableStatus } from "@/utils/tableState";
+import { deriveTableStatus, type TableStatus } from "@/utils/tableState";
 
 import styles from "./TableDetailDrawer.module.scss";
 
@@ -90,7 +90,8 @@ const TABLE_HISTORY_STATUSES: OrderStatus[] = [
     "submitted",
     "acknowledged",
     "ready",
-    "delivered"
+    "delivered",
+    "cancelled"
 ];
 
 function formatEur(n: number): string {
@@ -118,15 +119,29 @@ function orderStatusInfo(status: OrderStatus): {
 } {
     switch (status) {
         case "submitted":
-            return { variant: "warning", label: "Inviato" };
+            return { variant: "warning", label: "Da confermare" };
         case "acknowledged":
-            return { variant: "success", label: "In corso" };
+            return { variant: "warning", label: "In preparazione" };
         case "ready":
             return { variant: "success", label: "Pronto" };
         case "delivered":
-            return { variant: "neutral", label: "Consegnato" };
+            return { variant: "neutral", label: "Servito" };
         case "cancelled":
             return { variant: "neutral", label: "Annullato" };
+    }
+}
+
+function tableStatusInfo(status: TableStatus): {
+    variant: StatusBadgeVariant;
+    label: string;
+} {
+    switch (status) {
+        case "maintenance":
+            return { variant: "warning", label: "Manutenzione" };
+        case "occupied":
+            return { variant: "success", label: "Occupato" };
+        default:
+            return { variant: "neutral", label: "Libero" };
     }
 }
 
@@ -155,20 +170,10 @@ export function TableDetailDrawer({
 
     const { showToast } = useToast();
     const { permissions } = usePermissions();
-    // Gate `tables.manage` sull'activity corrente (viewer escluso). Usato
-    // sia per il bottone "Chiudi tavolo" nel footer sia per il toggle
-    // manutenzione nello statusBlock: entrambe sono azioni di scope
-    // operazione tavolo.
     const canManageTable =
         !!activityId &&
         !!permissions &&
         canDoOnActivity(permissions, "tables.manage", activityId);
-    // Bottone "Chiudi tavolo" mostrato solo se:
-    // - il parent fornisce il callback (TablesLiveView lo passa, altri
-    //   consumer informativi possono ometterlo),
-    // - canManageTable,
-    // - c'e' effettivamente qualcosa da chiudere (gate definito sotto su
-    //   `nothingToClose` derivato dai dati gia' fetchati).
     const hasClosePermission = canManageTable && !!onRequestClose;
 
     const loadDetail = useCallback(async () => {
@@ -176,13 +181,11 @@ export function TableDetailDrawer({
         setIsLoading(true);
         setError(null);
         try {
-            // Tavolo + sessione attiva + open group in parallelo.
             const [table, sessions, openGroup] = await Promise.all([
                 getTable(tableId, tenantId),
                 listActiveSessionsForTable(tenantId, tableId),
                 getOpenOrderGroupForTable(tenantId, tableId)
             ]);
-            // Ordini del tavolo: ultimi 50 non-cancelled (snapshot).
             const orders = await listOrdersForActivity(tenantId, activityId, {
                 tableId,
                 status: TABLE_HISTORY_STATUSES,
@@ -204,22 +207,17 @@ export function TableDetailDrawer({
             const updated = await updateTable(tableId, tenantId, {
                 maintenance_mode: next
             });
-            // Patch locale on-success: aggiorna badge + Switch senza
-            // attendere refetch (zero flicker). Non e' ottimistica: solo
-            // se la write passa.
             setData(d =>
                 d ? { ...d, table: { ...d.table, maintenance_mode: updated.maintenance_mode } } : d
             );
             showToast({
-                message: next
-                    ? "Tavolo messo in manutenzione"
-                    : "Tavolo riattivato",
+                message: next ? "Tavolo messo fuori servizio" : "Tavolo riattivato",
                 type: "success"
             });
             onMaintenanceChanged?.(tableId);
         } catch {
             showToast({
-                message: "Errore durante l'aggiornamento della manutenzione",
+                message: "Errore durante l'aggiornamento",
                 type: "error"
             });
         } finally {
@@ -232,9 +230,6 @@ export function TableDetailDrawer({
         setIsClearingBill(true);
         try {
             await clearBillRequestsForTable(tableId, tenantId);
-            // Patch locale: tutte le sessions del tavolo perdono il flag.
-            // Realtime arrivera' comunque, ma il patch evita flicker del
-            // badge "Conto richiesto" per-session in lista.
             setData(d =>
                 d
                     ? {
@@ -258,7 +253,6 @@ export function TableDetailDrawer({
         }
     }
 
-    // Carica al primo open su un tavolo specifico (e re-carica se cambiano i target).
     useEffect(() => {
         if (!open || !tableId) {
             setData(null);
@@ -270,24 +264,35 @@ export function TableDetailDrawer({
 
     const activeOrders = data
         ? data.orders.filter(o =>
-              o.status === "submitted" ||
-              o.status === "acknowledged" ||
-              o.status === "ready"
+              o.status === "submitted" || o.status === "acknowledged" || o.status === "ready"
           )
         : [];
-    const deliveredOrders = data
-        ? data.orders.filter(o => o.status === "delivered")
+
+    const recentOrders = data
+        ? data.orders.filter(o => o.status === "delivered" || o.status === "cancelled")
         : [];
 
-    // "Niente da chiudere" = nessun item che la chiusura tavolo
-    // toccherebbe (no sessioni attive, no order_group aperto, no ordini
-    // non terminali). Su un tavolo cosi' il bottone "Chiudi tavolo" non
-    // viene mostrato — il drawer resta solo informativo.
+    // openGroup is NOT rendered but kept for nothingToClose + deriveTableStatus.
     const nothingToClose =
         !!data &&
         data.sessions.length === 0 &&
         data.openGroup === null &&
         activeOrders.length === 0;
+
+    const status: TableStatus = data
+        ? deriveTableStatus({
+              maintenance_mode: data.table.maintenance_mode,
+              active_sessions_count: data.sessions.length,
+              open_orders_count: activeOrders.length,
+              open_groups_count: data.openGroup ? 1 : 0
+          })
+        : "free";
+
+    const isOccupied = status === "occupied";
+    const firstSeenAt = data?.sessions[0]?.first_seen_at ?? null;
+    const { variant: statusVariant, label: statusLabel } = tableStatusInfo(status);
+
+    const activeTotal = activeOrders.reduce((sum, o) => sum + o.total_amount, 0);
 
     const tableLabel = data?.table.label ?? "Tavolo";
     const zoneName = data?.table.zone_name ?? null;
@@ -296,27 +301,49 @@ export function TableDetailDrawer({
         <SystemDrawer open={open} onClose={onClose} width={560}>
             <DrawerLayout
                 header={
-                    <Text variant="title-sm" weight={600}>
-                        {tableLabel}
-                        {zoneName ? ` · ${zoneName}` : ""}
-                    </Text>
+                    <div className={styles.drawerHeaderBlock}>
+                        <div className={styles.drawerHeaderInfo}>
+                            <Text variant="title-sm" weight={600}>
+                                {tableLabel}
+                                {zoneName ? ` · ${zoneName}` : ""}
+                            </Text>
+                            {data && (
+                                <div className={styles.drawerHeaderMeta}>
+                                    <StatusBadge variant={statusVariant} label={statusLabel} />
+                                    {data.table.seats != null && (
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            {data.table.seats}{" "}
+                                            {data.table.seats === 1 ? "posto" : "posti"}
+                                        </Text>
+                                    )}
+                                    {isOccupied && firstSeenAt && (
+                                        <div className={styles.elapsedRow}>
+                                            <Clock size={13} />
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                da {formatElapsedMinutes(firstSeenAt)}
+                                            </Text>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <button
+                            className={styles.dismissButton}
+                            onClick={onClose}
+                            aria-label="Chiudi"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
                 }
                 footer={
                     hasClosePermission && !nothingToClose && tableId ? (
-                        <div className={styles.footerActions}>
-                            <Button variant="secondary" onClick={onClose}>
-                                Chiudi
-                            </Button>
-                            <Button
-                                variant="primary"
-                                onClick={() => onRequestClose!(tableId)}
-                            >
-                                Chiudi tavolo
-                            </Button>
-                        </div>
+                        <Button variant="primary" onClick={() => onRequestClose!(tableId)}>
+                            Chiudi tavolo
+                        </Button>
                     ) : (
                         <Button variant="secondary" onClick={onClose}>
-                            Chiudi
+                            Fatto
                         </Button>
                     )
                 }
@@ -338,154 +365,98 @@ export function TableDetailDrawer({
                     />
                 ) : data ? (
                     <div className={styles.content}>
-                        <div className={styles.statusBlock}>
-                            {(() => {
-                                // I dati del drawer arrivano da fetch puntuali
-                                // (sessions / activeOrders / openGroup), non
-                                // dalla view aggregata. Costruiamo il Pick
-                                // minimo per riusare il predicato categorico
-                                // (deriveTableStatus) e restare allineati a
-                                // TablesLiveView / OrdersKpiBar.
-                                const status = deriveTableStatus({
-                                    maintenance_mode: data.table.maintenance_mode,
-                                    active_sessions_count: data.sessions.length,
-                                    open_orders_count: activeOrders.length,
-                                    open_groups_count: data.openGroup ? 1 : 0
-                                });
-                                if (status === "maintenance") {
-                                    return <StatusBadge variant="warning" label="Manutenzione" />;
-                                }
-                                if (status === "occupied") {
-                                    return <StatusBadge variant="success" label="Occupato" />;
-                                }
-                                return <StatusBadge variant="neutral" label="Libero" />;
-                            })()}
-                            {data.table.seats != null && (
-                                <Text variant="body-sm" colorVariant="muted">
-                                    {data.table.seats}{" "}
-                                    {data.table.seats === 1 ? "posto" : "posti"}
-                                </Text>
-                            )}
-                        </div>
-
-                        {canManageTable && (
-                            <div className={styles.maintenanceRow}>
-                                <div className={styles.maintenanceCopy}>
-                                    <Text weight={500}>Manutenzione</Text>
+                        {canManageTable && data.sessions.some(s => s.bill_requested_at) && (
+                            <div className={styles.billRequestRow}>
+                                <div className={styles.billRequestCopy}>
+                                    <Text weight={500}>Conto richiesto</Text>
                                     <Text variant="body-sm" colorVariant="muted">
-                                        I clienti non possono ordinare da questo tavolo
-                                        finché disattivi questa opzione.
+                                        Il tavolo ha chiesto il conto.
                                     </Text>
                                 </div>
-                                <Switch
-                                    checked={data.table.maintenance_mode}
-                                    onChange={next => void handleMaintenanceToggle(next)}
-                                    disabled={isTogglingMaintenance}
-                                />
+                                <Button
+                                    variant="primary"
+                                    size="sm"
+                                    onClick={() => void handleClearBill()}
+                                    loading={isClearingBill}
+                                >
+                                    Segna conto portato
+                                </Button>
                             </div>
                         )}
 
-                        {canManageTable &&
-                            data.sessions.some(s => s.bill_requested_at) && (
-                                <div className={styles.billRequestRow}>
-                                    <div className={styles.billRequestCopy}>
-                                        <Text weight={500}>Conto richiesto</Text>
-                                        <Text variant="body-sm" colorVariant="muted">
-                                            Il tavolo ha chiesto il conto.
-                                        </Text>
-                                    </div>
-                                    <Button
-                                        variant="primary"
-                                        size="sm"
-                                        onClick={() => void handleClearBill()}
-                                        loading={isClearingBill}
-                                    >
-                                        Segna conto portato
-                                    </Button>
-                                </div>
-                            )}
-
-                        <section className={styles.section}>
-                            <Text variant="body-sm" weight={600} colorVariant="muted">
-                                Sessioni attive
-                            </Text>
-                            {data.sessions.length === 0 ? (
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Nessuna sessione attiva.
+                        {isOccupied && (
+                            <section className={styles.section}>
+                                <Text variant="body-sm" weight={600} colorVariant="muted">
+                                    Ordini in corso ({activeOrders.length})
                                 </Text>
-                            ) : (
-                                <ul className={styles.sessionsList}>
-                                    {data.sessions.map(s => (
-                                        <li key={s.id} className={styles.sessionRow}>
-                                            <div className={styles.sessionMain}>
-                                                <Text weight={500}>
-                                                    {s.customer_name ?? "Senza nome"}
-                                                </Text>
-                                                <div className={styles.sessionTime}>
-                                                    <Clock size={14} />
-                                                    <Text
-                                                        variant="body-sm"
-                                                        colorVariant="muted"
+                                {activeOrders.length === 0 ? (
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        Sessione aperta, nessun ordine ancora.
+                                    </Text>
+                                ) : (
+                                    <>
+                                        <ul className={styles.ordersList}>
+                                            {activeOrders.map(o => {
+                                                const { variant, label } = orderStatusInfo(o.status);
+                                                const isPending = o.status === "submitted";
+                                                return (
+                                                    <li
+                                                        key={o.id}
+                                                        className={`${styles.orderRow}${isPending ? ` ${styles.orderRowPending}` : ""}`}
                                                     >
-                                                        Aperta da{" "}
-                                                        {formatElapsedMinutes(
-                                                            s.first_seen_at
-                                                        )}{" "}
-                                                        ({formatAbsolute(s.first_seen_at)})
-                                                    </Text>
-                                                </div>
-                                            </div>
-                                            {s.bill_requested_at && (
-                                                <StatusBadge
-                                                    variant="warning"
-                                                    label="Conto richiesto"
-                                                />
-                                            )}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </section>
+                                                        <StatusBadge variant={variant} label={label} />
+                                                        <div className={styles.orderMeta}>
+                                                            <Text variant="body-sm">
+                                                                {formatAbsolute(o.submitted_at)}
+                                                            </Text>
+                                                            {o.customer_name_snapshot && (
+                                                                <Text
+                                                                    variant="body-sm"
+                                                                    colorVariant="muted"
+                                                                >
+                                                                    {o.customer_name_snapshot}
+                                                                </Text>
+                                                            )}
+                                                        </div>
+                                                        <Text weight={500}>
+                                                            {formatEur(o.total_amount)}
+                                                        </Text>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                        <div className={styles.activeTotalRow}>
+                                            <Text variant="body-sm" weight={600}>
+                                                Totale in corso
+                                            </Text>
+                                            <Text weight={600}>{formatEur(activeTotal)}</Text>
+                                        </div>
+                                    </>
+                                )}
+                            </section>
+                        )}
 
                         <section className={styles.section}>
                             <Text variant="body-sm" weight={600} colorVariant="muted">
-                                Order group aperto
+                                Ordini recenti
                             </Text>
-                            {data.openGroup ? (
-                                <Text variant="body-sm">
-                                    Gruppo #{data.openGroup.id.slice(0, 6)} · aperto da{" "}
-                                    {formatElapsedMinutes(data.openGroup.created_at)}
-                                </Text>
-                            ) : (
+                            {recentOrders.length === 0 ? (
                                 <Text variant="body-sm" colorVariant="muted">
-                                    Nessun gruppo aperto.
-                                </Text>
-                            )}
-                        </section>
-
-                        <section className={styles.section}>
-                            <Text variant="body-sm" weight={600} colorVariant="muted">
-                                Ordini attivi ({activeOrders.length})
-                            </Text>
-                            {activeOrders.length === 0 ? (
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Nessun ordine in corso.
+                                    Nessun ordine recente.
                                 </Text>
                             ) : (
                                 <ul className={styles.ordersList}>
-                                    {activeOrders.map(o => {
+                                    {recentOrders.map(o => {
                                         const { variant, label } = orderStatusInfo(o.status);
+                                        const timestamp =
+                                            o.status === "delivered" && o.delivered_at
+                                                ? formatAbsolute(o.delivered_at)
+                                                : formatAbsolute(o.submitted_at);
                                         return (
                                             <li key={o.id} className={styles.orderRow}>
-                                                <StatusBadge
-                                                    variant={variant}
-                                                    label={label}
-                                                />
+                                                <StatusBadge variant={variant} label={label} />
                                                 <div className={styles.orderMeta}>
-                                                    <Text variant="body-sm">
-                                                        Inviato{" "}
-                                                        {formatAbsolute(o.submitted_at)}
-                                                    </Text>
+                                                    <Text variant="body-sm">{timestamp}</Text>
                                                     {o.customer_name_snapshot && (
                                                         <Text
                                                             variant="body-sm"
@@ -505,44 +476,22 @@ export function TableDetailDrawer({
                             )}
                         </section>
 
-                        {deliveredOrders.length > 0 && (
-                            <section className={styles.section}>
-                                <Text
-                                    variant="body-sm"
-                                    weight={600}
-                                    colorVariant="muted"
-                                >
-                                    Ordini serviti ({deliveredOrders.length})
-                                </Text>
-                                <ul className={styles.ordersList}>
-                                    {deliveredOrders.map(o => (
-                                        <li key={o.id} className={styles.orderRow}>
-                                            <StatusBadge
-                                                variant="neutral"
-                                                label="Consegnato"
-                                            />
-                                            <div className={styles.orderMeta}>
-                                                <Text variant="body-sm">
-                                                    {o.delivered_at
-                                                        ? `Consegnato ${formatAbsolute(o.delivered_at)}`
-                                                        : `Inviato ${formatAbsolute(o.submitted_at)}`}
-                                                </Text>
-                                                {o.customer_name_snapshot && (
-                                                    <Text
-                                                        variant="body-sm"
-                                                        colorVariant="muted"
-                                                    >
-                                                        {o.customer_name_snapshot}
-                                                    </Text>
-                                                )}
-                                            </div>
-                                            <Text weight={500}>
-                                                {formatEur(o.total_amount)}
-                                            </Text>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </section>
+                        {canManageTable && (
+                            <div className={styles.maintenanceRow}>
+                                <div className={styles.maintenanceCopy}>
+                                    <Text weight={500}>Fuori servizio</Text>
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        {isOccupied
+                                            ? "Chiudi prima il tavolo per metterlo fuori servizio."
+                                            : "I clienti non potranno ordinare da questo tavolo finché questa opzione è attiva."}
+                                    </Text>
+                                </div>
+                                <Switch
+                                    checked={data.table.maintenance_mode}
+                                    onChange={next => void handleMaintenanceToggle(next)}
+                                    disabled={isOccupied || isTogglingMaintenance}
+                                />
+                            </div>
                         )}
                     </div>
                 ) : null}
