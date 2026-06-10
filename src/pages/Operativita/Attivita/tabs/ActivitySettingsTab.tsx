@@ -88,12 +88,16 @@ interface ActivitySettingsTabProps {
     activity: V2Activity;
     tenantId: string;
     onReload: () => Promise<void>;
+    canWrite?: boolean;
+    canManageHours?: boolean;
 }
 
 export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
     activity,
     tenantId,
-    onReload
+    onReload,
+    canWrite = true,
+    canManageHours = true
 }) => {
     const { showToast } = useToast();
     const { selectedTenant } = useTenant();
@@ -855,7 +859,7 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                         <ActivityHoursSection
                             hours={hours}
                             activity={activity}
-                            onEditRequest={() => setIsHoursDrawerOpen(true)}
+                            onEditRequest={canManageHours ? () => setIsHoursDrawerOpen(true) : undefined}
                         />
                     )}
                     {isClosuresLoading ? (
@@ -863,9 +867,9 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                     ) : (
                         <ActivityClosuresSection
                             closures={closures}
-                            onCreateRequest={openCreateClosure}
-                            onEditRequest={openEditClosure}
-                            onDeleteRequest={openDeleteClosure}
+                            onCreateRequest={canManageHours ? openCreateClosure : undefined}
+                            onEditRequest={canManageHours ? openEditClosure : undefined}
+                            onDeleteRequest={canManageHours ? openDeleteClosure : undefined}
                         />
                     )}
                 </div>
@@ -1462,7 +1466,7 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                 </span>
                             </div>
                         </div>
-                        {isActive ? (
+                        {canWrite && (isActive ? (
                             <Button
                                 variant="outline"
                                 onClick={handleSuspendRequest}
@@ -1484,7 +1488,7 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                     Riprendi pubblicazione
                                 </Button>
                             </div>
-                        )}
+                        ))}
                     </div>
                 </Card>
 

@@ -7,7 +7,7 @@ import styles from "./LocationsGrid.module.scss";
 interface LocationsGridProps {
     businesses: BusinessWithCapabilities[];
     onEdit: (business: BusinessWithCapabilities) => void;
-    onDelete: (id: string) => void;
+    onDelete?: (id: string) => void;
     onOpenReviews: (id: string) => void;
     activeCatalogsMap?: Record<string, ActiveCatalogMeta>;
     catalogsLoading?: boolean;

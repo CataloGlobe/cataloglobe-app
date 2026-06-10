@@ -130,15 +130,17 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                                     >
                                         Modifica
                                     </DropdownMenu.Item>
-                                    <DropdownMenu.Item
-                                        className={`${styles.menuItem} ${styles.menuDanger}`}
-                                        onClick={e => {
-                                            e.stopPropagation();
-                                            onDelete(business.id);
-                                        }}
-                                    >
-                                        Elimina
-                                    </DropdownMenu.Item>
+                                    {onDelete && (
+                                        <DropdownMenu.Item
+                                            className={`${styles.menuItem} ${styles.menuDanger}`}
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                onDelete(business.id);
+                                            }}
+                                        >
+                                            Elimina
+                                        </DropdownMenu.Item>
+                                    )}
                                 </DropdownMenu.Content>
                             </DropdownMenu.Portal>
                         </DropdownMenu.Root>

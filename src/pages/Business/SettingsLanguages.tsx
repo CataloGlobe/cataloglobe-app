@@ -16,12 +16,17 @@ import {
     type SupportedLanguage,
     type TenantLanguage
 } from "@/services/supabase/tenantLanguages";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnTenant } from "@/lib/permissions";
+import { PageGate } from "@/components/PageGate/PageGate";
 import styles from "./SettingsLanguages.module.scss";
 
 export default function SettingsLanguages() {
     const tenantId = useTenantId();
     const { showToast } = useToast();
     const { t } = useTranslation("admin");
+    const { permissions } = usePermissions();
+    const canWrite = permissions ? canDoOnTenant(permissions, "translations.write") : false;
 
     const [available, setAvailable] = useState<SupportedLanguage[]>([]);
     const [active, setActive] = useState<TenantLanguage[]>([]);
@@ -82,7 +87,7 @@ export default function SettingsLanguages() {
     };
 
     const handleConfirmActivate = async (): Promise<boolean> => {
-        if (!pendingLang || !tenantId) return false;
+        if (!pendingLang || !tenantId || !canWrite) return false;
         try {
             const { jobsCreated } = await activateTenantLanguage(tenantId, pendingLang.code);
             const messageKey =
@@ -101,7 +106,7 @@ export default function SettingsLanguages() {
     };
 
     const handleDeactivate = async (lang: SupportedLanguage): Promise<void> => {
-        if (!tenantId) return;
+        if (!tenantId || !canWrite) return;
         try {
             await deactivateTenantLanguage(tenantId, lang.code);
             showToast({
@@ -133,6 +138,8 @@ export default function SettingsLanguages() {
     };
 
     return (
+        <PageGate readPermission="catalogs.read">
+        {() => (
         <>
             <div className={styles.page}>
                 {loading ? (
@@ -155,6 +162,7 @@ export default function SettingsLanguages() {
                                     isBase={isBase}
                                     progress={progressByLang(lang.code)}
                                     rowIndex={idx}
+                                    canToggle={isBase ? false : canWrite}
                                     onToggle={
                                         isBase
                                             ? undefined
@@ -184,5 +192,7 @@ export default function SettingsLanguages() {
                 confirmVariant="primary"
             />
         </>
+        )}
+        </PageGate>
     );
 }

@@ -14,6 +14,8 @@ import { PageGate } from "@/components/PageGate/PageGate";
 import { getActivityById } from "@/services/supabase/activities";
 import { V2Activity } from "@/types/activity";
 import { useToast } from "@/context/Toast/ToastContext";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnActivity } from "@/lib/permissions";
 import styles from "./ActivityDetailPage.module.scss";
 
 type TabValue = "profile" | "availability" | "tables" | "settings";
@@ -32,6 +34,7 @@ const ActivityDetailPage: React.FC = () => {
     const { activityId, businessId } = useParams<{ activityId: string; businessId: string }>();
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { permissions } = usePermissions();
     const [searchParams, setSearchParams] = useSearchParams();
 
     // Normalize legacy tab params on first render
@@ -66,6 +69,13 @@ const ActivityDetailPage: React.FC = () => {
 
     const [activity, setActivity] = useState<V2Activity | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const canManage = activityId && permissions
+        ? canDoOnActivity(permissions, "activity.manage", activityId)
+        : false;
+    const canManageHours = activityId && permissions
+        ? canDoOnActivity(permissions, "activity_hours.write", activityId)
+        : false;
 
     const fetchData = useCallback(async () => {
         if (!activityId || !businessId) return;
@@ -152,6 +162,7 @@ const ActivityDetailPage: React.FC = () => {
                         activity={activity}
                         tenantId={businessId!}
                         onReload={fetchData}
+                        canWrite={canManage}
                     />
                 )}
                 {activeTab === "availability" && (
@@ -183,6 +194,8 @@ const ActivityDetailPage: React.FC = () => {
                         activity={activity}
                         tenantId={businessId!}
                         onReload={fetchData}
+                        canWrite={canManage}
+                        canManageHours={canManageHours}
                     />
                 )}
             </div>

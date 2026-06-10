@@ -117,12 +117,12 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                                     onClick: () => onEdit(business),
                                     separator: true
                                 },
-                                {
+                                ...(onDelete ? [{
                                     label: "Elimina",
                                     icon: Trash2,
-                                    onClick: () => onDelete(business.id),
-                                    variant: "destructive"
-                                }
+                                    onClick: () => onDelete!(business.id),
+                                    variant: "destructive" as const
+                                }] : [])
                             ]}
                         />
                     );
@@ -133,7 +133,8 @@ export const BusinessList: React.FC<BusinessListProps> = ({
     );
 
     const handleBulkDelete = (selectedIds: string[]) => {
-        selectedIds.forEach(id => onDelete(id));
+        if (!onDelete) return;
+        selectedIds.forEach(id => onDelete!(id));
     };
 
     if (businesses.length === 0) {
@@ -158,8 +159,8 @@ export const BusinessList: React.FC<BusinessListProps> = ({
             <DataTable
                 data={businesses}
                 columns={columns}
-                selectable
-                onBulkDelete={handleBulkDelete}
+                selectable={!!onDelete}
+                onBulkDelete={onDelete ? handleBulkDelete : undefined}
                 onRowClick={business => navigate(`/business/${businessId}/locations/${business.id}`)}
             />
         );

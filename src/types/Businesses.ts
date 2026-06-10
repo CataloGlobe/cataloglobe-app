@@ -19,7 +19,7 @@ export interface BusinessFormValues {
 export interface BusinessCardProps {
     business: BusinessWithCapabilities;
     onEdit: (business: BusinessWithCapabilities) => void;
-    onDelete: (id: string) => void;
+    onDelete?: (id: string) => void;
     onOpenReviews: (businessId: string) => void;
     activeCatalog?: ActiveCatalogMeta | null;
     catalogsLoading?: boolean;
@@ -30,7 +30,7 @@ export interface BusinessListProps {
     businesses: BusinessWithCapabilities[];
     viewMode?: "grid" | "list";
     onEdit: (business: BusinessWithCapabilities) => void;
-    onDelete: (id: string) => void;
+    onDelete?: (id: string) => void;
     onOpenReviews: (id: string) => void;
     activeCatalogsMap?: Record<string, ActiveCatalogMeta>;
     catalogsLoading?: boolean;

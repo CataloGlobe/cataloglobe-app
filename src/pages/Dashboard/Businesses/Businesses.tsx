@@ -22,6 +22,9 @@ import { useToast } from "@/context/Toast/ToastContext";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { usePageHeader } from "@/context/usePageHeader";
 import { workspaceRoleIsOwner as isOwner, workspaceRoleIsAdmin as isAdmin } from "@/utils/workspaceRole";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnTenant } from "@/lib/permissions";
+import { PageGate } from "@/components/PageGate/PageGate";
 
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
 import { ActivityVisibilityDrawer } from "@/pages/Operativita/Attivita/components/ActivityVisibilityDrawer/ActivityVisibilityDrawer";
@@ -72,6 +75,10 @@ export default function Businesses() {
     const navigate = useNavigate();
     const { showToast } = useToast();
     const { canEdit } = useSubscriptionGuard();
+    const { permissions } = usePermissions();
+    const canCreate = permissions ? canDoOnTenant(permissions, "activities.create") : false;
+    const canDelete = permissions ? canDoOnTenant(permissions, "activities.delete") : false;
+    const canManageGroups = permissions ? canDoOnTenant(permissions, "activity_groups.write") : false;
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
@@ -189,34 +196,38 @@ export default function Businesses() {
 
     const headerActions = useMemo(() => {
         const cta = activeTab === "activities" ? (
-            <Button
-                variant="primary"
-                disabled={!canEdit}
-                onClick={() => {
-                    if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
-                    if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
-                        setSeatLimitDialogOpen(true);
-                        return;
-                    }
-                    setIsCreateOpen(true);
-                    setCreateSlugState({ type: "idle" });
-                }}
-                className={styles.toolbarCta}
-            >
-                Aggiungi sede
-            </Button>
+            canCreate ? (
+                <Button
+                    variant="primary"
+                    disabled={!canEdit}
+                    onClick={() => {
+                        if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
+                        if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
+                            setSeatLimitDialogOpen(true);
+                            return;
+                        }
+                        setIsCreateOpen(true);
+                        setCreateSlugState({ type: "idle" });
+                    }}
+                    className={styles.toolbarCta}
+                >
+                    Aggiungi sede
+                </Button>
+            ) : null
         ) : (
-            <Button
-                variant="primary"
-                disabled={!canEdit}
-                onClick={() => {
-                    if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
-                    window.dispatchEvent(new CustomEvent("open-group-drawer"));
-                }}
-                className={styles.toolbarCta}
-            >
-                Nuovo gruppo
-            </Button>
+            canManageGroups ? (
+                <Button
+                    variant="primary"
+                    disabled={!canEdit}
+                    onClick={() => {
+                        if (!canEdit) { showToast({ message: subscriptionInactiveMessage(), type: "error" }); return; }
+                        window.dispatchEvent(new CustomEvent("open-group-drawer"));
+                    }}
+                    className={styles.toolbarCta}
+                >
+                    Nuovo gruppo
+                </Button>
+            ) : null
         );
 
         return (
@@ -245,6 +256,8 @@ export default function Businesses() {
     }, [
         activeTab,
         canEdit,
+        canCreate,
+        canManageGroups,
         selectedTenant,
         businesses.length,
         showToast,
@@ -878,6 +891,8 @@ export default function Businesses() {
     }, [businesses, searchTerm]);
 
     return (
+        <PageGate readPermission="activity.read">
+        {() => (
         <section className={styles.businesses} aria-labelledby="businesses-title">
             {activeTab === "activities" ? (
                 <>
@@ -947,14 +962,14 @@ export default function Businesses() {
                                 businesses={filteredBusinesses}
                                 viewMode={viewMode}
                                 onEdit={handleEditClick}
-                                onDelete={handleDelete}
+                                onDelete={canDelete ? handleDelete : undefined}
                                 onOpenReviews={handleOpenReviews}
                                 activeCatalogsMap={activeCatalogsMap}
                                 catalogsLoading={isLoadingCatalogs}
                                 onManageAvailability={(id, name) =>
                                     setVisibilityDrawerTarget({ activityId: id, activityName: name })
                                 }
-                                onCreateClick={() => setIsCreateOpen(true)}
+                                onCreateClick={canCreate ? () => setIsCreateOpen(true) : undefined}
                             />
 
                             <ActivityVisibilityDrawer
@@ -967,7 +982,7 @@ export default function Businesses() {
                     )}
                 </>
             ) : (
-                <ActivityGroupsSection searchQuery={searchTerm} />
+                <ActivityGroupsSection searchQuery={searchTerm} canWrite={canManageGroups} />
             )}
 
             <ModalLayout
@@ -1085,5 +1100,7 @@ export default function Businesses() {
                 </ModalLayoutFooter>
             </ModalLayout>
         </section>
+        )}
+        </PageGate>
     );
 }
