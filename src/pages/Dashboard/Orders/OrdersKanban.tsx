@@ -40,6 +40,7 @@ interface Props {
     onCancel: (order: V2OrderWithItems) => void;
     onRectify: (order: V2OrderWithItems) => void;
     onViewDetail: (order: V2OrderWithItems) => void;
+    onPrint?: (order: V2OrderWithItems) => void;
     onUnacknowledge?: (order: V2OrderWithItems) => Promise<void>;
     onUnready?: (order: V2OrderWithItems) => Promise<void>;
     /**
@@ -81,6 +82,7 @@ export default function OrdersKanban({
     onCancel,
     onRectify,
     onViewDetail,
+    onPrint,
     onUnacknowledge,
     onUnready,
     pulseSubmittedToken
@@ -180,6 +182,7 @@ export default function OrdersKanban({
                                             onCancel={onCancel}
                                             onRectify={onRectify}
                                             onViewDetail={onViewDetail}
+                                            onPrint={onPrint}
                                             onUnacknowledge={onUnacknowledge}
                                             onUnready={onUnready}
                                         />

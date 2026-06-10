@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AlertCircle, ClipboardList, Lock, Plus, RefreshCw, Volume2, VolumeX } from "lucide-react";
 
@@ -38,6 +39,7 @@ import { getTenantMemberNames } from "@/services/supabase/team";
 import type { V2Table } from "@/types/orders";
 
 import OrderDetailDrawer from "./OrderDetailDrawer";
+import PrintReceipt from "./PrintReceipt";
 import OrderCancelDrawer from "./OrderCancelDrawer";
 import OrderRectifyDrawer from "./OrderRectifyDrawer";
 import OrderHistoryRow from "./OrderHistoryRow";
@@ -104,6 +106,10 @@ export default function Orders() {
     // Detail drawer
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [orderInDetail, setOrderInDetail] = useState<V2OrderWithItems | null>(null);
+
+    // Standalone print (from card, without opening the detail drawer)
+    const [orderToPrint, setOrderToPrint] = useState<V2OrderWithItems | null>(null);
+    const standalonePrintRef = useRef<HTMLDivElement>(null);
 
     // Cancel drawer
     const [isCancelOpen, setIsCancelOpen] = useState(false);
@@ -481,6 +487,18 @@ export default function Orders() {
         setIsDetailOpen(true);
     }
 
+    function handlePrint(order: V2OrderWithItems) {
+        // flushSync forces a synchronous DOM update so standalonePrintRef is
+        // populated before window.print() is called — no useEffect/flag needed.
+        flushSync(() => setOrderToPrint(order));
+        if (standalonePrintRef.current) {
+            standalonePrintRef.current.setAttribute("data-printing", "true");
+            window.print();
+            standalonePrintRef.current.removeAttribute("data-printing");
+        }
+        setOrderToPrint(null);
+    }
+
     function handleCancelOpen(order: V2OrderWithItems) {
         setOrderToCancel(order);
         setIsCancelOpen(true);
@@ -761,6 +779,7 @@ export default function Orders() {
                             onCancel={handleCancelOpen}
                             onRectify={handleRectifyOpen}
                             onViewDetail={handleViewDetail}
+                            onPrint={handlePrint}
                             onUnacknowledge={handleUnacknowledge}
                             onUnready={handleUnready}
                             pulseSubmittedToken={pulseToken}
@@ -828,6 +847,16 @@ export default function Orders() {
                         </div>
                     )}
                 </>
+            )}
+
+            {orderToPrint && (
+                <PrintReceipt
+                    ref={standalonePrintRef}
+                    order={orderToPrint}
+                    tableLabel={tables.find(t => t.id === orderToPrint.table_id)?.label ?? "?"}
+                    tableZone={tables.find(t => t.id === orderToPrint.table_id)?.zone_name ?? null}
+                    operatorNames={operatorNames}
+                />
             )}
 
             <OrderDetailDrawer
