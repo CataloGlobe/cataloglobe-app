@@ -197,7 +197,7 @@ serve(async (req: Request) => {
             console.error(
                 JSON.stringify({ event: "purge_tenants_failed", error: tenantsError.message })
             );
-            return json(500, { error: "purge_tenants_failed", detail: tenantsError.message });
+            return json(500, { error: "purge_tenants_failed" });
         }
 
         tenantsPurged = tenantData ?? 0;
@@ -232,7 +232,7 @@ serve(async (req: Request) => {
                 error: candidatesError.message
             })
         );
-        return json(500, { error: "candidates_fetch_failed", detail: candidatesError.message });
+        return json(500, { error: "candidates_fetch_failed" });
     }
 
     const userIds: string[] = (candidates ?? []).map((p: { id: string }) => p.id);

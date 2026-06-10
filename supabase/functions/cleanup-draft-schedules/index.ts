@@ -65,8 +65,8 @@ serve(async req => {
         .order("created_at", { ascending: true });
 
     if (fetchErr) {
-        console.error("cleanup-draft-schedules: Failed to fetch candidates:", fetchErr.message);
-        return json(500, { error: "fetch_failed", detail: fetchErr.message });
+        console.error("cleanup-draft-schedules: Failed to fetch candidates:", fetchErr);
+        return json(500, { error: "fetch_failed" });
     }
 
     const total = candidates?.length ?? 0;
@@ -137,8 +137,8 @@ serve(async req => {
         .in("id", draftIds);
 
     if (deleteErr) {
-        console.error("cleanup-draft-schedules: Delete failed:", deleteErr.message);
-        return json(500, { error: "delete_failed", detail: deleteErr.message });
+        console.error("cleanup-draft-schedules: Delete failed:", deleteErr);
+        return json(500, { error: "delete_failed" });
     }
 
     console.log(`cleanup-draft-schedules: Successfully deleted ${draftIds.length} abandoned draft(s)`);

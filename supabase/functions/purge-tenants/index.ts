@@ -105,8 +105,8 @@ serve(async req => {
         .order("deleted_at", { ascending: true });
 
     if (fetchErr) {
-        console.error("purge-tenants: Failed to fetch expired tenants:", fetchErr.message);
-        return json(500, { error: "fetch_failed", detail: fetchErr.message });
+        console.error("purge-tenants: Failed to fetch expired tenants:", fetchErr);
+        return json(500, { error: "fetch_failed" });
     }
 
     const total = expiredTenants?.length ?? 0;
