@@ -31,14 +31,14 @@ export interface TablesLiveViewProps {
  */
 const DRAWER_EXIT_DURATION_MS = 250;
 
-type StatusFilter = "all" | "open" | "free" | "maintenance";
+type StatusFilter = "all" | "occupied" | "free" | "maintenance";
 
 const NO_ZONE_KEY = "__no_zone__";
 const NO_ZONE_LABEL = "Senza zona";
 
 const FILTER_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
     { value: "all", label: "Tutti" },
-    { value: "open", label: "Aperti" },
+    { value: "occupied", label: "Occupati" },
     { value: "free", label: "Liberi" },
     { value: "maintenance", label: "Manutenzione" }
 ];
@@ -218,7 +218,7 @@ export function TablesLiveView({
         return items.filter(t => {
             const s = deriveTableStatus(t);
             if (statusFilter === "maintenance") return s === "maintenance";
-            if (statusFilter === "open") return s === "occupied";
+            if (statusFilter === "occupied") return s === "occupied";
             if (statusFilter === "free") return s === "free";
             return true;
         });
@@ -265,7 +265,7 @@ export function TablesLiveView({
         <div className={styles.wrapper}>
             <div className={styles.summaryRow}>
                 <Text variant="body-sm" colorVariant="muted">
-                    {summary.open} {summary.open === 1 ? "aperto" : "aperti"} ·{" "}
+                    {summary.open} {summary.open === 1 ? "occupato" : "occupati"} ·{" "}
                     {summary.free} {summary.free === 1 ? "libero" : "liberi"}
                     {summary.seats > 0 && ` · ${summary.seats} coperti`}
                 </Text>

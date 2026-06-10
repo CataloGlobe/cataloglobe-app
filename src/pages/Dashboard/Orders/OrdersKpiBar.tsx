@@ -48,7 +48,7 @@ export function OrdersKpiBar({
         <div className={styles.bar}>
             <div className={styles.card}>
                 <Text variant="caption" className={styles.label}>
-                    Tavoli aperti
+                    Tavoli occupati
                 </Text>
                 <Text variant="title-md" weight={700} className={styles.value}>
                     {tablesOpen}
