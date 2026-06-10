@@ -49,6 +49,8 @@ interface Props {
      * key-like trigger (no flag dedicato da resettare).
      */
     pulseSubmittedToken?: number;
+    canManage?: boolean;
+    canEdit?: boolean;
 }
 
 const PULSE_DURATION_MS = 1500;
@@ -85,7 +87,9 @@ export default function OrdersKanban({
     onPrint,
     onUnacknowledge,
     onUnready,
-    pulseSubmittedToken
+    pulseSubmittedToken,
+    canManage,
+    canEdit
 }: Props) {
     // Pulse header "Nuove" sul cambio di token. Token = 0 (default) NON
     // pulsa al mount. setTimeout cleared on next bump o unmount.
@@ -185,6 +189,8 @@ export default function OrdersKanban({
                                             onPrint={onPrint}
                                             onUnacknowledge={onUnacknowledge}
                                             onUnready={onUnready}
+                                            canManage={canManage}
+                                            canEdit={canEdit}
                                         />
                                     );
                                 })

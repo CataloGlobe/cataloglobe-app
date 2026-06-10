@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { AlertCircle, ClipboardList, Lock, Plus, RefreshCw, Volume2, VolumeX } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { AlertCircle, ClipboardList, Plus, RefreshCw, Volume2, VolumeX } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
+import { PageGate } from "@/components/PageGate/PageGate";
 
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import { usePlanFeatures } from "@/lib/planFeatures";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 import {
     acknowledgeOrder,
@@ -58,9 +60,8 @@ type MainTab = "comande" | "tavoli" | "storico";
 export default function Orders() {
     const tenantId = useTenantId();
     const { showToast } = useToast();
-    const navigate = useNavigate();
-    const { businessId = "" } = useParams<{ businessId: string }>();
     const { hasFeature } = usePlanFeatures();
+    const { canEdit } = useSubscriptionGuard();
     const [searchParams, setSearchParams] = useSearchParams();
 
     // Sede in modalità single-site: viene dal selettore navbar
@@ -125,10 +126,11 @@ export default function Orders() {
     // Permessi per gating "Crea ordine": stesso hook usato dalla Sidebar
     // (PermissionsContext, montato dentro /business/:businessId/*).
     const { permissions } = usePermissions();
-    const canCreateOrder =
+    const canManage =
         !!selectedActivityId &&
         !!permissions &&
         canDoOnActivity(permissions, "orders.manage", selectedActivityId);
+    const canCreateOrder = canManage;
 
     // Table detail + close drawer (tab "Tavoli"): ora interni a
     // TablesLiveView (Step 4c + close-table). Nessuno state qui.
@@ -242,6 +244,7 @@ export default function Orders() {
                         className={styles.toolbarCta}
                         leftIcon={<Plus size={16} />}
                         onClick={() => setIsCreateOrderOpen(true)}
+                        disabled={!canEdit}
                     >
                         Crea ordine
                     </Button>
@@ -275,7 +278,7 @@ export default function Orders() {
                 </button>
             </div>
         ),
-        [canCreateOrder, selectedActivityId, refreshAll, isLoadingOrders, soundEnabled, toggleSound]
+        [canCreateOrder, canEdit, selectedActivityId, refreshAll, isLoadingOrders, soundEnabled, toggleSound]
     );
 
     const headerLeading = useMemo(() => (
@@ -715,30 +718,9 @@ export default function Orders() {
         }
     }
 
-    // Plan gate render: feature "table_ordering" is Pro-only. Blocks all
-    // roles before the permission gate. Real enforcement is server-side via
-    // plans.features_json / activity_has_feature.
-    if (isLocked) {
-        return (
-            <div className={styles.lockedWrap}>
-                <EmptyState
-                    icon={<Lock size={40} strokeWidth={1.5} />}
-                    title="Gli ordini al tavolo sono una funzione Pro"
-                    description="Ricevi e gestisci gli ordini inviati dai clienti via QR. Disponibile con il piano Pro."
-                    action={
-                        <Button
-                            variant="primary"
-                            onClick={() => navigate(`/business/${businessId}/subscription`)}
-                        >
-                            Passa a Pro
-                        </Button>
-                    }
-                />
-            </div>
-        );
-    }
-
     return (
+        <PageGate feature="table_ordering" readPermission="orders.read" activityId={selectedActivityId}>
+        {() => (
         <section className={styles.container}>
             {mainTab === "comande" && (
                 <>
@@ -783,6 +765,8 @@ export default function Orders() {
                             onUnacknowledge={handleUnacknowledge}
                             onUnready={handleUnready}
                             pulseSubmittedToken={pulseToken}
+                            canManage={canManage}
+                            canEdit={canEdit}
                         />
                     )}
                 </>
@@ -842,6 +826,8 @@ export default function Orders() {
                                     operatorNames={operatorNames}
                                     onRestore={handleRestore}
                                     onViewDetail={handleViewDetail}
+                                    canManage={canManage}
+                                    canEdit={canEdit}
                                 />
                             ))}
                         </div>
@@ -912,5 +898,7 @@ export default function Orders() {
                 onSubmitted={refreshAll}
             />
         </section>
+        )}
+        </PageGate>
     );
 }
