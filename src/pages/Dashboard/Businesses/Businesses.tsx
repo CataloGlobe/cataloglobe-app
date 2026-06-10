@@ -584,12 +584,8 @@ export default function Businesses() {
                     // questo branch resta per future FK NO ACTION non gestite.
                     message =
                         "Impossibile eliminare la sede: ci sono dati collegati che impediscono l'eliminazione. Contatta il supporto.";
-                } else if (e.code === "INSUFFICIENT_ROLE") {
-                    message = "Solo owner o admin possono eliminare una sede.";
-                } else if (e.code === "INACTIVE_MEMBERSHIP") {
-                    message = "Il tuo accesso a questa organizzazione non è attivo.";
-                } else if (e.code === "NOT_MEMBER") {
-                    message = "Non appartieni a questa organizzazione.";
+                } else if (e.code === "INSUFFICIENT_PERMISSION") {
+                    message = "Non hai i permessi per eliminare questa sede.";
                 } else if (e.code === "AUTH_EXPIRED") {
                     message = "Sessione scaduta. Effettua di nuovo il login.";
                 }
