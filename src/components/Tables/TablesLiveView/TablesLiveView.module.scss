@@ -83,10 +83,6 @@
     border-color: var(--brand-primary, #6366f1);
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
     transform: translateY(-1px);
-
-    .cardChevron {
-      color: var(--brand-primary, #6366f1);
-    }
   }
 
   &:focus-visible {
@@ -133,11 +129,10 @@
   color: var(--text-default, #0f172a);
 }
 
-.cardChevron {
-  flex-shrink: 0;
-  color: var(--text-muted, #94a3b8);
-  transition: color 0.15s ease;
-  pointer-events: none;
+// Negative right margin aligns the TableRowActions trigger flush to the card
+// edge without clipping the hover/focus ring.
+.cardActionsOffset {
+  margin-right: -8px;
 }
 
 // ── Row 2: status label · seats · elapsed ────────────────────────────────────

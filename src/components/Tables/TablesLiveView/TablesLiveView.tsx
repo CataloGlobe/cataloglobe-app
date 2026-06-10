@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, ChevronRight, Grid2X2 } from "lucide-react";
+import { AlertCircle, Eye, Grid2X2, LogOut, Wrench } from "lucide-react";
 
 import Text from "@/components/ui/Text/Text";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import {
+    TableRowActions,
+    type TableRowAction
+} from "@/components/ui/TableRowActions/TableRowActions";
 
 import { useToast } from "@/context/Toast/ToastContext";
 import { closeTable } from "@/services/supabase/customerSessions";
+import { updateTable } from "@/services/supabase/tables";
 import type { V2TableWithState } from "@/types/orders";
 
 import { TableDetailDrawer } from "@/components/Tables/TableDetailDrawer/TableDetailDrawer";
@@ -149,6 +154,25 @@ export function TablesLiveView({
             }, DRAWER_EXIT_DURATION_MS);
         },
         [items, showToast]
+    );
+
+    const handleMaintenanceToggle = useCallback(
+        async (tableId: string, next: boolean): Promise<void> => {
+            try {
+                await updateTable(tableId, tenantId, { maintenance_mode: next });
+                showToast({
+                    message: next ? "Tavolo messo fuori servizio" : "Tavolo riattivato",
+                    type: "success"
+                });
+                await refetch();
+            } catch {
+                showToast({
+                    message: "Errore durante l'aggiornamento",
+                    type: "error"
+                });
+            }
+        },
+        [tenantId, refetch, showToast]
     );
 
     // Identico per logica al pattern di TablesManagement.handleCloseConfirm
@@ -352,6 +376,32 @@ export function TablesLiveView({
 
                                     const statusLabel = STATUS_LABELS[status];
 
+                                    const cardActions: TableRowAction[] = [
+                                        {
+                                            label: "Vedi dettaglio",
+                                            icon: Eye,
+                                            onClick: () => handleTableClick(t.id)
+                                        },
+                                        {
+                                            label: "Chiudi tavolo",
+                                            icon: LogOut,
+                                            hidden: status !== "occupied",
+                                            onClick: () => handleRequestClose(t.id)
+                                        },
+                                        {
+                                            label: t.maintenance_mode
+                                                ? "Rimuovi manutenzione"
+                                                : "Metti in manutenzione",
+                                            icon: Wrench,
+                                            hidden: status === "occupied",
+                                            onClick: () =>
+                                                void handleMaintenanceToggle(
+                                                    t.id,
+                                                    !t.maintenance_mode
+                                                )
+                                        }
+                                    ];
+
                                     return (
                                         <article
                                             key={t.id}
@@ -367,18 +417,16 @@ export function TablesLiveView({
                                                 }
                                             }}
                                         >
-                                            {/* Row 1: dot + name + chevron */}
+                                            {/* Row 1: dot + name + actions menu */}
                                             <div className={styles.cardRow1}>
                                                 <span
                                                     className={`${styles.statusDot} ${styles[`dot_${status}`]}`}
                                                     aria-hidden
                                                 />
                                                 <span className={styles.cardName}>{t.label}</span>
-                                                <ChevronRight
-                                                    size={14}
-                                                    className={styles.cardChevron}
-                                                    aria-hidden
-                                                />
+                                                <span className={styles.cardActionsOffset}>
+                                                    <TableRowActions actions={cardActions} />
+                                                </span>
                                             </div>
 
                                             {/* Row 2: status label · seats · elapsed */}
