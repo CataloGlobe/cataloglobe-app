@@ -93,8 +93,7 @@ serve(async req => {
 
         return json(200, { portal_url: portalSession.url });
     } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error("stripe-portal: Unhandled error:", message);
-        return json(500, { error: "portal_failed", detail: message });
+        console.error("stripe-portal: Unhandled error:", err);
+        return json(500, { error: "portal_failed" });
     }
 });

@@ -16,6 +16,7 @@ import { calculateGraduatedFromPlan } from "@/utils/pricing";
 
 import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
 import { DEFAULT_SUBTYPE, type BusinessSubtype } from "@/constants/verticalTypes";
+import { getStoredPromo, clearStoredPromo } from "@/utils/promoCode";
 import type { Plan, PlanCode } from "@/types/plan";
 import type { V2Tenant } from "@/types/tenant";
 
@@ -91,8 +92,10 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         }
 
         setLogoFile(null);
-        setPromotionCode("");
-        setShowPromoInput(false);
+        const seeded = getStoredPromo() ?? "";
+        setPromotionCode(seeded);
+        setShowPromoInput(seeded.length > 0);
+
         setSubmitting(false);
         setSubmitError(null);
         setPromoError(null);
@@ -288,6 +291,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                 cancelUrl: `${window.location.origin}/workspace`,
             });
 
+            clearStoredPromo();
             window.location.href = checkoutUrl;
         } catch (err) {
             console.error("[CreateBusinessWizard] checkout failed:", err);

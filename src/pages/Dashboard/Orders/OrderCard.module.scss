@@ -201,6 +201,14 @@
 .primaryCta {
     flex: 1;
     min-width: 0;
+    height: 36px;
+}
+
+// Forces the standalone print IconButton to match the menuTrigger height (36px)
+// without touching the shared IconButton/Button components.
+.footerIconBtn {
+    height: 36px;
+    width: 36px;
 }
 
 // CTA tinte specifiche per stato: dominanza cromatica diversa per card.

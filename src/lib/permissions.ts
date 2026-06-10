@@ -153,35 +153,3 @@ export function canRemoveMember(
     return true;
 }
 
-// ----------------------------------------------------------------------------
-// Composite checks — scheduling
-// ----------------------------------------------------------------------------
-
-interface ScheduleShape {
-    apply_to_all: boolean;
-    targets: Array<{ target_type: string; target_id: string }>;
-}
-
-/**
- * True se il caller può editare lo schedule.
- * Replica la logica di `public.update_schedule_targets` RPC:
- *  - serve `scheduling.write` su almeno una sede
- *  - owner/admin: sempre true se ha il permesso
- *  - manager: schedule.apply_to_all=true non editabile
- *  - manager: schedule.targets con target_type='activity_group' → false
- *    conservativo (espansione members non disponibile lato client)
- *  - manager: schedule.targets con target_type='activity' → tutti devono
- *    essere nelle sue activityIds
- */
-export function canEditSchedule(perms: UserPermissions, schedule: ScheduleShape): boolean {
-    if (!canDoOnAnyActivity(perms, "scheduling.write")) return false;
-    if (isTenantWide(perms)) return true;
-    if (schedule.apply_to_all) return false;
-    return schedule.targets.every(t => {
-        if (t.target_type === "activity") return perms.activityIds.includes(t.target_id);
-        // activity_group: conservativo. Espansione members richiederebbe
-        // fetch sincrono. Manager con group target → editi via RPC che
-        // valida server-side; UI nasconde l'edit.
-        return false;
-    });
-}

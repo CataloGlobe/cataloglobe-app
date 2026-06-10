@@ -1,4 +1,4 @@
-import { Check, Sparkles } from "lucide-react";
+import { Check } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { SeatsInput } from "@/components/ui/SeatsInput/SeatsInput";
 import type { Plan, PlanCode } from "@/types/plan";
@@ -155,18 +155,6 @@ export function Step2PlanSeats({
                         </span>
                     </div>
                 )}
-            </div>
-
-            <div className={styles.founderBanner}>
-                <span className={styles.founderIcon} aria-hidden>
-                    <Sparkles size={18} />
-                </span>
-                <div className={styles.founderContent}>
-                    <span className={styles.founderTitle}>Sei tra i primi 20 clienti?</span>
-                    <span className={styles.founderBody}>
-                        Abbiamo condizioni speciali per chi sceglie CataloGlobe in fase early. Contattaci per scoprirle.
-                    </span>
-                </div>
             </div>
         </div>
     );

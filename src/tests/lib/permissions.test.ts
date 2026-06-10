@@ -9,7 +9,6 @@ import {
     canInviteRole,
     canChangeRoleOf,
     canRemoveMember,
-    canEditSchedule,
     type UserPermissions
 } from "@/lib/permissions";
 
@@ -305,54 +304,3 @@ describe("canRemoveMember", () => {
     });
 });
 
-// ============================================================
-// Scheduling
-// ============================================================
-
-describe("canEditSchedule", () => {
-    it("senza scheduling.write su any activity: false", () => {
-        expect(canEditSchedule(viewer, {
-            apply_to_all: false,
-            targets: [{ target_type: "activity", target_id: ACT_A }]
-        })).toBe(false);
-    });
-
-    it("owner/admin: true sempre se hanno scheduling.write", () => {
-        expect(canEditSchedule(owner, { apply_to_all: true, targets: [] })).toBe(true);
-        expect(canEditSchedule(admin, {
-            apply_to_all: false,
-            targets: [{ target_type: "activity", target_id: ACT_C }]
-        })).toBe(true);
-    });
-
-    it("manager: apply_to_all=true → false", () => {
-        expect(canEditSchedule(manager, { apply_to_all: true, targets: [] })).toBe(false);
-    });
-
-    it("manager: tutti i target activity nelle sue sedi → true", () => {
-        expect(canEditSchedule(manager, {
-            apply_to_all: false,
-            targets: [
-                { target_type: "activity", target_id: ACT_A },
-                { target_type: "activity", target_id: ACT_B }
-            ]
-        })).toBe(true);
-    });
-
-    it("manager: anche un solo target fuori scope → false", () => {
-        expect(canEditSchedule(manager, {
-            apply_to_all: false,
-            targets: [
-                { target_type: "activity", target_id: ACT_A },
-                { target_type: "activity", target_id: ACT_C }
-            ]
-        })).toBe(false);
-    });
-
-    it("manager: activity_group target → false conservativo", () => {
-        expect(canEditSchedule(manager, {
-            apply_to_all: false,
-            targets: [{ target_type: "activity_group", target_id: "some-group" }]
-        })).toBe(false);
-    });
-});

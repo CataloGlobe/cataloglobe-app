@@ -12,7 +12,7 @@ const DAY_NAMES = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", 
 interface ActivityHoursSectionProps {
     hours: V2ActivityHours[];
     activity: V2Activity;
-    onEditRequest: () => void;
+    onEditRequest?: () => void;
 }
 
 function formatDaySlots(slots: V2ActivityHours[]): React.ReactNode {
@@ -55,16 +55,18 @@ export const ActivityHoursSection: React.FC<ActivityHoursSectionProps> = ({
                         <span className={styles.visibilityHint}>Visibili nella pagina pubblica</span>
                     )}
                 </div>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    leftIcon={
-                        hasHours ? <Pencil size={16} /> : <Plus size={16} />
-                    }
-                    onClick={onEditRequest}
-                >
-                    {hasHours ? "Modifica" : "Imposta orari"}
-                </Button>
+                {onEditRequest && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        leftIcon={
+                            hasHours ? <Pencil size={16} /> : <Plus size={16} />
+                        }
+                        onClick={onEditRequest}
+                    >
+                        {hasHours ? "Modifica" : "Imposta orari"}
+                    </Button>
+                )}
             </div>
             <div className={pageStyles.cardContent}>
                 {!hasHours ? (
@@ -74,14 +76,16 @@ export const ActivityHoursSection: React.FC<ActivityHoursSectionProps> = ({
                         title="Nessun orario configurato"
                         description="Imposta gli orari di apertura per mostrarli nella pagina pubblica."
                         action={
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                leftIcon={<Plus size={14} />}
-                                onClick={onEditRequest}
-                            >
-                                Imposta orari
-                            </Button>
+                            onEditRequest ? (
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    leftIcon={<Plus size={14} />}
+                                    onClick={onEditRequest}
+                                >
+                                    Imposta orari
+                                </Button>
+                            ) : undefined
                         }
                     />
                 ) : (

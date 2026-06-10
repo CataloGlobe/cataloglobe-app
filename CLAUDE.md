@@ -11,6 +11,7 @@ Regole vincolanti. In caso di dubbio: seguire il pattern esistente nel codice.
 - Scheduling (Programmazione): `docs/scheduling.md`
 - Epic "Ordinazioni dal tavolo": `docs/orders-architecture.md` (v1.2) — state machine, RPC, optimistic locking, error code, roadmap 6 fasi. Dettaglio pattern: `docs/patterns/epic-ordering.md`
 - Security Advisor stato: `docs/security-advisor-status.md`
+- **Permissions Matrix** (v3, Track A completo): `docs/permissions-matrix.md` — 41 permessi, matrice ruolo×permesso, gating FE per pagina, readiness Fase 1
 - Roadmap: `docs/roadmap.md`
 - **Pattern dettagliati** (`docs/patterns/`): `delete-drawer.md`, `activity-detail.md`, `draft-unsaved-bar.md`, `public-page.md`, `style-editor.md`, `ui-components.md`, `storage-sql.md`, `epic-ordering.md`
 
@@ -73,7 +74,7 @@ Modello post-Fase 2: scope tenant-wide vs activity-scoped.
 
 ### Backend permission system
 
-- Tabella `role_permissions`: 38 permission seed, scope `tenant` o `activity`
+- Tabella `role_permissions`: 41 permission seed, scope `tenant` o `activity`
 - Helper SECURITY DEFINER:
   - `has_permission(p_permission_id text, p_activity_id uuid DEFAULT NULL) → boolean`
   - `has_permission_any_activity(p_permission_id text, p_tenant_id uuid) → boolean`

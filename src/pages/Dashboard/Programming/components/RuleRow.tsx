@@ -27,11 +27,11 @@ export interface RuleRowProps {
     showTypeBadge?: boolean;
     activityById: Map<string, Pick<LayoutRuleOption, "name">>;
     activityGroups: Array<Pick<LayoutRuleOption, "id" | "name">>;
-    onSelect: (id: string, checked: boolean) => void;
+    onSelect?: (id: string, checked: boolean) => void;
     onClick: (rule: LayoutRule) => void;
-    onDelete: (ruleId: string) => void;
-    onDuplicate: (ruleId: string) => void;
-    onToggleEnabled: (ruleId: string, enabled: boolean) => void;
+    onDelete?: (ruleId: string) => void;
+    onDuplicate?: (ruleId: string) => void;
+    onToggleEnabled?: (ruleId: string, enabled: boolean) => void;
 }
 
 function getRuleTypeLabel(ruleType: LayoutRule["rule_type"]): string {
@@ -152,13 +152,15 @@ export function RuleRow({
 
             {/* Checkbox */}
             <div className={styles.rowCheckbox} data-no-click="true">
-                <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={e => onSelect(rule.id, e.target.checked)}
-                    onClick={e => e.stopPropagation()}
-                    aria-label={`Seleziona ${displayName}`}
-                />
+                {onSelect && (
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={e => onSelect(rule.id, e.target.checked)}
+                        onClick={e => e.stopPropagation()}
+                        aria-label={`Seleziona ${displayName}`}
+                    />
+                )}
             </div>
 
             {/* Name */}
@@ -224,49 +226,55 @@ export function RuleRow({
 
             {/* Enable toggle */}
             <div className={styles.statusCell} data-no-click="true">
-                <Switch
-                    checked={rule.enabled}
-                    onChange={checked => {
-                        if (checked && rule.end_at && new Date(rule.end_at) < new Date()) {
-                            showToast({
-                                type: "error",
-                                message: "Questa regola è scaduta. Aggiorna la data di fine prima di riattivarla.",
-                                duration: 3000
-                            });
-                            return;
-                        }
-                        if (checked && ruleIsDraft) {
-                            showToast({
-                                type: "error",
-                                message: "Completa i campi obbligatori prima di attivare la regola.",
-                                duration: 3000
-                            });
-                            return;
-                        }
-                        onToggleEnabled(rule.id, checked);
-                    }}
-                    disabled={isUpdating}
-                />
-                {isUpdating && <Loader2 size={12} className={styles.miniLoader} />}
+                {onToggleEnabled && (
+                    <>
+                        <Switch
+                            checked={rule.enabled}
+                            onChange={checked => {
+                                if (checked && rule.end_at && new Date(rule.end_at) < new Date()) {
+                                    showToast({
+                                        type: "error",
+                                        message: "Questa regola è scaduta. Aggiorna la data di fine prima di riattivarla.",
+                                        duration: 3000
+                                    });
+                                    return;
+                                }
+                                if (checked && ruleIsDraft) {
+                                    showToast({
+                                        type: "error",
+                                        message: "Completa i campi obbligatori prima di attivare la regola.",
+                                        duration: 3000
+                                    });
+                                    return;
+                                }
+                                onToggleEnabled(rule.id, checked);
+                            }}
+                            disabled={isUpdating}
+                        />
+                        {isUpdating && <Loader2 size={12} className={styles.miniLoader} />}
+                    </>
+                )}
             </div>
 
             {/* Actions menu */}
             <div className={styles.rowActions} data-no-click="true">
-                <TableRowActions
-                    actions={[
-                        {
-                            label: "Duplica",
-                            icon: Copy,
-                            onClick: () => onDuplicate(rule.id)
-                        },
-                        {
-                            label: "Elimina",
-                            icon: Trash2,
-                            variant: "destructive",
-                            onClick: () => onDelete(rule.id)
-                        }
-                    ]}
-                />
+                {(onDelete || onDuplicate) && (
+                    <TableRowActions
+                        actions={[
+                            ...(onDuplicate ? [{
+                                label: "Duplica",
+                                icon: Copy,
+                                onClick: () => onDuplicate(rule.id)
+                            }] : []),
+                            ...(onDelete ? [{
+                                label: "Elimina",
+                                icon: Trash2,
+                                variant: "destructive" as const,
+                                onClick: () => onDelete(rule.id)
+                            }] : [])
+                        ]}
+                    />
+                )}
             </div>
         </div>
     );

@@ -1,0 +1,124 @@
+// Hidden on screen; revealed only via @media print + [data-printing] attribute
+.printReceipt {
+    display: none;
+}
+
+@media print {
+    @page {
+        size: 72mm auto;
+        margin: 4mm 3mm;
+    }
+
+    // Hide the entire app — use visibility so layout is preserved for
+    // the receipt element even though it lives inside a portal or deep subtree.
+    body * {
+        visibility: hidden;
+    }
+
+    // Only the receipt div explicitly marked by the caller is shown.
+    // Attribute is set synchronously before window.print() and removed after.
+    [data-printing] {
+        display: block !important;
+        visibility: visible;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 66mm; // 72mm - 2×3mm page margins
+        font-family: "Courier New", Courier, monospace;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #000;
+        background: #fff;
+    }
+
+    [data-printing] * {
+        visibility: visible;
+    }
+
+    .prTitle {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-align: center;
+        margin-bottom: 4px;
+    }
+
+    .prTable {
+        font-size: 15px;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 8px;
+    }
+
+    .prMeta {
+        font-size: 11px;
+        color: #444;
+        margin-bottom: 6px;
+    }
+
+    .prRectification {
+        font-weight: 700;
+        text-align: center;
+        margin: 4px 0;
+    }
+
+    .prDivider {
+        border-top: 1px dashed #000;
+        margin: 6px 0;
+    }
+
+    .prItems {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .prItem {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .prItemLine {
+        display: flex;
+        gap: 6px;
+        align-items: baseline;
+    }
+
+    .prQty {
+        font-weight: 700;
+        min-width: 22px;
+        flex-shrink: 0;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .prName {
+        font-weight: 700;
+        font-size: 14px;
+    }
+
+    .prDetail {
+        font-size: 11px;
+        color: #444;
+        padding-left: 28px;
+    }
+
+    .prItemNote {
+        font-size: 11px;
+        font-style: italic;
+        padding-left: 28px;
+    }
+
+    .prOrderNotes {
+        font-size: 12px;
+        margin-bottom: 6px;
+        white-space: pre-wrap;
+    }
+
+    .prFooter {
+        font-size: 10px;
+        color: #888;
+        text-align: right;
+        margin-top: 4px;
+    }
+}

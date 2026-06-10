@@ -341,6 +341,17 @@ serve(async (req: Request) => {
             );
         }
 
+        // Feature gate: override display flags fail-closed based on plan.
+        // Errors or null from the RPC are treated as false (feature unavailable).
+        const [orderingRpc, reservationRpc] = await Promise.allSettled([
+            supabase.rpc("activity_has_feature", { p_activity_id: activity.id, p_feature_id: "table_ordering" }),
+            supabase.rpc("activity_has_feature", { p_activity_id: activity.id, p_feature_id: "table_reservation" })
+        ]);
+        const hasOrdering    = orderingRpc.status    === "fulfilled" && orderingRpc.value.data    === true;
+        const hasReservation = reservationRpc.status === "fulfilled" && reservationRpc.value.data === true;
+        const orderingEnabledResolved     = Boolean(activity.ordering_enabled)    && hasOrdering;
+        const reservationsEnabledResolved = Boolean(activity.enable_reservations) && hasReservation;
+
         const business = {
             id: activity.id,
             tenant_id: activity.tenant_id,
@@ -349,8 +360,8 @@ serve(async (req: Request) => {
             cover_image: activity.cover_image,
             status: activity.status,
             inactive_reason: activity.inactive_reason,
-            ordering_enabled: activity.ordering_enabled ?? true,
-            enable_reservations: activity.enable_reservations ?? false,
+            ordering_enabled: orderingEnabledResolved,
+            enable_reservations: reservationsEnabledResolved,
             address: activity.address ?? null,
             street_number: activity.street_number ?? null,
             postal_code: activity.postal_code ?? null,

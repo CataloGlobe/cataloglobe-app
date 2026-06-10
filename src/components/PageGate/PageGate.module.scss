@@ -1,0 +1,10 @@
+/* Full-page locked state shared by plan and permission blocks.
+   Mirrors the .lockedWrap pattern from TeamPage / Reservations / Orders. */
+.lockedWrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    padding: 24px 16px;
+}

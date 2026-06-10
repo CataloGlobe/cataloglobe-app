@@ -14,6 +14,7 @@ interface Props {
     isBase: boolean;
     progress?: LanguageProgress;
     rowIndex?: number;
+    canToggle?: boolean;
     onToggle?: (next: boolean) => void;
     onRetryErrors?: () => Promise<void> | void;
 }
@@ -36,6 +37,7 @@ export function LanguageRow({
     isBase,
     progress,
     rowIndex = 0,
+    canToggle = true,
     onToggle,
     onRetryErrors
 }: Props) {
@@ -107,7 +109,7 @@ export function LanguageRow({
                     </span>
                 )}
 
-                {status === "error" && progress && (
+                {status === "error" && progress && canToggle && (
                     <button
                         type="button"
                         className={styles.errorPill}
@@ -122,13 +124,15 @@ export function LanguageRow({
                 )}
             </div>
 
-            <div className={styles.toggle}>
-                <Switch
-                    checked={checked}
-                    disabled={isBase}
-                    onChange={next => onToggle?.(next)}
-                />
-            </div>
+            {canToggle && (
+                <div className={styles.toggle}>
+                    <Switch
+                        checked={checked}
+                        disabled={isBase}
+                        onChange={next => onToggle?.(next)}
+                    />
+                </div>
+            )}
 
             {status === "in_progress" && (
                 <span

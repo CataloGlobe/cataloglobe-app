@@ -20,6 +20,9 @@ import {
 } from "@/services/supabase/featuredContents";
 import { useTenantId } from "@/context/useTenantId";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnAnyActivity } from "@/lib/permissions";
+import { PageGate } from "@/components/PageGate/PageGate";
 import { FeaturedIdentityDrawer } from "./components/FeaturedIdentityDrawer";
 import { FeaturedMediaDrawer } from "./components/FeaturedMediaDrawer";
 import { FeaturedPricingModeDrawer } from "./components/FeaturedPricingModeDrawer";
@@ -55,6 +58,8 @@ export default function FeaturedContentDetailPage() {
     const { showToast } = useToast();
     const tenantId = useTenantId();
     const { canEdit } = useSubscriptionGuard();
+    const { permissions } = usePermissions();
+    const canWrite = permissions ? canDoOnAnyActivity(permissions, "featured.write") : false;
 
     const [content, setContent] = useState<FeaturedContentWithProducts | null>(null);
     const [loading, setLoading] = useState(true);
@@ -195,7 +200,7 @@ export default function FeaturedContentDetailPage() {
     ), [activeTab, handleTabChange, productsEnabled]);
 
     const actions = useMemo(() => {
-        if (activeTab !== "products" || !productsEnabled) return undefined;
+        if (activeTab !== "products" || !productsEnabled || !canWrite) return undefined;
         return (
             <Button
                 variant="primary"
@@ -206,7 +211,7 @@ export default function FeaturedContentDetailPage() {
                 + Aggiungi prodotto
             </Button>
         );
-    }, [activeTab, productsEnabled, canEdit]);
+    }, [activeTab, productsEnabled, canEdit, canWrite]);
 
     usePageHeader({
         leading,
@@ -236,15 +241,17 @@ export default function FeaturedContentDetailPage() {
             <div className={styles.block}>
                 <div className={styles.blockHeaderRow}>
                     <p className={styles.blockHeaderTitle}>Identità</p>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        leftIcon={<Pencil size={14} />}
-                        onClick={() => setIsIdentityDrawerOpen(true)}
-                        disabled={loading || !canEdit}
-                    >
-                        Modifica
-                    </Button>
+                    {canWrite && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            leftIcon={<Pencil size={14} />}
+                            onClick={() => setIsIdentityDrawerOpen(true)}
+                            disabled={loading || !canEdit}
+                        >
+                            Modifica
+                        </Button>
+                    )}
                 </div>
                 <div className={styles.readOnlyGrid}>
                     <div className={styles.roField}>
@@ -278,15 +285,17 @@ export default function FeaturedContentDetailPage() {
             <div className={styles.block}>
                 <div className={styles.blockHeaderRow}>
                     <p className={styles.blockHeaderTitle}>Immagine</p>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        leftIcon={<Pencil size={14} />}
-                        onClick={() => setIsMediaDrawerOpen(true)}
-                        disabled={loading || !canEdit}
-                    >
-                        Modifica
-                    </Button>
+                    {canWrite && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            leftIcon={<Pencil size={14} />}
+                            onClick={() => setIsMediaDrawerOpen(true)}
+                            disabled={loading || !canEdit}
+                        >
+                            Modifica
+                        </Button>
+                    )}
                 </div>
                 {content?.media_id ? (
                     <div className={styles.mediaPreview}>
@@ -308,15 +317,17 @@ export default function FeaturedContentDetailPage() {
             <div className={styles.block}>
                 <div className={styles.blockHeaderRow}>
                     <p className={styles.blockHeaderTitle}>Tipo di contenuto</p>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        leftIcon={<Pencil size={14} />}
-                        onClick={() => setIsPricingDrawerOpen(true)}
-                        disabled={loading || !canEdit}
-                    >
-                        Modifica
-                    </Button>
+                    {canWrite && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            leftIcon={<Pencil size={14} />}
+                            onClick={() => setIsPricingDrawerOpen(true)}
+                            disabled={loading || !canEdit}
+                        >
+                            Modifica
+                        </Button>
+                    )}
                 </div>
                 {content && (() => {
                     const ct = content.content_type ?? "announcement";
@@ -361,15 +372,17 @@ export default function FeaturedContentDetailPage() {
             <div className={styles.block}>
                 <div className={styles.blockHeaderRow}>
                     <p className={styles.blockHeaderTitle}>Call to Action</p>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        leftIcon={<Pencil size={14} />}
-                        onClick={() => setIsCtaDrawerOpen(true)}
-                        disabled={loading || !canEdit}
-                    >
-                        Modifica
-                    </Button>
+                    {canWrite && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            leftIcon={<Pencil size={14} />}
+                            onClick={() => setIsCtaDrawerOpen(true)}
+                            disabled={loading || !canEdit}
+                        >
+                            Modifica
+                        </Button>
+                    )}
                 </div>
                 {content?.cta_text || content?.cta_url ? (
                     <div className={styles.readOnlyGrid}>
@@ -394,6 +407,8 @@ export default function FeaturedContentDetailPage() {
     );
 
     return (
+        <PageGate readPermission="featured.read">
+            {() => (
         <div className={styles.wrapper}>
             {activeTab === "info" && renderInfoCard()}
 
@@ -519,5 +534,7 @@ export default function FeaturedContentDetailPage() {
                 </DrawerLayout>
             </SystemDrawer>
         </div>
+            )}
+        </PageGate>
     );
 }

@@ -40,6 +40,7 @@ interface Props {
     onCancel: (order: V2OrderWithItems) => void;
     onRectify: (order: V2OrderWithItems) => void;
     onViewDetail: (order: V2OrderWithItems) => void;
+    onPrint?: (order: V2OrderWithItems) => void;
     onUnacknowledge?: (order: V2OrderWithItems) => Promise<void>;
     onUnready?: (order: V2OrderWithItems) => Promise<void>;
     /**
@@ -48,6 +49,8 @@ interface Props {
      * key-like trigger (no flag dedicato da resettare).
      */
     pulseSubmittedToken?: number;
+    canManage?: boolean;
+    canEdit?: boolean;
 }
 
 const PULSE_DURATION_MS = 1500;
@@ -81,9 +84,12 @@ export default function OrdersKanban({
     onCancel,
     onRectify,
     onViewDetail,
+    onPrint,
     onUnacknowledge,
     onUnready,
-    pulseSubmittedToken
+    pulseSubmittedToken,
+    canManage,
+    canEdit
 }: Props) {
     // Pulse header "Nuove" sul cambio di token. Token = 0 (default) NON
     // pulsa al mount. setTimeout cleared on next bump o unmount.
@@ -180,8 +186,11 @@ export default function OrdersKanban({
                                             onCancel={onCancel}
                                             onRectify={onRectify}
                                             onViewDetail={onViewDetail}
+                                            onPrint={onPrint}
                                             onUnacknowledge={onUnacknowledge}
                                             onUnready={onUnready}
+                                            canManage={canManage}
+                                            canEdit={canEdit}
                                         />
                                     );
                                 })

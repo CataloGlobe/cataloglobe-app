@@ -50,6 +50,7 @@ interface ActivityProfileTabProps {
     activity: V2Activity;
     tenantId: string;
     onReload: () => Promise<void>;
+    canWrite?: boolean;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -142,7 +143,8 @@ const SortableMediaTile: React.FC<SortableMediaTileProps> = ({
 export const ActivityProfileTab: React.FC<ActivityProfileTabProps> = ({
     activity,
     tenantId,
-    onReload
+    onReload,
+    canWrite = true
 }) => {
     const { showToast } = useToast();
 
@@ -295,14 +297,16 @@ export const ActivityProfileTab: React.FC<ActivityProfileTabProps> = ({
                                     Cover e galleria sulla pagina pubblica
                                 </p>
                             </div>
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                leftIcon={<Pencil size={14} />}
-                                onClick={() => setIsCoverDrawerOpen(true)}
-                            >
-                                Modifica copertina
-                            </Button>
+                            {canWrite && (
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    leftIcon={<Pencil size={14} />}
+                                    onClick={() => setIsCoverDrawerOpen(true)}
+                                >
+                                    Modifica copertina
+                                </Button>
+                            )}
                         </div>
                         <div className={styles.cardBody}>
                             {activity.cover_image ? (
@@ -343,14 +347,16 @@ export const ActivityProfileTab: React.FC<ActivityProfileTabProps> = ({
                                     Galleria · {media.length} immagin
                                     {media.length === 1 ? "e" : "i"}
                                 </span>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    leftIcon={<Plus size={14} />}
-                                    onClick={() => setIsUploadDrawerOpen(true)}
-                                >
-                                    Aggiungi immagini
-                                </Button>
+                                {canWrite && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        leftIcon={<Plus size={14} />}
+                                        onClick={() => setIsUploadDrawerOpen(true)}
+                                    >
+                                        Aggiungi immagini
+                                    </Button>
+                                )}
                             </div>
 
                             {mediaLoading ? (
@@ -404,14 +410,16 @@ export const ActivityProfileTab: React.FC<ActivityProfileTabProps> = ({
                                     Nome, indirizzo e descrizione pubblica
                                 </p>
                             </div>
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                leftIcon={<Pencil size={14} />}
-                                onClick={() => setIsIdentityDrawerOpen(true)}
-                            >
-                                Modifica
-                            </Button>
+                            {canWrite && (
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    leftIcon={<Pencil size={14} />}
+                                    onClick={() => setIsIdentityDrawerOpen(true)}
+                                >
+                                    Modifica
+                                </Button>
+                            )}
                         </div>
                         <div className={styles.cardBody}>
                             {/* Slug box */}

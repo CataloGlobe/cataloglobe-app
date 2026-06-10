@@ -23,6 +23,10 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
+import { usePermissions } from "@/context/PermissionsContext";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { canDoOnAnyActivity } from "@/lib/permissions";
+import { PageGate } from "@/components/PageGate/PageGate";
 import { supabase } from "@/services/supabase/client";
 import {
     createRuleDraft,
@@ -227,6 +231,8 @@ export default function Programming() {
     const { selectedTenant } = useTenant();
     const { showToast } = useToast();
     const sedeScope = useSedeScope();
+    const { permissions } = usePermissions();
+    const { canEdit } = useSubscriptionGuard();
 
     const [rules, setRules] = useState<LayoutRule[]>([]);
     const [activities, setActivities] = useState<LayoutRuleOption[]>([]);
@@ -246,6 +252,7 @@ export default function Programming() {
     const [searchTerm, setSearchTerm] = useState("");
     // Filtro sede deriva da useSedeScope (navbar). SCOPE_ALL → nessun filtro.
     const filterActivityId = sedeScope.value === SCOPE_ALL ? null : sedeScope.value;
+    const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
     const typeFromUrl = searchParams.get("type") as RuleType | null;
     const [ruleTypeFilter, setRuleTypeFilter] = useState<RuleTypeFilter>(
         typeFromUrl && ["layout", "featured", "price", "visibility", "all"].includes(typeFromUrl)
@@ -1022,13 +1029,13 @@ export default function Programming() {
             >
                 Simula regole
             </Button>
-            {ruleTypeFilter === "all" ? (
+            {canWrite && (ruleTypeFilter === "all" ? (
                 <Menu
                     trigger={
                         <Button
                             variant="primary"
                             className={styles.toolbarCta}
-                            disabled={!currentTenantId || isCreating}
+                            disabled={!currentTenantId || isCreating || !canEdit}
                             loading={isCreating}
                         >
                             {isCreating ? "Creazione..." : "Nuova regola"}
@@ -1054,14 +1061,14 @@ export default function Programming() {
                     variant="primary"
                     className={styles.toolbarCta}
                     onClick={() => void handleCreateRule()}
-                    disabled={!currentTenantId || isCreating}
+                    disabled={!currentTenantId || isCreating || !canEdit}
                     loading={isCreating}
                 >
                     {isCreating ? "Creazione..." : "Nuova regola"}
                 </Button>
-            )}
+            ))}
         </div>
-    ), [viewMode, searchTerm, ruleTypeFilter, currentTenantId, isCreating, handleCreateRule]);
+    ), [viewMode, searchTerm, ruleTypeFilter, currentTenantId, isCreating, handleCreateRule, canWrite, canEdit]);
 
     const headerLeading = useMemo(() => (
         <Tabs<RuleTypeFilter>
@@ -1086,6 +1093,8 @@ export default function Programming() {
     });
 
     return (
+        <PageGate readPermission="scheduling.read" activityId={filterActivityId}>
+            {() => (
         <section className={styles.programming}>
             {viewMode === "list" ? (
                 <div className={styles.tableCard}>
@@ -1118,13 +1127,13 @@ export default function Programming() {
                                     <p className={styles.tabEmptyDescription}>
                                         {RULE_TYPE_TAB_OPTIONS.find(o => o.value === ruleTypeFilter)?.description ?? ""}
                                     </p>
-                                    {ruleTypeFilter === "all" ? (
+                                    {canWrite && (ruleTypeFilter === "all" ? (
                                         <div className={styles.newRuleDropdown}>
                                             <Menu
                                                 trigger={
                                                     <Button
                                                         variant="primary"
-                                                        disabled={!currentTenantId || isCreating}
+                                                        disabled={!currentTenantId || isCreating || !canEdit}
                                                         loading={isCreating}
                                                     >
                                                         {isCreating ? "Creazione..." : "Crea la prima regola"}
@@ -1150,12 +1159,12 @@ export default function Programming() {
                                         <Button
                                             variant="primary"
                                             onClick={() => void handleCreateRule()}
-                                            disabled={isCreating}
+                                            disabled={isCreating || !canEdit}
                                             loading={isCreating}
                                         >
                                             Crea la prima regola
                                         </Button>
-                                    )}
+                                    ))}
                                 </div>
                             )
                         ) : (
@@ -1172,11 +1181,11 @@ export default function Programming() {
                                                 showTypeBadge={ruleTypeFilter === "all"}
                                                 activityById={activityById}
                                                 activityGroups={activityGroups}
-                                                onSelect={handleSelectionChange}
+                                                onSelect={canWrite ? handleSelectionChange : undefined}
                                                 onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
-                                                onDelete={id => { setRuleToDelete(id); setIsDeleteModalOpen(true); }}
-                                                onDuplicate={handleDuplicate}
-                                                onToggleEnabled={handleToggleEnabled}
+                                                onDelete={canWrite ? id => { setRuleToDelete(id); setIsDeleteModalOpen(true); } : undefined}
+                                                onDuplicate={canWrite ? handleDuplicate : undefined}
+                                                onToggleEnabled={canWrite ? handleToggleEnabled : undefined}
                                             />
                                         ))}
                                     </RuleBlock>
@@ -1194,11 +1203,11 @@ export default function Programming() {
                                                 showTypeBadge={ruleTypeFilter === "all"}
                                                 activityById={activityById}
                                                 activityGroups={activityGroups}
-                                                onSelect={handleSelectionChange}
+                                                onSelect={canWrite ? handleSelectionChange : undefined}
                                                 onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
-                                                onDelete={id => { setRuleToDelete(id); setIsDeleteModalOpen(true); }}
-                                                onDuplicate={handleDuplicate}
-                                                onToggleEnabled={handleToggleEnabled}
+                                                onDelete={canWrite ? id => { setRuleToDelete(id); setIsDeleteModalOpen(true); } : undefined}
+                                                onDuplicate={canWrite ? handleDuplicate : undefined}
+                                                onToggleEnabled={canWrite ? handleToggleEnabled : undefined}
                                             />
                                         ))}
                                     </RuleBlock>
@@ -1223,11 +1232,11 @@ export default function Programming() {
                                                 showTypeBadge={ruleTypeFilter === "all"}
                                                 activityById={activityById}
                                                 activityGroups={activityGroups}
-                                                onSelect={handleSelectionChange}
+                                                onSelect={canWrite ? handleSelectionChange : undefined}
                                                 onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
-                                                onDelete={id => { setRuleToDelete(id); setIsDeleteModalOpen(true); }}
-                                                onDuplicate={handleDuplicate}
-                                                onToggleEnabled={handleToggleEnabled}
+                                                onDelete={canWrite ? id => { setRuleToDelete(id); setIsDeleteModalOpen(true); } : undefined}
+                                                onDuplicate={canWrite ? handleDuplicate : undefined}
+                                                onToggleEnabled={canWrite ? handleToggleEnabled : undefined}
                                             />
                                         ))}
                                     </RuleBlock>
@@ -1251,11 +1260,11 @@ export default function Programming() {
                                                 showTypeBadge={ruleTypeFilter === "all"}
                                                 activityById={activityById}
                                                 activityGroups={activityGroups}
-                                                onSelect={handleSelectionChange}
+                                                onSelect={canWrite ? handleSelectionChange : undefined}
                                                 onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
-                                                onDelete={id => { setRuleToDelete(id); setIsDeleteModalOpen(true); }}
-                                                onDuplicate={handleDuplicate}
-                                                onToggleEnabled={handleToggleEnabled}
+                                                onDelete={canWrite ? id => { setRuleToDelete(id); setIsDeleteModalOpen(true); } : undefined}
+                                                onDuplicate={canWrite ? handleDuplicate : undefined}
+                                                onToggleEnabled={canWrite ? handleToggleEnabled : undefined}
                                             />
                                         ))}
                                     </RuleBlock>
@@ -1279,11 +1288,11 @@ export default function Programming() {
                                                 showTypeBadge={ruleTypeFilter === "all"}
                                                 activityById={activityById}
                                                 activityGroups={activityGroups}
-                                                onSelect={handleSelectionChange}
+                                                onSelect={canWrite ? handleSelectionChange : undefined}
                                                 onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
-                                                onDelete={id => { setRuleToDelete(id); setIsDeleteModalOpen(true); }}
-                                                onDuplicate={handleDuplicate}
-                                                onToggleEnabled={handleToggleEnabled}
+                                                onDelete={canWrite ? id => { setRuleToDelete(id); setIsDeleteModalOpen(true); } : undefined}
+                                                onDuplicate={canWrite ? handleDuplicate : undefined}
+                                                onToggleEnabled={canWrite ? handleToggleEnabled : undefined}
                                             />
                                         ))}
                                     </RuleBlock>
@@ -1307,7 +1316,7 @@ export default function Programming() {
 
             <BulkBar
                 selectedCount={selectedRuleIds.size}
-                onDelete={() => void handleBulkDelete()}
+                onDelete={canWrite ? () => void handleBulkDelete() : undefined}
                 onClearSelection={() => setSelectedRuleIds(new Set())}
             />
 
@@ -1631,5 +1640,7 @@ export default function Programming() {
                 </ModalLayoutFooter>
             </ModalLayout>
         </section>
+            )}
+        </PageGate>
     );
 }

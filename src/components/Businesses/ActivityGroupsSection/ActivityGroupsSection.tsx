@@ -17,10 +17,12 @@ import { useSearchParams } from "react-router-dom";
 
 interface ActivityGroupsSectionProps {
     searchQuery?: string;
+    canWrite?: boolean;
 }
 
 export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
-    searchQuery: externalSearchQuery = ""
+    searchQuery: externalSearchQuery = "",
+    canWrite = true
 }) => {
     const tenantId = useTenantId();
     const { showToast } = useToast();
@@ -172,27 +174,28 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                 cell: (_, group) => (
                     <TableRowActions
                         actions={[
-                            { label: "Modifica", onClick: () => handleEdit(group) },
+                            { label: "Modifica", onClick: () => handleEdit(group), hidden: !canWrite },
                             {
                                 label: "Elimina",
                                 onClick: () => handleDelete(group.id),
                                 variant: "destructive",
                                 separator: true,
-                                hidden: group.is_system
+                                hidden: !canWrite || group.is_system
                             }
                         ]}
                     />
                 )
             }
         ],
-        []
+        [canWrite]
     );
 
     useEffect(() => {
+        if (!canWrite) return;
         const handleOpenDrawer = () => handleCreate();
         window.addEventListener("open-group-drawer", handleOpenDrawer);
         return () => window.removeEventListener("open-group-drawer", handleOpenDrawer);
-    }, [tenantId]);
+    }, [tenantId, canWrite]);
 
     return (
         <div className={styles.container}>
@@ -223,13 +226,15 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                             <Text variant="body-sm" colorVariant="muted">
                                 Organizza le tue attività in gruppi per applicare regole mirate.
                             </Text>
-                            <button
-                                type="button"
-                                className={styles.createCta}
-                                onClick={handleCreate}
-                            >
-                                Crea il tuo primo gruppo
-                            </button>
+                            {canWrite && (
+                                <button
+                                    type="button"
+                                    className={styles.createCta}
+                                    onClick={handleCreate}
+                                >
+                                    Crea il tuo primo gruppo
+                                </button>
+                            )}
                         </>
                     )}
                 </div>
@@ -238,8 +243,8 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                     <DataTable
                         data={filteredGroups}
                         columns={columns}
-                        selectable
-                        onBulkDelete={handleBulkDelete}
+                        selectable={canWrite}
+                        onBulkDelete={canWrite ? handleBulkDelete : undefined}
                         highlightedRowIds={highlightedGroupIds}
                     />
                 </>

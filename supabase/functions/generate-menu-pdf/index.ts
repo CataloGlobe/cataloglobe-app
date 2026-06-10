@@ -116,9 +116,6 @@ type ActivityRow = {
     id: string;
     name: string;
     tenant_id: string;
-    tenants: {
-        owner_user_id: string;
-    };
 };
 
 const corsHeaders = {
@@ -505,17 +502,10 @@ serve(async req => {
             return json(401, { error: "unauthorized" });
         }
 
-        // 2) Fetch activity and verify ownership
+        // 2) Fetch activity (RLS enforces activity.read; 404 if not accessible)
         const { data: activity, error: activityError } = await supabase
             .from("activities")
-            .select(`
-                id,
-                name,
-                tenant_id,
-                tenants!inner (
-                    owner_user_id
-                )
-            `)
+            .select("id, name, tenant_id")
             .eq("id", activityId)
             .single();
 
@@ -525,7 +515,14 @@ serve(async req => {
 
         const businessRow = activity as unknown as ActivityRow;
 
-        if (businessRow.tenants.owner_user_id !== authData.user.id) {
+        // Permission check (canonical — handles owner via owner_user_id).
+        // Gate: catalogs.read (tenant scope) — granted to all roles.
+        // Replaces the previous owner_user_id === user.id check that blocked admin.
+        const { data: hasPerm, error: permError } = await supabase.rpc("has_permission_any_activity", {
+            p_permission_id: "catalogs.read",
+            p_tenant_id: businessRow.tenant_id
+        });
+        if (permError || !hasPerm) {
             return json(403, { error: "forbidden" });
         }
 
@@ -1343,8 +1340,7 @@ serve(async req => {
             }
         });
     } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        const stack = err instanceof Error ? err.stack : undefined;
-        return json(500, { error: "internal_server_error", message, stack });
+        console.error("generate-menu-pdf: Unhandled error:", err);
+        return json(500, { error: "internal_server_error" });
     }
 });

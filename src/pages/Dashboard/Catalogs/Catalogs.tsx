@@ -6,6 +6,9 @@ import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnTenant } from "@/lib/permissions";
+import { PageGate } from "@/components/PageGate/PageGate";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { Card } from "@/components/ui/Card/Card";
@@ -41,6 +44,8 @@ export default function Catalogs() {
     const navigate = useNavigate();
     const verticalConfig = useVerticalConfig();
     const { canEdit } = useSubscriptionGuard();
+    const { permissions } = usePermissions();
+    const canWriteCatalog = permissions != null ? canDoOnTenant(permissions, "catalogs.write") : false;
     const catalogLower = verticalConfig.catalogLabel.toLowerCase();
 
     const [catalogs, setCatalogs] = useState<V2Catalog[]>([]);
@@ -120,28 +125,32 @@ export default function Catalogs() {
                     { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
                 ]}
             />
-            <Button
-                variant="outline"
-                onClick={() => {
-                    if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
-                    setIsAiImportOpen(true);
-                }}
-                disabled={!canEdit}
-                leftIcon={<Sparkles size={16} />}
-                className={styles.toolbarCta}
-            >
-                Importa con AI
-            </Button>
-            <Button
-                variant="primary"
-                onClick={handleOpenCreate}
-                disabled={!canEdit}
-                className={styles.toolbarCta}
-            >
-                {`Crea ${catalogLower}`}
-            </Button>
+            {canWriteCatalog && (
+                <Button
+                    variant="outline"
+                    onClick={() => {
+                        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+                        setIsAiImportOpen(true);
+                    }}
+                    disabled={!canEdit}
+                    leftIcon={<Sparkles size={16} />}
+                    className={styles.toolbarCta}
+                >
+                    Importa con AI
+                </Button>
+            )}
+            {canWriteCatalog && (
+                <Button
+                    variant="primary"
+                    onClick={handleOpenCreate}
+                    disabled={!canEdit}
+                    className={styles.toolbarCta}
+                >
+                    {`Crea ${catalogLower}`}
+                </Button>
+            )}
         </>
-    ), [canEdit, showToast, handleOpenCreate, catalogLower, searchQuery, viewMode, handleViewModeChange]);
+    ), [canWriteCatalog, canEdit, showToast, handleOpenCreate, catalogLower, searchQuery, viewMode, handleViewModeChange]);
 
     usePageHeader({
         title: verticalConfig.catalogLabel,
@@ -277,25 +286,25 @@ export default function Catalogs() {
                 );
             }
         },
-        {
+        ...(canWriteCatalog ? [{
             id: "actions",
             header: "",
             width: "56px",
-            align: "right",
-            cell: (_value, catalog) => (
+            align: "right" as const,
+            cell: (_value: unknown, catalog: V2Catalog) => (
                 <TableRowActions
                     actions={[
                         { label: "Modifica nome", onClick: () => handleOpenEdit(catalog) },
                         {
                             label: `Elimina ${catalogLower}`,
                             onClick: () => handleOpenDelete(catalog),
-                            variant: "destructive",
+                            variant: "destructive" as const,
                             separator: true
                         }
                     ]}
                 />
             )
-        }
+        }] : [])
     ];
 
     const loadingState = (
@@ -318,7 +327,7 @@ export default function Catalogs() {
                     : `I ${catalogLower} organizzano i tuoi ${verticalConfig.productLabel.toLowerCase()}i e vengono mostrati ai clienti.`
             }
             action={
-                !hasSearchFilter ? (
+                !hasSearchFilter && canWriteCatalog ? (
                     <Button variant="primary" onClick={handleOpenCreate} disabled={!canEdit}>
                         {`+ Crea il tuo primo ${catalogLower}`}
                     </Button>
@@ -328,6 +337,8 @@ export default function Catalogs() {
     );
 
     return (
+        <PageGate readPermission="catalogs.read">
+        {() => (
         <section className={styles.container}>
             <div className={styles.content}>
                 {isLoading ? (
@@ -355,8 +366,8 @@ export default function Catalogs() {
                     <DataTable<V2Catalog>
                         data={filteredCatalogs}
                         columns={columns}
-                        selectable
-                        onBulkDelete={handleBulkDelete}
+                        selectable={canWriteCatalog}
+                        onBulkDelete={canWriteCatalog ? handleBulkDelete : undefined}
                         onRowClick={catalog =>
                             navigate(`/business/${currentTenantId}/catalogs/${catalog.id}`)
                         }
@@ -424,5 +435,7 @@ export default function Catalogs() {
                 onSuccess={loadData}
             />
         </section>
+        )}
+        </PageGate>
     );
 }

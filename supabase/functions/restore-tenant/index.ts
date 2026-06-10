@@ -174,8 +174,7 @@ serve(async req => {
 
         return json(200, { success: true });
     } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error("restore-tenant: Unhandled error:", message);
-        return json(500, { error: "restore_failed", detail: message });
+        console.error("restore-tenant: Unhandled error:", err);
+        return json(500, { error: "restore_failed" });
     }
 });

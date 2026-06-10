@@ -62,9 +62,9 @@ function isPast(c: V2ActivityClosure, today: string): boolean {
 
 interface ActivityClosuresSectionProps {
     closures: V2ActivityClosure[];
-    onCreateRequest: () => void;
-    onEditRequest: (closure: V2ActivityClosure) => void;
-    onDeleteRequest: (closure: V2ActivityClosure) => void;
+    onCreateRequest?: () => void;
+    onEditRequest?: (closure: V2ActivityClosure) => void;
+    onDeleteRequest?: (closure: V2ActivityClosure) => void;
 }
 
 export const ActivityClosuresSection: React.FC<ActivityClosuresSectionProps> = ({
@@ -89,14 +89,16 @@ export const ActivityClosuresSection: React.FC<ActivityClosuresSectionProps> = (
                 <div className={styles.headerLeft}>
                     <h3 className={styles.sectionTitle}>Chiusure straordinarie</h3>
                 </div>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    leftIcon={<IconPlus size={16} />}
-                    onClick={onCreateRequest}
-                >
-                    Nuova chiusura
-                </Button>
+                {onCreateRequest && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        leftIcon={<IconPlus size={16} />}
+                        onClick={onCreateRequest}
+                    >
+                        Nuova chiusura
+                    </Button>
+                )}
             </div>
             <div className={pageStyles.cardContent}>
                 {sorted.length === 0 ? (
@@ -106,14 +108,16 @@ export const ActivityClosuresSection: React.FC<ActivityClosuresSectionProps> = (
                         title="Nessuna chiusura programmata"
                         description="Aggiungi giornate o fasce orarie di chiusura eccezionale."
                         action={
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                leftIcon={<Plus size={14} />}
-                                onClick={onCreateRequest}
-                            >
-                                Nuova chiusura
-                            </Button>
+                            onCreateRequest ? (
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    leftIcon={<Plus size={14} />}
+                                    onClick={onCreateRequest}
+                                >
+                                    Nuova chiusura
+                                </Button>
+                            ) : undefined
                         }
                     />
                 ) : (
@@ -125,7 +129,7 @@ export const ActivityClosuresSection: React.FC<ActivityClosuresSectionProps> = (
                                 <div
                                     key={c.id}
                                     className={`${styles.closureCardItem}${past ? ` ${styles.closureCardItemPast}` : ""}`}
-                                    onClick={() => onEditRequest(c)}
+                                    onClick={() => onEditRequest?.(c)}
                                 >
                                     {/* Icon */}
                                     <div className={`${styles.closureIconWrap} ${c.is_closed ? styles.closureIconWrapDanger : styles.closureIconWrapWarning}`}>
@@ -156,6 +160,7 @@ export const ActivityClosuresSection: React.FC<ActivityClosuresSectionProps> = (
                                                 Orario speciale
                                             </span>
                                         )}
+                                        {onEditRequest && (
                                         <button
                                             type="button"
                                             className={styles.closuresActionBtn}
@@ -167,6 +172,8 @@ export const ActivityClosuresSection: React.FC<ActivityClosuresSectionProps> = (
                                         >
                                             <IconEdit size={14} />
                                         </button>
+                                        )}
+                                        {onDeleteRequest && (
                                         <button
                                             type="button"
                                             className={`${styles.closuresActionBtn} ${styles.closuresActionBtnDanger}`}
@@ -178,6 +185,7 @@ export const ActivityClosuresSection: React.FC<ActivityClosuresSectionProps> = (
                                         >
                                             <IconX size={14} />
                                         </button>
+                                        )}
                                     </div>
                                 </div>
                             );

@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { AlertCircle, ClipboardList, Lock, Plus, RefreshCw, Volume2, VolumeX } from "lucide-react";
+import { flushSync } from "react-dom";
+import { useSearchParams } from "react-router-dom";
+import { AlertCircle, ClipboardList, Plus, RefreshCw, Volume2, VolumeX } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
+import { PageGate } from "@/components/PageGate/PageGate";
 
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import { usePlanFeatures } from "@/lib/planFeatures";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 import {
     acknowledgeOrder,
@@ -38,9 +41,12 @@ import { getTenantMemberNames } from "@/services/supabase/team";
 import type { V2Table } from "@/types/orders";
 
 import OrderDetailDrawer from "./OrderDetailDrawer";
+import PrintReceipt from "./PrintReceipt";
 import OrderCancelDrawer from "./OrderCancelDrawer";
 import OrderRectifyDrawer from "./OrderRectifyDrawer";
-import OrderHistoryRow from "./OrderHistoryRow";
+import { DataTable } from "@/components/ui/DataTable/DataTable";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { makeHistoryColumns } from "./historyColumns";
 import OrdersKanban from "./OrdersKanban";
 import { CreateOrderDrawer } from "./CreateOrderDrawer/CreateOrderDrawer";
 import { useActiveOrdersRealtime } from "./hooks/useActiveOrdersRealtime";
@@ -52,13 +58,13 @@ import { canDoOnActivity } from "@/lib/permissions";
 import styles from "./Orders.module.scss";
 
 type MainTab = "comande" | "tavoli" | "storico";
+type HistoryFilter = "all" | "delivered" | "cancelled";
 
 export default function Orders() {
     const tenantId = useTenantId();
     const { showToast } = useToast();
-    const navigate = useNavigate();
-    const { businessId = "" } = useParams<{ businessId: string }>();
     const { hasFeature } = usePlanFeatures();
+    const { canEdit } = useSubscriptionGuard();
     const [searchParams, setSearchParams] = useSearchParams();
 
     // Sede in modalità single-site: viene dal selettore navbar
@@ -97,6 +103,7 @@ export default function Orders() {
     const [historyOrders, setHistoryOrders] = useState<V2OrderWithItems[]>([]);
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [historyError, setHistoryError] = useState<Error | null>(null);
+    const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
 
     // Filtri (tab Comande): solo dropdown tavolo.
     const [tableFilter, setTableFilter] = useState<string>("all");
@@ -104,6 +111,10 @@ export default function Orders() {
     // Detail drawer
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [orderInDetail, setOrderInDetail] = useState<V2OrderWithItems | null>(null);
+
+    // Standalone print (from card, without opening the detail drawer)
+    const [orderToPrint, setOrderToPrint] = useState<V2OrderWithItems | null>(null);
+    const standalonePrintRef = useRef<HTMLDivElement>(null);
 
     // Cancel drawer
     const [isCancelOpen, setIsCancelOpen] = useState(false);
@@ -119,10 +130,11 @@ export default function Orders() {
     // Permessi per gating "Crea ordine": stesso hook usato dalla Sidebar
     // (PermissionsContext, montato dentro /business/:businessId/*).
     const { permissions } = usePermissions();
-    const canCreateOrder =
+    const canManage =
         !!selectedActivityId &&
         !!permissions &&
         canDoOnActivity(permissions, "orders.manage", selectedActivityId);
+    const canCreateOrder = canManage;
 
     // Table detail + close drawer (tab "Tavoli"): ora interni a
     // TablesLiveView (Step 4c + close-table). Nessuno state qui.
@@ -207,11 +219,10 @@ export default function Orders() {
         };
     }, [tenantId]);
 
-    // Reset filtro tavolo al cambio sede: il tableFilter potrebbe contenere
-    // un table_id non piu' valido nella nuova sede, nascondendo silenziosamente
-    // tutte le comande (kanban vuoto senza messaggio).
+    // Reset filtri al cambio sede.
     useEffect(() => {
         setTableFilter("all");
+        setHistoryFilter("all");
     }, [selectedActivityId]);
 
     // Carica lo Storico solo quando la tab e' attiva (o si cambia sede / si rientra).
@@ -236,6 +247,7 @@ export default function Orders() {
                         className={styles.toolbarCta}
                         leftIcon={<Plus size={16} />}
                         onClick={() => setIsCreateOrderOpen(true)}
+                        disabled={!canEdit}
                     >
                         Crea ordine
                     </Button>
@@ -269,7 +281,7 @@ export default function Orders() {
                 </button>
             </div>
         ),
-        [canCreateOrder, selectedActivityId, refreshAll, isLoadingOrders, soundEnabled, toggleSound]
+        [canCreateOrder, canEdit, selectedActivityId, refreshAll, isLoadingOrders, soundEnabled, toggleSound]
     );
 
     const headerLeading = useMemo(() => (
@@ -305,6 +317,12 @@ export default function Orders() {
         if (tableFilter === "all") return activeOrders;
         return activeOrders.filter(o => o.table_id === tableFilter);
     }, [activeOrders, tableFilter]);
+
+    // ── Storico: filtro client-side per status ──
+    const filteredHistory = useMemo(() => {
+        if (historyFilter === "all") return historyOrders;
+        return historyOrders.filter(o => o.status === historyFilter);
+    }, [historyOrders, historyFilter]);
 
     function labelFor(order: V2OrderWithItems): string {
         const t = tables.find(tt => tt.id === order.table_id);
@@ -479,6 +497,18 @@ export default function Orders() {
     function handleViewDetail(order: V2OrderWithItems) {
         setOrderInDetail(order);
         setIsDetailOpen(true);
+    }
+
+    function handlePrint(order: V2OrderWithItems) {
+        // flushSync forces a synchronous DOM update so standalonePrintRef is
+        // populated before window.print() is called — no useEffect/flag needed.
+        flushSync(() => setOrderToPrint(order));
+        if (standalonePrintRef.current) {
+            standalonePrintRef.current.setAttribute("data-printing", "true");
+            window.print();
+            standalonePrintRef.current.removeAttribute("data-printing");
+        }
+        setOrderToPrint(null);
     }
 
     function handleCancelOpen(order: V2OrderWithItems) {
@@ -697,30 +727,18 @@ export default function Orders() {
         }
     }
 
-    // Plan gate render: feature "table_ordering" is Pro-only. Blocks all
-    // roles before the permission gate. Real enforcement is server-side via
-    // plans.features_json / activity_has_feature.
-    if (isLocked) {
-        return (
-            <div className={styles.lockedWrap}>
-                <EmptyState
-                    icon={<Lock size={40} strokeWidth={1.5} />}
-                    title="Gli ordini al tavolo sono una funzione Pro"
-                    description="Ricevi e gestisci gli ordini inviati dai clienti via QR. Disponibile con il piano Pro."
-                    action={
-                        <Button
-                            variant="primary"
-                            onClick={() => navigate(`/business/${businessId}/subscription`)}
-                        >
-                            Passa a Pro
-                        </Button>
-                    }
-                />
-            </div>
-        );
-    }
+    const historyColumns = makeHistoryColumns({
+        tables,
+        operatorNames,
+        onViewDetail: handleViewDetail,
+        onRestore: handleRestore,
+        onPrint: handlePrint,
+        canManage
+    });
 
     return (
+        <PageGate feature="table_ordering" readPermission="orders.read" activityId={selectedActivityId}>
+        {() => (
         <section className={styles.container}>
             {mainTab === "comande" && (
                 <>
@@ -761,9 +779,12 @@ export default function Orders() {
                             onCancel={handleCancelOpen}
                             onRectify={handleRectifyOpen}
                             onViewDetail={handleViewDetail}
+                            onPrint={handlePrint}
                             onUnacknowledge={handleUnacknowledge}
                             onUnready={handleUnready}
                             pulseSubmittedToken={pulseToken}
+                            canManage={canManage}
+                            canEdit={canEdit}
                         />
                     )}
                 </>
@@ -795,39 +816,43 @@ export default function Orders() {
                                 </Button>
                             }
                         />
-                    ) : isHistoryLoading ? (
-                        <EmptyState
-                            icon={<ClipboardList size={40} strokeWidth={1.5} />}
-                            title="Caricamento..."
-                            description="Recupero degli ordini conclusi oggi."
-                        />
-                    ) : historyOrders.length === 0 ? (
-                        <EmptyState
-                            icon={<ClipboardList size={40} strokeWidth={1.5} />}
-                            title="Nessun ordine concluso oggi"
-                            description="Gli ordini serviti o annullati nella giornata operativa appariranno qui."
-                        />
                     ) : (
-                        <div className={styles.historyList}>
-                            {historyOrders.map(o => (
-                                <OrderHistoryRow
-                                    key={o.id}
-                                    order={o}
-                                    tableLabel={
-                                        tables.find(t => t.id === o.table_id)?.label ??
-                                        `#${o.id.slice(0, 6)}`
-                                    }
-                                    tableZone={
-                                        tables.find(t => t.id === o.table_id)?.zone_name ?? null
-                                    }
-                                    operatorNames={operatorNames}
-                                    onRestore={handleRestore}
-                                    onViewDetail={handleViewDetail}
+                        <div className={styles.historySection}>
+                            <div className={styles.historyFilter}>
+                                <SegmentedControl<HistoryFilter>
+                                    value={historyFilter}
+                                    onChange={setHistoryFilter}
+                                    options={[
+                                        { value: "all", label: "Tutti" },
+                                        { value: "delivered", label: "Serviti" },
+                                        { value: "cancelled", label: "Annullati" }
+                                    ]}
                                 />
-                            ))}
+                            </div>
+                            <DataTable<V2OrderWithItems>
+                                data={filteredHistory}
+                                columns={historyColumns}
+                                isLoading={isHistoryLoading}
+                                getRowId={o => o.id}
+                                emptyState={{
+                                    title: "Nessun ordine nello storico di oggi",
+                                    description: "Gli ordini serviti o annullati nella giornata operativa appariranno qui."
+                                }}
+                                loadingState={{ compact: true }}
+                            />
                         </div>
                     )}
                 </>
+            )}
+
+            {orderToPrint && (
+                <PrintReceipt
+                    ref={standalonePrintRef}
+                    order={orderToPrint}
+                    tableLabel={tables.find(t => t.id === orderToPrint.table_id)?.label ?? "?"}
+                    tableZone={tables.find(t => t.id === orderToPrint.table_id)?.zone_name ?? null}
+                    operatorNames={operatorNames}
+                />
             )}
 
             <OrderDetailDrawer
@@ -883,5 +908,7 @@ export default function Orders() {
                 onSubmitted={refreshAll}
             />
         </section>
+        )}
+        </PageGate>
     );
 }

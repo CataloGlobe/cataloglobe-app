@@ -3,6 +3,10 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
 import { Button } from "@/components/ui/Button/Button";
+import { usePermissions } from "@/context/PermissionsContext";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { canDoOnAnyActivity } from "@/lib/permissions";
+import { PageGate } from "@/components/PageGate/PageGate";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -89,6 +93,10 @@ export default function FeaturedRuleDetail() {
     const [searchParams] = useSearchParams();
     const fromType = searchParams.get("fromType");
     const { showToast } = useToast();
+
+    const { permissions } = usePermissions();
+    const { canEdit } = useSubscriptionGuard();
+    const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -348,12 +356,12 @@ export default function FeaturedRuleDetail() {
     ), []);
 
     const headerActions = useMemo(() => (
-        form ? (
+        form && canWrite ? (
             <div className={styles.topActions}>
                 <Button
                     variant="secondary"
                     onClick={handleReset}
-                    disabled={!isDirty || isSaving}
+                    disabled={!isDirty || isSaving || !canEdit}
                 >
                     Annulla modifiche
                 </Button>
@@ -362,14 +370,14 @@ export default function FeaturedRuleDetail() {
                     type="submit"
                     form="featured-rule-detail-form"
                     loading={isSaving}
-                    disabled={!isDirty}
+                    disabled={!isDirty || !canEdit}
                 >
                     Salva regola
                 </Button>
             </div>
         ) : null
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    ), [form, isDirty, isSaving]);
+    ), [form, isDirty, isSaving, canWrite, canEdit]);
 
     usePageHeader({
         title: form?.name || (isLoading ? "Caricamento regola..." : "Regola in evidenza"),
@@ -383,6 +391,8 @@ export default function FeaturedRuleDetail() {
     }
 
     return (
+        <PageGate readPermission="scheduling.read">
+            {() => (
         <section className={styles.page}>
             <form id="featured-rule-detail-form" className={styles.formLayout} onSubmit={handleSubmit}>
                 <div className={styles.formColumnLeft}>
@@ -416,5 +426,7 @@ export default function FeaturedRuleDetail() {
                 </div>
             </form>
         </section>
+            )}
+        </PageGate>
     );
 }

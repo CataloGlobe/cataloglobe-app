@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, Grid2X2 } from "lucide-react";
+import { AlertCircle, Eye, Grid2X2, LogOut, Wrench } from "lucide-react";
 
 import Text from "@/components/ui/Text/Text";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import {
+    TableRowActions,
+    type TableRowAction
+} from "@/components/ui/TableRowActions/TableRowActions";
 
 import { useToast } from "@/context/Toast/ToastContext";
 import { closeTable } from "@/services/supabase/customerSessions";
+import { updateTable } from "@/services/supabase/tables";
 import type { V2TableWithState } from "@/types/orders";
 
 import { TableDetailDrawer } from "@/components/Tables/TableDetailDrawer/TableDetailDrawer";
@@ -14,6 +18,7 @@ import TableCloseDrawer from "@/pages/Dashboard/Tables/TableCloseDrawer";
 
 import { deriveTableStatus } from "@/utils/tableState";
 
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { useTablesLiveRealtime } from "./useTablesLiveRealtime";
 import styles from "./TablesLiveView.module.scss";
 
@@ -30,22 +35,42 @@ export interface TablesLiveViewProps {
  */
 const DRAWER_EXIT_DURATION_MS = 250;
 
-type StatusFilter = "all" | "open" | "free" | "maintenance";
+type StatusFilter = "all" | "occupied" | "free" | "maintenance";
 
 const NO_ZONE_KEY = "__no_zone__";
 const NO_ZONE_LABEL = "Senza zona";
 
 const FILTER_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
     { value: "all", label: "Tutti" },
-    { value: "open", label: "Aperti" },
+    { value: "occupied", label: "Occupati" },
     { value: "free", label: "Liberi" },
     { value: "maintenance", label: "Manutenzione" }
 ];
 
-function formatElapsed(sessionsCount: number): string {
-    // Snapshot semplice: vista aggregata. Il drawer dettaglio mostra
-    // il tempo reale calcolato da customer_sessions.first_seen_at.
-    return sessionsCount > 0 ? "in corso" : "";
+const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR"
+});
+
+function formatEur(n: number): string {
+    return CURRENCY_FORMATTER.format(n);
+}
+
+type TableStatus = "free" | "occupied" | "maintenance";
+
+const STATUS_LABELS: Record<TableStatus, string> = {
+    free: "Libero",
+    occupied: "Occupato",
+    maintenance: "Manutenzione"
+};
+
+function formatElapsedLabel(fromIso: string): string {
+    const min = Math.max(0, Math.floor((Date.now() - new Date(fromIso).getTime()) / 60_000));
+    if (min < 1) return "< 1 min";
+    if (min < 60) return `${min} min`;
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
 
 export function TablesLiveView({
@@ -129,6 +154,25 @@ export function TablesLiveView({
             }, DRAWER_EXIT_DURATION_MS);
         },
         [items, showToast]
+    );
+
+    const handleMaintenanceToggle = useCallback(
+        async (tableId: string, next: boolean): Promise<void> => {
+            try {
+                await updateTable(tableId, tenantId, { maintenance_mode: next });
+                showToast({
+                    message: next ? "Tavolo messo fuori servizio" : "Tavolo riattivato",
+                    type: "success"
+                });
+                await refetch();
+            } catch {
+                showToast({
+                    message: "Errore durante l'aggiornamento",
+                    type: "error"
+                });
+            }
+        },
+        [tenantId, refetch, showToast]
     );
 
     // Identico per logica al pattern di TablesManagement.handleCloseConfirm
@@ -217,7 +261,7 @@ export function TablesLiveView({
         return items.filter(t => {
             const s = deriveTableStatus(t);
             if (statusFilter === "maintenance") return s === "maintenance";
-            if (statusFilter === "open") return s === "occupied";
+            if (statusFilter === "occupied") return s === "occupied";
             if (statusFilter === "free") return s === "free";
             return true;
         });
@@ -264,29 +308,18 @@ export function TablesLiveView({
         <div className={styles.wrapper}>
             <div className={styles.summaryRow}>
                 <Text variant="body-sm" colorVariant="muted">
-                    {summary.open} {summary.open === 1 ? "aperto" : "aperti"} ·{" "}
+                    {summary.open} {summary.open === 1 ? "occupato" : "occupati"} ·{" "}
                     {summary.free} {summary.free === 1 ? "libero" : "liberi"}
                     {summary.seats > 0 && ` · ${summary.seats} coperti`}
                 </Text>
             </div>
 
-            <div className={styles.filterRow} role="tablist">
-                {FILTER_OPTIONS.map(opt => (
-                    <button
-                        key={opt.value}
-                        type="button"
-                        role="tab"
-                        aria-selected={statusFilter === opt.value}
-                        className={
-                            statusFilter === opt.value
-                                ? styles.filterButtonActive
-                                : styles.filterButton
-                        }
-                        onClick={() => setStatusFilter(opt.value)}
-                    >
-                        {opt.label}
-                    </button>
-                ))}
+            <div className={styles.filterControl}>
+                <SegmentedControl<StatusFilter>
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    options={FILTER_OPTIONS}
+                />
             </div>
 
             {!isLoading && filtered.length === 0 ? (
@@ -318,17 +351,64 @@ export function TablesLiveView({
                             </header>
                             <div className={styles.cardsGrid}>
                                 {group.tables.map(t => {
-                                    const status = deriveTableStatus(t);
-                                    // Card sempre cliccabili: il detail
-                                    // drawer e' interno al componente e
-                                    // sempre disponibile.
-                                    const cardClass = `${styles.card} ${styles[`card_${status}`]} ${styles.cardClickable}`;
+                                    const status = deriveTableStatus(t) as TableStatus;
+                                    const activeOrders = t.active_orders ?? [];
+                                    const submittedCount = activeOrders.filter(
+                                        o => o.status === "submitted"
+                                    ).length;
+                                    const acknowledgedCount = activeOrders.filter(
+                                        o => o.status === "acknowledged"
+                                    ).length;
+                                    const readyCount = activeOrders.filter(
+                                        o => o.status === "ready"
+                                    ).length;
+                                    const hasPending =
+                                        status === "occupied" && submittedCount > 0;
+
+                                    const cardClass = [
+                                        styles.card,
+                                        styles[`card_${status}`],
+                                        hasPending ? styles.card_pending : "",
+                                        styles.cardClickable
+                                    ]
+                                        .filter(Boolean)
+                                        .join(" ");
+
+                                    const statusLabel = STATUS_LABELS[status];
+
+                                    const cardActions: TableRowAction[] = [
+                                        {
+                                            label: "Vedi dettaglio",
+                                            icon: Eye,
+                                            onClick: () => handleTableClick(t.id)
+                                        },
+                                        {
+                                            label: "Chiudi tavolo",
+                                            icon: LogOut,
+                                            hidden: status !== "occupied",
+                                            onClick: () => handleRequestClose(t.id)
+                                        },
+                                        {
+                                            label: t.maintenance_mode
+                                                ? "Rimuovi manutenzione"
+                                                : "Metti in manutenzione",
+                                            icon: Wrench,
+                                            hidden: status === "occupied",
+                                            onClick: () =>
+                                                void handleMaintenanceToggle(
+                                                    t.id,
+                                                    !t.maintenance_mode
+                                                )
+                                        }
+                                    ];
+
                                     return (
                                         <article
                                             key={t.id}
                                             className={cardClass}
                                             role="button"
                                             tabIndex={0}
+                                            aria-label={`${t.label}, ${statusLabel}`}
                                             onClick={() => handleTableClick(t.id)}
                                             onKeyDown={e => {
                                                 if (e.key === "Enter" || e.key === " ") {
@@ -337,66 +417,105 @@ export function TablesLiveView({
                                                 }
                                             }}
                                         >
-                                            <div className={styles.cardHeader}>
-                                                <Text weight={600} className={styles.cardLabel}>
-                                                    {t.label}
-                                                </Text>
-                                                {status === "maintenance" && (
-                                                    <StatusBadge
-                                                        variant="warning"
-                                                        label="Manutenzione"
-                                                    />
-                                                )}
-                                                {status === "occupied" && (
-                                                    <StatusBadge variant="success" label="Occupato" />
-                                                )}
-                                                {status === "free" && (
-                                                    <StatusBadge variant="neutral" label="Libero" />
-                                                )}
+                                            {/* Row 1: dot + name + actions menu */}
+                                            <div className={styles.cardRow1}>
+                                                <span
+                                                    className={`${styles.statusDot} ${styles[`dot_${status}`]}`}
+                                                    aria-hidden
+                                                />
+                                                <span className={styles.cardName}>{t.label}</span>
+                                                <span className={styles.cardActionsOffset}>
+                                                    <TableRowActions actions={cardActions} />
+                                                </span>
                                             </div>
 
-                                            <div className={styles.cardMeta}>
+                                            {/* Row 2: status label · seats · elapsed */}
+                                            <div className={styles.cardRow2}>
+                                                <span
+                                                    className={`${styles.statusLabel} ${styles[`label_${status}`]}`}
+                                                >
+                                                    {statusLabel}
+                                                </span>
                                                 {t.seats != null && (
-                                                    <Text
-                                                        variant="body-sm"
-                                                        colorVariant="muted"
-                                                    >
-                                                        {t.seats}{" "}
-                                                        {t.seats === 1 ? "posto" : "posti"}
-                                                    </Text>
+                                                    <>
+                                                        <span
+                                                            className={styles.metaSep}
+                                                            aria-hidden
+                                                        >
+                                                            ·
+                                                        </span>
+                                                        <span>
+                                                            {t.seats}{" "}
+                                                            {t.seats === 1 ? "posto" : "posti"}
+                                                        </span>
+                                                    </>
                                                 )}
+                                                {status === "occupied" &&
+                                                    t.session_opened_at && (
+                                                        <>
+                                                            <span
+                                                                className={styles.metaSep}
+                                                                aria-hidden
+                                                            >
+                                                                ·
+                                                            </span>
+                                                            <span>
+                                                                da{" "}
+                                                                {formatElapsedLabel(
+                                                                    t.session_opened_at
+                                                                )}
+                                                            </span>
+                                                        </>
+                                                    )}
                                             </div>
 
+                                            {/* Row 3: order pills + total (occupied only) */}
                                             {status === "occupied" && (
-                                                <div className={styles.cardBadges}>
-                                                    <span className={styles.badgeNeutral}>
-                                                        {t.active_sessions_count}{" "}
-                                                        {t.active_sessions_count === 1
-                                                            ? "sessione"
-                                                            : "sessioni"}
+                                                <div className={styles.cardRow3}>
+                                                    <div className={styles.cardPills}>
+                                                        {activeOrders.length === 0 ? (
+                                                            <span className={styles.pillEmpty}>
+                                                                Nessun ordine
+                                                            </span>
+                                                        ) : (
+                                                            <>
+                                                                {submittedCount > 0 && (
+                                                                    <span
+                                                                        className={
+                                                                            styles.pillPending
+                                                                        }
+                                                                    >
+                                                                        <AlertCircle
+                                                                            size={10}
+                                                                            aria-hidden
+                                                                        />
+                                                                        {submittedCount}
+                                                                    </span>
+                                                                )}
+                                                                {acknowledgedCount > 0 && (
+                                                                    <span
+                                                                        className={
+                                                                            styles.pillWorking
+                                                                        }
+                                                                    >
+                                                                        {acknowledgedCount}
+                                                                    </span>
+                                                                )}
+                                                                {readyCount > 0 && (
+                                                                    <span
+                                                                        className={styles.pillReady}
+                                                                    >
+                                                                        {readyCount}
+                                                                    </span>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    <span className={styles.cardTotal}>
+                                                        {formatEur(t.current_total)}
                                                     </span>
-                                                    {t.pending_orders_count > 0 && (
-                                                        <span className={styles.badgeAccent}>
-                                                            {t.pending_orders_count} pending
-                                                        </span>
-                                                    )}
-                                                    {t.bill_requested_count > 0 && (
-                                                        <span className={styles.badgeDanger}>
-                                                            Conto richiesto
-                                                        </span>
-                                                    )}
-                                                    {formatElapsed(t.active_sessions_count) && (
-                                                        <span className={styles.elapsed}>
-                                                            {formatElapsed(t.active_sessions_count)}
-                                                        </span>
-                                                    )}
                                                 </div>
                                             )}
-                                            <ChevronRight
-                                                size={16}
-                                                className={styles.cardChevron}
-                                                aria-hidden
-                                            />
                                         </article>
                                     );
                                 })}

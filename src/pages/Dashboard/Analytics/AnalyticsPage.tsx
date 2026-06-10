@@ -29,6 +29,7 @@ import {
     type DateRange
 } from "@/services/supabase/analytics";
 import { usePageHeader } from "@/context/usePageHeader";
+import { PageGate } from "@/components/PageGate/PageGate";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
@@ -330,6 +331,8 @@ export default function AnalyticsPage() {
     });
 
     return (
+        <PageGate readPermission="analytics.read" activityId={selectedActivityId === "all" ? null : selectedActivityId}>
+            {() => (
         <main className={styles.analytics}>
             {isEmpty ? (
                 <div className={styles.emptyState}>
@@ -389,5 +392,7 @@ export default function AnalyticsPage() {
                 </>
             )}
         </main>
+            )}
+        </PageGate>
     );
 }

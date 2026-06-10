@@ -24,12 +24,17 @@ import { useNavigate } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnAnyActivity } from "@/lib/permissions";
+import { PageGate } from "@/components/PageGate/PageGate";
 
 export default function Highlights() {
     const { showToast } = useToast();
     const tenantId = useTenantId();
     const { selectedTenant } = useTenant();
     const { canEdit } = useSubscriptionGuard();
+    const { permissions } = usePermissions();
+    const canWrite = permissions ? canDoOnAnyActivity(permissions, "featured.write") : false;
     const [loading, setLoading] = useState(true);
     const [contents, setContents] = useState<FeaturedContentWithProducts[]>([]);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -99,16 +104,18 @@ export default function Highlights() {
                     { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
                 ]}
             />
-            <Button
-                variant="primary"
-                onClick={handleCreate}
-                disabled={!canEdit}
-                className={styles.toolbarCta}
-            >
-                Crea contenuto
-            </Button>
+            {canWrite && (
+                <Button
+                    variant="primary"
+                    onClick={handleCreate}
+                    disabled={!canEdit}
+                    className={styles.toolbarCta}
+                >
+                    Crea contenuto
+                </Button>
+            )}
         </>
-    ), [handleCreate, canEdit, searchQuery, viewMode, handleViewChange]);
+    ), [handleCreate, canEdit, canWrite, searchQuery, viewMode, handleViewChange]);
 
     usePageHeader({
         title: "Contenuti in evidenza",
@@ -225,13 +232,13 @@ export default function Highlights() {
                 <TableRowActions
                     actions={[
                         { label: "Modifica", icon: Pencil, onClick: () => handleEdit(item) },
-                        {
+                        ...(canWrite ? [{
                             label: "Elimina",
                             icon: Trash2,
                             onClick: () => setDeleteTarget(item),
-                            variant: "destructive",
+                            variant: "destructive" as const,
                             separator: true
-                        }
+                        }] : [])
                     ]}
                 />
             )
@@ -239,6 +246,8 @@ export default function Highlights() {
     ];
 
     return (
+        <PageGate readPermission="featured.read">
+            {() => (
         <>
             <div className={styles.wrapper}>
                 <div className={styles.tableCard}>
@@ -260,7 +269,7 @@ export default function Highlights() {
                                     : "I contenuti in evidenza compaiono nella homepage del tuo catalogo."
                             }
                             action={
-                                !searchQuery ? (
+                                !searchQuery && canWrite ? (
                                     <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
                                         + Crea il primo contenuto
                                     </Button>
@@ -271,8 +280,8 @@ export default function Highlights() {
                         <DataTable<FeaturedContentWithProducts>
                             data={filteredContents}
                             columns={columns}
-                            selectable
-                            onBulkDelete={handleBulkDelete}
+                            selectable={canWrite}
+                            onBulkDelete={canWrite ? handleBulkDelete : undefined}
                             onRowClick={item => navigate(`/business/${tenantId}/featured/${item.id}`)}
                         />
                     ) : (
@@ -282,7 +291,7 @@ export default function Highlights() {
                                     key={item.id}
                                     item={item}
                                     onEdit={() => handleEdit(item)}
-                                    onDelete={() => setDeleteTarget(item)}
+                                    onDelete={canWrite ? () => setDeleteTarget(item) : undefined}
                                 />
                             ))}
                         </div>
@@ -307,5 +316,7 @@ export default function Highlights() {
                 onSuccess={loadData}
             />
         </>
+            )}
+        </PageGate>
     );
 }

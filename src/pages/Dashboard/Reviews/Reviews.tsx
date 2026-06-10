@@ -5,6 +5,9 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { getBusinessReviews, deleteReview } from "@/services/supabase/reviews";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import type { Review } from "@/types/database";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnActivity } from "@/lib/permissions";
+import { PageGate } from "@/components/PageGate/PageGate";
 import { Trash2, MessageSquare, Star } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
@@ -126,6 +129,10 @@ export default function Reviews() {
     } = useSedeScope();
     // SCOPE_ALL → stringa vuota = "tutte" per fetchReviews
     const selectedActivity = scopeValue === SCOPE_ALL ? "" : scopeValue;
+
+    const { permissions } = usePermissions();
+    const canRespond = (review: Review) =>
+        permissions ? canDoOnActivity(permissions, "reviews.respond", review.activity_id) : false;
 
     /* ── State ──────────────────────────────────────── */
     const [reviews, setReviews] = useState<Review[]>([]);
@@ -365,6 +372,8 @@ export default function Reviews() {
 
     /* ── Render ──────────────────────────────────────── */
     return (
+        <PageGate readPermission="reviews.read" activityId={selectedActivity || null}>
+            {({ canEdit }) => (
         <div className={styles.page}>
             {/* ── Stats block ─────────────────────────── */}
             <div className={styles.statsBlock}>
@@ -546,11 +555,12 @@ export default function Reviews() {
 
                             {/* Actions */}
                             <div className={styles.reviewActions}>
-                                {deletingId === review.id ? (
+                                {canRespond(review) && (deletingId === review.id ? (
                                     <div className={styles.deleteConfirm}>
                                         <Button
                                             variant="danger"
                                             size="sm"
+                                            disabled={!canEdit}
                                             onClick={() =>
                                                 void handleDelete(review.id)
                                             }
@@ -576,7 +586,7 @@ export default function Reviews() {
                                         }
                                         className={styles.deleteIconBtn}
                                     />
-                                )}
+                                ))}
                             </div>
                         </article>
                     ))}
@@ -591,5 +601,7 @@ export default function Reviews() {
                 </Text>
             )}
         </div>
+            )}
+        </PageGate>
     );
 }

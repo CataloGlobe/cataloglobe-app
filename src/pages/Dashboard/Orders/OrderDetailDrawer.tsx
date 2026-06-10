@@ -1,3 +1,5 @@
+import { useRef } from "react";
+import { Printer } from "lucide-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
@@ -5,6 +7,7 @@ import Text from "@/components/ui/Text/Text";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import type { StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
 import type { V2OrderWithItems } from "@/types/orders";
+import PrintReceipt from "./PrintReceipt";
 import styles from "./OrderDetailDrawer.module.scss";
 
 interface Props {
@@ -70,6 +73,16 @@ export default function OrderDetailDrawer({
     operatorNames,
     onClose
 }: Props) {
+    const printRef = useRef<HTMLDivElement>(null);
+
+    function handlePrint() {
+        if (printRef.current) {
+            printRef.current.setAttribute("data-printing", "true");
+            window.print();
+            printRef.current.removeAttribute("data-printing");
+        }
+    }
+
     if (!order) {
         return (
             <SystemDrawer open={open} onClose={onClose} width={560}>
@@ -94,6 +107,7 @@ export default function OrderDetailDrawer({
     }
 
     const { variant: stVariant, label: stLabel } = statusInfo(order.status);
+    const canPrint = order.status !== "cancelled";
 
     return (
         <SystemDrawer open={open} onClose={onClose} width={560}>
@@ -104,9 +118,20 @@ export default function OrderDetailDrawer({
                     </Text>
                 }
                 footer={
-                    <Button variant="secondary" onClick={onClose}>
-                        Chiudi
-                    </Button>
+                    <div className={styles.footerActions}>
+                        <Button variant="secondary" onClick={onClose}>
+                            Chiudi
+                        </Button>
+                        {canPrint && (
+                            <Button
+                                variant="primary"
+                                leftIcon={<Printer size={14} />}
+                                onClick={handlePrint}
+                            >
+                                Stampa
+                            </Button>
+                        )}
+                    </div>
                 }
             >
                 <div className={styles.content}>
@@ -319,6 +344,14 @@ export default function OrderDetailDrawer({
                         </ul>
                     </div>
                 </div>
+
+                <PrintReceipt
+                    ref={printRef}
+                    order={order}
+                    tableLabel={tableLabel}
+                    tableZone={tableZone}
+                    operatorNames={operatorNames}
+                />
             </DrawerLayout>
         </SystemDrawer>
     );
