@@ -1,5 +1,6 @@
 import { Navigate, Routes, Route, useNavigate } from "react-router-dom";
 import ScrollToTop from "@/components/ScrollToTop/ScrollToTop";
+import { PromoCaptureRoot } from "@/components/PromoCaptureRoot/PromoCaptureRoot";
 import { lazy, Suspense, useEffect } from "react";
 import { supabase } from "@/services/supabase/client";
 import MainLayout from "@layouts/MainLayout/MainLayout";
@@ -94,6 +95,7 @@ export default function App() {
 
     return (
         <>
+        <PromoCaptureRoot />
         <ScrollToTop />
         <Suspense fallback={<AppLoader intent="dashboard" />}>
         <Routes>
