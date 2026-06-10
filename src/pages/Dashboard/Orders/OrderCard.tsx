@@ -54,6 +54,8 @@ interface Props {
      * Lookup mancante → fallback label "Staff" senza nome.
      */
     operatorNames?: Map<string, string>;
+    canManage?: boolean;
+    canEdit?: boolean;
 }
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
@@ -97,7 +99,9 @@ export default function OrderCard({
     onUnready,
     tableLabel,
     tableZone,
-    operatorNames
+    operatorNames,
+    canManage,
+    canEdit
 }: Props) {
     const [isProcessing, setIsProcessing] = useState(false);
     const [itemsExpanded, setItemsExpanded] = useState(false);
@@ -227,7 +231,7 @@ export default function OrderCard({
                 <Text weight={600}>{formatEur(order.total_amount)}</Text>
             </div>
 
-            <div className={styles.footer}>
+            {canManage !== false && <div className={styles.footer}>
                 <Menu
                     align="start"
                     side="top"
@@ -306,6 +310,7 @@ export default function OrderCard({
                         variant="primary"
                         onClick={() => void runPrimary(() => onAcknowledge(order))}
                         loading={isProcessing}
+                        disabled={canEdit === false || isProcessing}
                     >
                         Conferma
                     </Button>
@@ -316,6 +321,7 @@ export default function OrderCard({
                         variant="primary"
                         onClick={() => void runPrimary(() => onMarkReady(order))}
                         loading={isProcessing}
+                        disabled={canEdit === false || isProcessing}
                     >
                         Pronto
                     </Button>
@@ -326,6 +332,7 @@ export default function OrderCard({
                         variant="primary"
                         onClick={() => void runPrimary(() => onDeliver(order))}
                         loading={isProcessing}
+                        disabled={canEdit === false || isProcessing}
                     >
                         Consegna
                     </Button>
@@ -336,11 +343,12 @@ export default function OrderCard({
                         variant="primary"
                         onClick={() => void runPrimary(() => onDeliver(order))}
                         loading={isProcessing}
+                        disabled={canEdit === false || isProcessing}
                     >
                         Servita
                     </Button>
                 )}
-            </div>
+            </div>}
 
             {/* Fallback receipt for self-contained print (when onPrint is not wired) */}
             {!onPrint && order.status !== "cancelled" && (

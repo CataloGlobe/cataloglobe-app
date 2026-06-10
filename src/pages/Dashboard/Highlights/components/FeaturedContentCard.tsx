@@ -9,7 +9,7 @@ import styles from "./FeaturedContentCard.module.scss";
 type Props = {
     item: FeaturedContentWithProducts;
     onEdit: () => void;
-    onDelete: () => void;
+    onDelete?: () => void;
 };
 
 const CONTENT_TYPE_LABELS: Record<FeaturedContentType, string> = {
@@ -89,7 +89,7 @@ export default function FeaturedContentCard({ item, onEdit, onDelete }: Props) {
                 <TableRowActions
                     actions={[
                         { label: "Modifica", onClick: onEdit },
-                        { label: "Elimina", onClick: onDelete, variant: "destructive" }
+                        ...(onDelete ? [{ label: "Elimina", onClick: onDelete, variant: "destructive" as const }] : [])
                     ]}
                 />
             </div>

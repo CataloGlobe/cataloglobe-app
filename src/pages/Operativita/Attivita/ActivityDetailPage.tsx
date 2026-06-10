@@ -10,6 +10,7 @@ import { ActivityAvailabilityTab } from "./tabs/ActivityAvailabilityTab";
 import { ActivitySettingsTab } from "./tabs/ActivitySettingsTab";
 import { TablesManagement } from "@/components/Tables/TablesManagement/TablesManagement";
 import { TablesEmptyState } from "@/components/Tables/TablesManagement/TablesEmptyState";
+import { PageGate } from "@/components/PageGate/PageGate";
 import { getActivityById } from "@/services/supabase/activities";
 import { V2Activity } from "@/types/activity";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -161,17 +162,21 @@ const ActivityDetailPage: React.FC = () => {
                     />
                 )}
                 {activeTab === "tables" && (
-                    activity.ordering_enabled ? (
-                        <TablesManagement
-                            tenantId={businessId!}
-                            activityId={activity.id}
-                            orderingEnabled={true}
-                        />
-                    ) : (
-                        <TablesEmptyState
-                            onGoToSettings={() => handleTabChange("settings")}
-                        />
-                    )
+                    <PageGate readPermission="tables.read" activityId={activity.id}>
+                        {() => (
+                            activity.ordering_enabled ? (
+                                <TablesManagement
+                                    tenantId={businessId!}
+                                    activityId={activity.id}
+                                    orderingEnabled={true}
+                                />
+                            ) : (
+                                <TablesEmptyState
+                                    onGoToSettings={() => handleTabChange("settings")}
+                                />
+                            )
+                        )}
+                    </PageGate>
                 )}
                 {activeTab === "settings" && (
                     <ActivitySettingsTab

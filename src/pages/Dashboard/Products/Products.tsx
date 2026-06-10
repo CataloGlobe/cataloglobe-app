@@ -11,6 +11,9 @@ import {
     type ProductTabDef
 } from "@/hooks/useFilteredProductTabs";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnTenant } from "@/lib/permissions";
+import { PageGate } from "@/components/PageGate/PageGate";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
@@ -67,6 +70,9 @@ export default function Products() {
     const { showToast } = useToast();
     const verticalConfig = useVerticalConfig();
     const { canEdit } = useSubscriptionGuard();
+    const { permissions } = usePermissions();
+    const canWriteProduct = permissions != null ? canDoOnTenant(permissions, "products.write") : false;
+    const canWriteAttribute = permissions != null ? canDoOnTenant(permissions, "attributes.write") : false;
 
     const [isLoading, setIsLoading] = useState(true);
     const [allProducts, setAllProducts] = useState<V2Product[]>([]);
@@ -228,19 +234,19 @@ export default function Products() {
     ), [activeTab, handleTabChange, visibleTabs]);
 
     const headerActions = useMemo(() => {
-        const cta = activeTab === "products" ? (
+        const cta = activeTab === "products" && canWriteProduct ? (
             <Button variant="primary" onClick={handleCreateBase} disabled={!canEdit} className={styles.toolbarCta}>
                 {`Crea ${verticalConfig.productLabel.toLowerCase()}`}
             </Button>
-        ) : activeTab === "groups" ? (
+        ) : activeTab === "groups" && canWriteProduct ? (
             <Button variant="primary" onClick={() => setCreateGroupOpen(true)} disabled={!canEdit} className={styles.toolbarCta}>
                 Crea gruppo
             </Button>
-        ) : activeTab === "attributes" ? (
+        ) : activeTab === "attributes" && canWriteAttribute ? (
             <Button variant="primary" onClick={() => setAttrCreateSeq(s => s + 1)} disabled={!canEdit} className={styles.toolbarCta}>
                 Nuovo attributo
             </Button>
-        ) : activeTab === "ingredients" && verticalConfig.productSections.ingredients ? (
+        ) : activeTab === "ingredients" && verticalConfig.productSections.ingredients && canWriteProduct ? (
             <Button variant="primary" onClick={() => setIngredientCreateSeq(s => s + 1)} disabled={!canEdit} className={styles.toolbarCta}>
                 Crea ingrediente
             </Button>
@@ -267,7 +273,7 @@ export default function Products() {
                 {cta}
             </>
         );
-    }, [activeTab, canEdit, handleCreateBase, verticalConfig, searchQuery, viewMode, handleViewChange]);
+    }, [activeTab, canEdit, canWriteProduct, canWriteAttribute, handleCreateBase, verticalConfig, searchQuery, viewMode, handleViewChange]);
 
     usePageHeader({ leading, actions: headerActions });
 
@@ -451,12 +457,12 @@ export default function Products() {
                 );
             }
         },
-        {
+        ...(canWriteProduct ? [{
             id: "actions",
             header: "",
             width: "56px",
-            align: "right",
-            cell: (_value, row) => (
+            align: "right" as const,
+            cell: (_value: unknown, row: ProductTableRow) => (
                 <TableRowActions
                     actions={[
                         {
@@ -476,15 +482,17 @@ export default function Products() {
                         {
                             label: row.kind === "base" ? "Elimina" : "Elimina Variante",
                             onClick: () => handleDelete(row.product),
-                            variant: "destructive"
+                            variant: "destructive" as const
                         }
                     ]}
                 />
             )
-        }
+        }] : [])
     ];
 
     return (
+        <PageGate readPermission="products.read">
+        {() => (
         <section className={styles.container}>
             {activeTab === "products" && (
                 <>
@@ -509,7 +517,7 @@ export default function Products() {
                                         : `I ${verticalConfig.productLabelPlural.toLowerCase()} sono gli elementi che compariranno nei tuoi cataloghi.`
                                 }
                                 action={
-                                    !searchQuery ? (
+                                    !searchQuery && canWriteProduct ? (
                                         <Button variant="primary" onClick={handleCreateBase} disabled={!canEdit}>
                                             {`+ Crea il tuo primo ${verticalConfig.productLabel.toLowerCase()}`}
                                         </Button>
@@ -520,8 +528,8 @@ export default function Products() {
                             <DataTable<ProductTableRow>
                                 data={tableRows}
                                 columns={columns}
-                                selectable
-                                onBulkDelete={handleBulkDelete}
+                                selectable={canWriteProduct}
+                                onBulkDelete={canWriteProduct ? handleBulkDelete : undefined}
                                 onRowClick={row =>
                                     navigate(
                                         `/business/${currentTenantId}/products/${row.product.id}`
@@ -606,5 +614,7 @@ export default function Products() {
                 <Ingredients createTrigger={ingredientCreateSeq} />
             )}
         </section>
+        )}
+        </PageGate>
     );
 }

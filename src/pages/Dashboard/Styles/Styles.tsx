@@ -16,6 +16,9 @@ import styles from "./Styles.module.scss";
 
 import { useNavigate } from "react-router-dom";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnTenant } from "@/lib/permissions";
+import { PageGate } from "@/components/PageGate/PageGate";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { listStyles, duplicateStyle, deleteStyle, V2Style } from "@/services/supabase/styles";
 import { parseTokens, DEFAULT_STYLE_TOKENS } from "./Editor/StyleTokenModel";
@@ -86,6 +89,8 @@ export default function Styles() {
     const { selectedTenant } = useTenant();
     const { showToast } = useToast();
     const { canEdit } = useSubscriptionGuard();
+    const { permissions } = usePermissions();
+    const canWrite = permissions ? canDoOnTenant(permissions, "styles.write") : false;
 
     const [isLoading, setIsLoading] = useState(true);
     const [allStyles, setAllStyles] = useState<V2Style[]>([]);
@@ -164,16 +169,18 @@ export default function Styles() {
                     { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
                 ]}
             />
-            <Button
-                variant="primary"
-                onClick={handleCreateClick}
-                disabled={!canEdit}
-                className={styles.toolbarCta}
-            >
-                Crea stile
-            </Button>
+            {canWrite && (
+                <Button
+                    variant="primary"
+                    onClick={handleCreateClick}
+                    disabled={!canEdit}
+                    className={styles.toolbarCta}
+                >
+                    Crea stile
+                </Button>
+            )}
         </>
-    ), [handleCreateClick, canEdit, searchQuery, viewMode, handleViewModeChange]);
+    ), [handleCreateClick, canEdit, canWrite, searchQuery, viewMode, handleViewModeChange]);
 
     usePageHeader({
         title: "Stili",
@@ -247,22 +254,24 @@ export default function Styles() {
     const renderRowActions = useCallback(
         (style: V2Style) => {
             const actions: TableRowAction[] = [
-                { label: "Modifica", onClick: () => handleEditClick(style) },
-                { label: "Duplica", onClick: () => handleDuplicateClick(style) }
+                { label: "Modifica", onClick: () => handleEditClick(style) }
             ];
 
-            if (!style.is_system) {
-                actions.push({
-                    label: "Elimina",
-                    onClick: () => handleDeleteClick(style),
-                    variant: "destructive",
-                    separator: true
-                });
+            if (canWrite) {
+                actions.push({ label: "Duplica", onClick: () => handleDuplicateClick(style) });
+                if (!style.is_system) {
+                    actions.push({
+                        label: "Elimina",
+                        onClick: () => handleDeleteClick(style),
+                        variant: "destructive",
+                        separator: true
+                    });
+                }
             }
 
             return <TableRowActions actions={actions} />;
         },
-        [handleDeleteClick, handleDuplicateClick, handleEditClick]
+        [handleDeleteClick, handleDuplicateClick, handleEditClick, canWrite]
     );
 
     const columns = useMemo<ColumnDefinition<V2Style>[]>(
@@ -326,14 +335,18 @@ export default function Styles() {
             title="Nessuno stile trovato"
             description="Crea un nuovo stile per personalizzare l'aspetto del tuo catalogo."
             action={
-                <Button variant="primary" onClick={handleCreateClick} disabled={!canEdit}>
-                    Crea stile
-                </Button>
+                canWrite ? (
+                    <Button variant="primary" onClick={handleCreateClick} disabled={!canEdit}>
+                        Crea stile
+                    </Button>
+                ) : undefined
             }
         />
     );
 
     return (
+        <PageGate readPermission="styles.read">
+            {() => (
         <section className={styles.container}>
             <div className={styles.content}>
                 {isLoading ? (
@@ -345,15 +358,15 @@ export default function Styles() {
                         <DataTable<V2Style>
                             data={filteredStyles}
                             columns={columns}
-                            selectable
-                            onBulkDelete={handleBulkDelete}
+                            selectable={canWrite}
+                            onBulkDelete={canWrite ? handleBulkDelete : undefined}
                             onRowClick={style => handleEditClick(style)}
                             emptyState={{
                                 icon: <IconPalette size={48} stroke={1} />,
                                 title: "Nessuno stile trovato",
                                 description:
                                     "Crea un nuovo stile per personalizzare l'aspetto del tuo catalogo.",
-                                action: (
+                                action: canWrite ? (
                                     <Button
                                         variant="primary"
                                         onClick={handleCreateClick}
@@ -361,7 +374,7 @@ export default function Styles() {
                                     >
                                         Crea stile
                                     </Button>
-                                )
+                                ) : undefined
                             }}
                         />
                     </Card>
@@ -422,5 +435,7 @@ export default function Styles() {
                 onSuccess={loadData}
             />
         </section>
+            )}
+        </PageGate>
     );
 }

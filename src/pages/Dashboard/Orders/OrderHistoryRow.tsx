@@ -20,6 +20,8 @@ interface Props {
     operatorNames?: Map<string, string>;
     onRestore: (order: V2OrderWithItems) => Promise<void>;
     onViewDetail: (order: V2OrderWithItems) => void;
+    canManage?: boolean;
+    canEdit?: boolean;
 }
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
@@ -45,7 +47,9 @@ export default function OrderHistoryRow({
     tableZone,
     operatorNames,
     onRestore,
-    onViewDetail
+    onViewDetail,
+    canManage,
+    canEdit
 }: Props) {
     const [isRestoring, setIsRestoring] = useState(false);
     const { variant, label } = statusInfo(order.status);
@@ -128,11 +132,12 @@ export default function OrderHistoryRow({
             <div className={styles.right}>
                 <Text weight={600}>{formatEur(order.total_amount)}</Text>
                 <div className={styles.actions}>
-                    {order.status === "delivered" && (
+                    {order.status === "delivered" && canManage !== false && (
                         <Button
                             variant="secondary"
                             onClick={handleRestore}
                             loading={isRestoring}
+                            disabled={canEdit === false || isRestoring}
                         >
                             Ripristina
                         </Button>

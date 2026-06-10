@@ -15,6 +15,9 @@ import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 
 import { useToast } from "@/context/Toast/ToastContext";
+import { usePermissions } from "@/context/PermissionsContext";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { canDoOnActivity } from "@/lib/permissions";
 
 import {
     createTable,
@@ -49,6 +52,9 @@ export function TablesManagement({
     orderingEnabled
 }: TablesManagementProps) {
     const { showToast } = useToast();
+    const { permissions } = usePermissions();
+    const { canEdit } = useSubscriptionGuard();
+    const canManage = !!permissions && canDoOnActivity(permissions, "tables.manage", activityId);
 
     // Data
     const [items, setItems] = useState<V2TableWithState[]>([]);
@@ -378,7 +384,7 @@ export function TablesManagement({
                     <Text variant="body-sm" weight={600}>
                         {row.label}
                     </Text>
-                    {row.bill_requested_count > 0 && (
+                    {row.bill_requested_count > 0 && canManage && (
                         <button
                             type="button"
                             className={styles.billBadge}
@@ -440,30 +446,32 @@ export function TablesManagement({
                             onClick={() => openQrPreview(row)}
                         />
                     </Tooltip>
-                    <TableRowActions
-                        actions={[
-                            { label: "Modifica", onClick: () => openEdit(row) },
-                            {
-                                label:
-                                    generatingQrTableId === row.id
-                                        ? "Generazione..."
-                                        : "Genera QR",
-                                icon: QrCode,
-                                onClick: () => handleGenerateQrSingle(row)
-                            },
-                            {
-                                label: "Rigenera token QR",
-                                icon: RotateCw,
-                                onClick: () => openRegen(row)
-                            },
-                            {
-                                label: "Elimina",
-                                variant: "destructive",
-                                onClick: () => openDelete(row),
-                                separator: true
-                            }
-                        ]}
-                    />
+                    {canManage && (
+                        <TableRowActions
+                            actions={[
+                                { label: "Modifica", onClick: () => openEdit(row) },
+                                {
+                                    label:
+                                        generatingQrTableId === row.id
+                                            ? "Generazione..."
+                                            : "Genera QR",
+                                    icon: QrCode,
+                                    onClick: () => handleGenerateQrSingle(row)
+                                },
+                                {
+                                    label: "Rigenera token QR",
+                                    icon: RotateCw,
+                                    onClick: () => openRegen(row)
+                                },
+                                {
+                                    label: "Elimina",
+                                    variant: "destructive",
+                                    onClick: () => openDelete(row),
+                                    separator: true
+                                }
+                            ]}
+                        />
+                    )}
                 </div>
             )
         }
@@ -482,52 +490,56 @@ export function TablesManagement({
                             onChange={setSearchQuery}
                             placeholder="Cerca per nome o zona..."
                         />
-                        <DropdownMenu.Root>
-                            <DropdownMenu.Trigger asChild>
-                                <Button
-                                    variant="outline"
-                                    leftIcon={<MoreHorizontal size={16} />}
-                                    disabled={!activityId}
-                                    className={styles.toolbarCta}
-                                    aria-label="Altre azioni"
-                                >
-                                    Altro
-                                </Button>
-                            </DropdownMenu.Trigger>
-                            <DropdownMenu.Portal>
-                                <DropdownMenu.Content
-                                    className={styles.dropdownContent}
-                                    align="end"
-                                    sideOffset={6}
-                                >
-                                    <DropdownMenu.Item
-                                        className={styles.dropdownItem}
-                                        onSelect={() => setIsZoneDrawerOpen(true)}
-                                        disabled={!activityId}
+                        {canManage && (
+                            <DropdownMenu.Root>
+                                <DropdownMenu.Trigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        leftIcon={<MoreHorizontal size={16} />}
+                                        disabled={!activityId || !canEdit}
+                                        className={styles.toolbarCta}
+                                        aria-label="Altre azioni"
                                     >
-                                        <Layers size={14} />
-                                        <span>Gestisci zone</span>
-                                    </DropdownMenu.Item>
-                                    <DropdownMenu.Item
-                                        className={styles.dropdownItem}
-                                        onSelect={() => void handleGenerateQrAll()}
-                                        disabled={!activityId || items.length === 0 || isGeneratingQrAll}
+                                        Altro
+                                    </Button>
+                                </DropdownMenu.Trigger>
+                                <DropdownMenu.Portal>
+                                    <DropdownMenu.Content
+                                        className={styles.dropdownContent}
+                                        align="end"
+                                        sideOffset={6}
                                     >
-                                        <QrCode size={14} />
-                                        <span>{isGeneratingQrAll ? "Generazione..." : "Genera QR"}</span>
-                                    </DropdownMenu.Item>
-                                </DropdownMenu.Content>
-                            </DropdownMenu.Portal>
-                        </DropdownMenu.Root>
-                        <Button
-                            variant="primary"
-                            leftIcon={<Plus size={16} />}
-                            onClick={openCreate}
-                            disabled={!activityId || !orderingEnabled}
-                            className={styles.toolbarCta}
-                        >
-                            Nuovo tavolo
-                        </Button>
+                                        <DropdownMenu.Item
+                                            className={styles.dropdownItem}
+                                            onSelect={() => setIsZoneDrawerOpen(true)}
+                                            disabled={!activityId || !canEdit}
+                                        >
+                                            <Layers size={14} />
+                                            <span>Gestisci zone</span>
+                                        </DropdownMenu.Item>
+                                        <DropdownMenu.Item
+                                            className={styles.dropdownItem}
+                                            onSelect={() => void handleGenerateQrAll()}
+                                            disabled={!activityId || items.length === 0 || isGeneratingQrAll || !canEdit}
+                                        >
+                                            <QrCode size={14} />
+                                            <span>{isGeneratingQrAll ? "Generazione..." : "Genera QR"}</span>
+                                        </DropdownMenu.Item>
+                                    </DropdownMenu.Content>
+                                </DropdownMenu.Portal>
+                            </DropdownMenu.Root>
+                        )}
+                        {canManage && (
+                            <Button
+                                variant="primary"
+                                leftIcon={<Plus size={16} />}
+                                onClick={openCreate}
+                                disabled={!activityId || !orderingEnabled || !canEdit}
+                                className={styles.toolbarCta}
+                            >
+                                Nuovo tavolo
+                            </Button>
+                        )}
                     </div>
                 </div>
 
@@ -543,8 +555,8 @@ export function TablesManagement({
                                   : "Nessun tavolo da mostrare."
                         }
                         action={
-                            items.length === 0 && activityId && orderingEnabled ? (
-                                <Button variant="primary" onClick={openCreate}>
+                            items.length === 0 && activityId && orderingEnabled && canManage ? (
+                                <Button variant="primary" onClick={openCreate} disabled={!canEdit}>
                                     Nuovo tavolo
                                 </Button>
                             ) : undefined
@@ -555,10 +567,10 @@ export function TablesManagement({
                         data={filteredItems}
                         columns={columns}
                         isLoading={isLoading}
-                        selectable
+                        selectable={canManage}
                         selectedRowIds={selectedTableIds}
                         onSelectedRowsChange={setSelectedTableIds}
-                        onBulkDelete={handleBulkDelete}
+                        onBulkDelete={canManage ? handleBulkDelete : undefined}
                     />
                 )}
             </div>

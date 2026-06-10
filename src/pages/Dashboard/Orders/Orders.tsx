@@ -44,7 +44,9 @@ import OrderDetailDrawer from "./OrderDetailDrawer";
 import PrintReceipt from "./PrintReceipt";
 import OrderCancelDrawer from "./OrderCancelDrawer";
 import OrderRectifyDrawer from "./OrderRectifyDrawer";
-import OrderHistoryRow from "./OrderHistoryRow";
+import { DataTable } from "@/components/ui/DataTable/DataTable";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { makeHistoryColumns } from "./historyColumns";
 import OrdersKanban from "./OrdersKanban";
 import { CreateOrderDrawer } from "./CreateOrderDrawer/CreateOrderDrawer";
 import { useActiveOrdersRealtime } from "./hooks/useActiveOrdersRealtime";
@@ -56,6 +58,7 @@ import { canDoOnActivity } from "@/lib/permissions";
 import styles from "./Orders.module.scss";
 
 type MainTab = "comande" | "tavoli" | "storico";
+type HistoryFilter = "all" | "delivered" | "cancelled";
 
 export default function Orders() {
     const tenantId = useTenantId();
@@ -100,6 +103,7 @@ export default function Orders() {
     const [historyOrders, setHistoryOrders] = useState<V2OrderWithItems[]>([]);
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [historyError, setHistoryError] = useState<Error | null>(null);
+    const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
 
     // Filtri (tab Comande): solo dropdown tavolo.
     const [tableFilter, setTableFilter] = useState<string>("all");
@@ -215,11 +219,10 @@ export default function Orders() {
         };
     }, [tenantId]);
 
-    // Reset filtro tavolo al cambio sede: il tableFilter potrebbe contenere
-    // un table_id non piu' valido nella nuova sede, nascondendo silenziosamente
-    // tutte le comande (kanban vuoto senza messaggio).
+    // Reset filtri al cambio sede.
     useEffect(() => {
         setTableFilter("all");
+        setHistoryFilter("all");
     }, [selectedActivityId]);
 
     // Carica lo Storico solo quando la tab e' attiva (o si cambia sede / si rientra).
@@ -314,6 +317,12 @@ export default function Orders() {
         if (tableFilter === "all") return activeOrders;
         return activeOrders.filter(o => o.table_id === tableFilter);
     }, [activeOrders, tableFilter]);
+
+    // ── Storico: filtro client-side per status ──
+    const filteredHistory = useMemo(() => {
+        if (historyFilter === "all") return historyOrders;
+        return historyOrders.filter(o => o.status === historyFilter);
+    }, [historyOrders, historyFilter]);
 
     function labelFor(order: V2OrderWithItems): string {
         const t = tables.find(tt => tt.id === order.table_id);
@@ -718,6 +727,15 @@ export default function Orders() {
         }
     }
 
+    const historyColumns = makeHistoryColumns({
+        tables,
+        operatorNames,
+        onViewDetail: handleViewDetail,
+        onRestore: handleRestore,
+        onPrint: handlePrint,
+        canManage
+    });
+
     return (
         <PageGate feature="table_ordering" readPermission="orders.read" activityId={selectedActivityId}>
         {() => (
@@ -798,38 +816,28 @@ export default function Orders() {
                                 </Button>
                             }
                         />
-                    ) : isHistoryLoading ? (
-                        <EmptyState
-                            icon={<ClipboardList size={40} strokeWidth={1.5} />}
-                            title="Caricamento..."
-                            description="Recupero degli ordini conclusi oggi."
-                        />
-                    ) : historyOrders.length === 0 ? (
-                        <EmptyState
-                            icon={<ClipboardList size={40} strokeWidth={1.5} />}
-                            title="Nessun ordine concluso oggi"
-                            description="Gli ordini serviti o annullati nella giornata operativa appariranno qui."
-                        />
                     ) : (
-                        <div className={styles.historyList}>
-                            {historyOrders.map(o => (
-                                <OrderHistoryRow
-                                    key={o.id}
-                                    order={o}
-                                    tableLabel={
-                                        tables.find(t => t.id === o.table_id)?.label ??
-                                        `#${o.id.slice(0, 6)}`
-                                    }
-                                    tableZone={
-                                        tables.find(t => t.id === o.table_id)?.zone_name ?? null
-                                    }
-                                    operatorNames={operatorNames}
-                                    onRestore={handleRestore}
-                                    onViewDetail={handleViewDetail}
-                                    canManage={canManage}
-                                    canEdit={canEdit}
-                                />
-                            ))}
+                        <div className={styles.historySection}>
+                            <SegmentedControl<HistoryFilter>
+                                value={historyFilter}
+                                onChange={setHistoryFilter}
+                                options={[
+                                    { value: "all", label: "Tutti" },
+                                    { value: "delivered", label: "Serviti" },
+                                    { value: "cancelled", label: "Annullati" }
+                                ]}
+                            />
+                            <DataTable<V2OrderWithItems>
+                                data={filteredHistory}
+                                columns={historyColumns}
+                                isLoading={isHistoryLoading}
+                                getRowId={o => o.id}
+                                emptyState={{
+                                    title: "Nessun ordine nello storico di oggi",
+                                    description: "Gli ordini serviti o annullati nella giornata operativa appariranno qui."
+                                }}
+                                loadingState={{ compact: true }}
+                            />
                         </div>
                     )}
                 </>
