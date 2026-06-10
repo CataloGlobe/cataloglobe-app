@@ -77,7 +77,7 @@ export default function SignUp() {
     let successEmail: string | null = null;
 
     try {
-      const { data, error: signUpError } = await signUp(
+      const { error: signUpError } = await signUp(
         email.trim(),
         password,
         {
@@ -96,21 +96,12 @@ export default function SignUp() {
         return;
       }
 
-      const { user } = data ?? {};
-
-      if (!user?.id) {
-        setError("Errore durante la registrazione. Riprova.");
-        return;
-      }
-
-      if (Array.isArray(user.identities) && user.identities.length === 0) {
-        setIsEmailTaken(true);
-        return;
-      }
-
-      // Registration succeeded — mark success so navigate runs outside try/catch.
-      // Il consenso GDPR viene registrato automaticamente dal trigger handle_new_user
-      // usando consent_privacy_version e consent_terms_version passati in raw_user_meta_data.
+      // With email confirmation enabled, signUp() always returns { user: null, session: null, error: null }
+      // on success — the user is created server-side and the confirmation email is sent.
+      // Real failures always surface via signUpError above, so error === null here means success.
+      // Supabase returns the same response for new and already-registered (unconfirmed) emails
+      // (anti-enumeration by design), so duplicates are not distinguishable client-side.
+      // GDPR consent is recorded automatically by the handle_new_user trigger via raw_user_meta_data.
       successEmail = email.trim();
     } catch (err) {
       console.error("[SignUp] handleSubmit error:", err);
