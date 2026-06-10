@@ -231,8 +231,19 @@ export interface V2ProductAvailabilityOverride {
  */
 export type ProductAvailabilityScope = "daily" | "indefinite";
 
+// V2TableActiveOrder — element of v_tables_with_state.active_orders JSON array
+// (migration 20260610150000). total_amount arrives as a JS number via
+// json_build_object (Postgres numeric → JSON number, no coercion needed).
+export interface V2TableActiveOrder {
+    id: string;
+    status: "submitted" | "acknowledged" | "ready";
+    total_amount: number;
+    submitted_at: string;
+}
+
 // V2TableWithState — riga della view `public.v_tables_with_state`
-// (migration 20260519180000 base; 20260603120000 aggiunge open_orders_count).
+// (migration 20260519180000 base; 20260603120000 aggiunge open_orders_count;
+//  20260610150000 aggiunge active_orders + session_opened_at).
 // Estende V2Table con gli aggregati derivati runtime da
 // `customer_sessions` / `orders` / `order_groups`.
 //
@@ -252,6 +263,10 @@ export interface V2TableWithState extends V2Table {
     current_total: number;
     /** Count sessions attive con bill_requested_at NOT NULL su questo tavolo. */
     bill_requested_count: number;
+    /** Active orders (submitted|acknowledged|ready) for this table. Always an array (never null). */
+    active_orders: V2TableActiveOrder[];
+    /** Earliest first_seen_at of active sessions; null if no active session. */
+    session_opened_at: string | null;
 }
 
 // ─── Orders ────────────────────────────────────────────────────────────────

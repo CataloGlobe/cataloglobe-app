@@ -4,6 +4,7 @@ import type {
     V2Table,
     V2TableInsert,
     V2TableUpdate,
+    V2TableActiveOrder,
     V2TableWithState
 } from "@/types/orders";
 
@@ -55,11 +56,21 @@ export async function listTablesWithState(
         .eq("activity_id", activityId)
         .order("label", { ascending: true });
     if (error) throw error;
-    return (data ?? []).map(row => ({
-        ...row,
-        current_total: Number(row.current_total),
-        bill_requested_count: Number(row.bill_requested_count ?? 0)
-    }));
+    return (data ?? []).map(row => {
+        const rawOrders = Array.isArray(row.active_orders) ? row.active_orders : [];
+        return {
+            ...row,
+            current_total: Number(row.current_total),
+            bill_requested_count: Number(row.bill_requested_count ?? 0),
+            active_orders: (rawOrders as Array<Record<string, unknown>>).map(o => ({
+                id: String(o.id),
+                status: o.status as V2TableActiveOrder["status"],
+                total_amount: Number(o.total_amount),
+                submitted_at: String(o.submitted_at)
+            })),
+            session_opened_at: (row.session_opened_at as string | null) ?? null
+        } as V2TableWithState;
+    });
 }
 
 /**
