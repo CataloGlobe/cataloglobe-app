@@ -1,143 +1,162 @@
 .loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
 }
 
 .drawerHeaderBlock {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .drawerHeaderInfo {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
 }
 
 .drawerHeaderMeta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .elapsedRow {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--text-muted, #64748b);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted, #64748b);
 }
 
 .dismissButton {
-    flex-shrink: 0;
-    background: none;
-    border: none;
-    padding: 4px;
-    cursor: pointer;
-    color: var(--text-muted, #64748b);
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-muted, #64748b);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-    &:hover {
-        background: var(--surface-hover, #f1f5f9);
-        color: var(--text-default, #0f172a);
-    }
+  &:hover {
+    background: var(--surface-hover, #f1f5f9);
+    color: var(--text-default, #0f172a);
+  }
 }
 
 .content {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .billRequestRow {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 12px;
-    border: 1px solid var(--border-default, #e1e3e8);
-    border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid var(--border-default, #e1e3e8);
+  border-radius: 8px;
 }
 
 .billRequestCopy {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
 .section {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .ordersList {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .orderRow {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 12px;
-    align-items: center;
-    padding: 10px 12px;
-    background: var(--surface-elevated, #ffffff);
-    border: 1px solid var(--border-default, #e1e3e8);
-    border-radius: 8px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--surface-elevated, #ffffff);
+  border: 1px solid var(--border-default, #e1e3e8);
+  border-radius: 8px;
 }
 
 .orderRowPending {
-    border-color: var(--color-warning, #f59e0b);
-    background: var(--color-warning-surface, #fffbeb);
+  border-color: var(--color-warning, #f59e0b);
+  background: var(--color-warning-surface, #fffbeb);
 }
 
 .orderMeta {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .activeTotalRow {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    background: var(--surface-subtle, #f8fafc);
-    border: 1px solid var(--border-default, #e1e3e8);
-    border-radius: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--surface-subtle, #f8fafc);
+  border: 1px solid var(--border-default, #e1e3e8);
+  border-radius: 6px;
 }
 
 // Toggle "Fuori servizio": card con copy esplicativa + Switch a destra.
 // Disabilitato (Switch.disabled=true) quando il tavolo e' occupato;
 // la copy cambia per spiegare il motivo.
 .maintenanceRow {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 12px;
-    border: 1px solid var(--border-default, #e1e3e8);
-    border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid var(--border-default, #e1e3e8);
+  border-radius: 8px;
 }
 
 .maintenanceCopy {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.maintenanceToggle {
+  flex-shrink: 0;
+}
+
+.showAllButton {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--brand-primary, #6366f1);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
 }

@@ -86,6 +86,8 @@ const DATETIME_FORMATTER = new Intl.DateTimeFormat("it-IT", {
     minute: "2-digit"
 });
 
+const RECENT_ORDERS_CAP = 5;
+
 const TABLE_HISTORY_STATUSES: OrderStatus[] = [
     "submitted",
     "acknowledged",
@@ -167,6 +169,7 @@ export function TableDetailDrawer({
     const [error, setError] = useState<string | null>(null);
     const [isTogglingMaintenance, setIsTogglingMaintenance] = useState(false);
     const [isClearingBill, setIsClearingBill] = useState(false);
+    const [showAllRecent, setShowAllRecent] = useState(false);
 
     const { showToast } = useToast();
     const { permissions } = usePermissions();
@@ -257,6 +260,7 @@ export function TableDetailDrawer({
         if (!open || !tableId) {
             setData(null);
             setError(null);
+            setShowAllRecent(false);
             return;
         }
         void loadDetail();
@@ -384,6 +388,26 @@ export function TableDetailDrawer({
                             </div>
                         )}
 
+                        {canManageTable && (
+                            <div className={styles.maintenanceRow}>
+                                <div className={styles.maintenanceCopy}>
+                                    <Text weight={500}>Fuori servizio</Text>
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        {isOccupied
+                                            ? "Chiudi prima il tavolo per metterlo fuori servizio."
+                                            : "I clienti non potranno ordinare da questo tavolo finché questa opzione è attiva."}
+                                    </Text>
+                                </div>
+                                <span className={styles.maintenanceToggle}>
+                                    <Switch
+                                        checked={data.table.maintenance_mode}
+                                        onChange={next => void handleMaintenanceToggle(next)}
+                                        disabled={isOccupied || isTogglingMaintenance}
+                                    />
+                                </span>
+                            </div>
+                        )}
+
                         {isOccupied && (
                             <section className={styles.section}>
                                 <Text variant="body-sm" weight={600} colorVariant="muted">
@@ -445,54 +469,52 @@ export function TableDetailDrawer({
                                     Nessun ordine recente.
                                 </Text>
                             ) : (
-                                <ul className={styles.ordersList}>
-                                    {recentOrders.map(o => {
-                                        const { variant, label } = orderStatusInfo(o.status);
-                                        const timestamp =
-                                            o.status === "delivered" && o.delivered_at
-                                                ? formatAbsolute(o.delivered_at)
-                                                : formatAbsolute(o.submitted_at);
-                                        return (
-                                            <li key={o.id} className={styles.orderRow}>
-                                                <StatusBadge variant={variant} label={label} />
-                                                <div className={styles.orderMeta}>
-                                                    <Text variant="body-sm">{timestamp}</Text>
-                                                    {o.customer_name_snapshot && (
-                                                        <Text
-                                                            variant="body-sm"
-                                                            colorVariant="muted"
-                                                        >
-                                                            {o.customer_name_snapshot}
-                                                        </Text>
-                                                    )}
-                                                </div>
-                                                <Text weight={500}>
-                                                    {formatEur(o.total_amount)}
-                                                </Text>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
+                                <>
+                                    <ul className={styles.ordersList}>
+                                        {(showAllRecent
+                                            ? recentOrders
+                                            : recentOrders.slice(0, RECENT_ORDERS_CAP)
+                                        ).map(o => {
+                                            const { variant, label } = orderStatusInfo(o.status);
+                                            const timestamp =
+                                                o.status === "delivered" && o.delivered_at
+                                                    ? formatAbsolute(o.delivered_at)
+                                                    : formatAbsolute(o.submitted_at);
+                                            return (
+                                                <li key={o.id} className={styles.orderRow}>
+                                                    <StatusBadge variant={variant} label={label} />
+                                                    <div className={styles.orderMeta}>
+                                                        <Text variant="body-sm">{timestamp}</Text>
+                                                        {o.customer_name_snapshot && (
+                                                            <Text
+                                                                variant="body-sm"
+                                                                colorVariant="muted"
+                                                            >
+                                                                {o.customer_name_snapshot}
+                                                            </Text>
+                                                        )}
+                                                    </div>
+                                                    <Text weight={500}>
+                                                        {formatEur(o.total_amount)}
+                                                    </Text>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                    {!showAllRecent &&
+                                        recentOrders.length > RECENT_ORDERS_CAP && (
+                                            <button
+                                                className={styles.showAllButton}
+                                                onClick={() => setShowAllRecent(true)}
+                                            >
+                                                Mostra tutti (
+                                                {recentOrders.length - RECENT_ORDERS_CAP} in
+                                                più)
+                                            </button>
+                                        )}
+                                </>
                             )}
                         </section>
-
-                        {canManageTable && (
-                            <div className={styles.maintenanceRow}>
-                                <div className={styles.maintenanceCopy}>
-                                    <Text weight={500}>Fuori servizio</Text>
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        {isOccupied
-                                            ? "Chiudi prima il tavolo per metterlo fuori servizio."
-                                            : "I clienti non potranno ordinare da questo tavolo finché questa opzione è attiva."}
-                                    </Text>
-                                </div>
-                                <Switch
-                                    checked={data.table.maintenance_mode}
-                                    onChange={next => void handleMaintenanceToggle(next)}
-                                    disabled={isOccupied || isTogglingMaintenance}
-                                />
-                            </div>
-                        )}
                     </div>
                 ) : null}
             </DrawerLayout>
