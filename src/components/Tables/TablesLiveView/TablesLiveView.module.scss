@@ -8,38 +8,8 @@
   padding: 4px 2px;
 }
 
-.filterRow {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
-  background: var(--surface-muted, #f4f5f7);
-  border-radius: 8px;
-  width: fit-content;
-}
-
-.filterButton,
-.filterButtonActive {
-  padding: 6px 12px;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted, #6b6f76);
-  cursor: pointer;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
-}
-
-.filterButton:hover {
-  color: var(--text-primary, #1a1d21);
-}
-
-.filterButtonActive {
-  background: var(--surface-elevated, #fff);
-  color: var(--text-primary, #1a1d21);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+.filterControl {
+  align-self: flex-start;
 }
 
 .zonesList {

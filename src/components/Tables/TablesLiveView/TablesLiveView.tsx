@@ -14,6 +14,7 @@ import TableCloseDrawer from "@/pages/Dashboard/Tables/TableCloseDrawer";
 
 import { deriveTableStatus } from "@/utils/tableState";
 
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { useTablesLiveRealtime } from "./useTablesLiveRealtime";
 import styles from "./TablesLiveView.module.scss";
 
@@ -270,23 +271,12 @@ export function TablesLiveView({
                 </Text>
             </div>
 
-            <div className={styles.filterRow} role="tablist">
-                {FILTER_OPTIONS.map(opt => (
-                    <button
-                        key={opt.value}
-                        type="button"
-                        role="tab"
-                        aria-selected={statusFilter === opt.value}
-                        className={
-                            statusFilter === opt.value
-                                ? styles.filterButtonActive
-                                : styles.filterButton
-                        }
-                        onClick={() => setStatusFilter(opt.value)}
-                    >
-                        {opt.label}
-                    </button>
-                ))}
+            <div className={styles.filterControl}>
+                <SegmentedControl<StatusFilter>
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    options={FILTER_OPTIONS}
+                />
             </div>
 
             {!isLoading && filtered.length === 0 ? (

@@ -818,15 +818,17 @@ export default function Orders() {
                         />
                     ) : (
                         <div className={styles.historySection}>
-                            <SegmentedControl<HistoryFilter>
-                                value={historyFilter}
-                                onChange={setHistoryFilter}
-                                options={[
-                                    { value: "all", label: "Tutti" },
-                                    { value: "delivered", label: "Serviti" },
-                                    { value: "cancelled", label: "Annullati" }
-                                ]}
-                            />
+                            <div className={styles.historyFilter}>
+                                <SegmentedControl<HistoryFilter>
+                                    value={historyFilter}
+                                    onChange={setHistoryFilter}
+                                    options={[
+                                        { value: "all", label: "Tutti" },
+                                        { value: "delivered", label: "Serviti" },
+                                        { value: "cancelled", label: "Annullati" }
+                                    ]}
+                                />
+                            </div>
                             <DataTable<V2OrderWithItems>
                                 data={filteredHistory}
                                 columns={historyColumns}
