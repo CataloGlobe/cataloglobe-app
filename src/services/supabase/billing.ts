@@ -58,19 +58,6 @@ async function extractEdgeErrorCode(error: unknown): Promise<string | null> {
 }
 
 /**
- * Calls the stripe-update-seats Edge Function.
- * Updates the subscription quantity (number of seats/locations) on Stripe.
- * The webhook then syncs paid_seats to the DB.
- */
-export async function updateSeats(tenantId: string, quantity: number): Promise<void> {
-    const { error } = await supabase.functions.invoke("stripe-update-seats", {
-        body: { tenantId, quantity }
-    });
-
-    if (error) throw error;
-}
-
-/**
  * Calls the stripe-portal Edge Function.
  * Returns the Stripe Billing Portal URL to redirect the user to.
  */

@@ -107,12 +107,6 @@ verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/stripe-portal/index.ts"
 
-[functions.stripe-update-seats]
-enabled = true
-verify_jwt = false
-import_map = "./functions/import_map.json"
-entrypoint = "./functions/stripe-update-seats/index.ts"
-
 [functions.submit-review]
 enabled = true
 verify_jwt = false
