@@ -81,50 +81,37 @@ serve(async req => {
             return json(404, { error: "not_found" });
         }
 
-        // Step 5: verify the caller has an active owner or admin membership.
-        //
-        // We fetch role+status without pre-filtering so we can return a
-        // precise error code for each failure mode instead of a generic 403.
-        const { data: membership, error: membershipError } = await supabaseAdmin
-            .from("tenant_memberships")
-            .select("role, status")
-            .eq("tenant_id", activity.tenant_id)
-            .eq("user_id", userId)
-            .maybeSingle();
+        // Step 5: permission check (canonical — same pattern as menu-ai-import).
+        // has_permission_any_activity mirrors the RLS DELETE policy on
+        // activities: owner is resolved via tenants.owner_user_id without
+        // requiring a tenant_memberships row (owner has none post-Fase 5.B.2),
+        // admin via active membership. activities.delete is seeded for
+        // owner + admin only, so activity-scoped roles are denied.
+        const { data: hasPerm, error: permError } = await supabaseUser.rpc(
+            "has_permission_any_activity",
+            {
+                p_permission_id: "activities.delete",
+                p_tenant_id: activity.tenant_id
+            }
+        );
 
-        if (membershipError) {
-            console.error("delete-business: Membership lookup failed:", membershipError);
+        if (permError) {
+            console.error("delete-business: Permission check failed:", permError);
             return json(500, { error: "ownership_check_failed" });
         }
 
-        if (!membership) {
-            console.warn(`delete-business: User ${userId} has no membership in tenant ${activity.tenant_id}`);
+        if (!hasPerm) {
+            console.warn(
+                `delete-business: User ${userId} lacks activities.delete on tenant ${activity.tenant_id}`
+            );
             return json(403, {
                 error: "forbidden",
-                code: "NOT_MEMBER",
-                message: "Non appartieni a questa organizzazione"
-            });
-        }
-
-        if (membership.status !== "active") {
-            console.warn(`delete-business: User ${userId} membership status is "${membership.status}"`);
-            return json(403, {
-                error: "forbidden",
-                code: "INACTIVE_MEMBERSHIP",
-                message: "Il tuo accesso a questa organizzazione non è attivo"
-            });
-        }
-
-        if (!["owner", "admin"].includes(membership.role)) {
-            console.warn(`delete-business: User ${userId} has role "${membership.role}" — insufficient`);
-            return json(403, {
-                error: "forbidden",
-                code: "INSUFFICIENT_ROLE",
+                code: "INSUFFICIENT_PERMISSION",
                 message: "Non hai i permessi per eliminare questa sede"
             });
         }
 
-        console.log(`delete-business: User ${userId} authorized as ${membership.role} for tenant ${activity.tenant_id}`);
+        console.log(`delete-business: User ${userId} authorized for tenant ${activity.tenant_id}`);
 
         // Step 6: delete the activity row (service_role, bypasses RLS).
         // Done BEFORE storage cleanup: if DELETE fails (e.g. unhandled FK),
@@ -253,7 +240,7 @@ serve(async req => {
             );
         }
 
-        console.log(`delete-business: Activity ${businessId} deleted by user ${userId} (role: ${membership.role}); orphan schedules disabled: ${affectedSchedulesDisabled}`);
+        console.log(`delete-business: Activity ${businessId} deleted by user ${userId}; orphan schedules disabled: ${affectedSchedulesDisabled}`);
 
         return json(200, {
             success: true,
