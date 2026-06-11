@@ -736,6 +736,11 @@ export default function CollectionView({
     const pendingScrollTargetIdRef = useRef<string | null>(null);
     const safetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [selectedItem, setSelectedItem] = useState<CollectionViewSectionItem | null>(null);
+    // openSeq: incrementato ad ogni openItemDetail. Forza re-render anche quando
+    // l'utente riapre lo STESSO item (React altrimenti bailoutta il setState con
+    // identica reference). Propagato in contentKey verso PublicSheet → l'abort
+    // di close-interruption scatta uniformemente, A→A incluso.
+    const [openSeq, setOpenSeq] = useState(0);
 
     // ── Search overlay ──────────────────────────────────────────────────────
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -923,6 +928,7 @@ export default function CollectionView({
     const openItemDetail = useCallback(
         (item: CollectionViewSectionItem) => {
             setSelectedItem(item);
+            setOpenSeq(s => s + 1);
             if (mode === "public" && activityId) {
                 const section = sections.find(s => s.items.some(i => i.id === item.id));
                 trackEvent(activityId, "product_detail_open", {
@@ -2095,6 +2101,7 @@ export default function CollectionView({
                                     <Suspense fallback={null}>
                                         <ItemDetail
                                             item={selectedItem}
+                                            openSeq={openSeq}
                                             isOpen={!!selectedItem}
                                             onClose={() => {
                                                 setSelectedItem(null);

@@ -27,9 +27,18 @@ type Props = {
      * espandendo l'area di drag oltre la sola handle bar (solo su mobile).
      */
     headerContent?: React.ReactNode;
+    /**
+     * Opzionale: identificatore del contenuto corrente (es. item.id).
+     * Se passato, abilita "close interruption": quando contentKey cambia mentre
+     * la sheet sta animando in uscita (es. user tap su un altro prodotto durante
+     * la chiusura), l'animazione viene abortita, body lock ripristinato, panel
+     * ri-animato a y=0 col nuovo contenuto, onClose NON chiamato.
+     * Se omesso (undefined), comportamento byte-identico a prima.
+     */
+    contentKey?: string;
 };
 
-export default function PublicSheet({ isOpen, onClose, children, ariaLabel, headerContent }: Props) {
+export default function PublicSheet({ isOpen, onClose, children, ariaLabel, headerContent, contentKey }: Props) {
     const isMobile = useIsMobile();
     const dragControls = useDragControls();
 
@@ -81,6 +90,28 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
         window.scrollTo(0, savedScrollYRef.current);
     }, []);
 
+    // ── Re-lock body — riapplica il lock rilasciato eagermente da animateOutMobile
+    // durante una close-interruption (vedi useLayoutEffect contentKey).
+    // Idempotente: no-op se già lockato.
+    const lockBody = useCallback(() => {
+        if (!bodyLockReleasedRef.current) return;
+        savedScrollYRef.current = window.scrollY;
+        prevBodyStyleRef.current = {
+            overflow: document.body.style.overflow,
+            position: document.body.style.position,
+            top: document.body.style.top,
+            width: document.body.style.width,
+        };
+        bodyLockReleasedRef.current = false;
+        // Stesso ordine atomico del useLayoutEffect open: top+width PRIMA di
+        // position:fixed, per evitare la finestra "position==='fixed' && top===''"
+        // che innesca il thrash su iOS Safari.
+        document.body.style.top = `-${savedScrollYRef.current}px`;
+        document.body.style.width = "100%";
+        document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
+    }, []);
+
     // ── iOS Safari scroll lock — useLayoutEffect per rilascio sincrono pre-paint ─
     // useLayoutEffect cleanup esegue PRIMA del paint, eliminando il frame dove il body
     // è ancora bloccato ma il sheet è già stato rimosso dal DOM.
@@ -96,10 +127,17 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
         };
         bodyLockReleasedRef.current = false;
 
-        document.body.style.overflow = "hidden";
-        document.body.style.position = "fixed";
+        // Ordine atomico per evitare frame thrash su iOS Safari: `top` e `width`
+        // PRIMA di `position:fixed`. Su body static, top/width sono no-op visivi.
+        // Quando position diventa fixed (commit), top è GIÀ settato → invariante
+        // "position==='fixed' ⇒ top valorizzato" preservata. readScroll in
+        // PublicCollectionHeader (defensive read di body.style.top) non cade
+        // nell'else con bodyTop="" → niente reset di scrollY a 0 → niente
+        // header→hero → niente ResizeObserver → niente sticky-nav reposition.
         document.body.style.top = `-${savedScrollYRef.current}px`;
         document.body.style.width = "100%";
+        document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
 
         return () => {
             // Fallback: se triggerClose non ha già rilasciato il lock (es. isOpen settato
@@ -107,6 +145,31 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
             releaseBodyLock();
         };
     }, [isOpen, releaseBodyLock]);
+
+    // ── Close-interruption (opt-in via contentKey) ──────────────────────────
+    // Se il parent fornisce contentKey e questa cambia mentre la chiusura è in
+    // volo (isClosingRef=true), abortisce la chiusura: re-locka body, ripristina
+    // pointer-events, ri-anima y → 0 col nuovo contenuto. Il flag abortCloseRef
+    // viene letto da triggerClose dopo l'await per skippare onClose.
+    // MUST run BEFORE il reset useLayoutEffect sottostante: quello azzera
+    // isClosingRef ad ogni commit, qui leggiamo lo stato pre-reset.
+    const contentKeyRef = useRef(contentKey);
+    const abortCloseRef = useRef(false);
+    useLayoutEffect(() => {
+        const prev = contentKeyRef.current;
+        contentKeyRef.current = contentKey;
+        if (contentKey === undefined) return;
+        if (prev === contentKey) return;
+        if (!isClosingRef.current) return;
+        abortCloseRef.current = true;
+        isClosingRef.current = false;
+        if (backdropRef.current) backdropRef.current.style.pointerEvents = "";
+        if (panelRef.current) panelRef.current.style.pointerEvents = "";
+        if (isMobile && shouldRender) {
+            lockBody();
+            animate(y, 0, { type: "spring", damping: 32, stiffness: 320 });
+        }
+    }, [contentKey, isMobile, shouldRender, lockBody, y]);
 
     // ── Reset chiusura stale — ogni commit dove isOpen=true ──────────────────
     // useLayoutEffect senza dipendenze: garantisce che isClosingRef e pointer-events
@@ -168,10 +231,21 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
         async (velocityY = 0) => {
             if (isClosingRef.current) return;
             isClosingRef.current = true;
+            // Reset del flag abort all'avvio della chiusura: se una precedente
+            // close-interruption non avesse resettato (es. animation interruption
+            // non ha rilasciato la promise), evitiamo che onClose venga skippato qui.
+            abortCloseRef.current = false;
 
             if (isMobile) {
                 await animateOutMobile(velocityY);
                 if (!isMountedRef.current) return;
+                // Abort: contentKey è cambiata durante l'await (parent ha
+                // sostituito il contenuto). Non chiamare onClose, lascia
+                // visibile il nuovo contenuto già animato a y=0.
+                if (abortCloseRef.current) {
+                    abortCloseRef.current = false;
+                    return;
+                }
                 onClose();
                 if (isClosingRef.current) setShouldRender(false);
             } else {

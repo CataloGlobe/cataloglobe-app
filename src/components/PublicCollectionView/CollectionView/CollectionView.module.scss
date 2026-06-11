@@ -246,15 +246,16 @@
   padding: 0.875rem 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: opacity 0.12s ease, background 0.05s ease-out;
+  transition: opacity 0.12s ease;
 
   &:hover {
     opacity: 0.75;
   }
 
-  &:active {
-    background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-bg));
-  }
+  /* :active rimosso: su iOS Safari il repaint del background-darken
+     viene droppato durante il reflow del body-lock all'apertura della
+     ItemDetail sheet → riga "vuota" per 1 frame. Promuovere a layer
+     (will-change/translateZ) peggiora il glitch di compositing. */
 }
 
 .compactRowBody {
@@ -392,10 +393,10 @@
     background: color-mix(in srgb, var(--pub-text) 4%, var(--pub-surface));
   }
 
-  &:active {
-    background: color-mix(in srgb, var(--pub-text) 8%, var(--pub-surface));
-    transition: background 0.05s ease-out;
-  }
+  /* :active rimosso: su iOS Safari il repaint del background-darken
+     viene droppato durante il reflow del body-lock all'apertura della
+     ItemDetail sheet → riga "vuota" per 1 frame. Promuovere a layer
+     (will-change/translateZ) peggiora il glitch di compositing. */
 }
 
 .productRowImageRight {
