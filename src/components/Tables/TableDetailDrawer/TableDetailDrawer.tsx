@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Clock, BellRing, X } from "lucide-react";
+import { Check, Clock, BellRing, X } from "lucide-react";
 
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
@@ -21,7 +21,7 @@ import {
     listActiveSessionsForTable,
     getOpenOrderGroupForTable
 } from "@/services/supabase/customerSessions";
-import { listOrdersForActivity } from "@/services/supabase/orders";
+import { acknowledgeOrder, listOrdersForActivity } from "@/services/supabase/orders";
 import type {
     V2Table,
     V2CustomerSession,
@@ -170,6 +170,7 @@ export function TableDetailDrawer({
     const [isTogglingMaintenance, setIsTogglingMaintenance] = useState(false);
     const [isClearingBill, setIsClearingBill] = useState(false);
     const [showAllRecent, setShowAllRecent] = useState(false);
+    const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
 
     const { showToast } = useToast();
     const { permissions } = usePermissions();
@@ -253,6 +254,19 @@ export function TableDetailDrawer({
             });
         } finally {
             setIsClearingBill(false);
+        }
+    }
+
+    async function handleConfirmOrder(orderId: string, version: number): Promise<void> {
+        setConfirmingOrderId(orderId);
+        try {
+            await acknowledgeOrder(orderId, version);
+            showToast({ message: "Ordine confermato", type: "success" });
+            await loadDetail();
+        } catch {
+            showToast({ message: "Errore durante la conferma dell'ordine", type: "error" });
+        } finally {
+            setConfirmingOrderId(null);
         }
     }
 
@@ -442,9 +456,37 @@ export function TableDetailDrawer({
                                                                 </Text>
                                                             )}
                                                         </div>
-                                                        <Text weight={500}>
-                                                            {formatEur(o.total_amount)}
-                                                        </Text>
+                                                        {isPending ? (
+                                                            <div className={styles.orderActions}>
+                                                                <Text weight={500}>
+                                                                    {formatEur(o.total_amount)}
+                                                                </Text>
+                                                                <Button
+                                                                    variant="primary"
+                                                                    size="sm"
+                                                                    loading={
+                                                                        confirmingOrderId ===
+                                                                        o.id
+                                                                    }
+                                                                    disabled={
+                                                                        confirmingOrderId !== null
+                                                                    }
+                                                                    onClick={() =>
+                                                                        void handleConfirmOrder(
+                                                                            o.id,
+                                                                            o.version
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <Check size={12} aria-hidden />
+                                                                    Conferma
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <Text weight={500}>
+                                                                {formatEur(o.total_amount)}
+                                                            </Text>
+                                                        )}
                                                     </li>
                                                 );
                                             })}
