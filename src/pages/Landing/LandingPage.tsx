@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { motion, useInView } from "framer-motion";
+import { motion, useInView, useReducedMotion } from "framer-motion";
 import { COMPANY } from "@/config/company";
+import logoHorizontal from "@/assets/brand/logo-horizontal.png";
 import s from "./LandingPage.module.scss";
 import {
-    SCHEDULE_RULES,
     PAIN_ROWS,
     HOW_STEPS,
     DEMOS,
@@ -101,16 +101,62 @@ const FEATURE_ITEMS = [
     }
 ] as const;
 
-// ─── Scroll-reveal wrapper (Framer Motion) ───────────
-function Animate({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-    const ref = useRef(null);
+// ─── Animated rules panel data ────────────────────────────────────────────────
+const CLOCK_TIMES = ["09:00", "11:30", "14:30", "17:30", "20:00", "23:30"] as const;
+
+type RuleStatus = "Programmata" | "Attiva" | "Conclusa";
+
+const STATUS_COLORS: Record<RuleStatus, string> = {
+    Attiva: "#22c55e",
+    Programmata: "#f59e0b",
+    Conclusa: "#9895a8"
+};
+
+const PANEL_RULES = [
+    { name: "Menu Pranzo", type: "Layout · 11:00–15:00" },
+    { name: "Happy Hour −30%", type: "Prezzo · 17:00–19:00" },
+    { name: "Menu Cena", type: "Layout · 18:00–23:00" }
+];
+
+function getRuleStates(time: string): [RuleStatus, RuleStatus, RuleStatus] {
+    const parts = time.split(":");
+    const mins = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    const pranzo: RuleStatus =
+        mins < 11 * 60 ? "Programmata" : mins < 15 * 60 ? "Attiva" : "Conclusa";
+    const happy: RuleStatus =
+        mins < 17 * 60 ? "Programmata" : mins < 19 * 60 ? "Attiva" : "Conclusa";
+    const cena: RuleStatus =
+        mins < 18 * 60 ? "Programmata" : mins < 23 * 60 ? "Attiva" : "Conclusa";
+    return [pranzo, happy, cena];
+}
+
+// ─── Scroll-reveal wrapper (Framer Motion) ────────────────────────────────────
+// Safeguard: if useInView never fires (viewport already covers the element at
+// mount, or JS is slow), force-visible after 400ms so content is never stuck
+// at opacity:0.
+function Animate({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
+    const ref = useRef<HTMLDivElement>(null);
     const isInView = useInView(ref, { once: true, margin: "0px 0px -50px 0px" });
+    const prefersReducedMotion = useReducedMotion();
+    const [safeguard, setSafeguard] = useState(false);
+
+    useEffect(() => {
+        if (prefersReducedMotion) return;
+        const t = setTimeout(() => setSafeguard(true), 400);
+        return () => clearTimeout(t);
+    }, [prefersReducedMotion]);
+
+    if (prefersReducedMotion) {
+        return <div ref={ref}>{children}</div>;
+    }
+
+    const visible = isInView || safeguard;
 
     return (
         <motion.div
             ref={ref}
             initial={{ opacity: 0, y: 20 }}
-            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+            animate={visible ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay }}
         >
             {children}
@@ -130,12 +176,9 @@ function Navbar() {
 
     return (
         <nav className={`${s.navbar} ${scrolled ? s.navbarScrolled : ""}`}>
-            <div className={s.navBrand}>
-                <a href="/" className={s.navLogo}>
-                    Catalo<span className={s.navGlobe}>Globe</span>
-                </a>
-                <span className={s.betaBadge}>Beta</span>
-            </div>
+            <a href="/" className={s.navLogoLink}>
+                <img src={logoHorizontal} alt="CataloGlobe" className={s.navLogoImg} />
+            </a>
             <div className={s.navLinks}>
                 {[
                     { label: "Funzionalità", id: "funzionalità" },
@@ -156,8 +199,6 @@ function Navbar() {
                         {label}
                     </a>
                 ))}
-                {/* TODO: riattivare al lancio */}
-                {/* <a href="/login" className={s.navLinkAccedi}>Accedi</a> */}
                 <a
                     href="#waitlist"
                     className={s.navCta}
@@ -173,6 +214,63 @@ function Navbar() {
     );
 }
 
+// ─── Animated rules panel ─────────────────────────────
+function RulesPanel() {
+    const prefersReducedMotion = useReducedMotion();
+    const [step, setStep] = useState(0);
+
+    useEffect(() => {
+        if (prefersReducedMotion) return;
+        const t = setInterval(() => setStep(p => (p + 1) % CLOCK_TIMES.length), 2600);
+        return () => clearInterval(t);
+    }, [prefersReducedMotion]);
+
+    const currentTime = CLOCK_TIMES[step];
+    const states: [RuleStatus, RuleStatus, RuleStatus] = prefersReducedMotion
+        ? ["Attiva", "Attiva", "Attiva"]
+        : getRuleStates(currentTime);
+
+    return (
+        <div className={s.mockupShell}>
+            <div className={s.mockupChrome}>
+                <span className={s.mockupDotRed} />
+                <span className={s.mockupDotYellow} />
+                <span className={s.mockupDotGreen} />
+                <span className={s.rulesClock}>{currentTime}</span>
+            </div>
+            <div className={s.mockupBody}>
+                {PANEL_RULES.map((rule, i) => {
+                    const status = states[i];
+                    const color = STATUS_COLORS[status];
+                    return (
+                        <div key={rule.name} className={s.scheduleRow}>
+                            <div className={s.scheduleRowLeft}>
+                                <span
+                                    className={s.scheduleRowDot}
+                                    style={{ background: color }}
+                                />
+                                <div>
+                                    <div className={s.scheduleRowName}>{rule.name}</div>
+                                    <div className={s.scheduleRowMeta}>{rule.type}</div>
+                                </div>
+                            </div>
+                            <span
+                                className={s.scheduleBadge}
+                                style={{
+                                    color,
+                                    background: `${color}14`
+                                }}
+                            >
+                                {status}
+                            </span>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 // ─── Hero (no animation wrapper — always visible immediately) ─────────
 function Hero() {
     return (
@@ -183,7 +281,7 @@ function Hero() {
                 <div className={s.heroContent}>
                     <div className={s.heroBadge}>
                         <span className={s.badgeDot} />
-                        <span className={s.badgeText}>Beta aperta</span>
+                        <span className={s.badgeText}>Posti limitati</span>
                     </div>
 
                     <h1 className={s.heroH1}>
@@ -219,44 +317,12 @@ function Hero() {
                     </div>
 
                     <p className={s.heroSubtext}>
-                        Richiedi l'accesso alla beta — posti limitati.
+                        Configuri tutto gratis · paghi solo quando vai live
                     </p>
                 </div>
 
-                {/* Product mockup — desktop only */}
                 <div className={s.heroMockupWrapper}>
-                    <div className={s.mockupShell}>
-                        <div className={s.mockupChrome}>
-                            <span className={s.mockupDotRed} />
-                            <span className={s.mockupDotYellow} />
-                            <span className={s.mockupDotGreen} />
-                        </div>
-                        <div className={s.mockupBody}>
-                            {SCHEDULE_RULES.map((rule, i) => (
-                                <div key={i} className={s.scheduleRow}>
-                                    <div className={s.scheduleRowLeft}>
-                                        <span
-                                            className={s.scheduleRowDot}
-                                            style={{ background: rule.statusColor }}
-                                        />
-                                        <div>
-                                            <div className={s.scheduleRowName}>{rule.name}</div>
-                                            <div className={s.scheduleRowMeta}>{rule.type}</div>
-                                        </div>
-                                    </div>
-                                    <span
-                                        className={s.scheduleBadge}
-                                        style={{
-                                            color: rule.statusColor,
-                                            background: `${rule.statusColor}14`
-                                        }}
-                                    >
-                                        {rule.status}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    <RulesPanel />
                 </div>
             </div>
         </section>
@@ -454,7 +520,7 @@ function DemoCarousel() {
                 </div>
             </div>
 
-            {/* 3D Carousel stage */}
+            {/* Desktop: 3D Carousel stage */}
             <div className={s.carouselStage}>
                 <div className={s.carouselInner}>
                     {DEMOS.map((demo, i) => {
@@ -496,6 +562,17 @@ function DemoCarousel() {
                         />
                     </svg>
                 </button>
+            </div>
+
+            {/* Mobile: single centered card (no 3D overflow) */}
+            <div className={s.carouselMobileStage}>
+                <div className={s.carouselMobileCard}>
+                    <img
+                        src={DEMOS[active].screenshot}
+                        alt={`Menu ${DEMOS[active].name}`}
+                        className={s.demoCardImage}
+                    />
+                </div>
             </div>
 
             {/* QR + dots */}
@@ -632,6 +709,9 @@ function Pricing() {
                                 key={plan.key}
                                 className={`${s.planCard} ${plan.popular ? s.planCardPopular : ""}`}
                             >
+                                {plan.popular && (
+                                    <span className={s.planBadge}>Consigliato</span>
+                                )}
                                 <div className={s.planHead}>
                                     <span className={s.planName}>{plan.name}</span>
                                     <span className={s.planPrice}>{plan.priceLabel}</span>

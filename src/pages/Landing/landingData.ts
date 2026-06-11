@@ -2,13 +2,6 @@ import ilMolo34Screenshot from '@/assets/demos/il-molo-34.webp';
 import laPausaScreenshot from '@/assets/demos/la-pausa.webp';
 import velvetGardenScreenshot from '@/assets/demos/velvet-garden.webp';
 
-export interface ScheduleRule {
-    name: string;
-    type: string;
-    status: 'Attiva' | 'Programmata';
-    statusColor: string;
-}
-
 export interface Demo {
     name: string;
     address: string;
@@ -30,12 +23,6 @@ export interface FaqItem {
     q: string;
     a: string;
 }
-
-export const SCHEDULE_RULES: ScheduleRule[] = [
-    { name: 'Menu Pranzo', type: 'Layout · 11:00–15:00', status: 'Attiva', statusColor: '#22c55e' },
-    { name: 'Happy Hour −30%', type: 'Prezzo · 17:00–19:00', status: 'Programmata', statusColor: '#f59e0b' },
-    { name: 'Menu Cena', type: 'Layout · 18:00–23:00', status: 'Attiva', statusColor: '#22c55e' },
-];
 
 export const PAIN_ROWS = [
     { before: 'Aggiorni i prezzi sede per sede', after: 'Un aggiornamento, tutte le sedi' },
@@ -128,9 +115,5 @@ export const FAQ_ITEMS: FaqItem[] = [
     {
         q: 'I miei dati sono al sicuro?',
         a: 'Ogni azienda è isolata a livello di database con policy di sicurezza PostgreSQL. Nessun dato può trapelare tra tenant.',
-    },
-    {
-        q: 'Come funziona durante la beta?',
-        a: "L'accesso è su richiesta. Scegli Base o Pro e paghi per ogni sede che attivi, dal 2° locale −10%.",
     },
 ];
