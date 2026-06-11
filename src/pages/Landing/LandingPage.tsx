@@ -131,32 +131,20 @@ function getRuleStates(time: string): [RuleStatus, RuleStatus, RuleStatus] {
 }
 
 // ─── Scroll-reveal wrapper (Framer Motion) ────────────────────────────────────
-// Safeguard: if useInView never fires (viewport already covers the element at
-// mount, or JS is slow), force-visible after 400ms so content is never stuck
-// at opacity:0.
+// whileInView correctly handles elements already in viewport at mount AND
+// elements that scroll into view later. No manual BoundingClientRect check needed.
 function Animate({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
-    const ref = useRef<HTMLDivElement>(null);
-    const isInView = useInView(ref, { once: true, margin: "0px 0px -50px 0px" });
     const prefersReducedMotion = useReducedMotion();
-    const [safeguard, setSafeguard] = useState(false);
-
-    useEffect(() => {
-        if (prefersReducedMotion) return;
-        const t = setTimeout(() => setSafeguard(true), 400);
-        return () => clearTimeout(t);
-    }, [prefersReducedMotion]);
 
     if (prefersReducedMotion) {
-        return <div ref={ref}>{children}</div>;
+        return <>{children}</>;
     }
-
-    const visible = isInView || safeguard;
 
     return (
         <motion.div
-            ref={ref}
             initial={{ opacity: 0, y: 20 }}
-            animate={visible ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "0px 0px -60px 0px" }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay }}
         >
             {children}
