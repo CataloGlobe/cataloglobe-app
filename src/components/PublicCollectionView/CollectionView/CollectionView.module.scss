@@ -1,4 +1,5 @@
 @use "@styles/variables" as *;
+@use "@styles/mixins" as *;
 
 /* Token press condiviso dai target tappabili della pagina pubblica.
    Definito a :root cosi cascada anche fuori da .page (es. PublicCollectionHeader,
@@ -248,7 +249,7 @@
   -webkit-tap-highlight-color: transparent;
   transition: opacity 0.12s ease;
 
-  &:hover {
+  @include hover {
     opacity: 0.75;
   }
 
@@ -369,7 +370,7 @@
 
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 
-  &:hover {
+  @include hover {
     transform: translateY(-1px);
     box-shadow: var(--pub-card-shadow-hover);
   }
@@ -389,7 +390,7 @@
   -webkit-tap-highlight-color: transparent;
   transition: background 0.12s ease;
 
-  &:hover {
+  @include hover {
     background: color-mix(in srgb, var(--pub-text) 4%, var(--pub-surface));
   }
 
@@ -767,7 +768,7 @@
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
               opacity 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  &:hover {
+  @include hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px color-mix(in srgb, var(--pub-accent, #F59E0B) 45%, transparent);
   }
@@ -782,7 +783,7 @@
 
     /* Hover ri-dichiarato qui: stessa specificità di .valutaFabVisible (0-2-0),
        ma dichiarato dopo → vince sulla regola base translateX(0). */
-    &:hover {
+    @include hover {
       transform: translateY(-2px);
     }
 
@@ -850,14 +851,10 @@
     inset: -6px;
   }
 
-  /* Hover solo su dispositivi con puntatore reale (mouse/trackpad).
-     Evita hover "appiccicoso" su touch device dopo il tap. */
-  @media (hover: hover) {
-    &:hover {
-      background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
-      color: var(--pub-text);
-      border-color: color-mix(in srgb, var(--pub-text) 20%, transparent);
-    }
+  @include hover {
+    background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
+    color: var(--pub-text);
+    border-color: color-mix(in srgb, var(--pub-text) 20%, transparent);
   }
 
   &:focus-visible {
@@ -876,10 +873,8 @@
   color: var(--pub-surface);
   border-color: transparent;
 
-  @media (hover: hover) {
-    &:hover {
-      background: color-mix(in srgb, var(--pub-surface-text) 85%, transparent);
-    }
+  @include hover {
+    background: color-mix(in srgb, var(--pub-surface-text) 85%, transparent);
   }
 }
 
@@ -907,11 +902,9 @@
   outline: none;
   -webkit-tap-highlight-color: transparent;
 
-  @media (hover: hover) {
-    &:hover {
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24);
-      transform: scale(1.05);
-    }
+  @include hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24);
+    transform: scale(1.05);
   }
 
   &:focus-visible {
@@ -929,10 +922,8 @@
   background: var(--pub-accent);
   color: var(--pub-cta-text);
 
-  @media (hover: hover) {
-    &:hover {
-      background: color-mix(in srgb, var(--pub-accent) 85%, transparent);
-    }
+  @include hover {
+    background: color-mix(in srgb, var(--pub-accent) 85%, transparent);
   }
 }
 
@@ -961,10 +952,8 @@
     inset: -9px; /* (44 - 26) / 2 = 9px */
   }
 
-  @media (hover: hover) {
-    &:hover {
-      background: color-mix(in srgb, var(--pub-bg-text) 8%, transparent);
-    }
+  @include hover {
+    background: color-mix(in srgb, var(--pub-bg-text) 8%, transparent);
   }
 
   &:focus-visible {
@@ -1058,7 +1047,7 @@
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 
-  &:hover {
+  @include hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 24px color-mix(in srgb, var(--pub-bg-text) 30%, transparent);
   }
@@ -1231,11 +1220,15 @@
     white-space: nowrap;
   }
 
-  &[href]:hover {
-    color: var(--pub-accent);
-
-    svg {
+  /* Selettore composto `&[href]:hover` non gestibile col mixin standard.
+     Inline @media (hover: hover) per gating equivalente. */
+  @media (hover: hover) {
+    &[href]:hover {
       color: var(--pub-accent);
+
+      svg {
+        color: var(--pub-accent);
+      }
     }
   }
 }
@@ -1307,7 +1300,7 @@
   cursor: pointer;
   transition: background 0.12s ease;
 
-  &:hover {
+  @include hover {
     background: color-mix(in srgb, var(--pub-accent, #F59E0B) 88%, white);
   }
 }

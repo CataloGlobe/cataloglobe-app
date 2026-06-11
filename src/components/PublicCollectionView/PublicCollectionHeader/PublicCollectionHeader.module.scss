@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 /* ─────────────────────────────────────────────────────────
    PublicCollectionHeader
    Single sticky header with scroll-driven animation
@@ -164,7 +166,7 @@
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
   position: relative;
 
-  &:hover {
+  @include hover {
     background: rgba(255, 255, 255, 0.22);
     border-color: rgba(255, 255, 255, 0.35);
   }
@@ -238,7 +240,7 @@
     transform 0.15s ease;
   white-space: nowrap;
 
-  &:hover {
+  @include hover {
     background: rgba(255, 255, 255, 0.25);
   }
 
@@ -254,7 +256,7 @@
   border-color: transparent;
   font-weight: 700;
 
-  &:hover {
+  @include hover {
     background: color-mix(in srgb, var(--pub-accent) 85%, white);
     color: var(--pub-cta-text);
   }

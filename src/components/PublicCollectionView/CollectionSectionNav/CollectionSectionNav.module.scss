@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 /* ---------------------------------------------
    NAV
 --------------------------------------------- */
@@ -513,7 +515,7 @@
   white-space: nowrap;
   transition: background 0.12s ease;
 
-  &:hover {
+  @include hover {
     background: color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
   }
 
@@ -534,7 +536,7 @@
 .dropdownItemActive {
   background: color-mix(in srgb, var(--pub-primary, #e8a300) 12%, var(--pub-surface, #fff));
 
-  &:hover {
+  @include hover {
     background: color-mix(in srgb, var(--pub-primary, #e8a300) 20%, var(--pub-surface, #fff));
   }
 }
