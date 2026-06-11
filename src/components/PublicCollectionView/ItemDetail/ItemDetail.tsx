@@ -11,6 +11,13 @@ import type { SelectedAddon, SelectedFormat } from "../OrderingSheet/OrderingShe
 
 type Props = {
     item: CollectionViewSectionItem | null;
+    /**
+     * Contatore incrementato dal parent ad OGNI apertura (anche se l'item è lo stesso).
+     * Necessario perché React bailoutta `setSelectedItem(stessoRef)` → contentKey
+     * basato solo su item.id non cambierebbe → close-interruption non scatterebbe per
+     * riapertura A→A durante la chiusura.
+     */
+    openSeq?: number;
     isOpen: boolean;
     onClose: () => void;
     mode: "public" | "preview";
@@ -39,6 +46,7 @@ type Props = {
 
 export default function ItemDetail({
     item,
+    openSeq,
     isOpen,
     onClose,
     mode,
@@ -158,6 +166,7 @@ export default function ItemDetail({
         <PublicSheet
             isOpen={isOpen}
             onClose={onClose}
+            contentKey={item ? `${item.id}:${openSeq ?? 0}` : undefined}
             ariaLabel={displayItem.name}
             headerContent={
                 <div className={styles.header}>
