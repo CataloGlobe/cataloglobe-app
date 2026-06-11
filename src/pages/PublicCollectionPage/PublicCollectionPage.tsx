@@ -35,7 +35,7 @@ import { borderRadiusToPx } from "@/features/public/utils/mapStyleTokensToCssVar
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import NotFound from "../NotFound/NotFound";
 import { getDisplayValue } from "@/utils/attributes";
-import { loadPublicFonts } from "@utils/loadPublicFonts";
+import { buildSingleFamilyFontUrl } from "@utils/publicFontUrl";
 import { isValidLangFormat } from "@/utils/lang";
 import { LanguageProvider } from "@context/Language/LanguageProvider";
 import type { AvailableLanguage } from "@context/Language/LanguageContext";
@@ -442,9 +442,39 @@ export default function PublicCollectionPage() {
         imageUrl: headImage
     });
 
+    // ── Font dello stile attivo (Step 2) ─────────────────────────────────
+    // Warm: il middleware ha già iniettato <link id="mw-font"> nell'head →
+    // nessun caricamento runtime. Cold (fallback opzione B): carica la SOLA
+    // famiglia dello stile attivo appena i token arrivano col payload — non
+    // più le 8 famiglie di loadPublicFonts (che resta in uso solo nello
+    // Style Editor).
+    const activeFontToken =
+        state.status === "ready"
+            ? parseTokens(state.resolved.style?.config ?? null).typography.fontFamily
+            : null;
+
     useEffect(() => {
-        return loadPublicFonts();
-    }, []);
+        if (!activeFontToken) return;
+        if (document.getElementById("mw-font")) return;
+
+        const href = buildSingleFamilyFontUrl(activeFontToken);
+        if (!href) return; // inter: già caricata da index.html
+
+        const existing = document.getElementById("public-font-fallback") as HTMLLinkElement | null;
+        if (existing) {
+            if (existing.href !== href) existing.href = href;
+            return;
+        }
+        const link = document.createElement("link");
+        link.id = "public-font-fallback";
+        link.rel = "stylesheet";
+        link.href = href;
+        document.head.appendChild(link);
+
+        return () => {
+            if (document.head.contains(link)) document.head.removeChild(link);
+        };
+    }, [activeFontToken]);
 
     useEffect(() => {
         if (!slug) {

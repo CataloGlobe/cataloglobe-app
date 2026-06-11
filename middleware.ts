@@ -40,6 +40,8 @@
 
 import { waitUntil } from "@vercel/functions";
 
+import { buildSingleFamilyFontUrl } from "./src/utils/publicFontUrl";
+
 // Env senza dipendere da @types/node (il middleware gira su edge runtime).
 const env: Record<string, string | undefined> =
     (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
@@ -93,6 +95,10 @@ type PublicCatalogBusiness = {
 type PublicCatalogMeta = {
     business?: PublicCatalogBusiness | null;
     tenantLogoUrl?: string | null;
+    /** Sede sospesa: `resolved.style` assente → nessuna injection font. */
+    resolved?: {
+        style?: { config?: { typography?: { fontFamily?: unknown } } | null } | null;
+    } | null;
 };
 
 type TenantMetaResult = {
@@ -264,6 +270,15 @@ export default async function middleware(request: Request): Promise<Response | u
         );
 
         const extra: string[] = [];
+        // Font dello stile attivo (Step 2): solo la famiglia usata dal tenant,
+        // pronta prima del primo paint del testo → niente FOUT sul warm. Il
+        // marker id="mw-font" dice al runtime di NON caricare il fallback.
+        const fontHref = buildSingleFamilyFontUrl(
+            metaResult.meta?.resolved?.style?.config?.typography?.fontFamily
+        );
+        if (fontHref) {
+            extra.push(`<link id="mw-font" rel="stylesheet" href="${escapeHtml(fontHref)}" />`);
+        }
         if (cover) {
             const safeCover = escapeHtml(cover);
             extra.push(`<meta property="og:image" content="${safeCover}" />`);
