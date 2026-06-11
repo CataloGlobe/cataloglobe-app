@@ -457,8 +457,13 @@ export default function PublicCollectionPage() {
         if (!activeFontToken) return;
         if (document.getElementById("mw-font")) return;
 
+        // Cold hit = HTML originale: l'Inter variable blocking di index.html
+        // è ancora presente (il de-block Step 3a avviene solo sul warm), la
+        // spec statica sarebbe un secondo download inutile (~30KB).
+        if (activeFontToken === "inter") return;
+
         const href = buildSingleFamilyFontUrl(activeFontToken);
-        if (!href) return; // inter: già caricata da index.html
+        if (!href) return; // token sconosciuto: nessuna injection
 
         const existing = document.getElementById("public-font-fallback") as HTMLLinkElement | null;
         if (existing) {

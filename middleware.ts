@@ -273,11 +273,34 @@ export default async function middleware(request: Request): Promise<Response | u
         // Font dello stile attivo (Step 2): solo la famiglia usata dal tenant,
         // pronta prima del primo paint del testo → niente FOUT sul warm. Il
         // marker id="mw-font" dice al runtime di NON caricare il fallback.
-        const fontHref = buildSingleFamilyFontUrl(
-            metaResult.meta?.resolved?.style?.config?.typography?.fontFamily
-        );
+        const fontToken = metaResult.meta?.resolved?.style?.config?.typography?.fontFamily;
+        const fontHref = buildSingleFamilyFontUrl(fontToken);
         if (fontHref) {
             extra.push(`<link id="mw-font" rel="stylesheet" href="${escapeHtml(fontHref)}" />`);
+
+            // De-block shell (Step 3a): il <link> Inter+Sora di index.html è
+            // RBI #1 (~850ms wasted su mobile simulato). Solo su questo HTML
+            // servito (il file resta intatto: admin e landing non matchano):
+            //   - Sora: rimosso (usato solo dalla landing, peso morto qui);
+            //   - token inter: link shell OMESSO del tutto — la spec statica
+            //     mw-font copre chrome + contenuto (4 pesi bastano, weight
+            //     check audit 3a) e si evita il doppio download (~73KB);
+            //   - altri token: Inter variable async (preload→stylesheet +
+            //     <noscript>) per la shell, mw-font per il contenuto.
+            // Guard-rail: si de-blocca SOLO se mw-font è stato iniettato
+            // (fontHref valido), altrimenti il link blocking resta com'è.
+            html = html.replace(
+                /<link\s+href="(https:\/\/fonts\.googleapis\.com\/css2\?family=Inter[^"]*)"\s+rel="stylesheet"\s*\/>/,
+                (_m, shellUrl: string) => {
+                    if (fontToken === "inter") return "";
+                    const interOnly = escapeHtml(shellUrl.replace(/&family=Sora[^&"]*/g, ""));
+                    return (
+                        `<link rel="preload" as="style" href="${interOnly}" ` +
+                        `onload="this.onload=null;this.rel='stylesheet'" />` +
+                        `<noscript><link rel="stylesheet" href="${interOnly}" /></noscript>`
+                    );
+                }
+            );
         }
         if (cover) {
             const safeCover = escapeHtml(cover);

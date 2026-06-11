@@ -12,11 +12,17 @@
  * VINCOLO: modulo PURO — niente accesso a DOM/Node/process, così resta
  * importabile dall'edge runtime del middleware.
  *
- * `inter` → null: Inter è già caricata render-blocking da `index.html`
- * (variable font, tutta l'app la usa come default); nessuna injection extra.
+ * `inter` (Step 3a): spec statica 4 pesi + italic 400 (il public usa solo
+ * 400/500/600/700 + font-style:italic a peso body — weight-check audit 3a).
+ * Sul warm il middleware la inietta via mw-font e OMETTE il link shell
+ * Inter variable (~73KB risparmiati); sul cold il runtime la SKIPPA perché
+ * l'HTML originale contiene ancora l'Inter variable blocking di index.html.
+ *
+ * Italic: solo `playfair` (variable) e `inter` hanno italic vero; le altre
+ * 7 famiglie usano faux-italic, com'è sempre stato nell'URL storico.
  */
 const GOOGLE_FONT_SPEC: Record<string, string | null> = {
-    inter: null,
+    inter: "Inter:ital,wght@0,400;0,500;0,600;0,700;1,400",
     poppins: "Poppins:wght@400;500;600;700",
     montserrat: "Montserrat:wght@400;500;600",
     "josefin-sans": "Josefin+Sans:wght@400;500;600",
@@ -29,9 +35,8 @@ const GOOGLE_FONT_SPEC: Record<string, string | null> = {
 
 /**
  * URL CSS2 Google Fonts per la SOLA famiglia dello stile attivo.
- * Ritorna `null` se il token è assente, sconosciuto (payload corrotto /
- * versioni future) o `inter` (già caricata da index.html): in tutti i casi
- * il chiamante non inietta nulla.
+ * Ritorna `null` se il token è assente o sconosciuto (payload corrotto /
+ * versioni future): il chiamante non inietta nulla.
  */
 export function buildSingleFamilyFontUrl(fontToken: unknown): string | null {
     if (typeof fontToken !== "string") return null;
