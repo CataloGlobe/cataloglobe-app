@@ -103,10 +103,13 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
             width: document.body.style.width,
         };
         bodyLockReleasedRef.current = false;
-        document.body.style.overflow = "hidden";
-        document.body.style.position = "fixed";
+        // Stesso ordine atomico del useLayoutEffect open: top+width PRIMA di
+        // position:fixed, per evitare la finestra "position==='fixed' && top===''"
+        // che innesca il thrash su iOS Safari.
         document.body.style.top = `-${savedScrollYRef.current}px`;
         document.body.style.width = "100%";
+        document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
     }, []);
 
     // ── iOS Safari scroll lock — useLayoutEffect per rilascio sincrono pre-paint ─
@@ -124,10 +127,17 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
         };
         bodyLockReleasedRef.current = false;
 
-        document.body.style.overflow = "hidden";
-        document.body.style.position = "fixed";
+        // Ordine atomico per evitare frame thrash su iOS Safari: `top` e `width`
+        // PRIMA di `position:fixed`. Su body static, top/width sono no-op visivi.
+        // Quando position diventa fixed (commit), top è GIÀ settato → invariante
+        // "position==='fixed' ⇒ top valorizzato" preservata. readScroll in
+        // PublicCollectionHeader (defensive read di body.style.top) non cade
+        // nell'else con bodyTop="" → niente reset di scrollY a 0 → niente
+        // header→hero → niente ResizeObserver → niente sticky-nav reposition.
         document.body.style.top = `-${savedScrollYRef.current}px`;
         document.body.style.width = "100%";
+        document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
 
         return () => {
             // Fallback: se triggerClose non ha già rilasciato il lock (es. isOpen settato
