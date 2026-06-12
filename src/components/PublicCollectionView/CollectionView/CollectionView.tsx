@@ -26,6 +26,7 @@ import type { CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
 import { useFabCollapse } from "../hooks/useFabCollapse";
 import EventsView from "../EventsView/EventsView";
+import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
 import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
 
@@ -568,6 +569,15 @@ export type SocialLinks = {
     email_public_visible?: boolean;
 };
 
+// ── Bottom nav bar pubblica (feature flag d'ambiente, mobile-only) ──────────
+// Costanti locali esplicite per evitare drift (no sorgente condivisa esistente).
+const BREAKPOINT_MOBILE = 640; // ≤640px = mobile: la barra sostituisce tab header + FAB
+// Z_BOTTOM_BAR = 150 vive nello SCSS della barra (PublicBottomBar.module.scss); qui
+// solo per documentazione: sopra FAB (55/60), sotto toast/search (200) e sheet (900).
+// Flag globale d'ambiente (build-time): ON su tutte le attività dove acceso, nessun tocco DB.
+// Rollback = VITE_PUBLIC_BOTTOM_BAR=false/rimosso + redeploy.
+const PUBLIC_BOTTOM_BAR = import.meta.env.VITE_PUBLIC_BOTTOM_BAR === "true";
+
 type Props = {
     businessName: string;
     businessImage: string | null;
@@ -687,6 +697,30 @@ export default function CollectionView({
     enableReservations = false
 }: Props) {
     const navigate = useNavigate();
+
+    // ── Bottom nav bar pubblica: flag d'ambiente globale + viewport mobile ──────
+    // GUARDRAIL flag OFF → diff runtime ZERO: il matchMedia listener viene attaccato
+    // SOLO quando il flag è acceso. Flag spento ⇒ effetto esce subito, nessun listener,
+    // isMobile resta false ⇒ comportamento identico a oggi (FAB + tab header).
+    const bottomBarFlag = mode === "public" && PUBLIC_BOTTOM_BAR;
+    // Init sincrono (no flash del FAB al primo paint per i tenant con barra attiva).
+    // Lettura matchMedia in render = nessun listener; il listener arriva dall'effect sotto.
+    const [isMobileViewport, setIsMobileViewport] = useState(
+        () =>
+            bottomBarFlag &&
+            typeof window !== "undefined" &&
+            !!window.matchMedia &&
+            window.matchMedia(`(max-width: ${BREAKPOINT_MOBILE}px)`).matches
+    );
+    useEffect(() => {
+        if (!bottomBarFlag || typeof window === "undefined" || !window.matchMedia) return;
+        const mq = window.matchMedia(`(max-width: ${BREAKPOINT_MOBILE}px)`);
+        const update = () => setIsMobileViewport(mq.matches);
+        update();
+        mq.addEventListener("change", update);
+        return () => mq.removeEventListener("change", update);
+    }, [bottomBarFlag]);
+    const useBottomBar = bottomBarFlag && isMobileViewport;
     // Maintenance scoperto runtime via 423 ORDERING_UNAVAILABLE su submit
     // (Strict + Reactive: il cliente lo apprende solo al tentativo). Solo
     // OrderingSheet usa effectiveMaintenance per banner inline + submit
@@ -1819,6 +1853,7 @@ export default function CollectionView({
                     headerRadius={style.appearanceRadius}
                     activeTab={activeTab}
                     onTabChange={onTabChange ?? (() => {})}
+                    showHubTabs={!useBottomBar}
                     allergensCount={allergenFilterIds.length}
                     onOpenMore={mode === "public" ? () => setIsMoreSheetOpen(true) : undefined}
                 />
@@ -2183,7 +2218,8 @@ export default function CollectionView({
             )}
 
             {/* ── ORDERING FAB — unico, context-aware (cart o ordini) ── */}
-            {mode === "public" && activeTab === "menu" && !shouldHideOrderingEntry && (selectionCount > 0 || (orderingActive && hasOrdersInSession)) && (
+            {/* Nascosto quando la bottom nav bar è attiva (flag ON + mobile): il carrello vive nella barra. */}
+            {!useBottomBar && mode === "public" && activeTab === "menu" && !shouldHideOrderingEntry && (selectionCount > 0 || (orderingActive && hasOrdersInSession)) && (
                 <button
                     type="button"
                     className={styles.orderingFab}
@@ -2210,7 +2246,8 @@ export default function CollectionView({
             )}
 
             {/* ── VALUTA FAB — slide-in dopo 3s, solo public + tab menu ── */}
-            {mode === "public" && activeTab === "menu" && (
+            {/* Nascosto con la bottom nav bar attiva: il reminder diventa un dot sull'icona recensioni. */}
+            {!useBottomBar && mode === "public" && activeTab === "menu" && (
                 <button
                     type="button"
                     className={[
@@ -2231,12 +2268,36 @@ export default function CollectionView({
                 </button>
             )}
 
+            {/* ── BOTTOM NAV BAR pubblica — flag ON + mobile. Sostituisce tab header + FAB. ── */}
+            {/* reviewDot riusa `valutaVisible` (stessa eligibilità 4h + scroll≥70% + no review <24h). */}
+            {useBottomBar && (
+                <PublicBottomBar
+                    activeTab={activeTab}
+                    onTabChange={tab => onTabChange?.(tab)}
+                    selectionCount={selectionCount}
+                    cartVisible={!shouldHideOrderingEntry}
+                    onOpenCart={openOrdering}
+                    reviewDot={valutaVisible}
+                    onReviewDotDismiss={() => {
+                        setValutaVisible(false);
+                        valutaEligibleRef.current = false;
+                    }}
+                />
+            )}
+
             {submitFeedback && (
                 <div
                     className={
                         submitFeedback.type === "success"
                             ? styles.submitFeedbackSuccess
                             : styles.submitFeedbackError
+                    }
+                    // Con la bottom bar attiva il toast condivide l'ancora a 16px: lo
+                    // solleviamo sopra la barra (altezza ~58px + gap) così non la copre.
+                    style={
+                        useBottomBar
+                            ? { bottom: "calc(16px + 58px + 12px + env(safe-area-inset-bottom, 0px))" }
+                            : undefined
                     }
                     role="status"
                     aria-live="polite"

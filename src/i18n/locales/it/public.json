@@ -103,7 +103,8 @@
     },
     "fab": {
         "review_aria": "Com'è andata?",
-        "review_label": "Com'è andata?"
+        "review_label": "Com'è andata?",
+        "cart_aria": "Il tuo ordine"
     },
     "footer": {
         "open_allergens_aria": "Apri lista allergeni",

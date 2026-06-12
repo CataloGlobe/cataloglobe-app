@@ -82,7 +82,8 @@
     },
     "fab": {
         "review_aria": "Wie ist es gelaufen?",
-        "review_label": "Wie ist es gelaufen?"
+        "review_label": "Wie ist es gelaufen?",
+        "cart_aria": "Deine Bestellung"
     },
     "footer": {
         "open_allergens_aria": "Allergenliste öffnen",
