@@ -58,6 +58,9 @@ export type DerivedPageState = Extract<
     { status: "ready" | "inactive" | "subscription_inactive" | "empty" }
 >;
 
+/** Stato "ready" completo — prop `data` di PublicCatalogReady. */
+export type ReadyPageData = Extract<PageState, { status: "ready" }>;
+
 export type ResolveRedirectOpts = {
     /** Payload da cache localStorage: i redirect sono già stati risolti
         quando il payload fu salvato → mai redirect su cache. */

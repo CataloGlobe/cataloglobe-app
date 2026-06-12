@@ -1,217 +1,27 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePageHead } from "@/hooks/usePageHead";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
-import PublicThemeScope from "@/features/public/components/PublicThemeScope";
-import CollectionView, {
-    type CollectionViewSection,
-    type CollectionViewSectionGroup,
-    type CollectionViewSectionItem
-} from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { HubTab } from "@/types/collectionStyle";
-import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 import type { OrderingStateReason } from "@/types/orders";
 import { VERTICAL_CONFIG } from "@/constants/verticalTypes";
 import type { ResolvedPayloadShape } from "@/types/publicCatalog";
 import { derivePageState, resolveRedirect, type PageState } from "./derivePageState";
+import PublicCatalogReady from "./PublicCatalogReady";
 import { listAllAllergens, type Allergen } from "@/services/supabase/allergens";
 
 import { supabase } from "@/services/supabase/client";
 import { fetchPublicCatalog, type CatalogSource, type PublicCatalogPayload } from "@/services/publicCatalog/fetchPublicCatalog";
 import { getCached, setCached } from "@/services/publicCatalog/publicCatalogCache";
-import StaleDataBanner from "@/components/StaleDataBanner/StaleDataBanner";
-import type {
-    ResolvedCharacteristic,
-    ResolvedCollections,
-    ResolvedProduct,
-    ResolvedProductAttribute,
-    ResolvedCategory
-} from "@/types/resolvedCollections";
 import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import { DEFAULT_COLLECTION_STYLE } from "@/types/collectionStyle";
-import { borderRadiusToPx } from "@/features/public/utils/mapStyleTokensToCssVars";
 
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import NotFound from "../NotFound/NotFound";
-import { getDisplayValue } from "@/utils/attributes";
 import { buildSingleFamilyFontUrl } from "@utils/publicFontUrl";
 import { isValidLangFormat } from "@/utils/lang";
-import { LanguageProvider } from "@context/Language/LanguageProvider";
-import {
-    CustomerSessionProvider,
-    useCustomerSession
-} from "@/context/CustomerSession/CustomerSessionContext";
 import pageStyles from "./PublicCollectionPage.module.scss";
 // reviews_summary and recent_reviews still returned by edge function — unused in frontend for now
-
-/* ===============================================
-   DATA MAPPING
-   ResolvedCollections → CollectionViewSectionGroup[]
-=============================================== */
-
-/**
- * Flattens the structured attribute shape emitted by `resolve-public-catalog`
- * (see `ResolvedProductAttribute`) into the `{ label, value }` form consumed
- * by `CollectionView` / `ItemDetail`. The edge function already filters by
- * `show_in_public_channels !== false`; the strict check here is defensive.
- */
-function mapAttributes(
-    attrs: ResolvedProductAttribute[] | undefined
-): { label: string; value: string }[] | undefined {
-    const mapped = attrs
-        ?.filter(a => a.definition?.show_in_public_channels === true)
-        .map(a => {
-            const raw = a.value_text ?? a.value_number ?? a.value_boolean ?? a.value_json;
-            const value = getDisplayValue(raw);
-            return value ? { label: a.definition?.label ?? "—", value } : null;
-        })
-        .filter((x): x is { label: string; value: string } => x !== null);
-    return mapped && mapped.length > 0 ? mapped : undefined;
-}
-
-function mapProductToItem(p: ResolvedProduct): CollectionViewSectionItem {
-    const attributes = mapAttributes(p.attributes);
-
-    const variants = p.variants?.map(v => ({
-        id: v.id,
-        name: v.name,
-        ...(typeof v.price === "number" ? { price: v.price } : {}),
-        ...(typeof v.original_price === "number" ? { original_price: v.original_price } : {}),
-        ...(typeof v.from_price === "number" ? { from_price: v.from_price } : {}),
-        ...(v.image_url ? { image: v.image_url } : {}),
-        ...(v.description ? { description: v.description } : {}),
-        ...(v.optionGroups && v.optionGroups.length > 0
-            ? {
-                  optionGroups: v.optionGroups.map(g => ({
-                      id: g.id,
-                      name: g.name,
-                      group_kind: g.group_kind,
-                      pricing_mode: g.pricing_mode,
-                      isRequired: g.is_required,
-                      maxSelectable: g.max_selectable,
-                      values: g.values.map(val => ({
-                          id: val.id,
-                          name: val.name,
-                          absolutePrice: val.absolute_price,
-                          priceModifier: val.price_modifier,
-                          ...(typeof val.original_price === "number"
-                              ? { originalPrice: val.original_price }
-                              : {})
-                      }))
-                  }))
-              }
-            : {})
-    }));
-
-    return {
-        id: p.id,
-        name: p.name,
-        parentSelected: p.parentSelected ?? true,
-        description: p.description ?? null,
-        price: p.price ?? null,
-        effective_price: p.effective_price ?? null,
-        original_price: p.original_price ?? null,
-        from_price: p.from_price ?? null,
-        image: p.image_url ?? null,
-        optionGroups: p.optionGroups?.map(g => ({
-            id: g.id,
-            name: g.name,
-            group_kind: g.group_kind,
-            pricing_mode: g.pricing_mode,
-            isRequired: g.is_required,
-            maxSelectable: g.max_selectable,
-            values: g.values.map(v => ({
-                id: v.id,
-                name: v.name,
-                absolutePrice: v.absolute_price,
-                priceModifier: v.price_modifier,
-                ...(typeof v.original_price === "number" ? { originalPrice: v.original_price } : {})
-            }))
-        })),
-        ...(attributes && attributes.length > 0 ? { attributes } : {}),
-        ...(variants && variants.length > 0 ? { variants } : {}),
-        ...(p.allergens && p.allergens.length > 0 ? { allergens: p.allergens } : {}),
-        ...(p.characteristics && p.characteristics.length > 0
-            ? { characteristics: p.characteristics }
-            : {}),
-        ...(p.ingredients && p.ingredients.length > 0 ? { ingredients: p.ingredients } : {}),
-        ...(p.notes && p.notes.length > 0 ? { notes: p.notes } : {}),
-        is_disabled: p.is_disabled ?? false
-    };
-}
-
-/**
- * Collects the union of all characteristics referenced by visible products in
- * the catalog (parent products only — variants don't carry their own
- * assignments by design). Sorted by `sort_order` for stable legend rendering.
- *
- * Used by the public footer to populate the "Caratteristiche" sheet with
- * only the items actually used in this catalog (vs. the full pool, which
- * would be too long for legend display).
- */
-function collectCatalogCharacteristics(
-    catalog: ResolvedCollections["catalog"]
-): ResolvedCharacteristic[] {
-    if (!catalog?.categories) return [];
-    const seen = new Map<string, ResolvedCharacteristic>();
-    for (const category of catalog.categories) {
-        for (const product of category.products) {
-            for (const c of product.characteristics ?? []) {
-                if (!seen.has(c.id)) seen.set(c.id, c);
-            }
-        }
-    }
-    return Array.from(seen.values()).sort((a, b) => a.sort_order - b.sort_order);
-}
-
-function mapCategoryToSection(cat: ResolvedCategory): CollectionViewSection {
-    return {
-        id: cat.id,
-        name: cat.name,
-        level: cat.level,
-        parentCategoryId: cat.parent_category_id,
-        items: cat.products.filter(p => p.is_visible).map(mapProductToItem)
-    };
-}
-
-function mapCatalogToSectionGroups(resolved: ResolvedCollections): CollectionViewSectionGroup[] {
-    if (!resolved.catalog?.categories) return [];
-
-    const allSections = resolved.catalog.categories.map(mapCategoryToSection);
-
-    // Raccoglie L1 — incluse quelle senza prodotti diretti ma con figli che ne hanno
-    const l1Sections = allSections.filter(s => s.level === 1);
-
-    const result = l1Sections
-        .map(root => {
-            const l3WithItems = allSections.filter(
-                s => s.level === 3 && s.items.length > 0
-            );
-            const l2Children = allSections.filter(
-                s =>
-                    s.level === 2 &&
-                    s.parentCategoryId === root.id &&
-                    (s.items.length > 0 || l3WithItems.some(l3 => l3.parentCategoryId === s.id))
-            );
-            const l3Children = l3WithItems.filter(
-                s => l2Children.some(l2 => l2.id === s.parentCategoryId)
-            );
-
-            // Ordine originale: intercala L3 dopo il loro L2 parent
-            const orderedChildren: CollectionViewSection[] = [];
-            for (const l2 of l2Children) {
-                orderedChildren.push(l2);
-                const l3ForThisL2 = l3Children.filter(l3 => l3.parentCategoryId === l2.id);
-                orderedChildren.push(...l3ForThisL2);
-            }
-
-            return { root, children: orderedChildren };
-        })
-        .filter(g => g.root.items.length > 0 || g.children.length > 0);
-
-    return result;
-}
 
 /* ===============================================
    PAGE
@@ -236,18 +46,6 @@ function messageForReason(reason: OrderingStateReason): string {
         default:
             return "L'ordinazione tramite QR non e' al momento disponibile. Chiedi allo staff.";
     }
-}
-
-/**
- * Wrapper interno: vive DENTRO CustomerSessionProvider e legge isActive
- * dal context per propagarlo come prop a CollectionView. Tiene CollectionView
- * "dumb" (prop-driven) senza farle conoscere il context customer.
- */
-function CollectionViewWithCustomerSession(
-    props: Omit<ComponentProps<typeof CollectionView>, "orderingActive">
-) {
-    const { isActive } = useCustomerSession();
-    return <CollectionView {...props} orderingActive={isActive} />;
 }
 
 export default function PublicCollectionPage() {
@@ -566,8 +364,6 @@ export default function PublicCollectionPage() {
         },
         [activeTab, state]
     );
-    const sessionId = useMemo(() => crypto.randomUUID(), []);
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 
     // ── Language change toast ──────────────────────────────────────────────
     type ToastPhase = "idle" | "loading" | "done";
@@ -676,156 +472,45 @@ export default function PublicCollectionPage() {
         return <NotFound variant="business-empty" />;
     }
 
-    const { business, resolved, tenantLogoUrl, openingHours, upcomingClosures, allergens, effectiveLanguage, baseLanguage, availableLanguages } = state;
-
-    // Derive CollectionStyle from stored tokens so runtime matches preview
-    const tokens = parseTokens(resolved.style?.config ?? null);
-    const navStyle = tokens.navigation.style; // "filled" | "outline" | "tabs" | "dot" | "minimal"
-    const cardTemplate: "no-image" | "left" | "right" =
-        tokens.card.image.mode === "hide"
-            ? "no-image"
-            : tokens.card.image.position === "right"
-              ? "right"
-              : "left";
-
-    const collectionStyle = {
-        ...DEFAULT_COLLECTION_STYLE,
-        sectionNavStyle: navStyle,
-        cardTemplate,
-        cardLayout: tokens.card.layout,
-        productStyle: tokens.card.productStyle,
-        showLogo: tokens.header.showLogo,
-        showCoverImage: tokens.header.showCoverImage,
-        showActivityName: tokens.header.showActivityName,
-        showCatalogName: tokens.header.showCatalogName,
-        showAddress: tokens.header.showAddress,
-        featuredStyle: tokens.appearance.featuredStyle,
-        appearanceRadius: borderRadiusToPx(tokens.appearance.borderRadius)
-    } as const;
-
-    const sectionGroups = mapCatalogToSectionGroups(resolved);
-    const catalogCharacteristics = collectCatalogCharacteristics(resolved.catalog);
-    const emptyState =
-        sectionGroups.length === 0
-            ? { title: t("page.empty_catalog") }
-            : undefined;
-
-    const allFeaturedContents = [
-        ...(resolved.featured?.before_catalog ?? []),
-        ...(resolved.featured?.after_catalog ?? [])
-    ];
-
-    const isRefetchingNow = state.status === "ready" && (state.isRefetching ?? false);
     // Lingua di destinazione: già nell'URL quando il refetch inizia.
     // Fallback a baseLanguage se si torna alla lingua base (URL senza /lang).
-    const toastTargetLang = langFromUrl ?? (state.status === "ready" ? state.baseLanguage : "it");
+    const toastTargetLang = langFromUrl ?? state.baseLanguage;
 
     return (
-        <CustomerSessionProvider activityId={business.id}>
-        <LanguageProvider
+        <PublicCatalogReady
             slug={slug!}
-            currentLang={effectiveLanguage}
-            availableLanguages={availableLanguages}
-            baseLanguage={baseLanguage}
+            data={state}
+            orderingMaintenance={orderingMaintenance}
+            onRetry={handleRetry}
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            bannerSlot={
+                isSimulation ? (
+                    <div
+                        style={{
+                            position: "relative",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            gap: "0.75rem",
+                            padding: "0.5rem 1rem",
+                            background: "#fef3c7",
+                            color: "#92400e",
+                            fontSize: "0.8rem",
+                            fontWeight: 500,
+                            borderBottom: "1px solid #fde68a"
+                        }}
+                    >
+                        <span>{t("page.simulation_banner")}</span>
+                        <span>
+                            {new Date(effectiveSimulate!).toLocaleString("it-IT", {
+                                timeZone: "Europe/Rome"
+                            })}
+                        </span>
+                    </div>
+                ) : null
+            }
         >
-        <PublicThemeScope style={resolved.style}>
-            <div
-                className={pageStyles.contentWrapper}
-                data-refetching={isRefetchingNow ? "true" : undefined}
-            >
-            {state.status === "ready" && state.isStale && (
-                <StaleDataBanner onRetry={handleRetry} />
-            )}
-            {isSimulation && (
-                <div
-                    style={{
-                        position: "relative",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        gap: "0.75rem",
-                        padding: "0.5rem 1rem",
-                        background: "#fef3c7",
-                        color: "#92400e",
-                        fontSize: "0.8rem",
-                        fontWeight: 500,
-                        borderBottom: "1px solid #fde68a"
-                    }}
-                >
-                    <span>{t("page.simulation_banner")}</span>
-                    <span>
-                        {new Date(effectiveSimulate!).toLocaleString("it-IT", {
-                            timeZone: "Europe/Rome"
-                        })}
-                    </span>
-                </div>
-            )}
-            <CollectionViewWithCustomerSession
-                businessName={business.name}
-                businessImage={business.cover_image}
-                collectionTitle={resolved.catalog?.name ?? ""}
-                sectionGroups={sectionGroups}
-                style={collectionStyle}
-                mode="public"
-                activityId={business.id}
-                slug={business.slug}
-                enableReservations={business.enable_reservations}
-                tenantLogoUrl={tenantLogoUrl}
-                activityAddress={(() => {
-                    const street = [business.address, business.street_number]
-                        .filter(Boolean)
-                        .join(", ");
-                    const location = [business.postal_code, business.city]
-                        .filter(Boolean)
-                        .join(" ");
-                    return [street, location].filter(Boolean).join(" — ") || null;
-                })()}
-                socialLinks={{
-                    instagram: business.instagram,
-                    instagram_public: business.instagram_public,
-                    facebook: business.facebook,
-                    facebook_public: business.facebook_public,
-                    whatsapp: business.whatsapp,
-                    whatsapp_public: business.whatsapp_public,
-                    website: business.website,
-                    website_public: business.website_public,
-                    phone: business.phone,
-                    phone_public: business.phone_public,
-                    email_public: business.email_public,
-                    email_public_visible: business.email_public_visible
-                }}
-                openingHours={openingHours}
-                upcomingClosures={upcomingClosures}
-                emptyState={emptyState}
-                activeTab={activeTab}
-                onTabChange={handleTabChange}
-                featuredContents={allFeaturedContents}
-                featuredBeforeCatalogSlot={
-                    resolved.featured?.before_catalog &&
-                    resolved.featured.before_catalog.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.before_catalog} activityId={business.id} slot="before_catalog" layout={tokens.appearance.featuredStyle} />
-                    ) : null
-                }
-                featuredAfterCatalogSlot={
-                    resolved.featured?.after_catalog &&
-                    resolved.featured.after_catalog.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.after_catalog} activityId={business.id} slot="after_catalog" layout={tokens.appearance.featuredStyle} />
-                    ) : null
-                }
-                reviewsProps={{
-                    googleReviewUrl: business.google_review_url,
-                    activityId: business.id,
-                    sessionId,
-                    supabaseUrl
-                }}
-                paymentMethods={business.payment_methods}
-                activityServices={business.services}
-                fees={business.fees}
-                allergens={allergens}
-                catalogCharacteristics={catalogCharacteristics}
-                orderingMaintenance={orderingMaintenance}
-            />
-            </div>
             {/* Toast cambio lingua — sempre nel DOM, CSS transitions */}
             <div
                 className={pageStyles.languageToast}
@@ -848,8 +533,6 @@ export default function PublicCollectionPage() {
                           : ""}
                 </span>
             </div>
-        </PublicThemeScope>
-        </LanguageProvider>
-        </CustomerSessionProvider>
+        </PublicCatalogReady>
     );
 }
