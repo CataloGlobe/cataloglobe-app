@@ -84,7 +84,10 @@
   position: relative;
   z-index: 10;
   background: var(--pub-bg);
-  padding-top: 20px;
+  /* Allinea il content-top di Eventi/Recensioni a quello del Menu (header + banda chips ~63px).
+     È solo padding sullo stesso crema del contenuto: whitespace continuo, NESSUN bordo, nessun
+     elemento "banda" distinto. Taglia comunque l'hero (z-index sopra il cover). */
+  padding-top: 63px;
 }
 
 .frame {
