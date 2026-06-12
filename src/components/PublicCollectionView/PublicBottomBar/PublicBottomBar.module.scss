@@ -14,7 +14,7 @@
     z-index: 150;
 
     width: calc(100% - 36px);
-    max-width: 340px;
+    max-width: 320px;
 
     animation: barIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -24,7 +24,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 7px 10px;
+    padding: 5px 8px;
     box-sizing: border-box;
 
     background: rgba(20, 20, 20, 0.72);
@@ -49,7 +49,7 @@
     transform: scale(1);
 }
 .bar[data-shrink="true"] {
-    transform: scale(0.86);
+    transform: scale(0.92);
 }
 
 // Entry sul wrapper: solo opacity + translateY (transform indipendente dal `.bar`).
@@ -91,7 +91,7 @@
     position: relative;
     z-index: 1;
     flex: 1;
-    height: 44px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -127,10 +127,10 @@
 // Pallino reminder recensione sull'icona cuore.
 .dot {
     position: absolute;
-    top: 8px;
-    right: calc(50% - 16px);
-    width: 8px;
-    height: 8px;
+    top: 6px;
+    right: calc(50% - 12px);
+    width: 7px;
+    height: 7px;
     border-radius: 999px;
     background: var(--pub-accent, #f59e0b);
     border: 2px solid rgba(20, 20, 20, 0.92);
@@ -148,8 +148,8 @@
 .cart {
     position: relative;
     flex: 0 0 auto;
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;

@@ -75,6 +75,18 @@
    FRAME
 ---------------------------------------------------- */
 
+/* Bottom-bar mode (showHubTabs=false): Eventi/Recensioni non hanno la CollectionSectionNav.
+   Invece di una banda crema vuota placeholder, è lo SFONDO del contenuto stesso a tagliare
+   l'hero: superficie crema full-bleed (z-index sopra il cover) che parte al bordo basso
+   dell'header, con un piccolo top-padding voluto prima del primo elemento. Menu resta con la
+   sua banda chips reale (CollectionSectionNav). */
+.tabSurface {
+  position: relative;
+  z-index: 10;
+  background: var(--pub-bg);
+  padding-top: 20px;
+}
+
 .frame {
   width: 100%;
   max-width: 820px;

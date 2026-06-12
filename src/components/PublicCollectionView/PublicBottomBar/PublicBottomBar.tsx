@@ -21,9 +21,9 @@ import styles from "./PublicBottomBar.module.scss";
 type TabDef = { id: HubTab; icon: ReactNode; labelKey: string };
 
 const TABS: TabDef[] = [
-    { id: "menu", icon: <BookOpen size={22} strokeWidth={1.9} />, labelKey: "hub.menu" },
-    { id: "events", icon: <CalendarDays size={22} strokeWidth={1.9} />, labelKey: "hub.events" },
-    { id: "reviews", icon: <MessageSquareHeart size={22} strokeWidth={1.9} />, labelKey: "hub.reviews" },
+    { id: "menu", icon: <BookOpen size={19} strokeWidth={1.9} />, labelKey: "hub.menu" },
+    { id: "events", icon: <CalendarDays size={19} strokeWidth={1.9} />, labelKey: "hub.events" },
+    { id: "reviews", icon: <MessageSquareHeart size={19} strokeWidth={1.9} />, labelKey: "hub.reviews" },
 ];
 
 type Props = {
@@ -83,23 +83,18 @@ export default function PublicBottomBar({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab]);
 
-    // Shrink-on-scroll dal segnale esistente. forceExpanded riespande al tap.
-    const scrolled = useScrollCollapse();
-    const [forceExpanded, setForceExpanded] = useState(false);
-    useEffect(() => {
-        // Tornati in cima (o scroll-up sotto soglia) → reset override.
-        if (!scrolled) setForceExpanded(false);
-    }, [scrolled]);
-    const shrink = scrolled && !forceExpanded;
+    // Shrink-on-scroll: segue DIRETTAMENTE la posizione di scroll (bidirezionale) dal
+    // segnale esistente useScrollCollapse. Niente override "forceExpanded": evitava lo
+    // shrink finché non si tornava in cima (bug: dopo un tap mid-scroll lo shrink non
+    // ripartiva → intermittenza). Il tap su una tab fa già scrollare a top → riespande.
+    const shrink = useScrollCollapse();
 
     const handleTab = (tab: HubTab) => {
-        setForceExpanded(true);
         if (tab === "reviews" && reviewDot) onReviewDotDismiss?.();
         onTabChange(tab);
     };
 
     const handleCart = () => {
-        setForceExpanded(true);
         onOpenCart();
     };
 
@@ -146,7 +141,7 @@ export default function PublicBottomBar({
                         aria-label={t("fab.cart_aria")}
                         onClick={handleCart}
                     >
-                        <ShoppingBag size={22} strokeWidth={1.9} />
+                        <ShoppingBag size={19} strokeWidth={1.9} />
                         {selectionCount > 0 && (
                             <span className={styles.badge}>{selectionCount}</span>
                         )}

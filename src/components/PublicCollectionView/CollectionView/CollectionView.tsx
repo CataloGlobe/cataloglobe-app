@@ -2201,26 +2201,35 @@ export default function CollectionView({
             )}
 
             {activeTab === "events" && (
-                <div className={styles.frame}>
-                    <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} />
+                // Bottom-bar mode: niente chips hub nell'header e niente CollectionSectionNav qui.
+                // È lo sfondo crema del contenuto stesso (.tabSurface, full-bleed + z-index) a partire
+                // dal bordo basso dell'header e tagliare l'hero — con un piccolo top-padding voluto,
+                // senza la fascia crema vuota da 64px.
+                <div className={useBottomBar ? styles.tabSurface : undefined}>
+                    <div className={styles.frame}>
+                        <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} />
+                    </div>
                 </div>
             )}
 
             {activeTab === "reviews" && reviewsProps && (
                 <Suspense fallback={null}>
-                    <ReviewsView
-                        {...reviewsProps}
-                        onReviewSubmitted={() => {
-                            // Nascondi FAB e salva timestamp per sopprimerlo per 24h
-                            setValutaVisible(false);
-                            valutaEligibleRef.current = false;
-                            if (activityId) {
-                                try {
-                                    localStorage.setItem(`fab_reviewed_${activityId}`, Date.now().toString());
-                                } catch { /* Safari private mode */ }
-                            }
-                        }}
-                    />
+                    {/* Stesso meccanismo di Eventi: lo sfondo crema del contenuto taglia l'hero. */}
+                    <div className={useBottomBar ? styles.tabSurface : undefined}>
+                        <ReviewsView
+                            {...reviewsProps}
+                            onReviewSubmitted={() => {
+                                // Nascondi FAB e salva timestamp per sopprimerlo per 24h
+                                setValutaVisible(false);
+                                valutaEligibleRef.current = false;
+                                if (activityId) {
+                                    try {
+                                        localStorage.setItem(`fab_reviewed_${activityId}`, Date.now().toString());
+                                    } catch { /* Safari private mode */ }
+                                }
+                            }}
+                        />
+                    </div>
                 </Suspense>
             )}
 
