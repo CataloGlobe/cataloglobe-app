@@ -11,10 +11,10 @@ import CollectionView, {
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import type { HubTab } from "@/types/collectionStyle";
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
-import type { OpeningHoursEntry, UpcomingClosure } from "@/components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
-import type { ActivityFee } from "@/types/activity";
 import type { OrderingStateReason } from "@/types/orders";
-import { VERTICAL_CONFIG, type VerticalType } from "@/constants/verticalTypes";
+import { VERTICAL_CONFIG } from "@/constants/verticalTypes";
+import type { ResolvedPayloadShape } from "@/types/publicCatalog";
+import { derivePageState, resolveRedirect, type PageState } from "./derivePageState";
 import { listAllAllergens, type Allergen } from "@/services/supabase/allergens";
 
 import { supabase } from "@/services/supabase/client";
@@ -38,7 +38,6 @@ import { getDisplayValue } from "@/utils/attributes";
 import { buildSingleFamilyFontUrl } from "@utils/publicFontUrl";
 import { isValidLangFormat } from "@/utils/lang";
 import { LanguageProvider } from "@context/Language/LanguageProvider";
-import type { AvailableLanguage } from "@context/Language/LanguageContext";
 import {
     CustomerSessionProvider,
     useCustomerSession
@@ -218,105 +217,8 @@ function mapCatalogToSectionGroups(resolved: ResolvedCollections): CollectionVie
    PAGE
 =============================================== */
 
-type PublicBusiness = {
-    id: string;
-    tenant_id: string;
-    name: string;
-    slug: string;
-    cover_image: string | null;
-    status: "active" | "inactive";
-    inactive_reason: "maintenance" | "closed" | "unavailable" | null;
-    /**
-     * Maintenance mode ordinazioni QR per-sede. Fonte di verita server-side
-     * via `resolve-public-catalog`. Quando `false`, frontend mostra UI
-     * read-only senza FAB/+/buttons. Backward compat: payload Redis snapshot
-     * pre-Fix 1 puo non avere il campo — consumer usa fallback `?? true`.
-     */
-    ordering_enabled: boolean;
-    /**
-     * Reservation form opt-in per-sede. Quando `true`, la route `/:slug/prenota`
-     * renderizza il form; quando `false`, mostra lo stato "reservations-disabled".
-     * Backward compat: payload stale (Redis/localStorage) pre-deploy non ha il
-     * campo → fallback `?? false` lato consumer (sede deve esplicitamente abilitarle).
-     */
-    enable_reservations: boolean;
-    address: string | null;
-    street_number: string | null;
-    postal_code: string | null;
-    city: string | null;
-    province: string | null;
-    instagram: string | null;
-    instagram_public: boolean;
-    facebook: string | null;
-    facebook_public: boolean;
-    whatsapp: string | null;
-    whatsapp_public: boolean;
-    website: string | null;
-    website_public: boolean;
-    phone: string | null;
-    phone_public: boolean;
-    email_public: string | null;
-    email_public_visible: boolean;
-    google_review_url: string | null;
-    /**
-     * Toggle del proprietario per esporre gli orari di apertura nel footer
-     * della pagina menu. Quando `false`, il blocco PublicOpeningHours non
-     * viene renderizzato anche se `opening_hours` arriva nel payload (la
-     * resolve-public-catalog espone gli orari anche con `enable_reservations`
-     * attivo per consentire la validazione del form prenotazione, ma il menu
-     * deve continuare a rispettare la scelta di nascondere).
-     */
-    hours_public: boolean;
-    payment_methods: string[];
-    services: string[];
-    fees: ActivityFee[];
-};
-
-type PageState =
-    | { status: "loading" }
-    | { status: "error"; messageKey: string }
-    | { status: "domain_error"; code: string }
-    | { status: "inactive"; inactiveReason: string | null }
-    | { status: "subscription_inactive" }
-    | {
-          status: "ready";
-          business: PublicBusiness;
-          resolved: ResolvedCollections;
-          tenantLogoUrl: string | null;
-          openingHours?: OpeningHoursEntry[];
-          upcomingClosures?: UpcomingClosure[];
-          allergens: Allergen[] | null;
-          effectiveLanguage: string;
-          baseLanguage: string;
-          availableLanguages: AvailableLanguage[];
-          isRefetching?: boolean;
-          /** True quando il payload corrente è "stale":
-              - proviene dalla cache localStorage (fallback offline), OPPURE
-              - proviene da snapshot Redis lato server (header
-                `x-cataloglobe-source: stale`).
-              In entrambi i casi il banner ambra è mostrato. */
-          isStale?: boolean;
-      }
-    | {
-          status: "empty";
-          business: PublicBusiness;
-          tenantLogoUrl: string | null;
-      };
-
-type ResolvedPayloadShape = {
-    business: PublicBusiness;
-    tenantLogoUrl: string | null;
-    resolved: ResolvedCollections;
-    subscription_inactive?: boolean;
-    canonical_slug?: string | null;
-    base_language_code?: string | null;
-    effective_language?: string | null;
-    available_languages?: AvailableLanguage[];
-    lang_unsupported?: boolean;
-    opening_hours?: OpeningHoursEntry[];
-    upcoming_closures?: UpcomingClosure[];
-    vertical_type?: VerticalType | null;
-};
+// PublicBusiness + ResolvedPayloadShape promossi a src/types/publicCatalog.ts;
+// PageState + derivazione pura in ./derivePageState.ts (SSR stage 3, step 1).
 
 // ── Maintenance message centralization ───────────────────────────────────
 // Centralizza i testi user-facing per reason di ordering maintenance.
@@ -504,69 +406,40 @@ export default function PublicCollectionPage() {
         let cancelled = false;
 
         /**
-         * Processa un payload (fresco o cachato) verso uno PageState. Eventuali
-         * redirect (alias slug, lang non supportata) avvengono solo quando il
-         * payload è fresco — su cache stale i redirect sono già stati risolti
-         * al momento in cui il payload fu salvato.
+         * Processa un payload (fresco o cachato) verso uno PageState.
+         * Orchestrazione: redirect (intento da resolveRedirect, solo payload
+         * fresco) → allergeni (fetch gated, solo se il payload arriva a
+         * "ready") → stato (derivePageState puro) → cache write.
          */
         async function processPayload(
             payload: PublicCatalogPayload,
             opts: { fromCache: boolean; isSimulate: boolean; source: CatalogSource }
         ): Promise<void> {
-            const {
-                business,
-                tenantLogoUrl,
-                resolved,
-                subscription_inactive,
-                canonical_slug,
-                base_language_code,
-                effective_language,
-                available_languages,
-                lang_unsupported,
-                opening_hours,
-                upcoming_closures,
-                vertical_type
-            } = payload as unknown as ResolvedPayloadShape;
+            // Unico punto di cast del payload opaco alla shape tipizzata.
+            const typedPayload = payload as unknown as ResolvedPayloadShape;
 
-            if (!opts.fromCache) {
-                if (canonical_slug && canonical_slug !== slug) {
-                    navigate(`/${canonical_slug}`, { replace: true });
-                    return;
-                }
-                if (lang_unsupported) {
-                    navigate(`/${slug}`, { replace: true });
-                    return;
-                }
-                if (validatedLang && base_language_code && validatedLang === base_language_code) {
-                    navigate(`/${slug}`, { replace: true });
-                    return;
-                }
-            }
-
-            if (subscription_inactive) {
-                setState({ status: "subscription_inactive" });
+            const redirectTo = resolveRedirect(typedPayload, {
+                fromCache: opts.fromCache,
+                slug: slug!,
+                requestedLang: validatedLang
+            });
+            if (redirectTo) {
+                navigate(redirectTo, { replace: true });
                 return;
             }
 
-            if (business.status !== "active") {
-                setState({
-                    status: "inactive",
-                    inactiveReason: business.inactive_reason ?? null
-                });
+            // Primo pass senza allergeni: decide se il payload arriva a
+            // "ready". Evita il fetch allergeni su inactive/subscription/empty
+            // (come oggi: in processPayload il fetch stava DOPO quegli early
+            // return). derivePageState è pura → richiamarla è gratis.
+            const probe = derivePageState(typedPayload, null);
+            if (probe.status !== "ready") {
+                setState(probe);
                 return;
             }
 
-            if (
-                !resolved.catalog &&
-                (!resolved.featured?.before_catalog || resolved.featured.before_catalog.length === 0) &&
-                (!resolved.featured?.after_catalog || resolved.featured.after_catalog.length === 0)
-            ) {
-                setState({ status: "empty", business, tenantLogoUrl });
-                return;
-            }
-
-            const showAllergens = vertical_type
-                ? VERTICAL_CONFIG[vertical_type]?.productSections.allergens === true
+            const showAllergens = typedPayload.vertical_type
+                ? VERTICAL_CONFIG[typedPayload.vertical_type]?.productSections.allergens === true
                 : false;
             let allergens: Allergen[] | null = null;
             if (showAllergens) {
@@ -579,38 +452,16 @@ export default function PublicCollectionPage() {
                 if (cancelled) return;
             }
 
-            const baseLang = base_language_code ?? "it";
-            const effectiveLang = effective_language ?? baseLang;
-            const availLangs: AvailableLanguage[] = available_languages && available_languages.length > 0
-                ? available_languages
-                : [{ code: baseLang, name_native: "Italiano", flag_emoji: null }];
-
             const isStale = opts.fromCache || opts.source === "stale";
 
-            // Honor business.hours_public for the menu page rendering. The
-            // resolve-public-catalog edge function ships opening_hours +
-            // upcoming_closures whenever (hours_public || enable_reservations)
-            // is true so the public reservation form can validate against the
-            // schedule. The menu, however, must NOT surface those when the
-            // venue opted to hide them via hours_public=false.
-            const menuHoursVisible = business.hours_public === true;
-            const menuOpeningHours = menuHoursVisible ? opening_hours : undefined;
-            const menuUpcomingClosures = menuHoursVisible ? upcoming_closures : undefined;
-
-            setState({
-                status: "ready",
-                business,
-                resolved,
-                tenantLogoUrl,
-                openingHours: menuOpeningHours,
-                upcomingClosures: menuUpcomingClosures,
-                allergens,
-                effectiveLanguage: effectiveLang,
-                baseLanguage: baseLang,
-                availableLanguages: availLangs,
-                isRefetching: false,
-                isStale
-            });
+            const next = derivePageState(typedPayload, allergens);
+            if (next.status === "ready") {
+                setState({ ...next, isRefetching: false, isStale });
+            } else {
+                // Difensivo: derivePageState è pura, stesso payload del probe
+                // → non può cambiare status. Mai raggiunto.
+                setState(next);
+            }
 
             // Cache solo payload "healthy" provenienti da risposta LIVE (non stale).
             // Skip per:
