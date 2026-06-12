@@ -25,6 +25,9 @@ export type EventType =
 const SESSION_ID = crypto.randomUUID();
 
 function getDeviceType(): "mobile" | "tablet" | "desktop" {
+    // SSR: modulo importato anche server-side (albero CollectionView), dove
+    // window non esiste. trackEvent gira comunque solo client-side.
+    if (typeof window === "undefined") return "desktop";
     const w = window.innerWidth;
     if (w < 768) return "mobile";
     if (w <= 1024) return "tablet";
@@ -32,7 +35,7 @@ function getDeviceType(): "mobile" | "tablet" | "desktop" {
 }
 
 const DEVICE_TYPE = getDeviceType();
-const SCREEN_WIDTH = window.innerWidth;
+const SCREEN_WIDTH = typeof window === "undefined" ? 0 : window.innerWidth;
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ENDPOINT = `${SUPABASE_URL}/functions/v1/log-analytics-event`;

@@ -766,7 +766,12 @@ export default function CollectionView({
     );
     const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
     const pageRef = useRef<HTMLElement | null>(null);
-    const containerRef = useRef<HTMLElement | Window>(window);
+    // SSR: window non esiste server-side → null iniziale. Client-side parte da
+    // window (identico a prima) e l'effect di scroll-detection lo rimpiazza col
+    // container reale; i consumer (scroll handler, solo client) hanno null-guard.
+    const containerRef = useRef<HTMLElement | Window | null>(
+        typeof window === "undefined" ? null : window
+    );
     const pendingScrollTargetIdRef = useRef<string | null>(null);
     const safetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [selectedItem, setSelectedItem] = useState<CollectionViewSectionItem | null>(null);
@@ -1605,6 +1610,7 @@ export default function CollectionView({
 
         const scrollOffset = HEADER_HEIGHT + NAV_HEIGHT + VISUAL_GAP;
         const container = containerRef.current;
+        if (!container) return;
 
         if (container === window) {
             const top = el.getBoundingClientRect().top + window.scrollY - scrollOffset;
@@ -1696,6 +1702,7 @@ export default function CollectionView({
 
             const scrollOffset = HEADER_HEIGHT + NAV_HEIGHT + VISUAL_GAP;
             const container = containerRef.current;
+            if (!container) return;
 
             if (container === window) {
                 const top = el.getBoundingClientRect().top + window.scrollY - scrollOffset;
