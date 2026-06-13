@@ -49,6 +49,9 @@ skills-lock.json
 # Tool artifacts
 .playwright-mcp/
 
+# SSR spike scratch (harness + probes — kept on disk, not tracked)
+spike-ssr/
+
 # Internal planning docs
 docs/superpowers/
 FASE_*.md
