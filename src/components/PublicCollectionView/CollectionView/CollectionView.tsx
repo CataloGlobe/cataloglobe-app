@@ -30,8 +30,10 @@ import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
 import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
 
-// Lazy-loaded: si aprono solo su interazione utente
-const SearchOverlay = lazy(() => import("../SearchOverlay/SearchOverlay"));
+// Lazy-loaded: si aprono solo su interazione utente.
+// Factory estratta per consentire il preload idle e onPointerDown.
+const importSearchOverlay = () => import("../SearchOverlay/SearchOverlay");
+const SearchOverlay = lazy(importSearchOverlay);
 const ItemDetail = lazy(() => import("../ItemDetail/ItemDetail"));
 const OrderingSheet = lazy(() => import("../OrderingSheet/OrderingSheet"));
 const ReviewsView = lazy(() => import("../ReviewsView/ReviewsView"));
@@ -785,6 +787,30 @@ export default function CollectionView({
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const handleOpenSearch = useCallback(() => setIsSearchOpen(true), []);
     const handleCloseSearch = useCallback(() => setIsSearchOpen(false), []);
+    // Prefetch del chunk SearchOverlay su pointerdown del bottone header:
+    // il pointerdown precede il click, il chunk arriva prima del tap-up.
+    const handleSearchPrefetch = useCallback(() => {
+        void importSearchOverlay();
+    }, []);
+
+    // Preload idle del chunk SearchOverlay (solo public). requestIdleCallback
+    // non disponibile su Safari iOS < 17.4 → fallback setTimeout 200ms.
+    useEffect(() => {
+        if (mode === "preview") return;
+        const ric = (window as Window & {
+            requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+            cancelIdleCallback?: (id: number) => void;
+        }).requestIdleCallback;
+        const cic = (window as Window & {
+            cancelIdleCallback?: (id: number) => void;
+        }).cancelIdleCallback;
+        if (typeof ric === "function") {
+            const id = ric(() => { void importSearchOverlay(); }, { timeout: 1500 });
+            return () => { cic?.(id); };
+        }
+        const id = window.setTimeout(() => { void importSearchOverlay(); }, 200);
+        return () => window.clearTimeout(id);
+    }, [mode]);
 
     // Cmd+F (Mac) / Ctrl+F (Win/Linux) apre la ricerca interna invece della find del browser
     useEffect(() => {
@@ -1855,6 +1881,7 @@ export default function CollectionView({
                     showLogo={style.showLogo}
                     mode={mode}
                     onSearchOpen={mode !== "preview" ? handleOpenSearch : undefined}
+                    onSearchPointerDown={mode !== "preview" ? handleSearchPrefetch : undefined}
                     scrollContainerEl={scrollContainerEl}
                     viewportWidthEl={viewportWidthEl}
                     headerRadius={style.appearanceRadius}
@@ -1866,12 +1893,17 @@ export default function CollectionView({
                 />
             )}
 
-            {/* ── SEARCH OVERLAY — nascosta in preview, lazy al primo click ── */}
+            {/* ── SEARCH OVERLAY — nascosta in preview, lazy al primo click ──
+                Suspense FUORI da AnimatePresence: il chunk lazy viene caricato
+                una sola volta. AnimatePresence con SearchOverlay come direct
+                child (key stabile) → l'exit anim (opacity sul root motion.div)
+                viene eseguita prima dell'unmount. */}
             {mode !== "preview" && (
-                <AnimatePresence>
-                    {isSearchOpen && (
-                        <Suspense fallback={null}>
+                <Suspense fallback={null}>
+                    <AnimatePresence>
+                        {isSearchOpen && (
                             <SearchOverlay
+                                key="search"
                                 isOpen={isSearchOpen}
                                 onClose={handleCloseSearch}
                                 sections={sections}
@@ -1879,9 +1911,9 @@ export default function CollectionView({
                                 mode={mode}
                                 activityId={activityId}
                             />
-                        </Suspense>
-                    )}
-                </AnimatePresence>
+                        )}
+                    </AnimatePresence>
+                </Suspense>
             )}
 
             {/* ── INFO SHEET ── */}
@@ -2297,6 +2329,7 @@ export default function CollectionView({
                         setValutaVisible(false);
                         valutaEligibleRef.current = false;
                     }}
+                    isSheetOpen={!!selectedItem || isOrderingOpen}
                 />
             )}
 

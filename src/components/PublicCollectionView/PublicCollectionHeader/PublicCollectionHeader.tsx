@@ -45,6 +45,9 @@ export type PublicCollectionHeaderProps = {
     mode: "public" | "preview";
     /** Apre il SearchOverlay. Undefined in preview — nasconde i pulsanti di ricerca. */
     onSearchOpen?: () => void;
+    /** Prefetch del chunk SearchOverlay su pointerdown del bottone (toglie
+     *  latenza al primo open: il chunk arriva prima del tap-up). Undefined in preview. */
+    onSearchPointerDown?: () => void;
     /** Scroll container della preview (deviceScreen). Non usato in public. */
     scrollContainerEl?: HTMLElement | null;
     /** Elemento di riferimento per misurare la larghezza viewport nella preview.
@@ -82,6 +85,7 @@ export default function PublicCollectionHeader({
     showLogo,
     mode,
     onSearchOpen,
+    onSearchPointerDown,
     scrollContainerEl,
     viewportWidthEl,
     headerRadius,
@@ -285,6 +289,7 @@ export default function PublicCollectionHeader({
                                 type="button"
                                 className={styles.iconBtn}
                                 onClick={onSearchOpen}
+                                onPointerDown={onSearchPointerDown}
                                 aria-label={t("header.search_aria")}
                             >
                                 <Search size={15} strokeWidth={2} />
