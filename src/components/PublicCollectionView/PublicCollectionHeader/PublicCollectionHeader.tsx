@@ -219,7 +219,6 @@ export default function PublicCollectionHeader({
                             alt=""
                             role="presentation"
                             className={styles.coverImg}
-                            fetchPriority="high"
                             decoding="async"
                             width={1920}
                             height={1080}

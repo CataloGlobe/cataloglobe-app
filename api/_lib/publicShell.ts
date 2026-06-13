@@ -36,6 +36,10 @@ export type PublicShellPayload = {
     tenantLogoUrl?: string | null;
     resolved?: {
         style?: { config?: { typography?: { fontFamily?: unknown } } | null } | null;
+        featured?: {
+            before_catalog?: Array<{ media_id?: string | null }> | null;
+            after_catalog?: Array<{ media_id?: string | null }> | null;
+        } | null;
     } | null;
 };
 
@@ -152,6 +156,23 @@ export function applyTenantHead(
         extra.push(`<meta property="og:image" content="${safeCover}" />`);
         extra.push(`<meta name="twitter:image" content="${safeCover}" />`);
         extra.push(`<link rel="preload" as="image" href="${safeCover}" fetchpriority="high" />`);
+    }
+
+    // Logo (sopra la fold, non LCP — nessun fetchpriority).
+    const logoUrl = payload.tenantLogoUrl;
+    if (logoUrl && /^https?:\/\//.test(logoUrl)) {
+        extra.push(`<link rel="preload" as="image" href="${escapeHtml(logoUrl)}" />`);
+    }
+
+    // Featured: immagini above-fold (before_catalog + after_catalog, max 3).
+    const beforeCatalog = payload.resolved?.featured?.before_catalog ?? [];
+    const afterCatalog = payload.resolved?.featured?.after_catalog ?? [];
+    const featuredUrls = [...beforeCatalog, ...afterCatalog]
+        .filter(b => b?.media_id && /^https?:\/\//.test(b.media_id))
+        .slice(0, 3)
+        .map(b => escapeHtml(b.media_id!));
+    for (const url of featuredUrls) {
+        extra.push(`<link rel="preload" as="image" href="${url}" fetchpriority="high" />`);
     }
 
     if (extra.length > 0) {
