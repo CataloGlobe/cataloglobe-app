@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { AnimatePresence, animate, motion, useMotionValue, useTransform, useDragControls } from "framer-motion";
+import { AnimatePresence, animate, motion, useMotionValue, useTransform, useDragControls, useReducedMotion } from "framer-motion";
 import styles from "./PublicSheet.module.scss";
 
 function useIsMobile(breakpoint = 640) {
@@ -36,11 +36,34 @@ type Props = {
      * Se omesso (undefined), comportamento byte-identico a prima.
      */
     contentKey?: string;
+    /**
+     * Opzionale: placeholder leggero (della forma del contenuto finale) renderizzato
+     * SOLO su mobile DURANTE l'animazione d'ingresso. Il contenuto vero (`children`,
+     * spesso pesante: immagini/liste) viene montato a fine transizione → niente
+     * contesa main-thread durante la traslazione → ingresso fluido. Se omesso, i
+     * children montano subito (comportamento invariato, nessun deferral).
+     */
+    skeleton?: React.ReactNode;
 };
 
-export default function PublicSheet({ isOpen, onClose, children, ariaLabel, headerContent, contentKey }: Props) {
+export default function PublicSheet({ isOpen, onClose, children, ariaLabel, headerContent, contentKey, skeleton }: Props) {
     const isMobile = useIsMobile();
     const dragControls = useDragControls();
+    const prefersReducedMotion = useReducedMotion();
+
+    // ── Mount deferito del contenuto (solo mobile, opt-in via `skeleton`) ────────
+    // Durante l'entrata mostra lo skeleton; monta `children` a fine spring così il
+    // paint del contenuto pesante non contende il main thread con l'animazione.
+    const [contentReady, setContentReady] = useState(false);
+    // `skeleton` è JSX inline (nuova identità ad ogni render del consumer): NON va nelle
+    // dipendenze degli effect, altrimenti l'open effect ri-parte ad ogni render e resetta
+    // contentReady. Usiamo solo il boolean di presenza, stabile.
+    const hasSkeleton = !!skeleton;
+    const deferContent = isMobile && hasSkeleton && !prefersReducedMotion;
+    // Reset ad ogni chiusura: la prossima apertura ri-deferisce.
+    useEffect(() => {
+        if (!isOpen) setContentReady(false);
+    }, [isOpen]);
 
     // ── Mobile: motion value drives BOTH drag and programmatic animation ────
     // Drag e animazione scrivono sullo stesso valore → nessun conflitto di posizione.
@@ -192,16 +215,28 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
         if (!isOpen) return;
 
         if (isMobile) {
+            if (prefersReducedMotion) {
+                // Reduced motion: apertura istantanea, niente spring, contenuto subito.
+                y.set(0);
+                setShouldRender(true);
+                setContentReady(true);
+                return;
+            }
             // Posiziona il panel sotto lo schermo, poi anima verso l'alto
             y.set(window.innerHeight);
             setShouldRender(true);
+            // Se non c'è skeleton il contenuto monta subito (nessun deferral).
+            setContentReady(!hasSkeleton);
             requestAnimationFrame(() => {
-                animate(y, 0, { type: "spring", damping: 32, stiffness: 320 });
+                animate(y, 0, { type: "spring", damping: 32, stiffness: 320 }).then(() => {
+                    // Settle concluso: monta il contenuto vero (no-op se già pronto).
+                    if (isMountedRef.current) setContentReady(true);
+                });
             });
         } else {
             setShouldRender(true);
         }
-    }, [isOpen, isMobile, y]);
+    }, [isOpen, isMobile, y, hasSkeleton, prefersReducedMotion]);
 
     // ── Animate-out mobile — estratto per riuso (triggerClose + external close) ─
     // Esegue SOLO la sequenza pointer-events off → body lock release → spring
@@ -394,7 +429,7 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                         {headerContent}
                     </div>
                 )}
-                {children}
+                {deferContent && !contentReady ? skeleton : children}
             </motion.div>
         </div>
     );

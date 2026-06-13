@@ -532,3 +532,30 @@
         cursor: not-allowed;
     }
 }
+
+/* ── Skeleton d'ingresso (mount deferito) — approssima il footprint del contenuto ── */
+%skelBlock {
+    background: color-mix(in srgb, var(--pub-text) 8%, var(--pub-surface));
+    border-radius: 6px;
+}
+.skelTitle {
+    @extend %skelBlock;
+    height: 22px;
+    width: 45%;
+    border-radius: 7px;
+}
+.skelLine {
+    @extend %skelBlock;
+    height: 14px;
+}
+.skelLineShort {
+    @extend %skelBlock;
+    height: 14px;
+    width: 60%;
+}
+.skelOptions {
+    @extend %skelBlock;
+    height: 96px;
+    border-radius: 10px;
+    margin-top: 0.5rem;
+}
