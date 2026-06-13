@@ -2201,11 +2201,10 @@ export default function CollectionView({
             )}
 
             {activeTab === "events" && (
-                // Bottom-bar mode: niente chips hub nell'header e niente CollectionSectionNav qui.
-                // È lo sfondo crema del contenuto stesso (.tabSurface, full-bleed + z-index) a partire
-                // dal bordo basso dell'header e tagliare l'hero — con un piccolo top-padding voluto,
-                // senza la fascia crema vuota da 64px.
-                <div className={useBottomBar ? styles.tabSurface : undefined}>
+                // Bottom-bar mode: niente CollectionSectionNav qui. Il contenuto sta sulla STESSA
+                // superficie a pattern del Menu (.tabPatternSurface, full-bleed + z-index) che taglia
+                // l'hero al bordo basso dell'header. Padding-top piccolo, niente fascia crema piatta.
+                <div className={useBottomBar ? styles.tabPatternSurface : undefined}>
                     <div className={styles.frame}>
                         <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} />
                     </div>
@@ -2214,8 +2213,8 @@ export default function CollectionView({
 
             {activeTab === "reviews" && reviewsProps && (
                 <Suspense fallback={null}>
-                    {/* Stesso meccanismo di Eventi: lo sfondo crema del contenuto taglia l'hero. */}
-                    <div className={useBottomBar ? styles.tabSurface : undefined}>
+                    {/* Stesso meccanismo di Eventi: superficie a pattern che taglia l'hero. */}
+                    <div className={useBottomBar ? styles.tabPatternSurface : undefined}>
                         <ReviewsView
                             {...reviewsProps}
                             onReviewSubmitted={() => {
