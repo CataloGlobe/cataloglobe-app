@@ -1,0 +1,230 @@
+// Selettore condiviso piano + sedi. Stili portati 1:1 da
+// CreateBusinessWizard.module.scss (Step 2) per resa identica in onboarding.
+
+.root {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Plan cards
+// ──────────────────────────────────────────────────────────────────────────────
+
+.planGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+
+    @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.planCard {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px;
+    text-align: left;
+    background-color: var(--card-bg, #ffffff);
+    border: 2px solid var(--border, #e2e8f0);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+    appearance: none;
+    font-family: inherit;
+    color: inherit;
+
+    &:hover:not(.planCardSelected) {
+        border-color: #cbd5e1;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary, #6366f1);
+        outline-offset: 2px;
+    }
+}
+
+.planCardSelected {
+    border-color: var(--brand-primary, #6366f1);
+    background-color: var(--brand-primary-soft, rgba(99, 102, 241, 0.1));
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+}
+
+.planBadge {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background-color: var(--brand-primary-soft, rgba(99, 102, 241, 0.15));
+    color: var(--brand-primary, #6366f1);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.planName {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text, #0f172a);
+}
+
+.planPrice {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.planPriceValue {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text, #0f172a);
+    line-height: 1;
+}
+
+.planPriceUnit {
+    font-size: 13px;
+    color: #64748b;
+}
+
+.planDescription {
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.5;
+}
+
+.planFeatures {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.planFeature {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13px;
+    color: #334155;
+    line-height: 1.45;
+}
+
+.planFeatureIcon {
+    flex-shrink: 0;
+    color: var(--color-green-500, #10b981);
+    margin-top: 1px;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Seats panel
+// ──────────────────────────────────────────────────────────────────────────────
+
+.seatsPanel {
+    background-color: var(--bg, #f8fafc);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.seatsHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.seatsHint {
+    color: #64748b;
+    font-size: 13px;
+}
+
+.seatsRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.seatsUnit {
+    color: #64748b;
+    font-size: 14px;
+}
+
+.breakdownBox {
+    background-color: var(--card-bg, #ffffff);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.breakdownRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: #334155;
+    padding: 2px 0;
+}
+
+.breakdownLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.breakdownDiscountChip {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-green-900, #14532d);
+    background-color: var(--color-green-50, #f0fdf4);
+    border: 1px solid var(--color-green-200, #bbf7d0);
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+.breakdownTotalRow {
+    border-top: 1px solid var(--border, #e2e8f0);
+    margin-top: 4px;
+    padding-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text, #0f172a);
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Over-limit warning
+// ──────────────────────────────────────────────────────────────────────────────
+
+.overLimit {
+    background-color: var(--color-warning-50, #fffbeb);
+    border: 1px solid var(--color-warning-200, #fde68a);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.overLimitTitle {
+    color: var(--color-warning-700, #b45309);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.overLimitText {
+    color: var(--color-warning-700, #b45309);
+    font-size: 13px;
+    line-height: 1.5;
+}
