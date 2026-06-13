@@ -175,6 +175,55 @@
     font-size: 13px;
 }
 
+// Flusso "Modifica piano" self-service (drawer)
+.changeBody {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.changeWarning {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background-color: var(--color-warning-50, #fffbeb);
+    border: 1px solid var(--color-warning-200, #fde68a);
+    color: var(--color-warning-700, #b45309);
+}
+
+.changeError {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: #dc2626;
+}
+
+.confirmBox {
+    background-color: var(--hover-bg, #f8fafc);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 12px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.confirmRow {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.confirmDivider {
+    height: 1px;
+    background-color: var(--border, #e2e8f0);
+    margin: 4px 0;
+}
+
 @media (max-width: 640px) {
     .summaryGrid {
         grid-template-columns: 1fr;

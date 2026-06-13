@@ -2,18 +2,28 @@ import { useEffect, useMemo, useState } from "react";
 import { useTenant } from "@/context/useTenant";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useToast } from "@/context/Toast/ToastContext";
-import { createCheckoutSession, createPortalSession } from "@/services/supabase/billing";
-import { getPlanByCode } from "@/services/supabase/plans";
+import {
+    createCheckoutSession,
+    createPortalSession,
+    previewSubscriptionChange,
+    commitSubscriptionChange
+} from "@/services/supabase/billing";
+import type { SubscriptionChangePreview } from "@/services/supabase/billing";
+import { getPlanByCode, listPublicPlans } from "@/services/supabase/plans";
+import { getActivityCount } from "@/services/supabase/activities";
 import { calculateGraduatedFromPlan } from "@/utils/pricing";
 import { canDoOnTenant } from "@/lib/permissions";
 import { usePermissions } from "@/context/PermissionsContext";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { PlanSeatsSelector } from "@/components/ui/PlanSeatsSelector/PlanSeatsSelector";
+import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
-import { ExternalLink, CreditCard, Shield, Lock, Info, Mail } from "lucide-react";
-import type { Plan } from "@/types/plan";
+import { ExternalLink, CreditCard, Shield, Lock, Info, Mail, Pencil, AlertTriangle } from "lucide-react";
+import type { Plan, PlanCode } from "@/types/plan";
 import styles from "./SubscriptionPage.module.scss";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "primary" | "warning" | "danger" }> = {
@@ -25,13 +35,33 @@ const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "prima
 };
 
 const CHANGE_PLAN_EMAIL = "support@cataloglobe.com";
+const CHANGE_PLAN_MAILTO = `mailto:${CHANGE_PLAN_EMAIL}?subject=${encodeURIComponent("Cambio piano CataloGlobe")}`;
 
 function formatEuro(value: number): string {
     return `€${value.toFixed(2).replace(".", ",")}`;
 }
 
+function formatCents(cents: number): string {
+    return formatEuro(cents / 100);
+}
+
+/** Traduce i codici d'errore dell'edge di cambio abbonamento in messaggi UI. */
+function mapChangeError(err: unknown, activityCount: number, cap: number): string {
+    const name = err instanceof Error ? err.name : "";
+    switch (name) {
+        case "SEATS_BELOW_ACTIVITIES":
+            return `Non puoi scendere sotto il numero di sedi della tua attività (${activityCount}).`;
+        case "SEATS_OVER_SELF_SERVICE":
+            return `Oltre ${cap} sedi serve un piano dedicato: contatta l'assistenza.`;
+        case "NO_CHANGE":
+            return "Non hai selezionato alcuna modifica.";
+        default:
+            return "Si è verificato un errore. Riprova.";
+    }
+}
+
 export default function SubscriptionPage() {
-    const { selectedTenant, loading } = useTenant();
+    const { selectedTenant, loading, refreshTenants } = useTenant();
     const { permissions, loading: permissionsLoading } = usePermissions();
     const canReadBilling = permissions ? canDoOnTenant(permissions, "billing.read") : false;
     const canManageBilling = permissions ? canDoOnTenant(permissions, "billing.manage") : false;
@@ -43,6 +73,18 @@ export default function SubscriptionPage() {
     const [portalLoading, setPortalLoading] = useState(false);
     const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
 
+    // --- Stato flusso "Modifica piano" self-service ---
+    const [plans, setPlans] = useState<Plan[]>([]);
+    const [activityCount, setActivityCount] = useState(0);
+    const [isChangeOpen, setIsChangeOpen] = useState(false);
+    const [changeStep, setChangeStep] = useState<"select" | "confirm">("select");
+    const [draftPlan, setDraftPlan] = useState<PlanCode>("base");
+    const [draftSeats, setDraftSeats] = useState(1);
+    const [preview, setPreview] = useState<SubscriptionChangePreview | null>(null);
+    const [previewLoading, setPreviewLoading] = useState(false);
+    const [commitLoading, setCommitLoading] = useState(false);
+    const [changeError, setChangeError] = useState<string | null>(null);
+
     useEffect(() => {
         if (!selectedTenant?.plan) return;
         getPlanByCode(selectedTenant.plan)
@@ -52,6 +94,20 @@ export default function SubscriptionPage() {
                 setCurrentPlan(null);
             });
     }, [selectedTenant?.plan]);
+
+    // Carica piani + conteggio sedi (per le card del selettore e il floor).
+    useEffect(() => {
+        if (!selectedTenant?.id || !canManageBilling) return;
+        listPublicPlans()
+            .then(setPlans)
+            .catch(err => {
+                console.error("[SubscriptionPage] plans list failed:", err);
+                setPlans([]);
+            });
+        getActivityCount(selectedTenant.id)
+            .then(setActivityCount)
+            .catch(err => console.error("[SubscriptionPage] activity count failed:", err));
+    }, [selectedTenant?.id, canManageBilling]);
 
     usePageHeader({
         title: "Abbonamento",
@@ -67,6 +123,19 @@ export default function SubscriptionPage() {
         if (!currentPlan) return { lines: [], subtotal: 0, fullPrice: 0, discountedPrice: 0 };
         return calculateGraduatedFromPlan(currentPlan, paidSeats);
     }, [currentPlan, paidSeats]);
+
+    // --- Derivati del flusso di cambio (sicuri anche prima del load) ---
+    const draftPlanObj = plans.find(p => p.code === draftPlan) ?? null;
+    const draftMaxSeats = draftPlanObj?.max_self_service_seats ?? 5;
+    const draftDiscount = draftPlanObj?.volume_discount_percent ?? 10;
+    const minSeats = Math.max(1, activityCount);
+    const selfServiceCap = currentPlan?.max_self_service_seats ?? 5;
+    const selfServiceEligible = activityCount <= selfServiceCap;
+
+    const draftBreakdown = useMemo(() => {
+        if (!draftPlanObj) return { lines: [], subtotal: 0, fullPrice: 0, discountedPrice: 0 };
+        return calculateGraduatedFromPlan(draftPlanObj, draftSeats);
+    }, [draftPlanObj, draftSeats]);
 
     if (loading || !selectedTenant) return null;
 
@@ -131,6 +200,80 @@ export default function SubscriptionPage() {
             setPortalLoading(false);
         }
     };
+
+    // --- Flusso "Modifica piano" ---
+    const openChange = () => {
+        setDraftPlan(selectedTenant.plan as PlanCode);
+        setDraftSeats(Math.max(1, paidSeats, activityCount));
+        setChangeStep("select");
+        setPreview(null);
+        setChangeError(null);
+        setIsChangeOpen(true);
+    };
+
+    const closeChange = () => {
+        if (commitLoading) return;
+        setIsChangeOpen(false);
+    };
+
+    const handleDraftPlan = (code: PlanCode) => {
+        setDraftPlan(code);
+        const cap = plans.find(p => p.code === code)?.max_self_service_seats ?? 5;
+        setDraftSeats(s => Math.min(Math.max(s, minSeats), cap));
+    };
+
+    const hasChange = draftPlan !== selectedTenant.plan || draftSeats !== paidSeats;
+    const isDowngradeToBase = draftPlan === "base" && selectedTenant.plan === "pro";
+
+    const handleContinue = async () => {
+        setPreviewLoading(true);
+        setChangeError(null);
+        try {
+            const result = await previewSubscriptionChange(selectedTenant.id, {
+                plan: draftPlan,
+                seats: draftSeats
+            });
+            setPreview(result);
+            setChangeStep("confirm");
+        } catch (err) {
+            setChangeError(mapChangeError(err, activityCount, draftMaxSeats));
+        } finally {
+            setPreviewLoading(false);
+        }
+    };
+
+    const handleCommit = async () => {
+        setCommitLoading(true);
+        setChangeError(null);
+        const downgrade = preview ? preview.effective !== "now" : isDowngradeToBase;
+        try {
+            await commitSubscriptionChange(selectedTenant.id, { plan: draftPlan, seats: draftSeats });
+            showToast({
+                message: downgrade
+                    ? "Cambio programmato: avrà effetto al prossimo rinnovo."
+                    : "Piano aggiornato.",
+                type: "success"
+            });
+            await refreshTenants();
+            setIsChangeOpen(false);
+        } catch (err) {
+            const name = err instanceof Error ? err.name : "";
+            if (name === "PAYMENT_FAILED") {
+                showToast({
+                    message: "Addebito non riuscito. Aggiorna il metodo di pagamento e riprova.",
+                    type: "error"
+                });
+                setChangeError("L'addebito è stato rifiutato. Aggiorna il metodo di pagamento dal portale di fatturazione.");
+            } else {
+                setChangeError(mapChangeError(err, activityCount, draftMaxSeats));
+            }
+        } finally {
+            setCommitLoading(false);
+        }
+    };
+
+    const targetPlanName = plans.find(p => p.code === draftPlan)?.name ?? draftPlan;
+    const previewIsDowngrade = preview ? preview.effective !== "now" : false;
 
     return (
         <div className={styles.page}>
@@ -212,18 +355,37 @@ export default function SubscriptionPage() {
 
                 {canManageBilling && !isTerminal && (
                     <div className={styles.contactRow}>
-                        <Text variant="body-sm" colorVariant="muted">
-                            Per cambiare piano o numero di sedi, scrivici.
-                        </Text>
-                        <Button
-                            as="a"
-                            href={`mailto:${CHANGE_PLAN_EMAIL}?subject=${encodeURIComponent("Cambio piano CataloGlobe")}`}
-                            variant="primary"
-                            size="sm"
-                            leftIcon={<Mail size={14} />}
-                        >
-                            Modifica piano
-                        </Button>
+                        {selfServiceEligible ? (
+                            <>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    Cambia piano o numero di sedi in autonomia.
+                                </Text>
+                                <Button
+                                    variant="primary"
+                                    size="sm"
+                                    onClick={openChange}
+                                    disabled={plans.length === 0}
+                                    leftIcon={<Pencil size={14} />}
+                                >
+                                    Modifica piano
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    Per la tua configurazione multi-sede, scrivici per modificare il piano.
+                                </Text>
+                                <Button
+                                    as="a"
+                                    href={CHANGE_PLAN_MAILTO}
+                                    variant="primary"
+                                    size="sm"
+                                    leftIcon={<Mail size={14} />}
+                                >
+                                    Contatta assistenza
+                                </Button>
+                            </>
+                        )}
                     </div>
                 )}
             </div>
@@ -303,6 +465,146 @@ export default function SubscriptionPage() {
             </div>
             )}
 
+            {/* --- Drawer "Modifica piano" self-service --- */}
+            <SystemDrawer open={isChangeOpen} onClose={closeChange} width={560}>
+                <DrawerLayout
+                    header={
+                        <Text variant="title-sm" weight={600}>
+                            {changeStep === "select" ? "Modifica piano e sedi" : "Conferma il cambio"}
+                        </Text>
+                    }
+                    footer={
+                        changeStep === "select" ? (
+                            <>
+                                <Button variant="secondary" onClick={closeChange}>
+                                    Annulla
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    onClick={handleContinue}
+                                    disabled={!hasChange}
+                                    loading={previewLoading}
+                                >
+                                    Continua
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setChangeStep("select")}
+                                    disabled={commitLoading}
+                                >
+                                    Indietro
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    onClick={handleCommit}
+                                    loading={commitLoading}
+                                >
+                                    {previewIsDowngrade ? "Programma il cambio" : "Conferma e paga"}
+                                </Button>
+                            </>
+                        )
+                    }
+                >
+                    {changeStep === "select" ? (
+                        <div className={styles.changeBody}>
+                            <PlanSeatsSelector
+                                plans={plans}
+                                planCode={draftPlan}
+                                onPlanChange={handleDraftPlan}
+                                seats={draftSeats}
+                                onSeatsChange={setDraftSeats}
+                                breakdown={draftBreakdown}
+                                discountPercent={draftDiscount}
+                                overLimit={false}
+                                maxSeats={draftMaxSeats}
+                                minSeats={minSeats}
+                                stepperMax={draftMaxSeats}
+                                disabled={previewLoading}
+                                footerHint={
+                                    draftSeats >= draftMaxSeats ? (
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Hai più di {draftMaxSeats} sedi?{" "}
+                                            <a href={CHANGE_PLAN_MAILTO}>Scrivici</a> per un&apos;offerta dedicata.
+                                        </Text>
+                                    ) : null
+                                }
+                            />
+
+                            {isDowngradeToBase && (
+                                <div className={styles.changeWarning}>
+                                    <AlertTriangle size={16} />
+                                    <Text variant="body-sm" weight={500}>
+                                        Passando a Base, ordini e prenotazioni da QR verranno disattivati al rinnovo.
+                                    </Text>
+                                </div>
+                            )}
+
+                            {changeError && (
+                                <Text variant="body-sm" className={styles.changeError}>
+                                    {changeError}
+                                </Text>
+                            )}
+                        </div>
+                    ) : (
+                        <div className={styles.changeBody}>
+                            {preview && (
+                                <div className={styles.confirmBox}>
+                                    {preview.effective === "now" ? (
+                                        <>
+                                            <div className={styles.confirmRow}>
+                                                <Text variant="body" weight={600}>Oggi paghi</Text>
+                                                <Text variant="title-sm" weight={700}>
+                                                    {formatCents(preview.chargeToday)}
+                                                </Text>
+                                            </div>
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                Importo riproporzionato per i giorni rimanenti del periodo in corso.
+                                            </Text>
+                                            <div className={styles.confirmDivider} />
+                                            <div className={styles.confirmRow}>
+                                                <Text variant="body-sm" colorVariant="muted">
+                                                    Dal {formatDate(preview.nextDate)}
+                                                </Text>
+                                                <Text variant="body" weight={600}>
+                                                    {formatCents(preview.nextAmount)}/mese
+                                                </Text>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className={styles.confirmRow}>
+                                                <Text variant="body" weight={600}>Oggi paghi</Text>
+                                                <Text variant="title-sm" weight={700}>€0,00</Text>
+                                            </div>
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                Il tuo piano passerà a {targetPlanName} il {formatDate(preview.nextDate)}.
+                                                Da quella data pagherai {formatCents(preview.nextAmount)}/mese.
+                                            </Text>
+                                            {isDowngradeToBase && (
+                                                <div className={styles.changeWarning}>
+                                                    <AlertTriangle size={16} />
+                                                    <Text variant="body-sm" weight={500}>
+                                                        Ordini e prenotazioni da QR verranno disattivati al rinnovo.
+                                                    </Text>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {changeError && (
+                                <Text variant="body-sm" className={styles.changeError}>
+                                    {changeError}
+                                </Text>
+                            )}
+                        </div>
+                    )}
+                </DrawerLayout>
+            </SystemDrawer>
         </div>
     );
 }
