@@ -183,6 +183,11 @@ export default async function middleware(request: Request): Promise<Response | u
             return undefined;
         }
 
+        // PUBLIC_SSR_ACTIVE: the SSR function handles head injection via publicShell.
+        // Yield so the /:slug rewrite in vercel.json routes to the function.
+        // Unset on prod → middleware serves the SPA with injected head as today.
+        if (env.PUBLIC_SSR_ACTIVE === "true") return undefined;
+
         const metaStart = Date.now();
         let metaDur = 0;
         let shellDur = 0;
