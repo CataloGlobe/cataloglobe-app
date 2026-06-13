@@ -61,7 +61,7 @@ function mapChangeError(err: unknown, activityCount: number, cap: number): strin
 }
 
 export default function SubscriptionPage() {
-    const { selectedTenant, loading, refreshTenants } = useTenant();
+    const { selectedTenant, loading } = useTenant();
     const { permissions, loading: permissionsLoading } = usePermissions();
     const canReadBilling = permissions ? canDoOnTenant(permissions, "billing.read") : false;
     const canManageBilling = permissions ? canDoOnTenant(permissions, "billing.manage") : false;
@@ -84,6 +84,19 @@ export default function SubscriptionPage() {
     const [previewLoading, setPreviewLoading] = useState(false);
     const [commitLoading, setCommitLoading] = useState(false);
     const [changeError, setChangeError] = useState<string | null>(null);
+
+    // Update ottimistico post-commit: il webhook sincronizza `tenants` in modo
+    // asincrono, quindi una rilettura immediata leggerebbe ancora lo stato
+    // vecchio. Riflettiamo subito il target noto e NON rileggiamo `tenants`.
+    const [optimisticPlan, setOptimisticPlan] = useState<PlanCode | null>(null);
+    const [optimisticSeats, setOptimisticSeats] = useState<number | null>(null);
+    const [optimisticMonthlyCents, setOptimisticMonthlyCents] = useState<number | null>(null);
+    const [scheduledChange, setScheduledChange] = useState<{
+        planName: string;
+        seats: number;
+        nextDate: string | null;
+        isDowngradeToBase: boolean;
+    } | null>(null);
 
     useEffect(() => {
         if (!selectedTenant?.plan) return;
@@ -157,6 +170,16 @@ export default function SubscriptionPage() {
     const isTerminal = status === "canceled" || status === "suspended";
     const isFounder = selectedTenant.is_founder === true;
     const planName = currentPlan?.name ?? "—";
+
+    // Valori mostrati: l'override ottimistico (post-upgrade) prevale sul dato
+    // letto da `tenants` finché il webhook non ha sincronizzato.
+    const displayPlanName = optimisticPlan
+        ? (plans.find(p => p.code === optimisticPlan)?.name ?? optimisticPlan)
+        : planName;
+    const displaySeats = optimisticSeats ?? paidSeats;
+    const displayMonthly = optimisticMonthlyCents != null
+        ? optimisticMonthlyCents / 100
+        : currentPricing.subtotal;
 
     const renewalDateText = (() => {
         if (status === "trialing") {
@@ -245,16 +268,30 @@ export default function SubscriptionPage() {
     const handleCommit = async () => {
         setCommitLoading(true);
         setChangeError(null);
-        const downgrade = preview ? preview.effective !== "now" : isDowngradeToBase;
         try {
             await commitSubscriptionChange(selectedTenant.id, { plan: draftPlan, seats: draftSeats });
-            showToast({
-                message: downgrade
-                    ? "Cambio programmato: avrà effetto al prossimo rinnovo."
-                    : "Piano aggiornato.",
-                type: "success"
-            });
-            await refreshTenants();
+            if (preview && preview.effective === "now") {
+                // Upgrade immediato: rifletti subito il nuovo stato. NIENTE refetch
+                // di `tenants`: il webhook sincronizza in modo asincrono e una
+                // rilettura ora leggerebbe ancora i valori vecchi, annullando
+                // l'update ottimistico. Alla prossima navigazione la pagina
+                // rileggerà la verità (ormai sincronizzata), che coincide.
+                setOptimisticPlan(draftPlan);
+                setOptimisticSeats(draftSeats);
+                setOptimisticMonthlyCents(preview.nextAmount);
+                setScheduledChange(null);
+                showToast({ message: "Piano aggiornato.", type: "success" });
+            } else {
+                // Downgrade/programmato: piano e sedi correnti restano invariati
+                // fino al rinnovo; mostra solo l'indicatore del cambio programmato.
+                setScheduledChange({
+                    planName: plans.find(p => p.code === draftPlan)?.name ?? draftPlan,
+                    seats: draftSeats,
+                    nextDate: preview?.nextDate ?? selectedTenant.current_period_end ?? null,
+                    isDowngradeToBase
+                });
+                showToast({ message: "Cambio programmato: avrà effetto al prossimo rinnovo.", type: "success" });
+            }
             setIsChangeOpen(false);
         } catch (err) {
             const name = err instanceof Error ? err.name : "";
@@ -313,7 +350,7 @@ export default function SubscriptionPage() {
                         </Text>
                         <span className={styles.planLabelRow}>
                             <Text variant="title-sm" weight={700}>
-                                {planName}
+                                {displayPlanName}
                             </Text>
                             {isFounder && <Badge variant="primary">Founder</Badge>}
                         </span>
@@ -344,14 +381,25 @@ export default function SubscriptionPage() {
                             Prezzo attuale
                         </Text>
                         <Text variant="title-sm" weight={700}>
-                            {formatEuro(currentPricing.subtotal)}/mese
+                            {formatEuro(displayMonthly)}/mese
                         </Text>
                     </div>
                 </div>
 
                 <Text variant="body-sm" colorVariant="muted">
-                    {paidSeats} {paidSeats === 1 ? "sede attiva" : "sedi attive"} sul piano {planName}
+                    {displaySeats} {displaySeats === 1 ? "sede attiva" : "sedi attive"} sul piano {displayPlanName}
                 </Text>
+
+                {scheduledChange && (
+                    <div className={styles.scheduledNote}>
+                        <Info size={16} />
+                        <Text variant="body-sm" weight={500}>
+                            Cambio programmato: passerai a {scheduledChange.planName} · {scheduledChange.seats}{" "}
+                            {scheduledChange.seats === 1 ? "sede" : "sedi"} il {formatDate(scheduledChange.nextDate)}.
+                            {scheduledChange.isDowngradeToBase && " Ordini e prenotazioni da QR verranno disattivati."}
+                        </Text>
+                    </div>
+                )}
 
                 {canManageBilling && !isTerminal && (
                     <div className={styles.contactRow}>

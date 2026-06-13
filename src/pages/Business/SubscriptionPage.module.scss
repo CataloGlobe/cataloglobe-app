@@ -175,6 +175,18 @@
     font-size: 13px;
 }
 
+// Indicatore "cambio programmato" (sessione post-commit downgrade)
+.scheduledNote {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: var(--info-bg, #eff6ff);
+    border: 1px solid var(--info-border, #bfdbfe);
+    color: var(--info-text, #1e40af);
+}
+
 // Flusso "Modifica piano" self-service (drawer)
 .changeBody {
     display: flex;
