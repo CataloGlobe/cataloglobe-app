@@ -44,13 +44,53 @@
 }
 
 /* ── HEADER ROOT (sticky) ────────────────────────────────── */
-/* position, top, margin, borderRadius, overflow set inline from JS */
+/* Stato a-riposo (scrollY=0) interamente CSS-driven così il markup server è
+   viewport-independent (hydration deterministica, SSR stage 2). Durante lo
+   scroll il lerp JS sovrascrive top/margin-inline/border-radius via inline
+   style (specificità inline > foglio: NON aggiungere !important qui o il
+   takeover si rompe). margin-top (cover overlap) non è animato: solo CSS.
+   Le formule rispecchiano le costanti del prototipo nel .tsx:
+   BASE_MARGIN_MOBILE=10, BASE_MARGIN_DESKTOP=16, TOP_OFFSET=8,
+   HEADER_HEIGHT_MOBILE=108, HEADER_HEIGHT_DESKTOP=116 (--header-h). */
 .root {
+  position: sticky;
+  top: 8px;
+  z-index: 30;
+  overflow: hidden;
   background: rgba(20, 20, 20, 0.62);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   will-change: transform;
+
+  --header-h: 108px;
+  margin-inline: 10px;
+
+  /* Desktop: header largo (frame-max - 32px), centrato. % risolve sul
+     containing block (main.page, full-width senza padding) = stessa base
+     di document.documentElement.clientWidth usata dal lerp JS. */
+  @media (min-width: 768px) {
+    --header-h: 116px;
+    margin-inline: max(calc((100% - var(--pub-frame-max-desktop, 1280px)) / 2 + 16px), 16px);
+  }
+
+  /* Overlap sulla cover: -(header height + TOP_OFFSET + 4). */
+  &[data-cover="true"] {
+    margin-top: calc(-1 * (var(--header-h) + 12px));
+  }
+
+  /* Preview Style Editor: il "viewport" è il device frame, non la finestra —
+     le media query sopra non lo vedono. Stesso pattern degli override
+     .preview-* già usati per coverImage/inner. */
+  :global(.preview-mobile) & {
+    --header-h: 108px;
+    margin-inline: 10px;
+  }
+
+  :global(.preview-desktop) & {
+    --header-h: 116px;
+    margin-inline: max(calc((100% - var(--pub-frame-max-desktop, 1280px)) / 2 + 16px), 16px);
+  }
 }
 
 /* ── INNER (max-width constraint) ────────────────────────── */

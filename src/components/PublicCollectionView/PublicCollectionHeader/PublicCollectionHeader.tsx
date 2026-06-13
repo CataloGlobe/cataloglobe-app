@@ -186,18 +186,23 @@ export default function PublicCollectionHeader({
     const initialMargin = isMobile
         ? BASE_MARGIN_MOBILE
         : Math.max((viewportWidth - readContentMaxWidth(viewportWidthEl)) / 2 + BASE_MARGIN_DESKTOP, BASE_MARGIN_DESKTOP);
-    const initialRadius = headerRadius ?? (isMobile ? 16 : 20);
-    const headerHeight = isMobile ? HEADER_HEIGHT_MOBILE : HEADER_HEIGHT_DESKTOP;
+    // Fallback deterministico (no isMobile): l'unico call site passa sempre
+    // headerRadius da token, il fallback non deve dipendere dalla viewport
+    // o il markup server divergerebbe da quello client (hydration mismatch).
+    const initialRadius = headerRadius ?? 20;
 
     const currentMargin = lerp(initialMargin, 0, progress);
     const currentRadius = lerp(initialRadius, 0, progress);
     const currentTopOffset = lerp(TOP_OFFSET, 0, progress);
     const currentGap = lerp(8, 0, progress);
 
-    // Negative margin-top overlaps the header onto the cover image
-    const coverOverlap = showCoverImage
-        ? -(headerHeight + TOP_OFFSET + 4)
-        : 0;
+    // Hydration deterministica: a riposo (scrollY=0, server e primo render
+    // client) gli stili viewport-dependent vengono dal CSS (.root nel modulo
+    // SCSS: margin-inline, margin-top via data-cover, top). Il primo scroll
+    // event è per definizione post-hydration: da lì gli inline style del lerp
+    // sovrascrivono il CSS partendo dagli stessi valori al pixel (stessa
+    // formula, stessa var --pub-frame-max-desktop).
+    const engaged = scrollY > 0;
 
     return (
         <>
@@ -225,20 +230,23 @@ export default function PublicCollectionHeader({
                 </div>
             )}
 
-            {/* HEADER STICKY — single element, scroll-driven animation via inline style */}
+            {/* HEADER STICKY — single element, scroll-driven animation via inline style.
+                A riposo: solo borderRadius (da token, deterministico); il resto viene
+                dal CSS. Engaged (scroll > 0): il lerp prende il controllo via inline. */}
             <header
                 ref={headerRef}
                 className={styles.root}
-                style={{
-                    position: "sticky",
-                    top: currentTopOffset,
-                    zIndex: 30,
-                    marginLeft: currentMargin,
-                    marginRight: currentMargin,
-                    marginTop: coverOverlap,
-                    borderRadius: currentRadius,
-                    overflow: "hidden",
-                }}
+                data-cover={showCoverImage || undefined}
+                style={
+                    engaged
+                        ? {
+                              top: currentTopOffset,
+                              marginLeft: currentMargin,
+                              marginRight: currentMargin,
+                              borderRadius: currentRadius,
+                          }
+                        : { borderRadius: initialRadius }
+                }
             >
                 <div className={styles.inner}>
                     <div className={styles.topRow}>
