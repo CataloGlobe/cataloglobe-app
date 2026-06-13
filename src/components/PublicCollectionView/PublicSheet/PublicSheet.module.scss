@@ -52,10 +52,6 @@
   flex-direction: column;
   overflow: hidden;
   will-change: transform;
-  /* Isola layout/paint dei discendenti (contenuto sheet) dal resto della pagina:
-     riduce il costo di reflow/repaint durante l'ingresso. NON content-visibility
-     (flash di render + grane di scroll-anchoring su un modale). */
-  contain: content;
   /* estende il background del panel nella safe area (home indicator iPhone,
        navbar Android) evitando il "gap" bianco sotto il sheet */
   padding-bottom: env(safe-area-inset-bottom, 0px);

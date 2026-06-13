@@ -337,18 +337,6 @@ export default function OrderingSheet({
             isOpen={isOpen}
             onClose={onClose}
             ariaLabel="Il tuo ordine"
-            skeleton={
-                <div className={styles.container} aria-hidden="true">
-                    <div className={styles.skelInner}>
-                        <div className={styles.skelHeader} />
-                        <div className={styles.skelTabs} />
-                        <div className={styles.skelItem} />
-                        <div className={styles.skelItem} />
-                        <div className={styles.skelItem} />
-                        <div className={styles.skelFooter} />
-                    </div>
-                </div>
-            }
         >
             <div className={styles.container}>
                 <div className={styles.header}>

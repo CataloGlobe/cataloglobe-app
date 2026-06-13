@@ -179,20 +179,6 @@ export default function ItemDetail({
                     </button>
                 </div>
             }
-            skeleton={
-                <div className={styles.body} aria-hidden="true">
-                    <div className={styles.root}>
-                        {showImage && <div className={styles.placeholderImage} />}
-                        <div className={styles.content}>
-                            <div className={styles.skelTitle} />
-                            <div className={styles.skelLine} />
-                            <div className={styles.skelLine} />
-                            <div className={styles.skelLineShort} />
-                            <div className={styles.skelOptions} />
-                        </div>
-                    </div>
-                </div>
-            }
         >
             {/* Scrollable body */}
             <div className={styles.body}>

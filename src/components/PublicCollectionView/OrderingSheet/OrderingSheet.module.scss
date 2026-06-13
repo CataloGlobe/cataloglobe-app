@@ -733,36 +733,3 @@
     font-size: 12px;
 }
 
-/* ── Skeleton d'ingresso (mount deferito) — approssima header + lista + totale ── */
-%oskel {
-    background: color-mix(in srgb, var(--pub-surface-text) 8%, var(--pub-surface));
-    border-radius: 8px;
-}
-.skelInner {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 16px;
-}
-.skelHeader {
-    @extend %oskel;
-    height: 24px;
-    width: 50%;
-}
-.skelTabs {
-    @extend %oskel;
-    height: 36px;
-    border-radius: 999px;
-}
-.skelItem {
-    @extend %oskel;
-    height: 56px;
-}
-.skelFooter {
-    @extend %oskel;
-    height: 48px;
-    margin-top: auto;
-}
-
