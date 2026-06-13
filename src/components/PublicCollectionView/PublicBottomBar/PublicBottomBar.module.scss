@@ -177,25 +177,37 @@
   }
 }
 
-// Badge in alto a destra dell'icona, con offset NEGATIVO (come il FAB ordine):
-// sporge oltre l'angolo top-right del glifo invece di coprirlo.
-.badge {
+// Wrapper icona carrello — origine al centro per il bump on-add.
+.cartIcon {
+  display: inline-flex;
+  transform-origin: center;
+}
+.cartIcon[data-bump="true"] {
+  animation: cartBump 0.34s ease;
+}
+@keyframes cartBump {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.22);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+// Indicatore binario carrello: pallino rosso (--pop) in alto a destra dell'icona.
+// Bordo del colore di sfondo barra così si stacca pulito senza coprire il glifo.
+.cartDot {
   position: absolute;
-  top: -5px;
-  right: -5px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-  color: #fff;
-  background: var(--pub-accent, #f59e0b);
-  border: 2px solid rgba(20, 20, 20, 0.92);
+  top: 5px;
+  right: calc(50% - 12px);
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
+  background: var(--pop, #ef4444);
+  border: 2px solid rgba(20, 20, 20, 0.92);
   box-sizing: content-box;
 }
 
@@ -203,7 +215,8 @@
 @media (prefers-reduced-motion: reduce) {
   .barWrap,
   .bar,
-  .indicator {
+  .indicator,
+  .cartIcon {
     animation: none;
     transition: none;
   }

@@ -98,6 +98,20 @@ export default function PublicBottomBar({
         onOpenCart();
     };
 
+    // Bump dell'icona carrello quando selectionCount AUMENTA (aggiunta piatto).
+    // Rileva l'incremento via ref sul valore precedente. CSS rispetta prefers-reduced-motion.
+    const prevCountRef = useRef(selectionCount);
+    const [bump, setBump] = useState(false);
+    useEffect(() => {
+        if (selectionCount > prevCountRef.current) {
+            setBump(true);
+            const id = setTimeout(() => setBump(false), 340);
+            prevCountRef.current = selectionCount;
+            return () => clearTimeout(id);
+        }
+        prevCountRef.current = selectionCount;
+    }, [selectionCount]);
+
     return (
         // Wrapper: posizionamento fisso + centratura + animazione di entrata (opacity/translateY).
         // Lo scale di shrink vive sul `.bar` interno per non collidere col transform dell'entry
@@ -138,13 +152,20 @@ export default function PublicBottomBar({
                     <button
                         type="button"
                         className={styles.cart}
-                        aria-label={t("fab.cart_aria")}
+                        aria-label={
+                            selectionCount > 0
+                                ? t("fab.cart_aria_count", { count: selectionCount })
+                                : t("fab.cart_aria")
+                        }
                         onClick={handleCart}
                     >
-                        <ShoppingBag size={19} strokeWidth={1.9} />
-                        {selectionCount > 0 && (
-                            <span className={styles.badge}>{selectionCount}</span>
-                        )}
+                        <span className={styles.cartIcon} data-bump={bump ? "true" : "false"}>
+                            {/* Sempre a contorno: il fill bianco riduce la leggibilità ed è
+                                ridondante col pallino che già segnala la selezione. */}
+                            <ShoppingBag size={19} strokeWidth={1.9} fill="none" />
+                        </span>
+                        {/* Indicatore binario: pallino rosso quando selectionCount > 0 (niente numero). */}
+                        {selectionCount > 0 && <span className={styles.cartDot} aria-hidden="true" />}
                     </button>
                 </>
             )}
