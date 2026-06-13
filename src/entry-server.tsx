@@ -86,5 +86,11 @@ export async function renderPublic(args: RenderPublicArgs): Promise<RenderPublic
         });
     });
 
-    return { kind: "ready", html };
+    // React 19 auto-inietta <link rel="preload" as="image"> per ogni <img> in SSR.
+    // In render di sottoalbero (senza <head>) finiscono dentro #root; sul client
+    // React li hoista nel <head> → divergenza → #418. La shell <head> già contiene
+    // i preload canonici (cover, logo, featured) quindi questi sono ridondanti.
+    const strippedHtml = html.replace(/<link\b[^>]*\brel="preload"[^>]*\bas="image"[^>]*>/gi, "");
+
+    return { kind: "ready", html: strippedHtml };
 }
