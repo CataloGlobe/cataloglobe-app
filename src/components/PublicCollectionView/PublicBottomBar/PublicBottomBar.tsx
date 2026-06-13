@@ -37,6 +37,9 @@ type Props = {
     reviewDot: boolean;
     /** Dismiss del dot per la sessione, al tap sulla tab recensioni. */
     onReviewDotDismiss?: () => void;
+    /** True quando una sheet (dettaglio prodotto o ordine) è aperta: congela lo shrink
+     *  per evitare il flicker dovuto al body scroll-lock che azzera window.scrollY. */
+    isSheetOpen?: boolean;
 };
 
 export default function PublicBottomBar({
@@ -47,6 +50,7 @@ export default function PublicBottomBar({
     onOpenCart,
     reviewDot,
     onReviewDotDismiss,
+    isSheetOpen = false,
 }: Props) {
     const { t } = useTranslation("public");
 
@@ -87,7 +91,9 @@ export default function PublicBottomBar({
     // segnale esistente useScrollCollapse. Niente override "forceExpanded": evitava lo
     // shrink finché non si tornava in cima (bug: dopo un tap mid-scroll lo shrink non
     // ripartiva → intermittenza). Il tap su una tab fa già scrollare a top → riespande.
-    const shrink = useScrollCollapse();
+    // `isSheetOpen` congela il valore mentre una sheet è aperta: il body scroll-lock
+    // azzererebbe window.scrollY → espansione/rimpicciolimento spurio (flicker).
+    const shrink = useScrollCollapse(50, isSheetOpen);
 
     const handleTab = (tab: HubTab) => {
         if (tab === "reviews" && reviewDot) onReviewDotDismiss?.();
