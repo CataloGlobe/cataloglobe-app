@@ -48,7 +48,14 @@ function messageForReason(reason: OrderingStateReason): string {
     }
 }
 
-export default function PublicCollectionPage() {
+type Props = {
+    initialPayload?: {
+        payload: ResolvedPayloadShape;
+        allergens: Allergen[] | null;
+    };
+};
+
+export default function PublicCollectionPage({ initialPayload }: Props) {
     const { slug, lang: langFromUrl } = useParams<{ slug: string; lang?: string }>();
     const navigate = useNavigate();
     const { t, i18n } = useTranslation("public");
@@ -95,7 +102,11 @@ export default function PublicCollectionPage() {
     }, [maintenanceParam]);
     const [effectiveSimulate, setEffectiveSimulate] = useState<string | null>(null);
     const isSimulation = !!effectiveSimulate;
-    const [state, setState] = useState<PageState>({ status: "loading" });
+    const [state, setState] = useState<PageState>(() =>
+        initialPayload
+            ? derivePageState(initialPayload.payload, initialPayload.allergens)
+            : { status: "loading" }
+    );
 
     // Payload-derived: ordering_disabled deriva da business.ordering_enabled.
     // Backward compat: snapshot Redis pre-Fix 1 puo non avere il campo →
@@ -200,6 +211,10 @@ export default function PublicCollectionPage() {
         }
 
         const validatedLang = isValidLangFormat(langFromUrl) ? langFromUrl!.toLowerCase() : undefined;
+
+        // Skip fetch on SSR hydration: payload already inlined by the server.
+        // retryToken > 0 (manual retry) and simulateParam bypass the skip.
+        if (initialPayload && retryToken === 0 && !simulateParam) return;
 
         let cancelled = false;
 

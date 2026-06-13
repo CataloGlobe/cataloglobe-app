@@ -33,13 +33,14 @@ declare global {
 }
 
 const container = document.getElementById("root");
+const initialPayload = window.__PUBLIC_CATALOG__;
 
 if (container) {
     hydrateRoot(
         container,
         <PublicProviders router="browser">
             <Routes>
-                <Route path="/:slug/:lang?" element={<PublicCollectionPage />} />
+                <Route path="/:slug/:lang?" element={<PublicCollectionPage initialPayload={initialPayload} />} />
             </Routes>
         </PublicProviders>,
         {
