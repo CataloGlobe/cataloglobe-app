@@ -65,6 +65,32 @@ function getSubscriptionPlanCode(subscription: Stripe.Subscription): string | nu
     return code && ALLOWED_PLAN_CODES.has(code) ? code : null;
 }
 
+/**
+ * Reverse-lookup del plan_code dal price ID del primo line item via tabella
+ * `plans` (stripe_price_id → code). Fonte di verità complementare al metadata:
+ * un cambio piano via subscriptions.update / subscription schedule che NON
+ * propaga metadata.plan_code viene comunque sincronizzato dal Price (source of
+ * truth usata in checkout). Ritorna null se il price non mappa un piano valido.
+ */
+async function lookupPlanCodeByPriceId(
+    admin: ReturnType<typeof createClient>,
+    subscription: Stripe.Subscription
+): Promise<string | null> {
+    const priceId = subscription.items?.data?.[0]?.price?.id;
+    if (!priceId) return null;
+    const { data, error } = await admin
+        .from("plans")
+        .select("code")
+        .eq("stripe_price_id", priceId)
+        .maybeSingle();
+    if (error) {
+        console.warn(`stripe-webhook: plans reverse-lookup failed for price ${priceId}:`, error.message);
+        return null;
+    }
+    const code = data?.code?.toLowerCase();
+    return code && ALLOWED_PLAN_CODES.has(code) ? code : null;
+}
+
 function toIsoTimestamp(seconds: number | null | undefined): string | null {
     return seconds ? new Date(seconds * 1000).toISOString() : null;
 }
@@ -234,7 +260,13 @@ serve(async req => {
                 const paidSeats = getSubscriptionQuantity(subscription);
                 const trialUntil = toIsoTimestamp(subscription.trial_end);
                 const currentPeriodEnd = getSubscriptionCurrentPeriodEnd(subscription);
-                const planCode = getSubscriptionPlanCode(subscription);
+                // Priorità al metadata; se assente/non valido (es. cambio piano via
+                // subscriptions.update o subscription schedule senza metadata),
+                // deriva il piano dal price ID (source of truth in `plans`).
+                let planCode = getSubscriptionPlanCode(subscription);
+                if (!planCode) {
+                    planCode = await lookupPlanCodeByPriceId(admin, subscription);
+                }
 
                 const updates: Record<string, unknown> = {
                     subscription_status: newStatus,
