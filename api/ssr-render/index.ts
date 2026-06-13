@@ -21,7 +21,7 @@ import {
     buildSsrShell,
     type PublicShellPayload,
     type ViteManifest
-} from "../../src/server/publicShell.js";
+} from "../_lib/publicShell.js";
 import { VERTICAL_CONFIG, type VerticalType } from "../../src/constants/verticalTypes.js";
 
 /**

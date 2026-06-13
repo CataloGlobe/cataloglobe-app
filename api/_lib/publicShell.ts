@@ -1,4 +1,4 @@
-import { buildSingleFamilyFontUrl } from "../utils/publicFontUrl";
+import { buildSingleFamilyFontUrl } from "./publicFontUrl";
 
 /**
  * Helper PURI per la shell HTML SSR della pagina pubblica (stage 4b).

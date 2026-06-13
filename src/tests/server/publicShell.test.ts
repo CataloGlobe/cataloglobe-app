@@ -11,7 +11,7 @@ import {
     serializeCatalogPayload,
     type PublicShellPayload,
     type ViteManifest
-} from "@/server/publicShell";
+} from "../../../api/_lib/publicShell";
 
 const TEMPLATE = readFileSync(join(process.cwd(), "index.html"), "utf-8");
 
