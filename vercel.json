@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/ssr-render/index.ts": {
+      "includeFiles": "{dist-server/**,dist/public/.vite/**,dist/index.html,index.html}"
+    }
+  },
   "rewrites": [
     {
       "source": "/(.*)",

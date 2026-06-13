@@ -12,6 +12,8 @@ import path from "path";
 //                                                           dist/public + manifest
 export default defineConfig(({ mode, isSsrBuild }) => ({
     plugins: [react()],
+    // Asset client SSR serviti da dist/public → URL pubblici /public/assets/*.
+    ...(mode === "public-client" ? { base: "/public/" } : {}),
     server: {
         proxy: {
             "/api": {

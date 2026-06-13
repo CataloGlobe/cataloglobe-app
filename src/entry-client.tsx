@@ -6,6 +6,7 @@ import "@/i18n";
 
 import PublicProviders from "@/components/public/PublicProviders";
 import PublicCollectionPage from "@/pages/PublicCollectionPage/PublicCollectionPage";
+import type { Allergen } from "@/services/supabase/allergens";
 import type { ResolvedPayloadShape } from "@/types/publicCatalog";
 
 /**
@@ -22,8 +23,12 @@ import type { ResolvedPayloadShape } from "@/types/publicCatalog";
 
 declare global {
     interface Window {
-        /** Payload inlinato dalla shell SSR (4b). Assente su SPA classica. */
-        __PUBLIC_CATALOG__?: ResolvedPayloadShape;
+        /** Dati inlinati dalla shell SSR (4b: payload + allergeni già
+            fetchati server-side). Assente su SPA classica. */
+        __PUBLIC_CATALOG__?: {
+            payload: ResolvedPayloadShape;
+            allergens: Allergen[] | null;
+        };
     }
 }
 
