@@ -411,7 +411,7 @@ serve(async req => {
                     /incomplete|requires_action|card_declined|payment/i.test(message)
                 ) {
                     console.warn(`stripe-change-subscription: upgrade payment failed: ${message}`);
-                    return json(req, 402, { error: "PAYMENT_FAILED", details: { message } });
+                    return json(req, 402, { error: "PAYMENT_FAILED" });
                 }
                 console.error(`stripe-change-subscription: upgrade update failed: ${message}`);
                 return json(req, 502, { error: "stripe_update_failed" });
@@ -514,6 +514,6 @@ serve(async req => {
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error("stripe-change-subscription: Unhandled error:", message);
-        return json(req, 500, { error: "change_failed", detail: message });
+        return json(req, 500, { error: "change_failed", detail: "Impossibile completare il cambio. Riprova." });
     }
 });
