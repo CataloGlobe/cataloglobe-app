@@ -119,6 +119,27 @@ describe("applyTenantHead", () => {
         expect(html).toContain('rel="preload" as="image" href="https://cdn.example.com/cover.jpg"');
     });
 
+    it("cover storage Supabase: preload responsive (imagesrcset) ma og:image resta raw", () => {
+        const storageCover =
+            "https://proj.supabase.co/storage/v1/object/public/business-covers/t/act/cover.jpg?v=1";
+        const html = applyTenantHead(
+            TEMPLATE,
+            makePayload({
+                business: { name: "San Pietro", slug: "san-pietro", city: "Milano", cover_image: storageCover }
+            }),
+            OPTS
+        );
+        // og:image/twitter:image = raw full-size (per gli scraper social)
+        expect(html).toContain(`property="og:image" content="${escapeHtml(storageCover)}"`);
+        // preload responsive: imagesrcset + imagesizes + render path, NO href raw object/public
+        expect(html).toContain("imagesrcset=");
+        expect(html).toContain('imagesizes="100vw"');
+        expect(html).toContain("/storage/v1/render/image/public/");
+        expect(html).toContain("width=760&amp;quality=82");
+        // il cache-buster ?v=1 preservato come &param dentro lo srcset
+        expect(html).toContain("&amp;v=1");
+    });
+
     it("cover non-https scartata", () => {
         const html = applyTenantHead(
             TEMPLATE,

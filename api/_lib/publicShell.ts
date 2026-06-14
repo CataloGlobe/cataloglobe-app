@@ -1,4 +1,5 @@
 import { buildSingleFamilyFontUrl } from "./publicFontUrl.js";
+import { buildCoverImageSet } from "./imageTransform.js";
 
 /**
  * Helper PURI per la shell HTML SSR della pagina pubblica (stage 4b).
@@ -153,9 +154,23 @@ export function applyTenantHead(
 
     if (cover) {
         const safeCover = escapeHtml(cover);
+        // og:image/twitter:image: SEMPRE l'immagine raw full-size (gli scraper
+        // social vogliono l'originale, non la variante mobile).
         extra.push(`<meta property="og:image" content="${safeCover}" />`);
         extra.push(`<meta name="twitter:image" content="${safeCover}" />`);
-        extra.push(`<link rel="preload" as="image" href="${safeCover}" fetchpriority="high" />`);
+        // Preload LCP: responsive set IDENTICO all'<img> della cover
+        // (PublicCollectionHeader) → il browser scarica una sola variante. Se
+        // l'URL non è storage-public (set null) → fallback href raw, come prima.
+        const coverSet = buildCoverImageSet(cover);
+        if (coverSet) {
+            extra.push(
+                `<link rel="preload" as="image" href="${escapeHtml(coverSet.src)}" ` +
+                    `imagesrcset="${escapeHtml(coverSet.srcset)}" ` +
+                    `imagesizes="${escapeHtml(coverSet.sizes)}" fetchpriority="high" />`
+            );
+        } else {
+            extra.push(`<link rel="preload" as="image" href="${safeCover}" fetchpriority="high" />`);
+        }
     }
 
     // Logo (sopra la fold, non LCP — nessun fetchpriority).

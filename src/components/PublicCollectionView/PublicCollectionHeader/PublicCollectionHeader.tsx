@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { BookOpen, CalendarDays, ImageIcon, MessageSquareHeart, MoreHorizontal, Search } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
+import { buildCoverImageSet } from "@/utils/imageTransform";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
 
@@ -214,16 +215,27 @@ export default function PublicCollectionHeader({
             {showCoverImage && (
                 <div className={styles.coverImage}>
                     {coverImageUrl ? (
-                        <img
-                            src={coverImageUrl}
-                            alt=""
-                            role="presentation"
-                            className={styles.coverImg}
-                            fetchPriority="high"
-                            decoding="async"
-                            width={1920}
-                            height={1080}
-                        />
+                        (() => {
+                            // Responsive cover via Supabase transform: serve la variante
+                            // sized al viewport (srcset/sizes), non il raw 1280w. Il preload
+                            // SSR (publicShell) usa lo stesso set → nessun doppio download.
+                            // Passthrough (set null) per URL non-storage → src raw, no srcset.
+                            const coverSet = buildCoverImageSet(coverImageUrl);
+                            return (
+                                <img
+                                    src={coverSet?.src ?? coverImageUrl}
+                                    srcSet={coverSet?.srcset}
+                                    sizes={coverSet?.sizes}
+                                    alt=""
+                                    role="presentation"
+                                    className={styles.coverImg}
+                                    fetchPriority="high"
+                                    decoding="async"
+                                    width={1920}
+                                    height={1080}
+                                />
+                            );
+                        })()
                     ) : mode === "preview" ? (
                         <div className={styles.coverPlaceholder} aria-hidden>
                             <ImageIcon size={32} strokeWidth={1.5} />
