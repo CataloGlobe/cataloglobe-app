@@ -3851,18 +3851,6 @@ export type Database = {
           },
         ]
       }
-      v_other_owner: {
-        Row: {
-          owner_user_id: string | null
-        }
-        Insert: {
-          owner_user_id?: string | null
-        }
-        Update: {
-          owner_user_id?: string | null
-        }
-        Relationships: []
-      }
       waitlist: {
         Row: {
           activity_type: string | null
