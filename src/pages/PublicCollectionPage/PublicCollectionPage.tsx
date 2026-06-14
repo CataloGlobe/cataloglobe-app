@@ -381,6 +381,12 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     );
 
     // ── Language change toast ──────────────────────────────────────────────
+    // toastMounted: false sul primo render (coincide col server che non
+    // renderizza PublicCollectionPage e quindi non ha il toast in #root).
+    // Diventa true dopo il mount → nessun mismatch di hydration (#418).
+    const [toastMounted, setToastMounted] = useState(false);
+    useEffect(() => setToastMounted(true), []);
+
     type ToastPhase = "idle" | "loading" | "done";
     const [toastPhase, setToastPhase] = useState<ToastPhase>("idle");
     const [toastLabel, setToastLabel] = useState<string>("");
@@ -526,8 +532,10 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
                 ) : null
             }
         >
-            {/* Toast cambio lingua — sempre nel DOM, CSS transitions */}
-            <div
+            {/* Toast cambio lingua — gated post-mount (non SSR) per evitare
+                mismatch hydration #418: server non renderizza PublicCollectionPage
+                e quindi non emette questo div in #root. */}
+            {toastMounted && <div
                 className={pageStyles.languageToast}
                 data-phase={toastPhase}
                 role="status"
@@ -547,7 +555,7 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
                           ? toastLabel
                           : ""}
                 </span>
-            </div>
+            </div>}
         </PublicCatalogReady>
     );
 }
