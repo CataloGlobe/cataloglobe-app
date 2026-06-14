@@ -414,25 +414,11 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
         return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
     }, []);
 
-    // ── Preload cover image (LCP) as soon as Edge Function resolves ──────
-    useEffect(() => {
-        if (state.status !== "ready") return;
-        const { business, resolved } = state;
-        if (!business.cover_image) return;
-        const tokens = parseTokens(resolved.style?.config ?? null);
-        if (!tokens.header.showCoverImage) return;
-
-        const link = document.createElement("link");
-        link.rel = "preload";
-        link.as = "image";
-        link.href = business.cover_image;
-        link.setAttribute("fetchpriority", "high");
-        document.head.appendChild(link);
-
-        return () => {
-            if (document.head.contains(link)) document.head.removeChild(link);
-        };
-    }, [state]);
+    // NB: nessun preload cover client-side. Il preload LCP della cover è emesso
+    // UNA sola volta dalla shell SSR (api/_lib/publicShell.ts) con la variante
+    // responsive (imagesrcset, buildCoverImageSet). Un preload React-side con
+    // l'URL grezzo causava un secondo download (raw ~194 KB in gara con la
+    // variante) che peggiorava/destabilizzava l'LCP.
 
     // ── Analytics: page_view (una sola volta quando la pagina è pronta) ──
     const pageViewTracked = useRef(false);
