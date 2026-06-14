@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
+import { stripeClientOptions } from "../_shared/stripe-helpers.ts";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -141,7 +142,7 @@ serve(async (req: Request) => {
                 .not("stripe_subscription_id", "is", null);
 
             if (lockedWithStripe?.length) {
-                const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-04-30.basil" });
+                const stripe = new Stripe(STRIPE_SECRET_KEY, stripeClientOptions());
                 for (const t of lockedWithStripe) {
                     try {
                         await stripe.subscriptions.cancel(t.stripe_subscription_id);

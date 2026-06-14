@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
+import { stripeClientOptions } from "../_shared/stripe-helpers.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -82,7 +83,7 @@ serve(async req => {
         }
 
         // --- Create Billing Portal Session ---
-        const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-04-30.basil" });
+        const stripe = new Stripe(STRIPE_SECRET_KEY, stripeClientOptions());
 
         const portalSession = await stripe.billingPortal.sessions.create({
             customer: tenantData.stripe_customer_id,
