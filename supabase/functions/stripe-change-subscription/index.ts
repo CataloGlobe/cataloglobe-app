@@ -73,9 +73,6 @@ function toIso(seconds: number | null | undefined): string | null {
 function periodEndSeconds(sub: Stripe.Subscription): number | null {
     return sub.items?.data?.[0]?.current_period_end ?? sub.current_period_end ?? null;
 }
-function periodStartSeconds(sub: Stripe.Subscription): number | null {
-    return sub.items?.data?.[0]?.current_period_start ?? sub.current_period_start ?? null;
-}
 
 serve(async req => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
@@ -216,7 +213,6 @@ serve(async req => {
         const currentPriceId = item.price?.id;
         const currentSeats = item.quantity ?? 1;
         const currentPeriodEndSec = periodEndSeconds(sub);
-        const currentPeriodStartSec = periodStartSeconds(sub);
         const currency = sub.currency ?? item.price?.currency ?? "eur";
 
         // --- Piano corrente: metadata → fallback reverse-lookup su price (source of truth) ---
@@ -338,38 +334,67 @@ serve(async req => {
             });
         }
 
-        // Downgrade → subscription schedule, fase 2 al current_period_end. Revocabile.
+        // Downgrade → subscription schedule, fase target al current_period_end. Revocabile.
+        //
+        // La fase 0 (corrente) DEVE essere replicata VERBATIM dall'oggetto schedule:
+        // ricalcolare start_date/end_date a mano fa divergere il timing dalla fase
+        // realmente in corso e Stripe rifiuta l'update con "You can not update a phase
+        // that has already ended. Trying to update phase 0.".
+        let createdScheduleId: string | null = null;
         try {
-            // Riusa lo schedule esistente se la subscription ne ha già uno (es.
-            // ri-pianificazione), altrimenti creane uno from_subscription.
-            let scheduleId: string | null =
+            const existingScheduleId =
                 typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
-            if (!scheduleId) {
-                const created = await stripe.subscriptionSchedules.create({
+
+            // Recupera lo schedule esistente, oppure creane uno from_subscription
+            // (aggancia la subscription e popola la fase corrente).
+            let schedule: Stripe.SubscriptionSchedule;
+            if (existingScheduleId) {
+                schedule = await stripe.subscriptionSchedules.retrieve(existingScheduleId);
+                // Schedule in stato terminale/inutilizzabile → rilascia e ricrea pulito.
+                if (schedule.status === "released" || schedule.status === "canceled") {
+                    schedule = await stripe.subscriptionSchedules.create({
+                        from_subscription: tenant.stripe_subscription_id
+                    });
+                    createdScheduleId = schedule.id;
+                }
+            } else {
+                schedule = await stripe.subscriptionSchedules.create({
                     from_subscription: tenant.stripe_subscription_id
                 });
-                scheduleId = created.id;
+                createdScheduleId = schedule.id;
             }
 
-            await stripe.subscriptionSchedules.update(scheduleId, {
+            // Fase 0 corrente: dati presi TALI E QUALI dall'oggetto schedule.
+            const currentPhase = schedule.phases?.[0];
+            if (!currentPhase) {
+                throw new Error("schedule has no current phase to preserve");
+            }
+            const currentPhaseItems = (currentPhase.items ?? []).map(it => ({
+                price: typeof it.price === "string" ? it.price : it.price?.id,
+                quantity: it.quantity ?? 1
+            }));
+
+            await stripe.subscriptionSchedules.update(schedule.id, {
                 end_behavior: "release",
                 phases: [
                     {
-                        // Fase corrente: configurazione attuale fino a fine periodo pagato.
-                        items: [{ price: currentPriceId, quantity: currentSeats }],
-                        start_date: currentPeriodStartSec,
-                        end_date: currentPeriodEndSec
+                        // Fase corrente replicata verbatim (start/end identici al reale).
+                        items: currentPhaseItems,
+                        start_date: currentPhase.start_date,
+                        end_date: currentPhase.end_date,
+                        proration_behavior: "none"
                     },
                     {
-                        // Fase nuova: piano/sedi target dal rinnovo in avanti.
+                        // Fase target: parte automaticamente alla fine della fase 0.
                         items: [{ price: newPriceId, quantity: newSeats }],
+                        proration_behavior: "none",
                         metadata: { plan_code: targetPlan }
                     }
                 ]
             });
 
             console.log(
-                `stripe-change-subscription: DOWNGRADE scheduled tenant=${tenantId} plan=${targetPlan} seats=${newSeats} effective=${periodEndIso} schedule=${scheduleId}`
+                `stripe-change-subscription: DOWNGRADE scheduled tenant=${tenantId} plan=${targetPlan} seats=${newSeats} effective=${periodEndIso} schedule=${schedule.id}`
             );
             return json(req, 200, {
                 ok: true,
@@ -378,10 +403,20 @@ serve(async req => {
                 seats: newSeats,
                 effective: periodEndIso,
                 scheduledChange: true,
-                scheduleId
+                scheduleId: schedule.id
             });
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
+            // Se avevamo appena creato uno schedule, rilascialo: la subscription non
+            // deve restare agganciata a uno schedule monco.
+            if (createdScheduleId) {
+                try {
+                    await stripe.subscriptionSchedules.release(createdScheduleId);
+                } catch (relErr) {
+                    const relMsg = relErr instanceof Error ? relErr.message : String(relErr);
+                    console.error(`stripe-change-subscription: schedule release after failure failed: ${relMsg}`);
+                }
+            }
             console.error(`stripe-change-subscription: downgrade schedule failed: ${message}`);
             return json(req, 502, { error: "stripe_schedule_failed" });
         }
