@@ -140,6 +140,43 @@ describe("applyTenantHead", () => {
         expect(html).toContain("&amp;v=1");
     });
 
+    it("preconnect + dns-prefetch all'origine immagini, senza crossorigin, prima del preload", () => {
+        const storageCover =
+            "https://proj.supabase.co/storage/v1/object/public/business-covers/t/act/cover.jpg?v=1";
+        const html = applyTenantHead(
+            TEMPLATE,
+            makePayload({
+                business: { name: "X", slug: "x", city: null, cover_image: storageCover }
+            }),
+            OPTS
+        );
+        // preconnect + dns-prefetch all'host storage, SENZA crossorigin
+        // (combacia col fetch no-cors dell'<img>; il preconnect crossorigin del
+        // template per l'API Supabase è una connessione distinta e voluta).
+        expect(html).toContain('<link rel="preconnect" href="https://proj.supabase.co" />');
+        expect(html).toContain('<link rel="dns-prefetch" href="https://proj.supabase.co" />');
+        expect(html).not.toContain('href="https://proj.supabase.co" crossorigin');
+        // una sola coppia per l'host storage (cover + logo lo condividono)
+        expect(html.match(/rel="preconnect" href="https:\/\/proj\.supabase\.co"/g)?.length).toBe(1);
+        // il preconnect storage precede il preload immagine nel sorgente
+        expect(html.indexOf('href="https://proj.supabase.co" />')).toBeLessThan(
+            html.indexOf('rel="preload" as="image"')
+        );
+    });
+
+    it("nessun preconnect/dns-prefetch immagini se cover e logo assenti", () => {
+        const html = applyTenantHead(
+            TEMPLATE,
+            makePayload({
+                business: { name: "X", slug: "x", city: null, cover_image: null },
+                tenantLogoUrl: null
+            }),
+            OPTS
+        );
+        // dns-prefetch è emesso SOLO dal nostro codice (assente nel template)
+        expect(html).not.toContain("dns-prefetch");
+    });
+
     it("cover non-https scartata", () => {
         const html = applyTenantHead(
             TEMPLATE,

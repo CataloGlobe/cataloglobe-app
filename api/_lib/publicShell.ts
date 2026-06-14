@@ -190,6 +190,25 @@ export function applyTenantHead(
         extra.push(`<link rel="preload" as="image" href="${url}" fetchpriority="high" />`);
     }
 
+    // Preconnect all'origine immagini (host storage/render Supabase), il più in
+    // alto possibile nell'head → scalda DNS+TCP+TLS prima del preload cover,
+    // sovrapponendolo al parsing HTML e tagliando il "load delay" dell'LCP.
+    // unshift: precede il preload immagine nell'output. NIENTE crossorigin:
+    // l'<img> cover è no-cors, una connessione crossorigin non verrebbe riusata
+    // → combacia col fetch immagine. dns-prefetch = fallback per chi ignora
+    // preconnect. Cover e logo-fallback condividono lo stesso host → una sola
+    // coppia. `cover` ingloba già il fallback logo (coverRaw = cover_image ??
+    // tenantLogoUrl); il ?? gestisce il caso cover non-https ma logo https.
+    const imageOriginSource =
+        cover ?? (logoUrl && /^https:\/\//.test(logoUrl) ? logoUrl : null);
+    if (imageOriginSource) {
+        const imageOrigin = escapeHtml(new URL(imageOriginSource).origin);
+        extra.unshift(
+            `<link rel="preconnect" href="${imageOrigin}" />`,
+            `<link rel="dns-prefetch" href="${imageOrigin}" />`
+        );
+    }
+
     if (extra.length > 0) {
         html = html.replace("</head>", () => `    ${extra.join("\n    ")}\n  </head>`);
     }
