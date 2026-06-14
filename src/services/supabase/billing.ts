@@ -167,3 +167,62 @@ export async function commitSubscriptionChange(
 ): Promise<SubscriptionChangeCommitResult> {
     return invokeSubscriptionChange<SubscriptionChangeCommitResult>(tenantId, "commit", input);
 }
+
+// ---------------------------------------------------------------------------
+// Stato abbonamento live + disdetta / riattiva (action state/cancel/reactivate)
+//
+// Fonte di verità = Stripe (la pagina lo legge on mount per il banner
+// persistente: cambio programmato e/o disdetta a fine periodo).
+// ---------------------------------------------------------------------------
+
+export type SubscriptionPendingChange = {
+    targetPlan: PlanCode | null;
+    targetSeats: number | null;
+    /** ISO della data di effetto (fine periodo corrente). */
+    effectiveDate: string | null;
+};
+
+export type SubscriptionState = {
+    /** ISO del fine periodo corrente. */
+    currentPeriodEnd: string | null;
+    /** true se l'abbonamento è disdetto a fine periodo. */
+    cancelAtPeriodEnd: boolean;
+    /** Cambio piano/sedi programmato al rinnovo, o null. */
+    pendingChange: SubscriptionPendingChange | null;
+};
+
+async function invokeBillingAction<T>(
+    tenantId: string,
+    action: "state" | "cancel" | "reactivate"
+): Promise<T> {
+    const { data, error } = await supabase.functions.invoke("stripe-change-subscription", {
+        body: { tenantId, action }
+    });
+
+    if (error) {
+        const code = await extractEdgeErrorCode(error);
+        if (code) {
+            const wrapped = new Error(code);
+            wrapped.name = code;
+            throw wrapped;
+        }
+        throw error;
+    }
+    if (!data) throw new Error("Nessuna risposta dall'edge abbonamento.");
+    return data as T;
+}
+
+/** Stato abbonamento corrente da Stripe (read-only). Permesso: billing.manage. */
+export async function getSubscriptionState(tenantId: string): Promise<SubscriptionState> {
+    return invokeBillingAction<SubscriptionState>(tenantId, "state");
+}
+
+/** Disdetta a fine periodo (nessun rimborso). Permesso: billing.cancel. */
+export async function cancelSubscription(tenantId: string): Promise<SubscriptionState> {
+    return invokeBillingAction<SubscriptionState>(tenantId, "cancel");
+}
+
+/** Annulla la disdetta programmata. Permesso: billing.cancel. */
+export async function reactivateSubscription(tenantId: string): Promise<SubscriptionState> {
+    return invokeBillingAction<SubscriptionState>(tenantId, "reactivate");
+}

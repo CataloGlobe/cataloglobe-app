@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTenant } from "@/context/useTenant";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -6,9 +6,12 @@ import {
     createCheckoutSession,
     createPortalSession,
     previewSubscriptionChange,
-    commitSubscriptionChange
+    commitSubscriptionChange,
+    getSubscriptionState,
+    cancelSubscription,
+    reactivateSubscription
 } from "@/services/supabase/billing";
-import type { SubscriptionChangePreview } from "@/services/supabase/billing";
+import type { SubscriptionChangePreview, SubscriptionState } from "@/services/supabase/billing";
 import { getPlanByCode, listPublicPlans } from "@/services/supabase/plans";
 import { getActivityCount } from "@/services/supabase/activities";
 import { calculateGraduatedFromPlan } from "@/utils/pricing";
@@ -22,7 +25,7 @@ import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
-import { ExternalLink, CreditCard, Shield, Lock, Info, Mail, Pencil, AlertTriangle } from "lucide-react";
+import { ExternalLink, CreditCard, Shield, Lock, Info, Mail, Pencil, AlertTriangle, XCircle, RotateCcw } from "lucide-react";
 import type { Plan, PlanCode } from "@/types/plan";
 import styles from "./SubscriptionPage.module.scss";
 
@@ -98,6 +101,22 @@ export default function SubscriptionPage() {
         isDowngradeToBase: boolean;
     } | null>(null);
 
+    // --- Stato abbonamento live (banner persistente + disdetta) ---
+    const [subState, setSubState] = useState<SubscriptionState | null>(null);
+    const [isCancelOpen, setIsCancelOpen] = useState(false);
+    const [cancelLoading, setCancelLoading] = useState(false);
+    const [reactivateLoading, setReactivateLoading] = useState(false);
+
+    const tenantId = selectedTenant?.id ?? null;
+    const reloadSubState = useCallback(async () => {
+        if (!tenantId) return;
+        try {
+            setSubState(await getSubscriptionState(tenantId));
+        } catch (err) {
+            console.error("[SubscriptionPage] subscription state load failed:", err);
+        }
+    }, [tenantId]);
+
     useEffect(() => {
         if (!selectedTenant?.plan) return;
         getPlanByCode(selectedTenant.plan)
@@ -120,7 +139,8 @@ export default function SubscriptionPage() {
         getActivityCount(selectedTenant.id)
             .then(setActivityCount)
             .catch(err => console.error("[SubscriptionPage] activity count failed:", err));
-    }, [selectedTenant?.id, canManageBilling]);
+        reloadSubState();
+    }, [selectedTenant?.id, canManageBilling, reloadSubState]);
 
     usePageHeader({
         title: "Abbonamento",
@@ -293,6 +313,8 @@ export default function SubscriptionPage() {
                 showToast({ message: "Cambio programmato: avrà effetto al prossimo rinnovo.", type: "success" });
             }
             setIsChangeOpen(false);
+            // Riconcilia col vero stato Stripe (così il banner persiste dopo reload).
+            reloadSubState();
         } catch (err) {
             const name = err instanceof Error ? err.name : "";
             if (name === "PAYMENT_FAILED") {
@@ -308,6 +330,69 @@ export default function SubscriptionPage() {
             setCommitLoading(false);
         }
     };
+
+    // --- Disdetta / riattiva ---
+    const handleCancel = async () => {
+        setCancelLoading(true);
+        try {
+            const next = await cancelSubscription(selectedTenant.id);
+            setSubState(next);
+            setScheduledChange(null);
+            setIsCancelOpen(false);
+            showToast({ message: "Abbonamento disdetto: resterà attivo fino a fine periodo.", type: "success" });
+        } catch (err) {
+            const name = err instanceof Error ? err.name : "";
+            showToast({
+                message: name === "forbidden"
+                    ? "Non hai i permessi per disdire l'abbonamento."
+                    : "Impossibile disdire l'abbonamento. Riprova.",
+                type: "error"
+            });
+        } finally {
+            setCancelLoading(false);
+        }
+    };
+
+    const handleReactivate = async () => {
+        setReactivateLoading(true);
+        try {
+            const next = await reactivateSubscription(selectedTenant.id);
+            setSubState(next);
+            showToast({ message: "Disdetta annullata: l'abbonamento continuerà.", type: "success" });
+        } catch (err) {
+            const name = err instanceof Error ? err.name : "";
+            showToast({
+                message: name === "forbidden"
+                    ? "Non hai i permessi per riattivare l'abbonamento."
+                    : "Impossibile riattivare l'abbonamento. Riprova.",
+                type: "error"
+            });
+        } finally {
+            setReactivateLoading(false);
+        }
+    };
+
+    // Banner "cambio programmato" persistente: priorità al vero stato Stripe
+    // (subState), fallback all'ottimistico post-commit nella finestra transitoria.
+    const pendingBanner = subState?.pendingChange
+        ? {
+            planName: plans.find(p => p.code === subState.pendingChange!.targetPlan)?.name
+                ?? subState.pendingChange!.targetPlan
+                ?? "—",
+            seats: subState.pendingChange!.targetSeats ?? 0,
+            date: subState.pendingChange!.effectiveDate,
+            isBase: subState.pendingChange!.targetPlan === "base"
+        }
+        : scheduledChange
+        ? {
+            planName: scheduledChange.planName,
+            seats: scheduledChange.seats,
+            date: scheduledChange.nextDate,
+            isBase: scheduledChange.isDowngradeToBase
+        }
+        : null;
+    const cancelAtPeriodEnd = subState?.cancelAtPeriodEnd ?? false;
+    const periodEndDate = subState?.currentPeriodEnd ?? selectedTenant.current_period_end ?? null;
 
     const targetPlanName = plans.find(p => p.code === draftPlan)?.name ?? draftPlan;
     const previewIsDowngrade = preview ? preview.effective !== "now" : false;
@@ -390,13 +475,31 @@ export default function SubscriptionPage() {
                     {displaySeats} {displaySeats === 1 ? "sede attiva" : "sedi attive"} sul piano {displayPlanName}
                 </Text>
 
-                {scheduledChange && (
+                {cancelAtPeriodEnd ? (
+                    <div className={styles.cancelNote}>
+                        <AlertTriangle size={16} />
+                        <Text variant="body-sm" weight={500}>
+                            Abbonamento attivo fino al {formatDate(periodEndDate)}, poi disdetto.
+                        </Text>
+                        {canCancelBilling && (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={handleReactivate}
+                                loading={reactivateLoading}
+                                leftIcon={<RotateCcw size={14} />}
+                            >
+                                Riattiva
+                            </Button>
+                        )}
+                    </div>
+                ) : pendingBanner && (
                     <div className={styles.scheduledNote}>
                         <Info size={16} />
                         <Text variant="body-sm" weight={500}>
-                            Cambio programmato: passerai a {scheduledChange.planName} · {scheduledChange.seats}{" "}
-                            {scheduledChange.seats === 1 ? "sede" : "sedi"} il {formatDate(scheduledChange.nextDate)}.
-                            {scheduledChange.isDowngradeToBase && " Ordini e prenotazioni da QR verranno disattivati."}
+                            Cambio programmato: passerai a {pendingBanner.planName} · {pendingBanner.seats}{" "}
+                            {pendingBanner.seats === 1 ? "sede" : "sedi"} il {formatDate(pendingBanner.date)}.
+                            {pendingBanner.isBase && " Ordini e prenotazioni da QR verranno disattivati."}
                         </Text>
                     </div>
                 )}
@@ -486,6 +589,26 @@ export default function SubscriptionPage() {
                             leftIcon={<ExternalLink size={16} />}
                         >
                             {portalLoading ? "Apertura..." : "Gestisci su Stripe"}
+                        </Button>
+                    </div>
+                )}
+
+                {canCancelBilling && hasPaymentMethod && !isTerminal && !cancelAtPeriodEnd && (
+                    <div className={styles.actionCard}>
+                        <div>
+                            <Text variant="body" weight={500}>
+                                Disdici abbonamento
+                            </Text>
+                            <Text variant="body-sm" colorVariant="muted">
+                                La disdetta ha effetto a fine periodo. Nessun rimborso; tutto resta attivo fino ad allora.
+                            </Text>
+                        </div>
+                        <Button
+                            variant="secondary"
+                            onClick={() => setIsCancelOpen(true)}
+                            leftIcon={<XCircle size={16} />}
+                        >
+                            Disdici
                         </Button>
                     </div>
                 )}
@@ -651,6 +774,39 @@ export default function SubscriptionPage() {
                             )}
                         </div>
                     )}
+                </DrawerLayout>
+            </SystemDrawer>
+
+            {/* --- Drawer conferma disdetta --- */}
+            <SystemDrawer open={isCancelOpen} onClose={() => { if (!cancelLoading) setIsCancelOpen(false); }} width={480}>
+                <DrawerLayout
+                    header={
+                        <Text variant="title-sm" weight={600}>Disdici abbonamento</Text>
+                    }
+                    footer={
+                        <>
+                            <Button variant="secondary" onClick={() => setIsCancelOpen(false)} disabled={cancelLoading}>
+                                Annulla
+                            </Button>
+                            <Button variant="danger" onClick={handleCancel} loading={cancelLoading}>
+                                Disdici abbonamento
+                            </Button>
+                        </>
+                    }
+                >
+                    <div className={styles.changeBody}>
+                        <Text variant="body">
+                            L&apos;abbonamento resterà attivo fino al <strong>{formatDate(periodEndDate)}</strong>,
+                            poi verrà disdetto. <strong>Nessun rimborso</strong> per il periodo già pagato.
+                        </Text>
+                        <div className={styles.changeWarning}>
+                            <AlertTriangle size={16} />
+                            <Text variant="body-sm" weight={500}>
+                                Fino a quella data ordini, prenotazioni e cataloghi restano pienamente attivi.
+                                Potrai annullare la disdetta in qualsiasi momento prima del rinnovo.
+                            </Text>
+                        </div>
+                    </div>
                 </DrawerLayout>
             </SystemDrawer>
         </div>

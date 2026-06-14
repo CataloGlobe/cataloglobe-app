@@ -2,32 +2,35 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
-import { createStripeClient, releaseScheduleIfAny } from "../_shared/stripe-helpers.ts";
+import {
+    createStripeClient,
+    releaseScheduleIfAny,
+    scheduleStripeCancel,
+    reactivateStripeSubIfScheduled
+} from "../_shared/stripe-helpers.ts";
 
 // ---------------------------------------------------------------------------
 // stripe-change-subscription
 //
-// Motore self-service per il cambio piano (base↔pro) e numero sedi.
-// Due azioni:
-//   - "preview": ritorna { chargeToday, nextAmount, nextDate, effective }
-//                via Stripe invoice preview, SENZA modificare nulla.
-//   - "commit":  applica il cambio.
-//        upgrade   → subscriptions.update + always_invoice (addebito prorata
-//                    immediato sulla carta in archivio), live nell'istante.
-//        downgrade → subscription schedule (fase 2 al current_period_end),
-//                    revocabile via subscriptionSchedules.release().
+// Motore self-service abbonamento. Action (campo `action` nel body):
+//   - "preview":   stima (non-mutante) di un cambio piano/sedi.
+//   - "commit":    applica il cambio piano/sedi (upgrade immediato / downgrade
+//                  programmato a fine periodo).
+//   - "state":     (read-only) stato corrente: current_period_end,
+//                  cancel_at_period_end, cambio programmato pendente.
+//   - "cancel":    disdetta a fine periodo (cancel_at_period_end=true).
+//   - "reactivate":annulla la disdetta programmata (cancel_at_period_end=false).
 //
 // La sincronizzazione di `tenants` è delegata ESCLUSIVAMENTE al webhook
-// (customer.subscription.updated) — qui non si scrive mai su `tenants`.
+// (customer.subscription.updated/deleted) — qui non si scrive mai su `tenants`.
 //
-// Policy (decisa a monte):
-//   - upgrade   = base→pro, oppure aumento sedi senza downgrade di piano → immediato.
-//   - downgrade = pro→base, oppure riduzione sedi → a fine periodo, nessun rimborso.
-//   - caso misto (downgrade piano + aumento sedi) → prevale il downgrade.
-//   - cap self-service = plans.max_self_service_seats (oltre → assistenza).
-//   - floor sedi = COUNT(*) activities del tenant (coerente con enforce_seat_limit).
-//   - permesso richiesto: billing.manage sul tenant.
-//   - interval-agnostic: prezzo/intervallo letti dalla subscription/Price Stripe.
+// Permessi (gate per-action, fail-closed):
+//   - preview / commit / state → billing.manage
+//   - cancel / reactivate      → billing.cancel
+//
+// Policy: upgrade=immediato prorata; downgrade/disdetta=fine periodo, nessun
+// rimborso. cap self-service = plans.max_self_service_seats. floor sedi =
+// COUNT(*) activities. Interval-agnostic (prezzo/intervallo da Stripe).
 // ---------------------------------------------------------------------------
 
 const ALLOWED_ORIGINS = [
@@ -53,7 +56,9 @@ const ALLOWED_PLAN_CODES = new Set(["base", "pro"]);
 // Rank piani per classificazione up/down (il cambio piano prevale sulle sedi).
 const PLAN_RANK: Record<string, number> = { base: 0, pro: 1 };
 
-type Action = "preview" | "commit";
+type Action = "preview" | "commit" | "state" | "cancel" | "reactivate";
+const VALID_ACTIONS = new Set<Action>(["preview", "commit", "state", "cancel", "reactivate"]);
+
 type Body = {
     tenantId?: string;
     action?: Action;
@@ -74,13 +79,25 @@ function periodEndSeconds(sub: Stripe.Subscription): number | null {
     return sub.items?.data?.[0]?.current_period_end ?? sub.current_period_end ?? null;
 }
 
+/** Reverse-lookup plan_code dal price ID via tabella `plans` (source of truth). */
+async function lookupPlanCodeByPriceId(
+    admin: ReturnType<typeof createClient>,
+    priceId: string | null | undefined
+): Promise<string | null> {
+    if (!priceId) return null;
+    const { data } = await admin
+        .from("plans")
+        .select("code")
+        .eq("stripe_price_id", priceId)
+        .maybeSingle();
+    const code = data?.code?.toLowerCase();
+    return code && ALLOWED_PLAN_CODES.has(code) ? code : null;
+}
+
 /**
  * Totale ricorrente PIENO (in centesimi) per un Price graduato a `quantity`
  * sedi, calcolato dai tiers del Price. Indipendente da qualsiasi schedule
- * attivo sulla subscription (a differenza di invoices.createPreview, che
- * rifletterebbe la fase programmata). Ritorna `null` su Price non
- * graduated-tiered o input inatteso → il chiamante fa fallback senza
- * miscalcolare in silenzio.
+ * attivo sulla subscription. Ritorna `null` su Price non graduated-tiered.
  */
 async function graduatedTotalFromPrice(
     stripe: Stripe,
@@ -99,7 +116,6 @@ async function graduatedTotalFromPrice(
             );
             return null;
         }
-        // Tiers in ordine crescente di up_to (null = infinito → ultimo).
         const tiers = [...price.tiers].sort((a, b) => {
             const au = a.up_to ?? Number.POSITIVE_INFINITY;
             const bu = b.up_to ?? Number.POSITIVE_INFINITY;
@@ -172,22 +188,16 @@ serve(async req => {
         const tenantId = payload?.tenantId?.trim();
         if (!tenantId) return json(req, 400, { error: "missing_tenant_id" });
 
-        const action: Action = payload?.action === "commit" ? "commit" : "preview";
-        if (payload?.action !== "preview" && payload?.action !== "commit") {
+        const action = (payload?.action ?? "").trim() as Action;
+        if (!VALID_ACTIONS.has(action)) {
             return json(req, 400, { error: "invalid_action" });
         }
 
-        const targetPlan = (payload?.plan ?? "").trim().toLowerCase();
-        if (!ALLOWED_PLAN_CODES.has(targetPlan)) {
-            return json(req, 400, { error: "invalid_plan" });
-        }
+        // --- Permesso per-action (fail-closed) ---
+        // preview/commit/state → billing.manage; cancel/reactivate → billing.cancel.
+        const requiredPermission =
+            action === "cancel" || action === "reactivate" ? "billing.cancel" : "billing.manage";
 
-        const newSeats = Math.floor(Number(payload?.seats));
-        if (!Number.isFinite(newSeats) || newSeats < 1) {
-            return json(req, 400, { error: "invalid_seats" });
-        }
-
-        // --- Permesso: billing.manage sul tenant (via client utente, SECURITY DEFINER) ---
         const { data: permRows, error: permError } = await supabaseUser.rpc("get_my_permissions", {
             p_tenant_id: tenantId
         });
@@ -197,11 +207,11 @@ serve(async req => {
             return json(req, 403, { error: "forbidden" });
         }
         const permissions: string[] = Array.isArray(permRows) ? permRows[0]?.permissions ?? [] : [];
-        if (!permissions.includes("billing.manage")) {
+        if (!permissions.includes(requiredPermission)) {
             return json(req, 403, { error: "forbidden" });
         }
 
-        // --- Service-role client per letture autoritative (tenant billing, plans, activities) ---
+        // --- Service-role client per letture autoritative ---
         const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
         const { data: tenant, error: tenantError } = await admin
@@ -217,40 +227,7 @@ serve(async req => {
             return json(req, 422, { error: "NO_SUBSCRIPTION" });
         }
 
-        // --- Piano target → price ID + cap self-service (DB = source of truth) ---
-        const { data: targetPlanRow, error: targetPlanError } = await admin
-            .from("plans")
-            .select("code, stripe_price_id, max_self_service_seats")
-            .eq("code", targetPlan)
-            .maybeSingle();
-
-        if (targetPlanError || !targetPlanRow?.stripe_price_id) {
-            console.error(`stripe-change-subscription: plan ${targetPlan} not configured`);
-            return json(req, 500, { error: "plan_not_configured" });
-        }
-        const newPriceId = targetPlanRow.stripe_price_id.trim();
-        const maxSeats = Number(targetPlanRow.max_self_service_seats) || 0;
-
-        // --- Cap self-service ---
-        if (newSeats > maxSeats) {
-            return json(req, 422, { error: "SEATS_OVER_SELF_SERVICE", details: { max_seats: maxSeats } });
-        }
-
-        // --- Floor sedi: non sotto il totale sedi del tenant (coerente con enforce_seat_limit) ---
-        const { count: activityCount, error: countError } = await admin
-            .from("activities")
-            .select("id", { count: "exact", head: true })
-            .eq("tenant_id", tenantId);
-        if (countError) {
-            console.error(`stripe-change-subscription: activity count failed: ${countError.message}`);
-            return json(req, 500, { error: "activity_count_failed" });
-        }
-        const minSeats = activityCount ?? 0;
-        if (newSeats < minSeats) {
-            return json(req, 422, { error: "SEATS_BELOW_ACTIVITIES", details: { min_seats: minSeats } });
-        }
-
-        // --- Stripe: carica la subscription corrente ---
+        // --- Stripe client + subscription corrente (comune a tutte le action) ---
         const stripe: Stripe | null = createStripeClient();
         if (!stripe) return json(req, 500, { error: "server_misconfigured" });
 
@@ -270,24 +247,148 @@ serve(async req => {
         const currentSeats = item.quantity ?? 1;
         const currentPeriodEndSec = periodEndSeconds(sub);
         const currency = sub.currency ?? item.price?.currency ?? "eur";
+        const periodEndIso = toIso(currentPeriodEndSec);
 
-        // --- Piano corrente: metadata → fallback reverse-lookup su price (source of truth) ---
+        // --- Piano corrente: metadata → fallback reverse-lookup su price ---
         let currentPlan = sub.metadata?.plan_code?.toLowerCase();
         if (!currentPlan || !ALLOWED_PLAN_CODES.has(currentPlan)) {
-            const { data: cur } = await admin
-                .from("plans")
-                .select("code")
-                .eq("stripe_price_id", currentPriceId)
-                .maybeSingle();
-            currentPlan = cur?.code?.toLowerCase() ?? (tenant.plan as string)?.toLowerCase();
+            currentPlan =
+                (await lookupPlanCodeByPriceId(admin, currentPriceId)) ?? (tenant.plan as string)?.toLowerCase();
         }
 
-        // --- No-change guard ---
+        // --- Stato abbonamento live (cambio programmato + disdetta) ---
+        // Cambio programmato letto dall'ULTIMA fase dello schedule attivo.
+        async function buildSubscriptionState() {
+            const scheduleId =
+                typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
+            let pendingChange: Record<string, unknown> | null = null;
+            if (scheduleId) {
+                try {
+                    const sched = await stripe.subscriptionSchedules.retrieve(scheduleId);
+                    const phases = sched.phases ?? [];
+                    // Pendente solo se c'è una fase target oltre la corrente.
+                    if (phases.length >= 2) {
+                        const targetPhase = phases[phases.length - 1];
+                        const pItem = targetPhase.items?.[0];
+                        const pPriceId = typeof pItem?.price === "string" ? pItem.price : pItem?.price?.id;
+                        pendingChange = {
+                            targetPlan: await lookupPlanCodeByPriceId(admin, pPriceId),
+                            targetSeats: pItem?.quantity ?? null,
+                            effectiveDate: toIso(targetPhase.start_date)
+                        };
+                    }
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.warn(`stripe-change-subscription: schedule retrieve for state failed: ${message}`);
+                }
+            }
+            return {
+                currentPeriodEnd: periodEndIso,
+                cancelAtPeriodEnd: !!sub.cancel_at_period_end,
+                pendingChange
+            };
+        }
+
+        // =====================================================================
+        // STATE — sola lettura
+        // =====================================================================
+        if (action === "state") {
+            return json(req, 200, await buildSubscriptionState());
+        }
+
+        // =====================================================================
+        // CANCEL — disdetta a fine periodo
+        // =====================================================================
+        if (action === "cancel") {
+            // Rilascia un eventuale schedule (cancel_at_period_end è in conflitto con
+            // una sub gestita da schedule); il downgrade pendente viene scartato
+            // (coerente: stai disdicendo).
+            const scheduleId =
+                typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
+            await releaseScheduleIfAny(stripe, scheduleId);
+
+            const result = await scheduleStripeCancel(stripe, tenant.stripe_subscription_id, { tenant_id: tenantId });
+            if (result === "error") {
+                return json(req, 502, { error: "stripe_cancel_failed" });
+            }
+            console.log(`stripe-change-subscription: CANCEL scheduled tenant=${tenantId} result=${result}`);
+            return json(req, 200, {
+                currentPeriodEnd: periodEndIso,
+                cancelAtPeriodEnd: true,
+                pendingChange: null
+            });
+        }
+
+        // =====================================================================
+        // REACTIVATE — annulla la disdetta programmata
+        // =====================================================================
+        if (action === "reactivate") {
+            const result = await reactivateStripeSubIfScheduled(stripe, tenant.stripe_subscription_id, {
+                tenant_id: tenantId
+            });
+            if (result === "error") {
+                return json(req, 502, { error: "stripe_reactivate_failed" });
+            }
+            console.log(`stripe-change-subscription: REACTIVATE tenant=${tenantId} result=${result}`);
+            // NB: non resuscita un downgrade precedentemente scartato dal cancel.
+            return json(req, 200, {
+                currentPeriodEnd: periodEndIso,
+                cancelAtPeriodEnd: false,
+                pendingChange: null
+            });
+        }
+
+        // =====================================================================
+        // PREVIEW / COMMIT — richiedono target piano + sedi (validati qui)
+        // =====================================================================
+        const targetPlan = (payload?.plan ?? "").trim().toLowerCase();
+        if (!ALLOWED_PLAN_CODES.has(targetPlan)) {
+            return json(req, 400, { error: "invalid_plan" });
+        }
+
+        const newSeats = Math.floor(Number(payload?.seats));
+        if (!Number.isFinite(newSeats) || newSeats < 1) {
+            return json(req, 400, { error: "invalid_seats" });
+        }
+
+        // Piano target → price ID + cap self-service (DB = source of truth).
+        const { data: targetPlanRow, error: targetPlanError } = await admin
+            .from("plans")
+            .select("code, stripe_price_id, max_self_service_seats")
+            .eq("code", targetPlan)
+            .maybeSingle();
+
+        if (targetPlanError || !targetPlanRow?.stripe_price_id) {
+            console.error(`stripe-change-subscription: plan ${targetPlan} not configured`);
+            return json(req, 500, { error: "plan_not_configured" });
+        }
+        const newPriceId = targetPlanRow.stripe_price_id.trim();
+        const maxSeats = Number(targetPlanRow.max_self_service_seats) || 0;
+
+        if (newSeats > maxSeats) {
+            return json(req, 422, { error: "SEATS_OVER_SELF_SERVICE", details: { max_seats: maxSeats } });
+        }
+
+        // Floor sedi: non sotto il totale sedi del tenant (coerente con enforce_seat_limit).
+        const { count: activityCount, error: countError } = await admin
+            .from("activities")
+            .select("id", { count: "exact", head: true })
+            .eq("tenant_id", tenantId);
+        if (countError) {
+            console.error(`stripe-change-subscription: activity count failed: ${countError.message}`);
+            return json(req, 500, { error: "activity_count_failed" });
+        }
+        const minSeats = activityCount ?? 0;
+        if (newSeats < minSeats) {
+            return json(req, 422, { error: "SEATS_BELOW_ACTIVITIES", details: { min_seats: minSeats } });
+        }
+
+        // No-change guard.
         if (currentPlan === targetPlan && currentSeats === newSeats) {
             return json(req, 422, { error: "NO_CHANGE" });
         }
 
-        // --- Classificazione up/down: il cambio piano prevale sulle sedi (decisione #1) ---
+        // Classificazione up/down: il cambio piano prevale sulle sedi.
         const curRank = PLAN_RANK[currentPlan] ?? 0;
         const tgtRank = PLAN_RANK[targetPlan] ?? 0;
         let classification: "upgrade" | "downgrade";
@@ -296,24 +397,17 @@ serve(async req => {
         else classification = newSeats > currentSeats ? "upgrade" : "downgrade";
 
         const newItems = [{ id: itemId, price: newPriceId, quantity: newSeats }];
-        const periodEndIso = toIso(currentPeriodEndSec);
         const effective = classification === "upgrade" ? "now" : periodEndIso;
 
-        // =====================================================================
-        // PREVIEW — nessuna scrittura su Stripe
-        // =====================================================================
+        // ----------------------------- PREVIEW -----------------------------
         if (action === "preview") {
             const existingScheduleId =
                 typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
 
-            // nextAmount = totale ricorrente PIENO del piano target.
             let nextAmount = 0;
             if (classification === "upgrade") {
-                // Per gli upgrade la riga "futuro" deve mostrare il pieno graduato
-                // al target, INDIPENDENTE da uno schedule attivo: createPreview
-                // rifletterebbe la fase programmata (es. downgrade pendente), non
-                // il target. Calcolo dai tiers del Price; fallback a createPreview
-                // solo se il Price non è graduated-tiered.
+                // Pieno graduato al target dai tiers (indipendente da schedule attivi);
+                // fallback a createPreview solo se il Price non è graduated-tiered.
                 const tiered = await graduatedTotalFromPrice(stripe, newPriceId, newSeats);
                 if (tiered != null) {
                     nextAmount = tiered;
@@ -332,8 +426,7 @@ serve(async req => {
                     }
                 }
             } else {
-                // Downgrade: createPreview riflette legittimamente lo schedule/fase
-                // target (= il downgrade stesso). Invariato.
+                // Downgrade: createPreview riflette legittimamente la fase target.
                 try {
                     const nextPreview = await stripe.invoices.createPreview({
                         customer: tenant.stripe_customer_id,
@@ -373,26 +466,19 @@ serve(async req => {
                 nextAmount,
                 nextDate: periodEndIso,
                 effective,
-                // Segnale per la UI: un upgrade su sub con schedule attivo rilascerà
-                // (scarterà) il cambio programmato al commit.
                 willDiscardScheduledChange: classification === "upgrade" && !!existingScheduleId
             });
         }
 
-        // =====================================================================
-        // COMMIT
-        // =====================================================================
+        // ----------------------------- COMMIT ------------------------------
         if (classification === "upgrade") {
-            // Upgrade → immediato con addebito prorata sulla carta in archivio.
-            // Prima dell'update: rilascia ogni schedule attivo, altrimenti Stripe
-            // rifiuta subscriptions.update su una sub gestita da schedule. Il
-            // downgrade pendente viene così scartato (l'upgrade lo supera).
+            // Upgrade → immediato. Rilascia ogni schedule attivo PRIMA dell'update
+            // (Stripe rifiuta update su sub schedule-managed); il downgrade pendente
+            // viene scartato (l'upgrade lo supera).
             const existingScheduleId =
                 typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
             await releaseScheduleIfAny(stripe, existingScheduleId);
 
-            // error_if_incomplete: se il pagamento fallisce / richiede azione (3DS)
-            // Stripe lancia e il cambio NON viene applicato.
             try {
                 await stripe.subscriptions.update(tenant.stripe_subscription_id, {
                     items: newItems,
@@ -404,7 +490,6 @@ serve(async req => {
                 const message = err instanceof Error ? err.message : String(err);
                 const type = (err as { type?: string })?.type ?? "";
                 const code = (err as { code?: string })?.code ?? "";
-                // Carta rifiutata / pagamento incompleto / richiede azione.
                 if (
                     type === "StripeCardError" ||
                     code === "subscription_payment_intent_requires_action" ||
@@ -420,7 +505,6 @@ serve(async req => {
             console.log(
                 `stripe-change-subscription: UPGRADE applied tenant=${tenantId} plan=${targetPlan} seats=${newSeats}`
             );
-            // tenants viene sincronizzato dal webhook (customer.subscription.updated).
             return json(req, 200, {
                 ok: true,
                 classification: "upgrade",
@@ -430,32 +514,20 @@ serve(async req => {
             });
         }
 
-        // Downgrade → subscription schedule, fase target al current_period_end. Revocabile.
-        //
-        // Lo stato atteso è SEMPRE esattamente 2 fasi pulite:
-        //   [fase corrente reale (piano attuale → current_period_end),
-        //    fase target (nuovo piano da current_period_end in poi)].
-        //
-        // Per essere deterministici NON si riusa né si estende uno schedule
-        // preesistente (porterebbe ad accumulo di fasi e confini stantii): se
-        // esiste, lo si RILASCIA e si ricrea fresco from_subscription (che
-        // rilegge il periodo corrente reale). La fase 0 va replicata VERBATIM
-        // dall'oggetto fresco: ricalcolare le date fa rifiutare l'update con
-        // "You can not update a phase that has already ended".
+        // Downgrade → subscription schedule a 2 fasi pulite. Revocabile.
+        // Fase 0 replicata VERBATIM dall'oggetto fresco (ricalcolare le date fa
+        // rifiutare l'update con "phase has already ended").
         let createdScheduleId: string | null = null;
         try {
-            // 1) Se esiste già uno schedule, rilascialo (no riuso, no lettura fasi).
             const existingScheduleId =
                 typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
             await releaseScheduleIfAny(stripe, existingScheduleId);
 
-            // 2) Crea uno schedule fresco: rilegge il periodo corrente reale.
             const schedule = await stripe.subscriptionSchedules.create({
                 from_subscription: tenant.stripe_subscription_id
             });
             createdScheduleId = schedule.id;
 
-            // 3) Fase 0 corrente: dati presi TALI E QUALI dall'oggetto fresco.
             const currentPhase = schedule.phases?.[0];
             if (!currentPhase) {
                 throw new Error("schedule has no current phase to preserve");
@@ -469,14 +541,12 @@ serve(async req => {
                 end_behavior: "release",
                 phases: [
                     {
-                        // Fase corrente replicata verbatim (start/end identici al reale).
                         items: currentPhaseItems,
                         start_date: currentPhase.start_date,
                         end_date: currentPhase.end_date,
                         proration_behavior: "none"
                     },
                     {
-                        // Fase target: parte automaticamente alla fine della fase 0.
                         items: [{ price: newPriceId, quantity: newSeats }],
                         proration_behavior: "none",
                         metadata: { plan_code: targetPlan }
@@ -498,8 +568,6 @@ serve(async req => {
             });
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
-            // Se avevamo appena creato uno schedule, rilascialo: la subscription non
-            // deve restare agganciata a uno schedule monco.
             if (createdScheduleId) {
                 try {
                     await stripe.subscriptionSchedules.release(createdScheduleId);

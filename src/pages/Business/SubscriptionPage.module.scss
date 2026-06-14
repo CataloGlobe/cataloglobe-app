@@ -175,7 +175,7 @@
     font-size: 13px;
 }
 
-// Indicatore "cambio programmato" (sessione post-commit downgrade)
+// Indicatore "cambio programmato" persistente
 .scheduledNote {
     display: flex;
     align-items: flex-start;
@@ -185,6 +185,23 @@
     background: var(--info-bg, #eff6ff);
     border: 1px solid var(--info-border, #bfdbfe);
     color: var(--info-text, #1e40af);
+}
+
+// Banner disdetta a fine periodo (+ CTA Riattiva)
+.cancelNote {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background-color: var(--color-warning-50, #fffbeb);
+    border: 1px solid var(--color-warning-200, #fde68a);
+    color: var(--color-warning-700, #b45309);
+
+    button {
+        margin-left: auto;
+    }
 }
 
 // Flusso "Modifica piano" self-service (drawer)
