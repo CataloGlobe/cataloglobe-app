@@ -8,6 +8,13 @@ import {
     scheduleStripeCancel,
     reactivateStripeSubIfScheduled
 } from "../_shared/stripe-helpers.ts";
+import { sendEmail } from "../_shared/sendEmail.ts";
+import {
+    upgradeEmail,
+    downgradeEmail,
+    cancelEmail,
+    reactivateEmail
+} from "../_shared/subscriptionEmails.ts";
 
 // ---------------------------------------------------------------------------
 // stripe-change-subscription
@@ -216,7 +223,7 @@ serve(async req => {
 
         const { data: tenant, error: tenantError } = await admin
             .from("tenants")
-            .select("id, stripe_customer_id, stripe_subscription_id, plan, paid_seats")
+            .select("id, owner_user_id, stripe_customer_id, stripe_subscription_id, plan, paid_seats")
             .eq("id", tenantId)
             .maybeSingle();
 
@@ -225,6 +232,24 @@ serve(async req => {
         }
         if (!tenant.stripe_subscription_id || !tenant.stripe_customer_id) {
             return json(req, 422, { error: "NO_SUBSCRIPTION" });
+        }
+
+        // --- Destinatario email di conferma: owner del tenant, fallback al caller.
+        // Memoizzato + risolto solo quando serve (non sui poll di `state`/`preview`).
+        let recipientCache: string | null | undefined;
+        async function getRecipient(): Promise<string | null> {
+            if (recipientCache !== undefined) return recipientCache;
+            let email: string | null = null;
+            try {
+                if (tenant.owner_user_id) {
+                    const { data } = await admin.auth.admin.getUserById(tenant.owner_user_id);
+                    email = data?.user?.email ?? null;
+                }
+            } catch (err) {
+                console.error("[stripe-change-subscription] owner email lookup failed:", err);
+            }
+            recipientCache = email ?? authData.user?.email ?? null;
+            return recipientCache;
         }
 
         // --- Stripe client + subscription corrente (comune a tutte le action) ---
@@ -312,6 +337,12 @@ serve(async req => {
                 return json(req, 502, { error: "stripe_cancel_failed" });
             }
             console.log(`stripe-change-subscription: CANCEL scheduled tenant=${tenantId} result=${result}`);
+            try {
+                const to = await getRecipient();
+                if (to) await sendEmail({ to, ...cancelEmail({ activeUntilIso: periodEndIso }) });
+            } catch (err) {
+                console.error("[stripe-change-subscription] cancel email error:", err);
+            }
             return json(req, 200, {
                 currentPeriodEnd: periodEndIso,
                 cancelAtPeriodEnd: true,
@@ -330,6 +361,12 @@ serve(async req => {
                 return json(req, 502, { error: "stripe_reactivate_failed" });
             }
             console.log(`stripe-change-subscription: REACTIVATE tenant=${tenantId} result=${result}`);
+            try {
+                const to = await getRecipient();
+                if (to) await sendEmail({ to, ...reactivateEmail({ renewalDateIso: periodEndIso }) });
+            } catch (err) {
+                console.error("[stripe-change-subscription] reactivate email error:", err);
+            }
             // NB: non resuscita un downgrade precedentemente scartato dal cancel.
             return json(req, 200, {
                 currentPeriodEnd: periodEndIso,
@@ -479,11 +516,13 @@ serve(async req => {
                 typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
             await releaseScheduleIfAny(stripe, existingScheduleId);
 
+            let updated: Stripe.Subscription | undefined;
             try {
-                await stripe.subscriptions.update(tenant.stripe_subscription_id, {
+                updated = await stripe.subscriptions.update(tenant.stripe_subscription_id, {
                     items: newItems,
                     proration_behavior: "always_invoice",
                     payment_behavior: "error_if_incomplete",
+                    expand: ["latest_invoice"],
                     metadata: { ...(sub.metadata ?? {}), plan_code: targetPlan }
                 });
             } catch (err) {
@@ -505,6 +544,27 @@ serve(async req => {
             console.log(
                 `stripe-change-subscription: UPGRADE applied tenant=${tenantId} plan=${targetPlan} seats=${newSeats}`
             );
+            // Email best-effort (importo addebitato oggi dall'invoice reale).
+            try {
+                const to = await getRecipient();
+                const monthlyTotalCents = await graduatedTotalFromPrice(stripe, newPriceId, newSeats);
+                if (to && monthlyTotalCents != null) {
+                    const inv = updated?.latest_invoice;
+                    const amountPaidTodayCents = inv && typeof inv !== "string" ? inv.amount_paid ?? null : null;
+                    await sendEmail({
+                        to,
+                        ...upgradeEmail({
+                            plan: targetPlan,
+                            seats: newSeats,
+                            amountPaidTodayCents,
+                            monthlyTotalCents,
+                            renewalDateIso: periodEndIso
+                        })
+                    });
+                }
+            } catch (err) {
+                console.error("[stripe-change-subscription] upgrade email error:", err);
+            }
             return json(req, 200, {
                 ok: true,
                 classification: "upgrade",
@@ -557,6 +617,22 @@ serve(async req => {
             console.log(
                 `stripe-change-subscription: DOWNGRADE scheduled tenant=${tenantId} plan=${targetPlan} seats=${newSeats} effective=${periodEndIso} schedule=${schedule.id}`
             );
+            try {
+                const to = await getRecipient();
+                if (to) {
+                    await sendEmail({
+                        to,
+                        ...downgradeEmail({
+                            plan: targetPlan,
+                            seats: newSeats,
+                            effectiveDateIso: periodEndIso,
+                            targetIsBase: targetPlan === "base"
+                        })
+                    });
+                }
+            } catch (err) {
+                console.error("[stripe-change-subscription] downgrade email error:", err);
+            }
             return json(req, 200, {
                 ok: true,
                 classification: "downgrade",
