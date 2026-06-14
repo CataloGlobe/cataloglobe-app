@@ -22,11 +22,6 @@ export default defineConfig(({ mode, isSsrBuild }) => ({
             },
         },
     },
-    // [DIAGNOSTIC] force React dev mode in public-client build → verbose #418 messages.
-    // REVERT before next production deploy.
-    ...(mode === "public-client"
-        ? { define: { "process.env.NODE_ENV": '"development"' } }
-        : {}),
     build: {
         ...(mode === "public-client"
             ? {
