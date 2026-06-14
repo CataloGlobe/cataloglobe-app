@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
-import { createStripeClient } from "../_shared/stripe-helpers.ts";
+import { createStripeClient, releaseScheduleIfAny } from "../_shared/stripe-helpers.ts";
 
 // ---------------------------------------------------------------------------
 // stripe-change-subscription
@@ -72,6 +72,62 @@ function toIso(seconds: number | null | undefined): string | null {
 /** Periodo di fatturazione corrente, item-level con fallback top-level (API basil). */
 function periodEndSeconds(sub: Stripe.Subscription): number | null {
     return sub.items?.data?.[0]?.current_period_end ?? sub.current_period_end ?? null;
+}
+
+/**
+ * Totale ricorrente PIENO (in centesimi) per un Price graduato a `quantity`
+ * sedi, calcolato dai tiers del Price. Indipendente da qualsiasi schedule
+ * attivo sulla subscription (a differenza di invoices.createPreview, che
+ * rifletterebbe la fase programmata). Ritorna `null` su Price non
+ * graduated-tiered o input inatteso → il chiamante fa fallback senza
+ * miscalcolare in silenzio.
+ */
+async function graduatedTotalFromPrice(
+    stripe: Stripe,
+    priceId: string,
+    quantity: number
+): Promise<number | null> {
+    try {
+        const price = await stripe.prices.retrieve(priceId, { expand: ["tiers"] });
+        if (
+            price.billing_scheme !== "tiered" ||
+            price.tiers_mode !== "graduated" ||
+            !Array.isArray(price.tiers)
+        ) {
+            console.warn(
+                `graduatedTotalFromPrice: price ${priceId} non graduated-tiered (scheme=${price.billing_scheme}, mode=${price.tiers_mode}) — fallback`
+            );
+            return null;
+        }
+        // Tiers in ordine crescente di up_to (null = infinito → ultimo).
+        const tiers = [...price.tiers].sort((a, b) => {
+            const au = a.up_to ?? Number.POSITIVE_INFINITY;
+            const bu = b.up_to ?? Number.POSITIVE_INFINITY;
+            return au - bu;
+        });
+        let remaining = quantity;
+        let lower = 0;
+        let total = 0;
+        for (const tier of tiers) {
+            if (remaining <= 0) break;
+            const upTo = tier.up_to ?? Number.POSITIVE_INFINITY;
+            const capacity = upTo - lower;
+            const units = Math.min(remaining, capacity);
+            if (units <= 0) continue;
+            total += (tier.flat_amount ?? 0) + (tier.unit_amount ?? 0) * units;
+            remaining -= units;
+            lower = upTo;
+        }
+        if (remaining > 0) {
+            console.warn(`graduatedTotalFromPrice: quantity ${quantity} oltre i tiers di ${priceId} — fallback`);
+            return null;
+        }
+        return total;
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`graduatedTotalFromPrice: retrieve fallito per ${priceId}: ${message}`);
+        return null;
+    }
 }
 
 serve(async req => {
@@ -247,19 +303,49 @@ serve(async req => {
         // PREVIEW — nessuna scrittura su Stripe
         // =====================================================================
         if (action === "preview") {
-            // nextAmount = totale ricorrente del piano target (senza proration).
+            const existingScheduleId =
+                typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
+
+            // nextAmount = totale ricorrente PIENO del piano target.
             let nextAmount = 0;
-            try {
-                const nextPreview = await stripe.invoices.createPreview({
-                    customer: tenant.stripe_customer_id,
-                    subscription: tenant.stripe_subscription_id,
-                    subscription_details: { items: newItems, proration_behavior: "none" }
-                });
-                nextAmount = nextPreview.total ?? 0;
-            } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
-                console.error(`stripe-change-subscription: next preview failed: ${message}`);
-                return json(req, 502, { error: "preview_failed" });
+            if (classification === "upgrade") {
+                // Per gli upgrade la riga "futuro" deve mostrare il pieno graduato
+                // al target, INDIPENDENTE da uno schedule attivo: createPreview
+                // rifletterebbe la fase programmata (es. downgrade pendente), non
+                // il target. Calcolo dai tiers del Price; fallback a createPreview
+                // solo se il Price non è graduated-tiered.
+                const tiered = await graduatedTotalFromPrice(stripe, newPriceId, newSeats);
+                if (tiered != null) {
+                    nextAmount = tiered;
+                } else {
+                    try {
+                        const nextPreview = await stripe.invoices.createPreview({
+                            customer: tenant.stripe_customer_id,
+                            subscription: tenant.stripe_subscription_id,
+                            subscription_details: { items: newItems, proration_behavior: "none" }
+                        });
+                        nextAmount = nextPreview.total ?? 0;
+                    } catch (err) {
+                        const message = err instanceof Error ? err.message : String(err);
+                        console.error(`stripe-change-subscription: next preview failed: ${message}`);
+                        return json(req, 502, { error: "preview_failed" });
+                    }
+                }
+            } else {
+                // Downgrade: createPreview riflette legittimamente lo schedule/fase
+                // target (= il downgrade stesso). Invariato.
+                try {
+                    const nextPreview = await stripe.invoices.createPreview({
+                        customer: tenant.stripe_customer_id,
+                        subscription: tenant.stripe_subscription_id,
+                        subscription_details: { items: newItems, proration_behavior: "none" }
+                    });
+                    nextAmount = nextPreview.total ?? 0;
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.error(`stripe-change-subscription: next preview failed: ${message}`);
+                    return json(req, 502, { error: "preview_failed" });
+                }
             }
 
             let chargeToday = 0;
@@ -286,7 +372,10 @@ serve(async req => {
                 chargeToday,
                 nextAmount,
                 nextDate: periodEndIso,
-                effective
+                effective,
+                // Segnale per la UI: un upgrade su sub con schedule attivo rilascerà
+                // (scarterà) il cambio programmato al commit.
+                willDiscardScheduledChange: classification === "upgrade" && !!existingScheduleId
             });
         }
 
@@ -295,6 +384,13 @@ serve(async req => {
         // =====================================================================
         if (classification === "upgrade") {
             // Upgrade → immediato con addebito prorata sulla carta in archivio.
+            // Prima dell'update: rilascia ogni schedule attivo, altrimenti Stripe
+            // rifiuta subscriptions.update su una sub gestita da schedule. Il
+            // downgrade pendente viene così scartato (l'upgrade lo supera).
+            const existingScheduleId =
+                typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
+            await releaseScheduleIfAny(stripe, existingScheduleId);
+
             // error_if_incomplete: se il pagamento fallisce / richiede azione (3DS)
             // Stripe lancia e il cambio NON viene applicato.
             try {
@@ -351,15 +447,7 @@ serve(async req => {
             // 1) Se esiste già uno schedule, rilascialo (no riuso, no lettura fasi).
             const existingScheduleId =
                 typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
-            if (existingScheduleId) {
-                try {
-                    await stripe.subscriptionSchedules.release(existingScheduleId);
-                } catch (relErr) {
-                    // Già rilasciato/terminale → procedi comunque alla ricreazione.
-                    const relMsg = relErr instanceof Error ? relErr.message : String(relErr);
-                    console.warn(`stripe-change-subscription: release of existing schedule ${existingScheduleId} failed (continuing): ${relMsg}`);
-                }
-            }
+            await releaseScheduleIfAny(stripe, existingScheduleId);
 
             // 2) Crea uno schedule fresco: rilegge il periodo corrente reale.
             const schedule = await stripe.subscriptionSchedules.create({

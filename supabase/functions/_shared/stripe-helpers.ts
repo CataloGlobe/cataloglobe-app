@@ -19,6 +19,24 @@ export function createStripeClient(): Stripe | null {
     return new Stripe(key, { apiVersion: "2025-04-30.basil" });
 }
 
+/**
+ * Rilascia uno subscription schedule se presente. No-op se scheduleId è
+ * assente. Non-throwing: logga e prosegue (la subscription resta valida anche
+ * se il release fallisce / lo schedule è già rilasciato/terminale).
+ */
+export async function releaseScheduleIfAny(
+    stripe: Stripe,
+    scheduleId?: string | null
+): Promise<void> {
+    if (!scheduleId) return;
+    try {
+        await stripe.subscriptionSchedules.release(scheduleId);
+    } catch (relErr) {
+        const message = relErr instanceof Error ? relErr.message : String(relErr);
+        console.warn(`releaseScheduleIfAny: release of ${scheduleId} failed (continuing): ${message}`);
+    }
+}
+
 function isResourceMissing(message: string): boolean {
     return /no such (subscription|customer)|resource_missing|404/i.test(message);
 }
