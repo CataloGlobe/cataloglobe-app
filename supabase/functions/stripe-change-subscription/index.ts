@@ -336,35 +336,38 @@ serve(async req => {
 
         // Downgrade → subscription schedule, fase target al current_period_end. Revocabile.
         //
-        // La fase 0 (corrente) DEVE essere replicata VERBATIM dall'oggetto schedule:
-        // ricalcolare start_date/end_date a mano fa divergere il timing dalla fase
-        // realmente in corso e Stripe rifiuta l'update con "You can not update a phase
-        // that has already ended. Trying to update phase 0.".
+        // Lo stato atteso è SEMPRE esattamente 2 fasi pulite:
+        //   [fase corrente reale (piano attuale → current_period_end),
+        //    fase target (nuovo piano da current_period_end in poi)].
+        //
+        // Per essere deterministici NON si riusa né si estende uno schedule
+        // preesistente (porterebbe ad accumulo di fasi e confini stantii): se
+        // esiste, lo si RILASCIA e si ricrea fresco from_subscription (che
+        // rilegge il periodo corrente reale). La fase 0 va replicata VERBATIM
+        // dall'oggetto fresco: ricalcolare le date fa rifiutare l'update con
+        // "You can not update a phase that has already ended".
         let createdScheduleId: string | null = null;
         try {
+            // 1) Se esiste già uno schedule, rilascialo (no riuso, no lettura fasi).
             const existingScheduleId =
                 typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
-
-            // Recupera lo schedule esistente, oppure creane uno from_subscription
-            // (aggancia la subscription e popola la fase corrente).
-            let schedule: Stripe.SubscriptionSchedule;
             if (existingScheduleId) {
-                schedule = await stripe.subscriptionSchedules.retrieve(existingScheduleId);
-                // Schedule in stato terminale/inutilizzabile → rilascia e ricrea pulito.
-                if (schedule.status === "released" || schedule.status === "canceled") {
-                    schedule = await stripe.subscriptionSchedules.create({
-                        from_subscription: tenant.stripe_subscription_id
-                    });
-                    createdScheduleId = schedule.id;
+                try {
+                    await stripe.subscriptionSchedules.release(existingScheduleId);
+                } catch (relErr) {
+                    // Già rilasciato/terminale → procedi comunque alla ricreazione.
+                    const relMsg = relErr instanceof Error ? relErr.message : String(relErr);
+                    console.warn(`stripe-change-subscription: release of existing schedule ${existingScheduleId} failed (continuing): ${relMsg}`);
                 }
-            } else {
-                schedule = await stripe.subscriptionSchedules.create({
-                    from_subscription: tenant.stripe_subscription_id
-                });
-                createdScheduleId = schedule.id;
             }
 
-            // Fase 0 corrente: dati presi TALI E QUALI dall'oggetto schedule.
+            // 2) Crea uno schedule fresco: rilegge il periodo corrente reale.
+            const schedule = await stripe.subscriptionSchedules.create({
+                from_subscription: tenant.stripe_subscription_id
+            });
+            createdScheduleId = schedule.id;
+
+            // 3) Fase 0 corrente: dati presi TALI E QUALI dall'oggetto fresco.
             const currentPhase = schedule.phases?.[0];
             if (!currentPhase) {
                 throw new Error("schedule has no current phase to preserve");
