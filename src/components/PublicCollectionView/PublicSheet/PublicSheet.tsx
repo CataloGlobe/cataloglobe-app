@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, animate, motion, useMotionValue, useTransform, useDragControls, useReducedMotion } from "framer-motion";
+import { popSheetOpen, pushSheetOpen } from "../hooks/useScrollCollapse";
 import styles from "./PublicSheet.module.scss";
 
 function useIsMobile(breakpoint = 640) {
@@ -54,6 +55,12 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
     // Non smontare il componente finché l'animazione di chiusura non è completata.
     const [shouldRender, setShouldRender] = useState(false);
     const isClosingRef = useRef(false);
+
+    // ── will-change: transform SOLO durante l'entrata, poi auto ───────────────
+    // Hint perf per l'animazione d'ingresso del panel; rimosso a transizione
+    // conclusa (onAnimationComplete desktop / promise dell'animate mobile) per
+    // non lasciare un layer di composizione permanente. Non tocca il drag.
+    const [panelWillChange, setPanelWillChange] = useState<"transform" | "auto">("transform");
 
     // ── Guard unmount esterno ─────────────────────────────────────────────────
     // Evita setState/onClose su elemento già rimosso dal parent durante animazione.
@@ -119,6 +126,12 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
     useLayoutEffect(() => {
         if (!isOpen) return;
 
+        // Contatore sheet aperte (modulo) — incrementato SINCRONO qui, PRIMA che
+        // il body-lock sotto (position:fixed) induca lo scroll event. Così
+        // useScrollCollapse vede già freeze>0 e non rimpicciolisce la bottom bar.
+        // Decremento nel cleanup → copre close (isOpen=false) e unmount.
+        pushSheetOpen();
+
         savedScrollYRef.current = window.scrollY;
         prevBodyStyleRef.current = {
             overflow: document.body.style.overflow,
@@ -141,6 +154,9 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
         document.body.style.position = "fixed";
 
         return () => {
+            // Decremento sincrono del contatore sheet aperte: pareggia il push
+            // sopra su close/unmount, niente contatore appeso.
+            popSheetOpen();
             // Fallback: se triggerClose non ha già rilasciato il lock (es. isOpen settato
             // a false dall'esterno senza passare per triggerClose), lo rilascia qui.
             releaseBodyLock();
@@ -194,18 +210,24 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
 
         if (isMobile) {
             if (prefersReducedMotion) {
-                // Reduced motion: apertura istantanea, niente spring.
+                // Reduced motion: apertura istantanea, niente spring → nessun hint.
                 y.set(0);
                 setShouldRender(true);
+                setPanelWillChange("auto");
                 return;
             }
             // Posiziona il panel sotto lo schermo, poi anima verso l'alto
+            setPanelWillChange("transform");
             y.set(window.innerHeight);
             setShouldRender(true);
             requestAnimationFrame(() => {
-                animate(y, 0, { type: "spring", damping: 32, stiffness: 320 });
+                animate(y, 0, { type: "spring", damping: 32, stiffness: 320 }).then(() => {
+                    // Entrata conclusa: rimuovi l'hint (se ancora montato).
+                    if (isMountedRef.current) setPanelWillChange("auto");
+                });
             });
         } else {
+            setPanelWillChange("transform");
             setShouldRender(true);
         }
     }, [isOpen, isMobile, y, prefersReducedMotion]);
@@ -333,6 +355,8 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 20, scale: 0.98 }}
                             transition={{ type: "spring", duration: 0.32, bounce: 0.15 }}
+                            style={{ willChange: panelWillChange }}
+                            onAnimationComplete={() => setPanelWillChange("auto")}
                             onClick={e => e.stopPropagation()}
                         >
                             {headerContent && (
@@ -368,7 +392,7 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                 role="dialog"
                 aria-modal="true"
                 aria-label={ariaLabel}
-                style={{ y, touchAction: "pan-y" }}
+                style={{ y, touchAction: "pan-y", willChange: panelWillChange }}
                 drag="y"
                 dragControls={dragControls}
                 dragListener={false}

@@ -1,16 +1,40 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
+ * Contatore condiviso a livello di MODULO delle sheet pubbliche aperte.
+ * Ogni PublicSheet lo incrementa all'apertura e lo decrementa alla chiusura
+ * (più cleanup di unmount), in modo SINCRONO nel path open/close → già settato
+ * PRIMA dello scroll event indotto dal body-lock. Quando >0, useScrollCollapse
+ * congela lo stato collapse: copre QUALSIASI sheet basata su PublicSheet
+ * (dettaglio, ordine, featured, Assistenza), non solo quelle note al parent.
+ *
+ * SSR-safe: toccato SOLO da effect/handler client (PublicSheet useLayoutEffect),
+ * MAI letto in render.
+ */
+let openSheetCount = 0;
+
+export function pushSheetOpen(): void {
+    openSheetCount += 1;
+}
+
+export function popSheetOpen(): void {
+    openSheetCount = Math.max(0, openSheetCount - 1);
+}
+
+/**
  * Restituisce true quando lo scroll supera il threshold (default 50px).
  * Usato dai FAB della pagina pubblica per collassarsi in forma compatta.
  * Usa requestAnimationFrame per throttle: evita jitter su mobile.
  *
- * `freeze`: quando true, lo stato collapse NON viene aggiornato dallo scroll e
- * trattiene l'ultimo valore. Serve a evitare il flicker quando una sheet apre e
- * blocca lo scroll del body (window.scrollY torna a 0 → l'hook crederebbe di
- * essere in cima ed espanderebbe). Il flag è letto da un ref aggiornato in modo
- * SINCRONO ad ogni render, così vince gli scroll event che arrivano subito dopo
- * l'apertura (il body-lock fired nell'effect della sheet, dopo questo render).
+ * Freeze in OR su due fonti:
+ * - `freeze` prop: quando true, lo stato collapse NON viene aggiornato dallo
+ *   scroll e trattiene l'ultimo valore. Letto da un ref aggiornato SINCRONO ad
+ *   ogni render, così vince gli scroll event subito dopo l'apertura.
+ * - `openSheetCount > 0`: contatore di modulo delle sheet aperte (vedi sopra).
+ *   Ridondante con la prop per dettaglio/ordine, ma copre anche featured/Assistenza
+ *   senza toccare il parent. La prop verrà rimossa al cleanup finale.
+ * Entrambe servono a evitare il flicker quando una sheet blocca lo scroll del
+ * body (window.scrollY torna a 0 → l'hook crederebbe di essere in cima).
  */
 export function useScrollCollapse(threshold = 50, freeze = false): boolean {
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -24,10 +48,13 @@ export function useScrollCollapse(threshold = 50, freeze = false): boolean {
         let rafId: number | null = null;
 
         const handleScroll = () => {
-            if (freezeRef.current) return; // congelato: ignora gli update da scroll
+            // Freeze in OR: prop esistente || almeno una sheet aperta (contatore modulo).
+            if (freezeRef.current || openSheetCount > 0) return;
             if (rafId !== null) return;
             rafId = requestAnimationFrame(() => {
-                if (!freezeRef.current) setIsCollapsed(window.scrollY > threshold);
+                if (!freezeRef.current && openSheetCount === 0) {
+                    setIsCollapsed(window.scrollY > threshold);
+                }
                 rafId = null;
             });
         };

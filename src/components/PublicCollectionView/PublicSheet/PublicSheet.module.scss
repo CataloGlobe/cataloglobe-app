@@ -51,7 +51,9 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  will-change: transform;
+  /* will-change gestito inline da PublicSheet: transform SOLO durante l'entrata,
+     poi auto (onAnimationComplete desktop / promise animate mobile). Evita un
+     layer di composizione permanente. */
   /* estende il background del panel nella safe area (home indicator iPhone,
        navbar Android) evitando il "gap" bianco sotto il sheet */
   padding-bottom: env(safe-area-inset-bottom, 0px);
