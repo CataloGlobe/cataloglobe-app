@@ -34,10 +34,14 @@ function json(req: Request, status: number, body: Record<string, unknown>) {
 // --- Billing pre-fill helpers (Stripe customer from tenant fiscal data) ---
 
 type TenantFiscal = {
+    legal_entity_type?: string | null;
     legal_name?: string | null;
     first_name?: string | null;
     last_name?: string | null;
+    fiscal_code?: string | null;
     vat_number?: string | null;
+    codice_destinatario?: string | null;
+    pec?: string | null;
     address?: string | null;
     street_number?: string | null;
     postal_code?: string | null;
@@ -83,6 +87,37 @@ function buildEuVatValue(vat?: string | null, country?: string | null): string |
     if (/^[A-Z]{2}/.test(raw)) return raw; // already country-prefixed
     const cc = (clean(country).toUpperCase() || "IT").slice(0, 2);
     return `${cc}${raw}`;
+}
+
+/** Stripe customer metadata from the tenant fiscal record. Empty keys omitted. */
+function buildCustomerMetadata(tenantId: string, t: TenantFiscal): Record<string, string> {
+    const meta: Record<string, string> = { tenant_id: tenantId };
+    const put = (key: string, value: unknown) => {
+        const v = clean(value);
+        if (v) meta[key] = v;
+    };
+    put("legal_entity_type", t.legal_entity_type);
+    put("legal_name", t.legal_name);
+    put("first_name", t.first_name);
+    put("last_name", t.last_name);
+    put("fiscal_code", t.fiscal_code);
+    put("vat_number", t.vat_number);
+    put("codice_destinatario", t.codice_destinatario);
+    put("pec", t.pec);
+    return meta;
+}
+
+/** Human-readable customer description, e.g. "Trattoria Da Mario S.r.l. · Milano (societa)". */
+function buildCustomerDescription(t: TenantFiscal): string | undefined {
+    const base = clean(t.legal_name) || `${clean(t.first_name)} ${clean(t.last_name)}`.trim();
+    const city = clean(t.city);
+    const type = clean(t.legal_entity_type);
+
+    let desc = base;
+    if (city) desc += `${desc ? " · " : ""}${city}`;
+    if (type) desc += `${desc ? " " : ""}(${type})`;
+    desc = desc.trim();
+    return desc || undefined;
 }
 
 /**
@@ -252,7 +287,7 @@ serve(async req => {
         const { data: fiscalRow, error: fiscalError } = await supabaseAdmin
             .from("tenants")
             .select(
-                "legal_entity_type, legal_name, vat_number, first_name, last_name, address, street_number, postal_code, city, province, country"
+                "legal_entity_type, legal_name, vat_number, first_name, last_name, fiscal_code, codice_destinatario, pec, address, street_number, postal_code, city, province, country"
             )
             .eq("id", tenantId)
             .maybeSingle();
@@ -266,6 +301,8 @@ serve(async req => {
         const customerName = buildCustomerName(fiscal);
         const customerAddress = buildCustomerAddress(fiscal);
         const euVatValue = buildEuVatValue(fiscal.vat_number, fiscal.country);
+        const customerMetadata = buildCustomerMetadata(tenantId, fiscal);
+        const customerDescription = buildCustomerDescription(fiscal);
 
         // Create or reuse Stripe Customer, pre-filling name + address from the tenant.
         let stripeCustomerId = tenantData.stripe_customer_id;
@@ -275,7 +312,9 @@ serve(async req => {
                 email: userEmail,
                 name: customerName,
                 address: customerAddress,
-                metadata: { tenant_id: tenantId, user_id: userId }
+                description: customerDescription,
+                preferred_locales: ["it"],
+                metadata: { ...customerMetadata, user_id: userId }
             });
             stripeCustomerId = customer.id;
 
@@ -288,13 +327,22 @@ serve(async req => {
                 console.error("stripe-checkout: Failed to save stripe_customer_id:", updateErr);
                 return json(req, 500, { error: "db_update_failed" });
             }
-        } else if (customerName || customerAddress) {
-            // Reuse path: refresh name/address on the existing customer. Best-effort —
+        } else if (
+            customerName ||
+            customerAddress ||
+            customerDescription ||
+            Object.keys(customerMetadata).length > 1
+        ) {
+            // Reuse path: refresh profile on the existing customer. Best-effort —
             // a failed update must not block checkout (we still have the data our side).
+            // Stripe merges metadata (unspecified keys, e.g. user_id, are preserved).
             try {
                 await stripe.customers.update(stripeCustomerId, {
                     name: customerName,
-                    address: customerAddress
+                    address: customerAddress,
+                    description: customerDescription,
+                    preferred_locales: ["it"],
+                    metadata: customerMetadata
                 });
             } catch (err) {
                 // Log only the error class — Stripe messages can echo the submitted value.
