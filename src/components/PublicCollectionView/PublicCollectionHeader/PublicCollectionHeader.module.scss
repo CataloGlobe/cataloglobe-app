@@ -217,6 +217,16 @@
   }
 }
 
+/* Divisore verticale tra gruppo utility (IT/search/···) e gruppo azioni
+   (Assistenza/Ordine). Linea 1px coerente col bordo dark-glass degli iconBtn. */
+.actionsDivider {
+  flex-shrink: 0;
+  width: 1px;
+  height: 24px;
+  margin: 0 2px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
 /* Bottone Ordine con articoli in carrello: tinta accent sottile (dettaglio che
    distingue lo stato "carrello pieno" senza urlare). */
 .iconBtn[data-accent="true"] {

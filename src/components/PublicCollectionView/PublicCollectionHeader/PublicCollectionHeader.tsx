@@ -345,6 +345,13 @@ export default function PublicCollectionHeader({
                             </button>
                         )}
 
+                        {/* Divisore tra gruppo utility (IT/search/···) e gruppo
+                            azioni (Assistenza/Ordine). Solo se almeno un'azione è
+                            presente. */}
+                        {((onOpenSupport && supportVisible) || (onOpenOrder && orderVisible)) && (
+                            <span className={styles.actionsDivider} aria-hidden="true" />
+                        )}
+
                         {/* Assistenza (campanello) — entry point desktop, stessa
                             condizione del campanello mobile (supportVisible). */}
                         {onOpenSupport && supportVisible && (
