@@ -3,7 +3,7 @@ import { AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus, Search } from "lucide-react";
+import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus } from "lucide-react";
 import type {
     ResolvedAllergen,
     ResolvedCharacteristic,
@@ -724,6 +724,14 @@ export default function CollectionView({
         return () => mq.removeEventListener("change", update);
     }, [bottomBarFlag]);
     const useBottomBar = bottomBarFlag && isMobileViewport;
+    // Direzione "Header" desktop: sotto flag bottom-bar, su viewport NON-mobile le
+    // azioni ordine/assistenza vivono nell'header (non i FAB). `isMobileViewport`
+    // è già accoppiato al flag (true solo se bottomBarFlag) → con flag OFF questa
+    // resta false ovunque e il comportamento legacy (FAB) è invariato.
+    const showHeaderActions = mode === "public" && bottomBarFlag && !isMobileViewport;
+    // I FAB ordine/recensioni restano SOLO quando non c'è né bottom bar né azioni
+    // header: cioè legacy (flag OFF, mobile+desktop) → invariato.
+    const useFabEntries = !useBottomBar && !showHeaderActions;
     // Maintenance scoperto runtime via 423 ORDERING_UNAVAILABLE su submit
     // (Strict + Reactive: il cliente lo apprende solo al tentativo). Solo
     // OrderingSheet usa effectiveMaintenance per banner inline + submit
@@ -1894,6 +1902,12 @@ export default function CollectionView({
                     showHubTabs={!useBottomBar}
                     allergensCount={allergenFilterIds.length}
                     onOpenMore={mode === "public" ? () => setIsMoreSheetOpen(true) : undefined}
+                    selectionCount={selectionCount}
+                    orderVisible={showHeaderActions && !shouldHideOrderingEntry}
+                    onOpenOrder={showHeaderActions ? openOrdering : undefined}
+                    supportVisible={showHeaderActions && orderingActive}
+                    onOpenSupport={showHeaderActions ? () => setIsSupportOpen(true) : undefined}
+                    reviewDot={showHeaderActions ? valutaVisible : false}
                 />
             )}
 
@@ -2269,8 +2283,9 @@ export default function CollectionView({
             )}
 
             {/* ── ORDERING FAB — unico, context-aware (cart o ordini) ── */}
-            {/* Nascosto quando la bottom nav bar è attiva (flag ON + mobile): il carrello vive nella barra. */}
-            {!useBottomBar && mode === "public" && activeTab === "menu" && !shouldHideOrderingEntry && (selectionCount > 0 || (orderingActive && hasOrdersInSession)) && (
+            {/* Nascosto quando bottom bar (flag+mobile) O azioni header (flag+desktop):
+                il carrello vive nella barra / nell'header. Resta solo legacy (flag OFF). */}
+            {useFabEntries && mode === "public" && activeTab === "menu" && !shouldHideOrderingEntry && (selectionCount > 0 || (orderingActive && hasOrdersInSession)) && (
                 <button
                     type="button"
                     className={styles.orderingFab}
@@ -2297,8 +2312,9 @@ export default function CollectionView({
             )}
 
             {/* ── VALUTA FAB — slide-in dopo 3s, solo public + tab menu ── */}
-            {/* Nascosto con la bottom nav bar attiva: il reminder diventa un dot sull'icona recensioni. */}
-            {!useBottomBar && mode === "public" && activeTab === "menu" && (
+            {/* Nascosto con bottom bar O azioni header: il reminder diventa un dot
+                sulla tab recensioni (barra mobile o chip header). Resta solo legacy. */}
+            {useFabEntries && mode === "public" && activeTab === "menu" && (
                 <button
                     type="button"
                     className={[

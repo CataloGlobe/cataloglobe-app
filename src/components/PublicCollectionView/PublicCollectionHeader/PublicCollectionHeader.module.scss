@@ -217,6 +217,18 @@
   }
 }
 
+/* Bottone Ordine con articoli in carrello: tinta accent sottile (dettaglio che
+   distingue lo stato "carrello pieno" senza urlare). */
+.iconBtn[data-accent="true"] {
+  background: color-mix(in srgb, var(--pub-accent, #f59e0b) 22%, transparent);
+  border-color: color-mix(in srgb, var(--pub-accent, #f59e0b) 55%, transparent);
+
+  @include hover {
+    background: color-mix(in srgb, var(--pub-accent, #f59e0b) 32%, transparent);
+    border-color: color-mix(in srgb, var(--pub-accent, #f59e0b) 70%, transparent);
+  }
+}
+
 .iconBtnBadge {
   position: absolute;
   top: -4px;
@@ -259,6 +271,7 @@
 }
 
 .chip {
+  position: relative;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -300,5 +313,21 @@
     background: color-mix(in srgb, var(--pub-accent) 85%, white);
     color: var(--pub-cta-text);
   }
+}
+
+/* Dot promemoria recensione sulla tab "Dicci la tua". Accent con bordo del
+   colore header così si stacca pulito. Nascosto quando la tab è attiva (gate
+   nel .tsx) per non sovrapporsi allo sfondo accent. */
+.chipDot {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--pub-accent, #f59e0b);
+  border: 1.5px solid rgba(20, 20, 20, 0.92);
+  box-sizing: content-box;
+  pointer-events: none;
 }
 

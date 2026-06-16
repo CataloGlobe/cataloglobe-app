@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, CalendarDays, ImageIcon, MessageSquareHeart, MoreHorizontal, Search } from "lucide-react";
+import { Bell, BookOpen, CalendarDays, ImageIcon, MessageSquareHeart, MoreHorizontal, Search, ShoppingBag } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { buildCoverImageSet } from "@/utils/imageTransform";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
@@ -72,6 +72,21 @@ export type PublicCollectionHeaderProps = {
     showLanguageSelector?: boolean;
     /** Slot opzionale a destra del titolo (es. link "Menu" per pagine non-catalogo). */
     actionSlot?: ReactNode;
+    // ── Azioni tavolo desktop (gate dal parent: bottomBarFlag && !mobile) ───────
+    // Sostituiscono i FAB ordine/recensioni sul ramo desktop. Su mobile (bottom
+    // bar) il parent NON le passa → header invariato.
+    /** Conteggio ordine per il badge del bottone Ordine. */
+    selectionCount?: number;
+    /** Mostra il bottone Ordine (carrello). */
+    orderVisible?: boolean;
+    /** Apre il drawer ordine. Undefined ⇒ bottone non renderizzato. */
+    onOpenOrder?: () => void;
+    /** Mostra il bottone Assistenza (campanello). */
+    supportVisible?: boolean;
+    /** Apre il drawer Assistenza. Undefined ⇒ bottone non renderizzato. */
+    onOpenSupport?: () => void;
+    /** Dot promemoria recensione sulla tab "Dicci la tua" (riusa valutaVisible). */
+    reviewDot?: boolean;
 };
 
 export default function PublicCollectionHeader({
@@ -97,6 +112,12 @@ export default function PublicCollectionHeader({
     showHubTabs = true,
     showLanguageSelector = true,
     actionSlot,
+    selectionCount = 0,
+    orderVisible = false,
+    onOpenOrder,
+    supportVisible = false,
+    onOpenSupport,
+    reviewDot = false,
 }: PublicCollectionHeaderProps) {
     const { t } = useTranslation("public");
     // ── ResizeObserver: write --pub-header-height on <main> ancestor ────────────
@@ -323,6 +344,44 @@ export default function PublicCollectionHeader({
                                 )}
                             </button>
                         )}
+
+                        {/* Assistenza (campanello) — entry point desktop, stessa
+                            condizione del campanello mobile (supportVisible). */}
+                        {onOpenSupport && supportVisible && (
+                            <button
+                                type="button"
+                                className={styles.iconBtn}
+                                onClick={onOpenSupport}
+                                aria-label="Assistenza al tavolo"
+                                title="Assistenza"
+                            >
+                                <Bell size={15} strokeWidth={2} />
+                            </button>
+                        )}
+
+                        {/* Ordine (carrello) — apre il drawer ordine, badge conteggio.
+                            Tinta accent quando ci sono articoli (data-accent). */}
+                        {onOpenOrder && orderVisible && (
+                            <button
+                                type="button"
+                                className={styles.iconBtn}
+                                data-accent={selectionCount > 0 ? "true" : undefined}
+                                onClick={onOpenOrder}
+                                aria-label={
+                                    selectionCount > 0
+                                        ? t("fab.cart_aria_count", { count: selectionCount })
+                                        : t("fab.cart_aria")
+                                }
+                                title="Ordine"
+                            >
+                                <ShoppingBag size={15} strokeWidth={2} />
+                                {selectionCount > 0 && (
+                                    <span className={styles.iconBtnBadge} aria-hidden>
+                                        {selectionCount}
+                                    </span>
+                                )}
+                            </button>
+                        )}
                     </div>
 
                     {showHubTabs && (
@@ -347,6 +406,9 @@ export default function PublicCollectionHeader({
                                     onClick={() => onTabChange?.(tab.id)}
                                 >
                                     {tab.icon} {t(tab.labelKey)}
+                                    {tab.id === "reviews" && reviewDot && activeTab !== "reviews" && (
+                                        <span className={styles.chipDot} aria-hidden="true" />
+                                    )}
                                 </button>
                             ))}
                         </div>
