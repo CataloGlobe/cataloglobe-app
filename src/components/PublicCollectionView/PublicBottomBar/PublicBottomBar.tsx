@@ -157,42 +157,43 @@ export default function PublicBottomBar({
                 ))}
             </div>
 
+            {/* Un solo divisore tra il gruppo nav e il gruppo azioni (campanello +
+                carrello). Campanello e carrello stanno insieme, dalla stessa parte;
+                fra loro solo il gap del `.bar`, nessun divisore interno. */}
+            {(supportVisible || cartVisible) && (
+                <span className={styles.divider} aria-hidden="true" />
+            )}
+
             {supportVisible && (
-                <>
-                    <span className={styles.divider} aria-hidden="true" />
-                    <button
-                        type="button"
-                        className={styles.cart}
-                        aria-label="Assistenza al tavolo"
-                        onClick={onOpenSupport}
-                    >
-                        <Bell size={19} strokeWidth={1.9} />
-                    </button>
-                </>
+                <button
+                    type="button"
+                    className={styles.cart}
+                    aria-label="Assistenza al tavolo"
+                    onClick={onOpenSupport}
+                >
+                    <Bell size={19} strokeWidth={1.9} />
+                </button>
             )}
 
             {cartVisible && (
-                <>
-                    <span className={styles.divider} aria-hidden="true" />
-                    <button
-                        type="button"
-                        className={styles.cart}
-                        aria-label={
-                            selectionCount > 0
-                                ? t("fab.cart_aria_count", { count: selectionCount })
-                                : t("fab.cart_aria")
-                        }
-                        onClick={handleCart}
-                    >
-                        <span className={styles.cartIcon} data-bump={bump ? "true" : "false"}>
-                            {/* Sempre a contorno: il fill bianco riduce la leggibilità ed è
-                                ridondante col pallino che già segnala la selezione. */}
-                            <ShoppingBag size={19} strokeWidth={1.9} fill="none" />
-                        </span>
-                        {/* Indicatore binario: pallino rosso quando selectionCount > 0 (niente numero). */}
-                        {selectionCount > 0 && <span className={styles.cartDot} aria-hidden="true" />}
-                    </button>
-                </>
+                <button
+                    type="button"
+                    className={styles.cart}
+                    aria-label={
+                        selectionCount > 0
+                            ? t("fab.cart_aria_count", { count: selectionCount })
+                            : t("fab.cart_aria")
+                    }
+                    onClick={handleCart}
+                >
+                    <span className={styles.cartIcon} data-bump={bump ? "true" : "false"}>
+                        {/* Sempre a contorno: il fill bianco riduce la leggibilità ed è
+                            ridondante col pallino che già segnala la selezione. */}
+                        <ShoppingBag size={19} strokeWidth={1.9} fill="none" />
+                    </span>
+                    {/* Indicatore binario: pallino rosso quando selectionCount > 0 (niente numero). */}
+                    {selectionCount > 0 && <span className={styles.cartDot} aria-hidden="true" />}
+                </button>
             )}
             </nav>
         </div>
