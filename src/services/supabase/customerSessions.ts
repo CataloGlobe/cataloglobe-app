@@ -211,6 +211,34 @@ export async function listActiveSessions(
 }
 
 /**
+ * Snapshot leggero dello stato richieste (cameriere/conto) di tutte le
+ * customer_sessions attive del tenant. Usato dal dispatcher globale di
+ * notifiche operative (`OperationalAlerts`) per SEEDARE la mappa in memoria
+ * al mount / cambio business: le richieste già attive vengono apprese senza
+ * generare alert (no falsi positivi al mount). RLS authenticated tenant-scoped.
+ */
+export interface SessionRequestState {
+    id: string;
+    current_table_id: string | null;
+    waiter_called_at: string | null;
+    bill_requested_at: string | null;
+}
+
+export async function listSessionRequestStates(
+    tenantId: string
+): Promise<SessionRequestState[]> {
+    const nowIso = new Date().toISOString();
+    const { data, error } = await supabase
+        .from("customer_sessions")
+        .select("id, current_table_id, waiter_called_at, bill_requested_at")
+        .eq("tenant_id", tenantId)
+        .gt("expires_at", nowIso);
+
+    if (error) throw error;
+    return data ?? [];
+}
+
+/**
  * Lista delle customer_sessions attive su uno specifico tavolo. Utile per il
  * pannello drill-down "Chi è seduto al tavolo X?".
  */

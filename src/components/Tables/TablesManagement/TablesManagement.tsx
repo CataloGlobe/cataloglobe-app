@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Bell, Grid2X2, Layers, MoreHorizontal, Plus, QrCode, RotateCw } from "lucide-react";
+import { ConciergeBell, Grid2X2, Layers, MoreHorizontal, Plus, QrCode, Receipt, RotateCw } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
@@ -394,11 +394,30 @@ export function TablesManagement({
                             }}
                             aria-label={`${row.bill_requested_count} richieste conto`}
                         >
-                            <Bell size={12} />
+                            <Receipt size={12} />
                             <span>Conto richiesto</span>
                             {row.bill_requested_count > 1 && (
                                 <span className={styles.billBadgeCount}>
                                     {row.bill_requested_count}
+                                </span>
+                            )}
+                        </button>
+                    )}
+                    {row.waiter_called_count > 0 && canManage && (
+                        <button
+                            type="button"
+                            className={styles.waiterBadge}
+                            onClick={e => {
+                                e.stopPropagation();
+                                setBillDrawerTable({ id: row.id, label: row.label });
+                            }}
+                            aria-label={`${row.waiter_called_count} chiamate cameriere`}
+                        >
+                            <ConciergeBell size={12} />
+                            <span>Cameriere chiamato</span>
+                            {row.waiter_called_count > 1 && (
+                                <span className={styles.waiterBadgeCount}>
+                                    {row.waiter_called_count}
                                 </span>
                             )}
                         </button>

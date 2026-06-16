@@ -235,3 +235,36 @@
   color: var(--text-default, #0f172a);
   flex-shrink: 0;
 }
+
+// ── Requests row: bill / waiter pending indicators ────────────────────────────
+
+$pill-violet: #7c3aed;
+$pill-indigo: #4f46e5;
+
+.cardRowRequests {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pillBill,
+.pillWaiter {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pillBill {
+  background-color: color-mix(in srgb, #{$pill-violet} 12%, transparent);
+  color: $pill-violet;
+}
+
+.pillWaiter {
+  background-color: color-mix(in srgb, #{$pill-indigo} 12%, transparent);
+  color: $pill-indigo;
+}
