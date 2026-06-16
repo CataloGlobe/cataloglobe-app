@@ -10,7 +10,6 @@ import {
     getOverviewStats,
     getSocialClicks,
     getReviewMetrics,
-    getSearchRate,
     getHourlyDistribution,
     getDeviceDistribution,
     getTopSearchTerms,
@@ -52,7 +51,13 @@ import { PageGate } from "@/components/PageGate/PageGate";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { buildXlsxWorkbook, downloadXlsx, type XlsxSection } from "./utils/exportXlsx";
+import {
+    buildXlsxWorkbook,
+    downloadXlsx,
+    type Cell,
+    type CoverSpec,
+    type SheetSpec
+} from "./utils/exportXlsx";
 import { getPreviousRange, getPreviousPeriodLabel, type PeriodKey } from "./utils/periodComparison";
 import OverviewCards from "./components/OverviewCards";
 import PageViewsChart from "./components/PageViewsChart";
@@ -74,7 +79,6 @@ import ReservationsOverviewCards from "./components/ReservationsOverviewCards";
 import ReservationsTrendChart from "./components/ReservationsTrendChart";
 import ReservationsHourlyChart from "./components/ReservationsHourlyChart";
 import ReservationsSoonCard from "./components/ReservationsSoonCard";
-import { formatEur, formatDuration } from "./utils/ordersFormat";
 import styles from "./Analytics.module.scss";
 
 function periodToDateRange(period: PeriodKey): DateRange {
@@ -128,7 +132,6 @@ export default function AnalyticsPage() {
     // ── Dati 4B ──────────────────────────────────────────────────────────
     const [socialClicks, setSocialClicks] = useState<SocialClickData[]>([]);
     const [reviewMetrics, setReviewMetrics] = useState<ReviewMetrics | null>(null);
-    const [searchRate, setSearchRate] = useState<number | null>(null);
     const [hourlyData, setHourlyData] = useState<HourlyData[]>([]);
     const [deviceData, setDeviceData] = useState<DeviceData[]>([]);
 
@@ -166,7 +169,7 @@ export default function AnalyticsPage() {
             const comparePeriod = period !== "all";
             const previousRange = comparePeriod ? getPreviousRange(dateRange) : dateRange;
 
-            const [stats, trend, viewed, selected, social, reviews, search, hourly, devices, searchTermsData, funnel, featured, prevStats] =
+            const [stats, trend, viewed, selected, social, reviews, hourly, devices, searchTermsData, funnel, featured, prevStats] =
                 await Promise.all([
                     getOverviewStats(tenantId, dateRange, activityId),
                     getPageViewsTrend(tenantId, dateRange, activityId),
@@ -174,7 +177,6 @@ export default function AnalyticsPage() {
                     getTopSelectedProducts(tenantId, dateRange, activityId),
                     getSocialClicks(tenantId, dateRange, activityId),
                     getReviewMetrics(tenantId, dateRange, activityId),
-                    getSearchRate(tenantId, dateRange, activityId),
                     getHourlyDistribution(tenantId, dateRange, activityId),
                     getDeviceDistribution(tenantId, dateRange, activityId),
                     getTopSearchTerms(tenantId, dateRange, activityId),
@@ -189,7 +191,6 @@ export default function AnalyticsPage() {
             setTopSelected(selected);
             setSocialClicks(social);
             setReviewMetrics(reviews);
-            setSearchRate(search.rate);
             setHourlyData(hourly);
             setDeviceData(devices);
             setSearchTerms(searchTermsData);
@@ -273,207 +274,263 @@ export default function AnalyticsPage() {
             after_catalog: "Dopo il catalogo"
         };
 
-        const sections: XlsxSection[] = [
-            {
-                name: "Panoramica",
-                headers: ["Metrica", "Valore"],
-                rows: overviewStats
-                    ? [
-                          ["Visite totali", overviewStats.total_views],
-                          ["Sessioni uniche", overviewStats.unique_sessions],
-                          ["Media eventi/sessione", overviewStats.avg_events_per_session],
-                          ["Tasso di ricerca (%)", searchRate ?? 0]
-                      ]
-                    : [],
-                columnWidths: [28, 14]
-            },
-            {
-                name: "Visite nel tempo",
-                headers: ["Data", "Visite"],
-                rows: pageViewsTrend.map(r => [r.date, r.count]),
-                columnWidths: [14, 10]
-            },
-            {
-                name: "Prodotti più visti",
-                headers: ["#", "Prodotto", "Visualizzazioni"],
-                rows: topViewed.map((r, i) => [i + 1, r.product_name, r.count])
-            },
-            {
-                name: "Prodotti più selezionati",
-                headers: ["#", "Prodotto", "Aggiunte"],
-                rows: topSelected.map((r, i) => [i + 1, r.product_name, r.count])
-            },
-            {
-                name: "Funnel conversione",
-                headers: ["Step", "Sessioni", "Percentuale"],
-                rows: funnelData.map(r => [r.step_label, r.session_count, r.percentage / 100]),
-                columnFormats: [undefined, undefined, "0.0%"],
-                columnWidths: [24, 12, 14]
-            },
-            {
-                name: "Termini di ricerca",
-                headers: ["#", "Termine", "Ricerche", "Media risultati"],
-                rows: searchTerms.map((r, i) => [i + 1, r.search_term, r.search_count, r.avg_results])
-            },
-            {
-                name: "Contenuti in evidenza",
-                headers: ["#", "Titolo", "Posizione", "Click"],
-                rows: featuredPerf.map((r, i) => [
-                    i + 1,
-                    r.title,
-                    SLOT_LABELS[r.slot] ?? r.slot,
-                    r.click_count
-                ]),
-                columnWidths: [6, 32, 22, 10]
-            },
-            {
-                name: "Review Guard",
-                headers: ["Metrica", "Valore"],
-                rows: reviewMetrics
-                    ? [
-                          ["Totale recensioni", reviewMetrics.total],
-                          ["Media stelle", reviewMetrics.avg_rating],
-                          ["Redirect a Google", reviewMetrics.google_redirects]
-                      ]
-                    : [],
-                columnWidths: [22, 14]
-            },
-            {
-                name: "Distribuzione stelle",
-                headers: ["Stelle", "Conteggio"],
-                rows: reviewMetrics?.distribution.map(r => [r.stars, r.count]) ?? [],
-                columnWidths: [10, 12]
-            },
-            {
-                name: "Dispositivi",
-                headers: ["Tipo", "Percentuale"],
-                rows: deviceData.map(r => [r.device_type, r.percentage / 100]),
-                columnFormats: [undefined, "0.0%"],
-                columnWidths: [14, 14]
-            },
-            {
-                name: "Click social",
-                headers: ["Piattaforma", "Click"],
-                rows: socialClicks.map(r => [r.social_type, r.click_count]),
-                columnWidths: [18, 10]
-            },
-            {
-                name: "Fasce orarie",
-                headers: ["Ora", "Visite"],
-                rows: hourlyData.map(r => [r.hour, r.view_count]),
-                columnWidths: [8, 10]
-            }
-        ];
+        const CURRENCY_FMT = "#,##0.00 €";
+        const DURATION_FMT = '#,##0" s"';
+        const PCT_FMT = "0.0%";
 
+        // numero grezzo + numFmt valuta (mai stringa pre-formattata).
+        const eur = (v: number | null | undefined): Cell => ({ v: v ?? 0, numFmt: CURRENCY_FMT });
+        // durata in secondi come numero (resta calcolabile) + formato " s".
+        const dur = (s: number | null | undefined): Cell => ({ v: s ?? 0, numFmt: DURATION_FMT });
+        // percentuale: dato sorgente 0–100 → frazione 0–1 + formato nativo 0.0%.
+        const pct = (v: number | null | undefined): Cell => ({ v: (v ?? 0) / 100, numFmt: PCT_FMT });
+
+        const NAME_W = 40; // larghezza colonne nome prodotto / titolo
+
+        // ── Engagement (sempre) ──────────────────────────────────────────────
+        const engagement: SheetSpec = {
+            name: "Engagement",
+            title: "ENGAGEMENT",
+            blocks: [
+                {
+                    subtitle: "Panoramica",
+                    headers: ["Metrica", "Valore"],
+                    rows: overviewStats
+                        ? [
+                              ["Visite totali", overviewStats.total_views],
+                              ["Sessioni uniche", overviewStats.unique_sessions],
+                              ["Media eventi/sessione", overviewStats.avg_events_per_session],
+                              ["Conversione selezione", pct(selectionConversion)]
+                          ]
+                        : []
+                },
+                {
+                    subtitle: "Visite nel tempo",
+                    headers: ["Data", "Visite"],
+                    rows: pageViewsTrend.map(r => [r.date, r.count])
+                },
+                {
+                    subtitle: "Dispositivi",
+                    headers: ["Tipo", "Percentuale"],
+                    rows: deviceData.map(r => [r.device_type, pct(r.percentage)])
+                },
+                {
+                    subtitle: "Fasce orarie",
+                    headers: ["Ora", "Visite"],
+                    rows: hourlyData.map(r => [r.hour, r.view_count])
+                },
+                {
+                    subtitle: "Funnel conversione",
+                    headers: ["Step", "Sessioni", "Percentuale"],
+                    rows: funnelData.map(r => [r.step_label, r.session_count, pct(r.percentage)])
+                },
+                {
+                    subtitle: "Prodotti più visti",
+                    headers: ["#", "Prodotto", "Visualizzazioni"],
+                    rows: topViewed.map((r, i) => [i + 1, r.product_name, r.count]),
+                    columnWidths: [undefined, NAME_W, undefined]
+                },
+                {
+                    subtitle: "Prodotti più selezionati",
+                    headers: ["#", "Prodotto", "Aggiunte"],
+                    rows: topSelected.map((r, i) => [i + 1, r.product_name, r.count]),
+                    columnWidths: [undefined, NAME_W, undefined]
+                },
+                {
+                    subtitle: "Termini di ricerca",
+                    headers: ["#", "Termine", "Ricerche", "Media risultati"],
+                    rows: searchTerms.map((r, i) => [i + 1, r.search_term, r.search_count, r.avg_results])
+                },
+                {
+                    subtitle: "Contenuti in evidenza",
+                    headers: ["#", "Titolo", "Posizione", "Click"],
+                    rows: featuredPerf.map((r, i) => [
+                        i + 1,
+                        r.title,
+                        SLOT_LABELS[r.slot] ?? r.slot,
+                        r.click_count
+                    ]),
+                    columnWidths: [undefined, NAME_W, undefined, undefined]
+                },
+                {
+                    subtitle: "Review Guard",
+                    headers: ["Metrica", "Valore"],
+                    rows: reviewMetrics
+                        ? [
+                              ["Totale recensioni", reviewMetrics.total],
+                              ["Media stelle", reviewMetrics.avg_rating],
+                              ["Redirect a Google", reviewMetrics.google_redirects]
+                          ]
+                        : []
+                },
+                {
+                    subtitle: "Distribuzione stelle",
+                    headers: ["Stelle", "Conteggio"],
+                    rows: reviewMetrics?.distribution.map(r => [r.stars, r.count]) ?? []
+                },
+                {
+                    subtitle: "Click social",
+                    headers: ["Piattaforma", "Click"],
+                    rows: socialClicks.map(r => [r.social_type, r.click_count])
+                }
+            ]
+        };
+
+        const sheets: SheetSpec[] = [engagement];
+
+        // ── Ordini (se feature attiva) ───────────────────────────────────────
         if (ordersFeature) {
-            const CURRENCY_FMT = "#,##0.00 €";
-            sections.push(
-                {
-                    name: "Ordini - Panoramica",
-                    headers: ["Metrica", "Valore"],
-                    rows: ordersOverview
-                        ? [
-                              ["Ordini", ordersOverview.orders_count],
-                              ["Ricavi", formatEur(ordersOverview.revenue)],
-                              ["Valore medio ordine", formatEur(ordersOverview.avg_order_value)],
-                              ["Tasso annullamento (%)", ordersOverview.cancellation_rate],
-                              ["Ordini annullati", ordersOverview.cancelled_count]
-                          ]
-                        : [],
-                    columnWidths: [26, 16]
-                },
-                {
-                    name: "Ordini - Andamento",
-                    headers: ["Data", "Ordini", "Ricavi"],
-                    rows: ordersTrend.map(r => [r.date, r.orders_count, r.revenue]),
-                    columnFormats: [undefined, undefined, CURRENCY_FMT],
-                    columnWidths: [14, 10, 14]
-                },
-                {
-                    name: "Top prodotti ordinati (qtà)",
-                    headers: ["#", "Prodotto", "Quantità", "Ricavi"],
-                    rows: topOrderedByQty.map((r, i) => [i + 1, r.product_name, r.quantity, r.revenue]),
-                    columnFormats: [undefined, undefined, undefined, CURRENCY_FMT],
-                    columnWidths: [6, 32, 12, 14]
-                },
-                {
-                    name: "Top prodotti ordinati (ricavi)",
-                    headers: ["#", "Prodotto", "Quantità", "Ricavi"],
-                    rows: topOrderedByRevenue.map((r, i) => [i + 1, r.product_name, r.quantity, r.revenue]),
-                    columnFormats: [undefined, undefined, undefined, CURRENCY_FMT],
-                    columnWidths: [6, 32, 12, 14]
-                },
-                {
-                    name: "Tempi operativi",
-                    headers: ["Fase", "Media", "Mediana"],
-                    rows: ordersLatency
-                        ? [
-                              ["Preparazione", formatDuration(ordersLatency.avg_prep_seconds), formatDuration(ordersLatency.median_prep_seconds)],
-                              ["Consegna", formatDuration(ordersLatency.avg_delivery_seconds), formatDuration(ordersLatency.median_delivery_seconds)],
-                              ["Totale", formatDuration(ordersLatency.avg_total_seconds), formatDuration(ordersLatency.median_total_seconds)],
-                              ["Ordini consegnati", ordersLatency.delivered_count, ""],
-                              ["Consegne dirette (no 'Pronto')", ordersLatency.skipped_ready_count, ""]
-                          ]
-                        : [],
-                    columnWidths: [30, 14, 14]
-                },
-                {
-                    name: "Conversione sel.-ordine",
-                    headers: ["Metrica", "Valore"],
-                    rows: ordersConversion
-                        ? [
-                              ["Sessioni con selezione", ordersConversion.selection_sessions],
-                              ["Ordini inviati", ordersConversion.orders_count],
-                              ["Tasso di conversione (%)", ordersConversion.conversion_rate]
-                          ]
-                        : [],
-                    columnWidths: [26, 14]
-                },
-                {
-                    name: "Ordini - Fasce orarie",
-                    headers: ["Ora", "Ordini", "Ricavi"],
-                    rows: ordersHourly.map(r => [r.hour, r.orders_count, r.revenue]),
-                    columnFormats: [undefined, undefined, CURRENCY_FMT],
-                    columnWidths: [8, 10, 14]
-                }
-            );
+            sheets.push({
+                name: "Ordini",
+                title: "ORDINI",
+                blocks: [
+                    {
+                        subtitle: "Panoramica",
+                        headers: ["Metrica", "Valore"],
+                        rows: ordersOverview
+                            ? [
+                                  ["Ordini", ordersOverview.orders_count],
+                                  ["Ricavi", eur(ordersOverview.revenue)],
+                                  ["Valore medio ordine", eur(ordersOverview.avg_order_value)],
+                                  ["Tasso annullamento", pct(ordersOverview.cancellation_rate)],
+                                  ["Ordini annullati", ordersOverview.cancelled_count]
+                              ]
+                            : []
+                    },
+                    {
+                        subtitle: "Andamento",
+                        headers: ["Data", "Ordini", "Ricavi"],
+                        rows: ordersTrend.map(r => [r.date, r.orders_count, eur(r.revenue)])
+                    },
+                    {
+                        subtitle: "Fasce orarie",
+                        headers: ["Ora", "Ordini", "Ricavi"],
+                        rows: ordersHourly.map(r => [r.hour, r.orders_count, eur(r.revenue)])
+                    },
+                    {
+                        subtitle: "Top prodotti ordinati (qtà)",
+                        headers: ["#", "Prodotto", "Quantità", "Ricavi"],
+                        rows: topOrderedByQty.map((r, i) => [i + 1, r.product_name, r.quantity, eur(r.revenue)]),
+                        columnWidths: [undefined, NAME_W, undefined, undefined]
+                    },
+                    {
+                        subtitle: "Top prodotti ordinati (ricavi)",
+                        headers: ["#", "Prodotto", "Quantità", "Ricavi"],
+                        rows: topOrderedByRevenue.map((r, i) => [i + 1, r.product_name, r.quantity, eur(r.revenue)]),
+                        columnWidths: [undefined, NAME_W, undefined, undefined]
+                    },
+                    {
+                        subtitle: "Tempi operativi",
+                        headers: ["Fase", "Media", "Mediana"],
+                        rows: ordersLatency
+                            ? [
+                                  ["Preparazione", dur(ordersLatency.avg_prep_seconds), dur(ordersLatency.median_prep_seconds)],
+                                  ["Consegna", dur(ordersLatency.avg_delivery_seconds), dur(ordersLatency.median_delivery_seconds)],
+                                  ["Totale", dur(ordersLatency.avg_total_seconds), dur(ordersLatency.median_total_seconds)]
+                              ]
+                            : []
+                    },
+                    {
+                        subtitle: "Campione tempi operativi",
+                        headers: ["Metrica", "Valore"],
+                        rows: ordersLatency
+                            ? [
+                                  ["Ordini consegnati", ordersLatency.delivered_count],
+                                  ["Consegne dirette (no 'Pronto')", ordersLatency.skipped_ready_count]
+                              ]
+                            : []
+                    },
+                    {
+                        subtitle: "Conversione sel.-ordine",
+                        headers: ["Metrica", "Valore"],
+                        rows: ordersConversion
+                            ? [
+                                  ["Sessioni con selezione", ordersConversion.selection_sessions],
+                                  ["Ordini inviati", ordersConversion.orders_count],
+                                  ["Tasso di conversione", pct(ordersConversion.conversion_rate)]
+                              ]
+                            : []
+                    }
+                ]
+            });
         }
 
+        // ── Prenotazioni (se feature attiva) ─────────────────────────────────
         if (reservationsFeature) {
-            sections.push(
-                {
-                    name: "Prenotazioni - Panoramica",
-                    headers: ["Metrica", "Valore"],
-                    rows: reservationsOverview
-                        ? [
-                              ["Prenotazioni (ricevute)", reservationsOverview.reservations_count],
-                              ["Coperti", reservationsOverview.covers],
-                              ["Confermate", reservationsOverview.confirmed_count],
-                              ["Tasso conferma (%)", reservationsOverview.confirm_rate],
-                              ["Rifiutate", reservationsOverview.declined_count],
-                              ["Annullate", reservationsOverview.cancelled_count],
-                              ["Online", reservationsOverview.online_count],
-                              ["Manuali", reservationsOverview.manual_count]
-                          ]
-                        : [],
-                    columnWidths: [28, 16]
-                },
-                {
-                    name: "Prenotazioni - Andamento",
-                    headers: ["Data", "Prenotazioni", "Coperti"],
-                    rows: reservationsTrend.map(r => [r.date, r.reservations_count, r.covers]),
-                    columnWidths: [14, 14, 10]
-                },
-                {
-                    name: "Prenotazioni - Fasce orarie",
-                    headers: ["Ora", "Prenotazioni"],
-                    rows: reservationsHourly.map(r => [r.hour, r.reservations_count]),
-                    columnWidths: [8, 14]
-                }
-            );
+            sheets.push({
+                name: "Prenotazioni",
+                title: "PRENOTAZIONI",
+                blocks: [
+                    {
+                        subtitle: "Panoramica",
+                        headers: ["Metrica", "Valore"],
+                        rows: reservationsOverview
+                            ? [
+                                  ["Prenotazioni (ricevute)", reservationsOverview.reservations_count],
+                                  ["Coperti", reservationsOverview.covers],
+                                  ["Confermate", reservationsOverview.confirmed_count],
+                                  ["Tasso conferma", pct(reservationsOverview.confirm_rate)],
+                                  ["Rifiutate", reservationsOverview.declined_count],
+                                  ["Annullate", reservationsOverview.cancelled_count],
+                                  ["Online", reservationsOverview.online_count],
+                                  ["Manuali", reservationsOverview.manual_count]
+                              ]
+                            : []
+                    },
+                    {
+                        subtitle: "Andamento",
+                        headers: ["Data", "Prenotazioni", "Coperti"],
+                        rows: reservationsTrend.map(r => [r.date, r.reservations_count, r.covers])
+                    },
+                    {
+                        subtitle: "Fasce orarie",
+                        headers: ["Ora", "Prenotazioni"],
+                        rows: reservationsHourly.map(r => [r.hour, r.reservations_count])
+                    }
+                ]
+            });
         }
 
-        const wb = buildXlsxWorkbook(sections);
+        // ── Copertina ─────────────────────────────────────────────────────────
+        const activityName =
+            selectedActivityId === "all"
+                ? "Tutte le sedi"
+                : (readableActivities.find(a => a.id === selectedActivityId)?.name ?? "Sede");
+
+        const periodHumanLabel: Record<PeriodKey, string> = {
+            today: "Oggi",
+            "7d": "Ultimi 7 giorni",
+            "30d": "Ultimi 30 giorni",
+            "90d": "Ultimi 90 giorni",
+            all: "Tutto il periodo"
+        };
+        const { from, to } = periodToDateRange(period);
+        const dateFmt = new Intl.DateTimeFormat("it-IT", {
+            day: "numeric",
+            month: "short",
+            year: "numeric"
+        });
+        const dateTimeFmt = new Intl.DateTimeFormat("it-IT", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+
+        const cover: CoverSpec = {
+            bannerTitle: "CataloGlobe · Analitiche",
+            subtitle: activityName,
+            info: [
+                { label: "Periodo", value: periodHumanLabel[period] },
+                { label: "Intervallo date", value: `${dateFmt.format(from)} – ${dateFmt.format(to)}` },
+                { label: "Generato il", value: dateTimeFmt.format(new Date()) },
+                { label: "Valuta", value: "EUR (€)" }
+            ],
+            indexEntries: sheets.map(s => s.name)
+        };
+
+        const wb = buildXlsxWorkbook(cover, sheets);
 
         const sedeSlug =
             selectedActivityId === "all"
@@ -492,7 +549,7 @@ export default function AnalyticsPage() {
         downloadXlsx(wb, filename);
     }, [
         overviewStats,
-        searchRate,
+        selectionConversion,
         pageViewsTrend,
         topViewed,
         topSelected,
