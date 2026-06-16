@@ -59,6 +59,20 @@ export default function PublicBottomBar({
 }: Props) {
     const { t } = useTranslation("public");
 
+    // CSS-driven split: la barra è SEMPRE montata (markup SSR-safe), ma è visibile
+    // solo ≤640px via @media. Gli effetti viewport-specifici (ResizeObserver sul
+    // gruppo pill + scroll listener) NON devono girare su desktop dove la barra è
+    // nascosta. matchMedia letto in effect post-mount (client-only) → mai in render.
+    const [isMobileActive, setIsMobileActive] = useState(false);
+    useEffect(() => {
+        if (typeof window === "undefined" || !window.matchMedia) return;
+        const mq = window.matchMedia("(max-width: 640px)");
+        const update = () => setIsMobileActive(mq.matches);
+        update();
+        mq.addEventListener("change", update);
+        return () => mq.removeEventListener("change", update);
+    }, []);
+
     const groupRef = useRef<HTMLDivElement | null>(null);
     const tabRefs = useRef<Record<HubTab, HTMLButtonElement | null>>({
         menu: null,
@@ -84,13 +98,14 @@ export default function PublicBottomBar({
 
     // Riallinea su resize del gruppo (rotazione, font swap, ecc.). ResizeObserver ≠ scroll listener.
     useEffect(() => {
+        if (!isMobileActive) return; // barra nascosta su desktop → niente ResizeObserver
         const group = groupRef.current;
         if (!group || typeof ResizeObserver === "undefined") return;
         const ro = new ResizeObserver(() => measure());
         ro.observe(group);
         return () => ro.disconnect();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab]);
+    }, [activeTab, isMobileActive]);
 
     // Shrink-on-scroll: segue DIRETTAMENTE la posizione di scroll (bidirezionale) dal
     // segnale esistente useScrollCollapse. Niente override "forceExpanded": evitava lo
@@ -98,7 +113,8 @@ export default function PublicBottomBar({
     // ripartiva → intermittenza). Il tap su una tab fa già scrollare a top → riespande.
     // `isSheetOpen` congela il valore mentre una sheet è aperta: il body scroll-lock
     // azzererebbe window.scrollY → espansione/rimpicciolimento spurio (flicker).
-    const shrink = useScrollCollapse(50, isSheetOpen);
+    // enabled=isMobileActive: su desktop la barra è nascosta → niente scroll listener.
+    const shrink = useScrollCollapse(50, isSheetOpen, isMobileActive);
 
     const handleTab = (tab: HubTab) => {
         if (tab === "reviews" && reviewDot) onReviewDotDismiss?.();

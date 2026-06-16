@@ -227,6 +227,31 @@
   background: rgba(255, 255, 255, 0.18);
 }
 
+/* Gruppo azioni desktop (Assistenza/Ordine) sotto flag bottom-bar.
+   display:contents → i figli restano flex item diretti della .topRow: layout e
+   gap identici a prima del wrapper. Lo split CSS-driven li nasconde ≤640px
+   (regola in .root[data-bottombar] sotto). */
+.headerActions {
+  display: contents;
+}
+
+/* CSS-driven split (flag bottom-bar ON): su mobile la bottom-bar sostituisce sia
+   le azioni header sia gli hub-tabs. Entrambi restano nel markup (SSR-safe) ma
+   escono dal flow E dall'accessibility tree ≤640px (display:none, non
+   visibility → niente doppio tablist / doppie azioni annunciate). Stesso
+   breakpoint 640px della vecchia query JS. Flag OFF (no attr) → invariato. */
+.root[data-bottombar] {
+  @media (max-width: 640px) {
+    .headerActions {
+      display: none;
+    }
+
+    .chips {
+      display: none;
+    }
+  }
+}
+
 /* Bottone Ordine con articoli in carrello: tinta accent sottile (dettaglio che
    distingue lo stato "carrello pieno" senza urlare). */
 .iconBtn[data-accent="true"] {

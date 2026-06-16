@@ -36,7 +36,7 @@ export function popSheetOpen(): void {
  * Entrambe servono a evitare il flicker quando una sheet blocca lo scroll del
  * body (window.scrollY torna a 0 → l'hook crederebbe di essere in cima).
  */
-export function useScrollCollapse(threshold = 50, freeze = false): boolean {
+export function useScrollCollapse(threshold = 50, freeze = false, enabled = true): boolean {
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     // Aggiornato sincronicamente ad ogni render: già true prima degli scroll
@@ -45,6 +45,9 @@ export function useScrollCollapse(threshold = 50, freeze = false): boolean {
     freezeRef.current = freeze;
 
     useEffect(() => {
+        // Gate viewport-specifico (es. bottom-bar mobile sempre montata ma attiva
+        // solo ≤640px): a `enabled=false` NON si attacca il listener su window.
+        if (!enabled) return;
         let rafId: number | null = null;
 
         const handleScroll = () => {
@@ -67,7 +70,7 @@ export function useScrollCollapse(threshold = 50, freeze = false): boolean {
             window.removeEventListener("scroll", handleScroll);
             if (rafId !== null) cancelAnimationFrame(rafId);
         };
-    }, [threshold]);
+    }, [threshold, enabled]);
 
     return isCollapsed;
 }

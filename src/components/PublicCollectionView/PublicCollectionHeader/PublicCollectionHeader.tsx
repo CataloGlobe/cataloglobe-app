@@ -87,6 +87,10 @@ export type PublicCollectionHeaderProps = {
     onOpenSupport?: () => void;
     /** Dot promemoria recensione sulla tab "Dicci la tua" (riusa valutaVisible). */
     reviewDot?: boolean;
+    /** Flag bottom-bar pubblica attivo: abilita lo split CSS-driven mobile/desktop.
+     *  ON ⇒ hub-tabs + azioni header sono montate sempre ma nascoste ≤640px via
+     *  @media (la bottom-bar mobile le sostituisce). OFF ⇒ comportamento legacy. */
+    bottomBarEnabled?: boolean;
 };
 
 export default function PublicCollectionHeader({
@@ -118,6 +122,7 @@ export default function PublicCollectionHeader({
     supportVisible = false,
     onOpenSupport,
     reviewDot = false,
+    bottomBarEnabled = false,
 }: PublicCollectionHeaderProps) {
     const { t } = useTranslation("public");
     // ── ResizeObserver: write --pub-header-height on <main> ancestor ────────────
@@ -274,6 +279,7 @@ export default function PublicCollectionHeader({
                 ref={headerRef}
                 className={styles.root}
                 data-cover={showCoverImage || undefined}
+                data-bottombar={bottomBarEnabled || undefined}
                 style={
                     engaged
                         ? {
@@ -345,49 +351,52 @@ export default function PublicCollectionHeader({
                             </button>
                         )}
 
-                        {/* Divisore tra gruppo utility (IT/search/···) e gruppo
-                            azioni (Assistenza/Ordine). Solo se almeno un'azione è
-                            presente. */}
+                        {/* Gruppo azioni desktop (Assistenza/Ordine). Sotto flag
+                            bottom-bar è montato sempre ma nascosto ≤640px via @media
+                            (la bottom-bar mobile porta le stesse azioni). */}
                         {((onOpenSupport && supportVisible) || (onOpenOrder && orderVisible)) && (
-                            <span className={styles.actionsDivider} aria-hidden="true" />
-                        )}
+                            <div className={styles.headerActions}>
+                                {/* Divisore tra gruppo utility (IT/search/···) e azioni. */}
+                                <span className={styles.actionsDivider} aria-hidden="true" />
 
-                        {/* Assistenza (campanello) — entry point desktop, stessa
-                            condizione del campanello mobile (supportVisible). */}
-                        {onOpenSupport && supportVisible && (
-                            <button
-                                type="button"
-                                className={styles.iconBtn}
-                                onClick={onOpenSupport}
-                                aria-label="Assistenza al tavolo"
-                                title="Assistenza"
-                            >
-                                <Bell size={15} strokeWidth={2} />
-                            </button>
-                        )}
-
-                        {/* Ordine (carrello) — apre il drawer ordine, badge conteggio.
-                            Tinta accent quando ci sono articoli (data-accent). */}
-                        {onOpenOrder && orderVisible && (
-                            <button
-                                type="button"
-                                className={styles.iconBtn}
-                                data-accent={selectionCount > 0 ? "true" : undefined}
-                                onClick={onOpenOrder}
-                                aria-label={
-                                    selectionCount > 0
-                                        ? t("fab.cart_aria_count", { count: selectionCount })
-                                        : t("fab.cart_aria")
-                                }
-                                title="Ordine"
-                            >
-                                <ShoppingBag size={15} strokeWidth={2} />
-                                {selectionCount > 0 && (
-                                    <span className={styles.iconBtnBadge} aria-hidden>
-                                        {selectionCount}
-                                    </span>
+                                {/* Assistenza (campanello) — entry point desktop, stessa
+                                    condizione del campanello mobile (supportVisible). */}
+                                {onOpenSupport && supportVisible && (
+                                    <button
+                                        type="button"
+                                        className={styles.iconBtn}
+                                        onClick={onOpenSupport}
+                                        aria-label="Assistenza al tavolo"
+                                        title="Assistenza"
+                                    >
+                                        <Bell size={15} strokeWidth={2} />
+                                    </button>
                                 )}
-                            </button>
+
+                                {/* Ordine (carrello) — apre il drawer ordine, badge conteggio.
+                                    Tinta accent quando ci sono articoli (data-accent). */}
+                                {onOpenOrder && orderVisible && (
+                                    <button
+                                        type="button"
+                                        className={styles.iconBtn}
+                                        data-accent={selectionCount > 0 ? "true" : undefined}
+                                        onClick={onOpenOrder}
+                                        aria-label={
+                                            selectionCount > 0
+                                                ? t("fab.cart_aria_count", { count: selectionCount })
+                                                : t("fab.cart_aria")
+                                        }
+                                        title="Ordine"
+                                    >
+                                        <ShoppingBag size={15} strokeWidth={2} />
+                                        {selectionCount > 0 && (
+                                            <span className={styles.iconBtnBadge} aria-hidden>
+                                                {selectionCount}
+                                            </span>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
                         )}
                     </div>
 

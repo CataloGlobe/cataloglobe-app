@@ -573,8 +573,11 @@ export type SocialLinks = {
 };
 
 // ── Bottom nav bar pubblica (feature flag d'ambiente, mobile-only) ──────────
-// Costanti locali esplicite per evitare drift (no sorgente condivisa esistente).
-const BREAKPOINT_MOBILE = 640; // ≤640px = mobile: la barra sostituisce tab header + FAB
+// Split mobile/desktop CSS-driven: il breakpoint 640px NON vive più in JS (niente
+// matchMedia in render) ma negli SCSS (@media max-width:640px) di
+// PublicBottomBar + PublicCollectionHeader. Entrambe le superfici sono montate
+// sempre sotto flag ON → markup SSR identico al primo paint client (no hydration
+// flash). Vedi derivazioni `useBottomBar`/`showHeaderActions` nel componente.
 // Z_BOTTOM_BAR = 150 vive nello SCSS della barra (PublicBottomBar.module.scss); qui
 // solo per documentazione: sopra FAB (55/60), sotto toast/search (200) e sheet (900).
 // Flag globale d'ambiente (build-time): ON su tutte le attività dove acceso, nessun tocco DB.
@@ -701,37 +704,21 @@ export default function CollectionView({
 }: Props) {
     const navigate = useNavigate();
 
-    // ── Bottom nav bar pubblica: flag d'ambiente globale + viewport mobile ──────
-    // GUARDRAIL flag OFF → diff runtime ZERO: il matchMedia listener viene attaccato
-    // SOLO quando il flag è acceso. Flag spento ⇒ effetto esce subito, nessun listener,
-    // isMobile resta false ⇒ comportamento identico a oggi (FAB + tab header).
+    // ── Bottom nav bar pubblica: split mobile/desktop CSS-driven ────────────────
+    // Niente matchMedia in render (era la causa del mismatch SSR/hydration #2: il
+    // server non conosce il viewport → struttura desktop al primo paint, poi salto
+    // a mobile post-hydration). Sotto flag ON entrambe le superfici sono SEMPRE
+    // montate; la visibilità per viewport è gestita via @media(640px) negli SCSS
+    // (display:none). Gli effetti viewport-specifici della bottom-bar (ResizeObserver
+    // + scroll listener) sono gated da un matchMedia in effect post-mount DENTRO
+    // PublicBottomBar (client-only → SSR-safe).
     const bottomBarFlag = mode === "public" && PUBLIC_BOTTOM_BAR;
-    // Init sincrono (no flash del FAB al primo paint per i tenant con barra attiva).
-    // Lettura matchMedia in render = nessun listener; il listener arriva dall'effect sotto.
-    const [isMobileViewport, setIsMobileViewport] = useState(
-        () =>
-            bottomBarFlag &&
-            typeof window !== "undefined" &&
-            !!window.matchMedia &&
-            window.matchMedia(`(max-width: ${BREAKPOINT_MOBILE}px)`).matches
-    );
-    useEffect(() => {
-        if (!bottomBarFlag || typeof window === "undefined" || !window.matchMedia) return;
-        const mq = window.matchMedia(`(max-width: ${BREAKPOINT_MOBILE}px)`);
-        const update = () => setIsMobileViewport(mq.matches);
-        update();
-        mq.addEventListener("change", update);
-        return () => mq.removeEventListener("change", update);
-    }, [bottomBarFlag]);
-    const useBottomBar = bottomBarFlag && isMobileViewport;
-    // Direzione "Header" desktop: sotto flag bottom-bar, su viewport NON-mobile le
-    // azioni ordine/assistenza vivono nell'header (non i FAB). `isMobileViewport`
-    // è già accoppiato al flag (true solo se bottomBarFlag) → con flag OFF questa
-    // resta false ovunque e il comportamento legacy (FAB) è invariato.
-    const showHeaderActions = mode === "public" && bottomBarFlag && !isMobileViewport;
-    // I FAB ordine/recensioni restano SOLO quando non c'è né bottom bar né azioni
-    // header: cioè legacy (flag OFF, mobile+desktop) → invariato.
-    const useFabEntries = !useBottomBar && !showHeaderActions;
+    // "Bottom bar montata" (flag ON, entrambi i viewport). CSS la nasconde ≥641px.
+    const useBottomBar = bottomBarFlag;
+    // "Azioni header montate" (flag ON, entrambi i viewport). CSS le nasconde ≤640px.
+    const showHeaderActions = bottomBarFlag;
+    // FAB ordine/recensioni legacy SOLO a flag OFF → struttura odierna invariata.
+    const useFabEntries = !bottomBarFlag;
     // Maintenance scoperto runtime via 423 ORDERING_UNAVAILABLE su submit
     // (Strict + Reactive: il cliente lo apprende solo al tentativo). Solo
     // OrderingSheet usa effectiveMaintenance per banner inline + submit
@@ -1926,7 +1913,10 @@ export default function CollectionView({
                     headerRadius={style.appearanceRadius}
                     activeTab={activeTab}
                     onTabChange={onTabChange ?? (() => {})}
-                    showHubTabs={!useBottomBar}
+                    // Hub-tabs sempre nel markup header: lo split CSS-driven le
+                    // nasconde ≤640px quando la bottom-bar è attiva (bottomBarEnabled).
+                    showHubTabs
+                    bottomBarEnabled={bottomBarFlag}
                     allergensCount={allergenFilterIds.length}
                     onOpenMore={mode === "public" ? () => setIsMoreSheetOpen(true) : undefined}
                     selectionCount={selectionCount}
@@ -2384,18 +2374,18 @@ export default function CollectionView({
 
             {submitFeedback && (
                 <div
-                    className={
+                    className={[
                         submitFeedback.type === "success"
                             ? styles.submitFeedbackSuccess
-                            : styles.submitFeedbackError
-                    }
-                    // Con la bottom bar attiva il toast condivide l'ancora a 16px: lo
-                    // solleviamo sopra la barra (altezza ~58px + gap) così non la copre.
-                    style={
-                        useBottomBar
-                            ? { bottom: "calc(16px + 58px + 12px + env(safe-area-inset-bottom, 0px))" }
-                            : undefined
-                    }
+                            : styles.submitFeedbackError,
+                        // Con la bottom bar attiva il toast condivide l'ancora a 16px:
+                        // lo solleviamo sopra la barra (~58px + gap) SOLO ≤640px (dove
+                        // la barra è visibile) — gating CSS, non inline, per non
+                        // sollevarlo su desktop dove la barra è nascosta.
+                        useBottomBar ? styles.submitFeedbackAboveBar : "",
+                    ]
+                        .filter(Boolean)
+                        .join(" ")}
                     role="status"
                     aria-live="polite"
                 >

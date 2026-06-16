@@ -20,6 +20,12 @@ $indicator: #ef4444;
   max-width: 320px;
 
   animation: barIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  // CSS-driven split: la barra è sempre montata (markup SSR-safe), visibile solo
+  // su mobile. ≥641px esce dal flow E dall'accessibility tree (no doppio tablist).
+  @media (min-width: 641px) {
+    display: none;
+  }
 }
 
 .bar {

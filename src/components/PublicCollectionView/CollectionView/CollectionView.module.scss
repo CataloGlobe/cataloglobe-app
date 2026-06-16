@@ -81,26 +81,33 @@
    STESSO pattern della pagina (NON crema piatto): avvolge tutto il contenuto della tab così
    l'unica superficie visibile è questa — niente banda separata, niente seam, sfondo coerente
    col Menu. Padding-top piccolo e naturale (no allineamento forzato al content-top del Menu). */
-.tabPatternSurface {
-  position: relative;
-  z-index: 10;
-  background-color: var(--pub-bg);
-  background-image: var(--pub-bg-pattern, none);
-  background-size: var(--pub-bg-pattern-size, auto);
-  background-repeat: repeat;
-  /* Unica fonte di spaziatura esterna: top 1.5rem + lati 1rem (= inset orizzontale del Menu,
-     16px). Bottom 0: il clearance per la barra flottante resta dal padding-bottom dei figli. */
-  padding: 1.5rem 1rem 0;
-}
+/* Split CSS-driven: il wrapper è montato sempre sotto flag ON (entrambi i
+   viewport), ma la superficie a pattern sostituisce gli hub-tabs SOLO su mobile
+   (≤640px), dove la barra flottante prende il posto della banda tab dell'header.
+   ≥641px gli hub-tabs vivono nell'header → il wrapper resta un div neutro
+   (nessuna regola applicata = identico al flag OFF / al desktop odierno). */
+@media (max-width: 640px) {
+  .tabPatternSurface {
+    position: relative;
+    z-index: 10;
+    background-color: var(--pub-bg);
+    background-image: var(--pub-bg-pattern, none);
+    background-size: var(--pub-bg-pattern-size, auto);
+    background-repeat: repeat;
+    /* Unica fonte di spaziatura esterna: top 1.5rem + lati 1rem (= inset orizzontale del Menu,
+       16px). Bottom 0: il clearance per la barra flottante resta dal padding-bottom dei figli. */
+    padding: 1.5rem 1rem 0;
+  }
 
-/* Azzera SOLO il padding esterno top/laterale dei contenitori figli (EventsView.container,
-   ReviewsView.root), scoped al wrapper così non tocca il flag OFF (dove non c'è il wrapper).
-   Resta il padding-bottom (clearance barra) e gli spazi INTERNI (gap card, gap intro/stelle). */
-.tabPatternSurface > *,
-.tabPatternSurface > .frame > * {
-  /* !important per battere il pareggio di specificità con ReviewsView .root (0,1,0). */
-  padding-top: 0 !important;
-  padding-inline: 0 !important;
+  /* Azzera SOLO il padding esterno top/laterale dei contenitori figli (EventsView.container,
+     ReviewsView.root), scoped al wrapper così non tocca il flag OFF (dove non c'è il wrapper).
+     Resta il padding-bottom (clearance barra) e gli spazi INTERNI (gap card, gap intro/stelle). */
+  .tabPatternSurface > *,
+  .tabPatternSurface > .frame > * {
+    /* !important per battere il pareggio di specificità con ReviewsView .root (0,1,0). */
+    padding-top: 0 !important;
+    padding-inline: 0 !important;
+  }
 }
 
 .frame {
@@ -1284,6 +1291,15 @@
   max-width: calc(100vw - 32px);
   animation: submitFeedbackSlideUp 0.25s ease-out;
   font-family: var(--pub-font-family, sans-serif);
+}
+
+/* Bottom-bar attiva: solleva il toast sopra la barra flottante, ma SOLO sul
+   viewport dove la barra è effettivamente visibile (≤640px). Su desktop la barra
+   è nascosta → il toast resta all'ancora 16px standard. */
+.submitFeedbackAboveBar {
+  @media (max-width: 640px) {
+    bottom: calc(16px + 58px + 12px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 .submitFeedbackSuccess {
