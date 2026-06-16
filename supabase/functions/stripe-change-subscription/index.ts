@@ -626,7 +626,7 @@ serve(async req => {
                             plan: targetPlan,
                             seats: newSeats,
                             effectiveDateIso: periodEndIso,
-                            targetIsBase: targetPlan === "base"
+                            losesQrFeatures: currentPlan === "pro" && targetPlan === "base"
                         })
                     });
                 }
