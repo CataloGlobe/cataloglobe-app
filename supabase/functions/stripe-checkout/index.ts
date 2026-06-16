@@ -31,6 +31,80 @@ function json(req: Request, status: number, body: Record<string, unknown>) {
     return new Response(JSON.stringify(body), { status, headers: corsHeaders(req) });
 }
 
+// --- Billing pre-fill helpers (Stripe customer from tenant fiscal data) ---
+
+type TenantFiscal = {
+    legal_name?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    vat_number?: string | null;
+    address?: string | null;
+    street_number?: string | null;
+    postal_code?: string | null;
+    city?: string | null;
+    province?: string | null;
+    country?: string | null;
+};
+
+function clean(v: unknown): string {
+    return typeof v === "string" ? v.trim() : "";
+}
+
+/** Customer name: legal_name, else "first last". Undefined when empty. */
+function buildCustomerName(t: TenantFiscal): string | undefined {
+    const legal = clean(t.legal_name);
+    if (legal) return legal;
+    const full = `${clean(t.first_name)} ${clean(t.last_name)}`.trim();
+    return full || undefined;
+}
+
+/** Customer address from tenant legal address. Undefined when nothing usable. */
+function buildCustomerAddress(t: TenantFiscal): Record<string, string> | undefined {
+    const line1 = [clean(t.address), clean(t.street_number)].filter(Boolean).join(" ");
+    const postalCode = clean(t.postal_code);
+    const city = clean(t.city);
+    const state = clean(t.province);
+    const country = clean(t.country) || "IT";
+
+    if (!line1 && !postalCode && !city && !state) return undefined;
+
+    const address: Record<string, string> = { country };
+    if (line1) address.line1 = line1;
+    if (postalCode) address.postal_code = postalCode;
+    if (city) address.city = city;
+    if (state) address.state = state;
+    return address;
+}
+
+/** EU VAT value: country-prefixed VAT (e.g. "IT01234567897"). Null when absent. */
+function buildEuVatValue(vat?: string | null, country?: string | null): string | null {
+    const raw = clean(vat).toUpperCase().replace(/\s/g, "");
+    if (!raw) return null;
+    if (/^[A-Z]{2}/.test(raw)) return raw; // already country-prefixed
+    const cc = (clean(country).toUpperCase() || "IT").slice(0, 2);
+    return `${cc}${raw}`;
+}
+
+/**
+ * Best-effort: attach an eu_vat tax id to a customer if not already present.
+ * Never throws — a rejected tax id must not block checkout (we keep the address).
+ */
+async function ensureCustomerTaxId(stripe: Stripe, customerId: string, value: string): Promise<void> {
+    try {
+        const existing = await stripe.customers.listTaxIds(customerId, { limit: 100 });
+        const already = existing.data.some(
+            (t: { value?: string | null }) => clean(t.value).toUpperCase() === value.toUpperCase()
+        );
+        if (already) return;
+        await stripe.customers.createTaxId(customerId, { type: "eu_vat", value });
+    } catch (err) {
+        // Log only the error class — Stripe messages can echo the submitted value.
+        console.warn(
+            `stripe-checkout: tax id pre-fill skipped (non-fatal): code=${(err as any)?.code} type=${(err as any)?.type} status=${(err as any)?.statusCode}`
+        );
+    }
+}
+
 type CheckoutBody = {
     tenantId?: string;
     successUrl?: string;
@@ -174,12 +248,33 @@ serve(async req => {
             }
         }
 
-        // Create or reuse Stripe Customer
+        // --- Fiscal profile for Stripe pre-fill (service_role, explicit tenant guard) ---
+        const { data: fiscalRow, error: fiscalError } = await supabaseAdmin
+            .from("tenants")
+            .select(
+                "legal_entity_type, legal_name, vat_number, first_name, last_name, address, street_number, postal_code, city, province, country"
+            )
+            .eq("id", tenantId)
+            .maybeSingle();
+
+        if (fiscalError) {
+            // Non-fatal: degrade to no pre-fill rather than block the payment.
+            console.warn("stripe-checkout: fiscal profile fetch failed (non-fatal):", fiscalError.message);
+        }
+
+        const fiscal: TenantFiscal = fiscalRow ?? {};
+        const customerName = buildCustomerName(fiscal);
+        const customerAddress = buildCustomerAddress(fiscal);
+        const euVatValue = buildEuVatValue(fiscal.vat_number, fiscal.country);
+
+        // Create or reuse Stripe Customer, pre-filling name + address from the tenant.
         let stripeCustomerId = tenantData.stripe_customer_id;
 
         if (!stripeCustomerId) {
             const customer = await stripe.customers.create({
                 email: userEmail,
+                name: customerName,
+                address: customerAddress,
                 metadata: { tenant_id: tenantId, user_id: userId }
             });
             stripeCustomerId = customer.id;
@@ -193,6 +288,26 @@ serve(async req => {
                 console.error("stripe-checkout: Failed to save stripe_customer_id:", updateErr);
                 return json(req, 500, { error: "db_update_failed" });
             }
+        } else if (customerName || customerAddress) {
+            // Reuse path: refresh name/address on the existing customer. Best-effort —
+            // a failed update must not block checkout (we still have the data our side).
+            try {
+                await stripe.customers.update(stripeCustomerId, {
+                    name: customerName,
+                    address: customerAddress
+                });
+            } catch (err) {
+                // Log only the error class — Stripe messages can echo the submitted value.
+                console.warn(
+                    `stripe-checkout: customer update skipped (non-fatal): code=${(err as any)?.code} type=${(err as any)?.type} status=${(err as any)?.statusCode}`
+                );
+            }
+        }
+
+        // Attach the VAT id (best-effort, idempotent) when present. Associations
+        // without a P.IVA simply skip this.
+        if (euVatValue) {
+            await ensureCustomerTaxId(stripe, stripeCustomerId, euVatValue);
         }
 
         // --- Build Checkout Session params ---
@@ -221,11 +336,12 @@ serve(async req => {
             cancel_url: cancelUrl,
             // Disabled: forfettario regime, no VAT applied. See LICENSE/README
             automatic_tax: { enabled: false },
-            billing_address_collection: "required",
-            customer_update: { address: "auto", name: "auto" },
-            // Kept: B2B customers can enter P.IVA so invoices are billed to the
-            // right entity. Forfettario invoices stay VAT-less either way.
-            tax_id_collection: { enabled: true }
+            // Address + P.IVA are pre-filled on the customer above, so Stripe no
+            // longer collects them. "auto" avoids prompting when not required;
+            // tax_id_collection is off (we set the tax id ourselves). customer_update
+            // is omitted — there is nothing collected to write back.
+            billing_address_collection: "auto",
+            tax_id_collection: { enabled: false }
         };
 
         if (resolvedPromotionId) {
