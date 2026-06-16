@@ -553,3 +553,109 @@ export async function getOrdersConversion(
         conversion_rate: Number(row.conversion_rate)
     };
 }
+
+// ── Reservations domain ─────────────────────────────────────────────────────
+// Backed by analytics_reservations_* RPCs (migration 20260616130000).
+// SECURITY INVOKER: RLS on reservations enforces activity scoping via
+// reservations.read. Period window filters on created_at ("received in period").
+
+export type ReservationsOverview = {
+    reservations_count: number;
+    covers: number;
+    confirmed_count: number;
+    confirm_rate: number;
+    declined_count: number;
+    cancelled_count: number;
+    online_count: number;
+    manual_count: number;
+};
+
+export type ReservationsTrendPoint = {
+    date: string;
+    reservations_count: number;
+    covers: number;
+};
+
+export type ReservationsHourlyPoint = {
+    hour: number;
+    reservations_count: number;
+};
+
+export async function getReservationsOverview(
+    tenantId: string,
+    dateRange: DateRange,
+    activityId?: string
+): Promise<ReservationsOverview> {
+    const { data, error } = await supabase.rpc("analytics_reservations_overview", {
+        p_tenant_id: tenantId,
+        p_from: dateRange.from.toISOString(),
+        p_to: dateRange.to.toISOString(),
+        p_activity_id: activityId ?? null
+    });
+
+    if (error) throw error;
+
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) {
+        return {
+            reservations_count: 0,
+            covers: 0,
+            confirmed_count: 0,
+            confirm_rate: 0,
+            declined_count: 0,
+            cancelled_count: 0,
+            online_count: 0,
+            manual_count: 0
+        };
+    }
+
+    return {
+        reservations_count: Number(row.reservations_count),
+        covers: Number(row.covers),
+        confirmed_count: Number(row.confirmed_count),
+        confirm_rate: Number(row.confirm_rate),
+        declined_count: Number(row.declined_count),
+        cancelled_count: Number(row.cancelled_count),
+        online_count: Number(row.online_count),
+        manual_count: Number(row.manual_count)
+    };
+}
+
+export async function getReservationsTrend(
+    tenantId: string,
+    dateRange: DateRange,
+    activityId?: string
+): Promise<ReservationsTrendPoint[]> {
+    const { data, error } = await supabase.rpc("analytics_reservations_trend", {
+        p_tenant_id: tenantId,
+        p_from: dateRange.from.toISOString(),
+        p_to: dateRange.to.toISOString(),
+        p_activity_id: activityId ?? null
+    });
+
+    if (error) throw error;
+    return (data ?? []).map((row: { date: string; reservations_count: number; covers: number }) => ({
+        date: row.date,
+        reservations_count: Number(row.reservations_count),
+        covers: Number(row.covers)
+    }));
+}
+
+export async function getReservationsHourly(
+    tenantId: string,
+    dateRange: DateRange,
+    activityId?: string
+): Promise<ReservationsHourlyPoint[]> {
+    const { data, error } = await supabase.rpc("analytics_reservations_hourly", {
+        p_tenant_id: tenantId,
+        p_from: dateRange.from.toISOString(),
+        p_to: dateRange.to.toISOString(),
+        p_activity_id: activityId ?? null
+    });
+
+    if (error) throw error;
+    return (data ?? []).map((row: { hour: number; reservations_count: number }) => ({
+        hour: Number(row.hour),
+        reservations_count: Number(row.reservations_count)
+    }));
+}

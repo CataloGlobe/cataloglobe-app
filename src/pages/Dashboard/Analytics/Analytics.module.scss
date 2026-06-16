@@ -642,6 +642,18 @@
   gap: 0.15rem;
 }
 
+/* Badge "Presto" per card prenotazioni non ancora raccoglibili */
+.soonBadge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* Empty-state impilato (messaggio + sottotitolo) dentro .chartEmpty */
 .emptyStacked {
   display: flex;

@@ -22,6 +22,9 @@ import {
     getTopOrderedProducts,
     getOrdersLatency,
     getOrdersConversion,
+    getReservationsOverview,
+    getReservationsTrend,
+    getReservationsHourly,
     type TrendDataPoint,
     type TopProduct,
     type OverviewStats,
@@ -38,13 +41,15 @@ import {
     type TopOrderedProduct,
     type OrdersLatency,
     type OrdersConversion,
+    type ReservationsOverview,
+    type ReservationsTrendPoint,
+    type ReservationsHourlyPoint,
     type DateRange
 } from "@/services/supabase/analytics";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { usePageHeader } from "@/context/usePageHeader";
 import { PageGate } from "@/components/PageGate/PageGate";
 import Text from "@/components/ui/Text/Text";
-import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { Button } from "@/components/ui/Button/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { buildXlsxWorkbook, downloadXlsx, type XlsxSection } from "./utils/exportXlsx";
@@ -65,6 +70,10 @@ import OrdersHourlyChart from "./components/OrdersHourlyChart";
 import OrdersTopProductsTable from "./components/OrdersTopProductsTable";
 import OrdersLatencyCard from "./components/OrdersLatencyCard";
 import OrdersConversionCard from "./components/OrdersConversionCard";
+import ReservationsOverviewCards from "./components/ReservationsOverviewCards";
+import ReservationsTrendChart from "./components/ReservationsTrendChart";
+import ReservationsHourlyChart from "./components/ReservationsHourlyChart";
+import ReservationsSoonCard from "./components/ReservationsSoonCard";
 import { formatEur, formatDuration } from "./utils/ordersFormat";
 import styles from "./Analytics.module.scss";
 
@@ -138,6 +147,12 @@ export default function AnalyticsPage() {
     const [ordersLatency, setOrdersLatency] = useState<OrdersLatency | null>(null);
     const [ordersConversion, setOrdersConversion] = useState<OrdersConversion | null>(null);
 
+    // ── Dati Prenotazioni ─────────────────────────────────────────────────
+    const [reservationsOverview, setReservationsOverview] = useState<ReservationsOverview | null>(null);
+    const [previousReservationsOverview, setPreviousReservationsOverview] = useState<ReservationsOverview | null>(null);
+    const [reservationsTrend, setReservationsTrend] = useState<ReservationsTrendPoint[]>([]);
+    const [reservationsHourly, setReservationsHourly] = useState<ReservationsHourlyPoint[]>([]);
+
     const [isLoading, setIsLoading] = useState(true);
 
     // ── Load analytics data ──────────────────────────────────────────────
@@ -205,12 +220,28 @@ export default function AnalyticsPage() {
                 setOrdersConversion(ordConversion);
                 setPreviousOrdersOverview(prevOrdOverview ?? null);
             }
+
+            // ── Prenotazioni (solo se il piano abilita le prenotazioni) ──
+            // Base periodo = created_at ("prenotazioni ricevute nel periodo").
+            if (reservationsFeature) {
+                const [resOverview, resTrend, resHourly, prevResOverview] = await Promise.all([
+                    getReservationsOverview(tenantId, dateRange, activityId),
+                    getReservationsTrend(tenantId, dateRange, activityId),
+                    getReservationsHourly(tenantId, dateRange, activityId),
+                    comparePeriod ? getReservationsOverview(tenantId, previousRange, activityId) : Promise.resolve(null)
+                ]);
+
+                setReservationsOverview(resOverview);
+                setReservationsTrend(resTrend);
+                setReservationsHourly(resHourly);
+                setPreviousReservationsOverview(prevResOverview ?? null);
+            }
         } catch {
             showToast({ message: "Errore nel caricamento analytics", type: "error" });
         } finally {
             setIsLoading(false);
         }
-    }, [tenantId, period, selectedActivityId, ordersFeature, showToast]);
+    }, [tenantId, period, selectedActivityId, ordersFeature, reservationsFeature, showToast]);
 
     useEffect(() => {
         loadData();
@@ -222,12 +253,17 @@ export default function AnalyticsPage() {
     const isEmpty =
         !isLoading &&
         overviewStats?.total_views === 0 &&
-        (!ordersFeature || (ordersOverview?.orders_count ?? 0) === 0);
+        (!ordersFeature || (ordersOverview?.orders_count ?? 0) === 0) &&
+        (!reservationsFeature || (reservationsOverview?.reservations_count ?? 0) === 0);
 
     // Conversione selezione = % finale del funnel (selection_add / page_view),
     // già calcolata server-side. Derivata dai dati funnel in stato, no nuovo RPC.
     const selectionConversion =
         funnelData.length > 0 ? funnelData[funnelData.length - 1].percentage : null;
+
+    // Prenotazioni: dati popolati solo se ce n'è almeno una nel periodo;
+    // altrimenti la sezione cade sull'empty-state.
+    const hasReservations = (reservationsOverview?.reservations_count ?? 0) > 0;
 
     // ── Export Excel ─────────────────────────────────────────────────────
     const handleExportXlsx = useCallback(() => {
@@ -403,6 +439,40 @@ export default function AnalyticsPage() {
             );
         }
 
+        if (reservationsFeature) {
+            sections.push(
+                {
+                    name: "Prenotazioni - Panoramica",
+                    headers: ["Metrica", "Valore"],
+                    rows: reservationsOverview
+                        ? [
+                              ["Prenotazioni (ricevute)", reservationsOverview.reservations_count],
+                              ["Coperti", reservationsOverview.covers],
+                              ["Confermate", reservationsOverview.confirmed_count],
+                              ["Tasso conferma (%)", reservationsOverview.confirm_rate],
+                              ["Rifiutate", reservationsOverview.declined_count],
+                              ["Annullate", reservationsOverview.cancelled_count],
+                              ["Online", reservationsOverview.online_count],
+                              ["Manuali", reservationsOverview.manual_count]
+                          ]
+                        : [],
+                    columnWidths: [28, 16]
+                },
+                {
+                    name: "Prenotazioni - Andamento",
+                    headers: ["Data", "Prenotazioni", "Coperti"],
+                    rows: reservationsTrend.map(r => [r.date, r.reservations_count, r.covers]),
+                    columnWidths: [14, 14, 10]
+                },
+                {
+                    name: "Prenotazioni - Fasce orarie",
+                    headers: ["Ora", "Prenotazioni"],
+                    rows: reservationsHourly.map(r => [r.hour, r.reservations_count]),
+                    columnWidths: [8, 14]
+                }
+            );
+        }
+
         const wb = buildXlsxWorkbook(sections);
 
         const sedeSlug =
@@ -441,6 +511,10 @@ export default function AnalyticsPage() {
         topOrderedByRevenue,
         ordersLatency,
         ordersConversion,
+        reservationsFeature,
+        reservationsOverview,
+        reservationsTrend,
+        reservationsHourly,
         selectedActivityId,
         readableActivities,
         period
@@ -609,23 +683,53 @@ export default function AnalyticsPage() {
                                     Prenotazioni
                                 </Text>
                                 <Text variant="caption" colorVariant="muted">
-                                    Prenotazioni al tavolo nel periodo selezionato
+                                    Prenotazioni ricevute nel periodo selezionato
                                 </Text>
                             </div>
 
-                            <article className={styles.chartCard} aria-label="Prenotazioni">
-                                <header className={styles.chartCardHeader}>
-                                    <Text variant="title-sm" align="left">
-                                        Prenotazioni
-                                    </Text>
-                                </header>
-                                <div className={styles.chartCardBody}>
-                                    {isLoading ? (
-                                        <div className={styles.tableSkeletons}>
-                                            <Skeleton height="64px" radius="8px" />
-                                            <Skeleton height="120px" radius="8px" />
-                                        </div>
-                                    ) : (
+                            {isLoading || hasReservations ? (
+                                <>
+                                    <ReservationsOverviewCards
+                                        data={reservationsOverview}
+                                        previous={previousReservationsOverview}
+                                        previousPeriodLabel={getPreviousPeriodLabel(period)}
+                                        isLoading={isLoading}
+                                    />
+
+                                    <ReservationsTrendChart
+                                        data={reservationsTrend}
+                                        dateRange={periodToDateRange(period)}
+                                        period={period}
+                                        isLoading={isLoading}
+                                    />
+
+                                    <div className={styles.chartsGrid}>
+                                        <ReservationsHourlyChart data={reservationsHourly} isLoading={isLoading} />
+                                        <ReservationsSoonCard
+                                            title="No-show"
+                                            description="Prenotazioni che non si presentano. Disponibile quando il flusso registrerà lo stato no-show."
+                                        />
+                                    </div>
+
+                                    <div className={styles.chartsGrid}>
+                                        <ReservationsSoonCard
+                                            title="Tempi di permanenza"
+                                            description="Durata media al tavolo (seduta → completamento). Disponibile quando il flusso registrerà seduta e completamento."
+                                        />
+                                        <ReservationsSoonCard
+                                            title="Utilizzo tavoli"
+                                            description="Occupazione e rotazione dei tavoli. Disponibile quando le prenotazioni saranno assegnate a un tavolo."
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <article className={styles.chartCard} aria-label="Prenotazioni">
+                                    <header className={styles.chartCardHeader}>
+                                        <Text variant="title-sm" align="left">
+                                            Prenotazioni
+                                        </Text>
+                                    </header>
+                                    <div className={styles.chartCardBody}>
                                         <div className={styles.chartEmpty}>
                                             <div className={styles.emptyStacked}>
                                                 <Text variant="body" colorVariant="muted">
@@ -636,9 +740,9 @@ export default function AnalyticsPage() {
                                                 </Text>
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-                            </article>
+                                    </div>
+                                </article>
+                            )}
                         </>
                     )}
                 </>
