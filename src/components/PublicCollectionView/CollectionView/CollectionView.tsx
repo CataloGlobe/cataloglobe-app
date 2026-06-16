@@ -27,6 +27,7 @@ import styles from "./CollectionView.module.scss";
 import { useFabCollapse } from "../hooks/useFabCollapse";
 import EventsView from "../EventsView/EventsView";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
+import AssistanceSheet from "../AssistanceSheet/AssistanceSheet";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
 import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
 
@@ -1102,10 +1103,12 @@ export default function CollectionView({
         });
     }, []);
 
-    // Bill state — single source of truth a livello CollectionView per
+    // Bill + waiter state — single source of truth a livello CollectionView per
     // garantire che la subscription customer_sessions sia always-on
-    // (OrderingSheet e' montato solo a sheet aperta).
+    // (OrderingSheet/AssistanceSheet sono montati solo a sheet aperta).
     const [billRequestedAt, setBillRequestedAt] = useState<string | null>(null);
+    const [waiterCalledAt, setWaiterCalledAt] = useState<string | null>(null);
+    const [isSupportOpen, setIsSupportOpen] = useState(false);
 
     // Realtime subscribe customer_sessions: single channel always-on quando
     // JWT presente. Propaga:
@@ -1121,6 +1124,7 @@ export default function CollectionView({
         channel = subscribeToCustomerSession(jwt, {
             onUpdate: updatedSession => {
                 setBillRequestedAt(updatedSession.bill_requested_at ?? null);
+                setWaiterCalledAt(updatedSession.waiter_called_at ?? null);
                 const expiresAt = updatedSession.expires_at;
                 if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
                     // Idempotente: setta solo se nessun maintenance gia attivo.
@@ -2322,6 +2326,8 @@ export default function CollectionView({
                     activeTab={activeTab}
                     onTabChange={tab => onTabChange?.(tab)}
                     selectionCount={selectionCount}
+                    supportVisible={mode === "public" && orderingActive}
+                    onOpenSupport={() => setIsSupportOpen(true)}
                     cartVisible={!shouldHideOrderingEntry}
                     onOpenCart={openOrdering}
                     reviewDot={valutaVisible}
@@ -2329,7 +2335,7 @@ export default function CollectionView({
                         setValutaVisible(false);
                         valutaEligibleRef.current = false;
                     }}
-                    isSheetOpen={!!selectedItem || isOrderingOpen}
+                    isSheetOpen={!!selectedItem || isOrderingOpen || isSupportOpen}
                 />
             )}
 
@@ -2403,6 +2409,23 @@ export default function CollectionView({
                     onApplyFilter={setAllergenFilterIds}
                 />
             )}
+
+            <AssistanceSheet
+                isOpen={isSupportOpen}
+                onClose={() => setIsSupportOpen(false)}
+                session={customerSession?.session
+                    ? {
+                        jwt: customerSession.session.jwt,
+                        tableLabel: customerSession.session.tableLabel,
+                        tableZone: customerSession.session.tableZone ?? null,
+                    }
+                    : null
+                }
+                billRequestedAt={billRequestedAt}
+                onBillRequestedAtChange={setBillRequestedAt}
+                waiterCalledAt={waiterCalledAt}
+                onWaiterCalledAtChange={setWaiterCalledAt}
+            />
 
             {isOrderingOpen && (
                 <Suspense fallback={null}>

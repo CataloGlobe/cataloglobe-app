@@ -1,0 +1,122 @@
+// Sheet "Assistenza al tavolo" — due action card (cameriere + conto).
+// Stile coerente con MoreSheet: sfondo del PublicSheet gestisce il tema,
+// qui solo layout interno e accenti per le due azioni.
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px;
+}
+
+.headerTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.headerSub {
+  font-size: 0.8125rem;
+  opacity: 0.5;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.cardIcon {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &[data-variant="theme"] {
+    background: color-mix(in srgb, var(--pub-primary, #6366f1) 16%, transparent);
+    color: var(--pub-primary, #818cf8);
+  }
+}
+
+.cardBody {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cardTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.cardDesc {
+  font-size: 0.75rem;
+  opacity: 0.55;
+  line-height: 1.4;
+}
+
+.cardError {
+  display: block;
+  font-size: 0.75rem;
+  color: #f87171;
+  margin-top: 2px;
+}
+
+.cardBtn {
+  flex: 0 0 auto;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    opacity 0.18s ease,
+    transform 0.15s ease;
+
+  &:active:not(:disabled) {
+    transform: scale(0.94);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  &[data-variant="theme"] {
+    background: var(--pub-primary, #6366f1);
+    color: var(--pub-on-primary, #ffffff);
+
+    @media (hover: hover) {
+      &:not(:disabled):hover {
+        background: color-mix(in srgb, var(--pub-primary, #6366f1) 85%, black);
+      }
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardBtn {
+    transition: none;
+  }
+}

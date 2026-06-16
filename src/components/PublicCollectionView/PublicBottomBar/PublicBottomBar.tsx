@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, CalendarDays, MessageSquareHeart, ShoppingBag } from "lucide-react";
+import { Bell, BookOpen, CalendarDays, MessageSquareHeart, ShoppingBag } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { useScrollCollapse } from "../hooks/useScrollCollapse";
 import styles from "./PublicBottomBar.module.scss";
@@ -30,6 +30,9 @@ type Props = {
     activeTab: HubTab;
     onTabChange: (tab: HubTab) => void;
     selectionCount: number;
+    /** Mostra lo slot assistenza. Dipende dalla sessione tavolo (indipendente da ordering maintenance). */
+    supportVisible: boolean;
+    onOpenSupport: () => void;
     /** Mostra lo slot carrello. Allineato a `!shouldHideOrderingEntry` del parent. */
     cartVisible: boolean;
     onOpenCart: () => void;
@@ -46,6 +49,8 @@ export default function PublicBottomBar({
     activeTab,
     onTabChange,
     selectionCount,
+    supportVisible,
+    onOpenSupport,
     cartVisible,
     onOpenCart,
     reviewDot,
@@ -151,6 +156,20 @@ export default function PublicBottomBar({
                     </button>
                 ))}
             </div>
+
+            {supportVisible && (
+                <>
+                    <span className={styles.divider} aria-hidden="true" />
+                    <button
+                        type="button"
+                        className={styles.cart}
+                        aria-label="Assistenza al tavolo"
+                        onClick={onOpenSupport}
+                    >
+                        <Bell size={19} strokeWidth={1.9} />
+                    </button>
+                </>
+            )}
 
             {cartVisible && (
                 <>

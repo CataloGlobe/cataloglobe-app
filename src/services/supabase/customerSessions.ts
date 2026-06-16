@@ -365,6 +365,52 @@ export async function requestBill(customerJwt: string): Promise<RequestBillResul
     return data;
 }
 
+// ============================================================
+// CUSTOMER WAITER CALL
+// ============================================================
+
+export interface CallWaiterResult {
+    waiter_called_at: string;
+    rate_limited: boolean;
+}
+
+/**
+ * Customer "Chiama il cameriere". POST /call-waiter con customer JWT.
+ * A differenza di requestBill (one-shot idempotente), e' ripetibile con
+ * rate-limit temporale di 60s lato EF: chiamate entro la finestra ritornano
+ * il waiter_called_at esistente con rate_limited=true.
+ *
+ * Throws (italiano user-facing):
+ *   401/404 SESSION_EXPIRED|SESSION_NOT_FOUND → "Sessione scaduta..."
+ *   429 RATE_LIMITED (anti-burst, soglia alta) → "Troppe richieste..."
+ *   500 → "Errore del server"
+ */
+export async function callWaiter(customerJwt: string): Promise<CallWaiterResult> {
+    const { data, error } = await supabase.functions.invoke<CallWaiterResult>(
+        "call-waiter",
+        {
+            body: {},
+            headers: { Authorization: `Bearer ${customerJwt}` }
+        }
+    );
+
+    if (error) {
+        if (error instanceof FunctionsHttpError) {
+            const status = error.context.status;
+            if (status === 401 || status === 404) {
+                throw new Error("Sessione scaduta, scansiona di nuovo il QR");
+            }
+            if (status === 429) {
+                throw new Error("Troppe richieste, riprova tra poco");
+            }
+        }
+        throw new Error("Errore durante la chiamata al cameriere");
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
 /**
  * Subscribe Realtime alla customer_sessions row corrente. RLS anon
  * "Customer select own session" garantisce che il channel riceva SOLO
