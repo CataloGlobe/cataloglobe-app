@@ -1,15 +1,14 @@
-import { Eye, Users, Activity, Filter } from "lucide-react";
-import type { OverviewStats } from "@/services/supabase/analytics";
+import { ShoppingBag, Euro, Receipt, XCircle } from "lucide-react";
+import type { OrdersOverview } from "@/services/supabase/analytics";
 import { calculateDelta } from "../utils/periodComparison";
+import { formatEur } from "../utils/ordersFormat";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import Text from "@/components/ui/Text/Text";
 import styles from "../Analytics.module.scss";
 
 type Props = {
-    stats: OverviewStats | null;
-    /** % finale del funnel (aggiunti_selezione / visite). Null se non disponibile. */
-    selectionConversion: number | null;
-    previousStats?: OverviewStats | null;
+    data: OrdersOverview | null;
+    previous?: OrdersOverview | null;
     previousPeriodLabel?: string;
     isLoading: boolean;
 };
@@ -27,23 +26,28 @@ interface DeltaRowProps {
     current: number;
     previous: number | null | undefined;
     label: string | undefined;
+    /** When true, a positive delta is "bad" (e.g. cancellation rate). */
+    invert?: boolean;
 }
 
-function DeltaRow({ current, previous, label }: DeltaRowProps) {
+function DeltaRow({ current, previous, label, invert = false }: DeltaRowProps) {
     if (previous == null || !label) return null;
 
     const delta = calculateDelta(current, previous);
     if (delta === null) return null;
 
-    const isPositive = delta > 0;
-    const isNegative = delta < 0;
-    const colorClass = isPositive
+    const isUp = delta > 0;
+    const isDown = delta < 0;
+    const isGood = invert ? isDown : isUp;
+    const isBad = invert ? isUp : isDown;
+
+    const colorClass = isGood
         ? styles.kpiDeltaPositive
-        : isNegative
+        : isBad
           ? styles.kpiDeltaNegative
           : styles.kpiDeltaNeutral;
 
-    const arrow = isPositive ? "↑" : isNegative ? "↓" : "";
+    const arrow = isUp ? "↑" : isDown ? "↓" : "";
 
     return (
         <div className={`${styles.kpiDelta} ${colorClass}`}>
@@ -54,63 +58,58 @@ function DeltaRow({ current, previous, label }: DeltaRowProps) {
     );
 }
 
-export default function OverviewCards({
-    stats,
-    selectionConversion,
-    previousStats,
+export default function OrdersOverviewCards({
+    data,
+    previous,
     previousPeriodLabel,
     isLoading
 }: Props) {
     const cards = [
         {
-            label: "Visite totali",
-            icon: Eye,
-            value: stats ? stats.total_views.toLocaleString("it-IT") : "—",
-            current: stats?.total_views ?? 0,
-            previous: previousStats?.total_views as number | undefined,
+            label: "Ordini",
+            icon: ShoppingBag,
+            value: data ? data.orders_count.toLocaleString("it-IT") : "—",
+            current: data?.orders_count ?? 0,
+            previous: previous?.orders_count,
+            invert: false,
             sub: undefined as string | undefined
         },
         {
-            label: "Sessioni uniche",
-            icon: Users,
-            value: stats ? stats.unique_sessions.toLocaleString("it-IT") : "—",
-            current: stats?.unique_sessions ?? 0,
-            previous: previousStats?.unique_sessions as number | undefined,
+            label: "Ricavi",
+            icon: Euro,
+            value: data ? formatEur(data.revenue) : "—",
+            current: data?.revenue ?? 0,
+            previous: previous?.revenue,
+            invert: false,
             sub: undefined as string | undefined
         },
         {
-            label: "Media eventi/sessione",
-            icon: Activity,
-            value: stats
-                ? stats.avg_events_per_session.toLocaleString("it-IT", {
-                      minimumFractionDigits: 1,
-                      maximumFractionDigits: 1
-                  })
-                : "—",
-            current: stats?.avg_events_per_session ?? 0,
-            previous: previousStats?.avg_events_per_session as number | undefined,
+            label: "Valore medio ordine",
+            icon: Receipt,
+            value: data ? formatEur(data.avg_order_value) : "—",
+            current: data?.avg_order_value ?? 0,
+            previous: previous?.avg_order_value,
+            invert: false,
             sub: undefined as string | undefined
         },
         {
-            label: "Conversione selezione",
-            icon: Filter,
-            value:
-                selectionConversion !== null
-                    ? `${selectionConversion.toLocaleString("it-IT", {
-                          minimumFractionDigits: 1,
-                          maximumFractionDigits: 1
-                      })}%`
-                    : "—",
-            current: selectionConversion ?? 0,
-            // Nessun dato del periodo precedente per il funnel → niente delta.
-            previous: undefined as number | undefined,
-            sub: "% di visitatori che aggiunge prodotti alla selezione"
+            label: "Tasso annullamento",
+            icon: XCircle,
+            value: data ? `${data.cancellation_rate.toFixed(1)}%` : "—",
+            current: data?.cancellation_rate ?? 0,
+            previous: previous?.cancellation_rate,
+            invert: true,
+            // Base esplicita: denominatore = ordini validi + annullati (scoped),
+            // così la % non sembra in contraddizione con la card "Ordini".
+            sub: data
+                ? `${data.cancelled_count} annullati su ${data.orders_count + data.cancelled_count}`
+                : undefined
         }
     ];
 
     return (
         <div className={styles.kpiGrid}>
-            {cards.map(({ label, icon: Icon, value, current, previous, sub }) => (
+            {cards.map(({ label, icon: Icon, value, current, previous: prev, invert, sub }) => (
                 <div key={label} className={styles.kpiCard}>
                     <div className={styles.kpiHeader}>
                         <Text variant="caption" colorVariant="muted">
@@ -135,8 +134,9 @@ export default function OverviewCards({
                             )}
                             <DeltaRow
                                 current={current}
-                                previous={previous}
+                                previous={prev}
                                 label={previousPeriodLabel}
+                                invert={invert}
                             />
                         </>
                     )}
