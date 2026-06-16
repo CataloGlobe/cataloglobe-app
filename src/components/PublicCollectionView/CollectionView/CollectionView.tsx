@@ -863,13 +863,28 @@ export default function CollectionView({
     const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
 
     // ── Allergen filter (customer-side, sessionStorage per-activity) ────────
-    const [allergenFilterIds, setAllergenFilterIds] = useState<number[]>(() =>
-        activityId && mode === "public" ? getAllergenPreferences(activityId) : []
-    );
+    // Hydration-safe: default vuoto in render (= server), lettura sessionStorage
+    // spostata in effect post-mount (client-only) → niente mismatch #418/#425.
+    const [allergenFilterIds, setAllergenFilterIds] = useState<number[]>([]);
     const [isAllergensFilterOpen, setIsAllergensFilterOpen] = useState(false);
+
+    const allergensPersistSkipRef = useRef(true);
+    useEffect(() => {
+        // Reset del guard ad ogni cambio sede: il persist run indotto da questo
+        // load non deve scrivere (eviterebbe di azzerare le prefs della sede).
+        allergensPersistSkipRef.current = true;
+        if (!activityId || mode !== "public") return;
+        setAllergenFilterIds(getAllergenPreferences(activityId));
+    }, [activityId, mode]);
 
     useEffect(() => {
         if (!activityId || mode !== "public") return;
+        // Guard anti-clobber: salta il primo run (stato iniziale vuoto) per non
+        // sovrascrivere lo storage prima che il load post-mount abbia ripopolato.
+        if (allergensPersistSkipRef.current) {
+            allergensPersistSkipRef.current = false;
+            return;
+        }
         setAllergenPreferences(activityId, allergenFilterIds);
     }, [activityId, mode, allergenFilterIds]);
 
@@ -925,24 +940,36 @@ export default function CollectionView({
     // ── Selezione prodotti ──────────────────────────────────────────────────
     const selectionStorageKey = activityId ? `catalogobe-selection-${activityId}` : null;
 
-    const [selection, setSelection] = useState<SelectionItem[]>(() => {
-        if (!selectionStorageKey) return [];
-        try {
-            const saved = sessionStorage.getItem(selectionStorageKey);
-            if (!saved) return [];
-            const parsed = JSON.parse(saved) as Record<string, unknown>[];
-            return parsed.map(migrateSelectionItem);
-        } catch {
-            return [];
-        }
-    });
+    // Hydration-safe: default vuoto in render (= server), lettura sessionStorage
+    // spostata in effect post-mount (client-only) → niente mismatch #418/#425.
+    const [selection, setSelection] = useState<SelectionItem[]>([]);
     const [isOrderingOpen, setIsOrderingOpen] = useState(false);
     const [activeOrderingTab, setActiveOrderingTab] = useState<"cart" | "orders">("cart");
     const [ordersRefreshKey, setOrdersRefreshKey] = useState(0);
     const [editingSelectionIndex, setEditingSelectionIndex] = useState<number | null>(null);
 
+    const selectionPersistSkipRef = useRef(true);
+    useEffect(() => {
+        // Reset del guard ad ogni cambio chiave: il persist run indotto da questo
+        // load non deve scrivere (eviterebbe di azzerare lo storage della sede).
+        selectionPersistSkipRef.current = true;
+        if (!selectionStorageKey) return;
+        try {
+            const saved = sessionStorage.getItem(selectionStorageKey);
+            if (!saved) return;
+            const parsed = JSON.parse(saved) as Record<string, unknown>[];
+            setSelection(parsed.map(migrateSelectionItem));
+        } catch { /* sessionStorage non disponibile */ }
+    }, [selectionStorageKey]);
+
     useEffect(() => {
         if (!selectionStorageKey) return;
+        // Guard anti-clobber: salta il primo run (stato iniziale []) per non
+        // azzerare lo storage prima che il load post-mount abbia ripopolato.
+        if (selectionPersistSkipRef.current) {
+            selectionPersistSkipRef.current = false;
+            return;
+        }
         try {
             sessionStorage.setItem(selectionStorageKey, JSON.stringify(selection));
         } catch { /* sessionStorage non disponibile */ }
