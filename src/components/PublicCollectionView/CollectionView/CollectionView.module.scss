@@ -1,4 +1,5 @@
 @use "@styles/variables" as *;
+@use "@styles/mixins" as *;
 
 /* Token press condiviso dai target tappabili della pagina pubblica.
    Definito a :root cosi cascada anche fuori da .page (es. PublicCollectionHeader,
@@ -73,6 +74,41 @@
 /* ----------------------------------------------------
    FRAME
 ---------------------------------------------------- */
+
+/* Bottom-bar mode (showHubTabs=false): Eventi/Recensioni non hanno la CollectionSectionNav.
+   Il cover (hero) viene dipinto sopra lo sfondo di `.page`, quindi per tagliarlo al bordo basso
+   dell'header serve una superficie OPACA sopra il cover (come fa la nav sul Menu). Qui usa lo
+   STESSO pattern della pagina (NON crema piatto): avvolge tutto il contenuto della tab così
+   l'unica superficie visibile è questa — niente banda separata, niente seam, sfondo coerente
+   col Menu. Padding-top piccolo e naturale (no allineamento forzato al content-top del Menu). */
+/* Split CSS-driven: il wrapper è montato sempre sotto flag ON (entrambi i
+   viewport), ma la superficie a pattern sostituisce gli hub-tabs SOLO su mobile
+   (≤640px), dove la barra flottante prende il posto della banda tab dell'header.
+   ≥641px gli hub-tabs vivono nell'header → il wrapper resta un div neutro
+   (nessuna regola applicata = identico al flag OFF / al desktop odierno). */
+@media (max-width: 640px) {
+  .tabPatternSurface {
+    position: relative;
+    z-index: 10;
+    background-color: var(--pub-bg);
+    background-image: var(--pub-bg-pattern, none);
+    background-size: var(--pub-bg-pattern-size, auto);
+    background-repeat: repeat;
+    /* Unica fonte di spaziatura esterna: top 1.5rem + lati 1rem (= inset orizzontale del Menu,
+       16px). Bottom 0: il clearance per la barra flottante resta dal padding-bottom dei figli. */
+    padding: 1.5rem 1rem 0;
+  }
+
+  /* Azzera SOLO il padding esterno top/laterale dei contenitori figli (EventsView.container,
+     ReviewsView.root), scoped al wrapper così non tocca il flag OFF (dove non c'è il wrapper).
+     Resta il padding-bottom (clearance barra) e gli spazi INTERNI (gap card, gap intro/stelle). */
+  .tabPatternSurface > *,
+  .tabPatternSurface > .frame > * {
+    /* !important per battere il pareggio di specificità con ReviewsView .root (0,1,0). */
+    padding-top: 0 !important;
+    padding-inline: 0 !important;
+  }
+}
 
 .frame {
   width: 100%;
@@ -248,7 +284,7 @@
   -webkit-tap-highlight-color: transparent;
   transition: opacity 0.12s ease;
 
-  &:hover {
+  @include hover {
     opacity: 0.75;
   }
 
@@ -369,7 +405,7 @@
 
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 
-  &:hover {
+  @include hover {
     transform: translateY(-1px);
     box-shadow: var(--pub-card-shadow-hover);
   }
@@ -389,7 +425,7 @@
   -webkit-tap-highlight-color: transparent;
   transition: background 0.12s ease;
 
-  &:hover {
+  @include hover {
     background: color-mix(in srgb, var(--pub-text) 4%, var(--pub-surface));
   }
 
@@ -767,7 +803,7 @@
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
               opacity 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  &:hover {
+  @include hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px color-mix(in srgb, var(--pub-accent, #F59E0B) 45%, transparent);
   }
@@ -782,7 +818,7 @@
 
     /* Hover ri-dichiarato qui: stessa specificità di .valutaFabVisible (0-2-0),
        ma dichiarato dopo → vince sulla regola base translateX(0). */
-    &:hover {
+    @include hover {
       transform: translateY(-2px);
     }
 
@@ -850,14 +886,10 @@
     inset: -6px;
   }
 
-  /* Hover solo su dispositivi con puntatore reale (mouse/trackpad).
-     Evita hover "appiccicoso" su touch device dopo il tap. */
-  @media (hover: hover) {
-    &:hover {
-      background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
-      color: var(--pub-text);
-      border-color: color-mix(in srgb, var(--pub-text) 20%, transparent);
-    }
+  @include hover {
+    background: color-mix(in srgb, var(--pub-text) 6%, var(--pub-surface));
+    color: var(--pub-text);
+    border-color: color-mix(in srgb, var(--pub-text) 20%, transparent);
   }
 
   &:focus-visible {
@@ -876,10 +908,8 @@
   color: var(--pub-surface);
   border-color: transparent;
 
-  @media (hover: hover) {
-    &:hover {
-      background: color-mix(in srgb, var(--pub-surface-text) 85%, transparent);
-    }
+  @include hover {
+    background: color-mix(in srgb, var(--pub-surface-text) 85%, transparent);
   }
 }
 
@@ -907,11 +937,9 @@
   outline: none;
   -webkit-tap-highlight-color: transparent;
 
-  @media (hover: hover) {
-    &:hover {
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24);
-      transform: scale(1.05);
-    }
+  @include hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24);
+    transform: scale(1.05);
   }
 
   &:focus-visible {
@@ -929,10 +957,8 @@
   background: var(--pub-accent);
   color: var(--pub-cta-text);
 
-  @media (hover: hover) {
-    &:hover {
-      background: color-mix(in srgb, var(--pub-accent) 85%, transparent);
-    }
+  @include hover {
+    background: color-mix(in srgb, var(--pub-accent) 85%, transparent);
   }
 }
 
@@ -961,10 +987,8 @@
     inset: -9px; /* (44 - 26) / 2 = 9px */
   }
 
-  @media (hover: hover) {
-    &:hover {
-      background: color-mix(in srgb, var(--pub-bg-text) 8%, transparent);
-    }
+  @include hover {
+    background: color-mix(in srgb, var(--pub-bg-text) 8%, transparent);
   }
 
   &:focus-visible {
@@ -1058,7 +1082,7 @@
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 
-  &:hover {
+  @include hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 24px color-mix(in srgb, var(--pub-bg-text) 30%, transparent);
   }
@@ -1231,11 +1255,15 @@
     white-space: nowrap;
   }
 
-  &[href]:hover {
-    color: var(--pub-accent);
-
-    svg {
+  /* Selettore composto `&[href]:hover` non gestibile col mixin standard.
+     Inline @media (hover: hover) per gating equivalente. */
+  @media (hover: hover) {
+    &[href]:hover {
       color: var(--pub-accent);
+
+      svg {
+        color: var(--pub-accent);
+      }
     }
   }
 }
@@ -1263,6 +1291,15 @@
   max-width: calc(100vw - 32px);
   animation: submitFeedbackSlideUp 0.25s ease-out;
   font-family: var(--pub-font-family, sans-serif);
+}
+
+/* Bottom-bar attiva: solleva il toast sopra la barra flottante, ma SOLO sul
+   viewport dove la barra è effettivamente visibile (≤640px). Su desktop la barra
+   è nascosta → il toast resta all'ancora 16px standard. */
+.submitFeedbackAboveBar {
+  @media (max-width: 640px) {
+    bottom: calc(16px + 58px + 12px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 .submitFeedbackSuccess {
@@ -1307,7 +1344,7 @@
   cursor: pointer;
   transition: background 0.12s ease;
 
-  &:hover {
+  @include hover {
     background: color-mix(in srgb, var(--pub-accent, #F59E0B) 88%, white);
   }
 }

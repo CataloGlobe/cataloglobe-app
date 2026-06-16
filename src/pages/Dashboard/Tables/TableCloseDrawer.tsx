@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BellRing, Receipt, UtensilsCrossed, Users } from "lucide-react";
+import { ConciergeBell, Receipt, UtensilsCrossed, Users } from "lucide-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
@@ -76,6 +76,7 @@ export default function TableCloseDrawer({ open, table, onClose, onConfirm }: Pr
     const hasOpenOrders = table.open_orders_count > 0;
     const hasActiveSessions = table.active_sessions_count > 0;
     const hasBillRequested = table.bill_requested_count > 0;
+    const hasWaiterCalled = table.waiter_called_count > 0;
     const hasCurrentTotal = table.current_total > 0;
     // Un tavolo occupato solo per sessione (0 conti, 0 ordini, 1+ sessioni)
     // deve poter essere chiuso: la chiusura terminera' le sessioni
@@ -223,11 +224,22 @@ export default function TableCloseDrawer({ open, table, onClose, onConfirm }: Pr
                                     )}
                                     {hasBillRequested && (
                                         <Chip
-                                            icon={<BellRing size={14} />}
+                                            icon={<Receipt size={14} />}
                                             label={plural(
                                                 table.bill_requested_count,
                                                 "conto richiesto",
                                                 "conti richiesti"
+                                            )}
+                                            accent="brand"
+                                        />
+                                    )}
+                                    {hasWaiterCalled && (
+                                        <Chip
+                                            icon={<ConciergeBell size={14} />}
+                                            label={plural(
+                                                table.waiter_called_count,
+                                                "cameriere chiamato",
+                                                "camerieri chiamati"
                                             )}
                                             accent="brand"
                                         />

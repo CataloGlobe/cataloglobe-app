@@ -103,7 +103,9 @@
     },
     "fab": {
         "review_aria": "How did it go?",
-        "review_label": "How did it go?"
+        "review_label": "How did it go?",
+        "cart_aria": "Your order",
+        "cart_aria_count": "Your order ({{count}})"
     },
     "footer": {
         "open_allergens_aria": "Open allergens list",

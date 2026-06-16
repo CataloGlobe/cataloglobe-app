@@ -199,6 +199,43 @@
     max-width: 560px;
 }
 
+.fieldRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+
+    @media (max-width: 640px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Billing step — fiscal identity + legal address
+// ──────────────────────────────────────────────────────────────────────────────
+
+.billingSection {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 560px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border, #e2e8f0);
+}
+
+.addressGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+
+    @media (max-width: 640px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.addressFull {
+    grid-column: 1 / -1;
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Step 2 — Plan cards + seats picker
 // ──────────────────────────────────────────────────────────────────────────────

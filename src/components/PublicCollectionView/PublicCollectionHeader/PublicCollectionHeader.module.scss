@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 /* ─────────────────────────────────────────────────────────
    PublicCollectionHeader
    Single sticky header with scroll-driven animation
@@ -42,13 +44,53 @@
 }
 
 /* ── HEADER ROOT (sticky) ────────────────────────────────── */
-/* position, top, margin, borderRadius, overflow set inline from JS */
+/* Stato a-riposo (scrollY=0) interamente CSS-driven così il markup server è
+   viewport-independent (hydration deterministica, SSR stage 2). Durante lo
+   scroll il lerp JS sovrascrive top/margin-inline/border-radius via inline
+   style (specificità inline > foglio: NON aggiungere !important qui o il
+   takeover si rompe). margin-top (cover overlap) non è animato: solo CSS.
+   Le formule rispecchiano le costanti del prototipo nel .tsx:
+   BASE_MARGIN_MOBILE=10, BASE_MARGIN_DESKTOP=16, TOP_OFFSET=8,
+   HEADER_HEIGHT_MOBILE=108, HEADER_HEIGHT_DESKTOP=116 (--header-h). */
 .root {
+  position: sticky;
+  top: 8px;
+  z-index: 30;
+  overflow: hidden;
   background: rgba(20, 20, 20, 0.62);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   will-change: transform;
+
+  --header-h: 108px;
+  margin-inline: 10px;
+
+  /* Desktop: header largo (frame-max - 32px), centrato. % risolve sul
+     containing block (main.page, full-width senza padding) = stessa base
+     di document.documentElement.clientWidth usata dal lerp JS. */
+  @media (min-width: 768px) {
+    --header-h: 116px;
+    margin-inline: max(calc((100% - var(--pub-frame-max-desktop, 1280px)) / 2 + 16px), 16px);
+  }
+
+  /* Overlap sulla cover: -(header height + TOP_OFFSET + 4). */
+  &[data-cover="true"] {
+    margin-top: calc(-1 * (var(--header-h) + 12px));
+  }
+
+  /* Preview Style Editor: il "viewport" è il device frame, non la finestra —
+     le media query sopra non lo vedono. Stesso pattern degli override
+     .preview-* già usati per coverImage/inner. */
+  :global(.preview-mobile) & {
+    --header-h: 108px;
+    margin-inline: 10px;
+  }
+
+  :global(.preview-desktop) & {
+    --header-h: 116px;
+    margin-inline: max(calc((100% - var(--pub-frame-max-desktop, 1280px)) / 2 + 16px), 16px);
+  }
 }
 
 /* ── INNER (max-width constraint) ────────────────────────── */
@@ -164,7 +206,7 @@
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
   position: relative;
 
-  &:hover {
+  @include hover {
     background: rgba(255, 255, 255, 0.22);
     border-color: rgba(255, 255, 255, 0.35);
   }
@@ -172,6 +214,53 @@
   &:active {
     transform: scale(var(--pub-press-scale, 0.96));
     transition: transform 0.05s ease-out;
+  }
+}
+
+/* Divisore verticale tra gruppo utility (IT/search/···) e gruppo azioni
+   (Assistenza/Ordine). Linea 1px coerente col bordo dark-glass degli iconBtn. */
+.actionsDivider {
+  flex-shrink: 0;
+  width: 1px;
+  height: 24px;
+  margin: 0 2px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* Gruppo azioni desktop (Assistenza/Ordine) sotto flag bottom-bar.
+   display:contents → i figli restano flex item diretti della .topRow: layout e
+   gap identici a prima del wrapper. Lo split CSS-driven li nasconde ≤640px
+   (regola in .root[data-bottombar] sotto). */
+.headerActions {
+  display: contents;
+}
+
+/* CSS-driven split (flag bottom-bar ON): su mobile la bottom-bar sostituisce sia
+   le azioni header sia gli hub-tabs. Entrambi restano nel markup (SSR-safe) ma
+   escono dal flow E dall'accessibility tree ≤640px (display:none, non
+   visibility → niente doppio tablist / doppie azioni annunciate). Stesso
+   breakpoint 640px della vecchia query JS. Flag OFF (no attr) → invariato. */
+.root[data-bottombar] {
+  @media (max-width: 640px) {
+    .headerActions {
+      display: none;
+    }
+
+    .chips {
+      display: none;
+    }
+  }
+}
+
+/* Bottone Ordine con articoli in carrello: tinta accent sottile (dettaglio che
+   distingue lo stato "carrello pieno" senza urlare). */
+.iconBtn[data-accent="true"] {
+  background: color-mix(in srgb, var(--pub-accent, #f59e0b) 22%, transparent);
+  border-color: color-mix(in srgb, var(--pub-accent, #f59e0b) 55%, transparent);
+
+  @include hover {
+    background: color-mix(in srgb, var(--pub-accent, #f59e0b) 32%, transparent);
+    border-color: color-mix(in srgb, var(--pub-accent, #f59e0b) 70%, transparent);
   }
 }
 
@@ -217,6 +306,7 @@
 }
 
 .chip {
+  position: relative;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -238,7 +328,7 @@
     transform 0.15s ease;
   white-space: nowrap;
 
-  &:hover {
+  @include hover {
     background: rgba(255, 255, 255, 0.25);
   }
 
@@ -254,9 +344,25 @@
   border-color: transparent;
   font-weight: 700;
 
-  &:hover {
+  @include hover {
     background: color-mix(in srgb, var(--pub-accent) 85%, white);
     color: var(--pub-cta-text);
   }
+}
+
+/* Dot promemoria recensione sulla tab "Dicci la tua". Accent con bordo del
+   colore header così si stacca pulito. Nascosto quando la tab è attiva (gate
+   nel .tsx) per non sovrapporsi allo sfondo accent. */
+.chipDot {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--pub-accent, #f59e0b);
+  border: 1.5px solid rgba(20, 20, 20, 0.92);
+  box-sizing: content-box;
+  pointer-events: none;
 }
 

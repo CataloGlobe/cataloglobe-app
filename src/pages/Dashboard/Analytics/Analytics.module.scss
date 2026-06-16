@@ -204,6 +204,12 @@
   gap: 0.5rem;
 }
 
+/* Wrapper della tabella Top prodotti ordinati: riceve l'height:100% del body
+   flex e lascia la tabella ad altezza naturale, ancorata in alto. */
+.topTableWrap {
+  width: 100%;
+}
+
 /* ===== TOP PRODUCTS TABLE ===== */
 .topTable {
   width: 100%;
@@ -254,6 +260,13 @@
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   color: var(--brand-primary, #6366f1);
+}
+
+/* Colonna secondaria (non-ranking) nelle tabelle Top prodotti ordinati:
+   stessa densità, colore neutro per de-enfatizzare. */
+.topTableCountNeutral {
+  color: var(--text, #0f172a);
+  font-weight: 500;
 }
 
 /* ===== BUSINESS SELECTOR ===== */
@@ -620,6 +633,118 @@
 
 .kpiDeltaLabel {
   color: #78716c;
+}
+
+/* ===== SECTION HEADER (Engagement / Ordini / Prenotazioni) ===== */
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* Badge "Presto" per card prenotazioni non ancora raccoglibili */
+.soonBadge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Empty-state impilato (messaggio + sottotitolo) dentro .chartEmpty */
+.emptyStacked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  text-align: center;
+}
+
+/* ===== ORDERS LATENCY ===== */
+.latencyContent {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 1rem;
+}
+
+.latencyGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  flex: 1;
+}
+
+.latencyRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.latencyLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.latencyMetrics {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.latencyMetric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  min-width: 56px;
+}
+
+.latencyNote {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* ===== ORDERS CONVERSION ===== */
+.conversionContent {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 1.25rem;
+}
+
+.conversionBig {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.5rem 0;
+}
+
+.conversionBreakdown {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.conversionStat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.15);
 }
 
 /* ===== SLOT BADGE ===== */

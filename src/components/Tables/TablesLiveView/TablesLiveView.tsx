@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Eye, Grid2X2, LogOut, Wrench } from "lucide-react";
+import { AlertCircle, ConciergeBell, Eye, Grid2X2, LogOut, Receipt, Wrench } from "lucide-react";
 
 import Text from "@/components/ui/Text/Text";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -83,6 +83,10 @@ export function TablesLiveView({
         activityId
     );
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+    // Il chime su nuova chiamata cameriere/conto è stato spostato nel
+    // dispatcher globale `OperationalAlerts` (MainLayout): suona a prescindere
+    // dalla pagina. Qui restano solo le pill in-page come indicatore.
 
     // ─── Detail drawer (click su card) ─────────────────────────────────
     const [detailTableId, setDetailTableId] = useState<string | null>(null);
@@ -468,6 +472,24 @@ export function TablesLiveView({
                                                         </>
                                                     )}
                                             </div>
+
+                                            {/* Requests row: bill/waiter pending indicators */}
+                                            {(t.bill_requested_count > 0 || t.waiter_called_count > 0) && (
+                                                <div className={styles.cardRowRequests}>
+                                                    {t.bill_requested_count > 0 && (
+                                                        <span className={styles.pillBill}>
+                                                            <Receipt size={10} aria-hidden />
+                                                            Conto
+                                                        </span>
+                                                    )}
+                                                    {t.waiter_called_count > 0 && (
+                                                        <span className={styles.pillWaiter}>
+                                                            <ConciergeBell size={10} aria-hidden />
+                                                            Cameriere
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
 
                                             {/* Row 3: order pills + total (occupied only) */}
                                             {status === "occupied" && (

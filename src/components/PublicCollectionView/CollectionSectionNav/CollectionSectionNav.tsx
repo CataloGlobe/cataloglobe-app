@@ -49,6 +49,14 @@ export default function CollectionSectionNav({
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
 
+    // SSR: i portal non sono supportati dal server renderer di React. mounted
+    // resta false su server e primo render client (markup identico → niente
+    // hydration mismatch); l'effect lo attiva subito dopo il mount.
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     // ── Overflow fade state ───────────────────────────────────────────────────
     useEffect(() => {
         const el = listRef.current;
@@ -266,8 +274,9 @@ export default function CollectionSectionNav({
             </ul>
             </div>
 
-            {/* Dropdown — portal su document.body per uscire da overflow:hidden del .list */}
-            {createPortal(
+            {/* Dropdown — portal su document.body per uscire da overflow:hidden del .list.
+                Gated su mounted: solo client, post-mount (vedi commento sopra). */}
+            {mounted && createPortal(
                 <AnimatePresence>
                     {openDropdownId && openSection?.children && (
                         <motion.div

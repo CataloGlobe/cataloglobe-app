@@ -82,7 +82,9 @@
   },
   "fab": {
     "review_aria": "Votre avis ?",
-    "review_label": "Votre avis ?"
+    "review_label": "Votre avis ?",
+    "cart_aria": "Votre commande",
+    "cart_aria_count": "Votre commande ({{count}})"
   },
   "footer": {
     "open_allergens_aria": "Ouvrir la liste des allergènes",

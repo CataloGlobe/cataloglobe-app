@@ -16,6 +16,15 @@ import {
     getTopSearchTerms,
     getConversionFunnel,
     getFeaturedPerformance,
+    getOrdersOverview,
+    getOrdersTrend,
+    getOrdersHourly,
+    getTopOrderedProducts,
+    getOrdersLatency,
+    getOrdersConversion,
+    getReservationsOverview,
+    getReservationsTrend,
+    getReservationsHourly,
     type TrendDataPoint,
     type TopProduct,
     type OverviewStats,
@@ -26,8 +35,18 @@ import {
     type SearchTermData,
     type FunnelStep,
     type FeaturedPerformanceData,
+    type OrdersOverview,
+    type OrdersTrendPoint,
+    type OrdersHourlyPoint,
+    type TopOrderedProduct,
+    type OrdersLatency,
+    type OrdersConversion,
+    type ReservationsOverview,
+    type ReservationsTrendPoint,
+    type ReservationsHourlyPoint,
     type DateRange
 } from "@/services/supabase/analytics";
+import { usePlanFeatures } from "@/lib/planFeatures";
 import { usePageHeader } from "@/context/usePageHeader";
 import { PageGate } from "@/components/PageGate/PageGate";
 import Text from "@/components/ui/Text/Text";
@@ -45,6 +64,17 @@ import HourlyChart from "./components/HourlyChart";
 import ConversionFunnel from "./components/ConversionFunnel";
 import TopSearchTerms from "./components/TopSearchTerms";
 import FeaturedPerformance from "./components/FeaturedPerformance";
+import OrdersOverviewCards from "./components/OrdersOverviewCards";
+import OrdersTrendChart from "./components/OrdersTrendChart";
+import OrdersHourlyChart from "./components/OrdersHourlyChart";
+import OrdersTopProductsTable from "./components/OrdersTopProductsTable";
+import OrdersLatencyCard from "./components/OrdersLatencyCard";
+import OrdersConversionCard from "./components/OrdersConversionCard";
+import ReservationsOverviewCards from "./components/ReservationsOverviewCards";
+import ReservationsTrendChart from "./components/ReservationsTrendChart";
+import ReservationsHourlyChart from "./components/ReservationsHourlyChart";
+import ReservationsSoonCard from "./components/ReservationsSoonCard";
+import { formatEur, formatDuration } from "./utils/ordersFormat";
 import styles from "./Analytics.module.scss";
 
 function periodToDateRange(period: PeriodKey): DateRange {
@@ -80,9 +110,14 @@ export default function AnalyticsPage() {
     const selectedActivityId = scopeValue === SCOPE_ALL ? "all" : scopeValue;
     const [period, setPeriod] = useState<PeriodKey>("7d");
 
+    // Sezione Ordini: visibile solo se il piano del tenant abilita l'ordinazione
+    // al tavolo. Loading-optimistic (plan null → true) come Sidebar/planFeatures.
+    const { hasFeature } = usePlanFeatures();
+    const ordersFeature = hasFeature("table_ordering");
+    const reservationsFeature = hasFeature("table_reservation");
+
     // ── Confronto periodo precedente ─────────────────────────────────────
     const [previousOverviewStats, setPreviousOverviewStats] = useState<OverviewStats | null>(null);
-    const [previousSearchRate, setPreviousSearchRate] = useState<number | null>(null);
 
     // ── Dati 4A ──────────────────────────────────────────────────────────
     const [overviewStats, setOverviewStats] = useState<OverviewStats | null>(null);
@@ -102,6 +137,22 @@ export default function AnalyticsPage() {
     const [funnelData, setFunnelData] = useState<FunnelStep[]>([]);
     const [featuredPerf, setFeaturedPerf] = useState<FeaturedPerformanceData[]>([]);
 
+    // ── Dati Ordini ───────────────────────────────────────────────────────
+    const [ordersOverview, setOrdersOverview] = useState<OrdersOverview | null>(null);
+    const [previousOrdersOverview, setPreviousOrdersOverview] = useState<OrdersOverview | null>(null);
+    const [ordersTrend, setOrdersTrend] = useState<OrdersTrendPoint[]>([]);
+    const [ordersHourly, setOrdersHourly] = useState<OrdersHourlyPoint[]>([]);
+    const [topOrderedByQty, setTopOrderedByQty] = useState<TopOrderedProduct[]>([]);
+    const [topOrderedByRevenue, setTopOrderedByRevenue] = useState<TopOrderedProduct[]>([]);
+    const [ordersLatency, setOrdersLatency] = useState<OrdersLatency | null>(null);
+    const [ordersConversion, setOrdersConversion] = useState<OrdersConversion | null>(null);
+
+    // ── Dati Prenotazioni ─────────────────────────────────────────────────
+    const [reservationsOverview, setReservationsOverview] = useState<ReservationsOverview | null>(null);
+    const [previousReservationsOverview, setPreviousReservationsOverview] = useState<ReservationsOverview | null>(null);
+    const [reservationsTrend, setReservationsTrend] = useState<ReservationsTrendPoint[]>([]);
+    const [reservationsHourly, setReservationsHourly] = useState<ReservationsHourlyPoint[]>([]);
+
     const [isLoading, setIsLoading] = useState(true);
 
     // ── Load analytics data ──────────────────────────────────────────────
@@ -115,7 +166,7 @@ export default function AnalyticsPage() {
             const comparePeriod = period !== "all";
             const previousRange = comparePeriod ? getPreviousRange(dateRange) : dateRange;
 
-            const [stats, trend, viewed, selected, social, reviews, search, hourly, devices, searchTermsData, funnel, featured, prevStats, prevSearch] =
+            const [stats, trend, viewed, selected, social, reviews, search, hourly, devices, searchTermsData, funnel, featured, prevStats] =
                 await Promise.all([
                     getOverviewStats(tenantId, dateRange, activityId),
                     getPageViewsTrend(tenantId, dateRange, activityId),
@@ -129,8 +180,7 @@ export default function AnalyticsPage() {
                     getTopSearchTerms(tenantId, dateRange, activityId),
                     getConversionFunnel(tenantId, dateRange, activityId),
                     getFeaturedPerformance(tenantId, dateRange, activityId),
-                    comparePeriod ? getOverviewStats(tenantId, previousRange, activityId) : Promise.resolve(null),
-                    comparePeriod ? getSearchRate(tenantId, previousRange, activityId) : Promise.resolve(null)
+                    comparePeriod ? getOverviewStats(tenantId, previousRange, activityId) : Promise.resolve(null)
                 ]);
 
             setOverviewStats(stats);
@@ -146,20 +196,74 @@ export default function AnalyticsPage() {
             setFunnelData(funnel);
             setFeaturedPerf(featured);
             setPreviousOverviewStats(prevStats ?? null);
-            setPreviousSearchRate(prevSearch?.rate ?? null);
+
+            // ── Ordini (solo se il piano abilita l'ordinazione al tavolo) ──
+            if (ordersFeature) {
+                const [ordOverview, ordTrend, ordHourly, topQty, topRevenue, ordLatency, ordConversion, prevOrdOverview] =
+                    await Promise.all([
+                        getOrdersOverview(tenantId, dateRange, activityId),
+                        getOrdersTrend(tenantId, dateRange, activityId),
+                        getOrdersHourly(tenantId, dateRange, activityId),
+                        getTopOrderedProducts(tenantId, dateRange, "quantity", activityId),
+                        getTopOrderedProducts(tenantId, dateRange, "revenue", activityId),
+                        getOrdersLatency(tenantId, dateRange, activityId),
+                        getOrdersConversion(tenantId, dateRange, activityId),
+                        comparePeriod ? getOrdersOverview(tenantId, previousRange, activityId) : Promise.resolve(null)
+                    ]);
+
+                setOrdersOverview(ordOverview);
+                setOrdersTrend(ordTrend);
+                setOrdersHourly(ordHourly);
+                setTopOrderedByQty(topQty);
+                setTopOrderedByRevenue(topRevenue);
+                setOrdersLatency(ordLatency);
+                setOrdersConversion(ordConversion);
+                setPreviousOrdersOverview(prevOrdOverview ?? null);
+            }
+
+            // ── Prenotazioni (solo se il piano abilita le prenotazioni) ──
+            // Base periodo = created_at ("prenotazioni ricevute nel periodo").
+            if (reservationsFeature) {
+                const [resOverview, resTrend, resHourly, prevResOverview] = await Promise.all([
+                    getReservationsOverview(tenantId, dateRange, activityId),
+                    getReservationsTrend(tenantId, dateRange, activityId),
+                    getReservationsHourly(tenantId, dateRange, activityId),
+                    comparePeriod ? getReservationsOverview(tenantId, previousRange, activityId) : Promise.resolve(null)
+                ]);
+
+                setReservationsOverview(resOverview);
+                setReservationsTrend(resTrend);
+                setReservationsHourly(resHourly);
+                setPreviousReservationsOverview(prevResOverview ?? null);
+            }
         } catch {
             showToast({ message: "Errore nel caricamento analytics", type: "error" });
         } finally {
             setIsLoading(false);
         }
-    }, [tenantId, period, selectedActivityId, showToast]);
+    }, [tenantId, period, selectedActivityId, ordersFeature, reservationsFeature, showToast]);
 
     useEffect(() => {
         loadData();
     }, [loadData]);
 
     // ── Stato vuoto globale ──────────────────────────────────────────────
-    const isEmpty = !isLoading && overviewStats?.total_views === 0;
+    // Vuoto solo se non c'è engagement E (niente ordini o nessun ordine):
+    // un tenant con ordini ma senza page_view non deve vedere lo stato vuoto.
+    const isEmpty =
+        !isLoading &&
+        overviewStats?.total_views === 0 &&
+        (!ordersFeature || (ordersOverview?.orders_count ?? 0) === 0) &&
+        (!reservationsFeature || (reservationsOverview?.reservations_count ?? 0) === 0);
+
+    // Conversione selezione = % finale del funnel (selection_add / page_view),
+    // già calcolata server-side. Derivata dai dati funnel in stato, no nuovo RPC.
+    const selectionConversion =
+        funnelData.length > 0 ? funnelData[funnelData.length - 1].percentage : null;
+
+    // Prenotazioni: dati popolati solo se ce n'è almeno una nel periodo;
+    // altrimenti la sezione cade sull'empty-state.
+    const hasReservations = (reservationsOverview?.reservations_count ?? 0) > 0;
 
     // ── Export Excel ─────────────────────────────────────────────────────
     const handleExportXlsx = useCallback(() => {
@@ -261,6 +365,114 @@ export default function AnalyticsPage() {
             }
         ];
 
+        if (ordersFeature) {
+            const CURRENCY_FMT = "#,##0.00 €";
+            sections.push(
+                {
+                    name: "Ordini - Panoramica",
+                    headers: ["Metrica", "Valore"],
+                    rows: ordersOverview
+                        ? [
+                              ["Ordini", ordersOverview.orders_count],
+                              ["Ricavi", formatEur(ordersOverview.revenue)],
+                              ["Valore medio ordine", formatEur(ordersOverview.avg_order_value)],
+                              ["Tasso annullamento (%)", ordersOverview.cancellation_rate],
+                              ["Ordini annullati", ordersOverview.cancelled_count]
+                          ]
+                        : [],
+                    columnWidths: [26, 16]
+                },
+                {
+                    name: "Ordini - Andamento",
+                    headers: ["Data", "Ordini", "Ricavi"],
+                    rows: ordersTrend.map(r => [r.date, r.orders_count, r.revenue]),
+                    columnFormats: [undefined, undefined, CURRENCY_FMT],
+                    columnWidths: [14, 10, 14]
+                },
+                {
+                    name: "Top prodotti ordinati (qtà)",
+                    headers: ["#", "Prodotto", "Quantità", "Ricavi"],
+                    rows: topOrderedByQty.map((r, i) => [i + 1, r.product_name, r.quantity, r.revenue]),
+                    columnFormats: [undefined, undefined, undefined, CURRENCY_FMT],
+                    columnWidths: [6, 32, 12, 14]
+                },
+                {
+                    name: "Top prodotti ordinati (ricavi)",
+                    headers: ["#", "Prodotto", "Quantità", "Ricavi"],
+                    rows: topOrderedByRevenue.map((r, i) => [i + 1, r.product_name, r.quantity, r.revenue]),
+                    columnFormats: [undefined, undefined, undefined, CURRENCY_FMT],
+                    columnWidths: [6, 32, 12, 14]
+                },
+                {
+                    name: "Tempi operativi",
+                    headers: ["Fase", "Media", "Mediana"],
+                    rows: ordersLatency
+                        ? [
+                              ["Preparazione", formatDuration(ordersLatency.avg_prep_seconds), formatDuration(ordersLatency.median_prep_seconds)],
+                              ["Consegna", formatDuration(ordersLatency.avg_delivery_seconds), formatDuration(ordersLatency.median_delivery_seconds)],
+                              ["Totale", formatDuration(ordersLatency.avg_total_seconds), formatDuration(ordersLatency.median_total_seconds)],
+                              ["Ordini consegnati", ordersLatency.delivered_count, ""],
+                              ["Consegne dirette (no 'Pronto')", ordersLatency.skipped_ready_count, ""]
+                          ]
+                        : [],
+                    columnWidths: [30, 14, 14]
+                },
+                {
+                    name: "Conversione sel.-ordine",
+                    headers: ["Metrica", "Valore"],
+                    rows: ordersConversion
+                        ? [
+                              ["Sessioni con selezione", ordersConversion.selection_sessions],
+                              ["Ordini inviati", ordersConversion.orders_count],
+                              ["Tasso di conversione (%)", ordersConversion.conversion_rate]
+                          ]
+                        : [],
+                    columnWidths: [26, 14]
+                },
+                {
+                    name: "Ordini - Fasce orarie",
+                    headers: ["Ora", "Ordini", "Ricavi"],
+                    rows: ordersHourly.map(r => [r.hour, r.orders_count, r.revenue]),
+                    columnFormats: [undefined, undefined, CURRENCY_FMT],
+                    columnWidths: [8, 10, 14]
+                }
+            );
+        }
+
+        if (reservationsFeature) {
+            sections.push(
+                {
+                    name: "Prenotazioni - Panoramica",
+                    headers: ["Metrica", "Valore"],
+                    rows: reservationsOverview
+                        ? [
+                              ["Prenotazioni (ricevute)", reservationsOverview.reservations_count],
+                              ["Coperti", reservationsOverview.covers],
+                              ["Confermate", reservationsOverview.confirmed_count],
+                              ["Tasso conferma (%)", reservationsOverview.confirm_rate],
+                              ["Rifiutate", reservationsOverview.declined_count],
+                              ["Annullate", reservationsOverview.cancelled_count],
+                              ["Online", reservationsOverview.online_count],
+                              ["Manuali", reservationsOverview.manual_count]
+                          ]
+                        : [],
+                    columnWidths: [28, 16]
+                },
+                {
+                    name: "Prenotazioni - Andamento",
+                    headers: ["Data", "Prenotazioni", "Coperti"],
+                    rows: reservationsTrend.map(r => [r.date, r.reservations_count, r.covers]),
+                    columnWidths: [14, 14, 10]
+                },
+                {
+                    name: "Prenotazioni - Fasce orarie",
+                    headers: ["Ora", "Prenotazioni"],
+                    rows: reservationsHourly.map(r => [r.hour, r.reservations_count]),
+                    columnWidths: [8, 14]
+                }
+            );
+        }
+
         const wb = buildXlsxWorkbook(sections);
 
         const sedeSlug =
@@ -291,6 +503,18 @@ export default function AnalyticsPage() {
         deviceData,
         socialClicks,
         hourlyData,
+        ordersFeature,
+        ordersOverview,
+        ordersTrend,
+        ordersHourly,
+        topOrderedByQty,
+        topOrderedByRevenue,
+        ordersLatency,
+        ordersConversion,
+        reservationsFeature,
+        reservationsOverview,
+        reservationsTrend,
+        reservationsHourly,
         selectedActivityId,
         readableActivities,
         period
@@ -345,16 +569,30 @@ export default function AnalyticsPage() {
                 </div>
             ) : (
                 <>
+                    {/* ── SEZIONE ENGAGEMENT ── */}
+                    <div className={styles.sectionHeader}>
+                        <Text variant="title-sm" weight={600}>
+                            Engagement
+                        </Text>
+                        <Text variant="caption" colorVariant="muted">
+                            Traffico e interazioni nel periodo selezionato
+                        </Text>
+                    </div>
+
                     <OverviewCards
                         stats={overviewStats}
-                        searchRate={searchRate}
+                        selectionConversion={selectionConversion}
                         previousStats={previousOverviewStats}
-                        previousSearchRate={previousSearchRate}
                         previousPeriodLabel={getPreviousPeriodLabel(period)}
                         isLoading={isLoading}
                     />
 
                     <PageViewsChart data={pageViewsTrend} isLoading={isLoading} />
+
+                    <div className={styles.chartsGrid}>
+                        <DeviceDistribution data={deviceData} isLoading={isLoading} />
+                        <HourlyChart data={hourlyData} isLoading={isLoading} />
+                    </div>
 
                     <ConversionFunnel data={funnelData} isLoading={isLoading} />
 
@@ -378,17 +616,135 @@ export default function AnalyticsPage() {
                         <FeaturedPerformance data={featuredPerf} isLoading={isLoading} />
                     </div>
 
-                    <hr className={styles.sectionDivider} />
-
                     <div className={styles.chartsGrid}>
                         <ReviewGuardCard data={reviewMetrics} isLoading={isLoading} />
-                        <DeviceDistribution data={deviceData} isLoading={isLoading} />
+                        <SocialClicksChart data={socialClicks} isLoading={isLoading} />
                     </div>
 
-                    <div className={styles.chartsGrid}>
-                        <SocialClicksChart data={socialClicks} isLoading={isLoading} />
-                        <HourlyChart data={hourlyData} isLoading={isLoading} />
-                    </div>
+                    {/* ── SEZIONE ORDINI (interno invariato) ── */}
+                    {ordersFeature && (
+                        <>
+                            <hr className={styles.sectionDivider} />
+
+                            <div className={styles.sectionHeader}>
+                                <Text variant="title-sm" weight={600}>
+                                    Ordini
+                                </Text>
+                                <Text variant="caption" colorVariant="muted">
+                                    Ordinazioni dal tavolo nel periodo selezionato
+                                </Text>
+                            </div>
+
+                            <OrdersOverviewCards
+                                data={ordersOverview}
+                                previous={previousOrdersOverview}
+                                previousPeriodLabel={getPreviousPeriodLabel(period)}
+                                isLoading={isLoading}
+                            />
+
+                            <OrdersTrendChart
+                                data={ordersTrend}
+                                dateRange={periodToDateRange(period)}
+                                period={period}
+                                isLoading={isLoading}
+                            />
+
+                            <div className={styles.chartsGrid}>
+                                <OrdersTopProductsTable
+                                    title="Top prodotti ordinati (quantità)"
+                                    data={topOrderedByQty}
+                                    rankBy="quantity"
+                                    isLoading={isLoading}
+                                />
+                                <OrdersTopProductsTable
+                                    title="Top prodotti ordinati (ricavi)"
+                                    data={topOrderedByRevenue}
+                                    rankBy="revenue"
+                                    isLoading={isLoading}
+                                />
+                            </div>
+
+                            <div className={styles.chartsGrid}>
+                                <OrdersLatencyCard data={ordersLatency} isLoading={isLoading} />
+                                <OrdersConversionCard data={ordersConversion} isLoading={isLoading} />
+                            </div>
+
+                            <OrdersHourlyChart data={ordersHourly} isLoading={isLoading} />
+                        </>
+                    )}
+
+                    {/* ── SEZIONE PRENOTAZIONI (solo empty-state — niente fetch) ── */}
+                    {reservationsFeature && (
+                        <>
+                            <hr className={styles.sectionDivider} />
+
+                            <div className={styles.sectionHeader}>
+                                <Text variant="title-sm" weight={600}>
+                                    Prenotazioni
+                                </Text>
+                                <Text variant="caption" colorVariant="muted">
+                                    Prenotazioni ricevute nel periodo selezionato
+                                </Text>
+                            </div>
+
+                            {isLoading || hasReservations ? (
+                                <>
+                                    <ReservationsOverviewCards
+                                        data={reservationsOverview}
+                                        previous={previousReservationsOverview}
+                                        previousPeriodLabel={getPreviousPeriodLabel(period)}
+                                        isLoading={isLoading}
+                                    />
+
+                                    <ReservationsTrendChart
+                                        data={reservationsTrend}
+                                        dateRange={periodToDateRange(period)}
+                                        period={period}
+                                        isLoading={isLoading}
+                                    />
+
+                                    <div className={styles.chartsGrid}>
+                                        <ReservationsHourlyChart data={reservationsHourly} isLoading={isLoading} />
+                                        <ReservationsSoonCard
+                                            title="No-show"
+                                            description="Prenotazioni che non si presentano. Disponibile quando il flusso registrerà lo stato no-show."
+                                        />
+                                    </div>
+
+                                    <div className={styles.chartsGrid}>
+                                        <ReservationsSoonCard
+                                            title="Tempi di permanenza"
+                                            description="Durata media al tavolo (seduta → completamento). Disponibile quando il flusso registrerà seduta e completamento."
+                                        />
+                                        <ReservationsSoonCard
+                                            title="Utilizzo tavoli"
+                                            description="Occupazione e rotazione dei tavoli. Disponibile quando le prenotazioni saranno assegnate a un tavolo."
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <article className={styles.chartCard} aria-label="Prenotazioni">
+                                    <header className={styles.chartCardHeader}>
+                                        <Text variant="title-sm" align="left">
+                                            Prenotazioni
+                                        </Text>
+                                    </header>
+                                    <div className={styles.chartCardBody}>
+                                        <div className={styles.chartEmpty}>
+                                            <div className={styles.emptyStacked}>
+                                                <Text variant="body" colorVariant="muted">
+                                                    Ancora nessuna prenotazione nel periodo selezionato.
+                                                </Text>
+                                                <Text variant="caption" colorVariant="muted">
+                                                    Le metriche compariranno appena arrivano i dati.
+                                                </Text>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </article>
+                            )}
+                        </>
+                    )}
                 </>
             )}
         </main>

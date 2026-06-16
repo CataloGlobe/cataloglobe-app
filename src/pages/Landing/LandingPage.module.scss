@@ -61,34 +61,17 @@ $text-muted: #9895a8;
     border-bottom-color: $slate-border;
 }
 
-.navLogo {
-    font-weight: 800;
-    font-size: 20px;
-    letter-spacing: -0.6px;
-    color: $dark;
-    text-decoration: none;
-}
-
-.navGlobe {
-    color: $indigo;
-}
-
-.navBrand {
+.navLogoLink {
     display: flex;
     align-items: center;
+    text-decoration: none;
+    flex-shrink: 0;
 }
 
-.betaBadge {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 2px 8px;
-    border-radius: 6px;
-    background: $indigo;
-    color: #fff;
-    margin-left: 8px;
-    line-height: 1;
+.navLogoImg {
+    height: 26px;
+    width: auto;
+    display: block;
 }
 
 .navLinks {
@@ -208,6 +191,15 @@ $text-muted: #9895a8;
     margin: 0 auto;
     padding: 0 clamp(20px, 5vw, 64px);
     width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 48px;
+
+    @media (max-width: 900px) {
+        flex-direction: column;
+        gap: 40px;
+        align-items: flex-start;
+    }
 }
 
 .heroBadge {
@@ -246,12 +238,13 @@ $text-muted: #9895a8;
 }
 
 .heroContent {
-    max-width: 640px;
+    flex: 1;
+    min-width: 0;
     position: relative;
 }
 
 .heroH1 {
-    font-size: clamp(38px, 5.2vw, 62px);
+    font-size: clamp(34px, 4.2vw, 52px);
     font-weight: 800;
     line-height: 1.08;
     letter-spacing: -2px;
@@ -314,17 +307,16 @@ $text-muted: #9895a8;
     margin: 0;
 }
 
-// Hero mockup
+// Hero rules panel
 .heroMockupWrapper {
-    display: none;
-    position: absolute;
-    right: clamp(-40px, -2vw, 0px);
-    top: 50%;
-    transform: translateY(-50%);
-    width: clamp(320px, 42vw, 480px);
+    flex: 0 0 clamp(320px, 38vw, 460px);
+    min-width: 0;
 
-    @media (min-width: 900px) {
-        display: block;
+    @media (max-width: 900px) {
+        flex: none;
+        width: 100%;
+        max-width: 460px;
+        align-self: stretch;
     }
 }
 
@@ -342,13 +334,23 @@ $text-muted: #9895a8;
     border-bottom: 1px solid $slate-border;
     display: flex;
     align-items: center;
-    padding-left: 12px;
+    padding: 0 12px;
     gap: 6px;
 }
 
 .mockupDotRed { width: 9px; height: 9px; border-radius: 50%; background: #ff5f57; opacity: 0.7; }
 .mockupDotYellow { width: 9px; height: 9px; border-radius: 50%; background: #ffbd2e; opacity: 0.7; }
 .mockupDotGreen { width: 9px; height: 9px; border-radius: 50%; background: #27c93f; opacity: 0.7; }
+
+.rulesClock {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 700;
+    color: $text-muted;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.5px;
+    transition: opacity 0.3s ease;
+}
 
 .mockupBody {
     padding: 20px 24px;
@@ -649,6 +651,10 @@ $text-muted: #9895a8;
     perspective: 1100px;
     perspective-origin: 50% 45%;
     margin-bottom: 24px;
+
+    @media (max-width: 767px) {
+        display: none;
+    }
 }
 
 .carouselInner {
@@ -1036,6 +1042,27 @@ $text-muted: #9895a8;
     width: 24px;
 }
 
+// ─── Demo carousel — mobile single card ──────────────
+.carouselMobileStage {
+    display: none;
+    justify-content: center;
+    padding: 0 clamp(20px, 5vw, 64px);
+    margin-bottom: 24px;
+
+    @media (max-width: 767px) {
+        display: flex;
+    }
+}
+
+.carouselMobileCard {
+    width: 220px;
+    height: 360px;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(12, 10, 29, 0.12);
+    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 // ─── QR Overlay ───────────────────────────────────────
 @keyframes qrFadeIn {
     from { opacity: 0; }
@@ -1155,10 +1182,27 @@ $text-muted: #9895a8;
     box-shadow:
         0 0 0 4px rgba(99, 102, 241, 0.08),
         0 12px 40px rgba(99, 102, 241, 0.12);
+    position: relative;
 
     &:hover {
         border-color: $indigo;
     }
+}
+
+.planBadge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: $indigo;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 3px 12px;
+    border-radius: 100px;
+    white-space: nowrap;
 }
 
 .planHead {

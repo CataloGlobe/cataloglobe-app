@@ -13,10 +13,47 @@ import Stripe from "https://esm.sh/stripe@17?target=deno";
 
 const TERMINAL_STATUSES = new Set(["canceled", "incomplete_expired"]);
 
+/**
+ * Opzioni condivise per OGNI costruzione di `new Stripe(...)` nelle edge.
+ * Fonte unica per evitare drift tra l'helper e i 4 edge che costruiscono il
+ * client per conto proprio.
+ *
+ * - `telemetry: false` → disattiva il task di metriche post-response dell'SDK,
+ *   che sul runtime Edge (Deno ristretto) emette il diagnostic non-fatale
+ *   "event loop error: Deno.core.runMicrotasks() is not supported".
+ * - `httpClient: createFetchHttpClient()` → transport fetch nativo Deno
+ *   (deterministico, niente shim Node-http).
+ */
+export function stripeClientOptions() {
+    return {
+        apiVersion: "2025-04-30.basil",
+        httpClient: Stripe.createFetchHttpClient(),
+        telemetry: false
+    };
+}
+
 export function createStripeClient(): Stripe | null {
     const key = Deno.env.get("STRIPE_SECRET_KEY");
     if (!key) return null;
-    return new Stripe(key, { apiVersion: "2025-04-30.basil" });
+    return new Stripe(key, stripeClientOptions());
+}
+
+/**
+ * Rilascia uno subscription schedule se presente. No-op se scheduleId è
+ * assente. Non-throwing: logga e prosegue (la subscription resta valida anche
+ * se il release fallisce / lo schedule è già rilasciato/terminale).
+ */
+export async function releaseScheduleIfAny(
+    stripe: Stripe,
+    scheduleId?: string | null
+): Promise<void> {
+    if (!scheduleId) return;
+    try {
+        await stripe.subscriptionSchedules.release(scheduleId);
+    } catch (relErr) {
+        const message = relErr instanceof Error ? relErr.message : String(relErr);
+        console.warn(`releaseScheduleIfAny: release of ${scheduleId} failed (continuing): ${message}`);
+    }
 }
 
 function isResourceMissing(message: string): boolean {

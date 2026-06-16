@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, Clock, BellRing, X } from "lucide-react";
+import { BellRing, Check, Clock, ConciergeBell, Receipt, X } from "lucide-react";
 
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
@@ -15,7 +15,8 @@ import { useToast } from "@/context/Toast/ToastContext";
 import {
     getTable,
     updateTable,
-    clearBillRequestsForTable
+    clearBillRequestsForTable,
+    clearWaiterCallsForTable
 } from "@/services/supabase/tables";
 import {
     listActiveSessionsForTable,
@@ -72,6 +73,7 @@ interface Props {
      * comunque, refetch e' solo allineamento immediato.
      */
     onBillCleared?: (tableId: string) => void;
+    onWaiterCleared?: (tableId: string) => void;
 }
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
@@ -162,13 +164,15 @@ export function TableDetailDrawer({
     onClose,
     onRequestClose,
     onMaintenanceChanged,
-    onBillCleared
+    onBillCleared,
+    onWaiterCleared
 }: Props) {
     const [data, setData] = useState<DetailData | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isTogglingMaintenance, setIsTogglingMaintenance] = useState(false);
     const [isClearingBill, setIsClearingBill] = useState(false);
+    const [isClearingWaiter, setIsClearingWaiter] = useState(false);
     const [showAllRecent, setShowAllRecent] = useState(false);
     const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
 
@@ -254,6 +258,34 @@ export function TableDetailDrawer({
             });
         } finally {
             setIsClearingBill(false);
+        }
+    }
+
+    async function handleClearWaiter(): Promise<void> {
+        if (!tenantId || !tableId || !data) return;
+        setIsClearingWaiter(true);
+        try {
+            await clearWaiterCallsForTable(tableId, tenantId);
+            setData(d =>
+                d
+                    ? {
+                          ...d,
+                          sessions: d.sessions.map(s => ({
+                              ...s,
+                              waiter_called_at: null
+                          }))
+                      }
+                    : d
+            );
+            showToast({ message: "Cameriere gestito", type: "success" });
+            onWaiterCleared?.(tableId);
+        } catch {
+            showToast({
+                message: "Errore durante l'aggiornamento della chiamata cameriere",
+                type: "error"
+            });
+        } finally {
+            setIsClearingWaiter(false);
         }
     }
 
@@ -386,7 +418,10 @@ export function TableDetailDrawer({
                         {canManageTable && data.sessions.some(s => s.bill_requested_at) && (
                             <div className={styles.billRequestRow}>
                                 <div className={styles.billRequestCopy}>
-                                    <Text weight={500}>Conto richiesto</Text>
+                                    <div className={styles.billRequestTitle}>
+                                        <Receipt size={15} />
+                                        <Text weight={500}>Conto richiesto</Text>
+                                    </div>
                                     <Text variant="body-sm" colorVariant="muted">
                                         Il tavolo ha chiesto il conto.
                                     </Text>
@@ -398,6 +433,28 @@ export function TableDetailDrawer({
                                     loading={isClearingBill}
                                 >
                                     Segna conto portato
+                                </Button>
+                            </div>
+                        )}
+
+                        {canManageTable && data.sessions.some(s => s.waiter_called_at) && (
+                            <div className={styles.waiterCallRow}>
+                                <div className={styles.waiterCallCopy}>
+                                    <div className={styles.waiterCallTitle}>
+                                        <ConciergeBell size={15} />
+                                        <Text weight={500}>Cameriere chiamato</Text>
+                                    </div>
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        Il tavolo ha chiamato il cameriere.
+                                    </Text>
+                                </div>
+                                <Button
+                                    variant="primary"
+                                    size="sm"
+                                    onClick={() => void handleClearWaiter()}
+                                    loading={isClearingWaiter}
+                                >
+                                    Segna cameriere arrivato
                                 </Button>
                             </div>
                         )}

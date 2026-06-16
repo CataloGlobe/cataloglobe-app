@@ -79,6 +79,8 @@ export interface V2CustomerSession {
     expires_at: string;
     /** Timestamp request "Chiedi il conto" customer-side. NULL = no request. */
     bill_requested_at: string | null;
+    /** Timestamp ultima "Chiama il cameriere" customer-side. NULL = mai chiamato o resettato. */
+    waiter_called_at: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -189,6 +191,7 @@ export interface CloseTableResult {
     closed_groups_count: number;
     closed_orders_count: number;
     cleared_bill_count: number;
+    cleared_waiter_count: number;
     ended_sessions_count: number;
 }
 
@@ -263,6 +266,8 @@ export interface V2TableWithState extends V2Table {
     current_total: number;
     /** Count sessions attive con bill_requested_at NOT NULL su questo tavolo. */
     bill_requested_count: number;
+    /** Count sessions attive con waiter_called_at NOT NULL su questo tavolo. */
+    waiter_called_count: number;
     /** Active orders (submitted|acknowledged|ready) for this table. Always an array (never null). */
     active_orders: V2TableActiveOrder[];
     /** Earliest first_seen_at of active sessions; null if no active session. */

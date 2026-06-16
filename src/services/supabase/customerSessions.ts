@@ -211,6 +211,34 @@ export async function listActiveSessions(
 }
 
 /**
+ * Snapshot leggero dello stato richieste (cameriere/conto) di tutte le
+ * customer_sessions attive del tenant. Usato dal dispatcher globale di
+ * notifiche operative (`OperationalAlerts`) per SEEDARE la mappa in memoria
+ * al mount / cambio business: le richieste già attive vengono apprese senza
+ * generare alert (no falsi positivi al mount). RLS authenticated tenant-scoped.
+ */
+export interface SessionRequestState {
+    id: string;
+    current_table_id: string | null;
+    waiter_called_at: string | null;
+    bill_requested_at: string | null;
+}
+
+export async function listSessionRequestStates(
+    tenantId: string
+): Promise<SessionRequestState[]> {
+    const nowIso = new Date().toISOString();
+    const { data, error } = await supabase
+        .from("customer_sessions")
+        .select("id, current_table_id, waiter_called_at, bill_requested_at")
+        .eq("tenant_id", tenantId)
+        .gt("expires_at", nowIso);
+
+    if (error) throw error;
+    return data ?? [];
+}
+
+/**
  * Lista delle customer_sessions attive su uno specifico tavolo. Utile per il
  * pannello drill-down "Chi è seduto al tavolo X?".
  */
@@ -359,6 +387,52 @@ export async function requestBill(customerJwt: string): Promise<RequestBillResul
             }
         }
         throw new Error("Errore durante la richiesta del conto");
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+// ============================================================
+// CUSTOMER WAITER CALL
+// ============================================================
+
+export interface CallWaiterResult {
+    waiter_called_at: string;
+    rate_limited: boolean;
+}
+
+/**
+ * Customer "Chiama il cameriere". POST /call-waiter con customer JWT.
+ * A differenza di requestBill (one-shot idempotente), e' ripetibile con
+ * rate-limit temporale di 60s lato EF: chiamate entro la finestra ritornano
+ * il waiter_called_at esistente con rate_limited=true.
+ *
+ * Throws (italiano user-facing):
+ *   401/404 SESSION_EXPIRED|SESSION_NOT_FOUND → "Sessione scaduta..."
+ *   429 RATE_LIMITED (anti-burst, soglia alta) → "Troppe richieste..."
+ *   500 → "Errore del server"
+ */
+export async function callWaiter(customerJwt: string): Promise<CallWaiterResult> {
+    const { data, error } = await supabase.functions.invoke<CallWaiterResult>(
+        "call-waiter",
+        {
+            body: {},
+            headers: { Authorization: `Bearer ${customerJwt}` }
+        }
+    );
+
+    if (error) {
+        if (error instanceof FunctionsHttpError) {
+            const status = error.context.status;
+            if (status === 401 || status === 404) {
+                throw new Error("Sessione scaduta, scansiona di nuovo il QR");
+            }
+            if (status === 429) {
+                throw new Error("Troppe richieste, riprova tra poco");
+            }
+        }
+        throw new Error("Errore durante la chiamata al cameriere");
     }
 
     if (!data) throw new Error("EMPTY_RESPONSE");

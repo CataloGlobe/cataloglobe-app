@@ -333,27 +333,30 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
     }
 
     // ── PUBLIC: position:fixed su tutto il viewport ─────────────────────────
+    // Root motion.div = anchor di AnimatePresence: porta il fade (opacity)
+    // dell'intero overlay (backdrop incluso). Panel motion.div = "tendina":
+    // solo slide Y dall'alto (opacity ereditata dal root, no scale).
+    // box-shadow statico (non animato) per non costare repaint su WebKit.
+    const overlayTransition = { duration: 0.22, ease: [0.22, 1, 0.36, 1] } as const;
     return (
-        <div className={styles.publicOverlay}>
-            <motion.div
-                className={styles.backdrop}
-                onClick={onClose}
-                aria-hidden
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2, ease: "linear" }}
-            />
+        <motion.div
+            className={styles.publicOverlay}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={overlayTransition}
+        >
+            <div className={styles.backdrop} onClick={onClose} aria-hidden />
             <div className={styles.publicPanelWrap}>
                 <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                    initial={{ y: -14 }}
+                    animate={{ y: 0 }}
+                    exit={{ y: -14 }}
+                    transition={overlayTransition}
                 >
                     {panel}
                 </motion.div>
             </div>
-        </div>
+        </motion.div>
     );
 }

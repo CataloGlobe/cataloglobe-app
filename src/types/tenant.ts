@@ -4,6 +4,8 @@ export type PlanCode = "base" | "pro";
 
 export type SubscriptionStatus = "trialing" | "active" | "past_due" | "suspended" | "canceled";
 
+export type LegalEntityType = "societa" | "professionista" | "associazione";
+
 export interface V2Tenant {
     id: string;
     owner_user_id: string;
@@ -28,6 +30,12 @@ export interface V2Tenant {
     fiscal_code?: string | null;
     ateco?: string | null;
     rea_code?: string | null;
+
+    // --- Anagrafica intestatario fattura (migration 20260616120000_add_billing_entity_fields_to_tenants) ---
+    legal_entity_type?: LegalEntityType | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    codice_destinatario?: string | null;
 
     // Indirizzo sede legale (pattern activities)
     address?: string | null;

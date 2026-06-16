@@ -54,7 +54,6 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
     const imgProps = {
         ref: imgRef,
         loading: (eager ? "eager" : "lazy") as "eager" | "lazy",
-        ...(eager && { fetchPriority: "high" as const }),
         onLoad: () => setImgLoaded(true),
     };
 

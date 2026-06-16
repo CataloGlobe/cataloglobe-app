@@ -62,6 +62,7 @@ export async function listTablesWithState(
             ...row,
             current_total: Number(row.current_total),
             bill_requested_count: Number(row.bill_requested_count ?? 0),
+            waiter_called_count: Number(row.waiter_called_count ?? 0),
             active_orders: (rawOrders as Array<Record<string, unknown>>).map(o => ({
                 id: String(o.id),
                 status: o.status as V2TableActiveOrder["status"],
@@ -113,6 +114,44 @@ export async function clearBillRequestsForTable(
 }
 
 /**
+ * Admin clear "Cameriere arrivato" per una session specifica.
+ * Gemello di clearBillRequest: azzera waiter_called_at su una singola session.
+ */
+export async function clearWaiterCall(
+    sessionId: string,
+    tenantId: string
+): Promise<void> {
+    const { error } = await supabase
+        .from("customer_sessions")
+        .update({ waiter_called_at: null })
+        .eq("id", sessionId)
+        .eq("tenant_id", tenantId);
+    if (error) throw error;
+}
+
+/**
+ * Admin clear "Segna cameriere arrivato" table-level: azzera waiter_called_at
+ * su tutte le sessions attive del tavolo (idempotent). Gemello di
+ * clearBillRequestsForTable. Ritorna count sessions azzerate.
+ */
+export async function clearWaiterCallsForTable(
+    tableId: string,
+    tenantId: string
+): Promise<number> {
+    const nowIso = new Date().toISOString();
+    const { data, error } = await supabase
+        .from("customer_sessions")
+        .update({ waiter_called_at: null })
+        .eq("current_table_id", tableId)
+        .eq("tenant_id", tenantId)
+        .gt("expires_at", nowIso)
+        .not("waiter_called_at", "is", null)
+        .select("id");
+    if (error) throw error;
+    return data?.length ?? 0;
+}
+
+/**
  * Admin lista sessions attive con bill_requested_at NOT NULL per un tavolo.
  * Usata da drawer "Risposto" per mostrare chi ha chiamato.
  */
@@ -138,6 +177,30 @@ export async function listBillRequestsForTable(
         .order("bill_requested_at", { ascending: true });
     if (error) throw error;
     return (data ?? []) as BillRequestRow[];
+}
+
+export interface WaiterCallRow {
+    id: string;
+    customer_name: string | null;
+    waiter_called_at: string;
+    first_seen_at: string;
+}
+
+export async function listWaiterCallsForTable(
+    tableId: string,
+    tenantId: string
+): Promise<WaiterCallRow[]> {
+    const nowIso = new Date().toISOString();
+    const { data, error } = await supabase
+        .from("customer_sessions")
+        .select("id, customer_name, waiter_called_at, first_seen_at")
+        .eq("current_table_id", tableId)
+        .eq("tenant_id", tenantId)
+        .not("waiter_called_at", "is", null)
+        .gt("expires_at", nowIso)
+        .order("waiter_called_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as WaiterCallRow[];
 }
 
 /**

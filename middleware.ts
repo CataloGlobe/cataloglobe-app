@@ -40,6 +40,8 @@
 
 import { waitUntil } from "@vercel/functions";
 
+import { buildSingleFamilyFontUrl } from "./src/utils/publicFontUrl";
+
 // Env senza dipendere da @types/node (il middleware gira su edge runtime).
 const env: Record<string, string | undefined> =
     (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
@@ -93,6 +95,10 @@ type PublicCatalogBusiness = {
 type PublicCatalogMeta = {
     business?: PublicCatalogBusiness | null;
     tenantLogoUrl?: string | null;
+    /** Sede sospesa: `resolved.style` assente → nessuna injection font. */
+    resolved?: {
+        style?: { config?: { typography?: { fontFamily?: unknown } } | null } | null;
+    } | null;
 };
 
 type TenantMetaResult = {
@@ -176,6 +182,11 @@ export default async function middleware(request: Request): Promise<Response | u
         if (!SLUG_RE.test(slug) || slug.includes("--") || RESERVED_SEGMENTS.has(slug)) {
             return undefined;
         }
+
+        // PUBLIC_SSR_ACTIVE: the SSR function handles head injection via publicShell.
+        // Yield so the /:slug rewrite in vercel.json routes to the function.
+        // Unset on prod → middleware serves the SPA with injected head as today.
+        if (env.PUBLIC_SSR_ACTIVE === "true") return undefined;
 
         const metaStart = Date.now();
         let metaDur = 0;
@@ -264,6 +275,38 @@ export default async function middleware(request: Request): Promise<Response | u
         );
 
         const extra: string[] = [];
+        // Font dello stile attivo (Step 2): solo la famiglia usata dal tenant,
+        // pronta prima del primo paint del testo → niente FOUT sul warm. Il
+        // marker id="mw-font" dice al runtime di NON caricare il fallback.
+        const fontToken = metaResult.meta?.resolved?.style?.config?.typography?.fontFamily;
+        const fontHref = buildSingleFamilyFontUrl(fontToken);
+        if (fontHref) {
+            extra.push(`<link id="mw-font" rel="stylesheet" href="${escapeHtml(fontHref)}" />`);
+
+            // De-block shell (Step 3a): il <link> Inter+Sora di index.html è
+            // RBI #1 (~850ms wasted su mobile simulato). Solo su questo HTML
+            // servito (il file resta intatto: admin e landing non matchano):
+            //   - Sora: rimosso (usato solo dalla landing, peso morto qui);
+            //   - token inter: link shell OMESSO del tutto — la spec statica
+            //     mw-font copre chrome + contenuto (4 pesi bastano, weight
+            //     check audit 3a) e si evita il doppio download (~73KB);
+            //   - altri token: Inter variable async (preload→stylesheet +
+            //     <noscript>) per la shell, mw-font per il contenuto.
+            // Guard-rail: si de-blocca SOLO se mw-font è stato iniettato
+            // (fontHref valido), altrimenti il link blocking resta com'è.
+            html = html.replace(
+                /<link\s+href="(https:\/\/fonts\.googleapis\.com\/css2\?family=Inter[^"]*)"\s+rel="stylesheet"\s*\/>/,
+                (_m, shellUrl: string) => {
+                    if (fontToken === "inter") return "";
+                    const interOnly = escapeHtml(shellUrl.replace(/&family=Sora[^&"]*/g, ""));
+                    return (
+                        `<link rel="preload" as="style" href="${interOnly}" ` +
+                        `onload="this.onload=null;this.rel='stylesheet'" />` +
+                        `<noscript><link rel="stylesheet" href="${interOnly}" /></noscript>`
+                    );
+                }
+            );
+        }
         if (cover) {
             const safeCover = escapeHtml(cover);
             extra.push(`<meta property="og:image" content="${safeCover}" />`);

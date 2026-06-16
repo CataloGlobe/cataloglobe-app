@@ -10,3 +10,15 @@
   margin: 0 auto;
   padding: 0 1rem;
 }
+
+/* :hover applicato SOLO su device con puntatore reale (mouse/trackpad).
+   Evita sticky-hover al tap su touch device, che su iOS causa cambi di stile
+   persistenti dopo il rilascio + glitch di compositing durante reflow.
+   Uso: @include hover { background: ... } → genera @media (hover: hover) { &:hover {...} } */
+@mixin hover {
+  @media (hover: hover) {
+    &:hover {
+      @content;
+    }
+  }
+}

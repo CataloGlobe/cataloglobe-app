@@ -3,7 +3,7 @@ import { AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus, Search } from "lucide-react";
+import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus } from "lucide-react";
 import type {
     ResolvedAllergen,
     ResolvedCharacteristic,
@@ -26,11 +26,15 @@ import type { CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
 import { useFabCollapse } from "../hooks/useFabCollapse";
 import EventsView from "../EventsView/EventsView";
+import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
+import AssistanceSheet from "../AssistanceSheet/AssistanceSheet";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
 import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
 
-// Lazy-loaded: si aprono solo su interazione utente
-const SearchOverlay = lazy(() => import("../SearchOverlay/SearchOverlay"));
+// Lazy-loaded: si aprono solo su interazione utente.
+// Factory estratta per consentire il preload idle e onPointerDown.
+const importSearchOverlay = () => import("../SearchOverlay/SearchOverlay");
+const SearchOverlay = lazy(importSearchOverlay);
 const ItemDetail = lazy(() => import("../ItemDetail/ItemDetail"));
 const OrderingSheet = lazy(() => import("../OrderingSheet/OrderingSheet"));
 const ReviewsView = lazy(() => import("../ReviewsView/ReviewsView"));
@@ -568,6 +572,18 @@ export type SocialLinks = {
     email_public_visible?: boolean;
 };
 
+// ── Bottom nav bar pubblica (feature flag d'ambiente, mobile-only) ──────────
+// Split mobile/desktop CSS-driven: il breakpoint 640px NON vive più in JS (niente
+// matchMedia in render) ma negli SCSS (@media max-width:640px) di
+// PublicBottomBar + PublicCollectionHeader. Entrambe le superfici sono montate
+// sempre sotto flag ON → markup SSR identico al primo paint client (no hydration
+// flash). Vedi derivazioni `useBottomBar`/`showHeaderActions` nel componente.
+// Z_BOTTOM_BAR = 150 vive nello SCSS della barra (PublicBottomBar.module.scss); qui
+// solo per documentazione: sopra FAB (55/60), sotto toast/search (200) e sheet (900).
+// Flag globale d'ambiente (build-time): ON su tutte le attività dove acceso, nessun tocco DB.
+// Rollback = VITE_PUBLIC_BOTTOM_BAR=false/rimosso + redeploy.
+const PUBLIC_BOTTOM_BAR = import.meta.env.VITE_PUBLIC_BOTTOM_BAR === "true";
+
 type Props = {
     businessName: string;
     businessImage: string | null;
@@ -687,6 +703,22 @@ export default function CollectionView({
     enableReservations = false
 }: Props) {
     const navigate = useNavigate();
+
+    // ── Bottom nav bar pubblica: split mobile/desktop CSS-driven ────────────────
+    // Niente matchMedia in render (era la causa del mismatch SSR/hydration #2: il
+    // server non conosce il viewport → struttura desktop al primo paint, poi salto
+    // a mobile post-hydration). Sotto flag ON entrambe le superfici sono SEMPRE
+    // montate; la visibilità per viewport è gestita via @media(640px) negli SCSS
+    // (display:none). Gli effetti viewport-specifici della bottom-bar (ResizeObserver
+    // + scroll listener) sono gated da un matchMedia in effect post-mount DENTRO
+    // PublicBottomBar (client-only → SSR-safe).
+    const bottomBarFlag = mode === "public" && PUBLIC_BOTTOM_BAR;
+    // "Bottom bar montata" (flag ON, entrambi i viewport). CSS la nasconde ≥641px.
+    const useBottomBar = bottomBarFlag;
+    // "Azioni header montate" (flag ON, entrambi i viewport). CSS le nasconde ≤640px.
+    const showHeaderActions = bottomBarFlag;
+    // FAB ordine/recensioni legacy SOLO a flag OFF → struttura odierna invariata.
+    const useFabEntries = !bottomBarFlag;
     // Maintenance scoperto runtime via 423 ORDERING_UNAVAILABLE su submit
     // (Strict + Reactive: il cliente lo apprende solo al tentativo). Solo
     // OrderingSheet usa effectiveMaintenance per banner inline + submit
@@ -732,7 +764,12 @@ export default function CollectionView({
     );
     const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
     const pageRef = useRef<HTMLElement | null>(null);
-    const containerRef = useRef<HTMLElement | Window>(window);
+    // SSR: window non esiste server-side → null iniziale. Client-side parte da
+    // window (identico a prima) e l'effect di scroll-detection lo rimpiazza col
+    // container reale; i consumer (scroll handler, solo client) hanno null-guard.
+    const containerRef = useRef<HTMLElement | Window | null>(
+        typeof window === "undefined" ? null : window
+    );
     const pendingScrollTargetIdRef = useRef<string | null>(null);
     const safetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [selectedItem, setSelectedItem] = useState<CollectionViewSectionItem | null>(null);
@@ -746,6 +783,30 @@ export default function CollectionView({
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const handleOpenSearch = useCallback(() => setIsSearchOpen(true), []);
     const handleCloseSearch = useCallback(() => setIsSearchOpen(false), []);
+    // Prefetch del chunk SearchOverlay su pointerdown del bottone header:
+    // il pointerdown precede il click, il chunk arriva prima del tap-up.
+    const handleSearchPrefetch = useCallback(() => {
+        void importSearchOverlay();
+    }, []);
+
+    // Preload idle del chunk SearchOverlay (solo public). requestIdleCallback
+    // non disponibile su Safari iOS < 17.4 → fallback setTimeout 200ms.
+    useEffect(() => {
+        if (mode === "preview") return;
+        const ric = (window as Window & {
+            requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+            cancelIdleCallback?: (id: number) => void;
+        }).requestIdleCallback;
+        const cic = (window as Window & {
+            cancelIdleCallback?: (id: number) => void;
+        }).cancelIdleCallback;
+        if (typeof ric === "function") {
+            const id = ric(() => { void importSearchOverlay(); }, { timeout: 1500 });
+            return () => { cic?.(id); };
+        }
+        const id = window.setTimeout(() => { void importSearchOverlay(); }, 200);
+        return () => window.clearTimeout(id);
+    }, [mode]);
 
     // Cmd+F (Mac) / Ctrl+F (Win/Linux) apre la ricerca interna invece della find del browser
     useEffect(() => {
@@ -789,13 +850,28 @@ export default function CollectionView({
     const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
 
     // ── Allergen filter (customer-side, sessionStorage per-activity) ────────
-    const [allergenFilterIds, setAllergenFilterIds] = useState<number[]>(() =>
-        activityId && mode === "public" ? getAllergenPreferences(activityId) : []
-    );
+    // Hydration-safe: default vuoto in render (= server), lettura sessionStorage
+    // spostata in effect post-mount (client-only) → niente mismatch #418/#425.
+    const [allergenFilterIds, setAllergenFilterIds] = useState<number[]>([]);
     const [isAllergensFilterOpen, setIsAllergensFilterOpen] = useState(false);
+
+    const allergensPersistSkipRef = useRef(true);
+    useEffect(() => {
+        // Reset del guard ad ogni cambio sede: il persist run indotto da questo
+        // load non deve scrivere (eviterebbe di azzerare le prefs della sede).
+        allergensPersistSkipRef.current = true;
+        if (!activityId || mode !== "public") return;
+        setAllergenFilterIds(getAllergenPreferences(activityId));
+    }, [activityId, mode]);
 
     useEffect(() => {
         if (!activityId || mode !== "public") return;
+        // Guard anti-clobber: salta il primo run (stato iniziale vuoto) per non
+        // sovrascrivere lo storage prima che il load post-mount abbia ripopolato.
+        if (allergensPersistSkipRef.current) {
+            allergensPersistSkipRef.current = false;
+            return;
+        }
         setAllergenPreferences(activityId, allergenFilterIds);
     }, [activityId, mode, allergenFilterIds]);
 
@@ -851,24 +927,36 @@ export default function CollectionView({
     // ── Selezione prodotti ──────────────────────────────────────────────────
     const selectionStorageKey = activityId ? `catalogobe-selection-${activityId}` : null;
 
-    const [selection, setSelection] = useState<SelectionItem[]>(() => {
-        if (!selectionStorageKey) return [];
-        try {
-            const saved = sessionStorage.getItem(selectionStorageKey);
-            if (!saved) return [];
-            const parsed = JSON.parse(saved) as Record<string, unknown>[];
-            return parsed.map(migrateSelectionItem);
-        } catch {
-            return [];
-        }
-    });
+    // Hydration-safe: default vuoto in render (= server), lettura sessionStorage
+    // spostata in effect post-mount (client-only) → niente mismatch #418/#425.
+    const [selection, setSelection] = useState<SelectionItem[]>([]);
     const [isOrderingOpen, setIsOrderingOpen] = useState(false);
     const [activeOrderingTab, setActiveOrderingTab] = useState<"cart" | "orders">("cart");
     const [ordersRefreshKey, setOrdersRefreshKey] = useState(0);
     const [editingSelectionIndex, setEditingSelectionIndex] = useState<number | null>(null);
 
+    const selectionPersistSkipRef = useRef(true);
+    useEffect(() => {
+        // Reset del guard ad ogni cambio chiave: il persist run indotto da questo
+        // load non deve scrivere (eviterebbe di azzerare lo storage della sede).
+        selectionPersistSkipRef.current = true;
+        if (!selectionStorageKey) return;
+        try {
+            const saved = sessionStorage.getItem(selectionStorageKey);
+            if (!saved) return;
+            const parsed = JSON.parse(saved) as Record<string, unknown>[];
+            setSelection(parsed.map(migrateSelectionItem));
+        } catch { /* sessionStorage non disponibile */ }
+    }, [selectionStorageKey]);
+
     useEffect(() => {
         if (!selectionStorageKey) return;
+        // Guard anti-clobber: salta il primo run (stato iniziale []) per non
+        // azzerare lo storage prima che il load post-mount abbia ripopolato.
+        if (selectionPersistSkipRef.current) {
+            selectionPersistSkipRef.current = false;
+            return;
+        }
         try {
             sessionStorage.setItem(selectionStorageKey, JSON.stringify(selection));
         } catch { /* sessionStorage non disponibile */ }
@@ -1037,10 +1125,12 @@ export default function CollectionView({
         });
     }, []);
 
-    // Bill state — single source of truth a livello CollectionView per
+    // Bill + waiter state — single source of truth a livello CollectionView per
     // garantire che la subscription customer_sessions sia always-on
-    // (OrderingSheet e' montato solo a sheet aperta).
+    // (OrderingSheet/AssistanceSheet sono montati solo a sheet aperta).
     const [billRequestedAt, setBillRequestedAt] = useState<string | null>(null);
+    const [waiterCalledAt, setWaiterCalledAt] = useState<string | null>(null);
+    const [isSupportOpen, setIsSupportOpen] = useState(false);
 
     // Realtime subscribe customer_sessions: single channel always-on quando
     // JWT presente. Propaga:
@@ -1056,6 +1146,7 @@ export default function CollectionView({
         channel = subscribeToCustomerSession(jwt, {
             onUpdate: updatedSession => {
                 setBillRequestedAt(updatedSession.bill_requested_at ?? null);
+                setWaiterCalledAt(updatedSession.waiter_called_at ?? null);
                 const expiresAt = updatedSession.expires_at;
                 if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
                     // Idempotente: setta solo se nessun maintenance gia attivo.
@@ -1571,6 +1662,7 @@ export default function CollectionView({
 
         const scrollOffset = HEADER_HEIGHT + NAV_HEIGHT + VISUAL_GAP;
         const container = containerRef.current;
+        if (!container) return;
 
         if (container === window) {
             const top = el.getBoundingClientRect().top + window.scrollY - scrollOffset;
@@ -1662,6 +1754,7 @@ export default function CollectionView({
 
             const scrollOffset = HEADER_HEIGHT + NAV_HEIGHT + VISUAL_GAP;
             const container = containerRef.current;
+            if (!container) return;
 
             if (container === window) {
                 const top = el.getBoundingClientRect().top + window.scrollY - scrollOffset;
@@ -1814,22 +1907,38 @@ export default function CollectionView({
                     showLogo={style.showLogo}
                     mode={mode}
                     onSearchOpen={mode !== "preview" ? handleOpenSearch : undefined}
+                    onSearchPointerDown={mode !== "preview" ? handleSearchPrefetch : undefined}
                     scrollContainerEl={scrollContainerEl}
                     viewportWidthEl={viewportWidthEl}
                     headerRadius={style.appearanceRadius}
                     activeTab={activeTab}
                     onTabChange={onTabChange ?? (() => {})}
+                    // Hub-tabs sempre nel markup header: lo split CSS-driven le
+                    // nasconde ≤640px quando la bottom-bar è attiva (bottomBarEnabled).
+                    showHubTabs
+                    bottomBarEnabled={bottomBarFlag}
                     allergensCount={allergenFilterIds.length}
                     onOpenMore={mode === "public" ? () => setIsMoreSheetOpen(true) : undefined}
+                    selectionCount={selectionCount}
+                    orderVisible={showHeaderActions && !shouldHideOrderingEntry}
+                    onOpenOrder={showHeaderActions ? openOrdering : undefined}
+                    supportVisible={showHeaderActions && orderingActive}
+                    onOpenSupport={showHeaderActions ? () => setIsSupportOpen(true) : undefined}
+                    reviewDot={showHeaderActions ? valutaVisible : false}
                 />
             )}
 
-            {/* ── SEARCH OVERLAY — nascosta in preview, lazy al primo click ── */}
+            {/* ── SEARCH OVERLAY — nascosta in preview, lazy al primo click ──
+                Suspense FUORI da AnimatePresence: il chunk lazy viene caricato
+                una sola volta. AnimatePresence con SearchOverlay come direct
+                child (key stabile) → l'exit anim (opacity sul root motion.div)
+                viene eseguita prima dell'unmount. */}
             {mode !== "preview" && (
-                <AnimatePresence>
-                    {isSearchOpen && (
-                        <Suspense fallback={null}>
+                <Suspense fallback={null}>
+                    <AnimatePresence>
+                        {isSearchOpen && (
                             <SearchOverlay
+                                key="search"
                                 isOpen={isSearchOpen}
                                 onClose={handleCloseSearch}
                                 sections={sections}
@@ -1837,9 +1946,9 @@ export default function CollectionView({
                                 mode={mode}
                                 activityId={activityId}
                             />
-                        </Suspense>
-                    )}
-                </AnimatePresence>
+                        )}
+                    </AnimatePresence>
+                </Suspense>
             )}
 
             {/* ── INFO SHEET ── */}
@@ -2159,31 +2268,41 @@ export default function CollectionView({
             )}
 
             {activeTab === "events" && (
-                <div className={styles.frame}>
-                    <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} />
+                // Bottom-bar mode: niente CollectionSectionNav qui. Il contenuto sta sulla STESSA
+                // superficie a pattern del Menu (.tabPatternSurface, full-bleed + z-index) che taglia
+                // l'hero al bordo basso dell'header. Padding-top piccolo, niente fascia crema piatta.
+                <div className={useBottomBar ? styles.tabPatternSurface : undefined}>
+                    <div className={styles.frame}>
+                        <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} />
+                    </div>
                 </div>
             )}
 
             {activeTab === "reviews" && reviewsProps && (
                 <Suspense fallback={null}>
-                    <ReviewsView
-                        {...reviewsProps}
-                        onReviewSubmitted={() => {
-                            // Nascondi FAB e salva timestamp per sopprimerlo per 24h
-                            setValutaVisible(false);
-                            valutaEligibleRef.current = false;
-                            if (activityId) {
-                                try {
-                                    localStorage.setItem(`fab_reviewed_${activityId}`, Date.now().toString());
-                                } catch { /* Safari private mode */ }
-                            }
-                        }}
-                    />
+                    {/* Stesso meccanismo di Eventi: superficie a pattern che taglia l'hero. */}
+                    <div className={useBottomBar ? styles.tabPatternSurface : undefined}>
+                        <ReviewsView
+                            {...reviewsProps}
+                            onReviewSubmitted={() => {
+                                // Nascondi FAB e salva timestamp per sopprimerlo per 24h
+                                setValutaVisible(false);
+                                valutaEligibleRef.current = false;
+                                if (activityId) {
+                                    try {
+                                        localStorage.setItem(`fab_reviewed_${activityId}`, Date.now().toString());
+                                    } catch { /* Safari private mode */ }
+                                }
+                            }}
+                        />
+                    </div>
                 </Suspense>
             )}
 
             {/* ── ORDERING FAB — unico, context-aware (cart o ordini) ── */}
-            {mode === "public" && activeTab === "menu" && !shouldHideOrderingEntry && (selectionCount > 0 || (orderingActive && hasOrdersInSession)) && (
+            {/* Nascosto quando bottom bar (flag+mobile) O azioni header (flag+desktop):
+                il carrello vive nella barra / nell'header. Resta solo legacy (flag OFF). */}
+            {useFabEntries && mode === "public" && activeTab === "menu" && !shouldHideOrderingEntry && (selectionCount > 0 || (orderingActive && hasOrdersInSession)) && (
                 <button
                     type="button"
                     className={styles.orderingFab}
@@ -2210,7 +2329,9 @@ export default function CollectionView({
             )}
 
             {/* ── VALUTA FAB — slide-in dopo 3s, solo public + tab menu ── */}
-            {mode === "public" && activeTab === "menu" && (
+            {/* Nascosto con bottom bar O azioni header: il reminder diventa un dot
+                sulla tab recensioni (barra mobile o chip header). Resta solo legacy. */}
+            {useFabEntries && mode === "public" && activeTab === "menu" && (
                 <button
                     type="button"
                     className={[
@@ -2231,13 +2352,40 @@ export default function CollectionView({
                 </button>
             )}
 
+            {/* ── BOTTOM NAV BAR pubblica — flag ON + mobile. Sostituisce tab header + FAB. ── */}
+            {/* reviewDot riusa `valutaVisible` (stessa eligibilità 4h + scroll≥70% + no review <24h). */}
+            {useBottomBar && (
+                <PublicBottomBar
+                    activeTab={activeTab}
+                    onTabChange={tab => onTabChange?.(tab)}
+                    selectionCount={selectionCount}
+                    supportVisible={mode === "public" && orderingActive}
+                    onOpenSupport={() => setIsSupportOpen(true)}
+                    cartVisible={!shouldHideOrderingEntry}
+                    onOpenCart={openOrdering}
+                    reviewDot={valutaVisible}
+                    onReviewDotDismiss={() => {
+                        setValutaVisible(false);
+                        valutaEligibleRef.current = false;
+                    }}
+                    isSheetOpen={!!selectedItem || isOrderingOpen || isSupportOpen}
+                />
+            )}
+
             {submitFeedback && (
                 <div
-                    className={
+                    className={[
                         submitFeedback.type === "success"
                             ? styles.submitFeedbackSuccess
-                            : styles.submitFeedbackError
-                    }
+                            : styles.submitFeedbackError,
+                        // Con la bottom bar attiva il toast condivide l'ancora a 16px:
+                        // lo solleviamo sopra la barra (~58px + gap) SOLO ≤640px (dove
+                        // la barra è visibile) — gating CSS, non inline, per non
+                        // sollevarlo su desktop dove la barra è nascosta.
+                        useBottomBar ? styles.submitFeedbackAboveBar : "",
+                    ]
+                        .filter(Boolean)
+                        .join(" ")}
                     role="status"
                     aria-live="polite"
                 >
@@ -2294,6 +2442,23 @@ export default function CollectionView({
                     onApplyFilter={setAllergenFilterIds}
                 />
             )}
+
+            <AssistanceSheet
+                isOpen={isSupportOpen}
+                onClose={() => setIsSupportOpen(false)}
+                session={customerSession?.session
+                    ? {
+                        jwt: customerSession.session.jwt,
+                        tableLabel: customerSession.session.tableLabel,
+                        tableZone: customerSession.session.tableZone ?? null,
+                    }
+                    : null
+                }
+                billRequestedAt={billRequestedAt}
+                onBillRequestedAtChange={setBillRequestedAt}
+                waiterCalledAt={waiterCalledAt}
+                onWaiterCalledAtChange={setWaiterCalledAt}
+            />
 
             {isOrderingOpen && (
                 <Suspense fallback={null}>

@@ -120,14 +120,8 @@ export function useNotificationChime(): ChimeHookResult {
         };
     }, [armAudio]);
 
-    // Chime: due tone discendenti 587 → 440 (timbro morbido, distinguibile
-    // dal chime ordini 880 → 660).
-    const playChime = useCallback(() => {
-        if (!soundEnabledRef.current) return;
-        if (!audioArmedRef.current) return;
-        const ctx = audioCtxRef.current;
-        if (!ctx || ctx.state !== "running") return;
-
+    // Suona i due toni discendenti 587→440 sul context già running.
+    const playTonesNow = useCallback((ctx: AudioContext) => {
         const now = Date.now();
         if (now - lastChimeAtRef.current < CHIME_DEBOUNCE_MS) return;
         lastChimeAtRef.current = now;
@@ -137,14 +131,11 @@ export function useNotificationChime(): ChimeHookResult {
             { freq: 587, start: audioNow, duration: 0.2 },
             { freq: 440, start: audioNow + 0.14, duration: 0.26 }
         ];
-
         for (const { freq, start, duration } of tones) {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
             osc.type = "sine";
             osc.frequency.value = freq;
-            // Envelope: attack 25ms → peak 0.12 → decay esponenziale fino
-            // a ~0.0001 entro `duration`. Volume basso, non spaventa.
             gain.gain.setValueAtTime(0.0001, start);
             gain.gain.exponentialRampToValueAtTime(0.12, start + 0.025);
             gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
@@ -154,6 +145,35 @@ export function useNotificationChime(): ChimeHookResult {
             osc.stop(start + duration + 0.02);
         }
     }, []);
+
+    // Chime: due tone discendenti 587 → 440 (timbro morbido, distinguibile
+    // dal chime ordini 880 → 660).
+    //
+    // Non gatiamo su audioArmedRef: il listener one-shot del useEffect può
+    // mancare il primo pointerdown (race con mount+effect). Tentiamo invece
+    // ctx.resume() inline — nei browser desktop il resume riesce se c'è
+    // stata almeno una gesture sulla pagina anche prima del mount.
+    const playChime = useCallback(() => {
+        if (!soundEnabledRef.current) return;
+        const ctx = ensureAudioContext();
+        if (!ctx) return;
+
+        if (ctx.state === "running") {
+            audioArmedRef.current = true;
+            playTonesNow(ctx);
+            return;
+        }
+
+        if (ctx.state === "suspended") {
+            void ctx.resume().then(
+                () => {
+                    audioArmedRef.current = ctx.state === "running";
+                    if (ctx.state === "running") playTonesNow(ctx);
+                },
+                () => { /* autoplay bloccato dal browser — skip silenzioso */ }
+            );
+        }
+    }, [ensureAudioContext, playTonesNow]);
 
     const toggleSound = useCallback(() => {
         setSoundEnabled(prev => {

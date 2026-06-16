@@ -20,6 +20,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dist-server
 *.local
 
 # Supabase CLI temp files
@@ -47,6 +48,9 @@ skills-lock.json
 
 # Tool artifacts
 .playwright-mcp/
+
+# SSR spike scratch (harness + probes — kept on disk, not tracked)
+spike-ssr/
 
 # Internal planning docs
 docs/superpowers/

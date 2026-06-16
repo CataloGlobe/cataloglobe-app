@@ -46,15 +46,32 @@ export function HeaderNotifications(props: HeaderNotificationsProps) {
         return notifications.filter(n => n.tenant_id === null);
     }, [notifications, props]);
 
+    // Contesto corrente del subset filtrato: tenant per scope business,
+    // sentinella `null` per scope account. Stessa chiave usata dal filtro
+    // `scopedNotifications`.
+    const tenantId = props.scope === "tenant" ? props.tenantId : null;
+
     // Chime sull'arrivo di NUOVE notifiche nel subset filtrato.
     // Osserviamo `length` (non `unreadCount`) così il mark-as-read non
     // triggera il suono. Primo render salta (hasMountedRef): le notifiche
     // gia' caricate all'apertura della pagina non devono suonare.
+    // `lastTenantRef` rende la baseline consapevole del contesto: al cambio
+    // tenant `scopedNotifications.length` oscilla (array cross-tenant unico
+    // filtrato per tenant_id) e senza questo guard un count maggiore del
+    // tenant precedente verrebbe letto come finto "arrivo" → chime spurio.
     const hasMountedRef = useRef(false);
     const lastLengthRef = useRef(scopedNotifications.length);
+    const lastTenantRef = useRef(tenantId);
     useEffect(() => {
         if (!hasMountedRef.current) {
             hasMountedRef.current = true;
+            lastLengthRef.current = scopedNotifications.length;
+            lastTenantRef.current = tenantId;
+            return;
+        }
+        if (tenantId !== lastTenantRef.current) {
+            // Switch di contesto, non un arrivo: risemina la baseline muta.
+            lastTenantRef.current = tenantId;
             lastLengthRef.current = scopedNotifications.length;
             return;
         }
@@ -62,7 +79,7 @@ export function HeaderNotifications(props: HeaderNotificationsProps) {
             triggerChime();
         }
         lastLengthRef.current = scopedNotifications.length;
-    }, [scopedNotifications.length, triggerChime]);
+    }, [scopedNotifications.length, tenantId, triggerChime]);
 
     const unreadCount = useMemo(
         () => scopedNotifications.reduce((acc, n) => acc + (n.read_at === null ? 1 : 0), 0),

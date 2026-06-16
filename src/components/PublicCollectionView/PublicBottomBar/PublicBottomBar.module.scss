@@ -1,0 +1,232 @@
+// Bottom nav bar pubblica — pill flottante scura glassmorphic, mobile-only.
+// z-index 150: sopra contenuto/section-nav (10/20) e FAB (55/60),
+// SOTTO toast/SearchOverlay (200) e sheet (900). Sheet e ricerca la coprono.
+
+// Colore indicatore carrello. Var SCSS locale (token tema rimandato).
+$indicator: #ef4444;
+
+// Wrapper: posizionamento fisso + centratura (senza transform) + entry.
+// La centratura usa left/right + margin auto così il `transform` resta libero
+// per l'animazione di entrata, senza collidere con lo scale del `.bar` interno.
+.barWrap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  margin: 0 auto;
+  z-index: 150;
+
+  width: calc(100% - 36px);
+  max-width: 320px;
+
+  animation: barIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  // CSS-driven split: la barra è sempre montata (markup SSR-safe), visibile solo
+  // su mobile. ≥641px esce dal flow E dall'accessibility tree (no doppio tablist).
+  @media (min-width: 641px) {
+    display: none;
+  }
+}
+
+.bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  box-sizing: border-box;
+
+  background: rgba(20, 20, 20, 0.72);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  box-shadow:
+    0 10px 30px -8px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  transform-origin: bottom center;
+  transform: scale(1);
+  // Shrink-on-scroll gestito qui via data-shrink: il `.bar` possiede SOLO lo scale,
+  // nessun transform di centratura/entry a sovrascriverlo.
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+// Shrink-on-scroll: scala verso il basso (origin bottom center).
+.bar[data-shrink="false"] {
+  transform: scale(1);
+}
+.bar[data-shrink="true"] {
+  transform: scale(0.92);
+}
+
+// Entry sul wrapper: solo opacity + translateY (transform indipendente dal `.bar`).
+@keyframes barIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Gruppo dei 3 tab — riferimento positioning per la pill scorrevole.
+.group {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+// Pill attiva che scorre tra i tab.
+.indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--pub-accent, #f59e0b);
+  box-shadow: 0 2px 10px -2px
+    color-mix(in srgb, var(--pub-accent, #f59e0b) 60%, transparent);
+  transition:
+    left 0.4s cubic-bezier(0.32, 0.72, 0, 1),
+    width 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+  pointer-events: none;
+}
+
+.tab {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.62);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color 0.25s ease,
+    transform 0.15s ease;
+
+  &:active {
+    transform: scale(0.9);
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      color: rgba(255, 255, 255, 0.85);
+    }
+  }
+}
+
+.tabActive {
+  color: #fff;
+
+  @media (hover: hover) {
+    &:hover {
+      color: #fff;
+    }
+  }
+}
+
+// Pallino reminder recensione sull'icona cuore.
+.dot {
+  position: absolute;
+  top: 6px;
+  right: calc(50% - 12px);
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--pub-accent, #f59e0b);
+  border: 2px solid rgba(20, 20, 20, 0.92);
+  box-sizing: content-box;
+}
+
+.divider {
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background: rgba(255, 255, 255, 0.14);
+  flex: 0 0 auto;
+}
+
+.cart {
+  position: relative;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color 0.25s ease,
+    transform 0.15s ease;
+
+  &:active {
+    transform: scale(0.9);
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      color: #fff;
+    }
+  }
+}
+
+// Wrapper icona carrello — origine al centro per il bump on-add.
+.cartIcon {
+  display: inline-flex;
+  transform-origin: center;
+}
+.cartIcon[data-bump="true"] {
+  animation: cartBump 0.34s ease;
+}
+@keyframes cartBump {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.22);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+// Indicatore binario carrello: pallino rosso ($indicator) in alto a destra dell'icona.
+// Bordo del colore di sfondo barra così si stacca pulito senza coprire il glifo.
+.cartDot {
+  position: absolute;
+  top: 5px;
+  right: calc(50% - 12px);
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: $indicator;
+  border: 2px solid rgba(20, 20, 20, 0.92);
+  box-sizing: content-box;
+}
+
+// Rispetta prefers-reduced-motion: niente animazioni di scala/entrata.
+@media (prefers-reduced-motion: reduce) {
+  .barWrap,
+  .bar,
+  .indicator,
+  .cartIcon {
+    animation: none;
+    transition: none;
+  }
+}

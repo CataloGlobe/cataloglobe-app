@@ -1,4 +1,4 @@
-import { Eye, Users, Activity, Search } from "lucide-react";
+import { Eye, Users, Activity, Filter } from "lucide-react";
 import type { OverviewStats } from "@/services/supabase/analytics";
 import { calculateDelta } from "../utils/periodComparison";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
@@ -7,9 +7,9 @@ import styles from "../Analytics.module.scss";
 
 type Props = {
     stats: OverviewStats | null;
-    searchRate: number | null;
+    /** % finale del funnel (aggiunti_selezione / visite). Null se non disponibile. */
+    selectionConversion: number | null;
     previousStats?: OverviewStats | null;
-    previousSearchRate?: number | null;
     previousPeriodLabel?: string;
     isLoading: boolean;
 };
@@ -56,9 +56,8 @@ function DeltaRow({ current, previous, label }: DeltaRowProps) {
 
 export default function OverviewCards({
     stats,
-    searchRate,
+    selectionConversion,
     previousStats,
-    previousSearchRate,
     previousPeriodLabel,
     isLoading
 }: Props) {
@@ -68,34 +67,50 @@ export default function OverviewCards({
             icon: Eye,
             value: stats ? stats.total_views.toLocaleString("it-IT") : "—",
             current: stats?.total_views ?? 0,
-            previous: previousStats?.total_views
+            previous: previousStats?.total_views as number | undefined,
+            sub: undefined as string | undefined
         },
         {
             label: "Sessioni uniche",
             icon: Users,
             value: stats ? stats.unique_sessions.toLocaleString("it-IT") : "—",
             current: stats?.unique_sessions ?? 0,
-            previous: previousStats?.unique_sessions
+            previous: previousStats?.unique_sessions as number | undefined,
+            sub: undefined as string | undefined
         },
         {
             label: "Media eventi/sessione",
             icon: Activity,
-            value: stats ? stats.avg_events_per_session.toFixed(1) : "—",
+            value: stats
+                ? stats.avg_events_per_session.toLocaleString("it-IT", {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1
+                  })
+                : "—",
             current: stats?.avg_events_per_session ?? 0,
-            previous: previousStats?.avg_events_per_session
+            previous: previousStats?.avg_events_per_session as number | undefined,
+            sub: undefined as string | undefined
         },
         {
-            label: "Tasso di ricerca",
-            icon: Search,
-            value: searchRate !== null ? `${searchRate.toFixed(1)}%` : "—",
-            current: searchRate ?? 0,
-            previous: previousSearchRate
+            label: "Conversione selezione",
+            icon: Filter,
+            value:
+                selectionConversion !== null
+                    ? `${selectionConversion.toLocaleString("it-IT", {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1
+                      })}%`
+                    : "—",
+            current: selectionConversion ?? 0,
+            // Nessun dato del periodo precedente per il funnel → niente delta.
+            previous: undefined as number | undefined,
+            sub: "% di visitatori che aggiunge prodotti alla selezione"
         }
     ];
 
     return (
         <div className={styles.kpiGrid}>
-            {cards.map(({ label, icon: Icon, value, current, previous }) => (
+            {cards.map(({ label, icon: Icon, value, current, previous, sub }) => (
                 <div key={label} className={styles.kpiCard}>
                     <div className={styles.kpiHeader}>
                         <Text variant="caption" colorVariant="muted">
@@ -113,6 +128,11 @@ export default function OverviewCards({
                             <Text variant="title-md" weight={600}>
                                 {value}
                             </Text>
+                            {sub && (
+                                <Text variant="caption" colorVariant="muted">
+                                    {sub}
+                                </Text>
+                            )}
                             <DeltaRow
                                 current={current}
                                 previous={previous}

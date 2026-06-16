@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import Sidebar from "@components/layout/Sidebar/Sidebar";
 import { AppHeader } from "@components/layout/AppHeader/AppHeader";
+import { OperationalAlerts } from "@components/layout/OperationalAlerts/OperationalAlerts";
 import { PageHeaderSlot } from "@components/layout/PageHeaderSlot";
 import { DrawerProvider } from "@/context/Drawer/DrawerProvider";
 import { BreadcrumbProvider } from "@/context/BreadcrumbProvider";
@@ -108,6 +109,7 @@ export default function MainLayout() {
             <DrawerProvider>
                 <BreadcrumbProvider>
                     <PageHeaderProvider>
+                        <OperationalAlerts />
                         <header className={styles.globalHeader}>
                             <AppHeader onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
                         </header>

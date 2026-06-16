@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, CalendarDays, ImageIcon, MessageSquareHeart, MoreHorizontal, Search } from "lucide-react";
+import { Bell, BookOpen, CalendarDays, ImageIcon, MessageSquareHeart, MoreHorizontal, Search, ShoppingBag } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
+import { buildCoverImageSet } from "@/utils/imageTransform";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
 
@@ -45,6 +46,9 @@ export type PublicCollectionHeaderProps = {
     mode: "public" | "preview";
     /** Apre il SearchOverlay. Undefined in preview — nasconde i pulsanti di ricerca. */
     onSearchOpen?: () => void;
+    /** Prefetch del chunk SearchOverlay su pointerdown del bottone (toglie
+     *  latenza al primo open: il chunk arriva prima del tap-up). Undefined in preview. */
+    onSearchPointerDown?: () => void;
     /** Scroll container della preview (deviceScreen). Non usato in public. */
     scrollContainerEl?: HTMLElement | null;
     /** Elemento di riferimento per misurare la larghezza viewport nella preview.
@@ -68,6 +72,25 @@ export type PublicCollectionHeaderProps = {
     showLanguageSelector?: boolean;
     /** Slot opzionale a destra del titolo (es. link "Menu" per pagine non-catalogo). */
     actionSlot?: ReactNode;
+    // ── Azioni tavolo desktop (gate dal parent: bottomBarFlag && !mobile) ───────
+    // Sostituiscono i FAB ordine/recensioni sul ramo desktop. Su mobile (bottom
+    // bar) il parent NON le passa → header invariato.
+    /** Conteggio ordine per il badge del bottone Ordine. */
+    selectionCount?: number;
+    /** Mostra il bottone Ordine (carrello). */
+    orderVisible?: boolean;
+    /** Apre il drawer ordine. Undefined ⇒ bottone non renderizzato. */
+    onOpenOrder?: () => void;
+    /** Mostra il bottone Assistenza (campanello). */
+    supportVisible?: boolean;
+    /** Apre il drawer Assistenza. Undefined ⇒ bottone non renderizzato. */
+    onOpenSupport?: () => void;
+    /** Dot promemoria recensione sulla tab "Dicci la tua" (riusa valutaVisible). */
+    reviewDot?: boolean;
+    /** Flag bottom-bar pubblica attivo: abilita lo split CSS-driven mobile/desktop.
+     *  ON ⇒ hub-tabs + azioni header sono montate sempre ma nascoste ≤640px via
+     *  @media (la bottom-bar mobile le sostituisce). OFF ⇒ comportamento legacy. */
+    bottomBarEnabled?: boolean;
 };
 
 export default function PublicCollectionHeader({
@@ -82,6 +105,7 @@ export default function PublicCollectionHeader({
     showLogo,
     mode,
     onSearchOpen,
+    onSearchPointerDown,
     scrollContainerEl,
     viewportWidthEl,
     headerRadius,
@@ -92,6 +116,13 @@ export default function PublicCollectionHeader({
     showHubTabs = true,
     showLanguageSelector = true,
     actionSlot,
+    selectionCount = 0,
+    orderVisible = false,
+    onOpenOrder,
+    supportVisible = false,
+    onOpenSupport,
+    reviewDot = false,
+    bottomBarEnabled = false,
 }: PublicCollectionHeaderProps) {
     const { t } = useTranslation("public");
     // ── ResizeObserver: write --pub-header-height on <main> ancestor ────────────
@@ -186,18 +217,23 @@ export default function PublicCollectionHeader({
     const initialMargin = isMobile
         ? BASE_MARGIN_MOBILE
         : Math.max((viewportWidth - readContentMaxWidth(viewportWidthEl)) / 2 + BASE_MARGIN_DESKTOP, BASE_MARGIN_DESKTOP);
-    const initialRadius = headerRadius ?? (isMobile ? 16 : 20);
-    const headerHeight = isMobile ? HEADER_HEIGHT_MOBILE : HEADER_HEIGHT_DESKTOP;
+    // Fallback deterministico (no isMobile): l'unico call site passa sempre
+    // headerRadius da token, il fallback non deve dipendere dalla viewport
+    // o il markup server divergerebbe da quello client (hydration mismatch).
+    const initialRadius = headerRadius ?? 20;
 
     const currentMargin = lerp(initialMargin, 0, progress);
     const currentRadius = lerp(initialRadius, 0, progress);
     const currentTopOffset = lerp(TOP_OFFSET, 0, progress);
     const currentGap = lerp(8, 0, progress);
 
-    // Negative margin-top overlaps the header onto the cover image
-    const coverOverlap = showCoverImage
-        ? -(headerHeight + TOP_OFFSET + 4)
-        : 0;
+    // Hydration deterministica: a riposo (scrollY=0, server e primo render
+    // client) gli stili viewport-dependent vengono dal CSS (.root nel modulo
+    // SCSS: margin-inline, margin-top via data-cover, top). Il primo scroll
+    // event è per definizione post-hydration: da lì gli inline style del lerp
+    // sovrascrivono il CSS partendo dagli stessi valori al pixel (stessa
+    // formula, stessa var --pub-frame-max-desktop).
+    const engaged = scrollY > 0;
 
     return (
         <>
@@ -205,16 +241,27 @@ export default function PublicCollectionHeader({
             {showCoverImage && (
                 <div className={styles.coverImage}>
                     {coverImageUrl ? (
-                        <img
-                            src={coverImageUrl}
-                            alt=""
-                            role="presentation"
-                            className={styles.coverImg}
-                            fetchPriority="high"
-                            decoding="async"
-                            width={1920}
-                            height={1080}
-                        />
+                        (() => {
+                            // Responsive cover via Supabase transform: serve la variante
+                            // sized al viewport (srcset/sizes), non il raw 1280w. Il preload
+                            // SSR (publicShell) usa lo stesso set → nessun doppio download.
+                            // Passthrough (set null) per URL non-storage → src raw, no srcset.
+                            const coverSet = buildCoverImageSet(coverImageUrl);
+                            return (
+                                <img
+                                    src={coverSet?.src ?? coverImageUrl}
+                                    srcSet={coverSet?.srcset}
+                                    sizes={coverSet?.sizes}
+                                    alt=""
+                                    role="presentation"
+                                    className={styles.coverImg}
+                                    fetchPriority="high"
+                                    decoding="async"
+                                    width={1920}
+                                    height={1080}
+                                />
+                            );
+                        })()
                     ) : mode === "preview" ? (
                         <div className={styles.coverPlaceholder} aria-hidden>
                             <ImageIcon size={32} strokeWidth={1.5} />
@@ -225,20 +272,24 @@ export default function PublicCollectionHeader({
                 </div>
             )}
 
-            {/* HEADER STICKY — single element, scroll-driven animation via inline style */}
+            {/* HEADER STICKY — single element, scroll-driven animation via inline style.
+                A riposo: solo borderRadius (da token, deterministico); il resto viene
+                dal CSS. Engaged (scroll > 0): il lerp prende il controllo via inline. */}
             <header
                 ref={headerRef}
                 className={styles.root}
-                style={{
-                    position: "sticky",
-                    top: currentTopOffset,
-                    zIndex: 30,
-                    marginLeft: currentMargin,
-                    marginRight: currentMargin,
-                    marginTop: coverOverlap,
-                    borderRadius: currentRadius,
-                    overflow: "hidden",
-                }}
+                data-cover={showCoverImage || undefined}
+                data-bottombar={bottomBarEnabled || undefined}
+                style={
+                    engaged
+                        ? {
+                              top: currentTopOffset,
+                              marginLeft: currentMargin,
+                              marginRight: currentMargin,
+                              borderRadius: currentRadius,
+                          }
+                        : { borderRadius: initialRadius }
+                }
             >
                 <div className={styles.inner}>
                     <div className={styles.topRow}>
@@ -277,6 +328,7 @@ export default function PublicCollectionHeader({
                                 type="button"
                                 className={styles.iconBtn}
                                 onClick={onSearchOpen}
+                                onPointerDown={onSearchPointerDown}
                                 aria-label={t("header.search_aria")}
                             >
                                 <Search size={15} strokeWidth={2} />
@@ -297,6 +349,54 @@ export default function PublicCollectionHeader({
                                     </span>
                                 )}
                             </button>
+                        )}
+
+                        {/* Gruppo azioni desktop (Assistenza/Ordine). Sotto flag
+                            bottom-bar è montato sempre ma nascosto ≤640px via @media
+                            (la bottom-bar mobile porta le stesse azioni). */}
+                        {((onOpenSupport && supportVisible) || (onOpenOrder && orderVisible)) && (
+                            <div className={styles.headerActions}>
+                                {/* Divisore tra gruppo utility (IT/search/···) e azioni. */}
+                                <span className={styles.actionsDivider} aria-hidden="true" />
+
+                                {/* Assistenza (campanello) — entry point desktop, stessa
+                                    condizione del campanello mobile (supportVisible). */}
+                                {onOpenSupport && supportVisible && (
+                                    <button
+                                        type="button"
+                                        className={styles.iconBtn}
+                                        onClick={onOpenSupport}
+                                        aria-label="Assistenza al tavolo"
+                                        title="Assistenza"
+                                    >
+                                        <Bell size={15} strokeWidth={2} />
+                                    </button>
+                                )}
+
+                                {/* Ordine (carrello) — apre il drawer ordine, badge conteggio.
+                                    Tinta accent quando ci sono articoli (data-accent). */}
+                                {onOpenOrder && orderVisible && (
+                                    <button
+                                        type="button"
+                                        className={styles.iconBtn}
+                                        data-accent={selectionCount > 0 ? "true" : undefined}
+                                        onClick={onOpenOrder}
+                                        aria-label={
+                                            selectionCount > 0
+                                                ? t("fab.cart_aria_count", { count: selectionCount })
+                                                : t("fab.cart_aria")
+                                        }
+                                        title="Ordine"
+                                    >
+                                        <ShoppingBag size={15} strokeWidth={2} />
+                                        {selectionCount > 0 && (
+                                            <span className={styles.iconBtnBadge} aria-hidden>
+                                                {selectionCount}
+                                            </span>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
                         )}
                     </div>
 
@@ -322,6 +422,9 @@ export default function PublicCollectionHeader({
                                     onClick={() => onTabChange?.(tab.id)}
                                 >
                                     {tab.icon} {t(tab.labelKey)}
+                                    {tab.id === "reviews" && reviewDot && activeTab !== "reviews" && (
+                                        <span className={styles.chipDot} aria-hidden="true" />
+                                    )}
                                 </button>
                             ))}
                         </div>
