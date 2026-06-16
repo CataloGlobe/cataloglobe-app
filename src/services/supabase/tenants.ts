@@ -2,6 +2,7 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 import type { VerticalType } from "@/constants/verticalTypes";
+import type { LegalEntityType, V2Tenant } from "@/types/tenant";
 
 /**
  * Uploads a logo file to the tenant-assets bucket.
@@ -221,6 +222,91 @@ export async function updateTenantName(tenantId: string, name: string): Promise<
         throw new Error("Aggiornamento non riuscito: permessi insufficienti o tenant non trovato.");
     }
     void revalidatePublicCatalogForTenant(tenantId);
+}
+
+/**
+ * Billing identity (intestatario fattura) persisted on the tenant row.
+ * All identity fields are nullable; only `country` is always set.
+ */
+export interface TenantBillingDetails {
+    legal_entity_type: LegalEntityType | null;
+    legal_name: string | null;
+    vat_number: string | null;
+    fiscal_code: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    pec: string | null;
+    codice_destinatario: string | null;
+    address: string | null;
+    street_number: string | null;
+    postal_code: string | null;
+    city: string | null;
+    province: string | null;
+    country: string;
+}
+
+/**
+ * Fiscal identity + legal address subset of a tenant.
+ *
+ * These columns are NOT exposed by `user_tenants_view` (the workspace list
+ * source), so the resume flow must hydrate them straight from the `tenants`
+ * table to pre-fill the billing step and decide whether to skip it.
+ */
+export type TenantFiscalProfile = Pick<
+    V2Tenant,
+    | "legal_entity_type"
+    | "legal_name"
+    | "vat_number"
+    | "fiscal_code"
+    | "first_name"
+    | "last_name"
+    | "codice_destinatario"
+    | "pec"
+    | "address"
+    | "street_number"
+    | "postal_code"
+    | "city"
+    | "province"
+    | "country"
+>;
+
+/**
+ * Reads the fiscal/address profile of a single tenant.
+ * RLS (tenants SELECT via get_my_tenant_ids) restricts this to tenants the
+ * caller belongs to. Throws if not found / not visible.
+ */
+export async function getTenantFiscalProfile(tenantId: string): Promise<TenantFiscalProfile> {
+    const { data, error } = await supabase
+        .from("tenants")
+        .select(
+            "legal_entity_type, legal_name, vat_number, fiscal_code, first_name, last_name, codice_destinatario, pec, address, street_number, postal_code, city, province, country"
+        )
+        .eq("id", tenantId)
+        .single();
+    if (error) throw error;
+    return data as TenantFiscalProfile;
+}
+
+/**
+ * Persists billing identity onto an existing tenant (resume flow, when fiscal
+ * data was missing at first checkout). Create flow writes these inline on INSERT.
+ *
+ * Same RLS-probe pattern as updateTenantName: `.select("id")` detects a 0-row
+ * update (owner-only UPDATE policy) which supabase-js does not surface as error.
+ */
+export async function updateTenantBillingDetails(
+    tenantId: string,
+    billing: TenantBillingDetails
+): Promise<void> {
+    const { data, error } = await supabase
+        .from("tenants")
+        .update(billing)
+        .eq("id", tenantId)
+        .select("id");
+    if (error) throw error;
+    if (!data || data.length === 0) {
+        throw new Error("Aggiornamento dati di fatturazione non riuscito: permessi insufficienti o tenant non trovato.");
+    }
 }
 
 /**

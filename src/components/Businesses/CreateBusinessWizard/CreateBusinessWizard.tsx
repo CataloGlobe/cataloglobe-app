@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import Text from "@/components/ui/Text/Text";
 
-import { uploadTenantLogo, updateTenantLogoUrl } from "@/services/supabase/tenants";
+import { uploadTenantLogo, updateTenantLogoUrl, updateTenantBillingDetails, type TenantBillingDetails } from "@/services/supabase/tenants";
 import { createCheckoutSession } from "@/services/supabase/billing";
 import { listPublicPlans } from "@/services/supabase/plans";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
@@ -18,10 +18,13 @@ import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
 import { DEFAULT_SUBTYPE, type BusinessSubtype } from "@/constants/verticalTypes";
 import { getStoredPromo, clearStoredPromo } from "@/utils/promoCode";
 import type { Plan, PlanCode } from "@/types/plan";
-import type { V2Tenant } from "@/types/tenant";
+import type { V2Tenant, LegalEntityType } from "@/types/tenant";
+import type { AddressResult } from "@/components/ui/AddressAutocomplete/AddressAutocomplete";
+import { isValidPartitaIva, isValidCodiceFiscale } from "@/utils/fiscalValidators";
 
 import { Step1Info } from "./steps/Step1Info";
 import { Step2PlanSeats } from "./steps/Step2PlanSeats";
+import { StepBilling } from "./steps/StepBilling";
 import { Step3Summary } from "./steps/Step3Summary";
 
 import styles from "./CreateBusinessWizard.module.scss";
@@ -38,7 +41,8 @@ interface CreateBusinessWizardProps {
 const STEPS = [
     { n: 1 as const, label: "Informazioni attività" },
     { n: 2 as const, label: "Piano e sedi" },
-    { n: 3 as const, label: "Riepilogo e pagamento" },
+    { n: 3 as const, label: "Dati di fatturazione" },
+    { n: 4 as const, label: "Riepilogo e pagamento" },
 ];
 
 const DEFAULT_PLAN: PlanCode = "pro";
@@ -49,7 +53,11 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
 
     const resumeMode = mode === "resume" && existingTenant !== null;
 
-    const [step, setStep] = useState<1 | 2 | 3>(1);
+    // Resume reactivates an existing tenant: collect billing only when the
+    // tenant has no fiscal data yet. With data present, the step is skipped.
+    const resumeNeedsBilling = resumeMode && !!existingTenant && !tenantHasFiscalData(existingTenant);
+
+    const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
     const [name, setName] = useState("");
     const [subtype, setSubtype] = useState<BusinessSubtype>(DEFAULT_SUBTYPE);
     const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -57,6 +65,17 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
     const [seats, setSeats] = useState(1);
     const [promotionCode, setPromotionCode] = useState("");
     const [showPromoInput, setShowPromoInput] = useState(false);
+
+    // Billing identity (intestatario fattura) — collected in create flow only.
+    const [entityType, setEntityType] = useState<LegalEntityType | "">("");
+    const [legalName, setLegalName] = useState("");
+    const [vatNumber, setVatNumber] = useState("");
+    const [fiscalCode, setFiscalCode] = useState("");
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
+    const [pec, setPec] = useState("");
+    const [codiceDestinatario, setCodiceDestinatario] = useState("");
+    const [billingAddress, setBillingAddress] = useState<AddressResult | null>(null);
 
     const [plans, setPlans] = useState<Plan[]>([]);
     const [plansLoading, setPlansLoading] = useState(false);
@@ -82,6 +101,33 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             setPlanCode(existingTenant.plan);
             setSeats(Math.max(1, existingTenant.paid_seats));
             initialResumeRef.current = { plan: existingTenant.plan, seats: Math.max(1, existingTenant.paid_seats) };
+
+            // Pre-fill billing from any data already on the tenant (covers partial).
+            setEntityType(existingTenant.legal_entity_type ?? "");
+            setLegalName(existingTenant.legal_name ?? "");
+            setVatNumber(existingTenant.vat_number ?? "");
+            setFiscalCode(existingTenant.fiscal_code ?? "");
+            setFirstName(existingTenant.first_name ?? "");
+            setLastName(existingTenant.last_name ?? "");
+            setPec(existingTenant.pec ?? "");
+            setCodiceDestinatario(existingTenant.codice_destinatario ?? "");
+            const hasAddr =
+                !!existingTenant.address ||
+                !!existingTenant.street_number ||
+                !!existingTenant.postal_code ||
+                !!existingTenant.city ||
+                !!existingTenant.province;
+            setBillingAddress(
+                hasAddr
+                    ? {
+                          address: existingTenant.address ?? "",
+                          street_number: existingTenant.street_number ?? "",
+                          postal_code: existingTenant.postal_code ?? "",
+                          city: existingTenant.city ?? "",
+                          province: existingTenant.province ?? "",
+                      }
+                    : null
+            );
         } else {
             setStep(1);
             setName("");
@@ -89,9 +135,21 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             setPlanCode(DEFAULT_PLAN);
             setSeats(1);
             initialResumeRef.current = null;
+
+            // Billing fields start empty (collected fresh in create flow).
+            setEntityType("");
+            setLegalName("");
+            setVatNumber("");
+            setFiscalCode("");
+            setFirstName("");
+            setLastName("");
+            setPec("");
+            setCodiceDestinatario("");
+            setBillingAddress(null);
         }
 
         setLogoFile(null);
+
         const seeded = getStoredPromo() ?? "";
         setPromotionCode(seeded);
         setShowPromoInput(seeded.length > 0);
@@ -148,6 +206,41 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
     const canProceedFromStep1 = name.trim().length >= 2;
     const canProceedFromStep2 = !!selectedPlan && seats >= 1 && !overLimit;
 
+    // Civico (street_number) is optional — NumeroCivico is not required by FatturaPA.
+    const billingAddressComplete =
+        !!billingAddress &&
+        billingAddress.address.trim().length > 0 &&
+        billingAddress.postal_code.trim().length > 0 &&
+        billingAddress.city.trim().length > 0 &&
+        billingAddress.province.trim().length > 0;
+
+    const canProceedFromStepBilling = useMemo(() => {
+        if (!billingAddressComplete) return false;
+
+        const vatFilled = vatNumber.trim().length > 0;
+        const cfFilled = fiscalCode.trim().length > 0;
+        const vatFormatOk = !vatFilled || isValidPartitaIva(vatNumber);
+        const cfFormatOk = !cfFilled || isValidCodiceFiscale(fiscalCode);
+
+        switch (entityType) {
+            case "societa":
+                return vatFilled && isValidPartitaIva(vatNumber) && legalName.trim().length > 0 && cfFormatOk;
+            case "professionista":
+                return (
+                    vatFilled &&
+                    isValidPartitaIva(vatNumber) &&
+                    cfFilled &&
+                    isValidCodiceFiscale(fiscalCode) &&
+                    firstName.trim().length > 0 &&
+                    lastName.trim().length > 0
+                );
+            case "associazione":
+                return cfFilled && isValidCodiceFiscale(fiscalCode) && legalName.trim().length > 0 && vatFormatOk;
+            default:
+                return false;
+        }
+    }, [entityType, vatNumber, fiscalCode, legalName, firstName, lastName, billingAddressComplete]);
+
     const isDirty = resumeMode
         ? (
             !!initialResumeRef.current && (
@@ -160,7 +253,9 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             subtype !== DEFAULT_SUBTYPE ||
             logoFile !== null ||
             step > 1 ||
-            promotionCode.length > 0
+            promotionCode.length > 0 ||
+            entityType !== "" ||
+            billingAddress !== null
         );
 
     const requestClose = () => {
@@ -181,12 +276,18 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         if (submitting) return;
         if (resumeMode) {
             if (step === 2) return requestClose();
-            setStep(2);
+            if (step === 3) {
+                setStep(2);
+                setSubmitError(null);
+                return;
+            }
+            // Summary (4) → billing (3) if it was shown, else plan/seats (2).
+            setStep(resumeNeedsBilling ? 3 : 2);
             setSubmitError(null);
             return;
         }
         if (step === 1) return requestClose();
-        setStep(s => (s === 3 ? 2 : 1));
+        setStep(s => (s - 1) as 1 | 2 | 3 | 4);
         setSubmitError(null);
     };
 
@@ -194,13 +295,33 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         if (step === 1 && canProceedFromStep1) {
             setStep(2);
         } else if (step === 2 && canProceedFromStep2) {
-            setStep(3);
+            // Resume skips billing only when the tenant already has fiscal data.
+            setStep(resumeMode && !resumeNeedsBilling ? 4 : 3);
+        } else if (step === 3 && canProceedFromStepBilling) {
+            setStep(4);
         }
     };
 
     const handleSeatsChange = (next: number) => {
         setSeats(next);
     };
+
+    const buildBillingPayload = (): TenantBillingDetails => ({
+        legal_entity_type: entityType || null,
+        legal_name: legalName.trim() || null,
+        vat_number: vatNumber.trim() || null,
+        fiscal_code: fiscalCode.trim() || null,
+        first_name: firstName.trim() || null,
+        last_name: lastName.trim() || null,
+        pec: pec.trim() || null,
+        codice_destinatario: codiceDestinatario.trim() || null,
+        address: billingAddress?.address.trim() || null,
+        street_number: billingAddress?.street_number.trim() || null,
+        postal_code: billingAddress?.postal_code.trim() || null,
+        city: billingAddress?.city.trim() || null,
+        province: billingAddress?.province.trim() || null,
+        country: "IT",
+    });
 
     const handleCheckout = async () => {
         if (!selectedPlan) return;
@@ -235,6 +356,11 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                         throw wrap;
                     }
                 }
+
+                // Persist billing only when it was missing and is now collected.
+                if (resumeNeedsBilling) {
+                    await updateTenantBillingDetails(tenantId, buildBillingPayload());
+                }
             } else {
                 const { data: tenantRow, error: insertError } = await supabase
                     .from("tenants")
@@ -243,6 +369,8 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                         name: name.trim(),
                         vertical_type: "food_beverage",
                         business_subtype: subtype,
+                        // Billing identity (intestatario fattura) + legal address.
+                        ...buildBillingPayload(),
                     })
                     .select("id")
                     .single();
@@ -350,6 +478,30 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                 );
             case 3:
                 return (
+                    <StepBilling
+                        entityType={entityType}
+                        onEntityTypeChange={setEntityType}
+                        legalName={legalName}
+                        onLegalNameChange={setLegalName}
+                        vatNumber={vatNumber}
+                        onVatNumberChange={setVatNumber}
+                        fiscalCode={fiscalCode}
+                        onFiscalCodeChange={setFiscalCode}
+                        firstName={firstName}
+                        onFirstNameChange={setFirstName}
+                        lastName={lastName}
+                        onLastNameChange={setLastName}
+                        pec={pec}
+                        onPecChange={setPec}
+                        codiceDestinatario={codiceDestinatario}
+                        onCodiceDestinatarioChange={setCodiceDestinatario}
+                        billingAddress={billingAddress}
+                        onAddressChange={setBillingAddress}
+                        disabled={submitting}
+                    />
+                );
+            case 4:
+                return (
                     <Step3Summary
                         name={name}
                         plan={selectedPlan}
@@ -375,13 +527,17 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         !!plansError ||
         !selectedPlan ||
         (step === 1 && !canProceedFromStep1) ||
-        (step === 2 && !canProceedFromStep2);
+        (step === 2 && !canProceedFromStep2) ||
+        (step === 3 && !canProceedFromStepBilling);
 
     const headerTitle = resumeMode && existingTenant
         ? `Attiva abbonamento — ${existingTenant.name}`
         : "Crea nuova attività";
 
-    const visibleSteps = resumeMode ? STEPS.filter(s => s.n !== 1) : STEPS;
+    // Resume skips info (1) always, and billing (3) only when fiscal data exists.
+    const visibleSteps = resumeMode
+        ? STEPS.filter(s => s.n !== 1 && (s.n !== 3 || resumeNeedsBilling))
+        : STEPS;
 
     return (
         <>
@@ -454,7 +610,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                     </Button>
 
                     <div className={styles.footerRight}>
-                        {step < 3 ? (
+                        {step < 4 ? (
                             <Button
                                 variant="primary"
                                 onClick={handleNext}
@@ -468,7 +624,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                                 variant="primary"
                                 onClick={handleCheckout}
                                 loading={submitting}
-                                disabled={!canProceedFromStep2}
+                                disabled={!canProceedFromStep2 || ((!resumeMode || resumeNeedsBilling) && !canProceedFromStepBilling)}
                                 rightIcon={<ArrowRight size={16} />}
                             >
                                 Vai al pagamento
@@ -490,6 +646,30 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         />
         </>
     );
+}
+
+/**
+ * True when the tenant already carries the fiscal identity required for its
+ * entity type. Drives whether the billing step is shown in resume flow.
+ */
+function tenantHasFiscalData(t: V2Tenant): boolean {
+    if (!t.legal_entity_type) return false;
+    const has = (v?: string | null) => !!v && v.trim().length > 0;
+
+    // Identity without a minimal legal address is incomplete for invoicing.
+    const addressOk = has(t.address) && has(t.postal_code) && has(t.city) && has(t.province);
+    if (!addressOk) return false;
+
+    switch (t.legal_entity_type) {
+        case "societa":
+            return has(t.vat_number) && has(t.legal_name);
+        case "professionista":
+            return has(t.vat_number) && has(t.fiscal_code) && has(t.first_name) && has(t.last_name);
+        case "associazione":
+            return has(t.fiscal_code) && has(t.legal_name);
+        default:
+            return false;
+    }
 }
 
 function friendlyErrorMessage(code: string): string {

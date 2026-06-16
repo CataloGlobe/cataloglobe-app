@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { supabase } from "@/services/supabase/client";
@@ -16,7 +16,8 @@ import {
     deleteTenantSoft,
     restoreTenant,
     getDeletedTenants,
-    purgeTenantNow
+    purgeTenantNow,
+    getTenantFiscalProfile
 } from "@/services/supabase/tenants";
 import type { DeletedTenant } from "@/services/supabase/tenants";
 import type { V2Tenant } from "@/types/tenant";
@@ -214,13 +215,35 @@ export default function WorkspacePage() {
         setSearchParams({ resume: id });
     };
 
-    const resumeTenant = useMemo(() => {
-        if (!resumeId) return null;
-        const found = tenants.find(t => t.id === resumeId) ?? null;
+    // resumeTenant must carry the fiscal/address columns, which user_tenants_view
+    // does NOT expose. We hydrate them from the tenants table so the billing step
+    // can be skipped (data present) or pre-filled (data partial) correctly.
+    const [resumeTenant, setResumeTenant] = useState<V2Tenant | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        if (!resumeId) {
+            setResumeTenant(null);
+            return;
+        }
+        const base = tenants.find(t => t.id === resumeId) ?? null;
         // Guard: ignore resume for tenants that are already activated (defensive
         // against manually-crafted URLs).
-        if (found && found.stripe_subscription_id) return null;
-        return found;
+        if (!base || base.stripe_subscription_id) {
+            setResumeTenant(null);
+            return;
+        }
+        getTenantFiscalProfile(resumeId)
+            .then(fiscal => {
+                if (!cancelled) setResumeTenant({ ...base, ...fiscal });
+            })
+            .catch(() => {
+                // Fallback: open with list data only (billing step shown empty).
+                if (!cancelled) setResumeTenant(base);
+            });
+        return () => {
+            cancelled = true;
+        };
     }, [resumeId, tenants]);
 
     const closeResumeWizard = () => {
