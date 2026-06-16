@@ -44,6 +44,7 @@ import { usePlanFeatures } from "@/lib/planFeatures";
 import { usePageHeader } from "@/context/usePageHeader";
 import { PageGate } from "@/components/PageGate/PageGate";
 import Text from "@/components/ui/Text/Text";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { Button } from "@/components/ui/Button/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { buildXlsxWorkbook, downloadXlsx, type XlsxSection } from "./utils/exportXlsx";
@@ -619,16 +620,23 @@ export default function AnalyticsPage() {
                                     </Text>
                                 </header>
                                 <div className={styles.chartCardBody}>
-                                    <div className={styles.chartEmpty}>
-                                        <div className={styles.emptyStacked}>
-                                            <Text variant="body" colorVariant="muted">
-                                                Ancora nessuna prenotazione nel periodo selezionato.
-                                            </Text>
-                                            <Text variant="caption" colorVariant="muted">
-                                                Le metriche compariranno appena arrivano i dati.
-                                            </Text>
+                                    {isLoading ? (
+                                        <div className={styles.tableSkeletons}>
+                                            <Skeleton height="64px" radius="8px" />
+                                            <Skeleton height="120px" radius="8px" />
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div className={styles.chartEmpty}>
+                                            <div className={styles.emptyStacked}>
+                                                <Text variant="body" colorVariant="muted">
+                                                    Ancora nessuna prenotazione nel periodo selezionato.
+                                                </Text>
+                                                <Text variant="caption" colorVariant="muted">
+                                                    Le metriche compariranno appena arrivano i dati.
+                                                </Text>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </article>
                         </>
