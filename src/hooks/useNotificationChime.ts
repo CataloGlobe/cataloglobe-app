@@ -2,13 +2,13 @@
  * useNotificationChime — chime audio per il campanello notifiche.
  *
  * Riusa il pattern audio di useNewOrderAlert (Web Audio API sintetizzata,
- * autoplay/unlock via gesto utente, toggle persistito su localStorage,
- * debounce) ma indipendente dagli Ordini:
+ * autoplay/unlock via gesto utente, debounce) ma indipendente dagli Ordini:
  *
- *   - Chiave localStorage dedicata "cataloglobe-notifications-sound" so
- *     toggle e default sono separati da quelli degli Ordini.
- *   - Frequenze distinte (587Hz → 440Hz discendente) per timbro più
- *     morbido/grave, distinguibile acusticamente dal chime ordini.
+ *   - Stato muto da `notificationSoundStore` (key localStorage
+ *     "cataloglobe-notifications-sound", default ON) via `useSyncExternalStore`:
+ *     UNICO interruttore condiviso e reattivo same-tab fra tutte le istanze
+ *     (dispatcher, campanello, icona muto Ordini).
+ *   - Frequenze per `variant` (customer 587→440, order 880→660).
  *   - Espone solo l'audio: niente pulse visivo, niente title pulse
  *     (il badge del campanello fa già la sua parte visiva).
  *
@@ -22,9 +22,15 @@
  * Debounce ~3s: multi-arrivi ravvicinati = un solo chime.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
-const STORAGE_KEY = "cataloglobe-notifications-sound";
+import {
+    subscribe as subscribeSound,
+    getSnapshot as getSoundSnapshot,
+    getServerSnapshot as getSoundServerSnapshot,
+    setSoundEnabled as setStoreSoundEnabled
+} from "@/hooks/notificationSoundStore";
+
 const CHIME_DEBOUNCE_MS = 3000;
 
 /**
@@ -53,33 +59,13 @@ interface ChimeHookResult {
     triggerChime: (variant?: ChimeVariant) => void;
 }
 
-function readStoredSoundEnabled(): boolean {
-    if (typeof window === "undefined") return true;
-    try {
-        const raw = window.localStorage.getItem(STORAGE_KEY);
-        if (raw === null) return true;
-        return raw === "true";
-    } catch {
-        return true;
-    }
-}
-
-function writeStoredSoundEnabled(value: boolean): void {
-    if (typeof window === "undefined") return;
-    try {
-        window.localStorage.setItem(STORAGE_KEY, String(value));
-    } catch {
-        /* private mode / quota — ignora */
-    }
-}
-
 export function useNotificationChime(): ChimeHookResult {
-    const [soundEnabled, setSoundEnabled] = useState<boolean>(() =>
-        readStoredSoundEnabled()
+    // Stato muto condiviso e reattivo (same-tab) via store esterno.
+    const soundEnabled = useSyncExternalStore(
+        subscribeSound,
+        getSoundSnapshot,
+        getSoundServerSnapshot
     );
-
-    const soundEnabledRef = useRef(soundEnabled);
-    soundEnabledRef.current = soundEnabled;
 
     const audioCtxRef = useRef<AudioContext | null>(null);
     const audioArmedRef = useRef(false);
@@ -170,7 +156,9 @@ export function useNotificationChime(): ChimeHookResult {
     // ctx.resume() inline — nei browser desktop il resume riesce se c'è
     // stata almeno una gesture sulla pagina anche prima del mount.
     const playChime = useCallback((variant: ChimeVariant = "customer") => {
-        if (!soundEnabledRef.current) return;
+        // Guard fresco: leggi lo store all'istante del suono (no valore stale
+        // dentro l'handler realtime del dispatcher).
+        if (!getSoundSnapshot()) return;
         const ctx = ensureAudioContext();
         if (!ctx) return;
 
@@ -192,12 +180,9 @@ export function useNotificationChime(): ChimeHookResult {
     }, [ensureAudioContext, playTonesNow]);
 
     const toggleSound = useCallback(() => {
-        setSoundEnabled(prev => {
-            const next = !prev;
-            writeStoredSoundEnabled(next);
-            if (next) armAudio();
-            return next;
-        });
+        const next = !getSoundSnapshot();
+        setStoreSoundEnabled(next);
+        if (next) armAudio();
     }, [armAudio]);
 
     return { soundEnabled, toggleSound, triggerChime: playChime };
