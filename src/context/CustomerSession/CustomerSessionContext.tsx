@@ -29,11 +29,16 @@ interface ProviderProps {
  * activityId === null, expone session=null / isActive=false (no-op).
  */
 export function CustomerSessionProvider({ activityId, children }: ProviderProps) {
-    const [session, setSession] = useState<CustomerSessionBlob | null>(() => {
-        return activityId ? loadCustomerSession(activityId) : null;
-    });
+    // Hydration-safe: default null in render (= server, che non ha sessionStorage).
+    // La lettura sessionStorage (loadCustomerSession) è spostata nell'effect
+    // post-mount sotto (client-only) → primo render client === server, niente
+    // mismatch #418 sul div.headerActions gated da isActive/orderingActive.
+    const [session, setSession] = useState<CustomerSessionBlob | null>(null);
 
     useEffect(() => {
+        // Load post-mount (+ re-run sul cambio sede): popola la sessione dopo
+        // l'hydration. Nessun guard anti-clobber: qui non c'è effect di persist
+        // (il save avviene solo via callback clear/setCustomerName, non in effect).
         if (!activityId) {
             setSession(null);
             return;

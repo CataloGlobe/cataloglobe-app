@@ -575,6 +575,24 @@ export default function Businesses() {
             const duration = disabled > 0 ? 4000 : 2500;
 
             showToast({ message, type: "success", duration });
+
+            // Promemoria: se il piano copre più sedi di quante ne restano,
+            // suggerisci all'owner di ridurre le sedi per pagare meno.
+            // Solo l'owner può modificare l'abbonamento (coerente col create-gate).
+            const remainingSeats = businesses.length - 1;
+            if (
+                selectedTenant &&
+                isOwner(userRole) &&
+                selectedTenant.paid_seats > remainingSeats
+            ) {
+                showToast({
+                    message: `Sede eliminata. Il piano copre ${selectedTenant.paid_seats} sedi, ora ne hai ${remainingSeats}. Puoi ridurre le sedi del piano per pagare meno.`,
+                    type: "info",
+                    duration: 6000,
+                    actionLabel: "Modifica piano",
+                    onAction: () => navigate(`/business/${businessId}/subscription`)
+                });
+            }
         } catch (e) {
             console.error("Errore durante l'eliminazione della sede:", e);
             let message = "Errore durante l'eliminazione della sede.";
@@ -596,7 +614,7 @@ export default function Businesses() {
             setShowDeleteModal(false);
             setDeleteTargetId(null);
         }
-    }, [deleteTargetId, refreshBusinesses, showToast]);
+    }, [deleteTargetId, refreshBusinesses, showToast, selectedTenant, userRole, businesses, navigate, businessId]);
 
     // ======================================
     // CALLBACK: navigazione lista

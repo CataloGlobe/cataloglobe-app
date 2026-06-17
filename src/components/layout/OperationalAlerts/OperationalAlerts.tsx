@@ -15,11 +15,13 @@
  *     vengono apprese SENZA notificare (no falsi positivi al mount / cambio
  *     business).
  *   - Rileva la transizione assente/NULL → valorizzato (o timestamp nuovo) su
- *     `waiter_called_at` / `bill_requested_at` e, se l'admin NON è nella
- *     sezione operativa (`/business/:businessId/orders`), dispatcha:
- *       • toast qualificato ("Tavolo {label} · …") con azione "Vai";
+ *     `waiter_called_at` / `bill_requested_at` e, a meno che NON sia in primo
+ *     piano la tab "Tavoli" di /orders (l'unica che mostra già le pill),
+ *     dispatcha:
+ *       • toast qualificato ("{label} · …") con azione "Vai";
  *       • suono via `useNotificationChime` (debounce 3s interno).
- *     Se l'admin è già nella sezione → no-op (le pill in-page bastano).
+ *     Sulla tab "Tavoli" → no-op (la pill in-page basta). In Comande/Storico
+ *     e fuori da /orders → alert pieno.
  *
  * NON scrive in `notifications` (eventi transitori: niente storico, niente
  * intasamento del centro notifiche navbar).
@@ -59,7 +61,7 @@ interface SessionRow {
 export function OperationalAlerts(): null {
     const tenantId = useTenantId();
     const { businessId } = useParams<{ businessId: string }>();
-    const { pathname } = useLocation();
+    const { pathname, search } = useLocation();
     const navigate = useNavigate();
     const { showToast } = useToast();
     const { triggerChime } = useNotificationChime();
@@ -69,6 +71,11 @@ export function OperationalAlerts(): null {
     // navigazione o re-render).
     const pathnameRef = useRef(pathname);
     pathnameRef.current = pathname;
+    // Query string corrente: la tab attiva di /orders è sincronizzata qui da
+    // Orders.tsx come `?tab=`. Letta via ref per lo stesso motivo di pathname
+    // (no stale closure nell'handler realtime).
+    const searchRef = useRef(search);
+    searchRef.current = search;
     const businessIdRef = useRef(businessId);
     businessIdRef.current = businessId;
     const navigateRef = useRef(navigate);
@@ -90,9 +97,14 @@ export function OperationalAlerts(): null {
             const bid = businessIdRef.current;
             const path = pathnameRef.current;
 
-            // Context-aware: se sei già nella sezione operativa, l'indicatore
-            // in-page (pill sulla card) basta → niente toast/suono.
-            if (bid && path.startsWith(`/business/${bid}/orders`)) return;
+            // Context-aware: sopprimi SOLO quando è in primo piano la vista che
+            // mostra già le pill, cioè la tab "Tavoli" di /orders. In Comande/
+            // Storico e fuori da /orders l'alert passa.
+            // Default tab senza `?tab=` = "comande" (vedi Orders.tsx), quindi
+            // l'assenza del param NON sopprime.
+            const onOrders = !!bid && path.startsWith(`/business/${bid}/orders`);
+            const tab = new URLSearchParams(searchRef.current).get("tab") ?? "comande";
+            if (onOrders && tab === "tavoli") return;
 
             void (async () => {
                 let label: string | null = null;
@@ -108,7 +120,7 @@ export function OperationalAlerts(): null {
                 }
                 if (cancelled) return;
 
-                const tablePart = label ? `Tavolo ${label} · ` : "";
+                const tablePart = label ? `${label} · ` : "";
                 const message =
                     kind === "waiter"
                         ? `${tablePart}Cameriere chiamato`

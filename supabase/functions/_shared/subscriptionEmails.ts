@@ -87,12 +87,12 @@ export function downgradeEmail(opts: {
     plan: string;
     seats: number;
     effectiveDateIso: string | null;
-    targetIsBase: boolean;
+    losesQrFeatures: boolean;
 }): { subject: string; html: string; text: string } {
     const label = planLabel(opts.plan);
     const seats = seatsLabel(opts.seats);
     const date = formatDateIt(opts.effectiveDateIso);
-    const qrNote = opts.targetIsBase
+    const qrNote = opts.losesQrFeatures
         ? "Ordini e prenotazioni da QR verranno disattivati al rinnovo."
         : "";
 

@@ -244,10 +244,17 @@ export default function SubscriptionPage() {
         }
     };
 
+    // Baseline "corrente" = fonte ottimistica (post-commit) con fallback al
+    // valore raw del context. Stessa fonte usata dalla card (displaySeats),
+    // così il drawer non pre-compila valori stantii e `hasChange` non segnala
+    // cambi fantasma dopo un commit.
+    const currentPlanBaseline = (optimisticPlan ?? selectedTenant.plan) as PlanCode;
+    const currentSeatsBaseline = optimisticSeats ?? paidSeats;
+
     // --- Flusso "Modifica piano" ---
     const openChange = () => {
-        setDraftPlan(selectedTenant.plan as PlanCode);
-        setDraftSeats(Math.max(1, paidSeats, activityCount));
+        setDraftPlan(currentPlanBaseline);
+        setDraftSeats(Math.max(1, currentSeatsBaseline, activityCount));
         setChangeStep("select");
         setPreview(null);
         setChangeError(null);
@@ -265,8 +272,8 @@ export default function SubscriptionPage() {
         setDraftSeats(s => Math.min(Math.max(s, minSeats), cap));
     };
 
-    const hasChange = draftPlan !== selectedTenant.plan || draftSeats !== paidSeats;
-    const isDowngradeToBase = draftPlan === "base" && selectedTenant.plan === "pro";
+    const hasChange = draftPlan !== currentPlanBaseline || draftSeats !== currentSeatsBaseline;
+    const isDowngradeToBase = draftPlan === "base" && currentPlanBaseline === "pro";
 
     const handleContinue = async () => {
         setPreviewLoading(true);
@@ -381,7 +388,7 @@ export default function SubscriptionPage() {
                 ?? "—",
             seats: subState.pendingChange!.targetSeats ?? 0,
             date: subState.pendingChange!.effectiveDate,
-            isBase: subState.pendingChange!.targetPlan === "base"
+            isBase: subState.pendingChange!.targetPlan === "base" && selectedTenant.plan === "pro"
         }
         : scheduledChange
         ? {
