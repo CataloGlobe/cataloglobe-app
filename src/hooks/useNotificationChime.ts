@@ -27,6 +27,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const STORAGE_KEY = "cataloglobe-notifications-sound";
 const CHIME_DEBOUNCE_MS = 3000;
 
+/**
+ * Varianti timbriche. Toni distinti per discriminare acusticamente la
+ * sorgente dell'alert senza guardare lo schermo:
+ *   - `customer` (default): 587→440Hz, morbido/grave — waiter/bill.
+ *   - `order`: 880→660Hz, più acuto — nuovi ordini.
+ */
+type ChimeVariant = "customer" | "order";
+
+const CHIME_TONES: Record<ChimeVariant, readonly [number, number]> = {
+    customer: [587, 440],
+    order: [880, 660]
+};
+
 interface ChimeHookResult {
     /** Stato persistito del toggle suono. */
     soundEnabled: boolean;
@@ -34,9 +47,10 @@ interface ChimeHookResult {
     toggleSound: () => void;
     /**
      * Trigger del chime. No-op se: toggle OFF, audio non armato, ctx non
-     * running, o entro la finestra di debounce.
+     * running, o entro la finestra di debounce. `variant` sceglie il timbro
+     * (default `customer`, così i chiamanti waiter/bill restano invariati).
      */
-    triggerChime: () => void;
+    triggerChime: (variant?: ChimeVariant) => void;
 }
 
 function readStoredSoundEnabled(): boolean {
@@ -120,16 +134,18 @@ export function useNotificationChime(): ChimeHookResult {
         };
     }, [armAudio]);
 
-    // Suona i due toni discendenti 587→440 sul context già running.
-    const playTonesNow = useCallback((ctx: AudioContext) => {
+    // Suona i due toni discendenti sul context già running. `variant` sceglie
+    // la coppia di frequenze (customer 587→440, order 880→660).
+    const playTonesNow = useCallback((ctx: AudioContext, variant: ChimeVariant) => {
         const now = Date.now();
         if (now - lastChimeAtRef.current < CHIME_DEBOUNCE_MS) return;
         lastChimeAtRef.current = now;
 
+        const [f1, f2] = CHIME_TONES[variant];
         const audioNow = ctx.currentTime;
         const tones: Array<{ freq: number; start: number; duration: number }> = [
-            { freq: 587, start: audioNow, duration: 0.2 },
-            { freq: 440, start: audioNow + 0.14, duration: 0.26 }
+            { freq: f1, start: audioNow, duration: 0.2 },
+            { freq: f2, start: audioNow + 0.14, duration: 0.26 }
         ];
         for (const { freq, start, duration } of tones) {
             const osc = ctx.createOscillator();
@@ -153,14 +169,14 @@ export function useNotificationChime(): ChimeHookResult {
     // mancare il primo pointerdown (race con mount+effect). Tentiamo invece
     // ctx.resume() inline — nei browser desktop il resume riesce se c'è
     // stata almeno una gesture sulla pagina anche prima del mount.
-    const playChime = useCallback(() => {
+    const playChime = useCallback((variant: ChimeVariant = "customer") => {
         if (!soundEnabledRef.current) return;
         const ctx = ensureAudioContext();
         if (!ctx) return;
 
         if (ctx.state === "running") {
             audioArmedRef.current = true;
-            playTonesNow(ctx);
+            playTonesNow(ctx, variant);
             return;
         }
 
@@ -168,7 +184,7 @@ export function useNotificationChime(): ChimeHookResult {
             void ctx.resume().then(
                 () => {
                     audioArmedRef.current = ctx.state === "running";
-                    if (ctx.state === "running") playTonesNow(ctx);
+                    if (ctx.state === "running") playTonesNow(ctx, variant);
                 },
                 () => { /* autoplay bloccato dal browser — skip silenzioso */ }
             );
