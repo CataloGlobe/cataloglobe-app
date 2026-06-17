@@ -38,7 +38,7 @@ npm run test:watch   # vitest watch
 - Framer Motion v12 — animazioni
 - SCSS Modules (`.module.scss`) — niente CSS inline
 - Icons: Lucide React + `@tabler/icons-react`
-- Charts: recharts | DnD: @dnd-kit | Testing: Vitest
+- Charts: recharts | DnD: @dnd-kit | Testing: Vitest | Export Excel: xlsx-js-style
 
 ---
 
@@ -300,6 +300,7 @@ Customer stepper (`OrderStatusStepper.tsx`): 4 step (Inviato → In cucina → P
 - **Upload**: `src/services/supabase/upload.ts` + `src/utils/compressImage.ts`. Per upsert vedi `docs/patterns/storage-sql.md`.
 - **Stripe**: sottoscrizione tenant, seat management, webhook. Service: `src/services/supabase/billing.ts`.
 - **Google Places**: Edge Function `search-google-places` + `GooglePlacesSearch` component in `src/pages/Operativita/Attivita/tabs/contacts/`.
+- **Export Excel Analitiche**: `src/pages/Dashboard/Analytics/utils/exportXlsx.ts` costruisce il workbook via `xlsx-js-style` (fork di SheetJS con cell styling; `xlsx` resta come dep separata, NON rimossa). Engine "un foglio = più tabelle impilate": 4 fogli (Copertina · Engagement · Ordini · Prenotazioni), stile per-cella. Header letto a runtime da `--brand-primary` (`_theme.scss`) → **theme-aware**: violetto in light, blu in dark (scelta voluta — l'xlsx segue il tema attivo). Dati presi dallo state della pagina (no re-fetch). Valuta/percentuali/durate scritte come **numeri + numFmt** (mai stringhe pre-formattate come valore di cella).
 
 ---
 
