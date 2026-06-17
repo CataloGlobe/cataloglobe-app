@@ -3,7 +3,7 @@ import { AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, MessageSquareHeart, Package, Phone, Plus } from "lucide-react";
+import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Package, Phone, Plus } from "lucide-react";
 import type {
     ResolvedAllergen,
     ResolvedCharacteristic,
@@ -24,7 +24,6 @@ import { PublicFeeRows } from "../PublicFooter/PublicFees";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
 import type { CollectionStyle } from "@/types/collectionStyle";
 import styles from "./CollectionView.module.scss";
-import { useFabCollapse } from "../hooks/useFabCollapse";
 import EventsView from "../EventsView/EventsView";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import AssistanceSheet from "../AssistanceSheet/AssistanceSheet";
@@ -51,12 +50,12 @@ import type { ActivityFee } from "@/types/activity";
 import type { Allergen } from "@/services/supabase/allergens";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
-import { submitOrder, getOrdersForSession } from "@/services/supabase/orders";
+import { submitOrder } from "@/services/supabase/orders";
 import { subscribeToCustomerSession } from "@/services/supabase/customerSessions";
 import { useOptionalCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
 import type { OrderItemRequest, SubmitOrderResult, OrderingStateReason } from "@/types/orders";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { ClipboardList, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 const OrderConfirmationSheet = lazy(() => import("../OrderConfirmationSheet/OrderConfirmationSheet"));
 
 // ─── Selection helpers ────────────────────────────────────────────────────────
@@ -576,13 +575,10 @@ export type SocialLinks = {
 // Split mobile/desktop CSS-driven: il breakpoint 640px NON vive più in JS (niente
 // matchMedia in render) ma negli SCSS (@media max-width:640px) di
 // PublicBottomBar + PublicCollectionHeader. Entrambe le superfici sono montate
-// sempre sotto flag ON → markup SSR identico al primo paint client (no hydration
+// sempre in public → markup SSR identico al primo paint client (no hydration
 // flash). Vedi derivazioni `useBottomBar`/`showHeaderActions` nel componente.
 // Z_BOTTOM_BAR = 150 vive nello SCSS della barra (PublicBottomBar.module.scss); qui
-// solo per documentazione: sopra FAB (55/60), sotto toast/search (200) e sheet (900).
-// Flag globale d'ambiente (build-time): ON su tutte le attività dove acceso, nessun tocco DB.
-// Rollback = VITE_PUBLIC_BOTTOM_BAR=false/rimosso + redeploy.
-const PUBLIC_BOTTOM_BAR = import.meta.env.VITE_PUBLIC_BOTTOM_BAR === "true";
+// solo per documentazione: sopra toast/search (200) e sheet (900).
 
 type Props = {
     businessName: string;
@@ -712,13 +708,10 @@ export default function CollectionView({
     // (display:none). Gli effetti viewport-specifici della bottom-bar (ResizeObserver
     // + scroll listener) sono gated da un matchMedia in effect post-mount DENTRO
     // PublicBottomBar (client-only → SSR-safe).
-    const bottomBarFlag = mode === "public" && PUBLIC_BOTTOM_BAR;
-    // "Bottom bar montata" (flag ON, entrambi i viewport). CSS la nasconde ≥641px.
-    const useBottomBar = bottomBarFlag;
-    // "Azioni header montate" (flag ON, entrambi i viewport). CSS le nasconde ≤640px.
-    const showHeaderActions = bottomBarFlag;
-    // FAB ordine/recensioni legacy SOLO a flag OFF → struttura odierna invariata.
-    const useFabEntries = !bottomBarFlag;
+    // "Bottom bar montata" (public, entrambi i viewport). CSS la nasconde ≥641px.
+    const useBottomBar = mode === "public";
+    // "Azioni header montate" (public, entrambi i viewport). CSS le nasconde ≤640px.
+    const showHeaderActions = mode === "public";
     // Maintenance scoperto runtime via 423 ORDERING_UNAVAILABLE su submit
     // (Strict + Reactive: il cliente lo apprende solo al tentativo). Solo
     // OrderingSheet usa effectiveMaintenance per banner inline + submit
@@ -965,8 +958,6 @@ export default function CollectionView({
     const selectionCount = useMemo(() => selection.reduce((s, i) => s + i.qty, 0), [selection]);
 
     // FAB collapse: si comprimono dopo timer (3s) o scroll (100px), indipendentemente
-    const isSelectionVisible = mode === "public" && activeTab === "menu" && selectionCount > 0;
-    const isSelectionCollapsed = useFabCollapse(isSelectionVisible);
 
     // Map id → total qty per lookups O(1) nel render (somma tutte le configurazioni)
     const selectionMap = useMemo(() => {
@@ -1115,7 +1106,6 @@ export default function CollectionView({
     >(null);
     const [confirmedOrder, setConfirmedOrder] = useState<SubmitOrderResult | null>(null);
     const [confirmedOrderNote, setConfirmedOrderNote] = useState<string | null>(null);
-    const [hasOrdersInSession, setHasOrdersInSession] = useState(false);
 
     const handleSessionExpired = useCallback(() => {
         setIsOrderingOpen(false);
@@ -1175,27 +1165,6 @@ export default function CollectionView({
         setIsOrderingOpen(true);
     }, [selectionCount]);
 
-    // Check session orders presenza al mount / cambio session
-    useEffect(() => {
-        const jwt = customerSession?.session?.jwt;
-        if (!orderingActive || !jwt) {
-            setHasOrdersInSession(false);
-            return;
-        }
-        let cancelled = false;
-        (async () => {
-            try {
-                const result = await getOrdersForSession(jwt);
-                if (!cancelled) setHasOrdersInSession(result.orders.length > 0);
-            } catch {
-                if (!cancelled) setHasOrdersInSession(false);
-            }
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [orderingActive, customerSession?.session?.jwt]);
-
     useEffect(() => {
         if (!submitFeedback) return;
         const tm = setTimeout(() => setSubmitFeedback(null), 5000);
@@ -1252,7 +1221,6 @@ export default function CollectionView({
             setOrdersRefreshKey(k => k + 1);
             setConfirmedOrder(result);
             setConfirmedOrderNote(notesArg ?? null);
-            setHasOrdersInSession(true);
         } catch (err) {
             if (err instanceof Error) {
                 const msg = err.message;
@@ -1433,7 +1401,6 @@ export default function CollectionView({
     const [valutaVisible, setValutaVisible] = useState(false);
     // true = visitatore di ritorno entro 4h, senza review recente → FAB idoneo
     const valutaEligibleRef = useRef(false);
-    const isValutaCollapsed = useFabCollapse(valutaVisible);
 
     // ── Keep first section active when sections load asynchronously ─────────
     useEffect(() => {
@@ -1914,9 +1881,8 @@ export default function CollectionView({
                     activeTab={activeTab}
                     onTabChange={onTabChange ?? (() => {})}
                     // Hub-tabs sempre nel markup header: lo split CSS-driven le
-                    // nasconde ≤640px quando la bottom-bar è attiva (bottomBarEnabled).
+                    // nasconde ≤640px quando la bottom-bar è attiva (public).
                     showHubTabs
-                    bottomBarEnabled={bottomBarFlag}
                     allergensCount={allergenFilterIds.length}
                     onOpenMore={mode === "public" ? () => setIsMoreSheetOpen(true) : undefined}
                     selectionCount={selectionCount}
@@ -2299,60 +2265,7 @@ export default function CollectionView({
                 </Suspense>
             )}
 
-            {/* ── ORDERING FAB — unico, context-aware (cart o ordini) ── */}
-            {/* Nascosto quando bottom bar (flag+mobile) O azioni header (flag+desktop):
-                il carrello vive nella barra / nell'header. Resta solo legacy (flag OFF). */}
-            {useFabEntries && mode === "public" && activeTab === "menu" && !shouldHideOrderingEntry && (selectionCount > 0 || (orderingActive && hasOrdersInSession)) && (
-                <button
-                    type="button"
-                    className={styles.orderingFab}
-                    style={{ bottom: `calc(20px + env(safe-area-inset-bottom, 0px))` }}
-                    data-collapsed={isSelectionCollapsed}
-                    onClick={() => {
-                        openOrdering();
-                        if (activityId && selectionCount > 0) {
-                            const totalPrice = selection.reduce((s, i) => s + i.unitPrice * i.qty, 0);
-                            trackEvent(activityId, "selection_sheet_open", {
-                                item_count: selectionCount,
-                                estimated_total: totalPrice
-                            });
-                        }
-                    }}
-                    aria-label="Il tuo ordine"
-                >
-                    <ClipboardList className={styles.orderingFabIcon} size={20} />
-                    <span className={styles.orderingFabLabel}>Il tuo ordine</span>
-                    {selectionCount > 0 && (
-                        <span className={styles.orderingFabBadge}>{selectionCount}</span>
-                    )}
-                </button>
-            )}
-
-            {/* ── VALUTA FAB — slide-in dopo 3s, solo public + tab menu ── */}
-            {/* Nascosto con bottom bar O azioni header: il reminder diventa un dot
-                sulla tab recensioni (barra mobile o chip header). Resta solo legacy. */}
-            {useFabEntries && mode === "public" && activeTab === "menu" && (
-                <button
-                    type="button"
-                    className={[
-                        styles.valutaFab,
-                        valutaVisible ? styles.valutaFabVisible : ""
-                    ]
-                        .filter(Boolean)
-                        .join(" ")}
-                    style={{ bottom: `calc(20px + env(safe-area-inset-bottom, 0px))` }}
-                    data-collapsed={isValutaCollapsed}
-                    onClick={() => {
-                        onTabChange?.("reviews");
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    aria-label={t("fab.review_aria")}
-                >
-                    <MessageSquareHeart size={20} /><span className={styles.valutaFabText}>{t("fab.review_label")}</span>
-                </button>
-            )}
-
-            {/* ── BOTTOM NAV BAR pubblica — flag ON + mobile. Sostituisce tab header + FAB. ── */}
+            {/* ── BOTTOM NAV BAR pubblica — public + mobile. Sostituisce tab header + azioni desktop ≤640px. ── */}
             {/* reviewDot riusa `valutaVisible` (stessa eligibilità 4h + scroll≥70% + no review <24h). */}
             {useBottomBar && (
                 <PublicBottomBar

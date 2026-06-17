@@ -72,9 +72,9 @@ export type PublicCollectionHeaderProps = {
     showLanguageSelector?: boolean;
     /** Slot opzionale a destra del titolo (es. link "Menu" per pagine non-catalogo). */
     actionSlot?: ReactNode;
-    // ── Azioni tavolo desktop (gate dal parent: bottomBarFlag && !mobile) ───────
-    // Sostituiscono i FAB ordine/recensioni sul ramo desktop. Su mobile (bottom
-    // bar) il parent NON le passa → header invariato.
+    // ── Azioni tavolo desktop (solo public, nascoste ≤640px via @media) ─────────
+    // Lo split CSS-driven le mostra >640px e lascia spazio alla bottom-bar mobile
+    // ≤640px. I per-button gate (orderVisible/supportVisible) restano dal parent.
     /** Conteggio ordine per il badge del bottone Ordine. */
     selectionCount?: number;
     /** Mostra il bottone Ordine (carrello). */
@@ -87,10 +87,6 @@ export type PublicCollectionHeaderProps = {
     onOpenSupport?: () => void;
     /** Dot promemoria recensione sulla tab "Dicci la tua" (riusa valutaVisible). */
     reviewDot?: boolean;
-    /** Flag bottom-bar pubblica attivo: abilita lo split CSS-driven mobile/desktop.
-     *  ON ⇒ hub-tabs + azioni header sono montate sempre ma nascoste ≤640px via
-     *  @media (la bottom-bar mobile le sostituisce). OFF ⇒ comportamento legacy. */
-    bottomBarEnabled?: boolean;
 };
 
 export default function PublicCollectionHeader({
@@ -122,7 +118,6 @@ export default function PublicCollectionHeader({
     supportVisible = false,
     onOpenSupport,
     reviewDot = false,
-    bottomBarEnabled = false,
 }: PublicCollectionHeaderProps) {
     const { t } = useTranslation("public");
     // ── ResizeObserver: write --pub-header-height on <main> ancestor ────────────
@@ -279,7 +274,7 @@ export default function PublicCollectionHeader({
                 ref={headerRef}
                 className={styles.root}
                 data-cover={showCoverImage || undefined}
-                data-bottombar={bottomBarEnabled || undefined}
+                data-bottombar={mode === "public" || undefined}
                 style={
                     engaged
                         ? {
