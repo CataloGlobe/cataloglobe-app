@@ -71,7 +71,12 @@ export type Database = {
           province: string | null
           qr_bg_color: string | null
           qr_fg_color: string | null
+          reservation_availability_mode: string
+          reservation_capacity: number | null
+          reservation_confirmation_mode: string
+          reservation_duration_minutes: number
           reservation_notification_emails: string[]
+          reservation_overbooking_form: string
           services: string[]
           services_public: boolean
           slug: string
@@ -115,7 +120,12 @@ export type Database = {
           province?: string | null
           qr_bg_color?: string | null
           qr_fg_color?: string | null
+          reservation_availability_mode?: string
+          reservation_capacity?: number | null
+          reservation_confirmation_mode?: string
+          reservation_duration_minutes?: number
           reservation_notification_emails?: string[]
+          reservation_overbooking_form?: string
           services?: string[]
           services_public?: boolean
           slug: string
@@ -159,7 +169,12 @@ export type Database = {
           province?: string | null
           qr_bg_color?: string | null
           qr_fg_color?: string | null
+          reservation_availability_mode?: string
+          reservation_capacity?: number | null
+          reservation_confirmation_mode?: string
+          reservation_duration_minutes?: number
           reservation_notification_emails?: string[]
+          reservation_overbooking_form?: string
           services?: string[]
           services_public?: boolean
           slug?: string
@@ -1053,6 +1068,7 @@ export type Database = {
           order_group_id: string | null
           tenant_id: string
           updated_at: string
+          waiter_called_at: string | null
         }
         Insert: {
           activity_id: string
@@ -1068,6 +1084,7 @@ export type Database = {
           order_group_id?: string | null
           tenant_id: string
           updated_at?: string
+          waiter_called_at?: string | null
         }
         Update: {
           activity_id?: string
@@ -1083,6 +1100,7 @@ export type Database = {
           order_group_id?: string | null
           tenant_id?: string
           updated_at?: string
+          waiter_called_at?: string | null
         }
         Relationships: [
           {
@@ -1460,6 +1478,7 @@ export type Database = {
           cancelled_at: string | null
           cancelled_by: string | null
           created_at: string
+          created_by_user_id: string | null
           currency: string
           customer_name_snapshot: string | null
           customer_session_id: string
@@ -1486,6 +1505,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           created_at?: string
+          created_by_user_id?: string | null
           currency?: string
           customer_name_snapshot?: string | null
           customer_session_id: string
@@ -1512,6 +1532,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           created_at?: string
+          created_by_user_id?: string | null
           currency?: string
           customer_name_snapshot?: string | null
           customer_session_id?: string
@@ -2640,7 +2661,9 @@ export type Database = {
       reservations: {
         Row: {
           activity_id: string
+          completed_at: string | null
           created_at: string
+          created_by_user_id: string | null
           customer_email: string
           customer_name: string
           customer_phone: string
@@ -2649,14 +2672,18 @@ export type Database = {
           party_size: number
           reservation_date: string
           reservation_time: string
+          seated_at: string | null
           source: string
           status: string
+          table_id: string | null
           tenant_id: string
           updated_at: string
         }
         Insert: {
           activity_id: string
+          completed_at?: string | null
           created_at?: string
+          created_by_user_id?: string | null
           customer_email: string
           customer_name: string
           customer_phone: string
@@ -2665,14 +2692,18 @@ export type Database = {
           party_size: number
           reservation_date: string
           reservation_time: string
+          seated_at?: string | null
           source?: string
           status?: string
+          table_id?: string | null
           tenant_id: string
           updated_at?: string
         }
         Update: {
           activity_id?: string
+          completed_at?: string | null
           created_at?: string
+          created_by_user_id?: string | null
           customer_email?: string
           customer_name?: string
           customer_phone?: string
@@ -2681,8 +2712,10 @@ export type Database = {
           party_size?: number
           reservation_date?: string
           reservation_time?: string
+          seated_at?: string | null
           source?: string
           status?: string
+          table_id?: string | null
           tenant_id?: string
           updated_at?: string
         }
@@ -2692,6 +2725,20 @@ export type Database = {
             columns: ["activity_id"]
             isOneToOne: false
             referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "v_tables_with_state"
             referencedColumns: ["id"]
           },
           {
@@ -3607,13 +3654,18 @@ export type Database = {
           base_language_code: string
           business_subtype: string | null
           city: string | null
+          codice_destinatario: string | null
           country: string | null
           created_at: string
+          current_period_end: string | null
           deleted_at: string | null
+          first_name: string | null
           fiscal_code: string | null
           id: string
           is_founder: boolean
+          last_name: string | null
           legacy_price_id: string | null
+          legal_entity_type: string | null
           legal_name: string | null
           locked_at: string | null
           logo_url: string | null
@@ -3643,13 +3695,18 @@ export type Database = {
           base_language_code?: string
           business_subtype?: string | null
           city?: string | null
+          codice_destinatario?: string | null
           country?: string | null
           created_at?: string
+          current_period_end?: string | null
           deleted_at?: string | null
+          first_name?: string | null
           fiscal_code?: string | null
           id?: string
           is_founder?: boolean
+          last_name?: string | null
           legacy_price_id?: string | null
+          legal_entity_type?: string | null
           legal_name?: string | null
           locked_at?: string | null
           logo_url?: string | null
@@ -3679,13 +3736,18 @@ export type Database = {
           base_language_code?: string
           business_subtype?: string | null
           city?: string | null
+          codice_destinatario?: string | null
           country?: string | null
           created_at?: string
+          current_period_end?: string | null
           deleted_at?: string | null
+          first_name?: string | null
           fiscal_code?: string | null
           id?: string
           is_founder?: boolean
+          last_name?: string | null
           legacy_price_id?: string | null
+          legal_entity_type?: string | null
           legal_name?: string | null
           locked_at?: string | null
           logo_url?: string | null
@@ -3914,6 +3976,7 @@ export type Database = {
         Row: {
           business_subtype: string | null
           created_at: string | null
+          current_period_end: string | null
           id: string | null
           is_founder: boolean | null
           logo_url: string | null
@@ -3932,6 +3995,7 @@ export type Database = {
       }
       v_tables_with_state: {
         Row: {
+          active_orders: Json | null
           active_sessions_count: number | null
           activity_id: string | null
           bill_requested_count: number | null
@@ -3946,8 +4010,10 @@ export type Database = {
           pending_orders_count: number | null
           qr_token: string | null
           seats: number | null
+          session_opened_at: string | null
           tenant_id: string | null
           updated_at: string | null
+          waiter_called_count: number | null
           zone_id: string | null
           zone_name: string | null
         }
@@ -4039,6 +4105,79 @@ export type Database = {
           view_count: number
         }[]
       }
+      analytics_orders_conversion: {
+        Args: {
+          p_activity_id?: string
+          p_from: string
+          p_tenant_id: string
+          p_to: string
+        }
+        Returns: {
+          conversion_rate: number
+          orders_count: number
+          selection_sessions: number
+        }[]
+      }
+      analytics_orders_hourly: {
+        Args: {
+          p_activity_id?: string
+          p_from: string
+          p_tenant_id: string
+          p_to: string
+        }
+        Returns: {
+          hour: number
+          orders_count: number
+          revenue: number
+        }[]
+      }
+      analytics_orders_latency: {
+        Args: {
+          p_activity_id?: string
+          p_from: string
+          p_tenant_id: string
+          p_to: string
+        }
+        Returns: {
+          avg_delivery_seconds: number
+          avg_prep_seconds: number
+          avg_total_seconds: number
+          delivered_count: number
+          median_delivery_seconds: number
+          median_prep_seconds: number
+          median_total_seconds: number
+          skipped_ready_count: number
+        }[]
+      }
+      analytics_orders_overview: {
+        Args: {
+          p_activity_id?: string
+          p_from: string
+          p_tenant_id: string
+          p_to: string
+        }
+        Returns: {
+          avg_order_value: number
+          cancellation_rate: number
+          cancelled_count: number
+          orders_count: number
+          revenue: number
+        }[]
+      }
+      analytics_orders_trend: {
+        Args: {
+          p_activity_id?: string
+          p_from: string
+          p_granularity?: string
+          p_tenant_id: string
+          p_to: string
+        }
+        Returns: {
+          date: string
+          orders_count: number
+          revenue: number
+        }[]
+      }
       analytics_overview_stats: {
         Args: {
           p_activity_id?: string
@@ -4063,6 +4202,50 @@ export type Database = {
         Returns: {
           count: number
           date: string
+        }[]
+      }
+      analytics_reservations_hourly: {
+        Args: {
+          p_activity_id?: string
+          p_from: string
+          p_tenant_id: string
+          p_to: string
+        }
+        Returns: {
+          hour: number
+          reservations_count: number
+        }[]
+      }
+      analytics_reservations_overview: {
+        Args: {
+          p_activity_id?: string
+          p_from: string
+          p_tenant_id: string
+          p_to: string
+        }
+        Returns: {
+          cancelled_count: number
+          confirm_rate: number
+          confirmed_count: number
+          covers: number
+          declined_count: number
+          manual_count: number
+          online_count: number
+          reservations_count: number
+        }[]
+      }
+      analytics_reservations_trend: {
+        Args: {
+          p_activity_id?: string
+          p_from: string
+          p_granularity?: string
+          p_tenant_id: string
+          p_to: string
+        }
+        Returns: {
+          covers: number
+          date: string
+          reservations_count: number
         }[]
       }
       analytics_review_metrics: {
@@ -4097,6 +4280,21 @@ export type Database = {
         Returns: {
           click_count: number
           social_type: string
+        }[]
+      }
+      analytics_top_ordered_products: {
+        Args: {
+          p_activity_id?: string
+          p_from: string
+          p_limit?: number
+          p_order_by?: string
+          p_tenant_id: string
+          p_to: string
+        }
+        Returns: {
+          product_name: string
+          quantity: number
+          revenue: number
         }[]
       }
       analytics_top_search_terms: {
@@ -4267,6 +4465,13 @@ export type Database = {
         Args: { p_schedule_id: string; p_tenant_id: string }
         Returns: Json
       }
+      get_tenant_member_names: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          display_name: string
+          user_id: string
+        }[]
+      }
       get_tenant_members: {
         Args: { p_tenant_id: string }
         Returns: {
@@ -4291,6 +4496,7 @@ export type Database = {
         Returns: {
           business_subtype: string
           created_at: string
+          current_period_end: string
           id: string
           is_founder: boolean
           logo_url: string
@@ -4344,8 +4550,31 @@ export type Database = {
         Args: { days: number[]; end_t: string; start_t: string; tz: string }
         Returns: boolean
       }
+      is_tenant_owner_or_admin: {
+        Args: { p_tenant_id: string }
+        Returns: boolean
+      }
       leave_tenant: { Args: { p_tenant_id: string }; Returns: undefined }
       mark_account_deleted: { Args: { p_user_id: string }; Returns: undefined }
+      place_online_reservation: {
+        Args: {
+          p_activity_id: string
+          p_customer_email: string
+          p_customer_name: string
+          p_customer_phone: string
+          p_notes: string
+          p_party_size: number
+          p_reservation_date: string
+          p_reservation_time: string
+          p_source?: string
+        }
+        Returns: {
+          capacity: number
+          peak: number
+          reservation_id: string
+          status: string
+        }[]
+      }
       purge_locked_expired_tenants: { Args: never; Returns: number }
       purge_user_data: { Args: { p_user_id: string }; Returns: Json }
       rectify_order_atomic: {
