@@ -240,6 +240,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         }
         const { payload, source } = dataResult;
 
+        // 301 alias→canonical: `canonical_slug` è valorizzato dall'edge SOLO
+        // quando lo slug richiesto è un alias; su slug canonico è null →
+        // niente redirect (loop-safe). Emesso qui (non nel middleware) perché
+        // l'handler ha già il payload: costo zero e SEO-corretto (il rewrite
+        // Vercel è interno, il crawler riceve un 301 pulito sull'URL alias).
+        const canonicalSlug = (payload as { canonical_slug?: string | null }).canonical_slug;
+        if (canonicalSlug && canonicalSlug !== slug) {
+            // Anti open-redirect: il dato è DB-derived ma validiamo comunque
+            // prima di costruire un Location same-origin. Se non valido →
+            // niente redirect, prosegue col render normale.
+            const validCanonical =
+                SLUG_RE.test(canonicalSlug) &&
+                !canonicalSlug.includes("--") &&
+                !RESERVED_SEGMENTS.has(canonicalSlug);
+            if (validCanonical) {
+                // Preserva solo `lang` (già validato + lowercased sopra). Il
+                // param interno `slug` aggiunto dal rewrite NON viene propagato.
+                const location = lang ? `/${canonicalSlug}?lang=${lang}` : `/${canonicalSlug}`;
+                res.setHeader("Cache-Control", "no-store");
+                res.setHeader("X-Cataloglobe-Ssr", "redirect:alias");
+                res.status(301).setHeader("Location", location).end();
+                return;
+            }
+        }
+
         // Allergeni: stesso gating vertical della SPA (processPayload).
         const verticalType = (payload as { vertical_type?: VerticalType | null }).vertical_type;
         const needsAllergens = verticalType
