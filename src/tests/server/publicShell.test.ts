@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
     applyTenantHead,
@@ -66,6 +66,13 @@ describe("serializeCatalogPayload", () => {
 });
 
 describe("applyTenantHead", () => {
+    // Il flag VITE_IMAGE_TRANSFORM (letto via process.env dal gemello
+    // api/_lib/imageTransform) gates il preload responsive della cover. Default
+    // OFF: ogni test che non lo setta vede il fallback object/public.
+    afterEach(() => {
+        delete process.env.VITE_IMAGE_TRANSFORM;
+    });
+
     it("inietta title/description/og/canonical per-tenant", () => {
         const html = applyTenantHead(TEMPLATE, makePayload(), OPTS);
         expect(html).toContain("<title>San Pietro — Menu digitale</title>");
@@ -119,7 +126,8 @@ describe("applyTenantHead", () => {
         expect(html).toContain('rel="preload" as="image" href="https://cdn.example.com/cover.jpg"');
     });
 
-    it("cover storage Supabase: preload responsive (imagesrcset) ma og:image resta raw", () => {
+    it("cover storage Supabase, flag ON: preload responsive (imagesrcset) ma og:image resta raw", () => {
+        process.env.VITE_IMAGE_TRANSFORM = "true";
         const storageCover =
             "https://proj.supabase.co/storage/v1/object/public/business-covers/t/act/cover.jpg?v=1";
         const html = applyTenantHead(
@@ -138,6 +146,29 @@ describe("applyTenantHead", () => {
         expect(html).toContain("width=760&amp;quality=82");
         // il cache-buster ?v=1 preservato come &param dentro lo srcset
         expect(html).toContain("&amp;v=1");
+    });
+
+    it("cover storage Supabase, flag OFF (default): preload plain object/public, niente render/image", () => {
+        // flag VITE_IMAGE_TRANSFORM assente → buildCoverImageSet null →
+        // publicShell usa il fallback preload href raw object/public.
+        const storageCover =
+            "https://proj.supabase.co/storage/v1/object/public/business-covers/t/act/cover.jpg?v=1";
+        const html = applyTenantHead(
+            TEMPLATE,
+            makePayload({
+                business: { name: "San Pietro", slug: "san-pietro", city: "Milano", cover_image: storageCover }
+            }),
+            OPTS
+        );
+        // og:image resta sempre l'immagine raw full-size
+        expect(html).toContain(`property="og:image" content="${escapeHtml(storageCover)}"`);
+        // preload semplice all'URL object/public, con fetchpriority
+        expect(html).toContain(
+            `<link rel="preload" as="image" href="${escapeHtml(storageCover)}" fetchpriority="high" />`
+        );
+        // nessuna trasformazione: niente render/image, niente srcset responsive
+        expect(html).not.toContain("/storage/v1/render/image/public/");
+        expect(html).not.toContain("imagesrcset=");
     });
 
     it("preconnect + dns-prefetch all'origine immagini, senza crossorigin, prima del preload", () => {

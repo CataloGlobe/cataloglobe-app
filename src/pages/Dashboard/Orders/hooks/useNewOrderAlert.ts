@@ -1,8 +1,10 @@
 /**
- * useNewOrderAlert — alert page-scoped per nuove comande sulla dashboard
- * Ordini. Effimero, zero backend, zero asset, zero dipendenze npm.
+ * useNewOrderAlert — alert visivo page-scoped per nuove comande sulla
+ * dashboard Ordini. Effimero, zero backend, zero asset, zero dipendenze npm.
  *
- * Tre canali di segnale, ordinati per affidabilita':
+ * Due canali di segnale (il SUONO è stato spostato nel dispatcher globale
+ * `OperationalAlerts`, che suona tono "order" aggregato a prescindere dalla
+ * pagina — qui niente audio per evitare doppio suono):
  *
  *   1. Pulse visivo (sempre): incrementa un `pulseToken` numerico che la
  *      pagina passa al kanban per animare brevemente l'header colonna
@@ -13,18 +15,9 @@
  *      visibile. Ripristina il titolo originale al focus o quando il
  *      conteggio submitted torna a 0.
  *
- *   3. Chime sintetizzato (quando audio armato + toggle ON): due
- *      oscillatori brevi (~250ms) via Web Audio API nativa. Niente
- *      asset. Se l'AudioContext non e' ancora armato al momento
- *      dell'arrivo, SKIP silenzioso — non accodare suoni da riprodurre
- *      dopo (l'autoplay di chime in ritardo e' inquietante).
- *      Debounce ~3s: piu' arrivi in sequenza → un solo chime.
- *
- * Audio unlock: AudioContext creato lazy. Armato al primo gesto utente
- * (listener `pointerdown` one-shot) o quando l'utente attiva il toggle.
- *
- * Persistenza: stato del toggle salvato in
- * `localStorage["cataloglobe-orders-sound"]`. Default ON (true).
+ * `soundEnabled`/`toggleSound` restano esposti (preferenza persistita in
+ * `localStorage["cataloglobe-orders-sound"]`, default ON) e consumati dalla
+ * UI Ordini; non gatano più alcun suono locale.
  *
  * Lifecycle:
  *   - `triggerAlert()` chiamata dal callback `onNewOrder` di
@@ -36,7 +29,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const STORAGE_KEY = "cataloglobe-orders-sound";
-const CHIME_DEBOUNCE_MS = 3000;
 
 interface AlertHookOptions {
     /** Conteggio corrente comande in stato `submitted` per il title. */
@@ -89,114 +81,21 @@ export function useNewOrderAlert({
     );
     const [pulseToken, setPulseToken] = useState(0);
 
-    const soundEnabledRef = useRef(soundEnabled);
-    soundEnabledRef.current = soundEnabled;
-
-    const audioCtxRef = useRef<AudioContext | null>(null);
-    const audioArmedRef = useRef(false);
-    const lastChimeAtRef = useRef(0);
     const originalTitleRef = useRef<string>("");
 
-    // ─── Audio: lazy create + arm su gesto utente ───────────────────────
-    const ensureAudioContext = useCallback((): AudioContext | null => {
-        if (audioCtxRef.current) return audioCtxRef.current;
-        try {
-            const Ctor =
-                window.AudioContext ??
-                (window as unknown as { webkitAudioContext?: typeof AudioContext })
-                    .webkitAudioContext;
-            if (!Ctor) return null;
-            const ctx = new Ctor();
-            audioCtxRef.current = ctx;
-            return ctx;
-        } catch {
-            return null;
-        }
-    }, []);
-
-    const armAudio = useCallback(() => {
-        const ctx = ensureAudioContext();
-        if (!ctx) return;
-        if (ctx.state === "suspended") {
-            void ctx.resume().then(
-                () => {
-                    audioArmedRef.current = ctx.state === "running";
-                },
-                () => {
-                    /* resume bocciato (es. politica autoplay senza gesto):
-                       audioArmedRef resta false, fallback visivo+title */
-                }
-            );
-        } else {
-            audioArmedRef.current = ctx.state === "running";
-        }
-    }, [ensureAudioContext]);
-
-    // Listener one-shot su qualsiasi gesto utente per provare ad armare
-    // l'audio. Coperto anche dal toggle manuale, ma cosi' funziona pure
-    // se l'utente clicca prima di toccare il toggle (default ON).
-    useEffect(() => {
-        if (audioArmedRef.current) return;
-        function onFirstGesture() {
-            armAudio();
-        }
-        document.addEventListener("pointerdown", onFirstGesture, { once: true });
-        document.addEventListener("keydown", onFirstGesture, { once: true });
-        return () => {
-            document.removeEventListener("pointerdown", onFirstGesture);
-            document.removeEventListener("keydown", onFirstGesture);
-        };
-    }, [armAudio]);
-
-    // ─── Chime sintetizzato: due tone brevi con envelope ────────────────
-    const playChime = useCallback(() => {
-        if (!soundEnabledRef.current) return;
-        if (!audioArmedRef.current) return;
-        const ctx = audioCtxRef.current;
-        if (!ctx || ctx.state !== "running") return;
-
-        const now = Date.now();
-        if (now - lastChimeAtRef.current < CHIME_DEBOUNCE_MS) return;
-        lastChimeAtRef.current = now;
-
-        const audioNow = ctx.currentTime;
-        const tones: Array<{ freq: number; start: number; duration: number }> = [
-            { freq: 880, start: audioNow, duration: 0.18 },
-            { freq: 660, start: audioNow + 0.12, duration: 0.22 }
-        ];
-
-        for (const { freq, start, duration } of tones) {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = "sine";
-            osc.frequency.value = freq;
-            // Envelope: attack 20ms → peak 0.15 → decay esponenziale fino
-            // a ~0.001 entro `duration`. Volume basso, non spaventa.
-            gain.gain.setValueAtTime(0.0001, start);
-            gain.gain.exponentialRampToValueAtTime(0.15, start + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start(start);
-            osc.stop(start + duration + 0.02);
-        }
-    }, []);
-
-    // ─── Toggle: persisti + se diventa ON prova ad armare ───────────────
+    // ─── Toggle: persisti la preferenza (suono ora gestito dal dispatcher) ──
     const toggleSound = useCallback(() => {
         setSoundEnabled(prev => {
             const next = !prev;
             writeStoredSoundEnabled(next);
-            if (next) armAudio();
             return next;
         });
-    }, [armAudio]);
+    }, []);
 
-    // ─── triggerAlert: chime + pulse token ──────────────────────────────
+    // ─── triggerAlert: solo pulse token (il suono è nel dispatcher) ─────────
     const triggerAlert = useCallback(() => {
-        playChime();
         setPulseToken(t => t + 1);
-    }, [playChime]);
+    }, []);
 
     // ─── Title pulse ────────────────────────────────────────────────────
     // Salva titolo originale al primo mount. Effect su (submittedCount,

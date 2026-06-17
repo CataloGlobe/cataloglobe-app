@@ -1,7 +1,9 @@
 /**
  * ⚠️ SYNC con src/utils/imageTransform.ts (usato da PublicCollectionHeader + frontend).
  * Duplicato qui perché @vercel/node non bundla import che risalgono fuori da api/.
- * Stesso pattern di publicFontUrl.ts. Modulo PURO: niente DOM/Node/process/env.
+ * Stesso pattern di publicFontUrl.ts. Unico accesso all'ambiente: il flag
+ * VITE_IMAGE_TRANSFORM (qui via process.env; nel gemello client via
+ * import.meta.env). Nessun altro side-effect DOM/Node.
  *
  * Costruisce un set responsive (src/srcset/sizes) per la cover servita via
  * Supabase image transformations (`/render/image/public/...?width=&quality=`).
@@ -9,6 +11,11 @@
  *
  * Solo URL https di Supabase Storage object-public: ogni altro input (CDN
  * esterni, data:, http) → null = passthrough (il chiamante usa il raw src).
+ *
+ * Feature flag VITE_IMAGE_TRANSFORM (default OFF): l'endpoint render/image è
+ * disponibile solo su piani Supabase a pagamento (su Free → 403). OFF → null
+ * passthrough: il chiamante serve l'URL object/public raw senza srcset. Flippare
+ * a "true" quando prod passa a un piano con le image transformations attive.
  */
 
 const STORAGE_PUBLIC_SEGMENT = "/storage/v1/object/public/";
@@ -36,6 +43,10 @@ export type ResponsiveImageSet = {
 export function buildCoverImageSet(
     publicUrl: string | null | undefined
 ): ResponsiveImageSet | null {
+    // ⚠️ SYNC: unica divergenza dal gemello src/utils/imageTransform.ts è la fonte
+    // del flag (process.env qui, import.meta.env nel contesto client).
+    if (process.env.VITE_IMAGE_TRANSFORM !== "true") return null;
+
     if (!publicUrl) return null;
     if (!publicUrl.startsWith("https://")) return null;
     if (!publicUrl.includes(STORAGE_PUBLIC_SEGMENT)) return null;

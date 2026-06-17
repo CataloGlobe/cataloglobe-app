@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Minus, Plus, Trash2, RefreshCw, X, AlertCircle } from "lucide-react";
 import type { OrderingStateReason } from "@/types/orders";
@@ -7,7 +7,6 @@ import OrderStatusStepper from "./OrderStatusStepper";
 import ItemNoteEditor from "./ItemNoteEditor";
 import OrderNoteEditor from "./OrderNoteEditor";
 import { getOrdersForSession, cancelOrderCustomer, subscribeToSessionOrders } from "@/services/supabase/orders";
-import { requestBill } from "@/services/supabase/customerSessions";
 import { useCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
 import type { SessionOrderSummary } from "@/types/orders";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -132,8 +131,6 @@ export default function OrderingSheet({
     onSubmitOrder,
     isSubmitting = false,
     maintenance = null,
-    billRequestedAt,
-    onBillRequestedAtChange,
     onSessionExpired,
     ordersRefreshKey
 }: OrderingSheetProps) {
@@ -146,44 +143,10 @@ export default function OrderingSheet({
     const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
     const [processingCancelId, setProcessingCancelId] = useState<string | null>(null);
 
-    // Bill request state — `billRequestedAt` controllato dal parent.
-    const [isRequestingBill, setIsRequestingBill] = useState(false);
-    const [billError, setBillError] = useState<string | null>(null);
-
     const cartCount = items.reduce((sum, it) => sum + it.qty, 0);
     const cartTotal = items.reduce((sum, it) => sum + it.qty * it.unitPrice, 0);
     const activeOrdersCount = orders.filter(o => o.status !== "cancelled").length;
     const isEmptyCart = items.length === 0;
-
-    // Totale tavolo (per-session): somma orders acknowledged + ready + delivered,
-    // esclude cancelled e submitted (submitted = ordine appena inviato non ancora
-    // confermato, mostrato in Riepilogo conto solo dopo acknowledge). Lo stato
-    // 'ready' indica che la cucina ha terminato la preparazione ma la consegna
-    // al tavolo non e' ancora avvenuta — il cliente vede comunque l'importo
-    // perche' l'impegno commerciale e' gia' confermato.
-    const tableTotal = useMemo(() => {
-        return orders
-            .filter(
-                o =>
-                    o.status === "acknowledged" ||
-                    o.status === "ready" ||
-                    o.status === "delivered"
-            )
-            .reduce((sum, o) => sum + (o.total_amount ?? 0), 0);
-    }, [orders]);
-
-    // Gate "Chiedi il conto": vietato finche' c'e' anche un solo ordine in
-    // preparazione (submitted o acknowledged). Ready/delivered non bloccano:
-    // ready = uscito dalla cucina, delivered = servito al tavolo.
-    const hasInProgressOrders = useMemo(
-        () =>
-            orders.some(
-                o => o.status === "submitted" || o.status === "acknowledged"
-            ),
-        [orders]
-    );
-
-    const showBillBlock = activeTab === "orders" && tableTotal > 0;
 
     const loadOrders = useCallback(async () => {
         if (!session) {
@@ -195,7 +158,6 @@ export default function OrderingSheet({
         try {
             const data = await getOrdersForSession(session.jwt);
             setOrders(data.orders);
-            onBillRequestedAtChange(data.bill_requested_at);
         } catch (err) {
             if (err instanceof Error) {
                 if (err.message.toLowerCase().includes("scaduta")) {
@@ -210,7 +172,7 @@ export default function OrderingSheet({
         } finally {
             setIsLoadingOrders(false);
         }
-    }, [session, clear, onSessionExpired, onBillRequestedAtChange]);
+    }, [session, clear, onSessionExpired]);
 
     const handleCancelConfirm = useCallback(
         async (orderId: string) => {
@@ -307,30 +269,6 @@ export default function OrderingSheet({
 
     // Sub customer_sessions lifted al parent (CollectionView) per garantire
     // always-on anche con sheet chiusa (es. chiusura tavolo durante browsing).
-
-    // Handler "Chiedi il conto"
-    const handleRequestBill = useCallback(async () => {
-        if (!session?.jwt) return;
-        setIsRequestingBill(true);
-        setBillError(null);
-        try {
-            const result = await requestBill(session.jwt);
-            onBillRequestedAtChange(result.bill_requested_at);
-        } catch (err) {
-            if (err instanceof Error) {
-                if (err.message.toLowerCase().includes("scaduta")) {
-                    clear();
-                    onSessionExpired?.();
-                    return;
-                }
-                setBillError(err.message);
-                return;
-            }
-            setBillError("Errore durante la richiesta");
-        } finally {
-            setIsRequestingBill(false);
-        }
-    }, [session?.jwt, clear, onSessionExpired, onBillRequestedAtChange]);
 
     return (
         <PublicSheet
@@ -547,43 +485,6 @@ export default function OrderingSheet({
                     </>
                 ) : (
                     <div className={styles.scrollArea}>
-                        {showBillBlock && (
-                            <div className={styles.billBlock}>
-                                <div className={styles.billHeader}>
-                                    <span className={styles.billLabel}>Il tuo conto</span>
-                                    <span className={styles.billAmount}>
-                                        {new Intl.NumberFormat("it-IT", {
-                                            style: "currency",
-                                            currency: "EUR",
-                                            minimumFractionDigits: 2
-                                        }).format(tableTotal)}
-                                    </span>
-                                </div>
-                                {billRequestedAt ? (
-                                    <div className={styles.billRequested}>
-                                        <span className={styles.billRequestedDot} aria-hidden="true" />
-                                        <span>Conto richiesto. Lo staff sta arrivando.</span>
-                                    </div>
-                                ) : hasInProgressOrders ? (
-                                    <div className={styles.billHint}>
-                                        Hai ancora ordini in preparazione — potrai chiedere il conto quando saranno pronti.
-                                    </div>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        className={styles.billCta}
-                                        onClick={handleRequestBill}
-                                        disabled={isRequestingBill || maintenance != null}
-                                    >
-                                        {isRequestingBill ? "Invio..." : "Chiedi il conto"}
-                                    </button>
-                                )}
-                                {billError && (
-                                    <div className={styles.billErrorMsg}>{billError}</div>
-                                )}
-                            </div>
-                        )}
-
                         {ordersError && (
                             <div className={styles.errorBanner}>{ordersError}</div>
                         )}

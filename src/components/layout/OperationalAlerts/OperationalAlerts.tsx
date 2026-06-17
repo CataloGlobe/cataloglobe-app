@@ -42,8 +42,17 @@ import {
     type SessionRequestState
 } from "@/services/supabase/customerSessions";
 import { getTable } from "@/services/supabase/tables";
+import type { V2Order } from "@/types/orders";
 
 type RequestKind = "waiter" | "bill";
+
+/**
+ * Finestra di aggregazione trailing per i nuovi ordini: il primo INSERT
+ * avvia il timer, gli arrivi successivi entro la finestra incrementano il
+ * conteggio, allo scadere parte UN solo alert (suono + eventuale toast
+ * aggregato). Allineata al debounce 3s del chime → una raffica = un bip.
+ */
+const ORDER_AGGREGATE_MS = 3000;
 
 interface KnownState {
     waiter: string | null;
@@ -92,6 +101,12 @@ export function OperationalAlerts(): null {
         let channel: RealtimeChannel | null = null;
         // Mappa locale all'effetto: si azzera al cambio tenant (effetto re-run).
         const known = new Map<string, KnownState>();
+
+        // ── Aggregazione nuovi ordini (trailing 3s) ──
+        // Stato locale all'effetto: si azzera al cambio tenant.
+        let orderCount = 0;
+        let orderTimer: number | null = null;
+        const orderSeen = new Set<string>(); // dedup per-id nella finestra
 
         function dispatchAlert(kind: RequestKind, tableId: string | null): void {
             const bid = businessIdRef.current;
@@ -159,6 +174,53 @@ export function OperationalAlerts(): null {
             }
         }
 
+        // Flush della finestra ordini. ⚠️ Asimmetria VOLUTA (≠ waiter/bill):
+        //   - SUONO sempre (anche sulla tab Comande): gli ordini non si perdono.
+        //   - TOAST solo se NON sei sulla tab Comande di /orders (lì il kanban
+        //     già li mostra). Default tab = "comande" → param assente sopprime.
+        // Condizioni valutate QUI, al flush, leggendo i ref freschi — NON
+        // catturate all'arrivo del primo ordine.
+        function flushOrders(): void {
+            const count = orderCount;
+            orderCount = 0;
+            orderTimer = null;
+            orderSeen.clear();
+            if (cancelled || count <= 0) return;
+
+            // Suono SEMPRE (tono "order", distinto da waiter/bill).
+            triggerChimeRef.current("order");
+
+            const bid = businessIdRef.current;
+            const path = pathnameRef.current;
+            const onOrders = !!bid && path.startsWith(`/business/${bid}/orders`);
+            const tab = new URLSearchParams(searchRef.current).get("tab") ?? "comande";
+            // Toast soppresso solo sulla tab Comande (indicatore già presente).
+            if (onOrders && tab === "comande") return;
+
+            const message = count === 1 ? "Nuovo ordine" : `${count} nuovi ordini`;
+            showToastRef.current({
+                message,
+                type: "info",
+                actionLabel: "Vai",
+                onAction: () => {
+                    if (bid) navigateRef.current(`/business/${bid}/orders?tab=comande`);
+                }
+            });
+        }
+
+        function handleOrderInsert(row: V2Order | undefined): void {
+            // Solo arrivi genuini di nuovi ordini (submitted, non rettifiche) —
+            // stesso criterio di useActiveOrdersRealtime.handleInsert.
+            if (!row || row.status !== "submitted" || row.is_rectification) return;
+            if (orderSeen.has(row.id)) return; // dedup per-id nella finestra
+            orderSeen.add(row.id);
+            orderCount += 1;
+            // Primo ordine della finestra → avvia il timer trailing.
+            if (orderTimer === null) {
+                orderTimer = window.setTimeout(flushOrders, ORDER_AGGREGATE_MS);
+            }
+        }
+
         async function init(): Promise<void> {
             // SEED: apprende le richieste già attive senza notificare. Seed →
             // poi subscribe: un evento nella finestra di gap al più produce un
@@ -202,6 +264,16 @@ export function OperationalAlerts(): null {
                     },
                     payload => handleRow(payload.new as SessionRow | undefined)
                 )
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "INSERT",
+                        schema: "public",
+                        table: "orders",
+                        filter: `tenant_id=eq.${tenantId}`
+                    },
+                    payload => handleOrderInsert(payload.new as V2Order | undefined)
+                )
                 .subscribe();
         }
 
@@ -209,6 +281,10 @@ export function OperationalAlerts(): null {
 
         return () => {
             cancelled = true;
+            if (orderTimer !== null) {
+                window.clearTimeout(orderTimer);
+                orderTimer = null;
+            }
             if (channel) {
                 void supabase.removeChannel(channel);
                 channel = null;

@@ -232,7 +232,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     try {
         const dataResult = await fetchPayload(slug, lang);
         if ("error" in dataResult) {
-            serveSpaFallback(res, 200, dataResult.error);
+            // domain_404 = slug inesistente → 404 reale (no soft-404).
+            // Tutti gli altri errori (network_no_snapshot, altri domain_*) restano 200 SPA-fallback.
+            const fallbackStatus = dataResult.error === "domain_404" ? 404 : 200;
+            serveSpaFallback(res, fallbackStatus, dataResult.error);
             return;
         }
         const { payload, source } = dataResult;
