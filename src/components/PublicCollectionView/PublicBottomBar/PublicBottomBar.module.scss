@@ -2,9 +2,6 @@
 // z-index 150: sopra contenuto/section-nav (10/20) e FAB (55/60),
 // SOTTO toast/SearchOverlay (200) e sheet (900). Sheet e ricerca la coprono.
 
-// Colore indicatore carrello. Var SCSS locale (token tema rimandato).
-$indicator: #ef4444;
-
 // Wrapper: posizionamento fisso + centratura (senza transform) + entry.
 // La centratura usa left/right + margin auto così il `transform` resta libero
 // per l'animazione di entrata, senza collidere con lo scale del `.bar` interno.
@@ -206,7 +203,7 @@ $indicator: #ef4444;
   }
 }
 
-// Indicatore binario carrello: pallino rosso ($indicator) in alto a destra dell'icona.
+// Indicatore binario carrello: pallino rosso (--pub-alert) in alto a destra dell'icona.
 // Bordo del colore di sfondo barra così si stacca pulito senza coprire il glifo.
 .cartDot {
   position: absolute;
@@ -215,7 +212,7 @@ $indicator: #ef4444;
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: $indicator;
+  background: var(--pub-alert);
   border: 2px solid rgba(20, 20, 20, 0.92);
   box-sizing: content-box;
 }
