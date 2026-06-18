@@ -15,9 +15,8 @@
  *      visibile. Ripristina il titolo originale al focus o quando il
  *      conteggio submitted torna a 0.
  *
- * `soundEnabled`/`toggleSound` restano esposti (preferenza persistita in
- * `localStorage["cataloglobe-orders-sound"]`, default ON) e consumati dalla
- * UI Ordini; non gatano più alcun suono locale.
+ * Il muto dei suoni è centralizzato altrove (`notificationSoundStore` via
+ * `useNotificationChime`): questo hook non gestisce più alcun toggle audio.
  *
  * Lifecycle:
  *   - `triggerAlert()` chiamata dal callback `onNewOrder` di
@@ -28,22 +27,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const STORAGE_KEY = "cataloglobe-orders-sound";
-
 interface AlertHookOptions {
     /** Conteggio corrente comande in stato `submitted` per il title. */
     submittedCount: number;
 }
 
 interface AlertHookResult {
-    /** Stato persistito del toggle suono. */
-    soundEnabled: boolean;
-    /** Toggle del suono. Se diventa `true` prova ad armare l'audio subito. */
-    toggleSound: () => void;
     /**
-     * Chiamata dal subscriber realtime su INSERT genuino: emette chime
-     * (se armato + abilitato), aggiorna pulse token, lascia che il
-     * title-effect sotto reagisca al nuovo `submittedCount`.
+     * Chiamata dal subscriber realtime su INSERT genuino: aggiorna il pulse
+     * token e lascia che il title-effect reagisca al nuovo `submittedCount`.
      */
     triggerAlert: () => void;
     /**
@@ -53,44 +45,12 @@ interface AlertHookResult {
     pulseToken: number;
 }
 
-function readStoredSoundEnabled(): boolean {
-    if (typeof window === "undefined") return true;
-    try {
-        const raw = window.localStorage.getItem(STORAGE_KEY);
-        if (raw === null) return true;
-        return raw === "true";
-    } catch {
-        return true;
-    }
-}
-
-function writeStoredSoundEnabled(value: boolean): void {
-    if (typeof window === "undefined") return;
-    try {
-        window.localStorage.setItem(STORAGE_KEY, String(value));
-    } catch {
-        /* private mode / quota — ignora */
-    }
-}
-
 export function useNewOrderAlert({
     submittedCount
 }: AlertHookOptions): AlertHookResult {
-    const [soundEnabled, setSoundEnabled] = useState<boolean>(() =>
-        readStoredSoundEnabled()
-    );
     const [pulseToken, setPulseToken] = useState(0);
 
     const originalTitleRef = useRef<string>("");
-
-    // ─── Toggle: persisti la preferenza (suono ora gestito dal dispatcher) ──
-    const toggleSound = useCallback(() => {
-        setSoundEnabled(prev => {
-            const next = !prev;
-            writeStoredSoundEnabled(next);
-            return next;
-        });
-    }, []);
 
     // ─── triggerAlert: solo pulse token (il suono è nel dispatcher) ─────────
     const triggerAlert = useCallback(() => {
@@ -131,5 +91,5 @@ export function useNewOrderAlert({
         };
     }, []);
 
-    return { soundEnabled, toggleSound, triggerAlert, pulseToken };
+    return { triggerAlert, pulseToken };
 }

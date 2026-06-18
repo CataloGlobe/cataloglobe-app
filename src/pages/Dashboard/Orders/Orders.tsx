@@ -51,6 +51,7 @@ import OrdersKanban from "./OrdersKanban";
 import { CreateOrderDrawer } from "./CreateOrderDrawer/CreateOrderDrawer";
 import { useActiveOrdersRealtime } from "./hooks/useActiveOrdersRealtime";
 import { useNewOrderAlert } from "./hooks/useNewOrderAlert";
+import { useNotificationChime } from "@/hooks/useNotificationChime";
 
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnActivity } from "@/lib/permissions";
@@ -179,10 +180,14 @@ export default function Orders() {
         () => activeOrders.filter(o => o.status === "submitted").length,
         [activeOrders]
     );
-    const { soundEnabled, toggleSound, triggerAlert, pulseToken } = useNewOrderAlert({
+    const { triggerAlert, pulseToken } = useNewOrderAlert({
         submittedCount
     });
     triggerAlertRef.current = triggerAlert;
+
+    // Muto unico dei suoni operativi (ordini/conto/cameriere/prenotazioni):
+    // store condiviso reattivo. Stessa interfaccia del dispatcher.
+    const { soundEnabled, toggleSound } = useNotificationChime();
 
     // ── Tables load (per lookup label/zone nel filtro tab Comande) ──
     const loadTables = useCallback(async () => {
@@ -268,13 +273,13 @@ export default function Orders() {
                     aria-pressed={soundEnabled}
                     aria-label={
                         soundEnabled
-                            ? "Disattiva suono nuove comande"
-                            : "Attiva suono nuove comande"
+                            ? "Disattiva suoni notifiche"
+                            : "Attiva suoni notifiche"
                     }
                     title={
                         soundEnabled
-                            ? "Suono nuove comande attivo"
-                            : "Suono nuove comande disattivato"
+                            ? "Suoni notifiche attivi"
+                            : "Suoni notifiche disattivati"
                     }
                 >
                     {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}

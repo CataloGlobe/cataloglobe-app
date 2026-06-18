@@ -104,6 +104,23 @@ export default function MainLayout() {
         return <Navigate to={`/workspace?resume=${selectedTenant.id}`} replace />;
     }
 
+    // Terminal subscription (canceled) → wall the admin behind the reactivation
+    // screen. SubscriptionPage already self-serves reactivation (portal/checkout).
+    // A canceled tenant KEEPS its stripe_subscription_id — the
+    // `customer.subscription.deleted` webhook only flips subscription_status — so
+    // it falls through the workspace-resume branch above and reaches this one.
+    // Allow-list /subscription itself to avoid a redirect loop AND so the
+    // post-reactivation success return is never trapped even while the webhook
+    // hasn't yet synced the status back to 'active'.
+    if (
+        !loading &&
+        selectedTenant &&
+        selectedTenant.subscription_status === "canceled" &&
+        !pathname.endsWith("/subscription")
+    ) {
+        return <Navigate to={`/business/${selectedTenant.id}/subscription`} replace />;
+    }
+
     return (
         <div className={styles.appLayout}>
             <DrawerProvider>

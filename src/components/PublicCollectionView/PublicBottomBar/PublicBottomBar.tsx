@@ -7,8 +7,8 @@ import { useScrollCollapse } from "../hooks/useScrollCollapse";
 import styles from "./PublicBottomBar.module.scss";
 
 /**
- * Bottom nav bar icon-only del sito pubblico — SOLO mobile (≤640px), dietro flag
- * d'ambiente `VITE_PUBLIC_BOTTOM_BAR`. Sostituisce i tab header (HUB_TABS) + i 2 FAB.
+ * Bottom nav bar icon-only del sito pubblico — SOLO mobile (≤640px), montata in
+ * public via split CSS-driven. Sostituisce i tab header (HUB_TABS) + le azioni desktop.
  *
  * - 3 tab (menu/eventi/recensioni) con pill attiva che scorre (offsetLeft/width misurati).
  * - Slot carrello separato da divider (non è un tab attivo).
