@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ConciergeBell, Grid2X2, Layers, MoreHorizontal, Plus, QrCode, Receipt, RotateCw } from "lucide-react";
+import { Grid2X2, Layers, MoreHorizontal, Plus, QrCode, RotateCw } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
@@ -32,7 +32,6 @@ import type { V2Table, V2TableWithState } from "@/types/orders";
 import { ZoneSelectField } from "@/components/Tables/ZoneSelectField/ZoneSelectField";
 import { TableZoneManagementDrawer } from "@/components/Tables/TableZoneManagementDrawer/TableZoneManagementDrawer";
 
-import BillRequestsDrawer from "@/pages/Dashboard/Tables/BillRequestsDrawer";
 import TableDeleteDrawer from "@/pages/Dashboard/Tables/TableDeleteDrawer";
 import TableRegenerateTokenDrawer from "@/pages/Dashboard/Tables/TableRegenerateTokenDrawer";
 import TableQrPreviewDrawer from "@/pages/Dashboard/Tables/TableQrPreviewDrawer";
@@ -82,8 +81,6 @@ export function TablesManagement({
     // Regenerate token drawer
     const [isRegenOpen, setIsRegenOpen] = useState(false);
     const [itemToRegen, setItemToRegen] = useState<V2Table | null>(null);
-
-    const [billDrawerTable, setBillDrawerTable] = useState<{ id: string; label: string } | null>(null);
 
     // Zone management drawer
     const [isZoneDrawerOpen, setIsZoneDrawerOpen] = useState(false);
@@ -384,44 +381,6 @@ export function TablesManagement({
                     <Text variant="body-sm" weight={600}>
                         {row.label}
                     </Text>
-                    {row.bill_requested_count > 0 && canManage && (
-                        <button
-                            type="button"
-                            className={styles.billBadge}
-                            onClick={e => {
-                                e.stopPropagation();
-                                setBillDrawerTable({ id: row.id, label: row.label });
-                            }}
-                            aria-label={`${row.bill_requested_count} richieste conto`}
-                        >
-                            <Receipt size={12} />
-                            <span>Conto richiesto</span>
-                            {row.bill_requested_count > 1 && (
-                                <span className={styles.billBadgeCount}>
-                                    {row.bill_requested_count}
-                                </span>
-                            )}
-                        </button>
-                    )}
-                    {row.waiter_called_count > 0 && canManage && (
-                        <button
-                            type="button"
-                            className={styles.waiterBadge}
-                            onClick={e => {
-                                e.stopPropagation();
-                                setBillDrawerTable({ id: row.id, label: row.label });
-                            }}
-                            aria-label={`${row.waiter_called_count} chiamate cameriere`}
-                        >
-                            <ConciergeBell size={12} />
-                            <span>Cameriere chiamato</span>
-                            {row.waiter_called_count > 1 && (
-                                <span className={styles.waiterBadgeCount}>
-                                    {row.waiter_called_count}
-                                </span>
-                            )}
-                        </button>
-                    )}
                 </div>
             )
         },
@@ -689,14 +648,6 @@ export function TablesManagement({
                 onClose={() => setQrPreviewTableId(null)}
                 onDownloadPdf={handleQrPreviewDownloadPdf}
                 isDownloadingPdf={isQrPreviewDownloadingPdf}
-            />
-
-            <BillRequestsDrawer
-                isOpen={billDrawerTable !== null}
-                onClose={() => setBillDrawerTable(null)}
-                tableId={billDrawerTable?.id ?? null}
-                tableLabel={billDrawerTable?.label ?? ""}
-                onSuccess={loadData}
             />
 
             <TableZoneManagementDrawer
