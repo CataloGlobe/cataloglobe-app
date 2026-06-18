@@ -22,7 +22,7 @@ export function useSubscriptionGuard(): SubscriptionGuard {
         }
 
         const status = selectedTenant.subscription_status;
-        const canEdit = status === "trialing" || status === "active";
+        const canEdit = status === "trialing" || status === "active" || status === "past_due";
         const hasPaymentMethod = !!selectedTenant.stripe_subscription_id;
 
         let trialDaysLeft: number | null = null;
