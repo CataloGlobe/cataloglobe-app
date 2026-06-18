@@ -2411,8 +2411,6 @@ export default function CollectionView({
                         }
                         isSubmitting={isSubmittingOrder}
                         maintenance={effectiveMaintenance}
-                        billRequestedAt={billRequestedAt}
-                        onBillRequestedAtChange={setBillRequestedAt}
                         onSessionExpired={handleSessionExpired}
                         ordersRefreshKey={ordersRefreshKey}
                     />
