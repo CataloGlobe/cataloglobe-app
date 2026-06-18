@@ -62,8 +62,3 @@ export function setSoundEnabled(value: boolean): void {
     writeStored(value);
     for (const listener of listeners) listener();
 }
-
-/** Toggle di comodità. */
-export function toggleSoundEnabled(): void {
-    setSoundEnabled(!soundEnabled);
-}
