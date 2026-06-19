@@ -43,6 +43,8 @@ type Props = {
     /** True quando una sheet (dettaglio prodotto o ordine) è aperta: congela lo shrink
      *  per evitare il flicker dovuto al body scroll-lock che azzera window.scrollY. */
     isSheetOpen?: boolean;
+    /** Luminanza dello stile pagina → vetro chiaro/scuro. Default "dark" (comportamento storico). */
+    surfaceTheme?: "light" | "dark";
 };
 
 export default function PublicBottomBar({
@@ -56,6 +58,7 @@ export default function PublicBottomBar({
     reviewDot,
     onReviewDotDismiss,
     isSheetOpen = false,
+    surfaceTheme = "dark",
 }: Props) {
     const { t } = useTranslation("public");
 
@@ -144,7 +147,12 @@ export default function PublicBottomBar({
         // Lo scale di shrink vive sul `.bar` interno per non collidere col transform dell'entry
         // (animation-fill su transform sovrascriverebbe lo scale del data-shrink).
         <div className={styles.barWrap}>
-            <nav className={styles.bar} data-shrink={shrink ? "true" : "false"} aria-label="Navigazione">
+            <nav
+                className={styles.bar}
+                data-shrink={shrink ? "true" : "false"}
+                data-theme={surfaceTheme}
+                aria-label="Navigazione"
+            >
                 <div className={styles.group} ref={groupRef}>
                 <span
                     className={styles.indicator}
