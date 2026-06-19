@@ -13,8 +13,11 @@
   margin: 0 auto;
   z-index: 150;
 
-  width: calc(100% - 36px);
-  max-width: 320px;
+  // Larghezza-contenuto: la pill si dimensiona alle celle (36px ciascuna) + gap
+  // uniforme, e resta centrata via left/right/margin auto. max-width come guard
+  // anti-overflow su telefoni stretti (il contenuto reale resta ben sotto).
+  width: fit-content;
+  max-width: calc(100% - 36px);
 
   animation: barIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 
@@ -26,10 +29,11 @@
 }
 
 .bar {
-  width: 100%;
+  // width-auto: la barra si stringe al contenuto (celle 36px + gap uniforme).
+  // Gap unico 10px tra TUTTE le celle (tab, lati divider, azioni) → spaziatura coerente.
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 10px;
   padding: 6px;
   box-sizing: border-box;
 
@@ -71,12 +75,12 @@
 }
 
 // Gruppo dei 3 tab — riferimento positioning per la pill scorrevole.
+// Celle fisse + gap uniforme (no flex:1/space-between): coerente con le azioni.
 .group {
   position: relative;
-  flex: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
 }
 
 // Pill attiva che scorre tra i tab.
@@ -97,7 +101,7 @@
 .tab {
   position: relative;
   z-index: 1;
-  flex: 1;
+  width: 36px;
   height: 36px;
   display: flex;
   align-items: center;
@@ -149,7 +153,7 @@
 .divider {
   width: 1px;
   height: 24px;
-  margin: 0 4px;
+  margin: 0; // lo spazio ai lati lo dà il gap 10px della barra
   background: rgba(255, 255, 255, 0.14);
   flex: 0 0 auto;
 }
