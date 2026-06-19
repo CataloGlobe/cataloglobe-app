@@ -52,6 +52,15 @@ async function updateTenantStatus(
 function getSubscriptionQuantity(subscription: Stripe.Subscription): number {
     const items = subscription.items?.data;
     if (!items || items.length === 0) return 1;
+    // Defensive: the single-product model guarantees exactly 1 line item. If a
+    // subscription ever carries more, items[0] silently drops the others — warn
+    // so the multi-product migration (see note above) is not missed in prod.
+    if (items.length > 1) {
+        console.warn(
+            `[stripe-webhook] subscription ${subscription.id} has ${items.length} line items; ` +
+            `getSubscriptionQuantity reads only items[0].quantity.`
+        );
+    }
     return items[0].quantity ?? 1;
 }
 
@@ -171,22 +180,44 @@ serve(async req => {
 
         console.log(`stripe-webhook: Received event ${event.type} (${event.id})`);
 
-        // Idempotency check: Stripe consegna eventi at-least-once.
-        // Se già processato in passato, ritorna early con 200.
+        // Idempotency: Stripe delivers events at-least-once. Process-once via a
+        // completion marker: a row counts as "done" ONLY when completed_at is
+        // set (written AFTER the handler succeeds). A row that exists but is not
+        // yet completed is a prior failed attempt and MUST be re-processed.
         const { error: insertError } = await admin
             .from("stripe_processed_events")
             .insert({ event_id: event.id, event_type: event.type });
 
         if (insertError) {
             if (insertError.code === "23505") {
-                // Unique constraint violation = evento già processato.
-                console.log(`stripe-webhook: Event ${event.id} already processed, skipping.`);
-                return json(200, { received: true, idempotent: true });
+                // Row already exists from a prior delivery/attempt. Re-read its
+                // completion marker to decide: completed -> truly done (200);
+                // not completed -> a previous attempt failed, fall through and
+                // re-process.
+                const { data: existing, error: selectError } = await admin
+                    .from("stripe_processed_events")
+                    .select("completed_at")
+                    .eq("event_id", event.id)
+                    .maybeSingle();
+
+                if (selectError) {
+                    // Cannot read the marker (DB blip). Fail closed toward a
+                    // retry rather than risk acking an unprocessed event: throw
+                    // into the catch, which returns 5xx so Stripe retries.
+                    throw selectError;
+                }
+                if (existing?.completed_at) {
+                    console.log(`stripe-webhook: Event ${event.id} already completed, skipping.`);
+                    return json(200, { received: true, idempotent: true });
+                }
+                console.log(`stripe-webhook: Event ${event.id} previously inserted but not completed, re-processing.`);
+                // fall through to dispatch
+            } else {
+                // Real failure on the idempotency insert itself (DB down, etc.).
+                // Log but do NOT block: process the event anyway. The completion
+                // UPDATE below is best-effort; dropping the event would be worse.
+                console.error(`stripe-webhook: Idempotency insert failed for event ${event.id}:`, insertError.message);
             }
-            // Errore vero (DB down, ecc.). Log ma non blocchiamo: meglio processare
-            // 2 volte che perdere un evento. Gli handler sono UPDATE puri quindi
-            // processarlo 2 volte è innocuo.
-            console.error(`stripe-webhook: Idempotency check failed for event ${event.id}:`, insertError.message);
         }
 
         // --- Handle events ---
@@ -230,10 +261,12 @@ serve(async req => {
                     stripe_subscription_id: stripeSubscriptionId,
                     subscription_status: subscriptionStatus,
                     paid_seats: paidSeats,
-                    trial_until: trialUntil,
                     current_period_end: currentPeriodEnd
                 };
                 if (planCode) updates.plan = planCode;
+                // Only write trial_until when present — never wipe an existing
+                // value on a payload that simply omits trial_end.
+                if (trialUntil !== null) updates.trial_until = trialUntil;
 
                 const { error, count } = await admin
                     .from("tenants")
@@ -272,10 +305,12 @@ serve(async req => {
                 const updates: Record<string, unknown> = {
                     subscription_status: newStatus,
                     paid_seats: paidSeats,
-                    trial_until: trialUntil,
                     current_period_end: currentPeriodEnd
                 };
                 if (planCode) updates.plan = planCode;
+                // Only write trial_until when present — never wipe an existing
+                // value on a payload that simply omits trial_end.
+                if (trialUntil !== null) updates.trial_until = trialUntil;
 
                 const result = await updateTenantStatus(admin, stripeCustomerId, updates);
 
@@ -349,6 +384,18 @@ serve(async req => {
                 console.log(`stripe-webhook: Ignoring unhandled event type ${event.type}`);
         }
 
+        // Handler succeeded: stamp the completion marker so any redelivery is
+        // acknowledged as idempotent. Best-effort — if this UPDATE fails the row
+        // stays completed_at NULL and a retry re-processes (handlers are
+        // idempotent UPDATEs by id, so re-processing converges).
+        const { error: completeError } = await admin
+            .from("stripe_processed_events")
+            .update({ completed_at: new Date().toISOString() })
+            .eq("event_id", event.id);
+        if (completeError) {
+            console.error(`stripe-webhook: Failed to mark event ${event.id} completed:`, completeError.message);
+        }
+
         // Always return 200 to Stripe to acknowledge receipt
         return json(200, { received: true });
     } catch (err) {
@@ -356,14 +403,23 @@ serve(async req => {
         const stack = err instanceof Error ? err.stack : null;
         console.error("stripe-webhook: Unhandled error:", message);
 
-        // Audit trail: scrive in webhook_errors per debug post-mortem.
-        // Race-safe: se questo INSERT fallisce, ignoriamo (siamo già in error path).
-        try {
-            const SUPABASE_URL_ERR = Deno.env.get("SUPABASE_URL");
-            const SUPABASE_KEY_ERR = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-            if (SUPABASE_URL_ERR && SUPABASE_KEY_ERR) {
-                const auditAdmin = createClient(SUPABASE_URL_ERR, SUPABASE_KEY_ERR);
-                await auditAdmin.from("webhook_errors").insert({
+        // The event_id row was inserted into stripe_processed_events BEFORE
+        // dispatch but the handler failed, so its completed_at is still NULL.
+        // The completion-marker model means a retry will re-process it as-is —
+        // no row removal needed. We just: (1) write the audit trail, (2) return
+        // a 5xx so Stripe retries the delivery.
+        const SUPABASE_URL_ERR = Deno.env.get("SUPABASE_URL");
+        const SUPABASE_KEY_ERR = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        const errAdmin =
+            SUPABASE_URL_ERR && SUPABASE_KEY_ERR
+                ? createClient(SUPABASE_URL_ERR, SUPABASE_KEY_ERR)
+                : null;
+
+        // Audit trail: write to webhook_errors for post-mortem debugging.
+        // Best-effort: if this INSERT fails we ignore it (already in error path).
+        if (errAdmin) {
+            try {
+                await errAdmin.from("webhook_errors").insert({
                     source: "stripe-webhook",
                     event_id: event?.id ?? null,
                     event_type: event?.type ?? null,
@@ -371,12 +427,15 @@ serve(async req => {
                     error_stack: stack,
                     payload: event ?? null
                 });
+            } catch (auditErr) {
+                console.error("stripe-webhook: Failed to write audit trail:", auditErr);
             }
-        } catch (auditErr) {
-            console.error("stripe-webhook: Failed to write audit trail:", auditErr);
         }
 
-        // Return 200 to prevent Stripe from retrying on app errors
-        return json(200, { received: true, error: message });
+        // Return 5xx so Stripe retries the delivery. Every unexpected handler
+        // failure is treated as transient — retry instead of swallow. The
+        // incomplete row (completed_at NULL) is what lets the retry re-process;
+        // no DELETE required.
+        return json(500, { received: false, error: message });
     }
 });

@@ -11,7 +11,7 @@
 // conto anche durante una sospensione.
 //
 // Pattern reason:
-//   - subscription_inactive: tenant.subscription_status NOT IN ('active','trialing')
+//   - subscription_inactive: tenant.subscription_status NOT IN ('active','trialing','past_due')
 //   - tenant_deleted:        tenant.deleted_at IS NOT NULL (o riga assente)
 //   - activity_inactive:     activity.status != 'active' (o riga assente)
 //   - ordering_disabled:     activity.ordering_enabled = false
@@ -38,7 +38,11 @@ export type OrderingStateResult =
     | { ok: true }
     | { ok: false; reason: OrderingStateReason };
 
-const VALID_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
+// Diner-facing allowlist. `past_due` is a grace state (card in retry for ~2
+// weeks before cancellation): the public menu stays visible during it, so
+// ordering must too. Only `canceled`/`suspended` (anything outside this set)
+// blocks the diner-facing surface.
+const VALID_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due"]);
 
 export interface CheckOrderingStateParams {
     tenantId: string;

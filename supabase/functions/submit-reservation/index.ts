@@ -17,6 +17,15 @@ const RATE_LIMIT_SLUG_WINDOW_SECONDS = 60;
 const RATE_LIMIT_IP_PER_HOUR = 40;
 const RATE_LIMIT_IP_WINDOW_SECONDS = 3600;
 
+// Diner-facing subscription allowlist. Same set as `_shared/checkOrderingState`
+// (the orders surface): `past_due` is a grace state with full access (card in
+// retry for ~2 weeks before cancellation), so the public menu and reservations
+// stay open during it. Anything outside this set (`canceled`/`suspended`)
+// blocks. Kept inline rather than via checkOrderingState because that helper
+// also gates ordering-specific state (ordering_enabled, table_ordering plan
+// feature) that is irrelevant to reservations.
+const VALID_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due"]);
+
 // =============================================================================
 // submit-reservation
 // =============================================================================
@@ -36,6 +45,8 @@ const RATE_LIMIT_IP_WINDOW_SECONDS = 3600;
 //   - tenant_id ALWAYS derived from the server-resolved activity, NEVER from
 //     the request body. The body only contains the public `slug`.
 //   - Activity must be `status='active'` AND `enable_reservations=true`.
+//   - Tenant subscription_status must be in the diner-facing allowlist
+//     (active|trialing|past_due); canceled/suspended are blocked (423).
 //   - Email failures NEVER fail the reservation: the row is already saved.
 // =============================================================================
 
@@ -59,6 +70,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     NOTES_TOO_LONG:            "Le note possono contenere al massimo 500 caratteri",
     ACTIVITY_NOT_FOUND:        "Sede non trovata",
     ACTIVITY_NOT_ACTIVE:       "La sede non è attualmente disponibile",
+    SUBSCRIPTION_INACTIVE:     "La sede non è attualmente disponibile",
     RESERVATIONS_DISABLED:     "La sede non accetta prenotazioni online",
     FEATURE_NOT_AVAILABLE:     "Le prenotazioni non sono disponibili per questa attività",
     CAPACITY_FULL:             "Non ci sono più posti per l'orario scelto",
@@ -521,6 +533,28 @@ serve(async (req: Request) => {
         }
         if (activity.enable_reservations !== true) {
             return errorResponse("RESERVATIONS_DISABLED", 409);
+        }
+
+        // ── Subscription gate ─────────────────────────────────────────
+        // Closes a fail-open: until now a canceled/suspended venue could
+        // still take reservations via a direct Edge call (only activity.status
+        // + enable_reservations were checked). Mirror the diner-facing
+        // allowlist + `subscription_inactive` reason that checkOrderingState
+        // enforces for orders. 423 (Locked) matches submit-order's treatment
+        // of the same condition. Fail-closed: missing/deleted tenant or a
+        // status outside the allowlist blocks.
+        const { data: tenant, error: tenantStateError } = await supabase
+            .from("tenants")
+            .select("subscription_status, deleted_at")
+            .eq("id", activity.tenant_id)
+            .maybeSingle();
+        if (tenantStateError) throw tenantStateError;
+        if (
+            !tenant ||
+            tenant.deleted_at !== null ||
+            !VALID_SUBSCRIPTION_STATUSES.has(tenant.subscription_status)
+        ) {
+            return errorResponse("SUBSCRIPTION_INACTIVE", 423);
         }
 
         // ── Plan-based feature gate ───────────────────────────────────

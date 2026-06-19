@@ -115,6 +115,24 @@
     }
 }
 
+// Discreet workspace exit link on the reactivation wall (terminal state only)
+.workspaceExitLink {
+    align-self: center;
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.8125rem;
+    font-weight: 400;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+        color: var(--text, #334155);
+    }
+}
+
 // Plan label row (name + Founder badge)
 .planLabelRow {
     display: inline-flex;

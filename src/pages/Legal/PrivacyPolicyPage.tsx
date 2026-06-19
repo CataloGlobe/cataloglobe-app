@@ -1,9 +1,10 @@
 import LegalLayout from './LegalLayout';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { COMPANY, getFullAddress } from '@/config/company';
+import { CURRENT_CONSENT_VERSIONS } from '@/config/consentVersions';
 import styles from './PrivacyPolicyPage.module.scss';
 
-const LAST_UPDATED = '2026-05-06';
+const LAST_UPDATED = CURRENT_CONSENT_VERSIONS.privacy;
 
 function formatDate(isoDate: string): string {
     const [year, month, day] = isoDate.split('-').map(Number);
@@ -362,11 +363,56 @@ export default function PrivacyPolicyPage() {
 
                     <p><strong>Cookie tecnici dell'area amministrativa</strong></p>
                     <p>
-                        L'area amministrativa (gestione del menu da parte del cliente) utilizza cookie
-                        di sessione tecnici per l'autenticazione (Supabase Auth). Questi cookie sono
-                        accessibili solo agli utenti registrati e amministratori, e sono indispensabili
-                        per il funzionamento del servizio.
+                        L'accesso all'area riservata (gestione del menu da parte del cliente) utilizza
+                        tecnologie di archiviazione locale del browser (<code>localStorage</code> e{' '}
+                        <code>sessionStorage</code>) anziché cookie HTTP. Si tratta in ogni caso di
+                        strumenti tecnici indispensabili all'erogazione del servizio che, ai sensi
+                        dell'art. 122 del Codice Privacy, non richiedono il consenso dell'utente. Tali
+                        voci sono accessibili solo agli utenti registrati e amministratori.
                     </p>
+
+                    <table className={styles.dataTable}>
+                        <thead>
+                            <tr>
+                                <th scope="col">Chiave</th>
+                                <th scope="col">Tipo</th>
+                                <th scope="col">Scopo</th>
+                                <th scope="col">Durata</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>sb-&lt;id&gt;-auth-token</code></td>
+                                <td>localStorage / sessionStorage</td>
+                                <td>
+                                    Mantiene la sessione di accesso all'area riservata (token di
+                                    autenticazione e dati utente). Indispensabile per restare autenticati.
+                                </td>
+                                <td>
+                                    localStorage: fino al logout o alla scadenza del refresh token.
+                                    sessionStorage: fino alla chiusura del browser.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><code>authRememberMe</code></td>
+                                <td>localStorage</td>
+                                <td>
+                                    Memorizza la scelta "Ricordami" che determina dove viene conservata
+                                    la sessione.
+                                </td>
+                                <td>Fino a modifica o logout</td>
+                            </tr>
+                            <tr>
+                                <td><code>passwordRecoveryFlow</code></td>
+                                <td>sessionStorage</td>
+                                <td>
+                                    Indicatore temporaneo attivo durante la procedura di reimpostazione
+                                    password.
+                                </td>
+                                <td>Fino alla chiusura del browser</td>
+                            </tr>
+                        </tbody>
+                    </table>
 
                     <p>
                         I cookie e le tecnologie di archiviazione tecniche non richiedono il consenso
@@ -401,6 +447,15 @@ export default function PrivacyPolicyPage() {
                         I dati dei cataloghi pubblici (nome dell'attività, prodotti, immagini, orari)
                         sono visibili a chiunque acceda all'URL o al QR code del catalogo, come
                         liberamente configurato dall'azienda titolare del catalogo stesso.
+                    </p>
+                    <p>
+                        I dati relativi ai cataloghi pubblici delle attività (nome, prodotti, prezzi,
+                        orari e informazioni pubblicamente visibili) possono essere indicizzati e resi
+                        ricercabili tramite altri servizi digitali facenti capo a CataloGlobe di
+                        D'Elia Alessandro, incluse eventuali piattaforme di ricerca locale sviluppate
+                        in futuro. L'utente accetta tale utilizzo al momento della registrazione alla
+                        piattaforma, sia in versione gratuita che a pagamento. È possibile richiedere
+                        in qualsiasi momento l'esclusione da tale indicizzazione contattando il Titolare.
                     </p>
                 </div>
 

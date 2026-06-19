@@ -100,13 +100,6 @@ interface OrderingSheetProps {
      */
     maintenance?: { reason: OrderingStateReason; message: string } | null;
 
-    /**
-     * Bill state — controllato dal parent (CollectionView) che mantiene la
-     * subscription customer_sessions always-on. Sincronizzato via prop.
-     */
-    billRequestedAt: string | null;
-    onBillRequestedAtChange: (next: string | null) => void;
-
     onSessionExpired?: () => void;
     ordersRefreshKey?: number;
 }

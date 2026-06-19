@@ -4,6 +4,6 @@
  * La data corrisponde alla data di pubblicazione del documento su /legal/*.
  */
 export const CURRENT_CONSENT_VERSIONS = {
-    privacy: '2026-04-12',
+    privacy: '2026-06-19',
     terms: '2026-04-12',
 } as const;

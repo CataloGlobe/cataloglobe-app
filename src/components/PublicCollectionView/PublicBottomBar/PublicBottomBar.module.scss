@@ -1,4 +1,6 @@
-// Bottom nav bar pubblica — pill flottante scura glassmorphic, mobile-only.
+// Bottom nav bar pubblica — pill flottante frosted glass adattiva alla luminanza,
+// mobile-only. Vetro chiaro su stili pagina chiari, vetro scuro su stili scuri
+// (data-theme="light"|"dark" pilotato dal parent via prop `surfaceTheme`).
 // z-index 150: sopra contenuto/section-nav (10/20) e FAB (55/60),
 // SOTTO toast/SearchOverlay (200) e sheet (900). Sheet e ricerca la coprono.
 
@@ -13,8 +15,11 @@
   margin: 0 auto;
   z-index: 150;
 
-  width: calc(100% - 36px);
-  max-width: 320px;
+  // Larghezza-contenuto: la barra si dimensiona agli slot (tab a stadio + azioni),
+  // resta centrata via left/right/margin auto. max-width come guard anti-overflow
+  // su telefoni stretti: i tab flex-shrinkano in modo equo, la pill resta uno stadio.
+  width: fit-content;
+  max-width: calc(100vw - 24px);
 
   animation: barIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 
@@ -26,28 +31,120 @@
 }
 
 .bar {
-  width: 100%;
   display: flex;
   align-items: center;
-  gap: 4px;
+  // Gap 6px tra group / divider / azioni → icone azione vicine ma non appiccicate.
+  // Il gap interno tra i tab è separato (vedi `.group`).
+  gap: 6px;
   padding: 6px;
   box-sizing: border-box;
 
-  background: rgba(20, 20, 20, 0.72);
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  // blur 30px: cancella il dettaglio del testo dietro restando sotto la soglia di
+  // jank di iOS Safari (~32px) per una barra fixed sopra contenuto che scrolla.
+  backdrop-filter: blur(30px) saturate(1.8);
+  -webkit-backdrop-filter: blur(30px) saturate(1.8);
   border-radius: 999px;
-  box-shadow:
-    0 10px 30px -8px rgba(0, 0, 0, 0.5),
-    0 2px 8px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
 
   transform-origin: bottom center;
   transform: scale(1);
   // Shrink-on-scroll gestito qui via data-shrink: il `.bar` possiede SOLO lo scale,
   // nessun transform di centratura/entry a sovrascriverlo.
   transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+
+  // ── Vetro adattivo alla luminanza dello stile pagina ──
+  &[data-theme="light"] {
+    // Track grigino + bordo a capello scuro: il perimetro resta percepibile sul
+    // crema (un bordo bianco sarebbe invisibile su sfondo chiaro). Alpha 0.82: più
+    // corpo ma ancora translucida (vetro, non pannello solido). Inner top highlight
+    // = filo di luce sul bordo superiore, vende la lettura "lastra di vetro".
+    background: rgba(244, 244, 245, 0.82);
+    border: 1px solid rgba(0, 0, 0, 0.07);
+    box-shadow:
+      0 8px 30px rgba(0, 0, 0, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7);
+
+    .indicator {
+      // Lozenge in tinta (IG-style): tint piatto, non chip bianco sollevato.
+      background: rgba(0, 0, 0, 0.08);
+    }
+    .tab {
+      color: #6b7280;
+      @media (hover: hover) {
+        &:hover {
+          color: #171717;
+        }
+      }
+    }
+    .tabActive {
+      color: #171717;
+      @media (hover: hover) {
+        &:hover {
+          color: #171717;
+        }
+      }
+    }
+    .cart {
+      color: #6b7280;
+      @media (hover: hover) {
+        &:hover {
+          color: #171717;
+        }
+      }
+    }
+    .divider {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    .dot,
+    .cartDot {
+      border-color: rgba(255, 255, 255, 0.92);
+    }
+  }
+
+  &[data-theme="dark"] {
+    // Alpha 0.72: un filo più presente (sul dark serve meno corpo per leggere come
+    // materiale). Highlight superiore più tenue del light.
+    background: rgba(20, 20, 20, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 8px 30px rgba(0, 0, 0, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+    .indicator {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    .tab {
+      color: rgba(255, 255, 255, 0.65);
+      @media (hover: hover) {
+        &:hover {
+          color: #fff;
+        }
+      }
+    }
+    .tabActive {
+      color: #fff;
+      @media (hover: hover) {
+        &:hover {
+          color: #fff;
+        }
+      }
+    }
+    .cart {
+      color: rgba(255, 255, 255, 0.65);
+      @media (hover: hover) {
+        &:hover {
+          color: #fff;
+        }
+      }
+    }
+    .divider {
+      background: rgba(255, 255, 255, 0.16);
+    }
+    .dot,
+    .cartDot {
+      border-color: rgba(20, 20, 20, 0.92);
+    }
+  }
 }
 
 // Shrink-on-scroll: scala verso il basso (origin bottom center).
@@ -71,23 +168,24 @@
 }
 
 // Gruppo dei 3 tab — riferimento positioning per la pill scorrevole.
+// Tab a flex equo (flex:1 1 72px): a riposo ~72px ciascuno, comprimibili in modo
+// uniforme su schermi stretti senza che la pill perda la forma a stadio.
 .group {
   position: relative;
-  flex: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-// Pill attiva che scorre tra i tab.
+// Pill attiva NEUTRA a stadio (più larga che alta) che scorre tra i tab.
+// Colore/ombra definiti per tema (vedi blocchi [data-theme] sopra).
 .indicator {
   position: absolute;
   top: 0;
   bottom: 0;
   border-radius: 999px;
-  background: var(--pub-accent, #f59e0b);
-  box-shadow: 0 2px 10px -2px
-    color-mix(in srgb, var(--pub-accent, #f59e0b) 60%, transparent);
   transition:
     left 0.4s cubic-bezier(0.32, 0.72, 0, 1),
     width 0.4s cubic-bezier(0.32, 0.72, 0, 1);
@@ -97,15 +195,20 @@
 .tab {
   position: relative;
   z-index: 1;
-  flex: 1;
-  height: 36px;
+  // Stadio orizzontale: width esplicita 72px (comoda) → la barra fit-content si
+  // dimensiona correttamente; flex-shrink consente la compressione equa quando
+  // il max-width della barra taglia su schermi stretti (width sola non basta:
+  // il solo flex-basis viene ignorato dal sizing fit-content del wrapper).
+  width: 72px;
+  flex: 0 1 72px;
+  min-width: 0;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   background: transparent;
   border-radius: 999px;
-  color: rgba(255, 255, 255, 0.62);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition:
@@ -113,31 +216,22 @@
     transform 0.15s ease;
 
   &:active {
-    transform: scale(0.9);
-  }
-
-  @media (hover: hover) {
-    &:hover {
-      color: rgba(255, 255, 255, 0.85);
-    }
+    transform: scale(0.92);
   }
 }
 
+// `.tabActive` colori definiti nei blocchi [data-theme]; classe presente per il selettore.
 .tabActive {
-  color: #fff;
-
-  @media (hover: hover) {
-    &:hover {
-      color: #fff;
-    }
-  }
+  font: inherit;
 }
 
-// Pallino reminder recensione sull'icona cuore.
+// Pallino reminder recensione sull'icona cuore. Ancorato al centro dello slot via
+// translate (slot-width-independent), così resta sul glifo a qualsiasi larghezza tab.
 .dot {
   position: absolute;
-  top: 6px;
-  right: calc(50% - 12px);
+  top: 50%;
+  left: 50%;
+  transform: translate(6px, -12px);
   width: 7px;
   height: 7px;
   border-radius: 999px;
@@ -149,23 +243,21 @@
 .divider {
   width: 1px;
   height: 24px;
-  margin: 0 4px;
-  background: rgba(255, 255, 255, 0.14);
+  margin: 0; // lo spazio ai lati lo dà il gap 6px della barra
   flex: 0 0 auto;
 }
 
 .cart {
   position: relative;
   flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
+  width: 52px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   background: transparent;
   border-radius: 999px;
-  color: rgba(255, 255, 255, 0.82);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition:
@@ -173,13 +265,7 @@
     transform 0.15s ease;
 
   &:active {
-    transform: scale(0.9);
-  }
-
-  @media (hover: hover) {
-    &:hover {
-      color: #fff;
-    }
+    transform: scale(0.92);
   }
 }
 
@@ -204,11 +290,13 @@
 }
 
 // Indicatore binario carrello: pallino rosso (--pub-alert) in alto a destra dell'icona.
-// Bordo del colore di sfondo barra così si stacca pulito senza coprire il glifo.
+// Ancorato al centro slot via translate (come `.dot`): resta sul glifo nello slot largo.
+// Bordo del colore di sfondo barra (per tema) così si stacca pulito senza coprire il glifo.
 .cartDot {
   position: absolute;
-  top: 5px;
-  right: calc(50% - 12px);
+  top: 50%;
+  left: 50%;
+  transform: translate(7px, -12px);
   width: 8px;
   height: 8px;
   border-radius: 999px;

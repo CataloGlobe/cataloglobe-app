@@ -23,6 +23,7 @@ import PublicFooter from "../PublicFooter/PublicFooter";
 import { PublicFeeRows } from "../PublicFooter/PublicFees";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
 import type { CollectionStyle } from "@/types/collectionStyle";
+import { contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import styles from "./CollectionView.module.scss";
 import EventsView from "../EventsView/EventsView";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
@@ -2282,6 +2283,10 @@ export default function CollectionView({
                         valutaEligibleRef.current = false;
                     }}
                     isSheetOpen={!!selectedItem || isOrderingOpen || isSupportOpen}
+                    // Vetro adattivo: bg pagina chiaro → vetro chiaro, altrimenti scuro.
+                    // contrastText() riusa isLight() (luminanza); "#1a1a1a" ⇒ bg chiaro.
+                    // Parse-fail ⇒ "#ffffff" ⇒ "dark" (preserva il comportamento storico).
+                    surfaceTheme={contrastText(style.backgroundColor) === "#1a1a1a" ? "light" : "dark"}
                 />
             )}
 
@@ -2411,8 +2416,6 @@ export default function CollectionView({
                         }
                         isSubmitting={isSubmittingOrder}
                         maintenance={effectiveMaintenance}
-                        billRequestedAt={billRequestedAt}
-                        onBillRequestedAtChange={setBillRequestedAt}
                         onSessionExpired={handleSessionExpired}
                         ordersRefreshKey={ordersRefreshKey}
                     />
