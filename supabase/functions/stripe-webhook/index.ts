@@ -171,24 +171,44 @@ serve(async req => {
 
         console.log(`stripe-webhook: Received event ${event.type} (${event.id})`);
 
-        // Idempotency check: Stripe consegna eventi at-least-once.
-        // Se già processato in passato, ritorna early con 200.
+        // Idempotency: Stripe delivers events at-least-once. Process-once via a
+        // completion marker: a row counts as "done" ONLY when completed_at is
+        // set (written AFTER the handler succeeds). A row that exists but is not
+        // yet completed is a prior failed attempt and MUST be re-processed.
         const { error: insertError } = await admin
             .from("stripe_processed_events")
             .insert({ event_id: event.id, event_type: event.type });
 
         if (insertError) {
             if (insertError.code === "23505") {
-                // Unique constraint violation = evento già processato.
-                console.log(`stripe-webhook: Event ${event.id} already processed, skipping.`);
-                return json(200, { received: true, idempotent: true });
+                // Row already exists from a prior delivery/attempt. Re-read its
+                // completion marker to decide: completed -> truly done (200);
+                // not completed -> a previous attempt failed, fall through and
+                // re-process.
+                const { data: existing, error: selectError } = await admin
+                    .from("stripe_processed_events")
+                    .select("completed_at")
+                    .eq("event_id", event.id)
+                    .maybeSingle();
+
+                if (selectError) {
+                    // Cannot read the marker (DB blip). Fail closed toward a
+                    // retry rather than risk acking an unprocessed event: throw
+                    // into the catch, which returns 5xx so Stripe retries.
+                    throw selectError;
+                }
+                if (existing?.completed_at) {
+                    console.log(`stripe-webhook: Event ${event.id} already completed, skipping.`);
+                    return json(200, { received: true, idempotent: true });
+                }
+                console.log(`stripe-webhook: Event ${event.id} previously inserted but not completed, re-processing.`);
+                // fall through to dispatch
+            } else {
+                // Real failure on the idempotency insert itself (DB down, etc.).
+                // Log but do NOT block: process the event anyway. The completion
+                // UPDATE below is best-effort; dropping the event would be worse.
+                console.error(`stripe-webhook: Idempotency insert failed for event ${event.id}:`, insertError.message);
             }
-            // Real failure on the idempotency insert itself (DB down, etc.).
-            // Log but do NOT block: process the event anyway. Handlers are pure
-            // UPDATEs so processing twice is harmless, and dropping the event
-            // would be worse. Consistent with the retry-on-failure policy in the
-            // catch block below — we never silently swallow an event.
-            console.error(`stripe-webhook: Idempotency check failed for event ${event.id}:`, insertError.message);
         }
 
         // --- Handle events ---
@@ -355,6 +375,18 @@ serve(async req => {
                 console.log(`stripe-webhook: Ignoring unhandled event type ${event.type}`);
         }
 
+        // Handler succeeded: stamp the completion marker so any redelivery is
+        // acknowledged as idempotent. Best-effort — if this UPDATE fails the row
+        // stays completed_at NULL and a retry re-processes (handlers are
+        // idempotent UPDATEs by id, so re-processing converges).
+        const { error: completeError } = await admin
+            .from("stripe_processed_events")
+            .update({ completed_at: new Date().toISOString() })
+            .eq("event_id", event.id);
+        if (completeError) {
+            console.error(`stripe-webhook: Failed to mark event ${event.id} completed:`, completeError.message);
+        }
+
         // Always return 200 to Stripe to acknowledge receipt
         return json(200, { received: true });
     } catch (err) {
@@ -362,11 +394,11 @@ serve(async req => {
         const stack = err instanceof Error ? err.stack : null;
         console.error("stripe-webhook: Unhandled error:", message);
 
-        // The event_id was inserted into stripe_processed_events BEFORE dispatch
-        // to guard against concurrent duplicate deliveries. The handler then
-        // failed, so the intended state change never landed. We must let Stripe
-        // retry: (1) write the audit trail, (2) release the idempotency row so a
-        // retry can re-insert and re-process, (3) return a 5xx so Stripe retries.
+        // The event_id row was inserted into stripe_processed_events BEFORE
+        // dispatch but the handler failed, so its completed_at is still NULL.
+        // The completion-marker model means a retry will re-process it as-is —
+        // no row removal needed. We just: (1) write the audit trail, (2) return
+        // a 5xx so Stripe retries the delivery.
         const SUPABASE_URL_ERR = Deno.env.get("SUPABASE_URL");
         const SUPABASE_KEY_ERR = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
         const errAdmin =
@@ -391,24 +423,10 @@ serve(async req => {
             }
         }
 
-        // Release the idempotency lock for THIS event so Stripe's retry can
-        // re-process it. Scoped to the current event_id only. Best-effort: if
-        // the DELETE fails we still return 5xx below, which triggers a retry.
-        if (errAdmin && event?.id) {
-            try {
-                await errAdmin
-                    .from("stripe_processed_events")
-                    .delete()
-                    .eq("event_id", event.id);
-            } catch (cleanupErr) {
-                console.error("stripe-webhook: Failed to release idempotency row:", cleanupErr);
-            }
-        }
-
         // Return 5xx so Stripe retries the delivery. Every unexpected handler
-        // failure is treated as transient — retry instead of swallow. This
-        // supersedes the previous "always 200" behaviour, which combined with
-        // the pre-dispatch idempotency insert could silently drop events.
+        // failure is treated as transient — retry instead of swallow. The
+        // incomplete row (completed_at NULL) is what lets the retry re-process;
+        // no DELETE required.
         return json(500, { received: false, error: message });
     }
 });
