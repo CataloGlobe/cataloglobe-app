@@ -290,11 +290,11 @@ function _mapRpcError(rpcError: { code?: string; message?: string }): Response {
             details: { reason: "ORDER_ITEM_NOT_FOUND", raw: errMsg }
         });
     }
-    if (errMsg.startsWith("STORNO_QTY_EXCEEDS_ORIGINAL:")) {
+    if (errMsg.startsWith("STORNO_QTY_EXCEEDS_RESIDUAL:")) {
         return jsonResponse(422, {
             code: "INVALID_ITEMS",
-            message: "Quantità di storno superiore alla quantità originale.",
-            details: { reason: "STORNO_QTY_EXCEEDS_ORIGINAL", raw: errMsg }
+            message: "Quantità di storno superiore al residuo disponibile.",
+            details: { reason: "STORNO_QTY_EXCEEDS_RESIDUAL", raw: errMsg }
         });
     }
     console.error("[rectify-order] RPC unexpected error:", errMsg);

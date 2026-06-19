@@ -614,7 +614,8 @@ export async function uncancelToReady(
  * Constraint server-side:
  *   - parent must be in status acknowledged | delivered
  *   - parent must NOT be a rectification itself
- *   - storno quantity <= original quantity per ogni item
+ *   - storno quantity <= residuo stornabile per ogni item
+ *     (originale meno storni precedenti non annullati, cumulativo)
  *
  * Throws (validation client):
  *   "EMPTY_RECTIFICATION"           se items.length === 0
@@ -628,7 +629,7 @@ export async function uncancelToReady(
  *   422 INVALID_ITEMS           → "INVALID_RECTIFICATION_ITEMS" + .details
  *                                 (reason: INVALID_STORNO_ITEM |
  *                                 ORDER_ITEM_NOT_FOUND |
- *                                 STORNO_QTY_EXCEEDS_ORIGINAL)
+ *                                 STORNO_QTY_EXCEEDS_RESIDUAL)
  */
 export async function rectifyOrder(
     parentOrderId: string,

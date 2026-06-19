@@ -671,8 +671,8 @@ export default function Orders() {
                         }).details;
                         const subReason = details?.reason;
                         let msg = "Rettifica non valida";
-                        if (subReason === "STORNO_QTY_EXCEEDS_ORIGINAL")
-                            msg = "Quantità di storno superiore all'originale";
+                        if (subReason === "STORNO_QTY_EXCEEDS_RESIDUAL")
+                            msg = "Quantità di storno superiore al residuo disponibile";
                         else if (subReason === "ORDER_ITEM_NOT_FOUND")
                             msg = "Articolo non trovato nell'ordine";
                         else if (subReason === "INVALID_STORNO_ITEM")
