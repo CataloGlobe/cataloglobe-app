@@ -52,6 +52,15 @@ async function updateTenantStatus(
 function getSubscriptionQuantity(subscription: Stripe.Subscription): number {
     const items = subscription.items?.data;
     if (!items || items.length === 0) return 1;
+    // Defensive: the single-product model guarantees exactly 1 line item. If a
+    // subscription ever carries more, items[0] silently drops the others — warn
+    // so the multi-product migration (see note above) is not missed in prod.
+    if (items.length > 1) {
+        console.warn(
+            `[stripe-webhook] subscription ${subscription.id} has ${items.length} line items; ` +
+            `getSubscriptionQuantity reads only items[0].quantity.`
+        );
+    }
     return items[0].quantity ?? 1;
 }
 
