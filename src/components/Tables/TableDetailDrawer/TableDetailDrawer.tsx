@@ -318,8 +318,15 @@ export function TableDetailDrawer({
           )
         : [];
 
+    // Scope "Ordini del conto" al conto vivo (openGroup.id), non a tutta la storia
+    // del tavolo: i gruppi chiusi e gli eventuali gruppi open stale (es. mai chiusi
+    // il giorno prima) restano fuori. openGroup === null (tavolo libero) → lista vuota.
     const recentOrders = data
-        ? data.orders.filter(o => o.status === "delivered" || o.status === "cancelled")
+        ? data.orders.filter(
+              o =>
+                  (o.status === "delivered" || o.status === "cancelled") &&
+                  o.order_group_id === data.openGroup?.id
+          )
         : [];
 
     // openGroup is NOT rendered but kept for nothingToClose + deriveTableStatus.
@@ -559,15 +566,11 @@ export function TableDetailDrawer({
                             </section>
                         )}
 
-                        <section className={styles.section}>
-                            <Text variant="body-sm" weight={600} colorVariant="muted">
-                                Ordini recenti
-                            </Text>
-                            {recentOrders.length === 0 ? (
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Nessun ordine recente.
+                        {recentOrders.length > 0 && (
+                            <section className={styles.section}>
+                                <Text variant="body-sm" weight={600} colorVariant="muted">
+                                    Ordini del conto
                                 </Text>
-                            ) : (
                                 <>
                                     <ul className={styles.ordersList}>
                                         {(showAllRecent
@@ -612,8 +615,8 @@ export function TableDetailDrawer({
                                             </button>
                                         )}
                                 </>
-                            )}
-                        </section>
+                            </section>
+                        )}
                     </div>
                 ) : null}
             </DrawerLayout>
