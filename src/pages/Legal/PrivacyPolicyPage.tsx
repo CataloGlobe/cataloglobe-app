@@ -363,11 +363,56 @@ export default function PrivacyPolicyPage() {
 
                     <p><strong>Cookie tecnici dell'area amministrativa</strong></p>
                     <p>
-                        L'area amministrativa (gestione del menu da parte del cliente) utilizza cookie
-                        di sessione tecnici per l'autenticazione (Supabase Auth). Questi cookie sono
-                        accessibili solo agli utenti registrati e amministratori, e sono indispensabili
-                        per il funzionamento del servizio.
+                        L'accesso all'area riservata (gestione del menu da parte del cliente) utilizza
+                        tecnologie di archiviazione locale del browser (<code>localStorage</code> e{' '}
+                        <code>sessionStorage</code>) anziché cookie HTTP. Si tratta in ogni caso di
+                        strumenti tecnici indispensabili all'erogazione del servizio che, ai sensi
+                        dell'art. 122 del Codice Privacy, non richiedono il consenso dell'utente. Tali
+                        voci sono accessibili solo agli utenti registrati e amministratori.
                     </p>
+
+                    <table className={styles.dataTable}>
+                        <thead>
+                            <tr>
+                                <th scope="col">Chiave</th>
+                                <th scope="col">Tipo</th>
+                                <th scope="col">Scopo</th>
+                                <th scope="col">Durata</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>sb-&lt;id&gt;-auth-token</code></td>
+                                <td>localStorage / sessionStorage</td>
+                                <td>
+                                    Mantiene la sessione di accesso all'area riservata (token di
+                                    autenticazione e dati utente). Indispensabile per restare autenticati.
+                                </td>
+                                <td>
+                                    localStorage: fino al logout o alla scadenza del refresh token.
+                                    sessionStorage: fino alla chiusura del browser.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><code>authRememberMe</code></td>
+                                <td>localStorage</td>
+                                <td>
+                                    Memorizza la scelta "Ricordami" che determina dove viene conservata
+                                    la sessione.
+                                </td>
+                                <td>Fino a modifica o logout</td>
+                            </tr>
+                            <tr>
+                                <td><code>passwordRecoveryFlow</code></td>
+                                <td>sessionStorage</td>
+                                <td>
+                                    Indicatore temporaneo attivo durante la procedura di reimpostazione
+                                    password.
+                                </td>
+                                <td>Fino alla chiusura del browser</td>
+                            </tr>
+                        </tbody>
+                    </table>
 
                     <p>
                         I cookie e le tecnologie di archiviazione tecniche non richiedono il consenso
