@@ -232,10 +232,12 @@ serve(async req => {
                     stripe_subscription_id: stripeSubscriptionId,
                     subscription_status: subscriptionStatus,
                     paid_seats: paidSeats,
-                    trial_until: trialUntil,
                     current_period_end: currentPeriodEnd
                 };
                 if (planCode) updates.plan = planCode;
+                // Only write trial_until when present — never wipe an existing
+                // value on a payload that simply omits trial_end.
+                if (trialUntil !== null) updates.trial_until = trialUntil;
 
                 const { error, count } = await admin
                     .from("tenants")
@@ -274,10 +276,12 @@ serve(async req => {
                 const updates: Record<string, unknown> = {
                     subscription_status: newStatus,
                     paid_seats: paidSeats,
-                    trial_until: trialUntil,
                     current_period_end: currentPeriodEnd
                 };
                 if (planCode) updates.plan = planCode;
+                // Only write trial_until when present — never wipe an existing
+                // value on a payload that simply omits trial_end.
+                if (trialUntil !== null) updates.trial_until = trialUntil;
 
                 const result = await updateTenantStatus(admin, stripeCustomerId, updates);
 
