@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/TableRowActions/TableRowActions";
 
 import { useToast } from "@/context/Toast/ToastContext";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnActivity } from "@/lib/permissions";
 import { closeTable } from "@/services/supabase/customerSessions";
 import { updateTable } from "@/services/supabase/tables";
 import type { V2TableWithState } from "@/types/orders";
@@ -78,6 +80,9 @@ export function TablesLiveView({
     activityId
 }: TablesLiveViewProps) {
     const { showToast } = useToast();
+    const { permissions } = usePermissions();
+    const canManage =
+        !!permissions && canDoOnActivity(permissions, "tables.manage", activityId);
     const { items, isLoading, error, refetch } = useTablesLiveRealtime(
         tenantId,
         activityId
@@ -389,7 +394,7 @@ export function TablesLiveView({
                                         {
                                             label: "Chiudi tavolo",
                                             icon: LogOut,
-                                            hidden: status !== "occupied",
+                                            hidden: status !== "occupied" || !canManage,
                                             onClick: () => handleRequestClose(t.id)
                                         },
                                         {
@@ -397,7 +402,7 @@ export function TablesLiveView({
                                                 ? "Rimuovi manutenzione"
                                                 : "Metti in manutenzione",
                                             icon: Wrench,
-                                            hidden: status === "occupied",
+                                            hidden: status === "occupied" || !canManage,
                                             onClick: () =>
                                                 void handleMaintenanceToggle(
                                                     t.id,
