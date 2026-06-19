@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTenant } from "@/context/useTenant";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -71,6 +72,7 @@ export default function SubscriptionPage() {
     const canCancelBilling = permissions ? canDoOnTenant(permissions, "billing.cancel") : false;
     const { status, trialDaysLeft, hasPaymentMethod } = useSubscriptionGuard();
     const { showToast } = useToast();
+    const navigate = useNavigate();
 
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [portalLoading, setPortalLoading] = useState(false);
@@ -621,24 +623,35 @@ export default function SubscriptionPage() {
                 )}
 
                 {status === "canceled" && (
-                    <div className={styles.actionCard}>
-                        <div>
-                            <Text variant="body" weight={500}>
-                                Riattiva abbonamento
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Il tuo abbonamento è stato cancellato. Riattivalo per riprendere a modificare i contenuti.
-                            </Text>
+                    <>
+                        <div className={styles.actionCard}>
+                            <div>
+                                <Text variant="body" weight={500}>
+                                    Riattiva abbonamento
+                                </Text>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    Il tuo abbonamento è stato cancellato. Riattivalo per riprendere a modificare i contenuti.
+                                </Text>
+                            </div>
+                            <Button
+                                variant="primary"
+                                onClick={hasPaymentMethod ? handlePortal : handleCheckout}
+                                disabled={checkoutLoading || portalLoading}
+                                leftIcon={<CreditCard size={16} />}
+                            >
+                                {(checkoutLoading || portalLoading) ? "Reindirizzamento..." : "Riattiva abbonamento"}
+                            </Button>
                         </div>
-                        <Button
-                            variant="primary"
-                            onClick={hasPaymentMethod ? handlePortal : handleCheckout}
-                            disabled={checkoutLoading || portalLoading}
-                            leftIcon={<CreditCard size={16} />}
-                        >
-                            {(checkoutLoading || portalLoading) ? "Reindirizzamento..." : "Riattiva abbonamento"}
-                        </Button>
-                    </div>
+                        {isTerminal && (
+                            <button
+                                type="button"
+                                className={styles.workspaceExitLink}
+                                onClick={() => navigate("/workspace")}
+                            >
+                                Non vuoi rinnovare? Gestisci o elimina l&apos;azienda dal Workspace.
+                            </button>
+                        )}
+                    </>
                 )}
             </div>
             )}
