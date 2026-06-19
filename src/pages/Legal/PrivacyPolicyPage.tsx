@@ -448,6 +448,15 @@ export default function PrivacyPolicyPage() {
                         sono visibili a chiunque acceda all'URL o al QR code del catalogo, come
                         liberamente configurato dall'azienda titolare del catalogo stesso.
                     </p>
+                    <p>
+                        I dati relativi ai cataloghi pubblici delle attività (nome, prodotti, prezzi,
+                        orari e informazioni pubblicamente visibili) possono essere indicizzati e resi
+                        ricercabili tramite altri servizi digitali facenti capo a CataloGlobe di
+                        D'Elia Alessandro, incluse eventuali piattaforme di ricerca locale sviluppate
+                        in futuro. L'utente accetta tale utilizzo al momento della registrazione alla
+                        piattaforma, sia in versione gratuita che a pagamento. È possibile richiedere
+                        in qualsiasi momento l'esclusione da tale indicizzazione contattando il Titolare.
+                    </p>
                 </div>
 
                 {/* 9. Modifiche */}
