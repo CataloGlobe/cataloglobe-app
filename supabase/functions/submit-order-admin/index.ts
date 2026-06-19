@@ -70,7 +70,7 @@ const ITEM_NOTES_MAX_LEN = 140;
 // Subscription status validi per ordering. Mirror checkOrderingState.ts —
 // replichiamo inline qui per poter bypassare ordering_enabled senza
 // modificare l'helper condiviso (usato da resolve-table e submit-order).
-const VALID_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
+const VALID_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due"]);
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
