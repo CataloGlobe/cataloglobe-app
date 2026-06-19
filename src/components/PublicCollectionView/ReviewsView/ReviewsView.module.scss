@@ -296,6 +296,19 @@
     margin: 0;
 }
 
+.privacyDisclaimer {
+    font-size: 0.75rem;
+    color: var(--pub-bg-text-muted);
+    font-family: inherit;
+    margin: 0;
+    text-align: center;
+
+    a {
+        color: inherit;
+        text-decoration: underline;
+    }
+}
+
 .textarea {
     width: 100%;
     box-sizing: border-box;

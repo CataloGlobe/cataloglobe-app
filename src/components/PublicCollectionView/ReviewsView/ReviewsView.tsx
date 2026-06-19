@@ -350,6 +350,9 @@ export default function ReviewsView({
                         <div className={styles.charCount}>
                             {feedback.length} / 2000
                         </div>
+                        <p className={styles.feedbackNote}>
+                            {t("reviews.personal_data_hint")}
+                        </p>
                     </div>
 
                     {submitError && (
@@ -361,6 +364,18 @@ export default function ReviewsView({
                             {t("reviews.required_note")}
                         </p>
                     )}
+
+                    <p className={styles.privacyDisclaimer}>
+                        {t("reviews.privacy_disclaimer_prefix")}
+                        <a
+                            href="/legal/privacy"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {t("reviews.privacy_disclaimer_link")}
+                        </a>
+                        {t("reviews.privacy_disclaimer_suffix")}
+                    </p>
 
                     <button
                         type="button"
