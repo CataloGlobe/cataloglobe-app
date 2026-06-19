@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, animate, motion, useMotionValue, useTransform, useDragControls, useReducedMotion } from "framer-motion";
 import { popSheetOpen, pushSheetOpen } from "../hooks/useScrollCollapse";
+import { PublicPortalContext } from "@/features/public/components/PublicPortalContext";
 import styles from "./PublicSheet.module.scss";
 
 function useIsMobile(breakpoint = 640) {
@@ -43,6 +45,10 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
     const isMobile = useIsMobile();
     const dragControls = useDragControls();
     const prefersReducedMotion = useReducedMotion();
+    // Target del portal: nodo plain dentro il theme scope (eredita --pub-*,
+    // fuori da .tabPatternSurface). Null finché non montato → fallback al
+    // render in-place (transitorio: gli sheet si aprono dopo il mount).
+    const portalTarget = useContext(PublicPortalContext);
 
     // ── Mobile: motion value drives BOTH drag and programmatic animation ────
     // Drag e animazione scrivono sullo stesso valore → nessun conflitto di posizione.
@@ -332,7 +338,7 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
 
     // ── Desktop: AnimatePresence (nessun drag, nessun conflitto) ────────────
     if (!isMobile) {
-        return (
+        const desktopTree = (
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
@@ -370,12 +376,13 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                 )}
             </AnimatePresence>
         );
+        return portalTarget ? createPortal(desktopTree, portalTarget) : desktopTree;
     }
 
     // ── Mobile: motion value + shouldRender (no AnimatePresence sul panel) ──
     if (!shouldRender) return null;
 
-    return (
+    const mobileTree = (
         <div className={styles.mobileRoot}>
             {/* Backdrop: opacity derivata da y in tempo reale — fade sincronizzato col drag */}
             <motion.div
@@ -429,4 +436,6 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
             </motion.div>
         </div>
     );
+
+    return portalTarget ? createPortal(mobileTree, portalTarget) : mobileTree;
 }

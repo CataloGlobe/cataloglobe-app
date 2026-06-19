@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import {
     parseTokens,
     type StyleTokenModel
 } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import type { ResolvedStyle } from "@/types/resolvedCollections";
 import { mapStyleTokensToCssVars } from "@/features/public/utils/mapStyleTokensToCssVars";
+import { PublicPortalContext } from "@/features/public/components/PublicPortalContext";
 
 type Props = {
     /** Pre-parsed tokens. Takes precedence over `style` when provided. */
@@ -25,10 +26,18 @@ type Props = {
 export default function PublicThemeScope({ tokens: tokensProp, style, className, children }: Props) {
     const tokens = tokensProp ?? parseTokens(style?.config ?? null);
     const cssVars = mapStyleTokensToCssVars(tokens);
+    // Callback ref: il set triggera un re-render quando il nodo monta → il
+    // context si aggiorna e PublicSheet riceve il target del portal.
+    const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
 
     return (
         <div className={className} style={cssVars as React.CSSProperties}>
-            {children}
+            <PublicPortalContext.Provider value={portalNode}>
+                {children}
+                {/* Portal-root: plain div, nessuno stile → nessuno stacking
+                    context. Ultimo figlio del theme scope. */}
+                <div ref={setPortalNode} />
+            </PublicPortalContext.Provider>
         </div>
     );
 }
