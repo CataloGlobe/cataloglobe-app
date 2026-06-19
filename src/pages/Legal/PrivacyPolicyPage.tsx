@@ -1,9 +1,10 @@
 import LegalLayout from './LegalLayout';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { COMPANY, getFullAddress } from '@/config/company';
+import { CURRENT_CONSENT_VERSIONS } from '@/config/consentVersions';
 import styles from './PrivacyPolicyPage.module.scss';
 
-const LAST_UPDATED = '2026-05-06';
+const LAST_UPDATED = CURRENT_CONSENT_VERSIONS.privacy;
 
 function formatDate(isoDate: string): string {
     const [year, month, day] = isoDate.split('-').map(Number);
