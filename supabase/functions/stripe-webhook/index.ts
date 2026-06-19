@@ -183,9 +183,11 @@ serve(async req => {
                 console.log(`stripe-webhook: Event ${event.id} already processed, skipping.`);
                 return json(200, { received: true, idempotent: true });
             }
-            // Errore vero (DB down, ecc.). Log ma non blocchiamo: meglio processare
-            // 2 volte che perdere un evento. Gli handler sono UPDATE puri quindi
-            // processarlo 2 volte è innocuo.
+            // Real failure on the idempotency insert itself (DB down, etc.).
+            // Log but do NOT block: process the event anyway. Handlers are pure
+            // UPDATEs so processing twice is harmless, and dropping the event
+            // would be worse. Consistent with the retry-on-failure policy in the
+            // catch block below — we never silently swallow an event.
             console.error(`stripe-webhook: Idempotency check failed for event ${event.id}:`, insertError.message);
         }
 
@@ -356,14 +358,23 @@ serve(async req => {
         const stack = err instanceof Error ? err.stack : null;
         console.error("stripe-webhook: Unhandled error:", message);
 
-        // Audit trail: scrive in webhook_errors per debug post-mortem.
-        // Race-safe: se questo INSERT fallisce, ignoriamo (siamo già in error path).
-        try {
-            const SUPABASE_URL_ERR = Deno.env.get("SUPABASE_URL");
-            const SUPABASE_KEY_ERR = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-            if (SUPABASE_URL_ERR && SUPABASE_KEY_ERR) {
-                const auditAdmin = createClient(SUPABASE_URL_ERR, SUPABASE_KEY_ERR);
-                await auditAdmin.from("webhook_errors").insert({
+        // The event_id was inserted into stripe_processed_events BEFORE dispatch
+        // to guard against concurrent duplicate deliveries. The handler then
+        // failed, so the intended state change never landed. We must let Stripe
+        // retry: (1) write the audit trail, (2) release the idempotency row so a
+        // retry can re-insert and re-process, (3) return a 5xx so Stripe retries.
+        const SUPABASE_URL_ERR = Deno.env.get("SUPABASE_URL");
+        const SUPABASE_KEY_ERR = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        const errAdmin =
+            SUPABASE_URL_ERR && SUPABASE_KEY_ERR
+                ? createClient(SUPABASE_URL_ERR, SUPABASE_KEY_ERR)
+                : null;
+
+        // Audit trail: write to webhook_errors for post-mortem debugging.
+        // Best-effort: if this INSERT fails we ignore it (already in error path).
+        if (errAdmin) {
+            try {
+                await errAdmin.from("webhook_errors").insert({
                     source: "stripe-webhook",
                     event_id: event?.id ?? null,
                     event_type: event?.type ?? null,
@@ -371,12 +382,29 @@ serve(async req => {
                     error_stack: stack,
                     payload: event ?? null
                 });
+            } catch (auditErr) {
+                console.error("stripe-webhook: Failed to write audit trail:", auditErr);
             }
-        } catch (auditErr) {
-            console.error("stripe-webhook: Failed to write audit trail:", auditErr);
         }
 
-        // Return 200 to prevent Stripe from retrying on app errors
-        return json(200, { received: true, error: message });
+        // Release the idempotency lock for THIS event so Stripe's retry can
+        // re-process it. Scoped to the current event_id only. Best-effort: if
+        // the DELETE fails we still return 5xx below, which triggers a retry.
+        if (errAdmin && event?.id) {
+            try {
+                await errAdmin
+                    .from("stripe_processed_events")
+                    .delete()
+                    .eq("event_id", event.id);
+            } catch (cleanupErr) {
+                console.error("stripe-webhook: Failed to release idempotency row:", cleanupErr);
+            }
+        }
+
+        // Return 5xx so Stripe retries the delivery. Every unexpected handler
+        // failure is treated as transient — retry instead of swallow. This
+        // supersedes the previous "always 200" behaviour, which combined with
+        // the pre-dispatch idempotency insert could silently drop events.
+        return json(500, { received: false, error: message });
     }
 });
