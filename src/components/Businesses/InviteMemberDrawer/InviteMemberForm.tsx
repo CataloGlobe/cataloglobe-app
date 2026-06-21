@@ -12,6 +12,7 @@ import {
 } from "@/lib/permissions";
 import { RoleSelector } from "@/components/ui/RoleSelector/RoleSelector";
 import { ActivityMultiSelect } from "@/components/ui/ActivityMultiSelect/ActivityMultiSelect";
+import { getActivities } from "@/services/supabase/activities";
 import styles from "./InviteMemberForm.module.scss";
 
 interface InviteMemberFormProps {
@@ -51,9 +52,42 @@ export function InviteMemberForm({
     const [touched, setTouched] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    // null = ancora in caricamento o conteggio sconosciuto (fetch fallito → nessun blocco ruoli)
+    const [activityCount, setActivityCount] = useState<number | null>(null);
 
-    const availableRoles = ALL_ROLES.filter(r => canInviteRole(permissions, r));
     const callerIsTenantWide = isOwnerOrAdmin(permissions);
+
+    // Conta le sedi assegnabili dal caller (stessa logica di ActivityMultiSelect:
+    // tenant-wide → tutte; scoped → solo le sedi del caller). Serve a capire se
+    // l'azienda ha sedi su cui assegnare ruoli scoped.
+    useEffect(() => {
+        let cancelled = false;
+        getActivities(tenantId)
+            .then(rows => {
+                if (cancelled) return;
+                const visible = callerIsTenantWide
+                    ? rows
+                    : rows.filter(a => permissions.activityIds.includes(a.id));
+                setActivityCount(visible.length);
+            })
+            .catch(err => {
+                if (cancelled) return;
+                console.error("[InviteMemberForm] activities count fetch failed:", err);
+                setActivityCount(null); // sconosciuto → non disabilitare ruoli scoped
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [tenantId, callerIsTenantWide, permissions.activityIds]);
+
+    // Nessuna sede assegnabile: i ruoli scoped (manager/staff/viewer) non hanno
+    // sedi su cui essere applicati → solo Admin invitabile.
+    const noActivities = activityCount === 0;
+
+    const invitableRoles = ALL_ROLES.filter(r => canInviteRole(permissions, r));
+    const availableRoles = noActivities
+        ? invitableRoles.filter(r => r === "admin")
+        : invitableRoles;
 
     // Reset activityIds quando il ruolo passa da scoped → admin (admin non accetta sedi)
     useEffect(() => {
@@ -61,6 +95,14 @@ export function InviteMemberForm({
             setActivityIds([]);
         }
     }, [role, activityIds.length]);
+
+    // Senza sedi, un ruolo scoped eventualmente selezionato (incl. default) va
+    // azzerato per non lasciare un radio selezionato-ma-disabilitato.
+    useEffect(() => {
+        if (noActivities && role !== null && role !== "admin") {
+            setRole(null);
+        }
+    }, [noActivities, role]);
 
     const validate = useCallback((): string | null => {
         const trimmed = email.trim().toLowerCase();
@@ -138,6 +180,14 @@ export function InviteMemberForm({
                 availableRoles={availableRoles}
                 disabled={saving}
             />
+
+            {noActivities && (
+                <InlineBanner variant="info">
+                    Questa azienda non ha ancora sedi. Crea una sede per assegnare
+                    ruoli specifici (Manager, Staff, Viewer). Senza sedi puoi
+                    invitare solo un Admin, con accesso a tutte le sedi.
+                </InlineBanner>
+            )}
 
             {showActivities && (
                 <ActivityMultiSelect
