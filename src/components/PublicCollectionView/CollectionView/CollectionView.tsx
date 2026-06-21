@@ -1128,7 +1128,6 @@ export default function CollectionView({
     //   - bill_requested_at (admin "Risposto" / close-table clear implicit)
     //   - expires_at <= now() → maintenance "table_closed" (close_table_with_resolution v2)
     // RLS server-side filtra eventi alla sola sessione customer corrente.
-    const customerSessionClear = customerSession?.clear;
     useEffect(() => {
         const jwt = customerSession?.session?.jwt;
         if (!jwt) return;
@@ -1149,17 +1148,24 @@ export default function CollectionView({
                 }
             },
             onError: err => {
-                const msg = err.message.toLowerCase();
-                if (msg.includes("token") || msg.includes("jwt") || msg.includes("auth")) {
-                    customerSessionClear?.();
-                }
+                // Channel-error/timeout è TRANSITORIO (blip di rete, riconnessione
+                // WS): NON è un segnale autoritativo di invalidità sessione. Gestione
+                // non-distruttiva — mai toccare sessionStorage né lo stato sessione,
+                // altrimenti un blip slogga il cliente a metà ordine (carrello /
+                // ordinazione / chiama-cameriere spariscono). L'invalidazione resta
+                // riservata ai path autoritativi: onUpdate con expires_at <= now
+                // (maintenance "table_closed") e il 401 SESSION_EXPIRED al submit.
+                console.warn(
+                    "[CollectionView] customer_sessions realtime channel error (transient, session preserved):",
+                    err.message
+                );
             }
         });
 
         return () => {
             channel?.unsubscribe();
         };
-    }, [customerSession?.session?.jwt, customerSessionClear]);
+    }, [customerSession?.session?.jwt]);
 
     const openOrdering = useCallback(() => {
         setActiveOrderingTab(selectionCount > 0 ? "cart" : "orders");
