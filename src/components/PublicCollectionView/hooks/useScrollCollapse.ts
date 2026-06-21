@@ -22,8 +22,21 @@ export function popSheetOpen(): void {
 }
 
 /**
- * Restituisce true quando lo scroll supera il threshold (default 50px).
- * Usato dai FAB della pagina pubblica per collassarsi in forma compatta.
+ * Tolleranza direzionale (px): quantità di movimento SOSTENUTO nella stessa
+ * direzione necessaria prima di ribaltare lo stato. Implementata come
+ * accumulatore con isteresi (non soglia per-evento), così assorbe i piccoli
+ * eventi correttivi dello scroll-anchoring del browser (~8px quando contenuto
+ * sopra cambia altezza: immagini lazy, catalogo async) senza ribaltarsi, ma
+ * resta reattiva agli scroll-up lenti (delta piccoli per frame che si sommano).
+ */
+const DIR_TOLERANCE = 10;
+
+/**
+ * Restituisce true quando la barra deve mostrarsi in forma COMPATTA.
+ * Modello DIREZIONALE (non più soglia assoluta):
+ * - scroll giù              → compatta (true);
+ * - scroll su               → piena (false), a qualunque altezza;
+ * - vicino alla cima (<=threshold) → sempre piena (false).
  * Usa requestAnimationFrame per throttle: evita jitter su mobile.
  *
  * Freeze in OR su due fonti:
@@ -35,6 +48,11 @@ export function popSheetOpen(): void {
  *   senza toccare il parent. La prop verrà rimossa al cleanup finale.
  * Entrambe servono a evitare il flicker quando una sheet blocca lo scroll del
  * body (window.scrollY torna a 0 → l'hook crederebbe di essere in cima).
+ *
+ * Re-baseline post-freeze: mentre frozen si fa early-return SENZA toccare
+ * `lastScrollYRef` e si arma `needsResyncRef`. Alla prima esecuzione dopo il
+ * freeze si ri-sincronizza `lastScrollYRef = y` senza cambiare stato, così il
+ * primo delta utile non è spurio (il body-lock azzera/ripristina window.scrollY).
  */
 export function useScrollCollapse(threshold = 50, freeze = false, enabled = true): boolean {
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -44,6 +62,15 @@ export function useScrollCollapse(threshold = 50, freeze = false, enabled = true
     const freezeRef = useRef(freeze);
     freezeRef.current = freeze;
 
+    // Ultima posizione di scroll osservata (per il calcolo del delta direzionale).
+    const lastScrollYRef = useRef(0);
+    // Accumulatori di movimento sostenuto per direzione (px). Si azzerano a vicenda
+    // ad ogni inversione: assorbono i micro-eventi correttivi dello scroll-anchoring.
+    const downAccRef = useRef(0);
+    const upAccRef = useRef(0);
+    // Armato durante il freeze: forza un re-baseline al primo tick utile dopo.
+    const needsResyncRef = useRef(false);
+
     useEffect(() => {
         // Gate viewport-specifico (es. bottom-bar mobile sempre montata ma attiva
         // solo ≤640px): a `enabled=false` NON si attacca il listener su window.
@@ -52,13 +79,55 @@ export function useScrollCollapse(threshold = 50, freeze = false, enabled = true
 
         const handleScroll = () => {
             // Freeze in OR: prop esistente || almeno una sheet aperta (contatore modulo).
-            if (freezeRef.current || openSheetCount > 0) return;
+            // Early-return SENZA toccare lastScrollYRef + arma il resync.
+            if (freezeRef.current || openSheetCount > 0) {
+                needsResyncRef.current = true;
+                return;
+            }
             if (rafId !== null) return;
             rafId = requestAnimationFrame(() => {
-                if (!freezeRef.current && openSheetCount === 0) {
-                    setIsCollapsed(window.scrollY > threshold);
-                }
                 rafId = null;
+                // Ri-controllo dentro al frame: il freeze può essere scattato nel frattempo.
+                if (freezeRef.current || openSheetCount > 0) {
+                    needsResyncRef.current = true;
+                    return;
+                }
+
+                const y = Math.max(0, window.scrollY); // clamp anti rubber-band iOS
+
+                // Primo tick dopo un freeze: solo baseline, nessun cambio di stato
+                // e accumulatori azzerati (il body-lock ha falsato window.scrollY).
+                if (needsResyncRef.current) {
+                    needsResyncRef.current = false;
+                    lastScrollYRef.current = y;
+                    downAccRef.current = 0;
+                    upAccRef.current = 0;
+                    return;
+                }
+
+                // Near-top → sempre piena, reset accumulatori per ripartenza pulita.
+                if (y <= threshold) {
+                    downAccRef.current = 0;
+                    upAccRef.current = 0;
+                    setIsCollapsed(false);
+                    lastScrollYRef.current = y;
+                    return;
+                }
+
+                const diff = y - lastScrollYRef.current;
+                if (diff > 0) {
+                    // Movimento giù: accumula, azzera l'opposto. Oltre tolleranza → compatta.
+                    downAccRef.current += diff;
+                    upAccRef.current = 0;
+                    if (downAccRef.current > DIR_TOLERANCE) setIsCollapsed(true);
+                } else if (diff < 0) {
+                    // Movimento su: accumula, azzera l'opposto. Oltre tolleranza → piena.
+                    upAccRef.current += -diff;
+                    downAccRef.current = 0;
+                    if (upAccRef.current > DIR_TOLERANCE) setIsCollapsed(false);
+                }
+                // diff === 0 → nessun cambio
+                lastScrollYRef.current = y;
             });
         };
 
