@@ -333,7 +333,8 @@ export default function FeaturedRuleDetail() {
             } else {
                 showToast({ type: "success", message: "Regola salvata.", duration: 2200 });
             }
-            await loadData();
+            // Torna alla lista Programmazione sulla tab "In evidenza"
+            navigate(`/business/${businessId}/scheduling?type=featured`);
         } catch (error) {
             console.error("Errore salvataggio regola in evidenza:", error);
             showToast({ type: "error", message: "Errore durante il salvataggio.", duration: 3000 });
