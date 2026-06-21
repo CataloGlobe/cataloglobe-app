@@ -4,6 +4,17 @@
   gap: 16px;
 }
 
+// Scroll interno per-colonna (board Comande): solo desktop e solo quando la
+// tab attiva e' "comande". L'altezza bounded si propaga da qui giu' fino a
+// .columnList (vedi OrdersKanban.module.scss). Tavoli/Storico restano ad
+// altezza auto -> page-scroll come prima (wrapper .container condiviso).
+@media (min-width: 900px) {
+  .container[data-active-tab="comande"] {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
 
 .headerActions {
   display: flex;

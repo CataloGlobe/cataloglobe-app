@@ -744,7 +744,7 @@ export default function Orders() {
     return (
         <PageGate feature="table_ordering" readPermission="orders.read" activityId={selectedActivityId}>
         {() => (
-        <section className={styles.container}>
+        <section className={styles.container} data-active-tab={mainTab}>
             {mainTab === "comande" && (
                 <>
                     {tables.length > 0 && (
