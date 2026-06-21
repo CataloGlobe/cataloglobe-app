@@ -39,7 +39,7 @@ export function MemberDrawer({ open, onClose, tenantId, member, onSuccess }: Mem
                 header={
                     <div className={styles.header}>
                         <Text variant="title-sm" weight={700}>
-                            Modifica membro
+                            Gestisci accessi
                         </Text>
                         {member?.email && (
                             <Text variant="body-sm" colorVariant="muted">
