@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import {
     submitReservation,
     type SubmitReservationStatus
@@ -250,7 +249,7 @@ export default function ReservationForm({
 
                 <p className={styles.privacy}>
                     Inviando la richiesta accetti il trattamento dei dati per gestire la prenotazione.{" "}
-                    <Link to="/legal/privacy">Privacy</Link>
+                    <a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Privacy</a>
                 </p>
             </div>
         </form>

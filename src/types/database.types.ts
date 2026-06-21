@@ -1424,6 +1424,7 @@ export type Database = {
           line_total: number
           options_snapshot: Json
           order_id: string
+          parent_order_item_id: string | null
           product_id: string | null
           product_name_snapshot: string
           quantity: number
@@ -1436,6 +1437,7 @@ export type Database = {
           line_total: number
           options_snapshot?: Json
           order_id: string
+          parent_order_item_id?: string | null
           product_id?: string | null
           product_name_snapshot: string
           quantity: number
@@ -1448,6 +1450,7 @@ export type Database = {
           line_total?: number
           options_snapshot?: Json
           order_id?: string
+          parent_order_item_id?: string | null
           product_id?: string | null
           product_name_snapshot?: string
           quantity?: number
@@ -1459,6 +1462,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_parent_order_item_id_fkey"
+            columns: ["parent_order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
             referencedColumns: ["id"]
           },
           {
