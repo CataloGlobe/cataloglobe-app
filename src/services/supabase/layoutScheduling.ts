@@ -187,12 +187,6 @@ type ActivityGroupRow = {
     is_system: boolean;
 };
 
-type RawScheduleTargetRow = {
-    schedule_id: string;
-    target_type: string;
-    target_id: string;
-};
-
 type RawStyleOptionRow = {
     id: string;
     name: string;
@@ -624,28 +618,8 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
         }
     }
 
-    const allRuleIds = baseRules.map(r => r.id);
-
-    // Load multi-target entries from join table
-    const scheduleTargetsByScheduleId = new Map<string, RawScheduleTargetRow[]>();
-    if (allRuleIds.length > 0) {
-        const { data: targetsData, error: targetsError } = await supabase
-            .from("schedule_targets")
-            .select("schedule_id, target_type, target_id")
-            .in("schedule_id", allRuleIds);
-
-        if (!targetsError && targetsData) {
-            for (const row of targetsData as RawScheduleTargetRow[]) {
-                const arr = scheduleTargetsByScheduleId.get(row.schedule_id) ?? [];
-                arr.push(row);
-                scheduleTargetsByScheduleId.set(row.schedule_id, arr);
-            }
-        }
-        // If schedule_targets doesn't exist yet (pre-migration), silently fall back
-    }
-
-    // Determine apply_to_all from DB column OR legacy system-group detection
-    // We also need to resolve target_group for the legacy column
+    // Resolve target_group display name for the inline target_id column
+    // (schedule_targets join is deprecated; inline columns are source-of-truth)
     const activityGroupIds = Array.from(
         new Set(
             baseRules
@@ -703,40 +677,22 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
         const targetGroup =
             rule.target_type === "activity_group" ? (groupById.get(rule.target_id) ?? null) : null;
 
-        // Determine applyToAll:
-        // - Prefer explicit apply_to_all column when available.
-        // - Fall back to legacy system-group detection for old schemas.
-        const targets = scheduleTargetsByScheduleId.get(rule.id) ?? [];
-        const isLegacySystemGroup = targetGroup?.is_system === true;
-        const rowApplyToAll = applyToAllByScheduleId.get(rule.id);
-        const hasApplyToAllFlag = typeof rowApplyToAll === "boolean";
-
-        // If apply_to_all is present on row, treat schema as migrated even when join-table is empty.
-        const hasMigrated =
-            hasApplyToAllFlag || scheduleTargetsByScheduleId.has(rule.id) || targets.length > 0;
-
-        let applyToAll =
-            typeof rowApplyToAll === "boolean" ? rowApplyToAll : isLegacySystemGroup;
+        // Target source-of-truth = inline columns on `schedules`.
+        // schedule_targets is deprecated (write-locked by RLS, never populated).
+        // Interpretation matches the runtime resolver, which reads the same columns:
+        //   apply_to_all=true            -> all sedi
+        //   target_type='activity'       -> single sede
+        //   target_type='activity_group' -> single gruppo
+        //   else                          -> no target (correctly a draft)
+        const applyToAll = applyToAllByScheduleId.get(rule.id) === true;
         let activityIds: string[] = [];
         let groupIds: string[] = [];
 
-        if (hasMigrated) {
-            // targets is the source of truth if migration has run
-            activityIds = targets.filter(t => t.target_type === "activity").map(t => t.target_id);
-            groupIds = targets
-                .filter(t => t.target_type === "activity_group")
-                .map(t => t.target_id);
-            if (typeof rowApplyToAll !== "boolean") {
-                applyToAll = activityIds.length === 0 && groupIds.length === 0;
-            }
-        } else {
-            // Legacy fallback: single target
-            if (!isLegacySystemGroup) {
-                if (rule.target_type === "activity") {
-                    activityIds = [rule.target_id];
-                } else if (rule.target_type === "activity_group") {
-                    groupIds = [rule.target_id];
-                }
+        if (!applyToAll) {
+            if (rule.target_type === "activity" && rule.target_id) {
+                activityIds = [rule.target_id];
+            } else if (rule.target_type === "activity_group" && rule.target_id) {
+                groupIds = [rule.target_id];
             }
         }
 
@@ -1193,14 +1149,6 @@ export async function createRuleDraft(input: {
         throw applyToAllError;
     }
 
-    const { error: deleteTargetsError } = await supabase
-        .from("schedule_targets")
-        .delete()
-        .eq("schedule_id", schedule.id);
-    if (deleteTargetsError && !isMissingColumnError(deleteTargetsError, "schedule_targets")) {
-        console.warn("schedule_targets delete failed:", deleteTargetsError);
-    }
-
     if (input.ruleType === "visibility") {
         await updateScheduleVisibilityModeFallback(schedule.id, "hide");
     }
@@ -1292,42 +1240,8 @@ export async function updateRule(input: {
         name: input.name
     });
 
-    // Sync join table: delete existing targets, then insert new ones
-    const { error: deleteTargetsError } = await supabase
-        .from("schedule_targets")
-        .delete()
-        .eq("schedule_id", input.scheduleId);
-    if (deleteTargetsError && !isMissingColumnError(deleteTargetsError, "schedule_targets")) {
-        // Silently ignore if table doesn't exist yet (pre-migration)
-        console.warn("schedule_targets delete failed (pre-migration?):", deleteTargetsError);
-    }
-
-    if (!input.applyToAll) {
-        const targetRows: Array<{ schedule_id: string; target_type: string; target_id: string }> = [
-            ...input.activityIds.map(id => ({
-                schedule_id: input.scheduleId,
-                target_type: "activity" as const,
-                target_id: id
-            })),
-            ...input.groupIds.map(id => ({
-                schedule_id: input.scheduleId,
-                target_type: "activity_group" as const,
-                target_id: id
-            }))
-        ];
-
-        if (targetRows.length > 0) {
-            const { error: insertTargetsError } = await supabase
-                .from("schedule_targets")
-                .insert(targetRows);
-            if (
-                insertTargetsError &&
-                !isMissingColumnError(insertTargetsError, "schedule_targets")
-            ) {
-                console.warn("schedule_targets insert failed:", insertTargetsError);
-            }
-        }
-    }
+    // Target persisted via inline columns (target_type/target_id/apply_to_all) above.
+    // schedule_targets is deprecated and write-locked by RLS — no join sync.
 
     if (input.ruleType === "layout") {
         const { data: existingLayout, error: existingLayoutError } = await supabase
@@ -1659,24 +1573,8 @@ export async function duplicateRule(ruleId: string, tenantId: string): Promise<s
         throw applyAllErr;
     }
 
-    // 3. Copy schedule_targets
-    if (!original.applyToAll) {
-        const targetRows = [
-            ...original.activityIds.map(id => ({
-                schedule_id: newId,
-                target_type: "activity" as const,
-                target_id: id,
-            })),
-            ...original.groupIds.map(id => ({
-                schedule_id: newId,
-                target_type: "activity_group" as const,
-                target_id: id,
-            })),
-        ];
-        if (targetRows.length > 0) {
-            await supabase.from("schedule_targets").insert(targetRows);
-        }
-    }
+    // 3. Target already copied via inline target_type/target_id on the new
+    //    schedule row above. schedule_targets is deprecated — no join copy.
 
     // 4. Copy type-specific data
     if (original.rule_type === "layout" && original.layout) {
