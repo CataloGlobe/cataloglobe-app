@@ -758,8 +758,11 @@ export default function CollectionView({
     // Gate per "+" buttons su ProductRow / ProductCompactRow / ItemDetail:
     // include discovery runtime (rispetto a shouldHideOrderingEntry) per
     // coerenza con OrderingSheet submit gating + no-session hide.
+    // Niente guard `mode === "public"`: in preview orderingActive è SEMPRE false
+    // (ordinazione OFF) → entry nascosta. Runtime invariato: public+sessione
+    // (orderingActive=true) mostra, public senza sessione (false) nasconde — come prima.
     const orderingEntryHidden =
-        effectiveMaintenance != null || (mode === "public" && !orderingActive);
+        effectiveMaintenance != null || !orderingActive;
     const { t } = useTranslation("public");
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
         () => sectionGroups[0]?.root.id ?? null
