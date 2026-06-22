@@ -1365,8 +1365,14 @@ export default function CollectionView({
     // CollectionViewSectionItem and route through these two callbacks. Stable
     // identity preserves React.memo on the row.
     const handleRowClick = useCallback(
-        (item: CollectionViewSectionItem) => openItemDetail(item),
-        [openItemDetail]
+        (item: CollectionViewSectionItem) => {
+            // Preview: prodotti inerti. Il click NON apre il dettaglio (ItemDetail
+            // via PublicSheet si stacca dal device frame in anteprima). selectedItem
+            // resta null → ItemDetail non monta. Runtime invariato.
+            if (mode === "preview") return;
+            openItemDetail(item);
+        },
+        [openItemDetail, mode]
     );
     const handleRowAdd = useCallback(
         (item: CollectionViewSectionItem) => handleAddClick(
