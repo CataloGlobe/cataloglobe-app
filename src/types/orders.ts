@@ -354,6 +354,10 @@ export interface V2OrderItem {
     options_snapshot: OrderOptionsSnapshot;
     item_notes: string | null;
     created_at: string;
+    /** Soft-cancel pre-servizio: valorizzato = riga annullata (esclusa da totale e preparazione). NULL = riga attiva. */
+    cancelled_at: string | null;
+    /** Motivo opzionale dell'annullo pre-servizio. NULL = nessun motivo o riga attiva. */
+    cancel_reason: string | null;
 }
 
 /**

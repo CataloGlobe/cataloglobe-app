@@ -22,6 +22,7 @@ import {
     deliverOrder,
     cancelOrderAdmin,
     rectifyOrder,
+    cancelOrderItem,
     restoreOrder,
     unacknowledgeOrder,
     unreadyOrder,
@@ -31,6 +32,7 @@ import {
     uncancelToReady,
     listOrdersHistoryToday
 } from "@/services/supabase/orders";
+import type { CancelOrderItemResult } from "@/services/supabase/orders";
 import type {
     V2OrderWithItems,
     RectifyOrderItem
@@ -44,6 +46,7 @@ import OrderDetailDrawer from "./OrderDetailDrawer";
 import PrintReceipt from "./PrintReceipt";
 import OrderCancelDrawer from "./OrderCancelDrawer";
 import OrderRectifyDrawer from "./OrderRectifyDrawer";
+import OrderCancelItemDrawer from "./OrderCancelItemDrawer";
 import { DataTable } from "@/components/ui/DataTable/DataTable";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { makeHistoryColumns } from "./historyColumns";
@@ -124,6 +127,10 @@ export default function Orders() {
     // Rectify drawer
     const [isRectifyOpen, setIsRectifyOpen] = useState(false);
     const [orderToRectify, setOrderToRectify] = useState<V2OrderWithItems | null>(null);
+
+    // Cancel-item drawer (annullo articolo pre-servizio)
+    const [isCancelItemOpen, setIsCancelItemOpen] = useState(false);
+    const [orderToCancelItem, setOrderToCancelItem] = useState<V2OrderWithItems | null>(null);
 
     // Create order drawer (entry "Crea ordine" da headerActions)
     const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
@@ -622,6 +629,10 @@ export default function Orders() {
             setIsRectifyOpen(false);
             setOrderToRectify(null);
             void refetchOrders();
+            // Lo storno è un nuovo ordine is_rectification (status delivered):
+            // entra nello Storico della giornata → refresh della lista history,
+            // da cui ora parte la rettifica.
+            void loadHistory();
         } catch (err) {
             if (err instanceof Error) {
                 switch (err.message) {
@@ -686,6 +697,88 @@ export default function Orders() {
         }
     }
 
+    function handleCancelItemOpen(order: V2OrderWithItems) {
+        setOrderToCancelItem(order);
+        setIsCancelItemOpen(true);
+    }
+
+    async function handleCancelItemConfirm(itemIds: string[], reason: string) {
+        if (!orderToCancelItem || !tenantId) return;
+        try {
+            // La RPC è per-item: loop sequenziale single-item. Non atomico tra
+            // item diversi → il refetch nel finally riflette lo stato reale
+            // anche su fallimento parziale (accettato per il pre-servizio).
+            let last: CancelOrderItemResult | undefined;
+            for (const itemId of itemIds) {
+                last = await cancelOrderItem(
+                    orderToCancelItem.id,
+                    itemId,
+                    tenantId,
+                    reason.length > 0 ? reason : undefined
+                );
+            }
+            showToast({
+                message: last?.order_cancelled
+                    ? "Comanda annullata"
+                    : itemIds.length > 1
+                      ? "Articoli annullati"
+                      : "Articolo annullato",
+                type: "success"
+            });
+            setIsCancelItemOpen(false);
+            setOrderToCancelItem(null);
+        } catch (err) {
+            if (err instanceof Error) {
+                switch (err.message) {
+                    case "REASON_TOO_LONG":
+                        showToast({
+                            message: "Il motivo è troppo lungo (max 500 caratteri)",
+                            type: "error"
+                        });
+                        return;
+                    case "INVALID_TARGET":
+                        showToast({
+                            message: "Non puoi annullare un articolo di una rettifica",
+                            type: "error"
+                        });
+                        setIsCancelItemOpen(false);
+                        setOrderToCancelItem(null);
+                        return;
+                    case "INVALID_STATE_FOR_CANCEL": {
+                        const details = (err as Error & {
+                            details?: { current_status?: string };
+                        }).details;
+                        showToast({
+                            message: `Impossibile annullare: stato corrente ${details?.current_status ?? "non valido"}`,
+                            type: "error"
+                        });
+                        setIsCancelItemOpen(false);
+                        setOrderToCancelItem(null);
+                        return;
+                    }
+                    case "INVALID_CANCEL_ITEM": {
+                        const details = (err as Error & {
+                            details?: { reason?: string };
+                        }).details;
+                        const subReason = details?.reason;
+                        let msg = "Articolo non annullabile";
+                        if (subReason === "ITEM_ALREADY_CANCELLED")
+                            msg = "Articolo già annullato";
+                        else if (subReason === "ITEM_NOT_FOUND")
+                            msg = "Articolo non trovato nell'ordine";
+                        showToast({ message: msg, type: "error" });
+                        return;
+                    }
+                }
+            }
+            showToast({ message: "Errore durante l'annullamento", type: "error" });
+        } finally {
+            // Realtime copre `orders` ma NON `order_items` → refetch completo
+            // per riflettere le righe annullate (come la rettifica).
+            void refetchOrders();
+        }
+    }
+
     async function handleRestore(order: V2OrderWithItems) {
         try {
             // Branch sull'origine effettiva: deliver-order NON azzera ready_at,
@@ -737,6 +830,7 @@ export default function Orders() {
         operatorNames,
         onViewDetail: handleViewDetail,
         onRestore: handleRestore,
+        onRectify: handleRectifyOpen,
         onPrint: handlePrint,
         canManage
     });
@@ -782,7 +876,7 @@ export default function Orders() {
                             onMarkReady={handleMarkReady}
                             onDeliver={handleDeliver}
                             onCancel={handleCancelOpen}
-                            onRectify={handleRectifyOpen}
+                            onCancelItem={handleCancelItemOpen}
                             onViewDetail={handleViewDetail}
                             onPrint={handlePrint}
                             onUnacknowledge={handleUnacknowledge}
@@ -903,6 +997,22 @@ export default function Orders() {
                     setOrderToRectify(null);
                 }}
                 onConfirm={handleRectifyConfirm}
+            />
+
+            <OrderCancelItemDrawer
+                open={isCancelItemOpen}
+                order={orderToCancelItem}
+                tableLabel={
+                    tables.find(t => t.id === orderToCancelItem?.table_id)?.label ?? "?"
+                }
+                tableZone={
+                    tables.find(t => t.id === orderToCancelItem?.table_id)?.zone_name ?? null
+                }
+                onClose={() => {
+                    setIsCancelItemOpen(false);
+                    setOrderToCancelItem(null);
+                }}
+                onConfirm={handleCancelItemConfirm}
             />
 
             <CreateOrderDrawer

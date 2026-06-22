@@ -1,4 +1,4 @@
-import { Eye, Printer, RotateCcw } from "lucide-react";
+import { Edit3, Eye, Printer, RotateCcw } from "lucide-react";
 import type { ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -20,6 +20,7 @@ interface MakeColumnsOptions {
     operatorNames: Map<string, string>;
     onViewDetail: (order: V2OrderWithItems) => void;
     onRestore: (order: V2OrderWithItems) => Promise<void>;
+    onRectify: (order: V2OrderWithItems) => void;
     onPrint: (order: V2OrderWithItems) => void;
     canManage?: boolean;
 }
@@ -29,6 +30,7 @@ export function makeHistoryColumns({
     operatorNames,
     onViewDetail,
     onRestore,
+    onRectify,
     onPrint,
     canManage
 }: MakeColumnsOptions): ColumnDefinition<V2OrderWithItems>[] {
@@ -122,6 +124,15 @@ export function makeHistoryColumns({
                             icon: RotateCcw,
                             onClick: () => void onRestore(row),
                             hidden: row.status !== "delivered" || canManage === false
+                        },
+                        {
+                            label: "Rettifica",
+                            icon: Edit3,
+                            onClick: () => onRectify(row),
+                            hidden:
+                                row.status !== "delivered" ||
+                                row.is_rectification ||
+                                canManage === false
                         },
                         {
                             label: "Stampa",
