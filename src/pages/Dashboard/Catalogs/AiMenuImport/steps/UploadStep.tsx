@@ -9,7 +9,7 @@ interface UploadStepProps {
 
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ACCEPTED_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
 function formatSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
@@ -37,7 +37,7 @@ export function UploadStep({ files, onFilesChange }: UploadStepProps) {
             // Check unsupported types
             const rejected = all.filter(f => !ACCEPTED_TYPES.includes(f.type));
             if (rejected.length > 0) {
-                setFileWarning("Formati supportati: JPG, PNG, PDF");
+                setFileWarning("Formati supportati: JPG, PNG, WebP, PDF");
             }
 
             const accepted = all.filter(f => ACCEPTED_TYPES.includes(f.type));
@@ -118,6 +118,7 @@ export function UploadStep({ files, onFilesChange }: UploadStepProps) {
                     <div className={styles.dropzoneBadges}>
                         <span className={styles.dropzoneBadge}>JPG</span>
                         <span className={styles.dropzoneBadge}>PNG</span>
+                        <span className={styles.dropzoneBadge}>WebP</span>
                         <span className={styles.dropzoneBadge}>PDF</span>
                         <span className={styles.dropzoneBadge}>max {MAX_FILES} file</span>
                     </div>
@@ -153,7 +154,7 @@ export function UploadStep({ files, onFilesChange }: UploadStepProps) {
             <input
                 ref={inputRef}
                 type="file"
-                accept="image/jpeg,image/png,application/pdf"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
                 multiple
                 style={{ display: "none" }}
                 onChange={e => {
@@ -164,7 +165,7 @@ export function UploadStep({ files, onFilesChange }: UploadStepProps) {
             <input
                 ref={addInputRef}
                 type="file"
-                accept="image/jpeg,image/png,application/pdf"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
                 multiple
                 style={{ display: "none" }}
                 onChange={e => {

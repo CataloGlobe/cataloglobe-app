@@ -241,7 +241,7 @@ serve(async (req: Request) => {
             return jsonError("Massimo 5 immagini per richiesta", 400);
         }
 
-        const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+        const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
         const normalizedImages: { data: string; mime_type: string }[] = [];
         for (let i = 0; i < images.length; i++) {
