@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
-import { IconLayoutSidebarRightCollapse, IconX, IconChevronDown, IconDeviceMobile, IconDeviceDesktop } from "@tabler/icons-react";
+import { IconLayoutSidebarRightCollapse, IconLayoutSidebarRightExpand, IconChevronDown, IconDeviceMobile, IconDeviceDesktop, IconHistory } from "@tabler/icons-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
     getStyle,
     updateStyle,
@@ -16,7 +17,7 @@ import {
 } from "@/services/supabase/styles";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { StylePreview, type ViewMode } from "./Editor/StylePreview";
-import previewStyles from "./Editor/StylePreview.module.scss";
+import { SegmentedControl } from "@components/ui/SegmentedControl/SegmentedControl";
 import { StylePropertiesPanel } from "./Editor/StylePropertiesPanel";
 import { StylePropertiesReadOnly } from "./Editor/StylePropertiesReadOnly";
 import { StyleVersionsPopover } from "./Editor/StyleVersionsPopover";
@@ -30,6 +31,11 @@ import {
 import styles from "./Styles.module.scss";
 import { loadPublicFonts } from "@utils/loadPublicFonts";
 
+// Larghezza del drawer Proprietà. Single source: framer anima questa width
+// (0 ↔ PANEL_WIDTH); l'inner è fissato a PANEL_WIDTH così non reflowa durante
+// l'animazione. Allineato a `.propertiesPanelInner { width }` nel SCSS.
+const PANEL_WIDTH = 360;
+
 export default function StyleEditorPage() {
     const { styleId } = useParams<{ styleId: string }>();
     const navigate = useNavigate();
@@ -40,9 +46,12 @@ export default function StyleEditorPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isDuplicating, setIsDuplicating] = useState(false);
     const [isPanelOpen, setIsPanelOpen] = useState(true);
+    const reduce = useReducedMotion();
     const [viewMode, setViewMode] = useState<ViewMode>("mobile");
     const [isViewTransitioning, setIsViewTransitioning] = useState(false);
     const transitionTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+    // Anchor del dropdown versioni (portalato): il popover legge il rect di questo trigger.
+    const versionAnchorRef = useRef<HTMLButtonElement>(null);
 
     const handleViewModeChange = useCallback((mode: ViewMode) => {
         if (mode === viewMode) return;
@@ -252,16 +261,33 @@ export default function StyleEditorPage() {
                 {/* ── Colonna sinistra: canvas (solo preview) ── */}
                 <div className={styles.canvasCol}>
                     <div className={styles.canvasArea}>
-                        {!isPanelOpen && (
-                            <button
-                                type="button"
-                                className={styles.togglePanelBtn}
-                                onClick={() => setIsPanelOpen(true)}
-                            >
-                                <IconLayoutSidebarRightCollapse size={15} />
-                                Proprietà
-                            </button>
-                        )}
+                        {/* Maniglia di riapertura sul bordo destro. Compare dopo che
+                            il pannello è uscito (delay in entrata). Logica invariata. */}
+                        <AnimatePresence>
+                            {!isPanelOpen && (
+                                <motion.button
+                                    type="button"
+                                    className={styles.panelHandle}
+                                    onClick={() => setIsPanelOpen(true)}
+                                    aria-label="Apri proprietà stile"
+                                    initial={reduce ? { opacity: 0 } : { opacity: 0, x: 14 }}
+                                    animate={
+                                        reduce
+                                            ? { opacity: 1, transition: { duration: 0 } }
+                                            : { opacity: 1, x: 0, transition: { duration: 0.28, delay: 0.12, ease: [0.22, 1, 0.36, 1] } }
+                                    }
+                                    exit={
+                                        reduce
+                                            ? { opacity: 0, transition: { duration: 0 } }
+                                            : { opacity: 0, x: 14, transition: { duration: 0.16 } }
+                                    }
+                                >
+                                    <IconLayoutSidebarRightExpand size={16} />
+                                    <span className={styles.panelHandleLabel}>Proprietà</span>
+                                </motion.button>
+                            )}
+                        </AnimatePresence>
+
                         <StylePreview
                             model={versioning.previewOverrideTokens ?? tokenModel}
                             viewMode={viewMode}
@@ -270,51 +296,118 @@ export default function StyleEditorPage() {
                     </div>
                 </div>
 
-                {/* ── Colonna destra: pannello proprietà ── */}
+                {/* ── Colonna destra: drawer proprietà (animato) ── */}
+                <AnimatePresence initial={false}>
                 {isPanelOpen && (
-                    <div className={styles.propertiesPanel}>
+                    <motion.aside
+                        className={styles.propertiesPanel}
+                        initial={{ width: 0 }}
+                        animate={{ width: PANEL_WIDTH }}
+                        exit={{ width: 0 }}
+                        transition={reduce ? { duration: 0 } : { duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                    <div className={styles.propertiesPanelInner} style={{ width: PANEL_WIDTH }}>
 
-                        {/* Close button row (breadcrumb now in global AppHeader) */}
-                        <div className={styles.panelCloseRow}>
+                        {/* Header strip: titolo + comprimi (sostituisce la X isolata) */}
+                        <div className={styles.panelTitleRow}>
+                            <Text variant="body" weight={700}>Proprietà stile</Text>
                             <button
                                 type="button"
                                 className={styles.panelCloseBtn}
                                 onClick={() => setIsPanelOpen(false)}
+                                aria-label="Comprimi pannello"
                             >
-                                <IconX size={15} />
+                                <IconLayoutSidebarRightCollapse size={16} />
                             </button>
                         </div>
 
-                        {/* Toggle + actions row */}
-                        <div className={styles.panelHeader}>
-                            <div className={previewStyles.toggleBar}>
-                                <div
-                                    className={`${previewStyles.toggleIndicator} ${
-                                        viewMode === "desktop" ? previewStyles.toggleIndicatorDesktop : ""
-                                    }`}
-                                />
-                                <button
-                                    type="button"
-                                    className={`${previewStyles.toggleBtn} ${
-                                        viewMode === "mobile" ? previewStyles.toggleBtnActive : ""
-                                    }`}
-                                    onClick={() => handleViewModeChange("mobile")}
-                                >
-                                    <IconDeviceMobile size={14} stroke={2} />
-                                    Mobile
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`${previewStyles.toggleBtn} ${
-                                        viewMode === "desktop" ? previewStyles.toggleBtnActive : ""
-                                    }`}
-                                    onClick={() => handleViewModeChange("desktop")}
-                                >
-                                    <IconDeviceDesktop size={14} stroke={2} />
-                                    Desktop
-                                </button>
-                            </div>
+                        {/* Toggle anteprima Mobile/Desktop — zona fissa sotto l'header.
+                            Stesso setter/stato di prima (handleViewModeChange / viewMode). */}
+                        <div className={styles.panelToggleRow}>
+                            <SegmentedControl<ViewMode>
+                                value={viewMode}
+                                onChange={handleViewModeChange}
+                                options={[
+                                    { value: "mobile", icon: <IconDeviceMobile size={16} />, label: "Mobile" },
+                                    { value: "desktop", icon: <IconDeviceDesktop size={16} />, label: "Desktop" },
+                                ]}
+                            />
+                        </div>
 
+                        {/* Controllo versione prominente — zona fissa sotto l'header.
+                            Stessa visibilità condizionale di prima (solo editing). */}
+                        {!isSystem && styleData && (
+                            <div className={styles.versionZone}>
+                                <button
+                                    ref={versionAnchorRef}
+                                    type="button"
+                                    className={styles.versionControl}
+                                    onClick={versioning.handleVersionClick}
+                                >
+                                    <span className={styles.versionIcon}>
+                                        <IconHistory size={16} />
+                                    </span>
+                                    <span className={styles.versionMeta}>
+                                        <Text variant="body-sm" weight={700}>
+                                            Versione {styleData.current_version?.version || "N/A"}
+                                        </Text>
+                                        <Text variant="caption" colorVariant="muted">
+                                            Aggiornata {new Date(styleData.updated_at).toLocaleString("it-IT")}
+                                        </Text>
+                                    </span>
+                                    <IconChevronDown
+                                        size={15}
+                                        className={`${styles.versionChevron} ${versioning.isVersionsOpen ? styles.versionChevronOpen : ""}`}
+                                    />
+                                </button>
+                                {versioning.isVersionsOpen && (
+                                    <StyleVersionsPopover
+                                        versions={versioning.versions}
+                                        isLoading={versioning.isVersionsLoading}
+                                        currentVersionId={styleData.current_version_id}
+                                        selectedVersionId={versioning.selectedVersionId}
+                                        isRollingBack={versioning.isRollingBack}
+                                        onSelectVersion={versioning.handleVersionSelect}
+                                        onRollback={versioning.handleVersionRollback}
+                                        onClose={versioning.handleVersionClose}
+                                        anchorEl={versionAnchorRef.current}
+                                    />
+                                )}
+                            </div>
+                        )}
+
+                        {/* Contenuto scrollabile */}
+                        <div className={styles.panelContent}>
+                            {isSystem ? (
+                                <div className={styles.panelForm}>
+                                    <Text variant="body-sm" weight={600}>
+                                        {name}
+                                    </Text>
+                                    <StylePropertiesReadOnly model={tokenModel} />
+                                </div>
+                            ) : (
+                                <form
+                                    id="style-form"
+                                    className={styles.panelForm}
+                                    onSubmit={handleSubmit}
+                                >
+                                    <TextInput
+                                        label="Nome stile"
+                                        required
+                                        value={name}
+                                        onChange={e => setName(e.target.value)}
+                                        placeholder="Es: Dark Theme, Summer Vibes..."
+                                    />
+                                    <StylePropertiesPanel
+                                        model={tokenModel}
+                                        onChange={setTokenModel}
+                                    />
+                                </form>
+                            )}
+                        </div>
+
+                        {/* Footer sticky: azioni per ramo (stessa condizione/callback) */}
+                        <div className={styles.panelFooter}>
                             {isSystem ? (
                                 <div className={styles.systemHeaderActions}>
                                     <span className={styles.systemBadge}>Stile di sistema</span>
@@ -347,81 +440,10 @@ export default function StyleEditorPage() {
                                 </div>
                             )}
                         </div>
-
-                        {/* Contenuto scrollabile */}
-                        <div className={styles.panelContent}>
-                            {!isSystem && styleData && (
-                                <div className={styles.versionInfoWrapper}>
-                                    <div className={styles.versionInfo}>
-                                        <button
-                                            type="button"
-                                            className={styles.versionTrigger}
-                                            onClick={versioning.handleVersionClick}
-                                        >
-                                            <Text
-                                                variant="body-sm"
-                                                weight={600}
-                                                colorVariant="primary"
-                                            >
-                                                Versione:{" "}
-                                                {styleData.current_version?.version || "N/A"}
-                                            </Text>
-                                            <IconChevronDown
-                                                size={13}
-                                                className={`${styles.versionChevron} ${versioning.isVersionsOpen ? styles.versionChevronOpen : ""}`}
-                                            />
-                                        </button>
-                                        <Text variant="caption" colorVariant="muted">
-                                            Aggiornato:{" "}
-                                            {new Date(styleData.updated_at).toLocaleString(
-                                                "it-IT"
-                                            )}
-                                        </Text>
-                                    </div>
-                                    {versioning.isVersionsOpen && (
-                                        <StyleVersionsPopover
-                                            versions={versioning.versions}
-                                            isLoading={versioning.isVersionsLoading}
-                                            currentVersionId={styleData.current_version_id}
-                                            selectedVersionId={versioning.selectedVersionId}
-                                            isRollingBack={versioning.isRollingBack}
-                                            onSelectVersion={versioning.handleVersionSelect}
-                                            onRollback={versioning.handleVersionRollback}
-                                            onClose={versioning.handleVersionClose}
-                                        />
-                                    )}
-                                </div>
-                            )}
-
-                            {isSystem ? (
-                                <div className={styles.panelForm}>
-                                    <Text variant="body-sm" weight={600}>
-                                        {name}
-                                    </Text>
-                                    <StylePropertiesReadOnly model={tokenModel} />
-                                </div>
-                            ) : (
-                                <form
-                                    id="style-form"
-                                    className={styles.panelForm}
-                                    onSubmit={handleSubmit}
-                                >
-                                    <TextInput
-                                        label="Nome stile"
-                                        required
-                                        value={name}
-                                        onChange={e => setName(e.target.value)}
-                                        placeholder="Es: Dark Theme, Summer Vibes..."
-                                    />
-                                    <StylePropertiesPanel
-                                        model={tokenModel}
-                                        onChange={setTokenModel}
-                                    />
-                                </form>
-                            )}
-                        </div>
                     </div>
+                    </motion.aside>
                 )}
+                </AnimatePresence>
 
             </div>
 
